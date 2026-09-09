@@ -12,6 +12,7 @@ import {
 } from "@/features/terminal/public/navigate-to-located-pane";
 import {
   buildAgentChatTabValue,
+  findAgentChatCenterTab,
   useAgentChatCenterTabsStore,
 } from "@/features/agent/store/use-agent-chat-center-tabs";
 import type { Project } from "@/shared/types/domain";
@@ -202,6 +203,7 @@ export function routeKindForAgentChatContext(
 export function buildAgentChatHistoryHref(
   entry: Pick<AgentChatIndexEntry, "id" | "workspace_id" | "project_id">,
   projects: Project[],
+  tabValue?: string | null,
 ): string {
   const contextId = entry.workspace_id?.trim() || entry.project_id?.trim() || "";
   if (!contextId) {
@@ -211,7 +213,7 @@ export function buildAgentChatHistoryHref(
   }
   const params = new URLSearchParams();
   params.set("id", contextId);
-  params.set("tab", buildAgentChatTabValue(entry.id));
+  params.set("tab", tabValue?.trim() || buildAgentChatTabValue(entry.id));
   const kind = routeKindForAgentChatContext(contextId, projects);
   return `${kind === "project" ? "/project" : "/workspace"}?${params.toString()}`;
 }
@@ -221,30 +223,32 @@ export async function openAgentChatHistoryRow(
   router: NavigateToLocatedPaneRouter,
   projects: Project[],
 ): Promise<void> {
-  const href = buildAgentChatHistoryHref(entry, projects);
   const contextId = entry.workspace_id?.trim() || entry.project_id?.trim() || "";
   if (!contextId) {
-    router.push(href);
+    router.push(buildAgentChatHistoryHref(entry, projects));
     return;
   }
 
   const spaceId = entry.space_id?.trim() || DEFAULT_CENTER_SPACE_ID;
   const paintContextId = makeCenterSpaceKey(contextId, spaceId);
-  const tabValue = buildAgentChatTabValue(entry.id);
-  useAgentChatCenterTabsStore.getState().openTab({
-    contextId: paintContextId,
-    chatId: entry.id,
-    title: entry.title,
-    cwd: entry.cwd,
-    providerId: entry.provider_id,
-  });
+  const store = useAgentChatCenterTabsStore.getState();
+  const existing = findAgentChatCenterTab(store.tabsByContext, entry.id, paintContextId);
+  const tab =
+    existing ??
+    store.openTab({
+      contextId: paintContextId,
+      chatId: entry.id,
+      title: entry.title,
+      cwd: entry.cwd,
+      providerId: entry.provider_id,
+    });
   const { activateCenterChromeTab } = await import("@/app-shell/center-stage-activate");
-  activateCenterChromeTab(paintContextId, tabValue);
+  activateCenterChromeTab(tab.contextId, tab.value);
 
   const { useCenterSpaceStore } = await import("@/app-shell/center-space/center-space-store");
-  const store = useCenterSpaceStore.getState();
-  if (!store.hydrated) store.hydrate();
-  store.ensureHost(contextId);
-  store.setActiveSpace(contextId, spaceId);
-  commitLocatedPaneNavigation(router, href);
+  const centerStore = useCenterSpaceStore.getState();
+  if (!centerStore.hydrated) centerStore.hydrate();
+  centerStore.ensureHost(contextId);
+  centerStore.setActiveSpace(contextId, spaceId);
+  commitLocatedPaneNavigation(router, buildAgentChatHistoryHref(entry, projects, tab.value));
 }

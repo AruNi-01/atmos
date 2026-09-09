@@ -4,6 +4,7 @@ import {
   COMPOSER_LOCAL_CACHE_KEY,
   __resetComposerLocalCacheForTests,
   composerOptionsAreUsable,
+  shouldRetainExistingOptions,
   readComposerLocalCache,
   rememberComposerChromeDraft,
   rememberComposerOptions,
@@ -87,6 +88,70 @@ describe("composer local cache", () => {
     expect(readComposerLocalCache().optionsByAgent.cursor).toBeUndefined();
   });
 
+  it("keeps last-good options when a later probe is empty error", () => {
+    rememberComposerOptions(cursorCatalog());
+    const incoming: AgentOptionsSnapshot = {
+      agent_id: "cursor",
+      status: "error",
+      models: [],
+      modes: [],
+      thinking: { type: "none" },
+      strategies_used: [],
+      fetched_at: "",
+      source: "live",
+      message: "temp ACP catalog probe timed out",
+    };
+    expect(shouldRetainExistingOptions(incoming, cursorCatalog())).toBe(true);
+    rememberComposerOptions(incoming);
+    expect(readComposerLocalCache().optionsByAgent.cursor?.models[0]?.id).toBe("composer-2.5");
+  });
+
+  it("keeps last-good options when a later probe is auth required", () => {
+    rememberComposerOptions(cursorCatalog());
+    const incoming: AgentOptionsSnapshot = {
+      agent_id: "cursor",
+      status: "auth_required",
+      models: [],
+      modes: [],
+      thinking: { type: "none" },
+      strategies_used: [],
+      fetched_at: "",
+      source: "live",
+      message: "ACP_AUTH_REQUIRED::{}",
+    };
+    expect(shouldRetainExistingOptions(incoming, cursorCatalog())).toBe(true);
+    rememberComposerOptions(incoming);
+    expect(readComposerLocalCache().optionsByAgent.cursor?.models[0]?.id).toBe("composer-2.5");
+  });
+
+  it("keeps last-good for any agent when a later ok probe drops commands", () => {
+    const existing: AgentOptionsSnapshot = {
+      agent_id: "grok",
+      status: "ok",
+      models: [{ id: "grok-4.6", label: "Grok 4.6", is_default: true }],
+      modes: [{ id: "default", label: "Default", is_default: true }],
+      commands: [{ name: "10x", description: "audit" }],
+      thinking: { type: "none" },
+      strategies_used: [],
+      fetched_at: "2026-09-06T00:00:00.000Z",
+      source: "cache",
+      message: null,
+    };
+    const incoming: AgentOptionsSnapshot = {
+      ...existing,
+      source: "live",
+      modes: [],
+      commands: [],
+    };
+    expect(shouldRetainExistingOptions(incoming, existing)).toBe(true);
+    expect(
+      shouldRetainExistingOptions(
+        { ...existing, models: [{ id: "grok-4.6", label: "Grok 4.6", is_default: true }] },
+        existing,
+      ),
+    ).toBe(false);
+  });
+
   it("persists last registry, new-chat configs, and usable options", () => {
     rememberLastRegistryId("cursor");
     rememberLastNewChatConfigs({
@@ -143,6 +208,7 @@ describe("composer local cache", () => {
       mode: "plan",
       permissionMode: "default",
       fast: "",
+      context: "272k",
     });
     const seed = seedNewChatComposer({
       chatId: "",
@@ -155,6 +221,7 @@ describe("composer local cache", () => {
     expect(seed.preferred.modeId).toBe("plan");
     expect(seed.preferred.permissionModeId).toBe("default");
     expect(seed.preferred.modelId).toBe("composer-2.5");
+    expect(seed.preferred.contextId).toBe("272k");
   });
 
   it("keeps existing chats waiting for transcript hydrate", () => {

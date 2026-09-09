@@ -129,8 +129,18 @@ export const agentChatApi = {
     wsRequest("agent_chat_queue_reorder", { chat_id, item_ids }),
   queueDelete: (chat_id: string, item_id: string) =>
     wsRequest("agent_chat_queue_delete", { chat_id, item_id }),
-  optionsGet: (agent_id: string, refresh?: boolean) =>
-    wsRequest("agent_options_get", { agent_id, refresh: refresh ?? null }),
+  optionsGet: (
+    agent_id: string,
+    refresh?: boolean,
+    authMethodId?: string,
+    authSecret?: string,
+  ) =>
+    wsRequest("agent_options_get", {
+      agent_id,
+      refresh: refresh ?? null,
+      auth_method_id: authMethodId ?? null,
+      auth_secret: authSecret ?? null,
+    }),
   prefsGet: () => wsRequest("agent_chat_prefs_get"),
   prefsSet: (input: AgentChatPrefsSetRequest) =>
     wsRequest("agent_chat_prefs_set", input),

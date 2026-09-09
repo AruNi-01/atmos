@@ -4,6 +4,7 @@ import { createTranslator } from "next-intl";
 import {
   DEFAULT_CENTER_SPACE_ID,
   makeCenterSpaceKey,
+  parseCenterSpaceKey,
 } from "@/app-shell/center-space/center-space";
 import {
   findWorkspacePaneIdsByTmuxWindowName,
@@ -19,6 +20,7 @@ import {
 } from "@/features/terminal/public/navigate-to-located-pane";
 import {
   buildAgentChatTabValue,
+  findAgentChatCenterTab,
   useAgentChatCenterTabsStore,
 } from "@/features/agent/store/use-agent-chat-center-tabs";
 import type { AgentStatusRecord } from "@/features/agent/store/agent-status-store";
@@ -162,6 +164,7 @@ export function buildAgentStatusSessionPath(
   session: AgentStatusRecord,
   projects: Project[],
   hit: { terminalTabId: string } | null,
+  chatTabValue?: string | null,
 ): string | null {
   const target = resolveAgentStatusNavigationTarget(session);
   if (!target.contextId) return null;
@@ -173,7 +176,7 @@ export function buildAgentStatusSessionPath(
         : "/workspace";
     const params = new URLSearchParams();
     params.set("id", target.contextId);
-    params.set("tab", buildAgentChatTabValue(target.chatId));
+    params.set("tab", chatTabValue?.trim() || buildAgentChatTabValue(target.chatId));
     return `${basePath}?${params.toString()}`;
   }
   if (!target.tmuxWindowName && !target.sideChatId) {
@@ -203,16 +206,19 @@ async function prepareChatCenterTab(
   session: AgentStatusRecord,
   paintContextId: string,
   chatId: string,
-) {
-  const tabValue = buildAgentChatTabValue(chatId);
-  useAgentChatCenterTabsStore.getState().openTab({
-    contextId: paintContextId,
-    chatId,
-    providerId: session.provider_id ?? session.tool,
-  });
+): Promise<{ paintContextId: string; tabValue: string }> {
+  const store = useAgentChatCenterTabsStore.getState();
+  const existing = findAgentChatCenterTab(store.tabsByContext, chatId, paintContextId);
+  const tab =
+    existing ??
+    store.openTab({
+      contextId: paintContextId,
+      chatId,
+      providerId: session.provider_id ?? session.tool,
+    });
   const { activateCenterChromeTab } = await import("@/app-shell/center-stage-activate");
-  activateCenterChromeTab(paintContextId, tabValue, { attentionAck: "deferred" });
-  return tabValue;
+  activateCenterChromeTab(tab.contextId, tab.value, { attentionAck: "deferred" });
+  return { paintContextId: tab.contextId, tabValue: tab.value };
 }
 
 export function navigateToAgentStatusSession(
@@ -239,25 +245,38 @@ export function navigateToAgentStatusSession(
     ? state.getPanes(paintContextId, hit.terminalTabId)[hit.paneId]
     : undefined;
 
-  const path = buildAgentStatusSessionPath(session, projects, hit);
-  if (!path) return;
-
   void (async () => {
     if (target.surface === "chat" && target.chatId) {
-      const tabValue = await prepareChatCenterTab(session, paintContextId, target.chatId);
+      const prepared = await prepareChatCenterTab(session, paintContextId, target.chatId);
+      const destPaint = prepared.paintContextId;
+      const destSpace = parseCenterSpaceKey(destPaint).spaceId;
+      const destHost = parseCenterSpaceKey(destPaint).hostId || contextId;
+      const destRouteKind = routeKindForContext(destHost, projects);
+      const path = buildAgentStatusSessionPath(
+        {
+          ...session,
+          context_id: destHost,
+          space_id: destSpace,
+        },
+        projects,
+        null,
+        prepared.tabValue,
+      );
+      if (!path) return;
+
       const { useCenterSpaceStore } = await import(
         "@/app-shell/center-space/center-space-store"
       );
       const store = useCenterSpaceStore.getState();
       if (!store.hydrated) store.hydrate();
-      store.ensureHost(contextId);
+      store.ensureHost(destHost);
 
-      const sameHost = currentHostIdFromLocation() === contextId;
+      const sameHost = currentHostIdFromLocation() === destHost;
       const alreadyOnDestSpace =
-        sameHost && store.getActiveSpaceId(contextId) === target.spaceId;
+        sameHost && store.getActiveSpaceId(destHost) === destSpace;
 
       if (!sameHost) {
-        store.setActiveSpace(contextId, target.spaceId);
+        store.setActiveSpace(destHost, destSpace);
         commitLocatedPaneNavigation(router, path);
         return;
       }
@@ -266,20 +285,23 @@ export function navigateToAgentStatusSession(
       if (alreadyOnDestSpace) return;
 
       const committed = await waitForDestination({
-        pathname: routeKind === "project" ? "/project" : "/workspace",
-        id: contextId,
-        tab: tabValue,
+        pathname: destRouteKind === "project" ? "/project" : "/workspace",
+        id: destHost,
+        tab: prepared.tabValue,
       });
       if (!committed) return;
 
       const { switchCenterSpace } = await import(
         "@/app-shell/center-space/center-space-switch"
       );
-      await switchCenterSpace(contextId, target.spaceId, {
+      await switchCenterSpace(destHost, destSpace, {
         preserveDeepLink: true,
       });
       return;
     }
+
+    const path = buildAgentStatusSessionPath(session, projects, hit);
+    if (!path) return;
 
     if (hit && pane?.sessionId && !target.sideChatId) {
       await navigateToLocatedPane(

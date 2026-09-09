@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   Collapsible,
@@ -10,13 +10,14 @@ import {
 } from "@workspace/ui";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
-import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
+import type { AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
 import { getToolKindIcon } from "@/features/agent/lib/chat-helpers";
 import {
   countToolGroupOverview,
   formatToolGroupOverview,
   iconKindForOverview,
   sentenceCaseOverview,
+  toolCallPartsFromGroup,
   toolGroupHasRunning,
   type ToolOverviewKind,
 } from "@/features/agent/lib/tool-group";
@@ -25,42 +26,50 @@ import { useSequentialReveal } from "@/features/agent/hooks/use-sequential-revea
 import { AgentTreeRevealProvider } from "./agent-tree-reveal-context";
 import { useMarkAssistantProcessInspecting } from "./assistant-process-inspect-context";
 import { AgentToolDiffStats } from "./tool-results/AgentToolCard";
-import { ToolView } from "./ToolView";
 import { AgentTreeBranch } from "./AgentTreeBranch";
 
 export function AgentToolGroupView({
   parts,
+  origIndexes,
   autoOpen,
   userOpen: userOpenProp,
   onUserOpenChange,
+  renderPart,
 }: {
-  parts: AgentToolCallPart[];
+  parts: AgentPart[];
+  origIndexes: number[];
   autoOpen: boolean;
   /** Lifted user toggle so remount on turn settle keeps the group open. */
   userOpen?: boolean;
   onUserOpenChange?: (open: boolean) => void;
+  renderPart: (part: AgentPart, origIndex: number) => ReactNode;
 }) {
   const t = useTranslations("Agent.components.toolGroup");
   const locale = useLocale();
   const markInspecting = useMarkAssistantProcessInspecting();
   const [localUserOpen, setLocalUserOpen] = useState<boolean | null>(null);
   const userOpen = userOpenProp !== undefined ? userOpenProp : localUserOpen;
+  const toolParts = useMemo(() => toolCallPartsFromGroup(parts), [parts]);
   const running = toolGroupHasRunning(parts);
   const open = userOpen ?? autoOpen;
   const shimmer = autoOpen || running;
   const shown = useSequentialReveal(parts.length, autoOpen);
   const visibleParts = parts.slice(0, shown);
 
-  const counts = useMemo(() => countToolGroupOverview(parts), [parts]);
-  const diffStats = useMemo(() => sumToolGroupDiffStats(parts), [parts]);
+  const counts = useMemo(() => countToolGroupOverview(toolParts), [toolParts]);
+  const diffStats = useMemo(() => sumToolGroupDiffStats(toolParts), [toolParts]);
   const overview = useMemo(() => {
+    if (counts.length === 0) {
+      if (parts.some((part) => part.type === "thinking")) return t("thinking");
+      return t("working");
+    }
     const raw = formatToolGroupOverview(
       counts,
       (kind: ToolOverviewKind, count: number) => t(kind, { count }),
       t("join"),
     );
     return sentenceCaseOverview(raw, locale);
-  }, [counts, locale, t]);
+  }, [counts, locale, parts, t]);
 
   const leadKind = counts[0]?.kind;
   const icon = getToolKindIcon(leadKind ? iconKindForOverview(leadKind) : "other");
@@ -107,7 +116,10 @@ export function AgentToolGroupView({
         <AgentTreeRevealProvider reveal={autoOpen}>
           <div className="relative">
             {visibleParts.map((part, index) => {
-              const itemKey = part.tool_call_id || `${part.name}-${index}`;
+              const origIndex = origIndexes[index] ?? index;
+              const itemKey = part.type === "tool_call"
+                ? part.tool_call_id || `${part.name}-${index}`
+                : `${part.type}-${origIndex}`;
               return (
                 <AgentTreeBranch
                   key={itemKey}
@@ -115,7 +127,7 @@ export function AgentToolGroupView({
                   isLast={index === visibleParts.length - 1}
                   animate={autoOpen}
                 >
-                  <ToolView part={part} surface="plain" />
+                  {renderPart(part, origIndex)}
                 </AgentTreeBranch>
               );
             })}

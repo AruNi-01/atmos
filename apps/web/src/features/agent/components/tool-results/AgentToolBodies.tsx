@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import { ArrowRight, CheckCircle2, ChevronRight, Circle, CircleDashed } from "lucide-react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import {
-  AvatarStack,
   Collapsible,
   CollapsibleTrigger,
 } from "@workspace/ui";
@@ -24,10 +23,10 @@ import {
   type WebResultLink,
 } from "@/features/agent/lib/tool-results/parse-tool-result";
 import {
-  WEBSEARCH_LINE_MS,
-  WEBSEARCH_STEP_MS,
+  TREE_EASE,
+  WEBSEARCH_EXPAND_EASE,
+  WEBSEARCH_EXPAND_MS,
 } from "@/features/agent/lib/agent-tree-branch";
-import { useCountedReveal } from "@/features/agent/hooks/use-sequential-reveal";
 import { AgentCommandLine } from "../AgentCommandLine";
 import { useAgentChatCwd, useAgentChatPathRoots, useDisplayToolPath } from "../agent-chat-cwd-context";
 import {
@@ -69,6 +68,34 @@ export function AgentToolInputRows({ rows }: { rows: ToolInputRow[] }) {
   );
 }
 
+const WEBSEARCH_STACK_MAX = 5;
+
+function webSearchMarkId(layoutKey: string, url: string): string {
+  return `${layoutKey}:${url}`;
+}
+
+function WebSearchSourceMark({
+  url,
+  layoutId,
+  durationSec,
+}: {
+  url: string;
+  layoutId?: string;
+  durationSec: number;
+}) {
+  return (
+    <motion.div
+      initial={false}
+      layout
+      layoutId={layoutId}
+      className="relative flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-background"
+      transition={{ duration: durationSec, ease: WEBSEARCH_EXPAND_EASE }}
+    >
+      <SiteFavicon url={url} className="size-4" />
+    </motion.div>
+  );
+}
+
 export function AgentToolWebSearchBody({
   links,
   sourcesLabel,
@@ -80,13 +107,14 @@ export function AgentToolWebSearchBody({
 }) {
   const [open, setOpen] = useState(false);
   const reduced = useReducedMotion();
-  const revealed = useCountedReveal(open ? links.length : 0, WEBSEARCH_STEP_MS);
   if (links.length === 0) return null;
 
-  const stacked = links.slice(0, 5);
+  const stacked = links.slice(0, WEBSEARCH_STACK_MAX);
   const extra = links.length - stacked.length;
-  const expanded = links.slice(0, revealed);
-  const stackedRemaining = stacked.slice(revealed);
+  const durationMs = reduced ? 0 : WEBSEARCH_EXPAND_MS;
+  const durationSec = durationMs / 1000;
+  const expandTransition = durationMs > 0 ? `${durationMs}ms ${TREE_EASE}` : undefined;
+  const shareLayout = !reduced;
 
   return (
     <LayoutGroup id={layoutKey}>
@@ -95,84 +123,126 @@ export function AgentToolWebSearchBody({
           <div className="flex min-w-0 items-center gap-2" data-tree-header>
             <CollapsibleTrigger className="group inline-flex min-w-0 max-w-full items-center gap-1.5 py-0.5 text-left text-[13px] leading-5 text-muted-foreground hover:text-foreground">
               <span className="min-w-0 truncate">{sourcesLabel}</span>
-              {stackedRemaining.length > 0 ? (
-                <span className="flex shrink-0 items-center gap-1">
-                  <AvatarStack
-                    size="xs"
-                    variant="spring-tilt"
-                    users={stackedRemaining.map((link) => ({
-                      id: `${layoutKey}:${link.url}`,
-                      name: hostFromUrl(link.url) ?? link.title,
-                      content: <SiteFavicon url={link.url} className="size-4" />,
-                    }))}
-                  />
-                  {revealed === 0 && extra > 0 ? (
+              <span
+                data-websearch-stack=""
+                className={cn(
+                  "grid overflow-hidden",
+                  open ? "min-w-0" : "shrink-0",
+                )}
+                style={{
+                  gridTemplateColumns: open ? "0fr" : "1fr",
+                  transition: expandTransition
+                    ? `grid-template-columns ${expandTransition}`
+                    : undefined,
+                }}
+              >
+                <span className="flex min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap">
+                  <span className="flex items-center">
+                    {stacked.map((link, index) => (
+                      <span
+                        key={link.url}
+                        className={cn("relative", index > 0 && "-ml-1.5")}
+                        style={{ zIndex: stacked.length - index }}
+                      >
+                        {open ? (
+                          <span className="block size-4" aria-hidden />
+                        ) : (
+                          <WebSearchSourceMark
+                            url={link.url}
+                            layoutId={shareLayout ? webSearchMarkId(layoutKey, link.url) : undefined}
+                            durationSec={durationSec}
+                          />
+                        )}
+                      </span>
+                    ))}
+                  </span>
+                  {extra > 0 ? (
                     <span className="text-[11px] text-muted-foreground">+{extra}</span>
                   ) : null}
                 </span>
-              ) : null}
+              </span>
               <ChevronRight
-                className={cn(
-                  "size-3.5 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                  open && "rotate-90",
-                )}
+                className={cn("size-3.5 shrink-0", open && "rotate-90")}
+                style={{
+                  transition: expandTransition ? `transform ${expandTransition}` : undefined,
+                }}
               />
             </CollapsibleTrigger>
           </div>
-          {expanded.length > 0 ? (
-            <div className="pt-0.5">
-              {expanded.map((link, index) => {
-                const host = hostFromUrl(link.url) ?? link.url;
-                const title = link.title.trim();
-                const label = title || host;
-                const stackedIcon = index < stacked.length;
-                return (
-                  <AgentTreeBranch
-                    key={link.url}
-                    isFirst={index === 0}
-                    isLast={index === expanded.length - 1}
-                    animate={!reduced}
-                    durationMs={WEBSEARCH_LINE_MS}
-                  >
-                    <a
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      data-tree-header
-                      className="flex min-w-0 items-center gap-2 rounded-md py-1 pr-1.5 text-left leading-5 hover:bg-muted/50"
-                      title={link.url}
+          <div data-websearch-list="" className="pt-0.5" inert={!open ? true : undefined}>
+            {links.map((link, index) => {
+              const host = hostFromUrl(link.url) ?? link.url;
+              const title = link.title.trim();
+              const label = title || host;
+              const stackedIcon = index < stacked.length;
+              return (
+                <div
+                  key={link.url}
+                  className="grid overflow-hidden"
+                  style={{
+                    gridTemplateRows: open ? "1fr" : "0fr",
+                    transition: expandTransition
+                      ? `grid-template-rows ${expandTransition}`
+                      : undefined,
+                  }}
+                >
+                  <div className="min-h-0 overflow-hidden">
+                    <AgentTreeBranch
+                      isFirst={index === 0}
+                      isLast={index === links.length - 1}
                     >
-                      <motion.div
-                        layoutId={stackedIcon && !reduced ? `${layoutKey}:${link.url}` : undefined}
-                        className="size-4 shrink-0"
-                        transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+                      <a
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        data-tree-header
+                        className="flex min-w-0 items-center gap-2 rounded-md py-1 pr-1.5 text-left leading-5 hover:bg-muted/50"
+                        title={link.url}
                       >
-                        <SiteFavicon url={link.url} className="size-4" />
-                      </motion.div>
-                      <motion.span
-                        initial={reduced ? false : { opacity: 0, x: -4 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
-                        className="min-w-0 flex-1 truncate text-[13px] text-foreground"
-                      >
-                        {label}
-                      </motion.span>
-                      {title && title !== host ? (
-                        <motion.span
-                          initial={reduced ? false : { opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
-                          className="max-w-[40%] shrink-0 truncate text-[12px] text-muted-foreground"
+                        {open ? (
+                          <WebSearchSourceMark
+                            url={link.url}
+                            layoutId={
+                              shareLayout && stackedIcon
+                                ? webSearchMarkId(layoutKey, link.url)
+                                : undefined
+                            }
+                            durationSec={durationSec}
+                          />
+                        ) : (
+                          <span className="size-4 shrink-0" aria-hidden />
+                        )}
+                        <span
+                          className="min-w-0 flex-1 truncate text-[13px] text-foreground"
+                          style={{
+                            opacity: open ? 1 : 0,
+                            transition: expandTransition
+                              ? `opacity ${Math.round(durationMs * 0.7)}ms ${TREE_EASE}`
+                              : undefined,
+                          }}
                         >
-                          {host}
-                        </motion.span>
-                      ) : null}
-                    </a>
-                  </AgentTreeBranch>
-                );
-              })}
-            </div>
-          ) : null}
+                          {label}
+                        </span>
+                        {title && title !== host ? (
+                          <span
+                            className="max-w-[40%] shrink-0 truncate text-[12px] text-muted-foreground"
+                            style={{
+                              opacity: open ? 1 : 0,
+                              transition: expandTransition
+                                ? `opacity ${Math.round(durationMs * 0.7)}ms ${TREE_EASE}`
+                                : undefined,
+                            }}
+                          >
+                            {host}
+                          </span>
+                        ) : null}
+                      </a>
+                    </AgentTreeBranch>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </AgentTreeBranch>
       </Collapsible>
     </LayoutGroup>

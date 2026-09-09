@@ -15,7 +15,7 @@ describe("agent activity indicator", () => {
     expect(source).toContain("y: -12");
     expect(source).toContain("TextShimmer");
     expect(source).toContain("<ActivityIndicator");
-    expect(source).toContain("const label = `${activity.label}...`");
+    expect(source).toContain("const label = activity.trail === \"none\" ? activity.label : `${activity.label}...`");
     expect(source).toContain("{label}");
     expect(source).not.toContain("TextEffect");
     expect(source).not.toContain("textEffectBlurSlideVariants");

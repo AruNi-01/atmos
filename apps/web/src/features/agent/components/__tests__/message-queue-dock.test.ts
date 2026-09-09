@@ -43,10 +43,6 @@ describe("message queue dock", () => {
     );
   });
 
-  it("exposes a fly-to target for composer send animation", () => {
-    expect(dock).toContain('data-agent-message-queue=""');
-  });
-
   it("keeps edit and delete actions visible on queue items", () => {
     expect(dock).toContain("Pencil");
     expect(dock).toContain("Trash2");

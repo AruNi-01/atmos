@@ -70,7 +70,7 @@ export function AgentActivityIndicator({
   elapsedMs?: number;
 }) {
   const thinking = activity.kind === "thinking";
-  const label = `${activity.label}...`;
+  const label = activity.trail === "none" ? activity.label : `${activity.label}...`;
   const reduced = Boolean(useReducedMotion());
   const [streamStyle] = useState(() => pickActivityIndicatorStyle(STREAM_ORB_GROUPS));
   const glyphStyle = thinking ? "stars" : streamStyle;

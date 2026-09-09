@@ -7,11 +7,10 @@ import {
   Conversation,
   ConversationContent,
   ConversationEmptyState,
-  ConversationScrollButton,
   cn,
 } from "@workspace/ui";
 import LogoSvg from "@workspace/ui/components/logo-svg";
-import { ChevronDown, Loader2, MessageSquare, X } from "lucide-react";
+import { Loader2, MessageSquare, X } from "lucide-react";
 import { useAgentChatLayoutStore } from "@/features/agent/store/agent-chat-layout-store";
 import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/features/agent/types/index";
 import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traffic-lights-padding";
@@ -34,7 +33,9 @@ import {
   AgentChatHistorySidebarFrame,
   AgentChatHistorySidebarToggle,
 } from "./AgentChatHistorySidebarFrame";
+import { AgentChatScrollToBottomButton } from "./AgentChatScrollToBottom";
 import { AgentChatTranscriptList } from "./AgentChatTranscriptList";
+import { createMessagesBelowCountStore } from "../lib/agent-chat-below-count";
 import { AgentChatCwdProvider } from "./agent-chat-cwd-context";
 import { openAgentChatWindow } from "../lib/desktop-agent-chat-window";
 import { ackAgentChatAttention } from "../lib/agent-status-ack";
@@ -147,6 +148,7 @@ export function AgentChatPanel({
     variant === "standalone" && panelWidth >= WIDE_HISTORY_LAYOUT_MIN_WIDTH;
   const chatId = chatIdProp || "";
   const resumeTranscript = resumeTranscriptProp ?? variant !== "center";
+  const messagesBelowCountStore = useMemo(() => createMessagesBelowCountStore(), []);
 
   const session = useAgentChatSession({
     variant,
@@ -438,7 +440,9 @@ export function AgentChatPanel({
     agentInfo,
     capabilities,
     catalogModelsLoading,
+    catalogModelsReloading,
     refreshEmptyCatalog,
+    reloadEmptyCatalog,
     configOptions,
     modelsLocked,
     modesLocked,
@@ -480,6 +484,7 @@ export function AgentChatPanel({
     setSelectedAuthMethodId,
     clearAuthRequest,
     startSession,
+    refreshSelectedAgentAfterAuth,
     exportableMessages,
     userMessageIndices,
     messageNavIndex,
@@ -1008,6 +1013,7 @@ export function AgentChatPanel({
                 userMessageIndices={userMessageIndices}
                 onActiveUserMessage={setMessageNavIndex}
                 scrollToIndexRef={scrollToIndexRef}
+                belowCountStore={messagesBelowCountStore}
                 activityStatus={
                   agentActivity.busy ? (
                     <AgentActivityIndicator activity={agentActivity} elapsedMs={elapsedMs} />
@@ -1031,12 +1037,10 @@ export function AgentChatPanel({
               aria-hidden="true"
             />
           </ConversationContent>
-          <ConversationScrollButton
-            aria-label={t("bottom")}
+          <AgentChatScrollToBottomButton
             host={aboveComposerOverlaysNode}
-          >
-            <ChevronDown className="size-4" />
-          </ConversationScrollButton>
+            belowCountStore={messagesBelowCountStore}
+          />
           </Conversation>
         </AgentChatCwdProvider>
       </div>
@@ -1072,7 +1076,9 @@ export function AgentChatPanel({
             isConnecting={isConnecting}
             isResumingHistory={isResumingHistory}
             catalogModelsLoading={catalogModelsLoading}
+            catalogModelsReloading={catalogModelsReloading}
             onEmptyModelsOpen={refreshEmptyCatalog}
+            onLoadModels={reloadEmptyCatalog}
             chatId={liveChatId}
             runtimeStatus={runtimeStatus}
             hasPersistenceHandle={hasPersistenceHandle}
@@ -1169,6 +1175,7 @@ export function AgentChatPanel({
         selectedAuthMethodId={selectedAuthMethodId}
         setSelectedAuthMethodId={setSelectedAuthMethodId}
         startSession={startSession}
+        refreshSelectedAgentAfterAuth={refreshSelectedAgentAfterAuth}
         isConnecting={isConnecting}
       />
       </div>

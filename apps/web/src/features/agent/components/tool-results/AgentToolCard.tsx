@@ -17,6 +17,7 @@ import { cn } from "@/shared/lib/utils";
 import {
   TREE_CONTENT_DELAY_MS,
   TREE_EASE,
+  TREE_LINE_MS,
 } from "@/features/agent/lib/agent-tree-branch";
 import type { DiffLineRange } from "@/features/agent/lib/tool-results/diff-stats";
 import {
@@ -239,7 +240,7 @@ function AgentTreeFade({
     <span
       style={{
         opacity: open ? 1 : 0,
-        transition: `opacity 280ms ${TREE_EASE}`,
+        transition: `opacity ${TREE_LINE_MS}ms ${TREE_EASE}`,
       }}
     >
       {children}

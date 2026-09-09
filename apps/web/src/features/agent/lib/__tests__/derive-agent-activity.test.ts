@@ -32,7 +32,7 @@ describe("deriveAgentActivity", () => {
         status: "running",
         params: { type: "read", path: "a.ts" },
       }], { streaming: true }),
-    ], false)).toMatchObject({ busy: true, kind: "working" });
+    ], false)).toMatchObject({ busy: true, kind: "working", label: "Read a.ts" });
     expect(deriveAgentActivity([
       assistant([{ type: "text", text: "here is the answer" }], { streaming: true }),
     ], false)).toMatchObject({ busy: true, kind: "working" });
@@ -96,7 +96,7 @@ describe("deriveAgentActivity", () => {
         },
       ], { streaming: true }),
     ], false);
-    expect(activity).toMatchObject({ busy: true, kind: "working", label: "Reading" });
+    expect(activity).toMatchObject({ busy: true, kind: "working", label: "Read a.ts" });
   });
 
   it("follows the latest tool event instead of falling back to earlier thought", () => {
@@ -129,7 +129,7 @@ describe("deriveAgentActivity", () => {
         },
       ], { streaming: true, thinking_ms: 6000 }),
     ], false);
-    expect(activity).toMatchObject({ busy: true, kind: "working", label: "Reading" });
+    expect(activity).toMatchObject({ busy: true, kind: "working", label: "Read c.ts" });
   });
 
   it("treats in-progress tool status as live work", () => {
@@ -146,7 +146,7 @@ describe("deriveAgentActivity", () => {
         },
       ], { streaming: true }),
     ], false);
-    expect(activity).toMatchObject({ busy: true, kind: "working", label: "Searching" });
+    expect(activity).toMatchObject({ busy: true, kind: "working", label: "Search repo" });
   });
 
   it("returns to thinking when a later thought part arrives after tools", () => {
@@ -203,7 +203,7 @@ describe("deriveAgentActivity", () => {
         params: { type: "read", path: "a.ts" },
       },
     }), "chat-1");
-    expect(deriveAgentActivity(messages, false)).toMatchObject({ kind: "working", label: "Reading" });
+    expect(deriveAgentActivity(messages, false)).toMatchObject({ kind: "working", label: "Read a.ts" });
 
     messages = foldMessagesFromEvent(messages, event(5, {
       type: "tool_call_completed",
@@ -215,7 +215,7 @@ describe("deriveAgentActivity", () => {
         params: { type: "read", path: "a.ts" },
       },
     }), "chat-1");
-    expect(deriveAgentActivity(messages, false)).toMatchObject({ kind: "working", label: "Reading" });
+    expect(deriveAgentActivity(messages, false)).toMatchObject({ kind: "working", label: "Read a.ts" });
 
     messages = foldMessagesFromEvent(messages, event(6, {
       type: "tool_call_started",
@@ -233,11 +233,11 @@ describe("deriveAgentActivity", () => {
       },
     }), "chat-1");
     const afterBackground = deriveAgentActivity(messages, false);
-    expect(afterBackground).toMatchObject({ kind: "working", label: "Reading" });
+    expect(afterBackground).toMatchObject({ kind: "working", label: "Read a.ts" });
     expect(JSON.stringify(afterBackground)).not.toContain("ls -la");
   });
 
-  it("shows short verbs for live tools and never the command or path", () => {
+  it("shows the tool headline instead of a short verb", () => {
     const foreground = deriveAgentActivity([
       assistant([{
         type: "tool_call",
@@ -249,8 +249,12 @@ describe("deriveAgentActivity", () => {
         params: { type: "execute", command: "gh pr view 275", background: false },
       }], { streaming: true }),
     ], false);
-    expect(foreground).toMatchObject({ busy: true, kind: "working", label: "Executing" });
-    expect(JSON.stringify(foreground)).not.toContain("gh pr view");
+    expect(foreground).toMatchObject({
+      busy: true,
+      kind: "working",
+      label: "Execute: gh pr view 275",
+      trail: "none",
+    });
 
     expect(deriveAgentActivity([
       assistant([{
@@ -262,10 +266,10 @@ describe("deriveAgentActivity", () => {
         title: "SomeVendorTool",
         params: { type: "other", value: null },
       }], { streaming: true }),
-    ], false)).toMatchObject({ busy: true, kind: "working", label: "Working" });
+    ], false)).toMatchObject({ busy: true, kind: "working", label: "SomeVendorTool" });
   });
 
-  it("labels web_search as searching", () => {
+  it("labels web_search with the query", () => {
     expect(deriveAgentActivity([
       assistant([{
         type: "tool_call",
@@ -275,7 +279,7 @@ describe("deriveAgentActivity", () => {
         status: "running",
         params: { type: "web_search", query: "atmos" },
       }], { streaming: true }),
-    ], false)).toMatchObject({ busy: true, kind: "working", label: "Searching" });
+    ], false)).toMatchObject({ busy: true, kind: "working", label: "Search atmos" });
   });
 
   it("ignores background execute so they do not keep the turn busy", () => {

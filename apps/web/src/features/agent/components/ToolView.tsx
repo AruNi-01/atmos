@@ -10,18 +10,20 @@ import type { AgentToolSurface } from "./tool-results/AgentToolCard";
 export function ToolView({
   part,
   surface = "plain",
+  defaultOpen = false,
 }: {
   part: AgentToolCallPart;
   surface?: AgentToolSurface;
+  defaultOpen?: boolean;
 }) {
   switch (part.kind) {
     case "execute":
-      return <TerminalBlock part={part} surface={surface} />;
+      return <TerminalBlock part={part} surface={surface} defaultOpen={defaultOpen} />;
     case "subagent":
       return <SubAgentBlockView part={part} />;
     case "other":
-      return <OtherToolCard part={part} surface={surface} />;
+      return <OtherToolCard part={part} surface={surface} defaultOpen={defaultOpen} />;
     default:
-      return <AgentToolResultBlock part={part} surface={surface} />;
+      return <AgentToolResultBlock part={part} surface={surface} defaultOpen={defaultOpen} />;
   }
 }

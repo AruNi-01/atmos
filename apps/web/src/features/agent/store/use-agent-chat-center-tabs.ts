@@ -77,6 +77,36 @@ export function parseAgentChatTabValue(value: string | null | undefined): string
   return value.slice(AGENT_CHAT_TAB_PREFIX.length) || null;
 }
 
+export function tabMatchesAgentChatId(
+  tab: Pick<AgentChatCenterTab, "chatId" | "value">,
+  chatId: string,
+): boolean {
+  const id = chatId.trim();
+  if (!id) return false;
+  return tab.chatId === id || tab.value === buildAgentChatTabValue(id);
+}
+
+/** Prefer the already-open tab, including draft values that later bound a chat id. */
+export function findAgentChatCenterTab(
+  tabsByContext: Record<string, readonly AgentChatCenterTab[]>,
+  chatId: string,
+  preferredContextId?: string | null,
+): AgentChatCenterTab | undefined {
+  const id = chatId.trim();
+  if (!id) return undefined;
+  if (preferredContextId) {
+    const preferred = (tabsByContext[preferredContextId] ?? []).find((tab) =>
+      tabMatchesAgentChatId(tab, id),
+    );
+    if (preferred) return preferred;
+  }
+  for (const tabs of Object.values(tabsByContext)) {
+    const match = tabs.find((tab) => tabMatchesAgentChatId(tab, id));
+    if (match) return match;
+  }
+  return undefined;
+}
+
 export const useAgentChatCenterTabsStore = create<AgentChatCenterTabsStore>()(
   persist(
     (set, get) => ({
@@ -85,7 +115,9 @@ export const useAgentChatCenterTabsStore = create<AgentChatCenterTabsStore>()(
       pendingNewChat: 0,
       openTab: ({ contextId, chatId, title, cwd, providerId }) => {
         const value = buildAgentChatTabValue(chatId);
-        const existing = (get().tabsByContext[contextId] ?? []).find((tab) => tab.value === value);
+        const existing = (get().tabsByContext[contextId] ?? []).find((tab) =>
+          tabMatchesAgentChatId(tab, chatId),
+        );
         if (existing) return existing;
         const tab: AgentChatCenterTab = {
           id: value,

@@ -8,16 +8,20 @@ export const TREE_CLIP_VERTICAL_ONLY = `inset(0 ${TREE_BRANCH_WIDTH - 1}px 100% 
 export const TREE_CLIP_VERTICAL_FULL = `inset(0 ${TREE_BRANCH_WIDTH - 1}px 0 0)`;
 export const TREE_CLIP_FULL = "inset(0 0 0 0)";
 
-export const TREE_LINE_MS = 280;
-export const TREE_TRUNK_MS = 220;
+export const TREE_LINE_MS = 300;
+export const TREE_TRUNK_MS = 300;
 export const TREE_START_MS = 40;
 export const TREE_STEP_MS = 90;
 export const TREE_CONTENT_DELAY_MS = 70;
 export const TREE_TITLE_STAGGER_MS = 15;
 export const TREE_TITLE_SEGMENT_MS = 300;
 export const TREE_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
-export const WEBSEARCH_LINE_MS = 160;
+export const TREE_REVEAL_BLUR = "blur(6px)";
+export const TREE_REVEAL_LIFT = "translateY(4px)";
+export const TREE_REVEAL_FADE_PX = 22;
+export const WEBSEARCH_EXPAND_MS = 300;
 export const WEBSEARCH_STEP_MS = 120;
+export const WEBSEARCH_EXPAND_EASE = [0.22, 1, 0.36, 1] as const;
 
 export function treeTitleRevealMs(charCount: number): number {
   return TREE_CONTENT_DELAY_MS + Math.max(charCount, 1) * TREE_TITLE_STAGGER_MS + TREE_TITLE_SEGMENT_MS;

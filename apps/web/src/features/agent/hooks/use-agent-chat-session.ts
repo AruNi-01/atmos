@@ -57,8 +57,15 @@ import {
   DEEPSEEK_API_KEY_ENV,
   mergeInstalledAgents,
   canonicalizeChatProviderId,
+  isNativeChatHostId,
   tokenAuthEnvName,
 } from "@/features/agent/lib/custom-agent-registry";
+import {
+  catalogAuthFromSnapshot,
+  catalogAuthMethodKind,
+  catalogAuthToastDescription,
+  type CatalogAuthStartResult,
+} from "@/features/agent/lib/catalog-auth";
 import {
   FOOTER_MODAL_CHAT_PREF_KEY,
   workingDirectoriesEqual,
@@ -103,6 +110,7 @@ import {
   readComposerLocalCache,
   rememberComposerChromeDraft,
   rememberComposerOptions,
+  shouldRetainExistingOptions,
   rememberLastNewChatConfigs,
   rememberLastRegistryId,
   seedNewChatComposer,
@@ -120,6 +128,8 @@ import {
   parsePlan,
   queueToPrompts,
   thinkingChoices,
+  contextChoicesForModels,
+  defaultContextChoiceId,
   type AgentChatHistoryRow,
 } from "@/features/agent/lib/agent-chat-thread";
 
@@ -131,12 +141,14 @@ function pendingSessionConfigPatch(
   modeId: string,
   permissionModeId = "",
   fastId = "",
+  contextId = "",
 ): {
   model?: string;
   thinking?: string;
   mode?: string;
   permission_mode?: string;
   fast?: string;
+  context?: string;
 } {
   return {
     ...(modelId.trim() ? { model: modelId.trim() } : {}),
@@ -144,6 +156,7 @@ function pendingSessionConfigPatch(
     ...(modeId.trim() ? { mode: modeId.trim() } : {}),
     ...(permissionModeId.trim() ? { permission_mode: permissionModeId.trim() } : {}),
     ...(fastId.trim() ? { fast: fastId.trim() } : {}),
+    ...(contextId.trim() ? { context: contextId.trim() } : {}),
   };
 }
 
@@ -194,6 +207,11 @@ export function useAgentChatSession({
   const tSessionHints = useTranslations("Agent.components.chatPanel.session.hints");
   const tChatPanel = useTranslations("Agent.components.chatPanel");
   const lastCatalogErrorToastRef = useRef("");
+  const [authRequest, setAuthRequest] = useState<{
+    message?: string;
+    methods: { id: string; name: string; description?: string }[];
+  } | null>(null);
+  const [selectedAuthMethodId, setSelectedAuthMethodId] = useState("");
   const toastCatalogError = useCallback((message: string) => {
     const next = message.trim();
     if (!next) return;
@@ -205,6 +223,33 @@ export function useAgentChatSession({
       type: "error",
     });
   }, [tChatPanel]);
+  const toastCatalogSnapshot = useCallback((next: AgentOptionsSnapshot) => {
+    const auth = catalogAuthFromSnapshot(next);
+    if (auth) {
+      const key = `auth:${next.agent_id}:${auth.methods.map((method) => method.id).join(",")}`;
+      if (lastCatalogErrorToastRef.current === key) return;
+      lastCatalogErrorToastRef.current = key;
+      toastManager.add({
+        title: tChatPanel("catalogError.title"),
+        description: catalogAuthToastDescription(
+          auth,
+          tChatPanel("catalogError.authRequired"),
+        ),
+        type: "error",
+        timeout: 0,
+        actionProps: {
+          children: tChatPanel("catalogError.auth"),
+          onClick: () => {
+            setSelectedAuthMethodId("");
+            setAuthRequest(auth);
+          },
+        },
+      });
+      return;
+    }
+    if (next.status !== "error") return;
+    toastCatalogError(next.message ?? "");
+  }, [tChatPanel, toastCatalogError]);
   const urlContext = useContextParams();
   const { workspaceId: urlWorkspaceId, projectId: urlProjectId, effectiveContextId } =
     contextOverride ?? urlContext;
@@ -242,12 +287,17 @@ export function useAgentChatSession({
   const [modeId, setModeId] = useState(composerSeed.preferred.modeId);
   const [permissionModeId, setPermissionModeId] = useState(composerSeed.preferred.permissionModeId);
   const [fastId, setFastId] = useState(composerSeed.preferred.fastId);
+  const [contextId, setContextId] = useState(composerSeed.preferred.contextId);
   const [catalog, setCatalogState] = useState<AgentOptionsSnapshot | null>(composerSeed.catalog);
+  const [optionsRefreshing, setOptionsRefreshing] = useState(false);
+  const catalogRef = useRef(catalog);
+  catalogRef.current = catalog;
   const optionsByAgentRef = useRef<Record<string, AgentOptionsSnapshot>>({
     ...readComposerLocalCache().optionsByAgent,
   });
   const rememberOptions = useCallback((next: AgentOptionsSnapshot | null) => {
     if (!next?.agent_id) return;
+    if (shouldRetainExistingOptions(next, optionsByAgentRef.current[next.agent_id])) return;
     if (next.status === "probing" && next.models.length === 0 && next.modes.length === 0) return;
     optionsByAgentRef.current[next.agent_id] = next;
     rememberComposerOptions(next);
@@ -264,6 +314,24 @@ export function useAgentChatSession({
       return resolved;
     });
   }, [rememberOptions]);
+  const applyLiveOptionsSnapshot = useCallback((next: AgentOptionsSnapshot) => {
+    if (
+      next.source === "live"
+      || next.status === "error"
+      || next.status === "unsupported"
+      || next.status === "auth_required"
+    ) {
+      setOptionsRefreshing(false);
+    }
+    const existing = optionsByAgentRef.current[next.agent_id];
+    toastCatalogSnapshot(next);
+    if (shouldRetainExistingOptions(next, existing)) return;
+    setCatalog(next);
+    const commands = normalizeAgentSlashCommands(next.commands);
+    if (commands.length > 0) {
+      rememberAgentSlashCommands(next.agent_id, commands);
+    }
+  }, [setCatalog, toastCatalogSnapshot]);
   const [installedAgents, setInstalledAgents] = useState<RegistryAgent[]>(
     composerSeed.installedAgents,
   );
@@ -277,11 +345,6 @@ export function useAgentChatSession({
   const [cwd, setCwd] = useState("");
   const [title, setTitle] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
-  const [authRequest, setAuthRequest] = useState<{
-    message?: string;
-    methods: { id: string; name: string; description?: string }[];
-  } | null>(null);
-  const [selectedAuthMethodId, setSelectedAuthMethodId] = useState("");
   const [pendingPermission, setPendingPermission] = useState<PendingPermission | null>(null);
   const [pendingSessionOp, setPendingSessionOp] = useState<PendingSessionOp | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -320,12 +383,14 @@ export function useAgentChatSession({
     mode: string;
     permissionMode: string;
     fast: string;
+    context: string;
     patch: {
       model?: string;
       thinking?: string;
       mode?: string;
       permission_mode?: string;
       fast?: string;
+      context?: string;
     };
   }>(() => ({
     model: "",
@@ -333,6 +398,7 @@ export function useAgentChatSession({
     mode: "",
     permissionMode: "",
     fast: "",
+    context: "",
     patch: {},
   }));
   const creatingChatRef = useRef<Promise<string> | null>(null);
@@ -458,6 +524,7 @@ export function useAgentChatSession({
     setModeId(next.current_config.mode ?? "");
     setPermissionModeId(next.current_config.permission_mode ?? "");
     setFastId(next.current_config.fast ?? "");
+    setContextId(next.current_config.context ?? "");
   }, []);
 
   const load = useCallback(async (id = activeChatId) => {
@@ -639,6 +706,7 @@ export function useAgentChatSession({
           setPermissionModeId((current) => current || preferred.permissionModeId);
         }
         if (preferred.fastId) setFastId((current) => current || preferred.fastId);
+        if (preferred.contextId) setContextId((current) => current || preferred.contextId);
       }
       setPrefsRestored(true);
     }).catch(() => {
@@ -682,20 +750,14 @@ export function useAgentChatSession({
   useEffect(() => {
     return useWebSocketStore.getState().onEvent("agent_options_updated", (payload) => {
       const update = payload as { agent_id?: string; options?: AgentOptionsSnapshot };
-      if (update.agent_id && update.options) {
-        rememberOptions(update.options);
+      if (!update.agent_id || !update.options) return;
+      if (update.agent_id === providerIdRef.current) {
+        applyLiveOptionsSnapshot(update.options);
+        return;
       }
-      if (update.agent_id && update.options && update.agent_id === providerIdRef.current) {
-        setCatalog(update.options);
-        const message = update.options.status === "error" ? update.options.message?.trim() : "";
-        if (message) toastCatalogError(message);
-        const commands = normalizeAgentSlashCommands(update.options.commands);
-        if (commands.length > 0) {
-          rememberAgentSlashCommands(update.agent_id, commands);
-        }
-      }
+      rememberOptions(update.options);
     });
-  }, [rememberOptions, setCatalog, toastCatalogError]);
+  }, [applyLiveOptionsSnapshot, rememberOptions]);
 
   useEffect(() => {
     if (restoreAttemptedRef.current) return;
@@ -861,7 +923,7 @@ export function useAgentChatSession({
         setTurnStartedAt(null);
         const auth = authRequiredFromTurnError(payload.error, providerIdRef.current);
         if (auth) {
-          setSelectedAuthMethodId(auth.methods[0]?.id ?? "");
+          setSelectedAuthMethodId("");
           setAuthRequest(auth);
         }
       }
@@ -1027,17 +1089,7 @@ export function useAgentChatSession({
     let cancelled = false;
     void agentChatApi.optionsGet(providerId).then((next) => {
       if (cancelled) return;
-      if (next.status === "probing" && next.models.length === 0) {
-        const existing = optionsByAgentRef.current[providerId];
-        if (existing && existing.models.length > 0) return;
-      }
-      setCatalog(next);
-      const message = next.status === "error" ? next.message?.trim() : "";
-      if (message) toastCatalogError(message);
-      const commands = normalizeAgentSlashCommands(next.commands);
-      if (commands.length > 0) {
-        rememberAgentSlashCommands(providerId, commands);
-      }
+      applyLiveOptionsSnapshot(next);
     }).catch((error) => {
       if (cancelled) return;
       toastCatalogError(error instanceof Error ? error.message : String(error));
@@ -1045,7 +1097,7 @@ export function useAgentChatSession({
     return () => {
       cancelled = true;
     };
-  }, [providerId, setCatalog, toastCatalogError]);
+  }, [providerId, setCatalog, toastCatalogError, applyLiveOptionsSnapshot]);
 
   const refreshEmptyCatalog = useCallback(() => {
     const id = providerIdRef.current;
@@ -1069,19 +1121,42 @@ export function useAgentChatSession({
     if (skip) return;
     void agentChatApi.optionsGet(id).then((next) => {
       if (providerIdRef.current !== id) return;
-      if (next.status === "probing" && next.models.length === 0) {
-        const existing = optionsByAgentRef.current[id];
-        if (existing && existing.models.length > 0) return;
-      }
-      setCatalog(next);
-      const message = next.status === "error" ? next.message?.trim() : "";
-      if (message) toastCatalogError(message);
-      const commands = normalizeAgentSlashCommands(next.commands);
-      if (commands.length > 0) {
-        rememberAgentSlashCommands(id, commands);
-      }
+      applyLiveOptionsSnapshot(next);
     });
-  }, [setCatalog, toastCatalogError]);
+  }, [applyLiveOptionsSnapshot, setCatalog]);
+
+  const reloadEmptyCatalog = useCallback(() => {
+    const id = providerIdRef.current;
+    if (!id) return;
+    const current = catalogRef.current;
+    const keepList = Boolean(current?.agent_id === id && current.models.length > 0);
+    if (keepList) {
+      setOptionsRefreshing(true);
+    } else {
+      setCatalog(probingOptionsSnapshot(id));
+    }
+    void agentChatApi.optionsGet(id, true).then((next) => {
+      if (providerIdRef.current !== id) {
+        setOptionsRefreshing(false);
+        return;
+      }
+      if (next.status === "probing") return;
+      if (next.source !== "live" && next.status === "ok") {
+        if (keepList || next.models.length === 0) return;
+      }
+      applyLiveOptionsSnapshot(next);
+    }).catch((error) => {
+      if (providerIdRef.current !== id) return;
+      setOptionsRefreshing(false);
+      toastCatalogError(error instanceof Error ? error.message : String(error));
+      if (keepList) return;
+      setCatalog({
+        ...probingOptionsSnapshot(id),
+        status: "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
+  }, [applyLiveOptionsSnapshot, setCatalog, toastCatalogError]);
 
   useEffect(() => {
     if (!prefsRestored) return;
@@ -1108,6 +1183,7 @@ export function useAgentChatSession({
     );
     setPermissionModeId((current) => current || preferred.permissionModeId);
     setFastId((current) => current || preferred.fastId);
+    setContextId((current) => current || preferred.contextId);
     const resolvedModelId = defaultOptionsModelId(catalog, modelId || preferred.modelId);
     setModelId((current) => {
       if (current && catalog.models.some((model) => model.id === current)) {
@@ -1142,6 +1218,7 @@ export function useAgentChatSession({
       mode: string;
       permissionMode: string;
       fast: string;
+      context: string;
     },
   ) => {
     const registry = registryId.trim();
@@ -1156,6 +1233,7 @@ export function useAgentChatSession({
     if (selected.mode.trim()) snapshot.mode = selected.mode.trim();
     if (selected.permissionMode.trim()) snapshot.permission_mode = selected.permissionMode.trim();
     if (selected.fast.trim()) snapshot.fast = selected.fast.trim();
+    if (selected.context.trim()) snapshot.context = selected.context.trim();
     if (Object.keys(snapshot).length === 0) return;
     lastNewChatConfigsRef.current = {
       ...lastNewChatConfigsRef.current,
@@ -1175,6 +1253,7 @@ export function useAgentChatSession({
         mode: snapshot.mode ?? null,
         permission_mode: snapshot.permission_mode ?? null,
         fast: snapshot.fast ?? null,
+        context: snapshot.context ?? null,
       },
     }).catch(() => undefined);
     setInstalledAgents((current) =>
@@ -1202,6 +1281,7 @@ export function useAgentChatSession({
       modeId,
       permissionModeId,
       fastId,
+      contextId,
     });
     const model = displayedComposerConfigValue(options, "model", modelId);
     const thinking = displayedComposerConfigValue(options, "thinking", thinkingId);
@@ -1212,16 +1292,19 @@ export function useAgentChatSession({
       permissionModeId,
     );
     const fast = displayedComposerConfigValue(options, "fast", fastId);
+    const context = displayedComposerConfigValue(options, "context", contextId);
     return {
       model,
       thinking,
       mode,
       permissionMode,
       fast,
-      patch: pendingSessionConfigPatch(model, thinking, mode, permissionMode, fast),
+      context,
+      patch: pendingSessionConfigPatch(model, thinking, mode, permissionMode, fast, context),
     };
   }, [
     catalog,
+    contextId,
     defaultRegistryId,
     descriptor,
     fastId,
@@ -1239,6 +1322,7 @@ export function useAgentChatSession({
     mode?: string;
     permission_mode?: string;
     fast?: string;
+    context?: string;
   }) => {
     const id = activeChatId || activeIdRef.current;
     if (!id) return;
@@ -1249,6 +1333,7 @@ export function useAgentChatSession({
       && !patch.mode
       && !patch.permission_mode
       && !patch.fast
+      && !patch.context
     ) {
       return;
     }
@@ -1274,6 +1359,7 @@ export function useAgentChatSession({
         mode: selected.mode || null,
         permission_mode: selected.permissionMode || null,
         fast: selected.fast || null,
+        context: selected.context || null,
         cwd: cwd || null,
         workspace_id: workspaceId,
         project_id: projectId,
@@ -1359,6 +1445,7 @@ export function useAgentChatSession({
             mode: selected.mode || null,
             permission_mode: selected.permissionMode || null,
             fast: selected.fast || null,
+            context: selected.context || null,
             cwd: cwd || null,
             workspace_id: workspaceId,
             project_id: projectId,
@@ -1519,7 +1606,7 @@ export function useAgentChatSession({
       const message = error instanceof Error ? error.message : "Could not send that message";
       const auth = authRequiredFromTurnError(message, providerIdRef.current);
       if (auth) {
-        setSelectedAuthMethodId(auth.methods[0]?.id ?? "");
+        setSelectedAuthMethodId("");
         setAuthRequest(auth);
       } else {
         toastManager.add({ title: message, type: "error" });
@@ -1551,10 +1638,14 @@ export function useAgentChatSession({
     registryId?: string;
     authMethodId?: string;
     apiKey?: string;
-  }) => {
-    const envName = tokenAuthEnvName(opts?.authMethodId ?? selectedAuthMethodId);
+  }): Promise<CatalogAuthStartResult> => {
+    const methodId = opts?.authMethodId ?? selectedAuthMethodId;
+    const kind = catalogAuthMethodKind(methodId);
+    const envName = tokenAuthEnvName(methodId);
     const apiKey = opts?.apiKey?.trim() ?? "";
-    if (envName && apiKey) {
+    const agentId = opts?.registryId || providerIdRef.current;
+    const nativeHost = isNativeChatHostId(canonicalizeChatProviderId(agentId || ""));
+    if (kind === "token" && envName && apiKey && !nativeHost) {
       try {
         if (envName === DEEPSEEK_API_KEY_ENV) {
           await quotaUsageApi.addProviderApiKey("deepseek", null, apiKey);
@@ -1584,30 +1675,75 @@ export function useAgentChatSession({
         throw error;
       }
     }
-    setAuthRequest(null);
-    const retry = lastSentRef.current;
-    const chatId = activeIdRef.current;
-    if (retry && chatId) {
-      setSendError(null);
+    if (!methodId || !agentId) {
+      throw new Error("Could not authenticate");
+    }
+    const passMethodId = kind === "browser" || (kind === "token" && nativeHost);
+    try {
+      const next = await agentChatApi.optionsGet(
+        agentId,
+        true,
+        passMethodId ? methodId : undefined,
+        passMethodId && kind === "token" ? apiKey : undefined,
+      );
+      lastCatalogErrorToastRef.current = "";
+      applyLiveOptionsSnapshot(next);
+      const still = catalogAuthFromSnapshot(next);
+      if (still) {
+        setSelectedAuthMethodId(methodId);
+        setAuthRequest(still);
+        return { status: "still_required" };
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not authenticate";
+      toastManager.add({ title: message, type: "error" });
+      throw error;
+    }
+    return { status: "authenticated", refresh: passMethodId };
+  }, [applyLiveOptionsSnapshot, selectedAuthMethodId]);
+
+  const refreshSelectedAgentAfterAuth = useCallback(async (refresh: boolean) => {
+    const agentId = providerIdRef.current;
+    if (refresh && agentId) {
+      setOptionsRefreshing(true);
       try {
-        await persistConfig(composerSelection().patch);
-        await agentChatApi.send(chatId, retry.text, retry.attachmentPaths);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Could not send that message";
-        const auth = authRequiredFromTurnError(message, providerIdRef.current);
-        if (auth) {
-          setSelectedAuthMethodId(auth.methods[0]?.id ?? "");
-          setAuthRequest(auth);
-        } else {
-          toastManager.add({ title: message, type: "error" });
+        const next = await agentChatApi.optionsGet(agentId, true);
+        if (providerIdRef.current !== agentId) {
+          setOptionsRefreshing(false);
+          return;
         }
-        setSendError(message);
+        applyLiveOptionsSnapshot(next);
+      } catch (error) {
+        if (providerIdRef.current === agentId) {
+          setOptionsRefreshing(false);
+          const message = error instanceof Error ? error.message : "Could not refresh agent options";
+          toastCatalogError(message);
+        }
       }
     }
+    const retry = lastSentRef.current;
+    const chatId = activeIdRef.current;
+    if (!retry || !chatId) return;
+    setSendError(null);
+    try {
+      await persistConfig(composerSelection().patch);
+      await agentChatApi.send(chatId, retry.text, retry.attachmentPaths);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not send that message";
+      const auth = authRequiredFromTurnError(message, providerIdRef.current);
+      if (auth) {
+        setSelectedAuthMethodId("");
+        setAuthRequest(auth);
+      } else {
+        toastManager.add({ title: message, type: "error" });
+      }
+      setSendError(message);
+    }
   }, [
+    applyLiveOptionsSnapshot,
     composerSelection,
     persistConfig,
-    selectedAuthMethodId,
+    toastCatalogError,
   ]);
 
   const persistPreferredRegistry = useCallback((registryId: string) => {
@@ -1656,6 +1792,7 @@ export function useAgentChatSession({
       } else if (registryChanged) {
         setCatalog(null);
       }
+      setOptionsRefreshing(false);
     }
     // Restore the last landing snapshot for this agent (picker / first send).
     const preferred = preferredConfigFromDefault(
@@ -1667,6 +1804,7 @@ export function useAgentChatSession({
     setModeId(preferred.modeId);
     setPermissionModeId(preferred.permissionModeId);
     setFastId(preferred.fastId);
+    setContextId(preferred.contextId);
     if (nextRegistry) {
       rememberComposerChromeDraft(instanceKey, {
         providerId: nextRegistry,
@@ -1675,6 +1813,7 @@ export function useAgentChatSession({
         mode: preferred.modeId,
         permissionMode: preferred.permissionModeId,
         fast: preferred.fastId,
+        context: preferred.contextId,
       });
       persistAgentChatLastSession({
         workspaceId,
@@ -1807,8 +1946,9 @@ export function useAgentChatSession({
         modeId,
         permissionModeId,
         fastId,
+        contextId,
       }),
-    [catalog, descriptor, fastId, modeId, modelId, permissionModeId, providerId, thinkingId],
+    [catalog, contextId, descriptor, fastId, modeId, modelId, permissionModeId, providerId, thinkingId],
   );
 
   const setAgentDefaultConfig = useCallback((configId: string, value: string) => {
@@ -1839,10 +1979,24 @@ export function useAgentChatSession({
       mode: modeId,
       permissionMode: permissionModeId,
       fast: fastId,
+      context: contextId,
     };
     if (configKindMatches(key, undefined, "model")) {
       setModelId(value);
       next.model = value;
+      const choices = contextChoicesForModels(
+        descriptor?.supported_options.models ?? catalog?.models,
+        descriptor?.supported_options.context ?? catalog?.context,
+        value,
+      );
+      if (choices.length < 2) {
+        setContextId("");
+        next.context = "";
+      } else if (!choices.some((item) => item.id === contextId)) {
+        const aligned = defaultContextChoiceId(choices);
+        setContextId(aligned);
+        next.context = aligned;
+      }
     } else if (configKindMatches(key, undefined, "thinking")) {
       setThinkingId(value);
       next.thinking = value;
@@ -1855,6 +2009,9 @@ export function useAgentChatSession({
     } else if (configKindMatches(key, undefined, "fast")) {
       setFastId(value);
       next.fast = value;
+    } else if (configKindMatches(key, undefined, "context")) {
+      setContextId(value);
+      next.context = value;
     } else {
       return;
     }
@@ -1868,9 +2025,13 @@ export function useAgentChatSession({
         mode: next.mode,
         permissionMode: next.permissionMode,
         fast: next.fast,
+        context: next.context,
       });
     }
   }, [
+    catalog,
+    contextId,
+    descriptor,
     fastId,
     instanceKey,
     modeId,
@@ -1891,6 +2052,7 @@ export function useAgentChatSession({
     } else {
       setCatalog(null);
     }
+    setOptionsRefreshing(false);
     setDescriptor(null);
     setSupportsSteer(false);
     const preferred = preferredConfigFromDefault(
@@ -1902,6 +2064,7 @@ export function useAgentChatSession({
     setModeId(preferred.modeId);
     setPermissionModeId(preferred.permissionModeId);
     setFastId(preferred.fastId);
+    setContextId(preferred.contextId);
     persistPreferredRegistry(next);
     rememberComposerChromeDraft(instanceKey, {
       providerId: next,
@@ -1910,6 +2073,7 @@ export function useAgentChatSession({
       mode: preferred.modeId,
       permissionMode: preferred.permissionModeId,
       fast: preferred.fastId,
+      context: preferred.contextId,
     });
     if (activeIdRef.current) {
       void persistConfig({
@@ -1919,6 +2083,7 @@ export function useAgentChatSession({
         ...(preferred.modeId ? { mode: preferred.modeId } : {}),
         ...(preferred.permissionModeId ? { permission_mode: preferred.permissionModeId } : {}),
         ...(preferred.fastId ? { fast: preferred.fastId } : {}),
+        ...(preferred.contextId ? { context: preferred.contextId } : {}),
       });
     }
   }, [agentLocked, installedAgents, instanceKey, persistConfig, persistPreferredRegistry, setCatalog]);
@@ -2116,7 +2281,9 @@ export function useAgentChatSession({
       : null,
     capabilities: null,
     catalogModelsLoading: isOptionsModelsLoading(catalog, providerId),
+    catalogModelsReloading: optionsRefreshing,
     refreshEmptyCatalog,
+    reloadEmptyCatalog,
     configOptions,
     modelsLocked: false,
     modesLocked: false,
@@ -2182,8 +2349,12 @@ export function useAgentChatSession({
     authRequest,
     selectedAuthMethodId,
     setSelectedAuthMethodId,
-    clearAuthRequest: () => setAuthRequest(null),
+    clearAuthRequest: () => {
+      setAuthRequest(null);
+      setSelectedAuthMethodId("");
+    },
     startSession,
+    refreshSelectedAgentAfterAuth,
     exportableMessages,
     userMessageIndices: ui.userMessageIndices,
     messageNavIndex: ui.messageNavIndex,

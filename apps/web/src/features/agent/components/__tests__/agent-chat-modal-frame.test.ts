@@ -133,15 +133,34 @@ describe("agent chat modal frame", () => {
     expect(session).toContain("setPendingSessionOp(payload.request)");
     expect(session).toContain('payload.outcome === "failed"');
     expect(session).toContain("agentChatApi.sessionOpRespond");
-    expect(session).toContain('next.status === "error" ? next.message?.trim()');
-    expect(session).toContain('update.options.status === "error"');
+    expect(session).toContain("shouldRetainExistingOptions");
+    expect(session).toContain("applyLiveOptionsSnapshot");
+    expect(session).toContain("toastCatalogSnapshot");
+    expect(session).toContain("refreshSelectedAgentAfterAuth");
+    expect(session).toContain("catalogAuthMethodKind");
+    expect(session).toContain("{ status: \"authenticated\", refresh: passMethodId }");
+    expect(session).toContain("kind === \"token\" && nativeHost");
+    expect(session).toContain("passMethodId && kind === \"token\" ? apiKey");
     expect(session).toContain("toastCatalogError");
     expect(session).not.toContain("threadBannerError");
     expect(session).toContain("agent_options_updated");
     expect(session).toContain("composerConfigOptions");
     expect(session).toContain("optionsByAgentRef");
     expect(session).toContain("agentChatApi.optionsGet(id)");
-    expect(session).not.toContain("optionsGet(id, true)");
+    expect(session).toContain("agentChatApi.optionsGet(id, true)");
+    expect(session).toContain("reloadEmptyCatalog");
+    expect(session).toContain("setOptionsRefreshing(true)");
+    expect(session).toContain("catalogModelsReloading: optionsRefreshing");
+    expect(session).toContain("const keepList");
+    const refreshFn = session.slice(
+      session.indexOf("const refreshEmptyCatalog"),
+      session.indexOf("const reloadEmptyCatalog"),
+    );
+    expect(refreshFn).toContain("agentChatApi.optionsGet(id)");
+    expect(refreshFn).not.toContain("optionsGet(id, true)");
+    expect(panel).toContain("onLoadModels={reloadEmptyCatalog}");
+    expect(panel).toContain("catalogModelsReloading={catalogModelsReloading}");
+    expect(panel).toContain("refreshSelectedAgentAfterAuth={refreshSelectedAgentAfterAuth}");
     expect(session).toContain("setDescriptor(null);\n    setSupportsSteer(false);");
     expect(session).toContain('payload.type === "rewind_view_updated"');
     expect(session).toContain('payload.type === "session_forked"');
@@ -196,13 +215,10 @@ describe("agent chat modal frame", () => {
   });
 
   it("keeps the scroll-to-bottom control centered above the composer", () => {
-    const scrollButton = panel.slice(
-      panel.indexOf("<ConversationScrollButton"),
-      panel.indexOf("</ConversationScrollButton>"),
-    );
-
-    expect(scrollButton).toContain('aria-label={t("bottom")}');
-    expect(scrollButton).toContain("host={aboveComposerOverlaysNode}");
+    expect(panel).toContain("<AgentChatScrollToBottomButton");
+    expect(panel).toContain("host={aboveComposerOverlaysNode}");
+    expect(panel).toContain("belowCountStore={messagesBelowCountStore}");
+    expect(panel).not.toContain("<ConversationScrollButton");
     const nav = readFileSync(
       join(import.meta.dir, "../AgentMessageTimelineNav.tsx"),
       "utf8",
@@ -220,8 +236,14 @@ describe("agent chat modal frame", () => {
     const cardsAt = composerSource.indexOf("data-agent-composer-upper-cards");
     expect(scrollHostAt).toBeGreaterThan(overlayAt);
     expect(cardsAt).toBeGreaterThan(scrollHostAt);
+    const scrollButton = readFileSync(
+      join(import.meta.dir, "../AgentChatScrollToBottom.tsx"),
+      "utf8",
+    );
     expect(scrollButton).not.toContain("hover:w-24");
     expect(scrollButton).not.toContain("border-dashed");
     expect(scrollButton).not.toContain("group-hover:max-w");
+    expect(scrollButton).toContain("SlidingNumber");
+    expect(scrollButton).toContain("TextMorph");
   });
 });

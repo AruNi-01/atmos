@@ -27,6 +27,7 @@ export function AgentPartView({
   streaming,
   thinkingMs,
   reviewComponents,
+  toolResultOpen = false,
 }: {
   part: AgentPart;
   index: number;
@@ -37,6 +38,7 @@ export function AgentPartView({
     code: (props: ComponentPropsWithoutRef<"code"> & { node?: unknown }) => ReactNode;
     a?: (props: ComponentPropsWithoutRef<"a">) => ReactNode;
   };
+  toolResultOpen?: boolean;
 }) {
   const t = useTranslations("Agent.components.chatPanel");
   if (part.type === "plan" || part.type === "attachment") return null;
@@ -67,7 +69,7 @@ export function AgentPartView({
     return (
       <Reasoning
         isStreaming={isCurrentlyThinking}
-        defaultOpen={isCurrentlyThinking}
+        defaultOpen={toolResultOpen || isCurrentlyThinking}
         duration={duration}
       >
         <ReasoningTrigger
@@ -114,7 +116,7 @@ export function AgentPartView({
   }
 
   if (part.type === "tool_call") {
-    return <ToolView part={part} />;
+    return <ToolView part={part} defaultOpen={toolResultOpen} />;
   }
 
   return null;

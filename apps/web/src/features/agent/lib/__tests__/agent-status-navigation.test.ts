@@ -202,6 +202,22 @@ describe("buildAgentStatusSessionPath", () => {
       ),
     ).toBe("/workspace?id=ws-1&tab=agent-chat%3Achat-1");
   });
+
+  it("deep-links a chat session with the already-open tab value", () => {
+    expect(
+      buildAgentStatusSessionPath(
+        session({
+          session_id: "chat:chat-1",
+          pane_id: null,
+          surface: "chat",
+          surface_id: "chat-1",
+        }),
+        projects,
+        null,
+        "agent-chat:draft:abc",
+      ),
+    ).toBe("/workspace?id=ws-1&tab=agent-chat%3Adraft%3Aabc");
+  });
 });
 
 describe("canNavigateToAgentStatusSession", () => {
@@ -244,7 +260,8 @@ describe("navigateToAgentStatusSession space handoff", () => {
     expect(src).toContain("makeCenterSpaceKey(contextId, target.spaceId)");
     expect(src).toContain("preserveDeepLink: true");
     expect(src).toContain("prepareChatCenterTab(");
-    expect(src).toContain("activateCenterChromeTab(paintContextId, tabValue");
+    expect(src).toContain("activateCenterChromeTab(tab.contextId, tab.value");
+    expect(src).toContain("findAgentChatCenterTab(");
     expect(src).toContain('target.surface === "chat"');
     const commitAt = src.indexOf("commitLocatedPaneNavigation(router, path)");
     const switchAt = src.indexOf("switchCenterSpace(contextId, target.spaceId");

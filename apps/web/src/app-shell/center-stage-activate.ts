@@ -66,31 +66,45 @@ export function activateCenterChromeTab(
   },
 ): void {
   if (!contextId || !tab) return;
-  setCenterStageLastTab(contextId, tab);
-  recordCenterTabActivation(contextId, tab);
 
-  if (tab === "overview") {
+  const chatStore = useAgentChatCenterTabsStore.getState();
+  const parsedChatId = parseAgentChatTabValue(tab);
+  let resolvedTab = tab;
+  let boundChatId: string | null = null;
+  if (parsedChatId && !parsedChatId.startsWith("draft:")) {
+    const opened = chatStore.openTab({ contextId, chatId: parsedChatId });
+    resolvedTab = opened.value;
+    boundChatId = opened.chatId ?? parsedChatId;
+  } else if (parsedChatId) {
+    boundChatId =
+      (chatStore.tabsByContext[contextId] ?? [])
+        .find((item) => item.value === tab)
+        ?.chatId?.trim() || null;
+  }
+
+  setCenterStageLastTab(contextId, resolvedTab);
+  recordCenterTabActivation(contextId, resolvedTab);
+
+  if (resolvedTab === "overview") {
     useOverviewCenterTabStore.getState().open(contextId);
   }
-  if (isCenterToolTabValue(tab)) {
-    useToolCenterTabsStore.getState().open(contextId, tab);
+  if (isCenterToolTabValue(resolvedTab)) {
+    useToolCenterTabsStore.getState().open(contextId, resolvedTab);
   }
-  if (tab === SIMULATOR_TAB_VALUE) {
+  if (resolvedTab === SIMULATOR_TAB_VALUE) {
     useSimulatorCenterTabStore.getState().open(contextId);
   }
-  if (tab === GIT_HISTORY_TAB_VALUE) {
+  if (resolvedTab === GIT_HISTORY_TAB_VALUE) {
     useGitHistoryCenterTabStore.getState().open(contextId);
   }
-  if (isTerminalTab(tab)) {
-    useTerminalStore.getState().setActiveTerminalTab(contextId, tab);
+  if (isTerminalTab(resolvedTab)) {
+    useTerminalStore.getState().setActiveTerminalTab(contextId, resolvedTab);
   }
-  const chatId = parseAgentChatTabValue(tab);
-  if (chatId && !chatId.startsWith("draft:")) {
-    useAgentChatCenterTabsStore.getState().openTab({ contextId, chatId });
-    useAgentAttentionStore.getState().notifyPaneFocused(`chat:${chatId}`, {
+  if (boundChatId) {
+    useAgentAttentionStore.getState().notifyPaneFocused(`chat:${boundChatId}`, {
       ack: opts?.attentionAck ?? "immediate",
     });
-  } else {
+  } else if (parsedChatId) {
     const focused = useAgentAttentionStore.getState().focusedStablePaneId;
     if (focused?.startsWith("chat:")) {
       useAgentAttentionStore.getState().notifyPaneFocused(null);
@@ -98,13 +112,13 @@ export function activateCenterChromeTab(
   }
 
   const editor = useEditorStore.getState();
-  if (isEditorFileTab(tab)) {
-    editor.setActiveFile(tab, contextId);
+  if (isEditorFileTab(resolvedTab)) {
+    editor.setActiveFile(resolvedTab, contextId);
   } else {
     editor.setActiveFile(null, contextId);
   }
 
   if (opts?.attach !== false) {
-    attachCenterTab(contextId, tab, { placement: opts?.placement });
+    attachCenterTab(contextId, resolvedTab, { placement: opts?.placement });
   }
 }

@@ -4,6 +4,10 @@ import {
   isAssistantAnswerTextPart,
   splitTrailingAnswer,
 } from "@/features/agent/lib/assistant-process-parts";
+import {
+  DEFAULT_TOOL_CALL_DENSITY,
+  type ToolCallDensity,
+} from "@/features/agent/lib/tool-call-density";
 
 export type ToolOverviewKind =
   | "write"
@@ -19,7 +23,7 @@ export type AssistantSegment =
   | { type: "part"; part: AgentPart; origIndex: number }
   | {
       type: "tool_group";
-      parts: AgentToolCallPart[];
+      parts: AgentPart[];
       origIndexes: number[];
     };
 
@@ -74,42 +78,78 @@ export function iconKindForOverview(kind: ToolOverviewKind): AgentToolKind {
   return OVERVIEW_TO_ICON_KIND[kind];
 }
 
+function isVisibleTextPart(part: AgentPart): boolean {
+  return part.type === "text" && Boolean(part.text);
+}
+
+function isSessionChromePart(part: AgentPart): boolean {
+  return (
+    part.type === "session_lifecycle"
+    || part.type === "session_config_change"
+    || part.type === "session_hint"
+  );
+}
+
 function isRenderedNonToolPart(part: AgentPart): boolean {
   if (part.type === "plan" || part.type === "attachment") return false;
   if (part.type === "text") return Boolean(part.text);
   if (part.type === "thinking") return Boolean(part.text);
-  return part.type === "error" || part.type === "session_lifecycle" || part.type === "session_config_change" || part.type === "session_hint";
+  if (part.type === "error") return Boolean(part.message);
+  return isSessionChromePart(part);
 }
 
-export function segmentAssistantParts(parts: AgentPart[]): AssistantSegment[] {
-  const segments: AssistantSegment[] = [];
-  let tools: { part: AgentToolCallPart; origIndex: number }[] = [];
+function isFoldableProcessPart(part: AgentPart): boolean {
+  if (part.type === "plan" || part.type === "attachment" || isVisibleTextPart(part)) return false;
+  if (isSessionChromePart(part)) return false;
+  if (part.type === "tool_call") return true;
+  return isRenderedNonToolPart(part);
+}
 
-  const flushTools = () => {
-    if (tools.length >= 2) {
+export function toolCallPartsFromGroup(parts: AgentPart[]): AgentToolCallPart[] {
+  return parts.filter((part): part is AgentToolCallPart => part.type === "tool_call");
+}
+
+/** Write and command tools stay visible in detailed density. */
+export function isDetailExpandedTool(part: AgentPart): boolean {
+  if (part.type !== "tool_call") return false;
+  const kind = overviewKindForTool(part.kind);
+  return kind === "write" || kind === "command";
+}
+
+export function segmentAssistantParts(
+  parts: AgentPart[],
+  density: ToolCallDensity = DEFAULT_TOOL_CALL_DENSITY,
+): AssistantSegment[] {
+  const segments: AssistantSegment[] = [];
+  let pending: { part: AgentPart; origIndex: number }[] = [];
+  const flushPending = () => {
+    if (pending.length >= 1) {
       segments.push({
         type: "tool_group",
-        parts: tools.map((item) => item.part),
-        origIndexes: tools.map((item) => item.origIndex),
+        parts: pending.map((item) => item.part),
+        origIndexes: pending.map((item) => item.origIndex),
       });
-    } else {
-      for (const item of tools) {
-        segments.push({ type: "part", part: item.part, origIndex: item.origIndex });
-      }
     }
-    tools = [];
+    pending = [];
   };
 
   parts.forEach((part, origIndex) => {
-    if (part.type === "tool_call") {
-      tools.push({ part, origIndex });
+    if (density === "compact") {
+      if (isFoldableProcessPart(part)) {
+        pending.push({ part, origIndex });
+        return;
+      }
+      if (!isVisibleTextPart(part) && !isSessionChromePart(part)) return;
+      flushPending();
+      segments.push({ type: "part", part, origIndex });
       return;
     }
-    if (!isRenderedNonToolPart(part)) return;
-    flushTools();
-    segments.push({ type: "part", part, origIndex });
+
+    if (part.type === "tool_call" || isRenderedNonToolPart(part)) {
+      segments.push({ type: "part", part, origIndex });
+    }
   });
-  flushTools();
+  flushPending();
   return segments;
 }
 
@@ -154,6 +194,8 @@ export function sentenceCaseOverview(text: string, locale: string): string {
   return first.toUpperCase() + text.slice(1);
 }
 
-export function toolGroupHasRunning(parts: AgentToolCallPart[]): boolean {
-  return parts.some((part) => (part.status ?? "").toLowerCase() === "running");
+export function toolGroupHasRunning(parts: AgentPart[]): boolean {
+  return toolCallPartsFromGroup(parts).some(
+    (part) => (part.status ?? "").toLowerCase() === "running",
+  );
 }

@@ -51,6 +51,7 @@ describe("agent prompt composer", () => {
     expect(composer).toContain("AgentsPromptInput");
     expect(composer).toContain("agentLocked={agentLocked || !onProviderChange}");
     expect(composer).toContain("thinkingLevels=");
+    expect(composer).toContain("group: entry.group");
     expect(composer).toContain('fastMode: t("composer.fastMode")');
     expect(composer).toContain("isThinkingConfigId(option.id, option.category)");
     expect(composer).toContain("modes={toModePromptModels");
@@ -66,6 +67,8 @@ describe("agent prompt composer", () => {
     expect(composer).toContain("const agentsLocked = agentLocked || !onProviderChange");
     expect(composer).toContain('agentsLocked && "opacity-40"');
     expect(composer).toContain('fastChip: t("composer.fastChip")');
+    expect(composer).toContain('context: t("composer.context")');
+    expect(composer).toContain("contextLevels={toPromptModels(contextOption)}");
     expect(composer).toContain('agentLocked: t("composer.agentLocked")');
     expect(composer).toContain('radius="3xl"');
     expect(composer).toContain('"w-full shadow-none"');
@@ -77,14 +80,9 @@ describe("agent prompt composer", () => {
     expect(composer).not.toContain("mx-6 overflow-hidden rounded-3xl border border-border/70 bg-background/95");
     expect(composer).not.toContain("border-b-0 border-border/70 bg-background/95");
     expect(composer).not.toContain("relative flex flex-col gap-2");
-    expect(composer).toContain("ComposerFlyingMessagePortal");
-    expect(composer).toContain("launchComposerFly");
-    expect(composer).toContain("composerRootRef");
-    expect(composer).toContain("composerShellOrigin(composer)");
-    expect(composer).toContain("composerFlyTarget(kind, composer)");
-    expect(composer).not.toContain("composerShellOrigin()");
-    expect(composer).not.toContain("composerFlyTarget(kind);");
-    expect(composer).toContain('agentActivity.busy ? "queue" : "conversation"');
+    expect(composer).not.toContain("ComposerFlyingMessagePortal");
+    expect(composer).not.toContain("launchComposerFly");
+    expect(composer).not.toContain("onFlySend");
     expect(composer).toContain("data-agent-composer-upper-cards");
     expect(composer).toContain("<BackgroundCommandsDock tools={backgroundTools} />");
     expect(composer).toContain('data-agent-chat-above-composer-overlays=""');
@@ -103,6 +101,10 @@ describe("agent prompt composer", () => {
     expect(composer).toContain('modeLocked: t("composer.modeLocked")');
     expect(composer).toContain('permissionLocked: t("composer.permissionLocked")');
     expect(composer).toContain("onEmptyModelsOpen={onEmptyModelsOpen}");
+    expect(composer).toContain("onLoadModels={onLoadModels}");
+    expect(composer).toContain('loadModels: t("composer.loadModels")');
+    expect(composer).toContain('reloadModels: t("composer.reloadModels")');
+    expect(composer).toContain("modelsReloading={catalogModelsReloading}");
     expect(composer).toContain("const composerLocked = isResumingHistory && !isConnected");
     expect(composer).toContain("disabled={composerLocked}");
     expect(composer).not.toContain("disabled={!isConnected}");
@@ -140,7 +142,7 @@ describe("agent prompt composer", () => {
     expect(composer).toContain("minRows={landing ? 2 : 1}");
     expect(composer).toContain('"min-h-16 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"');
     expect(composer).toContain('"min-h-5 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"');
-    expect(composer).toContain("data-agent-composer-landing={landing ? \"true\" : undefined}");
+    expect(composer).not.toContain("data-agent-composer-landing");
   });
 
   it("resolves placeholder from session create/resume/live state", () => {
@@ -163,10 +165,8 @@ describe("agent prompt composer", () => {
     const convertAt = body.indexOf("filesForSubmit(files)");
     const clearAt = body.indexOf("attachments.clear()");
     const submitAt = body.indexOf("await onSubmit({ text: composed, files: converted })");
-    const flyAt = body.indexOf("onFlySend?.(composed)");
     expect(convertAt).toBeGreaterThan(-1);
-    expect(flyAt).toBeGreaterThan(-1);
-    expect(flyAt).toBeLessThan(convertAt);
+    expect(body).not.toContain("onFlySend");
     expect(clearAt).toBeGreaterThan(convertAt);
     expect(submitAt).toBeGreaterThan(clearAt);
     expect(body).toContain("filesFromComposerParts(converted)");

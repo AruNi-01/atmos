@@ -2912,11 +2912,14 @@
         "permissionLocked": "当前会话中此 Agent 无法切换权限",
         "backToAgents": "Agent",
         "loadingModels": "正在加载模型",
+        "loadModels": "加载",
+        "reloadModels": "重新加载模型",
         "thinkingFaster": "更快",
         "thinkingSmarter": "更强",
         "thinkingEffort": "思考",
         "fastMode": "快速档位",
         "fastChip": "快速",
+        "context": "上下文",
         "queue": "排队",
         "steer": "引导",
         "oneShotQueue": "这次排队",
@@ -3032,6 +3035,8 @@
         "fetch": "{count} 次摄取",
         "search": "{count} 次搜索",
         "read": "{count} 次读取",
+        "thinking": "思考中",
+        "working": "处理中",
         "expandAria": "展开工具调用：{overview}",
         "collapseAria": "收起工具调用：{overview}"
       },
@@ -3137,7 +3142,13 @@
         "description": "继续之前请先完成 Agent 认证。",
         "apiKeyLabel": "API 令牌",
         "apiKeyPlaceholder": "粘贴 API 令牌",
-        "saveAndContinue": "保存并继续"
+        "cliCommandLabel": "在终端中运行",
+        "copyCommand": "复制",
+        "copied": "已复制",
+        "signedIn": "我已登录",
+        "authenticated": "已认证",
+        "browserHint": "将打开浏览器完成登录。",
+        "openBrowser": "在浏览器中继续"
       },
       "linkSafety": {
         "closeTitle": "关闭预览",
@@ -3318,7 +3329,9 @@
           }
         },
         "catalogError": {
-          "title": "无法加载 Agent 选项"
+          "title": "无法加载 Agent 选项",
+          "auth": "Auth",
+          "authRequired": "这个 Agent 需要你先登录。"
         },
         "loading": "加载中...",
         "restoringSession": "正在恢复会话...",
@@ -3328,6 +3341,12 @@
           "startDescription": "在下方输入消息即可开始聊天"
         },
         "bottom": "底部",
+        "scrollBelow": {
+          "prefix": "下面有",
+          "unit": "",
+          "suffix": "条消息",
+          "aria": "下面有 {count} 条消息"
+        },
         "permissionRequested": "权限请求中",
         "askUserTitle": "需要你回答",
         "planApprovalTitle": "计划已就绪",
@@ -5479,6 +5498,9 @@
             "yoloMode": {
               "label": "YOLO 模式"
             },
+            "toolCallDensity": {
+              "label": "工具调用密度"
+            },
             "activityIndicators": {
               "label": "Agent 活动指示器"
             },
@@ -6287,6 +6309,18 @@
         "description": "开启后，Agent 启动会带上跳过权限确认 / 自动批准参数（如 --yolo、--dangerously-skip-permissions）。关闭则使用更安全的需确认模式。",
         "restoreHint": "重新开启 YOLO，并清除所有内置 Agent 的自定义参数覆盖，使其恢复内置 YOLO 默认参数。",
         "restoreAll": "一键恢复全部 Agent 的 YOLO"
+      },
+      "toolCallDensity": {
+        "groupTitle": "对话显示",
+        "groupDescription": "控制 Agent Chat 如何展示工具活动。",
+        "title": "工具调用密度",
+        "description": "调整工具调用展示的详细程度。",
+        "compact": "精简",
+        "standard": "标准",
+        "detailed": "详细",
+        "sampleAnswer": "已更新辅助函数并补上测试。",
+        "sampleMidText": "辅助函数没问题，接下来补测试。",
+        "sampleThought": "先看辅助函数和测试文件。"
       },
       "activityIndicators": {
         "title": "Agent 活动指示器",

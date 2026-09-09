@@ -202,6 +202,7 @@ describe("agent chat last session", () => {
     expect(source).toContain("lastNewChatConfigForAgent");
     expect(source).toContain("permission_mode: selected.permissionMode");
     expect(source).toContain("fast: selected.fast");
+    expect(source).toContain("context: selected.context");
     expect(source).toContain("last_new_chat_config");
     expect(source).toContain("mergeLastNewChatConfigs");
     expect(source).toContain("keepComposerChrome");

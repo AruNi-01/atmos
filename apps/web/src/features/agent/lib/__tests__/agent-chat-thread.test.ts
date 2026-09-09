@@ -15,6 +15,9 @@ import {
   isComposerTrailingConfigOption,
   isThinkingConfigId,
   thinkingChoices,
+  contextChoices,
+  modelPickerName,
+  selectedModelSupportsFast,
   thinkingLevelLabel,
   thinkingLevelMessageKey,
   permissionModeMessageKey,
@@ -220,6 +223,31 @@ describe("agent chat helpers", () => {
     ]);
   });
 
+  it("keeps catalog provider groups on model options", () => {
+    const options = optionsSnapshotToConfigOptions(
+      {
+        agent_id: "opencode",
+        status: "ok",
+        models: [
+          { id: "openai/gpt-5", label: "GPT-5", group: "openai" },
+          { id: "anthropic/claude-sonnet-4-5", label: "Sonnet", group: "Anthropic" },
+        ],
+        modes: [],
+        thinking: { type: "none" },
+        strategies_used: [],
+        fetched_at: "",
+        source: "cache",
+        message: null,
+      },
+      "openai/gpt-5",
+      "",
+    );
+    expect(options.find((item) => item.id === "model")?.options).toEqual([
+      { value: "openai/gpt-5", name: "GPT-5", group: "openai" },
+      { value: "anthropic/claude-sonnet-4-5", name: "Sonnet", group: "Anthropic" },
+    ]);
+  });
+
   it("shows an ACP-reported model before the catalog list arrives", () => {
     const options = optionsSnapshotToConfigOptions(
       probingOptionsSnapshot("claude"),
@@ -408,6 +436,111 @@ describe("agent chat helpers", () => {
       current_config: { model: "composer-2.5", thinking: null },
     } as never);
     expect(options.find((item) => item.id === "thinking")).toBeUndefined();
+  });
+
+  it("exposes per-model context windows and hides them when a model has none", () => {
+    const catalog = {
+      agent_id: "cursor",
+      status: "ok" as const,
+      models: [
+        {
+          id: "gpt-5.4",
+          label: "GPT-5.4",
+          context: [
+            { id: "272k", label: "272K", is_default: true },
+            { id: "1m", label: "1M" },
+          ],
+        },
+        {
+          id: "composer-2.5",
+          label: "Composer 2.5",
+        },
+        {
+          id: "claude-opus-4-8",
+          label: "Claude Opus 4.8",
+          context: [
+            { id: "300k", label: "300K", is_default: true },
+            { id: "1m", label: "1M" },
+          ],
+        },
+      ],
+      modes: [],
+      thinking: { type: "none" as const },
+      strategies_used: [],
+      fetched_at: "",
+      source: "live" as const,
+      message: null,
+    };
+    expect(contextChoices(catalog, "gpt-5.4").map((item) => item.id)).toEqual(["272k", "1m"]);
+    expect(contextChoices(catalog, "claude-opus-4-8").map((item) => item.id)).toEqual(["300k", "1m"]);
+    expect(contextChoices(catalog, "composer-2.5")).toEqual([]);
+    const gptOptions = optionsSnapshotToConfigOptions(catalog, "gpt-5.4", "", "", "", "272k");
+    expect(gptOptions.find((item) => item.id === "context")?.options.map((item) => item.value)).toEqual([
+      "272k",
+      "1m",
+    ]);
+    const composerOptions = optionsSnapshotToConfigOptions(catalog, "composer-2.5", "");
+    expect(composerOptions.find((item) => item.id === "context")).toBeUndefined();
+    const gpt1m = optionsSnapshotToConfigOptions(catalog, "gpt-5.4", "", "", "", "1m");
+    expect(gpt1m.find((item) => item.id === "model")?.options[0]?.name).toBe("GPT-5.4 1M");
+    expect(gpt1m.find((item) => item.id === "model")?.options[1]?.name).toBe("Composer 2.5");
+    const pending1m = descriptorToConfigOptions(
+      {
+        identity: { id: "cursor", name: "Cursor" },
+        capabilities: {
+          steer: "unsupported",
+          resume: "unsupported",
+          permission: "supported",
+          configure: "supported",
+          fork: "unsupported",
+          rewind: "unsupported",
+        },
+        support: {
+          models: "supported",
+          thinking: "unsupported",
+          modes: "unsupported",
+          permission_modes: "unsupported",
+          context: "supported",
+        },
+        supported_options: {
+          models: catalog.models,
+          thinking: { type: "none" },
+          modes: [],
+          permission_modes: [],
+          fast: [],
+        },
+        current_config: { model: "gpt-5.4", context: "272k" },
+      } as never,
+      "gpt-5.4",
+      "1m",
+    );
+    expect(pending1m.find((item) => item.id === "model")?.options[0]?.name).toBe("GPT-5.4 1M");
+  });
+
+  it("shows Fast for Cursor models that advertise it and hides it on Auto", () => {
+    const catalog = {
+      agent_id: "cursor",
+      status: "ok" as const,
+      models: [
+        { id: "gpt-5.4", label: "GPT-5.4", fast: true },
+        { id: "claude-opus-5", label: "Claude Opus 5", fast: true },
+        { id: "auto", label: "Auto" },
+      ],
+      modes: [],
+      thinking: { type: "none" as const },
+      strategies_used: [],
+      fetched_at: "",
+      source: "live" as const,
+      message: null,
+    };
+    expect(selectedModelSupportsFast(catalog.models, "gpt-5.4", [])).toBe(true);
+    expect(selectedModelSupportsFast(catalog.models, "auto", [])).toBe(false);
+    expect(optionsSnapshotToConfigOptions(catalog, "gpt-5.4", "").find((item) => item.id === "fast")).toBeDefined();
+    expect(optionsSnapshotToConfigOptions(catalog, "auto", "").find((item) => item.id === "fast")).toBeUndefined();
+    expect(modelPickerName("GPT-5.4", "gpt-5.4", "gpt-5.4", "1m", [
+      { id: "272k", label: "272K" },
+      { id: "1m", label: "1M" },
+    ])).toBe("GPT-5.4 1M");
   });
 
   it("puts ACP reasoning-effort options on the trailing thinking control", () => {
@@ -951,8 +1084,8 @@ describe("agent chat helpers", () => {
       agent_id: "cursor",
       status: "ok",
       models: [
-        { id: "gpt-5.3-codex", label: "Codex 5.3", is_default: true },
-        { id: "composer-2.5", label: "Composer 2.5" },
+        { id: "gpt-5.3-codex", label: "Codex 5.3", is_default: true, fast: true },
+        { id: "composer-2.5", label: "Composer 2.5", fast: true },
       ],
       modes: [{ id: "agent", label: "Agent" }],
       permission_modes: [],
@@ -1007,8 +1140,8 @@ describe("agent chat helpers", () => {
       agent_id: "cursor",
       status: "ok",
       models: [
-        { id: "gpt-5.3-codex", label: "Codex 5.3", is_default: true },
-        { id: "composer-2.5", label: "Composer 2.5" },
+        { id: "gpt-5.3-codex", label: "Codex 5.3", is_default: true, fast: true },
+        { id: "composer-2.5", label: "Composer 2.5", fast: true },
       ],
       modes: [],
       permission_modes: [],

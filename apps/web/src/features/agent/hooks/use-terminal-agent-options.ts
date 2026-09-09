@@ -34,18 +34,32 @@ export function useTerminalAgentOptions(agentId: string, enabled: boolean) {
           agent_id: agentId,
           refresh,
         });
-        setCatalog(nextCatalog);
+        setCatalog((current) => {
+          if (
+            current &&
+            current.models.length > 0 &&
+            (nextCatalog.status === "error"
+              || nextCatalog.status === "unsupported"
+              || nextCatalog.models.length === 0)
+          ) {
+            return current;
+          }
+          return nextCatalog;
+        });
         setLoading(nextCatalog.status === "probing");
         return nextCatalog;
       } catch (error) {
         const message = error instanceof Error ? error.message : t("loadFailed");
         setRequestError(message);
-        setCatalog({
-          agent_id: agentId,
-          status: "error",
-          models: [],
-          message,
-          source: "live",
+        setCatalog((current) => {
+          if (current && current.models.length > 0) return current;
+          return {
+            agent_id: agentId,
+            status: "error",
+            models: [],
+            message,
+            source: "live",
+          };
         });
         return null;
       } finally {
@@ -69,9 +83,21 @@ export function useTerminalAgentOptions(agentId: string, enabled: boolean) {
     if (!enabled || !agentId) return;
     return useWebSocketStore.getState().onEvent("agent_options_updated", (payload) => {
       const update = payload as { agent_id?: string; options?: TerminalAgentOptions };
-      if (!update.agent_id || update.agent_id !== agentId || !update.options) return;
-      setCatalog(update.options);
-      setLoading(update.options.status === "probing");
+      const incoming = update.options;
+      if (!update.agent_id || update.agent_id !== agentId || !incoming) return;
+      setCatalog((current) => {
+        if (
+          current &&
+          current.models.length > 0 &&
+          (incoming.status === "error"
+            || incoming.status === "unsupported"
+            || incoming.models.length === 0)
+        ) {
+          return current;
+        }
+        return incoming;
+      });
+      setLoading(incoming.status === "probing");
     });
   }, [agentId, enabled]);
 

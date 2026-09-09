@@ -15,9 +15,11 @@ import {
 export function OtherToolCard({
   part,
   surface = "card",
+  defaultOpen = false,
 }: {
   part: AgentToolCallPart;
   surface?: AgentToolSurface;
+  defaultOpen?: boolean;
 }) {
   const displayTitle = useDisplayToolTitle();
   const rawTitle = (part.title || part.name).trim() || "Tool";
@@ -35,6 +37,7 @@ export function OtherToolCard({
       title={title}
       titleTooltip={rawTitle}
       status={part.status ?? undefined}
+      defaultOpen={defaultOpen}
     >
       {paramsJson ? <AgentToolJsonBody json={paramsJson} /> : null}
       {resultBody?.kind === "json" ? <AgentToolJsonBody json={resultBody.value} /> : null}

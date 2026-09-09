@@ -21,6 +21,10 @@ import React, {
 } from "react";
 import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
+import {
+  countMessagesBelowViewport,
+  type MessagesBelowCountStore,
+} from "@/features/agent/lib/agent-chat-below-count";
 import { resolveActiveUserMessageIndex, userMessageRectsFromMeasurements } from "@/features/agent/lib/agent-chat-message-nav";
 import {
   AGENT_CHAT_MERMAID_KEEPALIVE,
@@ -42,6 +46,7 @@ export function AgentChatTranscriptList({
   userMessageIndices,
   onActiveUserMessage,
   scrollToIndexRef,
+  belowCountStore = null,
   activityStatus = null,
 }: {
   messages: AgentMessage[];
@@ -50,6 +55,7 @@ export function AgentChatTranscriptList({
   userMessageIndices: readonly number[];
   onActiveUserMessage: (index: number) => void;
   scrollToIndexRef: RefObject<((index: number) => void) | null>;
+  belowCountStore?: MessagesBelowCountStore | null;
   /**
    * Rendered in-flow under the latest message (last virtual row footer).
    * Keeps the status glued to streaming content so absolute-row overflow cannot
@@ -159,6 +165,15 @@ export function AgentChatTranscriptList({
   useLayoutEffect(() => {
     syncActiveRef.current = () => {
       const scroll = getScrollElement();
+      if (belowCountStore && scroll) {
+        belowCountStore.set(
+          countMessagesBelowViewport(
+            virtualizer.measurementsCache,
+            messages.length,
+            { scrollTop: scroll.scrollTop, height: scroll.clientHeight },
+          ),
+        );
+      }
       if (!scroll || userMessageIndices.length === 0) return;
       const rects = userMessageRectsFromMeasurements(
         userMessageIndices,
@@ -175,6 +190,12 @@ export function AgentChatTranscriptList({
     };
     syncActiveRef.current();
   });
+
+  useEffect(() => {
+    return () => {
+      belowCountStore?.set(0);
+    };
+  }, [belowCountStore]);
 
   useEffect(() => {
     const scroll = getScrollElement();

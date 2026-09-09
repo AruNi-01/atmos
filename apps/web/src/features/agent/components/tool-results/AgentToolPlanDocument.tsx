@@ -28,9 +28,11 @@ function todosFromPart(part: AgentToolCallPart): TodoItem[] {
 export function AgentToolPlanDocument({
   part,
   surface = "card",
+  defaultOpen: defaultOpenProp = false,
 }: {
   part: AgentToolCallPart;
   surface?: AgentToolSurface;
+  defaultOpen?: boolean;
 }) {
   const t = useTranslations("Agent.components.toolResults");
   const params = part.params?.type === "plan_document" ? part.params : null;
@@ -48,7 +50,7 @@ export function AgentToolPlanDocument({
   const activePane: PlanPane = canSwitch ? pane : hasBody ? "body" : "todos";
   const failed = (part.status ?? "").toLowerCase() === "failed";
   // Completed createPlan should open so the plan markdown is visible without an extra click.
-  const defaultOpen = hasBody || hasTodos;
+  const defaultOpen = defaultOpenProp || hasBody || hasTodos;
 
   return (
     <AgentToolCard

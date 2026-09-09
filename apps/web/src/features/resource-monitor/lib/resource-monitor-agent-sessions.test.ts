@@ -172,6 +172,25 @@ describe("collectResourceMonitorChatSessions", () => {
     expect(chat?.workspaceId).toBe("ws-1");
   });
 
+  test("reads space from the open tab when status space disagrees", () => {
+    const paintId = makeCenterSpaceKey("ws-1", "space-review");
+    const [chat] = collectResourceMonitorChatSessions({
+      agentSessions: [status({ space_id: "main", surface_id: "chat-2", session_id: "chat:chat-2" })],
+      chatTabsByContext: {
+        [paintId]: [
+          tab({
+            contextId: paintId,
+            chatId: "chat-2",
+            title: "Review chat",
+          }),
+        ],
+      },
+      projects,
+    });
+    expect(chat?.spaceId).toBe("space-review");
+    expect(chat?.agentStatus.space_id).toBe("space-review");
+  });
+
   test("places a project-direct chat on the project, not a workspace", () => {
     const [chat] = collectResourceMonitorChatSessions({
       agentSessions: [status({ context_id: "proj-1", session_id: "chat:p1" })],

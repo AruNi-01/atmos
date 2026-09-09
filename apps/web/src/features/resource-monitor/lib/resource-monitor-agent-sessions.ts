@@ -6,6 +6,7 @@ import type {
 } from "@atmos/api-types/ws/dto/resource-monitor";
 import {
   DEFAULT_CENTER_SPACE_ID,
+  makeCenterSpaceKey,
   parseCenterSpaceKey,
 } from "@/app-shell/center-space/center-space";
 import {
@@ -14,7 +15,10 @@ import {
   type AgentStatusRecord,
   type AgentToolType,
 } from "@/features/agent/store/agent-status-store";
-import type { AgentChatCenterTab } from "@/features/agent/store/use-agent-chat-center-tabs";
+import {
+  findAgentChatCenterTab,
+  type AgentChatCenterTab,
+} from "@/features/agent/store/use-agent-chat-center-tabs";
 import { EMPTY_RESOURCE_USAGE } from "@/features/resource-monitor/lib/resource-monitor-hierarchy";
 import type { ResourceMonitorListedSession } from "@/features/resource-monitor/lib/resource-monitor-listed-session";
 import type { Project } from "@/shared/types/domain";
@@ -116,23 +120,6 @@ function chatIdFromStatus(session: AgentStatusRecord): string | null {
   );
 }
 
-function findChatTab(
-  tabsByContext: Record<string, readonly AgentChatCenterTab[]>,
-  chatId: string,
-  preferredHostId?: string | null,
-): AgentChatCenterTab | undefined {
-  let fallback: AgentChatCenterTab | undefined;
-  for (const [contextKey, tabs] of Object.entries(tabsByContext)) {
-    const match = tabs.find((tab) => tab.chatId === chatId);
-    if (!match) continue;
-    if (!preferredHostId) return match;
-    const { hostId } = parseCenterSpaceKey(contextKey);
-    if (hostId === preferredHostId) return match;
-    fallback ??= match;
-  }
-  return fallback;
-}
-
 function synthesizeChatStatus(input: {
   chatId: string;
   hostId: string;
@@ -199,10 +186,18 @@ export function collectResourceMonitorChatSessions(input: {
     if (!chatId || !hostId) continue;
     const context = contexts.get(hostId);
     if (!context) continue;
-    const tab = findChatTab(input.chatTabsByContext, chatId, hostId);
-    const spaceId =
-      session.space_id?.trim() ||
-      (tab ? parseCenterSpaceKey(tab.contextId).spaceId : DEFAULT_CENTER_SPACE_ID);
+    const preferredPaint = makeCenterSpaceKey(
+      hostId,
+      session.space_id?.trim() || DEFAULT_CENTER_SPACE_ID,
+    );
+    const tab = findAgentChatCenterTab(
+      input.chatTabsByContext,
+      chatId,
+      preferredPaint,
+    );
+    const spaceId = tab
+      ? parseCenterSpaceKey(tab.contextId).spaceId
+      : session.space_id?.trim() || DEFAULT_CENTER_SPACE_ID;
     byChatId.set(
       chatId,
       placementFromChat({
@@ -210,7 +205,10 @@ export function collectResourceMonitorChatSessions(input: {
         context,
         spaceId,
         tab,
-        agentStatus: session,
+        agentStatus: {
+          ...session,
+          space_id: spaceId,
+        },
       }),
     );
   }

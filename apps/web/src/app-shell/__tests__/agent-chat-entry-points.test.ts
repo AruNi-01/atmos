@@ -94,8 +94,8 @@ describe("S2 Agent Chat entry points", () => {
 
     const activate = readFileSync(join(ROOT, "center-stage-activate.ts"), "utf8");
     expect(activate).toContain("isAgentChatTabValue");
-    expect(activate).toContain("openTab({ contextId, chatId })");
-    expect(activate).toContain("notifyPaneFocused(`chat:${chatId}`");
+    expect(activate).toContain("openTab({ contextId, chatId: parsedChatId })");
+    expect(activate).toContain("notifyPaneFocused(`chat:${boundChatId}`");
 
     expect(tabBar).toContain("max-w-[180px] truncate whitespace-nowrap");
     expect(tabBar).not.toContain("truncate text-pretty");

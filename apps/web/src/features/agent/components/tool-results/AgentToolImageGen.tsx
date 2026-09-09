@@ -78,16 +78,18 @@ function imageSrc(
 export function AgentToolImageGen({
   part,
   surface = "card",
+  defaultOpen = false,
 }: {
   part: AgentToolCallPart;
   surface?: AgentToolSurface;
+  defaultOpen?: boolean;
 }) {
   const t = useTranslations("Agent.components.toolResults");
   const [fileApi, setFileApi] = useState<{
     base: string;
     token?: string | null;
   } | null>(null);
-  const [open, setOpen] = useState(() => isActiveToolStatus(part.status));
+  const [open, setOpen] = useState(() => defaultOpen || isActiveToolStatus(part.status));
   const [preview, setPreview] = useState<{ src: string; alt: string } | null>(null);
   const prompt =
     part.params?.type === "image_gen" ? part.params.prompt.trim() : "";

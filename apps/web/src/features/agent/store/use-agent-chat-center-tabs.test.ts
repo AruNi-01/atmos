@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import {
+  findAgentChatCenterTab,
   normalizeAgentChatCenterTab,
   useAgentChatCenterTabsStore,
 } from "./use-agent-chat-center-tabs";
@@ -65,6 +66,39 @@ describe("agent chat center tabs", () => {
     expect(bound?.title).toBe("Fix auth");
     expect(bound?.providerId).toBe("grok-build");
     expect(bound?.hasMessages).toBe(false);
+  });
+
+  it("reuses a bound draft tab instead of opening a second chat tab", () => {
+    const draft = useAgentChatCenterTabsStore.getState().openDraftTab({ contextId: "ws-1" });
+    useAgentChatCenterTabsStore.getState().bindChat({
+      contextId: "ws-1",
+      value: draft.value,
+      chatId: "conv-1",
+    });
+    const opened = useAgentChatCenterTabsStore.getState().openTab({
+      contextId: "ws-1",
+      chatId: "conv-1",
+    });
+    expect(opened.value).toBe(draft.value);
+    expect(useAgentChatCenterTabsStore.getState().tabsByContext["ws-1"]).toHaveLength(1);
+  });
+
+  it("finds a bound draft tab by chat id across paint contexts", () => {
+    const draft = useAgentChatCenterTabsStore.getState().openDraftTab({
+      contextId: "ws-1::space::review",
+    });
+    useAgentChatCenterTabsStore.getState().bindChat({
+      contextId: "ws-1::space::review",
+      value: draft.value,
+      chatId: "conv-9",
+    });
+    const found = findAgentChatCenterTab(
+      useAgentChatCenterTabsStore.getState().tabsByContext,
+      "conv-9",
+      "ws-1",
+    );
+    expect(found?.value).toBe(draft.value);
+    expect(found?.contextId).toBe("ws-1::space::review");
   });
 
   it("patches session title after the agent reports one", () => {

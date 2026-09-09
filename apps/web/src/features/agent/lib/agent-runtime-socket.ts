@@ -136,6 +136,7 @@ export interface AgentConfigOptionValue {
   value: string;
   name?: string;
   description?: string;
+  group?: string;
 }
 
 export interface AgentConfigOption {

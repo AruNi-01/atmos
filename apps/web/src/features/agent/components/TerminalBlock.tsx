@@ -81,9 +81,11 @@ function ExecuteCopyMenu({
 export function TerminalBlock({
   part,
   surface = "card",
+  defaultOpen = false,
 }: {
   part: AgentToolCallPart;
   surface?: AgentToolSurface;
+  defaultOpen?: boolean;
 }) {
   const t = useTranslations("Agent.components");
   const { command, output } = executeFields(part);
@@ -105,6 +107,7 @@ export function TerminalBlock({
       titleTooltip={commandStr || title}
       status={status}
       shimmer={running && !background}
+      defaultOpen={defaultOpen}
     >
       <div className="relative">
         {commandStr || output ? (

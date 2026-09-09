@@ -28,6 +28,10 @@ describe("assistant process collapse chrome", () => {
     expect(view).toContain("<CollapsibleContent");
     expect(view).toContain("stepsExpanded");
     expect(view).toContain("processSegments.map");
+    expect(view).toContain("segmentAssistantParts(parts, density)");
+    expect(view).toContain("isDetailExpandedTool(part)");
+    expect(view).toContain("autoOpen={false}");
+    expect(view).toContain("toolResultOpen={density === \"detailed\" && isDetailExpandedTool(part)}");
     const contentAt = view.indexOf("<CollapsibleContent");
     const railAt = view.indexOf("<ProcessCollapseRail");
     expect(contentAt).toBeGreaterThan(-1);

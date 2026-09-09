@@ -129,6 +129,8 @@ describe("transcript virtual list wiring", () => {
     expect(list).toContain("findAgentChatScrollElement");
     expect(list).toContain("activityStatus");
     expect(list).toContain("showActivityFooter");
+    expect(list).toContain("belowCountStore");
+    expect(list).toContain("countMessagesBelowViewport");
     expect(list).not.toContain("useStickToBottomContext()");
     expect(list).not.toContain('from "use-stick-to-bottom"');
     expect(panel).toContain("activityStatus=");

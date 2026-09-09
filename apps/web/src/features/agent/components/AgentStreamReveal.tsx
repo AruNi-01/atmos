@@ -3,9 +3,16 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useReducedMotion } from "motion/react";
 import { cn } from "@/shared/lib/utils";
+import {
+  TREE_EASE,
+  TREE_LINE_MS,
+  TREE_REVEAL_BLUR,
+  TREE_REVEAL_FADE_PX,
+  TREE_REVEAL_LIFT,
+} from "@/features/agent/lib/agent-tree-branch";
+import "./agent-stream-reveal.css";
 
-const ENTER_MS = 300;
-const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+const MASK = `linear-gradient(to bottom, #000 calc(100% - var(--agent-reveal-fade, 0px)), transparent calc(100% + 1px))`;
 
 export function AgentStreamReveal({
   enabled,
@@ -44,23 +51,27 @@ export function AgentStreamReveal({
 
   useEffect(() => {
     if (!open || done) return;
-    const timer = window.setTimeout(() => setDone(true), ENTER_MS);
+    const timer = window.setTimeout(() => setDone(true), TREE_LINE_MS);
     return () => window.clearTimeout(timer);
   }, [open, done]);
 
   return (
     <div
-      className={cn("min-w-0", animating && "grid", className)}
+      className={cn("min-w-0", animating && "grid overflow-hidden", className)}
       style={animating ? {
         gridTemplateRows: open ? "1fr" : "0fr",
         opacity: open ? 1 : 0,
-        filter: open ? "blur(0px)" : "blur(5px)",
-        transform: open ? "translateY(0)" : "translateY(8px)",
+        filter: open ? "blur(0px)" : TREE_REVEAL_BLUR,
+        transform: open ? "translateY(0)" : TREE_REVEAL_LIFT,
+        ["--agent-reveal-fade" as string]: open ? "0px" : `${TREE_REVEAL_FADE_PX}px`,
+        maskImage: MASK,
+        WebkitMaskImage: MASK,
         transition: [
-          `grid-template-rows ${ENTER_MS}ms ${EASE}`,
-          `opacity ${ENTER_MS}ms ${EASE}`,
-          `filter ${ENTER_MS}ms ${EASE}`,
-          `transform ${ENTER_MS}ms ${EASE}`,
+          `grid-template-rows ${TREE_LINE_MS}ms ${TREE_EASE}`,
+          `opacity ${TREE_LINE_MS}ms ${TREE_EASE}`,
+          `filter ${TREE_LINE_MS}ms ${TREE_EASE}`,
+          `transform ${TREE_LINE_MS}ms ${TREE_EASE}`,
+          `--agent-reveal-fade ${TREE_LINE_MS}ms ${TREE_EASE}`,
         ].join(", "),
       } : undefined}
     >

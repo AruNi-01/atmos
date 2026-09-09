@@ -130,6 +130,7 @@ function AgentToolCodeResult({
   startLine,
   lineRange = null,
   surface = "card",
+  defaultOpen = false,
 }: {
   path: string | null;
   language: string;
@@ -144,6 +145,7 @@ function AgentToolCodeResult({
   startLine?: number;
   lineRange?: ToolLineRange | null;
   surface?: AgentToolSurface;
+  defaultOpen?: boolean;
 }) {
   const t = useTranslations("Agent.components.toolResults");
   const displayTitle = useDisplayToolTitle();
@@ -177,6 +179,7 @@ function AgentToolCodeResult({
       titleTooltip={path ? `${actionTitle}\n${path}` : actionTitle}
       accessory={fileChip}
       status={status}
+      defaultOpen={defaultOpen}
       meta={
         hint ? (
           <span className="flex items-center gap-2">
@@ -209,18 +212,20 @@ function AgentToolCodeResult({
 export function AgentToolResultBlock({
   part,
   surface = "card",
+  defaultOpen = false,
 }: {
   part: AgentToolCallPart;
   surface?: AgentToolSurface;
+  defaultOpen?: boolean;
 }) {
   const t = useTranslations("Agent.components.toolResults");
   const toolT = useTranslations("agent.chatHelpers.tool");
   const displayTitle = useDisplayToolTitle();
   if (part.kind === "image_gen") {
-    return <AgentToolImageGen part={part} surface={surface} />;
+    return <AgentToolImageGen part={part} surface={surface} defaultOpen={defaultOpen} />;
   }
   if (part.kind === "plan_document") {
-    return <AgentToolPlanDocument part={part} surface={surface} />;
+    return <AgentToolPlanDocument part={part} surface={surface} defaultOpen={defaultOpen} />;
   }
   const parsed = presentAgentTool(part);
   const asSkill = part.kind === "skill";
@@ -289,6 +294,7 @@ export function AgentToolResultBlock({
             lineRange={parsed.lineRange}
             status={status}
             surface={surface}
+            defaultOpen={defaultOpen}
           />
         ))}
       </div>
@@ -304,6 +310,7 @@ export function AgentToolResultBlock({
         lineRange={parsed.lineRange}
         status={status}
         surface={surface}
+        defaultOpen={defaultOpen}
       />
     );
   }
@@ -320,6 +327,7 @@ export function AgentToolResultBlock({
         titleTooltip={path ? `${title}\n${path}` : title}
         accessory={fileChip}
         status={status}
+        defaultOpen={defaultOpen}
         meta={
           <AgentToolDiffStats
             additions={presentation.additions}
@@ -356,6 +364,7 @@ export function AgentToolResultBlock({
         startLine={parsed.lineRange?.start}
         lineRange={parsed.lineRange}
         surface={surface}
+        defaultOpen={defaultOpen}
       />
     );
   }
@@ -376,6 +385,7 @@ export function AgentToolResultBlock({
         title={searchTitle}
         titleTooltip={query || searchTitle}
         status={status}
+        defaultOpen={defaultOpen}
         meta={
           links.length > 0 ? (
             <span className="text-[11px] text-muted-foreground">
@@ -410,6 +420,7 @@ export function AgentToolResultBlock({
         title={t("fetchUrl", { host })}
         titleTooltip={url}
         status={status}
+        defaultOpen={defaultOpen}
       >
         {failed && text ? <AgentToolErrorBody text={text} /> : null}
         {!failed ? (
@@ -450,6 +461,7 @@ export function AgentToolResultBlock({
       titleTooltip={path ? `${title}\n${path}` : title}
       accessory={fileChip}
       status={status}
+      defaultOpen={defaultOpen}
       meta={statsMeta}
     >
       {showInput ? <AgentToolInputRows rows={inputRows} /> : null}

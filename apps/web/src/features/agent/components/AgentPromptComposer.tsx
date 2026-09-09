@@ -60,14 +60,6 @@ import { resolveAgentComposerPlaceholderKind } from "@/features/agent/lib/agent-
 import type { AgentActivity } from "../lib/chat-helpers";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import { PlanBlockView } from "./PlanBlockView";
-import { ComposerFlyingMessagePortal } from "./ComposerFlyingMessagePortal";
-import {
-  buildComposerFlyingMessage,
-  composerFlyTarget,
-  composerShellOrigin,
-  type ComposerFlyKind,
-  type ComposerFlyingMessage,
-} from "@/features/agent/lib/composer-flying-message";
 import { BackgroundCommandsDock } from "./BackgroundCommandsDock";
 import { MessageQueueDock } from "./MessageQueueDock";
 import { useAgentComposerPopovers } from "../hooks/use-agent-composer-popovers";
@@ -141,6 +133,7 @@ function toPromptModels(
   return option.options.map((entry) => ({
     value: entry.value,
     label: localize ? localize(entry.value, entry.name) : (entry.name || entry.value),
+    group: entry.group,
   }));
 }
 
@@ -194,7 +187,7 @@ function toModePromptModels(option: AgentConfigOption | null): PromptModel[] {
 /** Prefer currentValue when listed; otherwise the default / first option. */
 function resolvedConfigOptionValue(
   option: AgentConfigOption | null,
-  kind: "mode" | "permission_mode" | "thinking" | "fast",
+  kind: "mode" | "permission_mode" | "thinking" | "fast" | "context",
 ): string {
   if (!option) return "";
   return displayedComposerConfigValue([option], kind, option.currentValue || "");
@@ -291,13 +284,16 @@ function ComposerPromptInput({
   isConnecting,
   isResumingHistory,
   catalogModelsLoading,
+  catalogModelsReloading,
   onEmptyModelsOpen,
+  onLoadModels,
   installedAgents,
   modeOption,
   permissionOption,
   modelOption,
   thinkingOption,
   fastOption,
+  contextOption,
   modelsLocked,
   modesLocked,
   registryId,
@@ -312,7 +308,6 @@ function ComposerPromptInput({
   workingDirectoryPicker,
   clearAgentChatDraft,
   onSubmit,
-  onFlySend,
   placeholder,
   landing,
   editingItem,
@@ -344,13 +339,16 @@ function ComposerPromptInput({
   isConnecting: boolean;
   isResumingHistory: boolean;
   catalogModelsLoading: boolean;
+  catalogModelsReloading?: boolean;
   onEmptyModelsOpen?: () => void;
+  onLoadModels?: () => void;
   installedAgents: RegistryAgent[];
   modeOption: AgentConfigOption | null;
   permissionOption: AgentConfigOption | null;
   modelOption: AgentConfigOption | null;
   thinkingOption: AgentConfigOption | null;
   fastOption: AgentConfigOption | null;
+  contextOption: AgentConfigOption | null;
   modelsLocked: boolean;
   modesLocked: boolean;
   registryId: string | null;
@@ -378,7 +376,6 @@ function ComposerPromptInput({
     message: { text: string; files?: import("ai").FileUIPart[] },
     options?: { oneShot?: "queue" | "steer" },
   ) => Promise<void>;
-  onFlySend?: (text: string) => void;
   landing: boolean;
   editingItem: QueuedAgentPrompt | null;
   onFinishEdit: () => void;
@@ -582,7 +579,9 @@ function ComposerPromptInput({
         onModelChange={(value) => modelOption && setConfigOption(modelOption.id, value)}
         modelsLocked={modelsLocked}
         modelsLoading={isConnecting || isResumingHistory || catalogModelsLoading}
+        modelsReloading={catalogModelsReloading}
         onEmptyModelsOpen={onEmptyModelsOpen}
+        onLoadModels={onLoadModels}
         modes={toModePromptModels(modeOption)}
         mode={resolvedConfigOptionValue(modeOption, "mode")}
         onModeChange={(value) => modeOption && setConfigOption(modeOption.id, value)}
@@ -608,6 +607,9 @@ function ComposerPromptInput({
           const next = resolveFastToggleValue(fastOption, enabled);
           if (next) setConfigOption(fastOption.id, next);
         }}
+        contextLevels={toPromptModels(contextOption)}
+        context={resolvedConfigOptionValue(contextOption, "context")}
+        onContextChange={(value) => contextOption && setConfigOption(contextOption.id, value)}
         labels={{
           chooseModel: t("composer.chooseModel"),
           chooseAgent: t("composer.selectAgent"),
@@ -624,9 +626,12 @@ function ComposerPromptInput({
           back: t("composer.backToAgents"),
           noResults: t("configOptionDropdown.noResults"),
           loadingModels: t("composer.loadingModels"),
+          loadModels: t("composer.loadModels"),
+          reloadModels: t("composer.reloadModels"),
           thinkingEffort: t("composer.thinkingEffort"),
           fastMode: t("composer.fastMode"),
           fastChip: t("composer.fastChip"),
+          context: t("composer.context"),
         }}
         leadingAction={
           <div className="flex min-w-0 items-center gap-1">
@@ -660,7 +665,6 @@ function ComposerPromptInput({
             setLocalDraft(previousDraft);
             return;
           }
-          onFlySend?.(composed);
           const converted = await filesForSubmit(files);
           closePopovers();
           setLocalDraft("");
@@ -732,7 +736,9 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   isConnecting,
   isResumingHistory,
   catalogModelsLoading = false,
+  catalogModelsReloading = false,
   onEmptyModelsOpen,
+  onLoadModels,
   chatId = null,
   runtimeStatus = null,
   hasPersistenceHandle = false,
@@ -779,7 +785,9 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   isConnecting: boolean;
   isResumingHistory: boolean;
   catalogModelsLoading?: boolean;
+  catalogModelsReloading?: boolean;
   onEmptyModelsOpen?: () => void;
+  onLoadModels?: () => void;
   chatId?: string | null;
   runtimeStatus?: string | null;
   hasPersistenceHandle?: boolean;
@@ -821,9 +829,6 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   );
   const persistedDraftRef = useRef(localDraft);
   const composerRef = useRef<ComposerHandle | null>(null);
-  const composerRootRef = useRef<HTMLDivElement | null>(null);
-  const flyingMessageIdRef = useRef(0);
-  const [flyingMessage, setFlyingMessage] = useState<ComposerFlyingMessage | null>(null);
   const [editingQueueId, setEditingQueueId] = useState<string | null>(null);
   const [contextUsageOpen, setContextUsageOpen] = useState(false);
   const editingItem = editingQueueId
@@ -837,20 +842,6 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     || backgroundTools.length > 0
     || queuedPrompts.length > 0;
   const reduceOverlayMotion = Boolean(useReducedMotion());
-
-  const launchComposerFly = (text: string) => {
-    const composer = composerRootRef.current;
-    const kind: ComposerFlyKind = agentActivity.busy ? "queue" : "conversation";
-    const message = buildComposerFlyingMessage({
-      id: flyingMessageIdRef.current + 1,
-      text,
-      from: composerShellOrigin(composer),
-      to: composerFlyTarget(kind, composer),
-    });
-    if (!message) return;
-    flyingMessageIdRef.current = message.id;
-    setFlyingMessage(message);
-  };
 
   useEffect(() => {
     if (!editingQueueId) return;
@@ -876,6 +867,8 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     configOptions.find((option) => isThinkingConfigId(option.id, option.category)) ?? null;
   const fastOption =
     configOptions.find((option) => configKindMatches(option.id, option.category, "fast")) ?? null;
+  const contextOption =
+    configOptions.find((option) => configKindMatches(option.id, option.category, "context")) ?? null;
   const placeholderKind = resolveAgentComposerPlaceholderKind({
     canUseCurrentMode,
     agentName: activeAgent?.name,
@@ -956,10 +949,8 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
 
   return (
     <div
-      ref={composerRootRef}
       className="shrink-0 px-3 pb-3 pt-px select-none"
       data-agent-chat-composer=""
-      data-agent-composer-landing={landing ? "true" : undefined}
       data-agent-chat-mode={chatMode}
       data-agent-chat-instance-key={instanceKey?.trim() || undefined}
       data-agent-chat-workspace-id={sessionWorkspaceId ?? undefined}
@@ -1110,13 +1101,16 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
             isConnecting={isConnecting}
             isResumingHistory={isResumingHistory}
             catalogModelsLoading={catalogModelsLoading}
+            catalogModelsReloading={catalogModelsReloading}
             onEmptyModelsOpen={onEmptyModelsOpen}
+            onLoadModels={onLoadModels}
             installedAgents={installedAgents}
             modeOption={modeOption}
             permissionOption={permissionOption}
             modelOption={modelOption}
             thinkingOption={thinkingOption}
             fastOption={fastOption}
+            contextOption={contextOption}
             modelsLocked={modelsLocked}
             modesLocked={modesLocked}
             registryId={registryId}
@@ -1131,7 +1125,6 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
             workingDirectoryPicker={workingDirectoryPicker}
             clearAgentChatDraft={clearAgentChatDraft}
             onSubmit={onSubmit}
-            onFlySend={launchComposerFly}
             placeholder={placeholder}
             landing={landing}
             editingItem={editingItem}
@@ -1144,10 +1137,6 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
         </PromptInputProvider>
       </div>
       {popovers}
-      <ComposerFlyingMessagePortal
-        message={flyingMessage}
-        onDone={() => setFlyingMessage(null)}
-      />
     </div>
   );
 });

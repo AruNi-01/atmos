@@ -17,6 +17,7 @@ import {
   type AgentToolCallPart,
 } from "@/features/agent/lib/agent-tool-kind";
 import { isLiveBackgroundToolCall } from "@/features/agent/lib/agent/background-command";
+import { formatAgentToolActivityLine } from "@/features/agent/lib/tool-results/tool-activity-line";
 
 export interface PendingPermission {
   request_id: string;
@@ -40,7 +41,13 @@ export interface DiffFileOutput {
 
 export type AgentActivity =
   | { busy: false }
-  | { busy: true; label: string; kind: "thinking" | "working" };
+  | {
+      busy: true;
+      label: string;
+      kind: "thinking" | "working";
+      /** When `none`, the transcript indicator does not append "...". */
+      trail?: "ellipsis" | "none";
+    };
 
 let cachedChatHelpersLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,6 +56,14 @@ let cachedChatHelpersTranslator: any = null;
 function chatHelpersT(
   key:
     | "skill.defaultName"
+    | "tool.generic"
+    | "tool.read"
+    | "tool.edit"
+    | "tool.move"
+    | "tool.search"
+    | "tool.execute"
+    | "tool.fetch"
+    | "tool.delete"
     | "activity.generating"
     | "activity.reading"
     | "activity.writing"
@@ -318,23 +333,23 @@ export function runningBackgroundTools(messages: AgentMessage[]): AgentToolCallP
   return found;
 }
 
-function activityLabelForKind(kind: AgentToolKind): string {
+function toolKindHeadlineLabel(kind: AgentToolKind): string {
   switch (kind) {
     case "read":
-      return chatHelpersT("activity.reading", "Reading");
+      return chatHelpersT("tool.read", "Read");
     case "edit":
-      return chatHelpersT("activity.writing", "Writing");
+      return chatHelpersT("tool.edit", "Edit");
     case "search":
     case "web_search":
-      return chatHelpersT("activity.searching", "Searching");
+      return chatHelpersT("tool.search", "Search");
     case "execute":
-      return chatHelpersT("activity.executing", "Executing");
+      return chatHelpersT("tool.execute", "Execute");
     case "fetch":
-      return chatHelpersT("activity.fetching", "Fetching");
+      return chatHelpersT("tool.fetch", "Fetch");
     case "delete":
-      return chatHelpersT("activity.deleting", "Deleting");
+      return chatHelpersT("tool.delete", "Delete");
     case "move":
-      return chatHelpersT("activity.moving", "Moving");
+      return chatHelpersT("tool.move", "Move");
     case "skill":
     case "subagent":
     case "mcp_list":
@@ -342,12 +357,17 @@ function activityLabelForKind(kind: AgentToolKind): string {
     case "image_gen":
     case "plan_document":
     case "other":
-      return chatHelpersT("activity.working", "Working");
+      return chatHelpersT("tool.generic", "Tool");
   }
 }
 
 function activityForToolPart(part: Extract<AgentPart, { type: "tool_call" }>): AgentActivity {
-  return { busy: true, label: activityLabelForKind(part.kind), kind: "working" };
+  return {
+    busy: true,
+    label: formatAgentToolActivityLine(part, toolKindHeadlineLabel(part.kind)),
+    kind: "working",
+    trail: "none",
+  };
 }
 
 /** Session chrome only — create/resume finished but the turn has not produced answer/tools yet. */

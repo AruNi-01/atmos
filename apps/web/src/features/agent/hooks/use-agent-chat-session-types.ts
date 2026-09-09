@@ -19,6 +19,7 @@ import type { Project } from "@/shared/types/domain";
 import type { AgentActivity, PendingPermission, PendingSessionOp } from "../lib/chat-helpers";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import type { CurrentView } from "@/shared/hooks/use-context-params";
+import type { CatalogAuthStartResult } from "@/features/agent/lib/catalog-auth";
 
 export const DEFAULT_SESSION_TITLE = "新会话";
 
@@ -146,7 +147,8 @@ export interface UseAgentChatSessionReturn {
     registryId?: string;
     authMethodId?: string;
     apiKey?: string;
-  }) => void | Promise<void>;
+  }) => Promise<CatalogAuthStartResult>;
+  refreshSelectedAgentAfterAuth: (refresh: boolean) => Promise<void>;
   exportableMessages: ConversationMessage[];
   userMessageIndices: number[];
   messageNavIndex: number;

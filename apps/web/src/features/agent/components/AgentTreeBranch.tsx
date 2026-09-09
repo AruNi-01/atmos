@@ -14,6 +14,7 @@ import {
   TREE_LINE_MS,
   TREE_TRUNK_MS,
 } from "@/features/agent/lib/agent-tree-branch";
+import { AgentStreamReveal } from "./AgentStreamReveal";
 
 function useDrawIn(skip: boolean): boolean {
   const [drawn, setDrawn] = useState(skip);
@@ -147,12 +148,14 @@ export function AgentTreeBranch({
   const trunkMs = Math.round(durationMs * (TREE_TRUNK_MS / TREE_LINE_MS));
 
   return (
-    <div className="relative flex min-h-6 min-w-0">
-      <div className="relative w-7 shrink-0 self-stretch overflow-visible" aria-hidden="true">
-        {!isLast ? <BranchTrunk key="trunk" skip={skip} durationMs={trunkMs} /> : null}
-        <BranchElbow key="elbow" isFirst={isFirst} skip={skip} durationMs={durationMs} />
+    <AgentStreamReveal enabled={animate}>
+      <div className="relative flex min-h-6 min-w-0">
+        <div className="relative w-7 shrink-0 self-stretch overflow-visible" aria-hidden="true">
+          {!isLast ? <BranchTrunk key="trunk" skip={skip} durationMs={trunkMs} /> : null}
+          <BranchElbow key="elbow" isFirst={isFirst} skip={skip} durationMs={durationMs} />
+        </div>
+        <div className="min-w-0 flex-1">{children}</div>
       </div>
-      <div className="min-w-0 flex-1">{children}</div>
-    </div>
+    </AgentStreamReveal>
   );
 }

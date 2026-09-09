@@ -30,6 +30,7 @@ export type ComposerChromeDraft = {
   mode: string;
   permissionMode: string;
   fast: string;
+  context: string;
 };
 
 export type ComposerLocalCache = {
@@ -91,6 +92,24 @@ export function composerOptionsAreUsable(
   return snapshot.models.length > 0 || snapshot.modes.length > 0;
 }
 
+/** Keep last-good pickers when a live probe fails or comes back thinner. */
+export function shouldRetainExistingOptions(
+  incoming: AgentOptionsSnapshot,
+  existing: AgentOptionsSnapshot | null | undefined,
+): boolean {
+  if (!composerOptionsAreUsable(existing)) return false;
+  if (incoming.status === "auth_required") return true;
+  if (incoming.status !== "ok") return true;
+  if (!composerOptionsAreUsable(incoming)) return true;
+  return (
+    (existing.models.length > 0 && incoming.models.length === 0)
+    || (existing.modes.length > 0 && incoming.modes.length === 0)
+    || ((existing.permission_modes?.length ?? 0) > 0
+      && (incoming.permission_modes?.length ?? 0) === 0)
+    || ((existing.commands?.length ?? 0) > 0 && (incoming.commands?.length ?? 0) === 0)
+  );
+}
+
 function parseOptionsByAgent(value: unknown): Record<string, AgentOptionsSnapshot> {
   if (!isRecord(value)) return {};
   const next: Record<string, AgentOptionsSnapshot> = {};
@@ -119,6 +138,7 @@ function parseChromeDraft(value: unknown): ComposerChromeDraft | null {
     mode: typeof value.mode === "string" ? value.mode : "",
     permissionMode: typeof value.permissionMode === "string" ? value.permissionMode : "",
     fast: typeof value.fast === "string" ? value.fast : "",
+    context: typeof value.context === "string" ? value.context : "",
   };
 }
 
@@ -207,6 +227,7 @@ export function rememberComposerChromeDraft(
         mode: draft.mode,
         permissionMode: draft.permissionMode,
         fast: draft.fast,
+        context: draft.context,
       },
     },
   });
@@ -303,6 +324,7 @@ export function seedNewChatComposer(input: {
         modeId: instanceDraft.mode || storedPreferred.modeId,
         permissionModeId: instanceDraft.permissionMode || storedPreferred.permissionModeId,
         fastId: instanceDraft.fast || storedPreferred.fastId,
+        contextId: instanceDraft.context || storedPreferred.contextId,
       }
     : storedPreferred;
   const catalog = providerId

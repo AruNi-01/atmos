@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Collapsible,
@@ -30,11 +30,13 @@ import {
   resolveAgentChatWorkspaceFile,
 } from "@/features/agent/lib/agent-chat-file-links";
 import {
+  isDetailExpandedTool,
   segmentAssistantParts,
   splitSegmentedAssistantParts,
-  toolGroupHasRunning,
+  toolCallPartsFromGroup,
   type AssistantSegment,
 } from "@/features/agent/lib/tool-group";
+import { useAgentToolCallDensityStore } from "@/features/settings/store/agent-tool-call-density-store";
 import { AssistantProcessInspectProvider } from "./assistant-process-inspect-context";
 
 const REVIEW_PATH_RE = /(?:\/[\w.~-]+)*\/\.atmos\/reviews\/[\w./:~-]+\.md/;
@@ -134,7 +136,7 @@ function ProcessCollapseRail({
 }
 
 function toolGroupKey(segment: Extract<AssistantSegment, { type: "tool_group" }>): string {
-  return segment.parts[0]?.tool_call_id ?? segment.origIndexes.join("-");
+  return toolCallPartsFromGroup(segment.parts)[0]?.tool_call_id ?? segment.origIndexes.join("-");
 }
 
 export function AssistantMessageView({
@@ -146,8 +148,14 @@ export function AssistantMessageView({
   const reviewComponents = useReviewLinkComponents();
   const parts = message.parts;
   const streaming = Boolean(message.streaming);
+  const density = useAgentToolCallDensityStore((state) => state.density);
+  const loadDensity = useAgentToolCallDensityStore((state) => state.loadSettings);
 
-  const segments = useMemo(() => segmentAssistantParts(parts), [parts]);
+  useEffect(() => {
+    void loadDensity();
+  }, [loadDensity]);
+
+  const segments = useMemo(() => segmentAssistantParts(parts, density), [density, parts]);
   const { processSegments, answerSegments } = useMemo(
     () => splitSegmentedAssistantParts(segments),
     [segments],
@@ -166,7 +174,9 @@ export function AssistantMessageView({
   // When the turn first settles into collapsible chrome, auto-collapse unless the user
   // expanded tools/process during the stream.
   if (canCollapse && !wasCollapsibleRef.current) {
-    setStepsExpanded(!shouldAutoCollapseProcessOnSettle(userInspecting));
+    setStepsExpanded(
+      density === "detailed" || !shouldAutoCollapseProcessOnSettle(userInspecting),
+    );
   }
   wasCollapsibleRef.current = canCollapse;
 
@@ -182,23 +192,25 @@ export function AssistantMessageView({
       streaming={streaming}
       thinkingMs={message.thinking_ms}
       reviewComponents={reviewComponents}
+      toolResultOpen={density === "detailed" && isDetailExpandedTool(part)}
     />
   );
 
-  const renderSegment = (segment: AssistantSegment, list: AssistantSegment[]) => {
+  const renderSegment = (segment: AssistantSegment) => {
     if (segment.type === "tool_group") {
-      const isTail = list[list.length - 1] === segment;
       const key = toolGroupKey(segment);
       return (
         <AgentToolGroupView
           key={key}
           parts={segment.parts}
-          autoOpen={streaming && (isTail || toolGroupHasRunning(segment.parts))}
+          origIndexes={segment.origIndexes}
+          autoOpen={false}
           userOpen={userOpenedGroups[key]}
           onUserOpenChange={(next) => {
             setUserOpenedGroups((prev) => ({ ...prev, [key]: next }));
             if (next) markInspecting();
           }}
+          renderPart={renderPart}
         />
       );
     }
@@ -238,7 +250,7 @@ export function AssistantMessageView({
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-2 pt-1">
             {stepsExpanded
-              ? processSegments.map((segment) => renderSegment(segment, processSegments))
+              ? processSegments.map((segment) => renderSegment(segment))
               : null}
           </CollapsibleContent>
           <ProcessCollapseRail
@@ -247,14 +259,14 @@ export function AssistantMessageView({
             collapseLabel={t("assistantTurn.process.collapseLabel")}
           />
         </Collapsible>
-        {answerSegments.map((segment) => renderSegment(segment, answerSegments))}
+        {answerSegments.map((segment) => renderSegment(segment))}
       </AssistantProcessInspectProvider>
     );
   }
 
   return (
     <AssistantProcessInspectProvider onInspect={markInspecting}>
-      {segments.map((segment) => renderSegment(segment, segments))}
+      {segments.map((segment) => renderSegment(segment))}
     </AssistantProcessInspectProvider>
   );
 }

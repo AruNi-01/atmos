@@ -2912,11 +2912,14 @@
         "permissionLocked": "This agent cannot switch permission in the current session",
         "backToAgents": "Agents",
         "loadingModels": "Loading models",
+        "loadModels": "Load",
+        "reloadModels": "Reload models",
         "thinkingFaster": "Faster",
         "thinkingSmarter": "Smarter",
         "thinkingEffort": "Effort",
         "fastMode": "Fast Tier",
         "fastChip": "Fast",
+        "context": "Context",
         "queue": "Queue",
         "steer": "Steer",
         "oneShotQueue": "Queue this once",
@@ -3032,6 +3035,8 @@
         "fetch": "{count, plural, one {# fetch} other {# fetches}}",
         "search": "{count, plural, one {# search} other {# searches}}",
         "read": "{count, plural, one {# read} other {# reads}}",
+        "thinking": "Thinking",
+        "working": "Working",
         "expandAria": "Show tool calls: {overview}",
         "collapseAria": "Hide tool calls: {overview}"
       },
@@ -3137,7 +3142,13 @@
         "description": "Authenticate the agent before continuing.",
         "apiKeyLabel": "API token",
         "apiKeyPlaceholder": "Paste your API token",
-        "saveAndContinue": "Save and continue"
+        "cliCommandLabel": "Run this in a terminal",
+        "copyCommand": "Copy",
+        "copied": "Copied",
+        "signedIn": "I've signed in",
+        "authenticated": "Authenticated",
+        "browserHint": "Opens a browser to sign in.",
+        "openBrowser": "Continue in browser"
       },
       "linkSafety": {
         "closeTitle": "Close preview",
@@ -3318,7 +3329,9 @@
           }
         },
         "catalogError": {
-          "title": "Couldn't load agent options"
+          "title": "Couldn't load agent options",
+          "auth": "Auth",
+          "authRequired": "This agent needs you to sign in."
         },
         "loading": "Loading...",
         "restoringSession": "Restoring session...",
@@ -3328,6 +3341,12 @@
           "startDescription": "Type a message below to begin chatting"
         },
         "bottom": "Bottom",
+        "scrollBelow": {
+          "prefix": "",
+          "unit": "{count, plural, one {message} other {messages}}",
+          "suffix": "below",
+          "aria": "{count, plural, one {# message below} other {# messages below}}"
+        },
         "permissionRequested": "Permission requested",
         "askUserTitle": "Questions for you",
         "planApprovalTitle": "Plan ready",
@@ -5479,6 +5498,9 @@
             "yoloMode": {
               "label": "YOLO mode"
             },
+            "toolCallDensity": {
+              "label": "Tool call density"
+            },
             "activityIndicators": {
               "label": "Agent Activity Indicators"
             },
@@ -6287,6 +6309,18 @@
         "description": "When enabled, agents launch with skip-permissions / auto-approve flags (e.g. --yolo, --dangerously-skip-permissions). Turn off for safer, approval-gated runs.",
         "restoreHint": "Re-enable YOLO and clear custom flag overrides on all built-in agents so they use the built-in YOLO defaults again.",
         "restoreAll": "Restore YOLO for all agents"
+      },
+      "toolCallDensity": {
+        "groupTitle": "Chat display",
+        "groupDescription": "Control how Agent Chat shows tool activity.",
+        "title": "Tool call density",
+        "description": "Adjust how much detail is shown for tool calls.",
+        "compact": "Compact",
+        "standard": "Standard",
+        "detailed": "Detailed",
+        "sampleAnswer": "Updated the helper and added a test.",
+        "sampleMidText": "The helper looks fine. Next I'll add a test.",
+        "sampleThought": "Need to check the helper and the test file first."
       },
       "activityIndicators": {
         "title": "Agent Activity Indicators",
