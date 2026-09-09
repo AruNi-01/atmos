@@ -55,6 +55,8 @@ describe("Desktop Use settings wiring", () => {
     );
     expect(section).toContain("openPermissionAccessSettings");
     expect(access).toContain("DesktopUsePermissionsPanel");
+    expect(access).toContain("AtmosAppPermissionsPanel");
+    expect(access).toContain('id="macos-app"');
     expect(section).not.toContain("AppshotPermissionsPanel");
     expect(section.toLowerCase()).not.toContain("cua");
     expect(section.toLowerCase()).not.toContain("trycua");
@@ -294,5 +296,20 @@ describe("Desktop Use settings wiring", () => {
     expect(icon).toContain("du-pointer");
     expect(icon).toContain("startAnimation");
     expect(icon).toContain("M13 3H4a2 2 0 0 0-2 2v10");
+  });
+
+  it("Privacy lists Atmos.app OS grants with the drag overlay IPC", () => {
+    const panel = readFileSync(
+      join(
+        root,
+        "apps/web/src/features/settings/components/AtmosAppPermissionsPanel.tsx",
+      ),
+      "utf8",
+    );
+    expect(panel).toContain("macos_app_permissions_status");
+    expect(panel).toContain("macos_app_permissions_grant");
+    expect(panel).toContain("openGrant(name, e.currentTarget)");
+    expect(panel).toContain("anchor");
+    expect(panel).not.toContain("isTrustedAccessibilityClient");
   });
 });

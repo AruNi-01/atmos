@@ -10,14 +10,22 @@
  *     grant AppShot uses) — optional, not a download gate
  * Guest webviews: before-input-event forwards ⌘/⌘⇧ digits into the host page.
  *
+ * Never prompt Accessibility at boot (no system lock dialog).
+ * If the tap is not ready, the first screenshot UI (screencaptureui window
+ * or process) while Atmos was frontmost opens the drag-to-list overlay on
+ * the left sidebar, then flies it to System Settings. Settings → Privacy
+ * Grant uses the same overlay.
+ *
  * Do not synthesize the key with sendInputEvent — that can re-trigger
  * Screenshot.app. Electron globalShortcut cannot preempt Screenshot.app.
  */
 
+import { execFile } from "node:child_process";
 import { createRequire } from "node:module";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import type { WebContents } from "electron";
 import { mainLog } from "./main-log.js";
 import {
@@ -30,6 +38,8 @@ import {
 
 const nodeRequire = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const execFileAsync = promisify(execFile);
+const HOST_SHORTCUT_HOLD_MS = 640;
 
 type ElectronApi = typeof import("electron");
 
@@ -37,6 +47,7 @@ type HostShortcutNative = {
   stop: () => void;
   setEnabled: (enabled: number) => void;
   takeDigit: () => number;
+  takeAxNudge: () => number;
   tapReady: () => number;
 };
 
@@ -46,7 +57,16 @@ let nativePoll: ReturnType<typeof setInterval> | null = null;
 let enabled = false;
 let tornDown = false;
 let injectListenStop: (() => void) | null = null;
-let electronAxPrompted = false;
+let screenshotWatch: ReturnType<typeof setInterval> | null = null;
+let hostShortcutAxGrantStarted = false;
+let hostShortcutAxGrantInFlight = false;
+let lastAtmosContentBounds: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} | null = null;
+let atmosSeenAt = 0;
 
 function getElectronApi(): ElectronApi | null {
   if (typeof process.versions.electron !== "string") return null;
@@ -98,15 +118,19 @@ function loadNative(): HostShortcutNative | null {
       "int",
     ]) as (enabled: number) => void;
     const takeDigit = lib.func("atmos_host_shortcuts_take_digit", "int", []) as () => number;
+    const takeAxNudge = lib.func("atmos_host_shortcuts_take_ax_nudge", "int", []) as () => number;
     const status = lib.func("atmos_host_shortcuts_status", "int", []) as () => number;
     const axTrusted = lib.func("atmos_host_shortcuts_ax_trusted", "int", []) as () => number;
     const tapReady = lib.func("atmos_host_shortcuts_tap_ready", "int", []) as () => number;
     const rc = start();
     const ax = axTrusted();
     const tap = tapReady();
-    if (status() !== 2 && !tap) {
+    const st = status();
+    // 2 = tap ready, 4 = observer running without AX. Keep the native so we
+    // can detect the first screenshot steal and retry the tap after grant.
+    if (st !== 2 && st !== 4 && !tap) {
       mainLog(
-        `[host-shortcuts] electron tap unavailable rc=${rc} status=${status()} ax=${ax}`,
+        `[host-shortcuts] electron tap unavailable rc=${rc} status=${st} ax=${ax}`,
         "warn",
       );
       try {
@@ -116,8 +140,10 @@ function loadNative(): HostShortcutNative | null {
       }
       return null;
     }
-    mainLog(`[host-shortcuts] electron tap ready dylib=${dylib} ax=${ax}`);
-    return { stop, setEnabled, takeDigit, tapReady };
+    mainLog(
+      `[host-shortcuts] native ready dylib=${dylib} ax=${ax} tap=${tap ? 1 : 0} status=${st}`,
+    );
+    return { stop, setEnabled, takeDigit, takeAxNudge, tapReady };
   } catch (error) {
     mainLog(
       `[host-shortcuts] native load failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -185,61 +211,154 @@ function drainNative(api: ElectronApi): void {
     if (!digit) break;
     emitDigitToFocusedWindow(api, digit);
   }
+  try {
+    if (native.takeAxNudge() === 1) {
+      void presentHostShortcutAxGrant(api);
+    }
+  } catch {
+    /* older dylib without take_ax_nudge */
+  }
 }
 
 function atmosIsActive(api: ElectronApi): boolean {
   return Boolean(api.BrowserWindow.getFocusedWindow());
 }
 
-function ensureElectronTap(api: ElectronApi): void {
-  if (tapIsReady() || tornDown) return;
-  const next = loadNative();
-  if (!next) return;
-  native = next;
-  native.setEnabled(enabled ? 1 : 0);
-  if (!nativePoll) {
-    nativePoll = setInterval(() => drainNative(api), 20);
-    nativePoll.unref?.();
+function rememberAtmosBounds(api: ElectronApi): void {
+  const win = api.BrowserWindow.getFocusedWindow();
+  if (!win || win.isDestroyed()) return;
+  try {
+    lastAtmosContentBounds = win.getContentBounds();
+    atmosSeenAt = Date.now();
+  } catch {
+    /* ignore */
   }
 }
 
-async function desktopUseHostInstalled(): Promise<boolean> {
+async function pgrepExact(name: string): Promise<boolean> {
   try {
-    const { desktopUseStatus } = await import("./desktop-use/client.js");
-    const st = await desktopUseStatus();
-    return st?.driver?.installed === true;
+    const { stdout } = await execFileAsync("pgrep", ["-x", name], {
+      timeout: 400,
+      maxBuffer: 4096,
+    });
+    return String(stdout).trim().length > 0;
   } catch {
     return false;
   }
 }
 
-/**
- * No Desktop Use: the Electron process must be Accessibility-trusted so its
- * own tap can discard ⌘⇧3-6. Prompt once; retry when the user returns.
- */
-async function ensureElectronTapWithoutDesktopUse(api: ElectronApi): Promise<void> {
+async function screenshotUiRunning(): Promise<boolean> {
+  return (
+    (await pgrepExact("screencaptureui")) || (await pgrepExact("Screenshot"))
+  );
+}
+
+function startScreenshotStealWatch(api: ElectronApi): void {
+  if (process.platform !== "darwin" || screenshotWatch) return;
+  let prevShot = false;
+  let inFlight = false;
+  screenshotWatch = setInterval(() => {
+    if (tornDown || tapIsReady() || hostShortcutAxGrantStarted) return;
+    if (atmosIsActive(api)) rememberAtmosBounds(api);
+    if (inFlight) return;
+    inFlight = true;
+    void screenshotUiRunning()
+      .then((shot) => {
+        const recentAtmos = Date.now() - atmosSeenAt < 2500;
+        if (shot && !prevShot && recentAtmos) {
+          void presentHostShortcutAxGrant(api);
+        }
+        prevShot = shot;
+      })
+      .finally(() => {
+        inFlight = false;
+      });
+  }, 200);
+  screenshotWatch.unref?.();
+}
+
+function ensureElectronTap(api: ElectronApi): void {
   if (tornDown) return;
-  ensureElectronTap(api);
-  if (tapIsReady() || tornDown) return;
-  if (electronAxPrompted) return;
-  if (await desktopUseHostInstalled()) return;
-  electronAxPrompted = true;
+  if (!native) {
+    native = loadNative();
+    if (native && !nativePoll) {
+      nativePoll = setInterval(() => drainNative(api), 20);
+      nativePoll.unref?.();
+    }
+  }
+  native?.setEnabled(enabled ? 1 : 0);
+}
+
+/**
+ * First ⌘⇧3–6 while untrusted: show the drag-to-list overlay, never the
+ * system Accessibility lock dialog. Once per session from this path.
+ */
+async function presentHostShortcutAxGrant(api: ElectronApi): Promise<void> {
+  if (tornDown || tapIsReady()) return;
+  if (hostShortcutAxGrantStarted || hostShortcutAxGrantInFlight) return;
+  hostShortcutAxGrantStarted = true;
+  hostShortcutAxGrantInFlight = true;
   try {
-    const { requestElectronAccessibilityPrompt } = await import(
-      "./appshot/service.js"
+    const { grantAtmosAppPermission, leftSidebarGrantOrigin } = await import(
+      "./macos-app-permissions.js"
     );
-    const granted = await requestElectronAccessibilityPrompt();
+    const { grantPanelHeight } = await import("./desktop-use/grant-overlay.js");
+    const locale =
+      typeof api.app.getLocale === "function" ? api.app.getLocale() : undefined;
+    const win =
+      api.BrowserWindow.getFocusedWindow() ??
+      api.BrowserWindow.getAllWindows().find(
+        (w) => !w.isDestroyed() && w.isVisible(),
+      ) ??
+      null;
+    let sourceOrigin: { x: number; y: number } | undefined;
+    try {
+      const bounds = lastAtmosContentBounds ?? win?.getContentBounds();
+      if (bounds) {
+        sourceOrigin = leftSidebarGrantOrigin(bounds, grantPanelHeight(true));
+      }
+    } catch {
+      /* fly origin falls back */
+    }
+    const result = await grantAtmosAppPermission({
+      target: "accessibility",
+      locale,
+      reason: "host_shortcuts",
+      hostWindow: win,
+      sourceOrigin,
+      openSettings: "after",
+      holdAtOriginMs: HOST_SHORTCUT_HOLD_MS,
+    });
     mainLog(
-      `[host-shortcuts] electron accessibility prompt granted=${granted ? 1 : 0}`,
+      `[host-shortcuts] accessibility overlay ok=${result.ok ? 1 : 0} path=${result.app_path ?? "null"}`,
     );
+    if (!result.ok) hostShortcutAxGrantStarted = false;
+    const started = Date.now();
+    while (!tornDown && Date.now() - started < 120_000) {
+      ensureElectronTap(api);
+      if (tapIsReady()) {
+        try {
+          const { closeAccessibilityGrantOverlay } = await import(
+            "./desktop-use/grant-overlay.js"
+          );
+          closeAccessibilityGrantOverlay();
+        } catch {
+          /* overlay optional */
+        }
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 2000));
+    }
   } catch (error) {
+    hostShortcutAxGrantStarted = false;
     mainLog(
-      `[host-shortcuts] electron accessibility prompt failed: ${error instanceof Error ? error.message : String(error)}`,
+      `[host-shortcuts] accessibility overlay failed: ${error instanceof Error ? error.message : String(error)}`,
       "warn",
     );
+  } finally {
+    hostShortcutAxGrantInFlight = false;
+    if (!tornDown) ensureElectronTap(api);
   }
-  if (tornDown) return;
-  ensureElectronTap(api);
 }
 
 function startInjectDigitListener(api: ElectronApi): void {
@@ -290,18 +409,18 @@ export function installAppShortcutGuard(): void {
     nativePoll = setInterval(() => drainNative(api), 20);
     nativePoll.unref?.();
   }
+  startScreenshotStealWatch(api);
 
   startInjectDigitListener(api);
-  /* After the window is up: if Desktop Use is not installed, ask for Atmos
-   * Accessibility so the in-process tap can swallow screenshot chords. */
-  setTimeout(() => {
-    void ensureElectronTapWithoutDesktopUse(api);
-  }, 1500);
 
-  const sync = () => setClaimEnabled(api, atmosIsActive(api));
+  const sync = () => {
+    rememberAtmosBounds(api);
+    setClaimEnabled(api, atmosIsActive(api));
+  };
 
   api.app.on("browser-window-focus", () => {
     ensureElectronTap(api);
+    rememberAtmosBounds(api);
     setClaimEnabled(api, true);
   });
   api.app.on("browser-window-blur", () => {
@@ -312,7 +431,7 @@ export function installAppShortcutGuard(): void {
   if (process.platform === "darwin") {
     api.app.on("did-become-active", () => {
       ensureElectronTap(api);
-      if (!tapIsReady()) void ensureElectronTapWithoutDesktopUse(api);
+      rememberAtmosBounds(api);
       setClaimEnabled(api, true);
     });
     api.app.on("did-resign-active", () => setClaimEnabled(api, false));
@@ -330,6 +449,10 @@ export function installAppShortcutGuard(): void {
     if (nativePoll) {
       clearInterval(nativePoll);
       nativePoll = null;
+    }
+    if (screenshotWatch) {
+      clearInterval(screenshotWatch);
+      screenshotWatch = null;
     }
     try {
       native?.stop();

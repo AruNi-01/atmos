@@ -98,6 +98,15 @@ describe("os-reserved shortcuts", () => {
     expect(src).toContain("frontmost_is_atmos");
     expect(src).toContain("com.atmos.desktop");
     expect(src).toContain("restore_leaked_symbolic_hotkeys");
+    expect(src).toContain("atmos_host_shortcuts_take_ax_nudge");
+    expect(src).toContain("com.apple.screencaptureui");
+    expect(src).toContain("poll_screenshot_steal");
+    expect(src).toContain("screenshot_ui_present");
+    expect(src).toContain("screenshot_process_running");
+    expect(src).toContain("screenshot_window_on_screen");
+    expect(src).toContain("g_prev_shot_present");
+    expect(src).not.toContain("AXIsProcessTrustedWithOptions");
+    expect(src).not.toContain("kAXTrustedCheckOptionPrompt");
     expect(src).not.toContain("cgs_claim");
     expect(src).not.toContain("atmos_host_shortcuts_skylight_ready");
     const inject = readFileSync(
@@ -118,8 +127,18 @@ describe("os-reserved shortcuts", () => {
     expect(guard).toContain("tapReady");
     expect(guard).toContain("onDigit");
     expect(guard).toContain("retryForever");
-    expect(guard).toContain("requestElectronAccessibilityPrompt");
-    expect(guard).toContain("ensureElectronTapWithoutDesktopUse");
+    expect(guard).toContain("takeAxNudge");
+    expect(guard).toContain("grantAtmosAppPermission");
+    expect(guard).toContain("host_shortcuts");
+    expect(guard).toContain("presentHostShortcutAxGrant");
+    expect(guard).toContain("startScreenshotStealWatch");
+    expect(guard).toContain("screencaptureui");
+    expect(guard).toContain("leftSidebarGrantOrigin");
+    expect(guard).toContain('openSettings: "after"');
+    expect(guard).toContain("holdAtOriginMs");
+    expect(guard).not.toContain("requestElectronAccessibilityPrompt");
+    expect(guard).not.toContain("ensureElectronTapWithoutDesktopUse");
+    expect(guard).not.toMatch(/isTrustedAccessibilityClient\(\s*true\s*\)/);
     expect(guard).not.toContain("skylightReady");
     expect(guard).not.toContain("globalShortcut.register");
   });

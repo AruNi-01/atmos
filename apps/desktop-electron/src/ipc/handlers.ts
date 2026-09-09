@@ -862,56 +862,34 @@ export function createAllHandlers(
       const hostPath =
         typeof result?.host_app_path === "string" ? result.host_app_path : "";
       if (wantsDrag && hostPath && process.platform === "darwin") {
-        const { showAccessibilityGrantOverlay } = await import(
-          "../desktop-use/grant-overlay.js"
-        );
+        const {
+          GRANT_PANEL_HEIGHT,
+          GRANT_PANEL_WIDTH,
+          showAccessibilityGrantOverlay,
+        } = await import("../desktop-use/grant-overlay.js");
+        const {
+          grantOverlaySourceOriginFromAnchor,
+          parseViewportAnchor,
+        } = await import("../macos-app-permissions.js");
         const locale =
           typeof args?.locale === "string"
             ? args.locale
             : typeof args?.lang === "string"
               ? args.lang
               : undefined;
-        const rawAnchor = args?.anchor;
-        let anchor:
-          | { x: number; y: number; width: number; height: number }
-          | undefined;
-        if (rawAnchor && typeof rawAnchor === "object") {
-          const a = rawAnchor as Record<string, unknown>;
-          const x = typeof a.x === "number" ? a.x : Number(a.x);
-          const y = typeof a.y === "number" ? a.y : Number(a.y);
-          const width =
-            typeof a.width === "number" ? a.width : Number(a.width);
-          const height =
-            typeof a.height === "number" ? a.height : Number(a.height);
-          if (
-            Number.isFinite(x) &&
-            Number.isFinite(y) &&
-            Number.isFinite(width) &&
-            Number.isFinite(height) &&
-            width > 0 &&
-            height > 0
-          ) {
-            anchor = { x, y, width, height };
-          }
-        }
-        // Convert viewport-relative button rect → screen points via host window.
-        // Panel is 460×128 (grant-overlay PANEL_WIDTH / PANEL_HEIGHT).
-        const PANEL_W = 460;
-        const PANEL_H = 128;
+        const anchor = parseViewportAnchor(args?.anchor);
         let sourceOrigin: { x: number; y: number } | undefined;
         if (anchor) {
           const host = await hostWindowFromArgs(args, state);
           if (host && !host.isDestroyed()) {
             try {
               const cb = host.getContentBounds();
-              sourceOrigin = {
-                x: Math.round(
-                  cb.x + anchor.x + anchor.width / 2 - PANEL_W / 2,
-                ),
-                y: Math.round(
-                  cb.y + anchor.y + anchor.height / 2 - PANEL_H / 2,
-                ),
-              };
+              sourceOrigin = grantOverlaySourceOriginFromAnchor(
+                cb,
+                anchor,
+                GRANT_PANEL_WIDTH,
+                GRANT_PANEL_HEIGHT,
+              );
             } catch {
               /* fall through — overlay picks Atmos window center */
             }
@@ -975,6 +953,38 @@ export function createAllHandlers(
       );
       closeAccessibilityGrantOverlay();
       return { ok: true };
+    },
+
+    async macos_app_permissions_status() {
+      const { queryAtmosAppPermissions } = await import(
+        "../macos-app-permissions.js"
+      );
+      return queryAtmosAppPermissions();
+    },
+    async macos_app_permissions_grant(args) {
+      const { grantAtmosAppPermission, parseViewportAnchor } = await import(
+        "../macos-app-permissions.js"
+      );
+      const raw =
+        typeof args?.target === "string" ? args.target.trim().toLowerCase() : "";
+      const target =
+        raw === "screen_recording" ? "screen_recording" : "accessibility";
+      const locale =
+        typeof args?.locale === "string"
+          ? args.locale
+          : typeof args?.lang === "string"
+            ? args.lang
+            : undefined;
+      const reason =
+        args?.reason === "host_shortcuts" ? "host_shortcuts" : undefined;
+      const host = await hostWindowFromArgs(args, state);
+      return grantAtmosAppPermission({
+        target,
+        locale,
+        reason,
+        anchor: parseViewportAnchor(args?.anchor),
+        hostWindow: host,
+      });
     },
 
     // --- tunnel ---

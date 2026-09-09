@@ -304,20 +304,6 @@ async function macosPermissions(): Promise<AppshotPermissionState[]> {
 }
 
 /**
- * Prompt macOS to trust Atmos (Electron) for Accessibility.
- * Only needed for the pre-ensure dual-shift fallback (no host engine).
- */
-export async function requestElectronAccessibilityPrompt(): Promise<boolean> {
-  if (process.platform !== "darwin") return false;
-  try {
-    const { systemPreferences } = await import("electron");
-    return Boolean(systemPreferences.isTrustedAccessibilityClient(true));
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Report live status and (re)arm the dual-shift listener when Accessibility is on.
  */
 export async function appshotStatus(state?: AppState): Promise<AppshotStatus> {
@@ -859,13 +845,18 @@ export async function openPermissions(target: string): Promise<void> {
   if (process.platform !== "darwin") return;
   const t = target.trim().toLowerCase();
   // Pre-ensure only: dual-shift uses Atmos (Electron). With host engine,
-  // grant goes through Desktop Use host identity (no Electron prompt).
+  // grant goes through Desktop Use host identity (Settings → Privacy).
   const flags = await resolveAppShotPermissionFlags();
-  if (
-    !flags.hostEngineInstalled &&
-    (t === "accessibility" || t === "all" || t === "privacy_security")
-  ) {
-    await requestElectronAccessibilityPrompt();
+  if (!flags.hostEngineInstalled) {
+    const purpose =
+      t === "screen_recording" || t === "screen"
+        ? "screen_recording"
+        : "accessibility";
+    const { grantAtmosAppPermission } = await import(
+      "../macos-app-permissions.js"
+    );
+    await grantAtmosAppPermission({ target: purpose });
+    return;
   }
   const urls: Record<string, string> = {
     screen_recording:

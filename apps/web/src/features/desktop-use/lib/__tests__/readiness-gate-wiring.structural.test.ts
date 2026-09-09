@@ -73,6 +73,19 @@ describe("desktop-use readiness gate wiring", () => {
     expect(overlay).toContain("DESKTOP_USE_SLASH_COMMAND_ID");
   });
 
+  it("gates Desktop Use and Browser Use slash on Agent Chat with the same Welcome modal", () => {
+    const hook = read(
+      "apps/web/src/features/agent/hooks/use-agent-composer-popovers.tsx",
+    );
+    expect(hook).toContain("gateDesktopUseFeature");
+    expect(hook).toContain('"slash"');
+    expect(hook).toContain('"browser"');
+    expect(hook).toContain("BROWSER_USE_SLASH_COMMAND_ID");
+    expect(hook).toContain("browserUseSlashNeedsDesktopUseGate");
+    expect(hook).toContain("DESKTOP_USE_SLASH_COMMAND_ID");
+    expect(hook).toContain("onReady: insertSkill");
+  });
+
   it("readiness dialog raises z-index above ordinary chrome", () => {
     const dialog = read(
       "apps/web/src/features/desktop-use/components/DesktopUseReadinessDialog.tsx",

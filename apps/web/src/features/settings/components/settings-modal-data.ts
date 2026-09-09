@@ -454,6 +454,9 @@ const SETTINGS_TOPIC_KEYWORDS: Record<string, readonly string[]> = {
     "accessibility",
     "screen recording",
     "desktop use",
+    "atmos accessibility",
+    "cmd shift 4",
+    "cmd shift 5",
   ],
   keyboard: [
     "keyboard",
@@ -1088,6 +1091,30 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
     settingsModalSearchItem("permissionAccess.browserCookies", {
       hasDescription: true,
       keywords: ["keychain", "chrome safe storage", "cursor", "cookie"],
+    }),
+    settingsModalSearchItem("permissionAccess.atmosAccessibility", {
+      hasDescription: true,
+      keywords: [
+        "accessibility",
+        "assistive",
+        "cmd shift 4",
+        "cmd shift 5",
+        "sidebar shortcut",
+        "macos permissions",
+      ],
+    }),
+    settingsModalSearchItem("permissionAccess.atmosScreenRecording", {
+      hasDescription: true,
+      keywords: ["screen recording", "appshot", "screenshot", "macos permissions"],
+    }),
+    settingsModalSearchItem("permissionAccess.desktopUsePermissions", {
+      hasDescription: true,
+      keywords: [
+        "desktop use",
+        "accessibility",
+        "screen recording",
+        "control engine",
+      ],
     }),
   ],
   about: [

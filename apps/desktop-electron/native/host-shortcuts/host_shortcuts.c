@@ -4,8 +4,10 @@
  * discards that event so Screenshot.app never sees it. System screenshot
  * hotkeys stay enabled — we do not toggle WindowServer symbolic hotkeys.
  *
- * Needs Accessibility on this process. Desktop Use inject is the usual path
- * (Atmos Electron often has no AX). JS polls atmos_host_shortcuts_take_digit().
+ * A consuming tap needs Accessibility on this process. Do not prompt for it
+ * here. Start without AX and keep an observer so JS can show the drag-to-list
+ * overlay on first screenshot steal.
+ * JS polls atmos_host_shortcuts_take_digit() and take_ax_nudge().
  */
 #include <ApplicationServices/ApplicationServices.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -37,10 +39,13 @@ static atomic_bool g_running = false;
 static atomic_bool g_thread_started = false;
 static atomic_bool g_enabled = false;
 static atomic_int g_pending_digit = 0;
-static atomic_int g_status = 0; /* 0 idle, 1 starting, 2 ready, 3 failed */
+static atomic_int g_pending_ax_nudge = 0;
+static atomic_int g_status = 0; /* 0 idle, 1 starting, 2 tap ready, 3 failed, 4 observer */
 static CFMachPortRef g_tap = NULL;
 static CFRunLoopRef g_rl = NULL;
 static CFRunLoopSourceRef g_source = NULL;
+static bool g_prev_atmos_frontmost = false;
+static bool g_prev_shot_present = false;
 
 static int digit_from_keycode(int64_t keycode) {
   switch (keycode) {
@@ -71,8 +76,101 @@ static bool bundle_id_is_atmos(const char *bid) {
          strcmp(bid, "com.atmos.desktop.dev") == 0;
 }
 
-/* Fail open: if we cannot read the frontmost app, do not swallow. */
-static bool frontmost_is_atmos(void) {
+static bool bundle_id_is_screenshot(const char *bid) {
+  if (!bid) return false;
+  return strcmp(bid, "com.apple.screencaptureui") == 0 ||
+         strcmp(bid, "com.apple.Screenshot") == 0 ||
+         strcmp(bid, "com.apple.screenshot.launcher") == 0 ||
+         strcmp(bid, "com.apple.ScreenCaptureUI") == 0;
+}
+
+static bool name_is_screenshot(const char *n) {
+  if (!n || !n[0]) return false;
+  return strcasecmp(n, "screencaptureui") == 0 ||
+         strcasecmp(n, "Screenshot") == 0 ||
+         strcasecmp(n, "ScreenCaptureUI") == 0 ||
+         strcmp(n, "截屏") == 0 ||
+         strcmp(n, "屏幕截图") == 0;
+}
+
+static const char *nsstring_utf8(id nsstr) {
+  if (!nsstr) return NULL;
+  return ((const char *(*)(id, SEL))objc_msgSend)(
+      nsstr, sel_registerName("UTF8String"));
+}
+
+/* ⌘⇧4 keeps Atmos frontmost and only launches screencaptureui. */
+static bool screenshot_process_running(void) {
+  Class wsClass = objc_getClass("NSWorkspace");
+  if (!wsClass) return false;
+  id ws = ((id(*)(Class, SEL))objc_msgSend)(
+      wsClass, sel_registerName("sharedWorkspace"));
+  if (!ws) return false;
+  id apps = ((id(*)(id, SEL))objc_msgSend)(
+      ws, sel_registerName("runningApplications"));
+  if (!apps) return false;
+  unsigned long n = ((unsigned long (*)(id, SEL))objc_msgSend)(
+      apps, sel_registerName("count"));
+  for (unsigned long i = 0; i < n; i++) {
+    id app = ((id(*)(id, SEL, unsigned long))objc_msgSend)(
+        apps, sel_registerName("objectAtIndex:"), i);
+    if (!app) continue;
+    id bid = ((id(*)(id, SEL))objc_msgSend)(
+        app, sel_registerName("bundleIdentifier"));
+    if (bundle_id_is_screenshot(nsstring_utf8(bid))) return true;
+    id loc = ((id(*)(id, SEL))objc_msgSend)(
+        app, sel_registerName("localizedName"));
+    if (name_is_screenshot(nsstring_utf8(loc))) return true;
+    id url = ((id(*)(id, SEL))objc_msgSend)(
+        app, sel_registerName("executableURL"));
+    if (url) {
+      id last = ((id(*)(id, SEL))objc_msgSend)(
+          url, sel_registerName("lastPathComponent"));
+      if (name_is_screenshot(nsstring_utf8(last))) return true;
+    }
+  }
+  return false;
+}
+
+/* Screenshot selection UI is often a non-zero window layer overlay. */
+static bool screenshot_window_on_screen(void) {
+  CFArrayRef list = CGWindowListCopyWindowInfo(
+      kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
+      kCGNullWindowID);
+  if (!list) return false;
+  bool found = false;
+  CFIndex n = CFArrayGetCount(list);
+  for (CFIndex i = 0; i < n; i++) {
+    CFDictionaryRef win = CFArrayGetValueAtIndex(list, i);
+    if (!win) continue;
+    char buf[128];
+    CFStringRef owner = CFDictionaryGetValue(win, kCGWindowOwnerName);
+    if (owner &&
+        CFStringGetCString(owner, buf, sizeof(buf), kCFStringEncodingUTF8) &&
+        name_is_screenshot(buf)) {
+      found = true;
+      break;
+    }
+    CFStringRef title = CFDictionaryGetValue(win, kCGWindowName);
+    if (title &&
+        CFStringGetCString(title, buf, sizeof(buf), kCFStringEncodingUTF8) &&
+        name_is_screenshot(buf)) {
+      found = true;
+      break;
+    }
+  }
+  CFRelease(list);
+  return found;
+}
+
+static bool screenshot_ui_present(void) {
+  return screenshot_process_running() || screenshot_window_on_screen();
+}
+
+/* Fail open: empty string if we cannot read the frontmost app. */
+static bool copy_frontmost_bundle_id(char *out, size_t out_len) {
+  if (!out || out_len == 0) return false;
+  out[0] = '\0';
   Class wsClass = objc_getClass("NSWorkspace");
   if (!wsClass) return false;
   id ws = ((id(*)(Class, SEL))objc_msgSend)(
@@ -86,7 +184,31 @@ static bool frontmost_is_atmos(void) {
   if (!bid) return false;
   const char *c = ((const char *(*)(id, SEL))objc_msgSend)(
       bid, sel_registerName("UTF8String"));
-  return bundle_id_is_atmos(c);
+  if (!c) return false;
+  strncpy(out, c, out_len - 1);
+  out[out_len - 1] = '\0';
+  return true;
+}
+
+static bool frontmost_is_atmos(void) {
+  char bid[256];
+  if (!copy_frontmost_bundle_id(bid, sizeof(bid))) return false;
+  return bundle_id_is_atmos(bid);
+}
+
+static void poll_screenshot_steal(void) {
+  bool atmos = frontmost_is_atmos();
+  if (g_tap || AXIsProcessTrusted()) {
+    g_prev_atmos_frontmost = atmos;
+    g_prev_shot_present = screenshot_ui_present();
+    return;
+  }
+  bool shot = screenshot_ui_present();
+  if (shot && !g_prev_shot_present && (atmos || g_prev_atmos_frontmost)) {
+    atomic_store(&g_pending_ax_nudge, 1);
+  }
+  g_prev_atmos_frontmost = atmos;
+  g_prev_shot_present = shot;
 }
 
 static CGEventRef tap_callback(CGEventTapProxy proxy, CGEventType type,
@@ -116,50 +238,41 @@ static CGEventRef tap_callback(CGEventTapProxy proxy, CGEventType type,
   return NULL;
 }
 
-static void *thread_main(void *arg) {
-  (void)arg;
-#if defined(__APPLE__)
-  pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
-#endif
-  atomic_store(&g_status, 1);
+static bool install_tap(void) {
+  if (g_tap) return true;
+  if (!AXIsProcessTrusted()) return false;
 
   CGEventMask mask =
       CGEventMaskBit(kCGEventKeyDown) | CGEventMaskBit(kCGEventKeyUp);
-  g_tap = CGEventTapCreate(kCGHIDEventTap, kCGHeadInsertEventTap,
-                           kCGEventTapOptionDefault, mask, tap_callback, NULL);
-  if (!g_tap) {
-    g_tap = CGEventTapCreate(kCGSessionEventTap, kCGHeadInsertEventTap,
-                             kCGEventTapOptionDefault, mask, tap_callback,
-                             NULL);
+  CFMachPortRef tap = CGEventTapCreate(kCGHIDEventTap, kCGHeadInsertEventTap,
+                                       kCGEventTapOptionDefault, mask,
+                                       tap_callback, NULL);
+  if (!tap) {
+    tap = CGEventTapCreate(kCGSessionEventTap, kCGHeadInsertEventTap,
+                           kCGEventTapOptionDefault, mask, tap_callback,
+                           NULL);
   }
-  if (!g_tap) {
-    atomic_store(&g_status, 3);
-    atomic_store(&g_running, false);
-    return NULL;
+  if (!tap) return false;
+
+  CFRunLoopSourceRef source =
+      CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0);
+  if (!source) {
+    CFRelease(tap);
+    return false;
   }
 
-  g_source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, g_tap, 0);
-  if (!g_source) {
-    CFRelease(g_tap);
-    g_tap = NULL;
-    atomic_store(&g_status, 3);
-    atomic_store(&g_running, false);
-    return NULL;
-  }
-
-  g_rl = CFRunLoopGetCurrent();
-  CFRunLoopAddSource(g_rl, g_source, kCFRunLoopCommonModes);
-  CFRunLoopAddSource(g_rl, g_source, kCFRunLoopDefaultMode);
-  CGEventTapEnable(g_tap, true);
+  CFRunLoopRef rl = g_rl ? g_rl : CFRunLoopGetCurrent();
+  CFRunLoopAddSource(rl, source, kCFRunLoopCommonModes);
+  CFRunLoopAddSource(rl, source, kCFRunLoopDefaultMode);
+  CGEventTapEnable(tap, true);
+  g_tap = tap;
+  g_source = source;
+  g_rl = rl;
   atomic_store(&g_status, 2);
+  return true;
+}
 
-  while (atomic_load(&g_running)) {
-    if (g_tap && !CGEventTapIsEnabled(g_tap)) {
-      CGEventTapEnable(g_tap, true);
-    }
-    CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, true);
-  }
-
+static void teardown_tap(void) {
   if (g_tap) CGEventTapEnable(g_tap, false);
   if (g_source && g_rl) {
     CFRunLoopRemoveSource(g_rl, g_source, kCFRunLoopCommonModes);
@@ -173,6 +286,34 @@ static void *thread_main(void *arg) {
     CFRelease(g_tap);
     g_tap = NULL;
   }
+}
+
+static void *thread_main(void *arg) {
+  (void)arg;
+#if defined(__APPLE__)
+  pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
+#endif
+  atomic_store(&g_status, 1);
+  g_rl = CFRunLoopGetCurrent();
+  g_prev_atmos_frontmost = frontmost_is_atmos();
+  g_prev_shot_present = screenshot_ui_present();
+
+  if (!install_tap()) {
+    atomic_store(&g_status, 4);
+  }
+
+  while (atomic_load(&g_running)) {
+    if (!g_tap) {
+      (void)install_tap();
+    }
+    if (g_tap && !CGEventTapIsEnabled(g_tap)) {
+      CGEventTapEnable(g_tap, true);
+    }
+    poll_screenshot_steal();
+    CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, true);
+  }
+
+  teardown_tap();
   g_rl = NULL;
   atomic_store(&g_status, 0);
   return NULL;
@@ -214,13 +355,11 @@ static void restore_leaked_symbolic_hotkeys(void) {
 int atmos_host_shortcuts_start(void) {
   restore_leaked_symbolic_hotkeys();
   if (atomic_load(&g_thread_started) || atomic_load(&g_running)) {
-    return atomic_load(&g_status) == 2 ? 0 : -1;
-  }
-  if (!AXIsProcessTrusted()) {
-    atomic_store(&g_status, 3);
-    return -3;
+    int st = atomic_load(&g_status);
+    return (st == 2 || st == 4) ? 0 : -1;
   }
   atomic_store(&g_pending_digit, 0);
+  atomic_store(&g_pending_ax_nudge, 0);
   atomic_store(&g_running, true);
   atomic_store(&g_status, 1);
   if (pthread_create(&g_thread, NULL, thread_main, NULL) != 0) {
@@ -231,7 +370,7 @@ int atmos_host_shortcuts_start(void) {
   atomic_store(&g_thread_started, true);
   for (int i = 0; i < 50; i++) {
     int st = atomic_load(&g_status);
-    if (st == 2) return 0;
+    if (st == 2 || st == 4) return 0;
     if (st == 3) {
       pthread_join(g_thread, NULL);
       atomic_store(&g_thread_started, false);
@@ -261,6 +400,10 @@ void atmos_host_shortcuts_set_enabled(int enabled) {
 
 int atmos_host_shortcuts_take_digit(void) {
   return atomic_exchange(&g_pending_digit, 0);
+}
+
+int atmos_host_shortcuts_take_ax_nudge(void) {
+  return atomic_exchange(&g_pending_ax_nudge, 0);
 }
 
 int atmos_host_shortcuts_status(void) {

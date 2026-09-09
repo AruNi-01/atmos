@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
+import { AtmosAppPermissionsPanel } from "@/features/settings/components/AtmosAppPermissionsPanel";
 import { DesktopUsePermissionsPanel } from "@/features/settings/components/DesktopUsePermissionsPanel";
 import {
   SettingsGroupCard,
@@ -27,6 +28,9 @@ export function PermissionAccessSettingsSection() {
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [browserCookiesOpen, setBrowserCookiesOpen] = React.useState(false);
+  const [atmosHeaderEnd, setAtmosHeaderEnd] = React.useState<React.ReactNode>(null);
+  const [desktopUseHeaderEnd, setDesktopUseHeaderEnd] =
+    React.useState<React.ReactNode>(null);
 
   const load = React.useCallback(async () => {
     try {
@@ -98,10 +102,21 @@ export function PermissionAccessSettingsSection() {
       </SettingsGroupCard>
 
       <SettingsGroupCard
+        id="macos-app"
+        title={t("atmosApp.title")}
+        description={t("atmosApp.description")}
+        headerEnd={atmosHeaderEnd}
+      >
+        <AtmosAppPermissionsPanel onHeaderEndChange={setAtmosHeaderEnd} />
+      </SettingsGroupCard>
+
+      <SettingsGroupCard
+        id="desktop-use-permissions"
         title={t("desktopUse.title")}
         description={t("desktopUse.description")}
+        headerEnd={desktopUseHeaderEnd}
       >
-        <DesktopUsePermissionsPanel />
+        <DesktopUsePermissionsPanel onHeaderEndChange={setDesktopUseHeaderEnd} />
       </SettingsGroupCard>
     </SettingsPageStack>
   );

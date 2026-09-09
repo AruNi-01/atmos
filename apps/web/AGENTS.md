@@ -89,6 +89,7 @@ Spec: [specs/APP/APP-016_atmos-computer/](../../specs/APP/APP-016_atmos-computer
 - UI atoms from `@workspace/ui`; semantic theme tokens (`bg-background`, etc.)
 - Feature-local dialogs live with their feature, not in a global dialog folder.
 - Settings-specific rules: [src/features/settings/components/AGENTS.md](src/features/settings/components/AGENTS.md)
+- **macOS TCC:** Settings → Privacy must show every OS permission Atmos uses (Atmos.app and Desktop Use). Grant via the desktop drag-to-list overlay; never prompt Accessibility at app launch. See [apps/desktop-electron/AGENTS.md](../desktop-electron/AGENTS.md) and [agents/references/keyboard-shortcuts.md](../../agents/references/keyboard-shortcuts.md).
 - Desktop standalone windows for embedded surfaces such as Preview and Agent Chat must be mutually exclusive with their embedded surface. Use the shared standalone handoff helper so the embedded UI shows a paused placeholder with a return button while the standalone window is active.
 
 ---
