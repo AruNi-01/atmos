@@ -211,12 +211,6 @@ function ContextUsageSummaryBody({
 
   return (
     <div className="space-y-3">
-      {fetchFailureMessage ? (
-        <QuotaFetchFailureBanner
-          message={fetchFailureMessage}
-          className="rounded-2xl px-3 py-2 text-xs"
-        />
-      ) : null}
       <div className="flex items-baseline justify-between gap-3 text-xs text-muted-foreground">
         <span className="tabular-nums">{t("percentFull", { percent: percentLabel })}</span>
         <span className="tabular-nums">
@@ -225,6 +219,12 @@ function ContextUsageSummaryBody({
       </div>
       <ContextUsageBar percent={percent} tone={tone} />
       {matchedQuota ? <AgentQuotaSection provider={matchedQuota} /> : null}
+      {fetchFailureMessage ? (
+        <QuotaFetchFailureBanner
+          message={fetchFailureMessage}
+          className="rounded-2xl px-3 py-2 text-xs"
+        />
+      ) : null}
     </div>
   );
 }

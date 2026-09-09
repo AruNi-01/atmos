@@ -70,13 +70,14 @@ describe("context window usage control", () => {
     expect(badges).not.toContain("displayResetText(");
   });
 
-  it("keeps last quota numbers and shows the latest fetch failure at the top", () => {
+  it("keeps last quota numbers and shows the latest fetch failure below context usage", () => {
     expect(badges).toContain("<QuotaFetchFailureBanner");
     expect(badges).toContain("formatQuotaFetchFailureMessage");
     expect(badges).toContain("fetchFailureMessage");
     const bannerAt = badges.indexOf("<QuotaFetchFailureBanner");
     const barAt = badges.indexOf("<ContextUsageBar");
     expect(bannerAt).toBeGreaterThan(-1);
-    expect(barAt).toBeGreaterThan(bannerAt);
+    expect(barAt).toBeGreaterThan(-1);
+    expect(bannerAt).toBeGreaterThan(barAt);
   });
 });
