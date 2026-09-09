@@ -1,0 +1,33 @@
+apps/web/src/app-shell/center-stage-tab-tooltip.tsx
+  s_5a3fcb530f6146::t_51353f02dc57da 1-47
+apps/web/src/app-shell/__tests__/center-stage-tab-kind-chip.dom.test.tsx
+  s_5a3fcb530f6146::t_e8ba5644a9c427 1-64
+apps/web/src/app-shell/__tests__/agent-chat-entry-points.test.ts
+  s_0ae7207e2b3584::t_7c87249f807bdd 102-104
+apps/web/src/app-shell/center-stage-tabs.tsx
+  s_0ae7207e2b3584::t_75753516e2d624 22,31,56-60,210
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "86d0fc1ad3992f3f3636951c2681a903530e639a",
+  "prompts": {},
+  "sessions": {
+    "s_0ae7207e2b3584": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "df747ba9-f575-4dd0-b205-8f97d823d76f",
+        "model": "grok-4.6"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_5a3fcb530f6146": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0854c-4745-7452-9c4e-3408e246aac2",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
