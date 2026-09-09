@@ -1,0 +1,25 @@
+apps/web/src/features/resource-monitor/lib/resource-monitor-agent-sessions.test.ts
+  s_e740b1b40121b6::t_8d0a4e26b2cc85 1-283
+apps/web/src/features/resource-monitor/lib/resource-monitor-agent-sessions.ts
+  s_e740b1b40121b6::t_3d82cd978be071 1-326,337-338
+  s_e740b1b40121b6::t_634eba42173817 327-329,334-336
+  s_e740b1b40121b6::t_64ecb99dbc1b4a 339-340
+apps/web/src/features/resource-monitor/lib/resource-monitor-listed-session.ts
+  s_e740b1b40121b6::t_b4946c1de974f8 1-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "e86c4c5c03b4578150d4c0d91d6e0df865120f7a",
+  "prompts": {},
+  "sessions": {
+    "s_e740b1b40121b6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0858c-078d-7ef3-b1b6-390a2660e1a8",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
