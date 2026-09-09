@@ -783,13 +783,15 @@ fn apply_config_changed(
         // other models do not inherit a stale shared ladder.
         match advertised_option_for_kind(&advertised, "thinking") {
             Some(option) if !option.options.is_empty() => {
+                let mut options: Vec<String> = option
+                    .options
+                    .iter()
+                    .map(|item| item.value.clone())
+                    .collect();
+                agent::sort_thinking_levels(&mut options);
                 meta.descriptor.supported_options.thinking = AgentThinkingSupport::Enum {
                     arg: Some(option.id.clone()),
-                    options: option
-                        .options
-                        .iter()
-                        .map(|item| item.value.clone())
-                        .collect(),
+                    options,
                 };
             }
             _ => {
@@ -2326,6 +2328,74 @@ mod tests {
             }
             other => panic!("expected preserved opus effort, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn grok_thought_level_highest_first_sorts_low_to_extra_high() {
+        let mut row = meta();
+        row.provider_id = "grok".into();
+        row.descriptor = crate::service::agent_chat::types::chat_descriptor(
+            "grok",
+            agent::AgentCurrentConfig::default(),
+        );
+        apply_config_changed(
+            &mut row,
+            vec![
+                SessionAdvertisedOption {
+                    id: "model".into(),
+                    name: Some("Model".into()),
+                    category: None,
+                    option_type: "select".into(),
+                    current_value: Some("grok-4.6".into()),
+                    options: vec![SessionAdvertisedOptionValue {
+                        value: "grok-4.6".into(),
+                        name: Some("Grok 4.6".into()),
+                    }],
+                },
+                SessionAdvertisedOption {
+                    id: "thought_level".into(),
+                    name: Some("Effort".into()),
+                    category: Some("thinking".into()),
+                    option_type: "select".into(),
+                    current_value: Some("xhigh".into()),
+                    options: ["xhigh", "high", "medium", "low"]
+                        .iter()
+                        .map(|value| SessionAdvertisedOptionValue {
+                            value: (*value).into(),
+                            name: None,
+                        })
+                        .collect(),
+                },
+            ],
+            Some(&"grok-4.6".into()),
+            Some(&"xhigh".into()),
+            None,
+            None,
+            None,
+        );
+        match &row.descriptor.supported_options.thinking {
+            AgentThinkingSupport::Enum { options, .. } => {
+                assert_eq!(options, &["low", "medium", "high", "xhigh"]);
+            }
+            other => panic!("expected sorted grok effort, got {other:?}"),
+        }
+        let grok = row
+            .descriptor
+            .supported_options
+            .models
+            .iter()
+            .find(|model| model.id == "grok-4.6")
+            .expect("grok-4.6");
+        match &grok.thinking {
+            Some(AgentThinkingSupport::Enum { options, .. }) => {
+                assert_eq!(options, &["low", "medium", "high", "xhigh"]);
+            }
+            other => panic!("expected stamped grok effort, got {other:?}"),
+        }
+        assert_eq!(
+            row.descriptor.current_config.thinking.as_deref(),
+            Some("xhigh")
+        );
     }
 
     #[test]

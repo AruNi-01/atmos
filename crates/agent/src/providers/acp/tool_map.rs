@@ -341,6 +341,7 @@ fn typed_params(
         AgentToolKind::WebSearch => AgentToolParams::WebSearch {
             query: value
                 .and_then(extract_query)
+                .or_else(|| update.raw_output.as_ref().and_then(extract_query))
                 .or_else(|| title.clone())
                 .unwrap_or_default(),
         },
@@ -460,6 +461,7 @@ fn mapped_result(
         AgentToolKind::WebSearch => {
             let query = payload
                 .and_then(extract_query)
+                .or_else(|| output.and_then(extract_query))
                 .or_else(|| title_fallback(update))
                 .unwrap_or_default();
             let links = output
@@ -917,6 +919,19 @@ fn apply_name_overlay(
     title: Option<&str>,
     payload: Option<&Value>,
 ) -> Option<AgentToolKind> {
+    // Envelope variant/type wins over ACP kind (`search` is used for both
+    // workspace grep and Grok `{ variant: WebSearch }`).
+    if let Some(ty) = overlays::envelope_type(payload) {
+        if is_web_search_label(&ty) {
+            return Some(AgentToolKind::WebSearch);
+        }
+        if is_web_fetch_label(&ty) {
+            return Some(AgentToolKind::Fetch);
+        }
+        if is_workspace_search_label(&ty) {
+            return Some(AgentToolKind::Search);
+        }
+    }
     let labels = [Some(name), title];
     if labels.into_iter().flatten().any(is_web_search_label)
         || payload.is_some_and(action_type_is_search)
@@ -1229,6 +1244,34 @@ mod tests {
     }
 
     #[test]
+    fn grok_variant_websearch_is_not_workspace_search() {
+        let mut call = update(
+            "Search",
+            ToolCallStatus::Completed,
+            serde_json::json!({ "variant": "WebSearch", "backend": true }),
+            Some(serde_json::json!({
+                "action": {
+                    "type": "search",
+                    "query": "atmos acp",
+                    "sources": [{ "type": "url", "url": "https://example.com/a" }]
+                }
+            })),
+        );
+        call.description = "Web search:".into();
+        call.acp_kind = Some("search".into());
+        let tool = mapped(call);
+        assert_eq!(tool.kind, AgentToolKind::WebSearch);
+        match tool.result {
+            Some(AgentToolResult::WebSearch { query, links }) => {
+                assert_eq!(query, "atmos acp");
+                assert_eq!(links.len(), 1);
+                assert_eq!(links[0].url, "https://example.com/a");
+            }
+            other => panic!("expected web_search from variant WebSearch, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn s16_web_search_is_not_workspace_search() {
         let web = mapped(update(
             "web_search",
@@ -1320,6 +1363,31 @@ mod tests {
                 assert_eq!(hits[0].line, Some(12));
             }
             other => panic!("expected search_hits, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn acp_grepsearch_file_matches_emit_search_hits() {
+        let tool = mapped(update(
+            "Grep",
+            ToolCallStatus::Completed,
+            serde_json::json!({"pattern": "grep"}),
+            Some(serde_json::json!({
+                "type": "GrepSearch",
+                "match_count": 1,
+                "file_matches": [{
+                    "path": "src/lib.rs",
+                    "matches": [{"line_number": 12, "content": "    pub struct AgentTool"}]
+                }]
+            })),
+        ));
+        match tool.result {
+            Some(AgentToolResult::SearchHits { hits, .. }) => {
+                assert_eq!(hits[0].path, "src/lib.rs");
+                assert_eq!(hits[0].line, Some(12));
+                assert_eq!(hits[0].snippet.as_deref(), Some("    pub struct AgentTool"));
+            }
+            other => panic!("expected search_hits from GrepSearch, got {other:?}"),
         }
     }
 

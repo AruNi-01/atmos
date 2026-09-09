@@ -260,35 +260,6 @@ pub fn plan_from_tool_input(input: Option<&serde_json::Value>) -> Option<serde_j
             }]
         }));
     }
-    // Claude TaskUpdate without subject still folds to a plan stub via status/taskId.
-    if value.get("taskId").is_some() || value.get("task_id").is_some() {
-        let content = value
-            .get("subject")
-            .or_else(|| value.get("description"))
-            .and_then(|item| item.as_str())
-            .map(str::trim)
-            .filter(|text| !text.is_empty())
-            .map(|text| text.to_string())
-            .or_else(|| {
-                value
-                    .get("taskId")
-                    .or_else(|| value.get("task_id"))
-                    .and_then(|item| item.as_str())
-                    .map(|id| format!("Task {id}"))
-            })
-            .unwrap_or_else(|| "Task update".into());
-        let status = value
-            .get("status")
-            .and_then(|item| item.as_str())
-            .unwrap_or("pending");
-        return Some(serde_json::json!({
-            "entries": [{
-                "content": content,
-                "priority": "medium",
-                "status": normalize_task_status(status),
-            }]
-        }));
-    }
     let todos = value
         .get("todos")
         .and_then(|item| item.as_array())
@@ -334,6 +305,9 @@ pub fn plan_from_tool_input_or_stub(
     if let Some(plan) = plan_from_tool_input(input) {
         return plan;
     }
+    if let Some(plan) = plan_stub_from_task_id(input) {
+        return plan;
+    }
     let content = title
         .map(str::trim)
         .filter(|text| !text.is_empty())
@@ -346,6 +320,41 @@ pub fn plan_from_tool_input_or_stub(
             "status": "pending",
         }]
     })
+}
+
+/// Claude TaskUpdate `{ taskId, status }` — only for tools already classified
+/// as Plan. A bare `task_id` on Grok kill/poll/background payloads is not a plan.
+fn plan_stub_from_task_id(input: Option<&serde_json::Value>) -> Option<serde_json::Value> {
+    let value = input?;
+    if value.get("taskId").is_none() && value.get("task_id").is_none() {
+        return None;
+    }
+    let content = value
+        .get("subject")
+        .or_else(|| value.get("description"))
+        .and_then(|item| item.as_str())
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .map(|text| text.to_string())
+        .or_else(|| {
+            value
+                .get("taskId")
+                .or_else(|| value.get("task_id"))
+                .and_then(|item| item.as_str())
+                .map(|id| format!("Task {id}"))
+        })
+        .unwrap_or_else(|| "Task update".into());
+    let status = value
+        .get("status")
+        .and_then(|item| item.as_str())
+        .unwrap_or("pending");
+    Some(serde_json::json!({
+        "entries": [{
+            "content": content,
+            "priority": "medium",
+            "status": normalize_task_status(status),
+        }]
+    }))
 }
 
 fn normalize_task_status(raw: &str) -> &'static str {
@@ -485,6 +494,7 @@ fn is_poll_output_label(value: &str) -> bool {
             | "taskoutput"
             | "task_output"
             | "get_command_or_subagent_output"
+            | "kill_command_or_subagent"
     )
 }
 
@@ -919,6 +929,40 @@ mod tests {
         assert_eq!(
             classify_tool("TaskOutput", None, None),
             ClassifiedTool::Hide
+        );
+        assert_eq!(
+            classify_tool(
+                "kill_command_or_subagent",
+                None,
+                Some(&serde_json::json!({
+                    "task_id": "call-bb76629c-a3fc-492b-b531-e967afa44195-30"
+                }))
+            ),
+            ClassifiedTool::Hide
+        );
+        assert_eq!(
+            classify_tool(
+                "Tool",
+                Some("kill_command_or_subagent"),
+                Some(&serde_json::json!({
+                    "task_id": "call-bb76629c-a3fc-492b-b531-e967afa44195-30"
+                }))
+            ),
+            ClassifiedTool::Hide
+        );
+        assert_eq!(
+            plan_from_tool_input(Some(&serde_json::json!({
+                "task_id": "call-bb76629c-a3fc-492b-b531-e967afa44195-30"
+            }))),
+            None
+        );
+        assert_eq!(
+            classify_tool(
+                "TaskUpdate",
+                None,
+                Some(&serde_json::json!({"taskId": "1", "status": "completed"}))
+            ),
+            ClassifiedTool::Plan
         );
         assert_eq!(
             classify_tool(

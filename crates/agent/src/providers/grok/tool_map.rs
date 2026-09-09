@@ -250,7 +250,9 @@ fn map_grok_task_output(
 ) -> ToolMapOut {
     let output = effective_payload(update.raw_output.as_ref())
         .or_else(|| effective_payload(update.raw_input.as_ref()));
-    let task_id = task_id_of(update.raw_output.as_ref()).or_else(|| task_id_of(output));
+    let task_id = task_id_of(update.raw_output.as_ref())
+        .or_else(|| task_id_of(output))
+        .or_else(|| task_id_of(update.raw_input.as_ref()));
     let Some(task_id) = task_id else {
         // Orphan TaskOutput / get_command_or_subagent_output without a parent — hide.
         return ToolMapOut::Hide;
@@ -258,7 +260,20 @@ fn map_grok_task_output(
     let Some(mut original) = resolve_grok_task_parent(grok_tasks, &task_id, output) else {
         return ToolMapOut::Hide;
     };
-    original.status = grok_task_status(output).unwrap_or_else(|| map_status(&update.status));
+    let kill = is_kill_command(update);
+    if kill {
+        if !matches!(
+            original.status,
+            AgentToolStatus::Completed | AgentToolStatus::Failed
+        ) {
+            original.status = grok_task_status(output).unwrap_or(AgentToolStatus::Failed);
+            if original.status == AgentToolStatus::Running {
+                original.status = AgentToolStatus::Failed;
+            }
+        }
+    } else {
+        original.status = grok_task_status(output).unwrap_or_else(|| map_status(&update.status));
+    }
     match &original.kind {
         AgentToolKind::Subagent => {
             original.result = Some(AgentToolResult::Text {
@@ -270,7 +285,9 @@ fn map_grok_task_output(
             });
         }
         _ => {
-            original.result = Some(execute_result(output, Some(update)));
+            if !kill || original.result.is_none() {
+                original.result = Some(execute_result(output, Some(update)));
+            }
             if let AgentToolParams::Execute {
                 task_id: stored_task,
                 ..
@@ -493,7 +510,10 @@ fn typed_params(
             })
         }
         AgentToolKind::WebSearch => Some(AgentToolParams::WebSearch {
-            query: value.and_then(extract_query)?,
+            query: value
+                .and_then(extract_query)
+                .or_else(|| output.and_then(extract_query))
+                .unwrap_or_default(),
         }),
         AgentToolKind::Execute => {
             let value = value?;
@@ -597,7 +617,10 @@ fn mapped_result(
     match kind {
         AgentToolKind::Execute => execute_result(output, Some(update)),
         AgentToolKind::WebSearch => {
-            let query = payload.and_then(extract_query).unwrap_or_default();
+            let query = payload
+                .and_then(extract_query)
+                .or_else(|| output.and_then(extract_query))
+                .unwrap_or_default();
             let links = output
                 .map(extract_links)
                 .filter(|links| !links.is_empty())
@@ -1042,6 +1065,20 @@ fn apply_name_overlay(
     title: Option<&str>,
     payload: Option<&Value>,
 ) -> Option<AgentToolKind> {
+    // Envelope variant/type wins over ACP kind. Grok websearch is `kind: search`
+    // + `{ variant: WebSearch }`; workspace grep is `{ variant: Grep }` even when
+    // the title patch is overwritten with the query (which may contain `web_search`).
+    if let Some(ty) = envelope_type(payload) {
+        if is_web_search_label(&ty) {
+            return Some(AgentToolKind::WebSearch);
+        }
+        if is_web_fetch_label(&ty) {
+            return Some(AgentToolKind::Fetch);
+        }
+        if is_workspace_search_label(&ty) {
+            return Some(AgentToolKind::Search);
+        }
+    }
     let labels = [Some(name), title];
     if labels.into_iter().flatten().any(is_web_search_label)
         || payload.is_some_and(action_type_is_search)
@@ -1162,6 +1199,9 @@ fn looks_like_grok_execute(
 }
 
 fn is_task_output(update: &ToolCallUpdate) -> bool {
+    if is_kill_command(update) {
+        return true;
+    }
     let title = nonempty_title(update).unwrap_or("");
     matches!(
         normalize(&update.tool).as_str(),
@@ -1175,6 +1215,17 @@ fn is_task_output(update: &ToolCallUpdate) -> bool {
             .is_some_and(|ty| ty == "taskoutput" || ty == "task_output")
 }
 
+fn is_kill_command(update: &ToolCallUpdate) -> bool {
+    let title = nonempty_title(update).unwrap_or("");
+    matches!(
+        normalize(&update.tool).as_str(),
+        "kill_command_or_subagent" | "kill_command" | "kill_task"
+    ) || matches!(
+        normalize(title).as_str(),
+        "kill_command_or_subagent" | "kill_command" | "kill_task"
+    ) || title.to_ascii_lowercase().starts_with("kill command")
+}
+
 fn grok_task_status(output: Option<&Value>) -> Option<AgentToolStatus> {
     let status = first_string(output?, &["status"])
         .or_else(|| {
@@ -1185,7 +1236,9 @@ fn grok_task_status(output: Option<&Value>) -> Option<AgentToolStatus> {
         .to_ascii_lowercase();
     Some(match status.as_str() {
         "completed" => AgentToolStatus::Completed,
-        "failed" | "not_found" => AgentToolStatus::Failed,
+        "failed" | "not_found" | "killed" | "cancelled" | "canceled" | "terminated" => {
+            AgentToolStatus::Failed
+        }
         "running" => AgentToolStatus::Running,
         _ => return None,
     })
@@ -1609,6 +1662,45 @@ mod tests {
     }
 
     #[test]
+    fn grok_kill_command_fails_parent_background_execute() {
+        let mut grok_tasks = HashMap::new();
+        let started = update(
+            "Tool",
+            ToolCallStatus::Running,
+            serde_json::json!({"type": "Bash", "command": "python3 scan", "is_background": true}),
+            Some(serde_json::json!({
+                "type": "backgroundtaskstarted",
+                "Result": { "task_id": "call-bb76629c-a3fc-492b-b531-e967afa44195-30", "status": "running" }
+            })),
+        );
+        let ToolMapOut::Tool(_) = map_tool_call(&started, &mut grok_tasks) else {
+            panic!("expected execute");
+        };
+        let kill = ToolCallUpdate {
+            tool_call_id: "tc_kill".into(),
+            parent_tool_call_id: None,
+            tool: "Tool".into(),
+            description: "kill_command_or_subagent".into(),
+            acp_kind: None,
+            status: ToolCallStatus::Completed,
+            raw_input: Some(serde_json::json!({
+                "task_id": "call-bb76629c-a3fc-492b-b531-e967afa44195-30"
+            })),
+            content: Vec::new(),
+            locations: Vec::new(),
+            raw_output: Some(serde_json::json!({"success": true})),
+            detail: None,
+        };
+        let ToolMapOut::Replace { tool_call_id, tool } = map_tool_call(&kill, &mut grok_tasks)
+        else {
+            panic!("expected replace into parent execute, not a plan card");
+        };
+        assert_eq!(tool_call_id, "tc_1");
+        assert_eq!(tool.status, crate::contract::AgentToolStatus::Failed);
+        assert_eq!(tool.kind, AgentToolKind::Execute);
+    }
+
+    #[test]
     fn grok_write_envelope_from_session_update_fixture_is_edit() {
         let fixture: Value =
             serde_json::from_str(include_str!("testdata/tool_call_write.json")).expect("fixture");
@@ -1872,6 +1964,129 @@ mod tests {
     }
 
     #[test]
+    fn grok_grepsearch_file_matches_emit_search_hits() {
+        let mut call = update(
+            "Grep",
+            ToolCallStatus::Completed,
+            serde_json::json!({"pattern": "grep", "glob": "**/*.{ts,tsx,rs}"}),
+            Some(serde_json::json!({
+                "type": "GrepSearch",
+                "stdout": [],
+                "stderr": [],
+                "exit_code": 0,
+                "match_count": 2,
+                "file_matches": [{
+                    "path": "crates/agent/src/map/extract.rs",
+                    "matches": [
+                        {"line_number": 412, "content": "    if let Some(hit) = parse_grep_line(line) {"},
+                        {"line_number": 443, "content": "fn parse_grep_line(line: &str) -> Option<SearchHit> {"}
+                    ]
+                }]
+            })),
+        );
+        call.content = vec![crate::acp_client::types::AgentToolCallContentItem::Text {
+            text: "found 2 matches".into(),
+        }];
+        let tool = mapped(call);
+        assert_eq!(tool.kind, AgentToolKind::Search);
+        match tool.result {
+            Some(AgentToolResult::SearchHits { query, hits }) => {
+                assert_eq!(query, "grep");
+                assert_eq!(hits.len(), 2);
+                assert_eq!(hits[0].path, "crates/agent/src/map/extract.rs");
+                assert_eq!(hits[0].line, Some(412));
+                assert_eq!(hits[1].line, Some(443));
+            }
+            other => panic!("expected search_hits from GrepSearch file_matches, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn grok_live_grep_title_patch_then_file_matches_stays_workspace_search() {
+        let started = ToolCallUpdate {
+            tool_call_id: "tc_grep".into(),
+            parent_tool_call_id: None,
+            tool: "Tool".into(),
+            description: "grep".into(),
+            acp_kind: None,
+            status: ToolCallStatus::Running,
+            raw_input: Some(serde_json::json!({
+                "pattern": "WebSearch|websearch|web_search",
+                "glob": "*.{rs,ts,tsx}"
+            })),
+            content: Vec::new(),
+            locations: Vec::new(),
+            raw_output: None,
+            detail: None,
+        };
+        let patched = merge_tool_call_patch(
+            &started,
+            ToolCallUpdate {
+                tool_call_id: "tc_grep".into(),
+                parent_tool_call_id: None,
+                tool: "Search".into(),
+                description: "WebSearch|websearch|web_search".into(),
+                acp_kind: Some("search".into()),
+                status: ToolCallStatus::Running,
+                raw_input: Some(serde_json::json!({
+                    "variant": "Grep",
+                    "pattern": "WebSearch|websearch|web_search",
+                    "glob": "*.{rs,ts,tsx}"
+                })),
+                content: Vec::new(),
+                locations: Vec::new(),
+                raw_output: None,
+                detail: None,
+            },
+        );
+        let mut completed = merge_tool_call_patch(
+            &patched,
+            ToolCallUpdate {
+                tool_call_id: "tc_grep".into(),
+                parent_tool_call_id: None,
+                tool: "Tool".into(),
+                description: String::new(),
+                acp_kind: None,
+                status: ToolCallStatus::Completed,
+                raw_input: None,
+                content: vec![crate::acp_client::types::AgentToolCallContentItem::Text {
+                    text: "found 2 matches".into(),
+                }],
+                locations: Vec::new(),
+                raw_output: Some(serde_json::json!({
+                    "type": "GrepSearch",
+                    "stdout": [],
+                    "stderr": [],
+                    "exit_code": 0,
+                    "match_count": 2,
+                    "file_matches": [{
+                        "path": "crates/agent/src/map/extract.rs",
+                        "matches": [
+                            {"line_number": 207, "content": "pub fn extract_links(value: &Value) -> Vec<WebSearchLink> {"}
+                        ]
+                    }]
+                })),
+                detail: None,
+            },
+        );
+        completed.content = vec![crate::acp_client::types::AgentToolCallContentItem::Text {
+            text: "found 2 matches".into(),
+        }];
+        let tool = mapped(completed);
+        assert_eq!(tool.kind, AgentToolKind::Search);
+        assert_eq!(tool.title.as_deref(), Some("grep"));
+        match tool.result {
+            Some(AgentToolResult::SearchHits { query, hits }) => {
+                assert_eq!(query, "WebSearch|websearch|web_search");
+                assert_eq!(hits.len(), 1);
+                assert_eq!(hits[0].path, "crates/agent/src/map/extract.rs");
+                assert_eq!(hits[0].line, Some(207));
+            }
+            other => panic!("expected search_hits from live GrepSearch frames, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn grok_search_zero_hits_keeps_text() {
         let tool = mapped(update(
             "Grep",
@@ -1903,6 +2118,44 @@ mod tests {
             tool.result,
             Some(AgentToolResult::WebSearch { .. })
         ));
+    }
+
+    #[test]
+    fn grok_live_websearch_variant_maps_to_web_search_ui() {
+        let mut call = update(
+            "Search",
+            ToolCallStatus::Completed,
+            serde_json::json!({ "variant": "WebSearch", "backend": true }),
+            Some(serde_json::json!({
+                "action": {
+                    "type": "search",
+                    "query": "github droid factory keytar",
+                    "sources": [
+                        { "type": "url", "url": "https://github.com/atom/node-keytar" },
+                        { "type": "url", "url": "https://github.com/ontodev/droid" }
+                    ]
+                }
+            })),
+        );
+        call.description = "Web search:".into();
+        call.acp_kind = Some("search".into());
+        let tool = mapped(call);
+        assert_eq!(tool.kind, AgentToolKind::WebSearch);
+        match &tool.params {
+            AgentToolParams::WebSearch { query } => {
+                assert_eq!(query, "github droid factory keytar");
+            }
+            other => panic!("expected web_search params, got {other:?}"),
+        }
+        match tool.result {
+            Some(AgentToolResult::WebSearch { query, links }) => {
+                assert_eq!(query, "github droid factory keytar");
+                assert_eq!(links.len(), 2);
+                assert_eq!(links[0].url, "https://github.com/atom/node-keytar");
+                assert_eq!(links[1].url, "https://github.com/ontodev/droid");
+            }
+            other => panic!("expected web_search result, got {other:?}"),
+        }
     }
 
     #[test]

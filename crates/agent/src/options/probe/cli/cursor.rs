@@ -3,6 +3,7 @@
 //! Chat ACP must only set advertised bracket values.
 
 use crate::contract::{AgentModel, AgentThinkingSupport};
+use crate::options::effort::sort_thinking_levels;
 use std::collections::BTreeMap;
 
 /// True when any model id looks like Cursor ACP bracket wire (`base[...]`).
@@ -144,7 +145,7 @@ pub fn collapse_cursor_cli_models(models: Vec<AgentModel>) -> Vec<AgentModel> {
         .into_iter()
         .map(|(id, group)| {
             let mut efforts = group.efforts;
-            sort_effort_levels(&mut efforts);
+            sort_thinking_levels(&mut efforts);
             let thinking = if efforts.is_empty() {
                 Some(AgentThinkingSupport::None)
             } else {
@@ -254,17 +255,6 @@ fn find_cursor_thinking_source<'a>(
             .as_ref()
             .is_some_and(|thinking| !thinking.is_none())
     })
-}
-
-const EFFORT_ORDER: &[&str] = &["none", "low", "medium", "high", "xhigh", "max"];
-
-fn sort_effort_levels(levels: &mut [String]) {
-    levels.sort_by_key(|level| {
-        EFFORT_ORDER
-            .iter()
-            .position(|item| *item == level.as_str())
-            .unwrap_or(EFFORT_ORDER.len())
-    });
 }
 
 /// Returns `(base, effort_level, has_fast)`.

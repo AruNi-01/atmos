@@ -5,6 +5,7 @@
 
 pub mod apply;
 pub mod cache;
+pub mod effort;
 pub mod merge;
 pub mod probe;
 pub mod types;
@@ -14,6 +15,7 @@ pub use apply::{
     rebuild_descriptor_for_provider, supported_options_from_snapshot,
 };
 pub use cache::{options_cache_dir, OptionsCache, ERROR_CACHE_TTL, OK_CACHE_TTL};
+pub use effort::sort_thinking_levels;
 pub use merge::{merge_options_snapshots, OptionsFragment};
 pub use probe::{
     apply_grok_thinking_overlay, apply_native_chat_options_plan, collapse_cursor_cli_models,

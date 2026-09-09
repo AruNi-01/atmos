@@ -18,7 +18,9 @@ use tokio::time::timeout;
 use crate::contract::{AgentMode, AgentModel, AgentThinkingSupport};
 use crate::options::probe::cli::parse::commands_from_value;
 use crate::options::probe::native::NativeOptionsProbeResult;
-use crate::options::{config_options_from_session_payload, probe_result_from_config_options};
+use crate::options::{
+    config_options_from_session_payload, probe_result_from_config_options, sort_thinking_levels,
+};
 
 use super::rpc::{initialize_request, jsonrpc_request, session_new_params};
 use super::spawn::spawn_stdio;
@@ -227,6 +229,8 @@ fn thinking_from_reasoning_efforts(meta: &Value) -> Option<AgentThinkingSupport>
     if options.is_empty() {
         None
     } else {
+        // Grok session/new lists extra-high first. Slider index 0 is the left.
+        sort_thinking_levels(&mut options);
         Some(AgentThinkingSupport::Enum {
             arg: Some("thinking".into()),
             options,
@@ -395,13 +399,13 @@ mod tests {
         assert!(models[1].is_default);
         match &models[0].thinking {
             Some(AgentThinkingSupport::Enum { options, .. }) => {
-                assert_eq!(options, &["xhigh", "high", "medium", "low"]);
+                assert_eq!(options, &["low", "medium", "high", "xhigh"]);
             }
             other => panic!("expected 4.6 efforts, got {other:?}"),
         }
         match &models[1].thinking {
             Some(AgentThinkingSupport::Enum { options, .. }) => {
-                assert_eq!(options, &["high", "medium", "low"]);
+                assert_eq!(options, &["low", "medium", "high"]);
             }
             other => panic!("expected 4.5 efforts, got {other:?}"),
         }

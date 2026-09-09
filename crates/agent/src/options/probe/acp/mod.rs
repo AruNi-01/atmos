@@ -13,6 +13,7 @@ use crate::acp_client::types::{AgentConfigOption, AgentConfigOptionValue};
 use crate::acp_client::{run_acp_session, AcpSessionHandle};
 use crate::contract::{AgentAvailableCommand, AgentMode, AgentModel, AgentThinkingSupport};
 use crate::models::AgentLaunchSpec;
+use crate::options::effort::sort_thinking_levels;
 
 #[derive(Debug, Clone)]
 pub struct AcpOptionsProbeResult {
@@ -307,9 +308,11 @@ pub fn thinking_support_from_options(options: &[AgentConfigOption]) -> AgentThin
             if values.is_empty() {
                 AgentThinkingSupport::None
             } else {
+                let mut options = values;
+                sort_thinking_levels(&mut options);
                 AgentThinkingSupport::Enum {
                     arg: Some(option.id.clone()),
-                    options: values,
+                    options,
                 }
             }
         })
@@ -693,6 +696,41 @@ mod tests {
                 assert_eq!(options, vec!["low".to_string(), "high".to_string()]);
             }
             other => panic!("expected effort enum, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn grok_thought_level_highest_first_sorts_low_to_extra_high() {
+        let options = vec![AgentConfigOption {
+            id: "thought_level".into(),
+            name: Some("Effort".into()),
+            description: None,
+            category: Some("thinking".into()),
+            r#type: "select".into(),
+            current_value: Some("xhigh".into()),
+            options: ["xhigh", "high", "medium", "low"]
+                .iter()
+                .map(|value| AgentConfigOptionValue {
+                    value: (*value).into(),
+                    name: None,
+                    description: None,
+                })
+                .collect(),
+        }];
+        match thinking_support_from_options(&options) {
+            AgentThinkingSupport::Enum { arg, options } => {
+                assert_eq!(arg.as_deref(), Some("thought_level"));
+                assert_eq!(
+                    options,
+                    vec![
+                        "low".to_string(),
+                        "medium".to_string(),
+                        "high".to_string(),
+                        "xhigh".to_string()
+                    ]
+                );
+            }
+            other => panic!("expected thought_level enum, got {other:?}"),
         }
     }
 

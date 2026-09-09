@@ -43,11 +43,27 @@ pub(super) fn task_replace(
     let task_id = output
         .as_ref()
         .and_then(extract_task_id)
-        .or_else(|| extract_task_id_nested(update.raw_output.as_ref()))?;
+        .or_else(|| extract_task_id_nested(update.raw_output.as_ref()))
+        .or_else(|| extract_task_id_nested(update.raw_input.as_ref()))?;
     let mut original = grok_tasks.get(&task_id).cloned()?;
-    original.status =
-        grok_task_status(output.as_ref()).unwrap_or_else(|| map_status(&update.status));
-    original.result = Some(execute_result(output.as_ref(), update));
+    let kill = is_kill_command(update);
+    if kill {
+        if !matches!(
+            original.status,
+            AgentToolStatus::Completed | AgentToolStatus::Failed
+        ) {
+            original.status = grok_task_status(output.as_ref()).unwrap_or(AgentToolStatus::Failed);
+            if original.status == AgentToolStatus::Running {
+                original.status = AgentToolStatus::Failed;
+            }
+        }
+    } else {
+        original.status =
+            grok_task_status(output.as_ref()).unwrap_or_else(|| map_status(&update.status));
+    }
+    if !kill || original.result.is_none() {
+        original.result = Some(execute_result(output.as_ref(), update));
+    }
     if let AgentToolParams::Execute {
         task_id: stored_task,
         ..
@@ -83,13 +99,30 @@ pub(super) fn strip_execute_footer(tool: &mut AgentTool) {
     }
 }
 
+fn is_kill_command(update: &ToolCallUpdate) -> bool {
+    let tool = update.tool.trim().to_ascii_lowercase().replace('-', "_");
+    let desc = update
+        .description
+        .trim()
+        .to_ascii_lowercase()
+        .replace('-', "_");
+    tool == "kill_command_or_subagent"
+        || desc == "kill_command_or_subagent"
+        || tool == "kill_command"
+        || desc.starts_with("kill command")
+}
+
 fn is_task_output(update: &ToolCallUpdate) -> bool {
-    matches!(
-        update.tool.trim().to_ascii_lowercase().as_str(),
-        "taskoutput" | "task_output"
-    ) || envelope_type(update.raw_input.as_ref())
-        .or_else(|| envelope_type(update.raw_output.as_ref()))
-        .is_some_and(|ty| ty == "taskoutput" || ty == "task_output")
+    if is_kill_command(update) {
+        return true;
+    }
+    let tool = update.tool.trim().to_ascii_lowercase();
+    let desc = update.description.trim().to_ascii_lowercase();
+    matches!(tool.as_str(), "taskoutput" | "task_output")
+        || matches!(desc.as_str(), "taskoutput" | "task_output")
+        || envelope_type(update.raw_input.as_ref())
+            .or_else(|| envelope_type(update.raw_output.as_ref()))
+            .is_some_and(|ty| ty == "taskoutput" || ty == "task_output")
 }
 
 fn extract_task_id_nested(value: Option<&Value>) -> Option<String> {
@@ -109,7 +142,9 @@ fn grok_task_status(output: Option<&Value>) -> Option<AgentToolStatus> {
         .to_ascii_lowercase();
     Some(match status.as_str() {
         "completed" => AgentToolStatus::Completed,
-        "failed" | "not_found" => AgentToolStatus::Failed,
+        "failed" | "not_found" | "killed" | "cancelled" | "canceled" | "terminated" => {
+            AgentToolStatus::Failed
+        }
         "running" => AgentToolStatus::Running,
         _ => return None,
     })

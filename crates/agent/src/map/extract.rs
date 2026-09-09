@@ -2,7 +2,7 @@ use serde_json::{Map, Value};
 
 use crate::contract::{AgentGeneratedImage, SearchHit, WebSearchLink};
 
-const NESTED_WRAPPERS: [&str; 3] = ["args", "parameters", "input"];
+const NESTED_WRAPPERS: [&str; 4] = ["args", "parameters", "input", "action"];
 
 fn non_empty_str(value: &Value) -> Option<&str> {
     value
@@ -14,6 +14,18 @@ fn non_empty_str(value: &Value) -> Option<&str> {
 fn is_http_url(value: &str) -> bool {
     let lower = value.trim().to_ascii_lowercase();
     lower.starts_with("http://") || lower.starts_with("https://")
+}
+
+fn host_from_http_url(url: &str) -> Option<String> {
+    let rest = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))?;
+    let host = rest.split(['/', '?', '#']).next()?.trim();
+    if host.is_empty() {
+        None
+    } else {
+        Some(host.to_string())
+    }
 }
 
 fn walk_objects(value: &Value) -> Vec<&Map<String, Value>> {
@@ -59,6 +71,21 @@ fn first_id(value: &Value, keys: &[&str]) -> Option<String> {
                     return Some(text.trim().to_string());
                 }
                 Some(Value::Number(number)) => return Some(number.to_string()),
+                _ => {}
+            }
+        }
+    }
+    None
+}
+
+fn first_u32(value: &Value, keys: &[&str]) -> Option<u32> {
+    for object in walk_objects(value) {
+        for key in keys {
+            match object.get(*key) {
+                Some(Value::Number(number)) => {
+                    return number.as_u64().map(|value| value as u32);
+                }
+                Some(Value::String(text)) => return text.trim().parse().ok(),
                 _ => {}
             }
         }
@@ -349,6 +376,9 @@ pub fn extract_search_hits(value: &Value) -> Vec<SearchHit> {
     if looks_like_web_search(value) {
         return Vec::new();
     }
+    if let Some(hits) = file_matches_hits(value) {
+        return hits;
+    }
     parse_search_hit_lines(&collect_search_text(value))
 }
 
@@ -367,12 +397,17 @@ fn looks_like_web_search(value: &Value) -> bool {
 fn collect_search_text(value: &Value) -> String {
     match value {
         Value::String(text) => text.clone(),
-        Value::Array(items) => items
-            .iter()
-            .map(collect_search_text)
-            .filter(|text| !text.is_empty())
-            .collect::<Vec<_>>()
-            .join("\n"),
+        Value::Array(items) => {
+            if let Some(text) = utf8_from_byte_array(items) {
+                return text;
+            }
+            items
+                .iter()
+                .map(collect_search_text)
+                .filter(|text| !text.is_empty())
+                .collect::<Vec<_>>()
+                .join("\n")
+        }
         Value::Object(map) => {
             for key in [
                 "matches",
@@ -400,8 +435,153 @@ fn collect_search_text(value: &Value) -> String {
     }
 }
 
+/// Grok ACP `GrepSearch.stdout` is a JSON array of bytes, not a string.
+fn utf8_from_byte_array(items: &[Value]) -> Option<String> {
+    if items.is_empty() {
+        return None;
+    }
+    let mut bytes = Vec::with_capacity(items.len());
+    for item in items {
+        let n = item.as_u64()?;
+        if n > 255 {
+            return None;
+        }
+        bytes.push(n as u8);
+    }
+    Some(String::from_utf8_lossy(&bytes).into_owned())
+}
+
+/// Grok `rawOutput.file_matches` is the structured hit list.
+/// Empty `file_matches` with `match_count == 0` is a real miss (don't parse
+/// summary stdout). Empty list with a positive count still has hits in `stdout`.
+fn file_matches_hits(value: &Value) -> Option<Vec<SearchHit>> {
+    for object in walk_objects(value) {
+        let Some(files) = object.get("file_matches").and_then(Value::as_array) else {
+            continue;
+        };
+        if files.is_empty() {
+            let match_count = object
+                .get("match_count")
+                .and_then(Value::as_u64)
+                .unwrap_or(0);
+            if match_count == 0 {
+                return Some(Vec::new());
+            }
+            return None;
+        }
+        return Some(files.iter().flat_map(hits_from_file_match).collect());
+    }
+    None
+}
+
+fn hits_from_file_match(value: &Value) -> Vec<SearchHit> {
+    let Some(path) = extract_path(value) else {
+        return Vec::new();
+    };
+    let Some(matches) = value.get("matches").and_then(Value::as_array) else {
+        return vec![SearchHit {
+            path,
+            line: None,
+            snippet: None,
+        }];
+    };
+    if matches.is_empty() {
+        return vec![SearchHit {
+            path,
+            line: None,
+            snippet: None,
+        }];
+    }
+    matches
+        .iter()
+        .map(|item| SearchHit {
+            path: path.clone(),
+            line: first_u32(item, &["line_number", "lineNumber", "line"]),
+            snippet: first_raw_string(item, &["content", "text", "snippet"]),
+        })
+        .collect()
+}
+
+fn first_raw_string(value: &Value, keys: &[&str]) -> Option<String> {
+    for object in walk_objects(value) {
+        for key in keys {
+            if let Some(text) = object.get(*key).and_then(Value::as_str) {
+                if !text.is_empty() {
+                    return Some(text.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
 fn parse_search_hit_lines(text: &str) -> Vec<SearchHit> {
+    if looks_like_grouped_search_output(text) {
+        return parse_grouped_search_output(text);
+    }
     text.lines().filter_map(parse_search_hit_line).collect()
+}
+
+fn looks_like_grouped_search_output(text: &str) -> bool {
+    text.contains("<workspace_result")
+}
+
+/// Grok grep stdout is grouped (`<workspace_result>` / path header / `12: snippet`),
+/// not ripgrep `path:line:snippet` on one line.
+fn parse_grouped_search_output(text: &str) -> Vec<SearchHit> {
+    let mut current_path: Option<String> = None;
+    let mut hits = Vec::new();
+    for raw in text.lines() {
+        let line = raw.trim_end();
+        if line.is_empty() {
+            continue;
+        }
+        let trimmed = line.trim();
+        if is_workspace_result_tag(trimmed) || is_search_summary_line(trimmed) {
+            continue;
+        }
+        if let Some((line_no, snippet)) = parse_leading_numbered_hit(trimmed) {
+            if let Some(path) = current_path.as_ref() {
+                hits.push(SearchHit {
+                    path: path.clone(),
+                    line: Some(line_no),
+                    snippet,
+                });
+            }
+            continue;
+        }
+        if let Some(hit) = parse_grep_line(trimmed) {
+            current_path = Some(hit.path.clone());
+            hits.push(hit);
+            continue;
+        }
+        if is_http_url(trimmed) {
+            continue;
+        }
+        current_path = Some(trimmed.to_string());
+    }
+    hits
+}
+
+fn is_workspace_result_tag(line: &str) -> bool {
+    line.starts_with("<workspace_result") || line.starts_with("</workspace_result")
+}
+
+fn parse_leading_numbered_hit(line: &str) -> Option<(u32, Option<String>)> {
+    let digit_end = line.chars().take_while(|ch| ch.is_ascii_digit()).count();
+    if digit_end == 0 {
+        return None;
+    }
+    let snippet = line[digit_end..].strip_prefix(':')?;
+    let line_no = line[..digit_end].parse().ok()?;
+    Some((
+        line_no,
+        if snippet.is_empty() {
+            None
+        } else {
+            Some(snippet.to_string())
+        },
+    ))
 }
 
 fn parse_search_hit_line(line: &str) -> Option<SearchHit> {
@@ -483,8 +663,9 @@ fn parse_link(value: &Value) -> Option<WebSearchLink> {
     let title = object
         .get("title")
         .and_then(non_empty_str)
-        .unwrap_or("")
-        .to_string();
+        .map(str::to_string)
+        .or_else(|| host_from_http_url(&url))
+        .unwrap_or_default();
     let snippet = object
         .get("snippet")
         .or_else(|| object.get("description"))
@@ -905,6 +1086,36 @@ mod tests {
     }
 
     #[test]
+    fn grok_websearch_action_envelope_extracts_query_and_source_urls() {
+        let output = serde_json::json!({
+            "action": {
+                "type": "search",
+                "query": "github droid factory keytar",
+                "sources": [
+                    { "type": "url", "url": "https://github.com/atom/node-keytar" },
+                    { "type": "url", "url": "https://github.com/ontodev/droid" }
+                ]
+            }
+        });
+        assert_eq!(
+            extract_query(&output).as_deref(),
+            Some("github droid factory keytar")
+        );
+        let links = extract_links(&output);
+        assert_eq!(
+            links
+                .iter()
+                .map(|link| link.url.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "https://github.com/atom/node-keytar",
+                "https://github.com/ontodev/droid"
+            ]
+        );
+        assert_eq!(links[0].title, "github.com");
+    }
+
+    #[test]
     fn extract_links_from_exa_title_url_text() {
         let text = "Title: OpenCode Home\nURL: https://opencode.ai/\nHighlights:\nHello\n\n---\n\nTitle: GitHub\nURL: https://github.com/anomalyco/opencode\nPublished: N/A\n";
         let links = extract_links(&serde_json::Value::String(text.into()));
@@ -1074,6 +1285,109 @@ mod tests {
                 line: Some(3),
                 snippet: Some(" Hello".into()),
             }]
+        );
+    }
+
+    #[test]
+    fn extract_search_hits_from_grok_grepsearch_file_matches() {
+        let hits = extract_search_hits(&serde_json::json!({
+            "type": "GrepSearch",
+            "stdout": [],
+            "match_count": 2,
+            "file_matches": [{
+                "path": "crates/agent/src/map/extract.rs",
+                "matches": [
+                    {"line_number": 412, "content": "    if let Some(hit) = parse_grep_line(line) {"},
+                    {"line_number": 443, "content": "fn parse_grep_line(line: &str) -> Option<SearchHit> {"}
+                ]
+            }]
+        }));
+        assert_eq!(
+            hits,
+            vec![
+                SearchHit {
+                    path: "crates/agent/src/map/extract.rs".into(),
+                    line: Some(412),
+                    snippet: Some("    if let Some(hit) = parse_grep_line(line) {".into()),
+                },
+                SearchHit {
+                    path: "crates/agent/src/map/extract.rs".into(),
+                    line: Some(443),
+                    snippet: Some("fn parse_grep_line(line: &str) -> Option<SearchHit> {".into()),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn extract_search_hits_empty_file_matches_does_not_parse_summary_stdout() {
+        let stdout =
+            b"<workspace_result workspace_path=\"/repo\">\nNo matches found\n</workspace_result>";
+        let bytes: Vec<u8> = stdout.to_vec();
+        let hits = extract_search_hits(&serde_json::json!({
+            "type": "GrepSearch",
+            "stdout": bytes,
+            "match_count": 0,
+            "file_matches": []
+        }));
+        assert!(hits.is_empty());
+    }
+
+    #[test]
+    fn extract_search_hits_empty_file_matches_with_count_parses_stdout() {
+        let stdout = concat!(
+            "<workspace_result workspace_path=\"/repo\">\n",
+            "Found 1 matching lines\n",
+            "/repo/src/a.ts\n",
+            "12: hello\n",
+            "</workspace_result>\n"
+        );
+        let bytes: Vec<u8> = stdout.bytes().collect();
+        let hits = extract_search_hits(&serde_json::json!({
+            "type": "GrepSearch",
+            "stdout": bytes,
+            "match_count": 1,
+            "file_matches": []
+        }));
+        assert_eq!(
+            hits,
+            vec![SearchHit {
+                path: "/repo/src/a.ts".into(),
+                line: Some(12),
+                snippet: Some(" hello".into()),
+            }]
+        );
+    }
+
+    #[test]
+    fn extract_search_hits_from_grok_grouped_byte_stdout() {
+        let stdout = concat!(
+            "<workspace_result workspace_path=\"/repo\">\n",
+            "Found at least 2 matching lines\n",
+            "/repo/src/a.ts\n",
+            "12: hello\n",
+            "40: world\n",
+            "</workspace_result>\n"
+        );
+        let bytes: Vec<u8> = stdout.bytes().collect();
+        let hits = extract_search_hits(&serde_json::json!({
+            "type": "GrepSearch",
+            "stdout": bytes
+        }));
+        assert_eq!(
+            hits,
+            vec![
+                SearchHit {
+                    path: "/repo/src/a.ts".into(),
+                    line: Some(12),
+                    snippet: Some(" hello".into()),
+                },
+                SearchHit {
+                    path: "/repo/src/a.ts".into(),
+                    line: Some(40),
+                    snippet: Some(" world".into()),
+                },
+            ]
         );
     }
 

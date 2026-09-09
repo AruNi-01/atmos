@@ -551,6 +551,7 @@ mod tests {
     };
     use crate::contract::AgentAvailableCommand;
     use crate::contract::AgentToolKind;
+    use crate::contract::AgentToolStatus;
     use crate::contract::{AgentToolParams, AgentToolResult};
 
     fn state() -> EventMapState {
@@ -1075,6 +1076,66 @@ mod tests {
             Some(AgentToolResult::Execute { output, .. }) => assert_eq!(output, "hello"),
             other => panic!("expected execute result, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn grok_kill_command_completes_background_execute() {
+        let mut state = state();
+        map_event(
+            &mut state,
+            Some("turn-1".into()),
+            AcpSessionEvent::ToolCall(ToolCallUpdate {
+                tool_call_id: "tc_1".into(),
+                parent_tool_call_id: None,
+                tool: "Tool".into(),
+                description: "Extract droid auth-related string windows".into(),
+                acp_kind: None,
+                status: ToolCallStatus::Running,
+                raw_input: Some(serde_json::json!({
+                    "type": "Bash",
+                    "command": "python3 scan",
+                    "is_background": true
+                })),
+                content: Vec::new(),
+                locations: Vec::new(),
+                raw_output: Some(serde_json::json!({
+                    "type": "backgroundtaskstarted",
+                    "Result": {
+                        "task_id": "call-bb76629c-a3fc-492b-b531-e967afa44195-30",
+                        "status": "running"
+                    }
+                })),
+                detail: None,
+            }),
+        )
+        .expect("started");
+
+        let replaced = map_event(
+            &mut state,
+            Some("turn-1".into()),
+            AcpSessionEvent::ToolCall(ToolCallUpdate {
+                tool_call_id: "tc_kill".into(),
+                parent_tool_call_id: None,
+                tool: "Tool".into(),
+                description: "kill_command_or_subagent".into(),
+                acp_kind: None,
+                status: ToolCallStatus::Completed,
+                raw_input: Some(serde_json::json!({
+                    "task_id": "call-bb76629c-a3fc-492b-b531-e967afa44195-30"
+                })),
+                content: Vec::new(),
+                locations: Vec::new(),
+                raw_output: Some(serde_json::json!({"success": true})),
+                detail: None,
+            }),
+        )
+        .expect("kill replace");
+        let AgentEvent::ToolCallFailed { tool_call, .. } = replaced.payload else {
+            panic!("expected failed replace, got {:?}", replaced.payload);
+        };
+        assert_eq!(tool_call.tool_call_id, "tc_1");
+        assert_eq!(tool_call.status, AgentToolStatus::Failed);
+        assert_eq!(tool_call.kind, AgentToolKind::Execute);
     }
 
     #[test]

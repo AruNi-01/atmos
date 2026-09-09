@@ -2,6 +2,7 @@ use regex::Regex;
 use serde_json::Value;
 
 use crate::contract::{AgentAvailableCommand, AgentMode, AgentModel, AgentThinkingSupport};
+use crate::options::effort::sort_thinking_levels;
 
 pub fn non_empty(value: &str) -> Option<String> {
     let value = value.trim();
@@ -608,6 +609,8 @@ fn thinking_from_json_model_object(
     if options.is_empty() {
         return None;
     }
+    let mut options = options;
+    sort_thinking_levels(&mut options);
     Some(AgentThinkingSupport::Enum {
         arg: Some("effort".into()),
         options,
