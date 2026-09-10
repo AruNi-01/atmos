@@ -34,6 +34,13 @@ import {
   invalidateProjectBootstrap,
   patchProjectBootstrapSnapshotAt,
 } from '@/features/project/hooks/use-project-bootstrap-query';
+import {
+  findWorkspaceInSnapshot,
+  removeWorkspaceFromSnapshot,
+  resolveWorkspaceArchiveRestoreHref,
+  restoreWorkspaceToSnapshot,
+} from '@/features/workspace/lib/workspace-archive-undo';
+import { useWorkspaceArchiveUndoStore } from '@/features/workspace/store/use-workspace-archive-undo-store';
 
 export type { WorkspaceSetupProgress } from './project-store-setup-progress';
 
@@ -150,6 +157,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   resetForConnectionChange: () => {
+    useWorkspaceArchiveUndoStore.getState().clearPending();
     set({
       activeWorkspaceId: null,
       isLoading: false,
@@ -613,35 +621,73 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   ...createProjectStorePinOrderActions(set),
 
-  archiveWorkspace: async (projectId, workspaceId) => {
+  commitPendingWorkspaceArchive: async () => {
+    const pending = useWorkspaceArchiveUndoStore.getState().takePending();
+    if (!pending) return;
+
     try {
-      const scope = getComputerQueryScope();
       await waitForConnection();
-      await wsWorkspaceApi.archive(workspaceId);
-
-      await cancelProjectBootstrapQuery(scope);
-      patchProjectBootstrapSnapshotAt(scope, (current) => ({
-        ...current,
-        projects: current.projects.map((p) =>
-          p.id === projectId
-            ? { ...p, workspaces: p.workspaces.filter((w) => w.id !== workspaceId) }
-            : p
-        ),
-      }));
-
-      toastManager.add({
-        title: runtimeT('common.archived'),
-        description: runtimeT('store.messages.workspaceArchived'),
-        type: 'info',
-      });
+      await wsWorkspaceApi.archive(pending.workspace.id);
     } catch (error) {
       console.error('Error archiving workspace:', error);
+      patchProjectBootstrapSnapshotAt(pending.scope, (current) =>
+        restoreWorkspaceToSnapshot(current, pending.projectId, pending.workspace),
+      );
+      if (pending.wasActive) {
+        set({ activeWorkspaceId: pending.workspace.id });
+      }
       toastManager.add({
         title: runtimeT('common.error'),
         description: runtimeT('store.errors.failedToArchiveWorkspace'),
         type: 'error',
       });
     }
+  },
+
+  undoPendingWorkspaceArchive: () => {
+    const pending = useWorkspaceArchiveUndoStore.getState().takePending();
+    if (!pending) return null;
+    patchProjectBootstrapSnapshotAt(pending.scope, (current) =>
+      restoreWorkspaceToSnapshot(current, pending.projectId, pending.workspace),
+    );
+    if (pending.wasActive) {
+      set({ activeWorkspaceId: pending.workspace.id });
+    }
+    return pending;
+  },
+
+  archiveWorkspace: async (projectId, workspaceId) => {
+    await get().commitPendingWorkspaceArchive();
+
+    const scope = getComputerQueryScope();
+    const workspace = findWorkspaceInSnapshot(getProjectBootstrapSnapshot(), projectId, workspaceId);
+    if (!workspace) return;
+
+    const wasActive = get().activeWorkspaceId === workspaceId;
+    const restoreHref = resolveWorkspaceArchiveRestoreHref({
+      workspaceId,
+      wasActive,
+      href:
+        typeof window === 'undefined'
+          ? ''
+          : `${window.location.pathname}${window.location.search}`,
+    });
+
+    await cancelProjectBootstrapQuery(scope);
+    patchProjectBootstrapSnapshotAt(scope, (current) =>
+      removeWorkspaceFromSnapshot(current, projectId, workspaceId),
+    );
+    if (wasActive) {
+      set({ activeWorkspaceId: null });
+    }
+
+    useWorkspaceArchiveUndoStore.getState().replacePending({
+      projectId,
+      workspace,
+      restoreHref,
+      wasActive,
+      scope,
+    });
   },
 
   updateWorkspaceName: async (projectId: string, workspaceId: string, name: string) => {

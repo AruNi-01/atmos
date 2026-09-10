@@ -610,6 +610,21 @@ The packed helper may also redistribute scrcpy-server v4.0 (Apache-2.0,
 Genymobile / scrcpy) next to the binary so runtime spawn does not use npx.
 
 -------------------------------------------------------------------------------
+18. Spectrum UI Undo Pill
+-------------------------------------------------------------------------------
+
+Source:   https://ui.spectrumhq.in/docs/undo-pill
+          https://github.com/arihantcodes/spectrum-ui
+Location: packages/ui/src/components/spectrumui/undo-pill.tsx
+License:  Apache License 2.0
+Copyright: Spectrum UI / Arihant Jain
+
+Notes:    Copy-paste React + Tailwind + Motion component, installed via the
+          shadcn registry (`@spectrumui/undo-pill`) and adapted for Atmos
+          (motion/react instead of framer-motion, semantic theme tokens).
+          Full Apache-2.0 text: https://www.apache.org/licenses/LICENSE-2.0
+
+-------------------------------------------------------------------------------
 End of NOTICE
 -------------------------------------------------------------------------------
 

@@ -27,6 +27,7 @@
     "@animate-ui": "https://animate-ui.com/r/{name}.json",
     "@efferd": "https://efferd.com/r/{style}/{name}.json",
     "@dotmatrix": "https://dotmatrix.zzzzshawn.cloud/r/{name}.json",
-    "@beui": "https://beui.dev/r/{name}.json"
+    "@beui": "https://beui.dev/r/{name}.json",
+    "@spectrumui": "https://ui.spectrumhq.in/r/{name}.json"
   }
 }

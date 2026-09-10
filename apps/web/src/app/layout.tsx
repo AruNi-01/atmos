@@ -13,6 +13,7 @@ import { WorkbenchIntlProvider } from "@/providers/app/workbench-intl-provider";
 import UpdateNotification from "@/app-shell/UpdateNotification";
 import { ServerStateEventBridge } from "@/providers/app/server-state-event-bridge";
 import { DesktopUseReadinessHost } from "@/features/desktop-use/components/DesktopUseReadinessHost";
+import { WorkspaceArchiveUndoHost } from "@/features/workspace/components/WorkspaceArchiveUndoHost";
 import {
   AgentToastProvider,
   AnchoredToastProvider,
@@ -96,6 +97,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                           */}
                           <Suspense fallback={null}>
                             <DesktopUseReadinessHost />
+                          </Suspense>
+                          <Suspense fallback={null}>
+                            <WorkspaceArchiveUndoHost />
                           </Suspense>
                         </TooltipProvider>
                       </AnchoredToastProvider>

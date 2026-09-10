@@ -47,6 +47,8 @@ export interface ProjectStore {
   pinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
   unpinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
   archiveWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
+  commitPendingWorkspaceArchive: () => Promise<void>;
+  undoPendingWorkspaceArchive: () => { restoreHref: string | null } | null;
   updateWorkspaceName: (projectId: string, workspaceId: string, name: string) => Promise<void>;
   updateWorkspaceBranch: (projectId: string, workspaceId: string, branch: string) => Promise<void>;
   updateWorkspaceWorkflowStatus: (

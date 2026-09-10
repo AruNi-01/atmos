@@ -14,6 +14,8 @@ export * from "./components/ui/dither-gauge";
 export * from "./components/ui/scroll-area";
 export * from "./components/ui/select";
 export * from "./components/ui/toast";
+export { UndoPill } from "./components/spectrumui/undo-pill";
+export type { UndoPillProps } from "./components/spectrumui/undo-pill";
 export * from "./components/theme-toggle";
 export * from "./components/language-selector";
 export * from "./components/ui/dropdown-menu";
