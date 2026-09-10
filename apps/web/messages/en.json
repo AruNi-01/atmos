@@ -605,6 +605,7 @@
         "resetUnknown": "Reset unknown",
         "resettingNow": "Resetting now",
         "resetsIn": "Resets in",
+        "useDroidToStart": "Use Droid to start",
         "nextUpdateIn": "Next update in"
       },
       "autoRefresh": {
@@ -648,6 +649,8 @@
         "detectionRequired": "Detection required",
         "detectSetupHint": "Sign in to the local app or add a supported local token/config so Atmos can detect this provider.",
         "usage": "Usage",
+        "standard": "Standard",
+        "droidCore": "Droid Core",
         "noUsageData": "No usage data",
         "credits": "Credits",
         "unknown": "Unknown",
@@ -8830,6 +8833,11 @@
       "editZoom": "Click to edit zoom",
       "zoomIn": "Zoom in",
       "close": "Close"
+    },
+    "imagePreviewOverlay": {
+      "copyImage": "Copy image",
+      "copyFailedTitle": "Copy failed",
+      "clipboardUnavailable": "Could not copy the image to the clipboard."
     },
     "markdownRenderer": {
       "mermaid": {

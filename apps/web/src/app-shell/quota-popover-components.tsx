@@ -21,11 +21,20 @@ import {
   useSortable,
   useTimer,
 } from "@workspace/ui";
+import {
+  Tabs as MotionTabs,
+  TabsList as MotionTabsList,
+  TabsTrigger as MotionTabsTrigger,
+} from "@workspace/ui/components/motion/tabs";
+
+const QUOTA_MODE_TAB_CLASS =
+  "pointer-events-auto group h-7 shrink-0 gap-1.5 px-2 text-xs aria-selected:!text-foreground";
 
 import type { QuotaManualSetupResponse } from "@/api/ws-api";
 
 import {
   formatCountdownDisplay,
+  quotaMetricShowsBar,
   usagePortalUrl,
   usageSegmentFillClass,
   type ProviderRegion,
@@ -73,7 +82,13 @@ export function UsageBar({
   );
 
   return (
-    <div className={cn("h-3 w-full overflow-hidden rounded-full bg-muted/80", className)}>
+    <div
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(total)}
+      className={cn("h-3 w-full shrink-0 overflow-hidden rounded-full bg-muted", className)}
+    >
       {visibleSegments.length > 0 ? (
         <div className="flex h-full gap-px" style={{ width: `${groupWidth}%` }}>
           {visibleSegments.map((segment, index) => (
@@ -129,29 +144,85 @@ export function UsageBarLegend({
   );
 }
 
+export function QuotaModeTabs({
+  value,
+  options,
+  onValueChange,
+}: {
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onValueChange: (value: string) => void;
+}) {
+  if (options.length < 2) return null;
+  return (
+    <MotionTabs value={value} onValueChange={onValueChange} variant="pill" className="w-fit">
+      <MotionTabsList
+        className="flex h-8 w-fit min-w-0 gap-0.5 bg-muted p-0.5"
+        indicatorClassName="bg-active"
+      >
+        {options.map((option) => (
+          <MotionTabsTrigger
+            key={option.value}
+            value={option.value}
+            className={QUOTA_MODE_TAB_CLASS}
+          >
+            {option.label}
+          </MotionTabsTrigger>
+        ))}
+      </MotionTabsList>
+    </MotionTabs>
+  );
+}
+
 export function QuotaMetricUsage({
+  label,
   percent,
   segments,
   usedText,
+  detailText,
   resetText,
   compact = false,
 }: {
+  label?: string;
   percent?: number | null;
   segments: QuotaMetricSegment[];
   usedText: string;
+  detailText?: string | null;
   resetText: ReactNode;
   compact?: boolean;
 }) {
-  const hasBar = percent != null;
+  const hasBar = quotaMetricShowsBar(percent);
+  const heading = label
+    ? usedText.trim()
+      ? `${label} · ${usedText}`
+      : label
+    : usedText;
   const meta = (
     <div
       className={cn(
-        "flex items-center justify-between gap-4",
+        "flex items-baseline justify-between gap-4",
         compact ? "text-[11px]" : "text-sm",
       )}
     >
-      <div className="text-foreground">{usedText}</div>
-      <div className="text-foreground/90">{hasBar ? resetText : null}</div>
+      <div
+        className={cn(
+          "min-w-0 text-foreground",
+          compact ? "text-sm font-medium" : "text-[18px] font-semibold tracking-tight",
+        )}
+      >
+        {heading}
+      </div>
+      {hasBar ? (
+        <div className="shrink-0 text-right text-foreground/90">
+          {detailText ? (
+            <>
+              <span>{detailText}</span>
+              {resetText ? <span> · </span> : null}
+            </>
+          ) : null}
+          {resetText}
+        </div>
+      ) : null}
     </div>
   );
 
@@ -160,7 +231,7 @@ export function QuotaMetricUsage({
   }
 
   return (
-    <div className={compact ? "mt-1.5 space-y-1.5" : "mt-4 space-y-2"}>
+    <div className={compact ? "space-y-1.5" : "space-y-2"}>
       {meta}
       <UsageBar percent={percent} segments={segments} />
       {segments.length > 0 ? <UsageBarLegend segments={segments} /> : null}

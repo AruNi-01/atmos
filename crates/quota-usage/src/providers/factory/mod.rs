@@ -10,6 +10,7 @@ use self::session::{load_factory_session_state, store_factory_session_state, Fac
 use self::storage::{load_factory_cli_auth_access_token, load_factory_local_storage_tokens};
 use crate::constants::{
     FACTORY_API_URL, FACTORY_APP_URL, FACTORY_AUTH_ME_PATH, FACTORY_BILLING_LIMITS_PATH,
+    FACTORY_COMPUTE_USAGE_PATH,
 };
 use crate::models::{DetailRow, DetailSection, ProviderError, RowTone};
 use crate::runtime::LiveFetchResult;
@@ -107,6 +108,17 @@ struct FactoryLimitWindow {
     window_end: Option<String>,
     #[serde(default, rename = "secondsRemaining")]
     seconds_remaining: Option<i64>,
+}
+
+/// Response from `GET /api/organization/compute-usage`.
+#[derive(Debug, Clone, Deserialize)]
+struct FactoryComputeUsageResponse {
+    #[serde(default, rename = "orgUsageMs")]
+    org_usage_ms: Option<i64>,
+    #[serde(default, rename = "limitMs")]
+    limit_ms: Option<i64>,
+    #[serde(default, rename = "periodEnd")]
+    period_end: Option<String>,
 }
 
 pub(crate) async fn fetch_factory_live(client: &Client) -> Result<LiveFetchResult, ProviderError> {
@@ -296,8 +308,13 @@ async fn fetch_factory_with_bearer(
 
     for header in attempts {
         match fetch_factory_payloads(client, header, Some(bearer_token)).await {
-            Ok((auth_payload, limits_payload)) => {
-                return build_factory_live_result(auth_payload, limits_payload, source_label);
+            Ok((auth_payload, limits_payload, compute_payload)) => {
+                return build_factory_live_result(
+                    auth_payload,
+                    limits_payload,
+                    compute_payload,
+                    source_label,
+                );
             }
             Err(error) => last_error = Some(error),
         }
@@ -311,7 +328,7 @@ async fn fetch_factory_payloads(
     client: &Client,
     cookie_header: &str,
     bearer_token: Option<&str>,
-) -> Result<(Value, Value), ProviderError> {
+) -> Result<(Value, Value, Option<Value>), ProviderError> {
     let auth_payload = factory_request(
         client,
         &format!("{FACTORY_APP_URL}{FACTORY_AUTH_ME_PATH}"),
@@ -340,12 +357,25 @@ async fn fetch_factory_payloads(
     )
     .await?;
 
-    Ok((auth_payload, limits_payload))
+    let compute_payload = factory_request(
+        client,
+        &format!("{FACTORY_API_URL}{FACTORY_COMPUTE_USAGE_PATH}"),
+        "GET",
+        cookie_header,
+        bearer_token,
+        None,
+        org_id.as_deref(),
+    )
+    .await
+    .ok();
+
+    Ok((auth_payload, limits_payload, compute_payload))
 }
 
 fn build_factory_live_result(
     auth_payload: Value,
     limits_payload: Value,
+    compute_payload: Option<Value>,
     source_label: Option<&str>,
 ) -> Result<LiveFetchResult, ProviderError> {
     let auth = serde_json::from_value::<FactoryAuthResponse>(auth_payload)
@@ -377,6 +407,12 @@ fn build_factory_live_result(
         .as_ref()
         .and_then(|buckets| buckets.core.as_ref());
 
+    if standard.is_none() && core.is_none() {
+        return Err(ProviderError::Fetch(
+            "Factory billing limits payload missing window usage data".to_string(),
+        ));
+    }
+
     let five_hour = standard.and_then(|w| w.five_hour.as_ref());
     let weekly = standard.and_then(|w| w.weekly.as_ref());
     let monthly = standard.and_then(|w| w.monthly.as_ref());
@@ -384,26 +420,9 @@ fn build_factory_live_result(
     let five_hour_percent = window_percent(five_hour);
     let weekly_percent = window_percent(weekly);
     let monthly_percent = window_percent(monthly);
-
     let five_hour_reset = window_reset_at(five_hour, now);
     let weekly_reset = window_reset_at(weekly, now);
     let monthly_reset = window_reset_at(monthly, now);
-
-    if five_hour_percent.is_none() && weekly_percent.is_none() && monthly_percent.is_none() {
-        return Err(ProviderError::Fetch(
-            "Factory billing limits payload missing window usage data".to_string(),
-        ));
-    }
-
-    let mut usage_rows = Vec::new();
-    push_window_row(
-        &mut usage_rows,
-        "5 hours",
-        five_hour_percent,
-        five_hour_reset,
-    );
-    push_window_row(&mut usage_rows, "1 week", weekly_percent, weekly_reset);
-    push_window_row(&mut usage_rows, "1 month", monthly_percent, monthly_reset);
 
     let mut account_rows = vec![
         DetailRow {
@@ -432,43 +451,28 @@ fn build_factory_live_result(
         });
     }
 
-    let mut detail_sections = vec![
-        DetailSection {
-            title: "Account".to_string(),
-            rows: account_rows,
-        },
-        DetailSection {
-            title: "Usage".to_string(),
-            rows: usage_rows,
-        },
-    ];
+    let mut detail_sections = vec![DetailSection {
+        title: "Account".to_string(),
+        rows: account_rows,
+    }];
 
-    if let Some(core) = core.filter(|limits| window_limits_has_signal(limits)) {
-        let mut core_rows = Vec::new();
-        push_window_row(
-            &mut core_rows,
-            "5 hours",
-            window_percent(core.five_hour.as_ref()),
-            window_reset_at(core.five_hour.as_ref(), now),
-        );
-        push_window_row(
-            &mut core_rows,
-            "1 week",
-            window_percent(core.weekly.as_ref()),
-            window_reset_at(core.weekly.as_ref(), now),
-        );
-        push_window_row(
-            &mut core_rows,
-            "1 month",
-            window_percent(core.monthly.as_ref()),
-            window_reset_at(core.monthly.as_ref(), now),
-        );
-        if !core_rows.is_empty() {
-            detail_sections.push(DetailSection {
-                title: "Core".to_string(),
-                rows: core_rows,
-            });
-        }
+    // Standard and Droid Core are independent rate-limit pools. Always emit a
+    // section when Factory includes the bucket, including unused Core at 0%.
+    if standard.is_some() {
+        detail_sections.push(DetailSection {
+            title: "Standard".to_string(),
+            rows: window_rows(standard, now),
+        });
+    }
+    if core.is_some() {
+        detail_sections.push(DetailSection {
+            title: "Droid Core".to_string(),
+            rows: window_rows(core, now),
+        });
+    }
+
+    if let Some(compute_section) = managed_computers_section(compute_payload, now) {
+        detail_sections.push(compute_section);
     }
 
     let mut credits_label = None;
@@ -499,8 +503,12 @@ fn build_factory_live_result(
         });
     }
 
-    // Prefer the short window for the summary bar (matches Claude / Codex).
-    let summary_percent = five_hour_percent.or(weekly_percent).or(monthly_percent);
+    let core_five_hour_percent = window_percent(core.and_then(|w| w.five_hour.as_ref()));
+    // Prefer Standard's short window for the summary bar (matches Claude / Codex).
+    let summary_percent = five_hour_percent
+        .or(weekly_percent)
+        .or(monthly_percent)
+        .or(core_five_hour_percent);
 
     Ok(LiveFetchResult {
         plan_label: Some(plan_label),
@@ -709,18 +717,75 @@ fn window_reset_at(window: Option<&FactoryLimitWindow>, now: u64) -> Option<u64>
         .map(|value| value.unix_timestamp() as u64)
 }
 
-fn window_limits_has_signal(limits: &FactoryWindowLimits) -> bool {
-    [&limits.five_hour, &limits.weekly, &limits.monthly]
-        .into_iter()
-        .flatten()
-        .any(|window| {
-            window.used_percent.unwrap_or(0.0) > 0.0
-                || window
-                    .window_end
-                    .as_ref()
-                    .is_some_and(|end| !end.is_empty())
-                || window.seconds_remaining.is_some()
-        })
+fn managed_computers_section(payload: Option<Value>, now: u64) -> Option<DetailSection> {
+    let payload = payload?;
+    let usage = serde_json::from_value::<FactoryComputeUsageResponse>(payload).ok()?;
+    let limit_ms = usage.limit_ms.filter(|value| *value > 0)?;
+    let used_ms = usage.org_usage_ms.unwrap_or(0).max(0);
+    let percent = if limit_ms > 0 {
+        round_metric(((used_ms as f64 / limit_ms as f64) * 100.0).clamp(0.0, 100.0)).round()
+    } else {
+        0.0
+    };
+    let reset_at = usage
+        .period_end
+        .as_deref()
+        .and_then(parse_offset_datetime)
+        .map(|value| value.unix_timestamp() as u64)
+        .filter(|value| *value > now);
+    let amount = format!(
+        "{} / {}",
+        format_compute_duration_ms(used_ms),
+        format_compute_duration_ms(limit_ms)
+    );
+    let mut value = format!("{percent:.0}% used · {amount}");
+    if let Some(reset_at) = reset_at {
+        value.push_str(" · ");
+        value.push_str(&format_reset_relative_text(Some(reset_at)));
+    }
+    Some(DetailSection {
+        title: "Managed Computers".to_string(),
+        rows: vec![DetailRow {
+            label: "Managed Computers".to_string(),
+            value,
+            tone: RowTone::Default,
+        }],
+    })
+}
+
+fn format_compute_duration_ms(ms: i64) -> String {
+    let hours = ms as f64 / 3_600_000.0;
+    if hours < 0.1 {
+        format!("{}m", (ms as f64 / 60_000.0).round() as i64)
+    } else {
+        format!("{hours:.1}h")
+    }
+}
+
+fn window_rows(limits: Option<&FactoryWindowLimits>, now: u64) -> Vec<DetailRow> {
+    let five = limits.and_then(|window| window.five_hour.as_ref());
+    let weekly = limits.and_then(|window| window.weekly.as_ref());
+    let monthly = limits.and_then(|window| window.monthly.as_ref());
+    let mut rows = Vec::with_capacity(3);
+    push_window_row(
+        &mut rows,
+        "5 hours",
+        window_percent(five),
+        window_reset_at(five, now),
+    );
+    push_window_row(
+        &mut rows,
+        "1 week",
+        window_percent(weekly),
+        window_reset_at(weekly, now),
+    );
+    push_window_row(
+        &mut rows,
+        "1 month",
+        window_percent(monthly),
+        window_reset_at(monthly, now),
+    );
+    rows
 }
 
 fn push_window_row(
@@ -729,22 +794,21 @@ fn push_window_row(
     percent: Option<f64>,
     reset_at: Option<u64>,
 ) {
-    // Always show the three primary windows when at least one percent is present;
+    // Always show the three primary windows when the bucket exists;
     // missing percent falls back to 0 so the UI still lists the window.
-    let percent = percent.unwrap_or(0.0);
     rows.push(DetailRow {
         label: label.to_string(),
-        value: format_window(percent, reset_at),
+        value: format_window(percent.unwrap_or(0.0), reset_at),
         tone: RowTone::Default,
     });
 }
 
 fn format_window(percent: f64, reset_at: Option<u64>) -> String {
-    format!(
-        "{:.0}% used · {}",
-        round_metric(percent),
-        format_reset_relative_text(reset_at)
-    )
+    let percent_text = format!("{:.0}% used", round_metric(percent));
+    match reset_at {
+        Some(_) => format!("{percent_text} · {}", format_reset_relative_text(reset_at)),
+        None => format!("{percent_text} · Use Droid to start"),
+    }
 }
 
 fn titleize(raw: String) -> String {
@@ -765,8 +829,8 @@ fn titleize(raw: String) -> String {
 mod tests {
     use super::{
         build_factory_live_result, factory_access_token_expired, factory_bearer_from_cookie_header,
-        filter_cookie_header, format_window, window_limits_has_signal, window_percent,
-        window_reset_at, FactoryLimitWindow, FactoryWindowLimits,
+        filter_cookie_header, format_compute_duration_ms, format_window, window_percent,
+        window_reset_at, FactoryLimitWindow,
     };
     use base64::Engine;
     use serde_json::json;
@@ -832,24 +896,8 @@ mod tests {
     }
 
     #[test]
-    fn core_without_signal_is_skipped() {
-        let empty = FactoryWindowLimits::default();
-        assert!(!window_limits_has_signal(&empty));
-
-        let with_usage = FactoryWindowLimits {
-            five_hour: Some(FactoryLimitWindow {
-                used_percent: Some(12.0),
-                window_end: None,
-                seconds_remaining: None,
-            }),
-            ..FactoryWindowLimits::default()
-        };
-        assert!(window_limits_has_signal(&with_usage));
-    }
-
-    #[test]
     fn formats_window_row_like_codex() {
-        assert_eq!(format_window(30.0, None), "30% used · Reset unknown");
+        assert_eq!(format_window(30.0, None), "30% used · Use Droid to start");
         assert_eq!(window_percent(None), None);
         assert_eq!(
             window_percent(Some(&FactoryLimitWindow {
@@ -911,7 +959,8 @@ mod tests {
             "extraUsageAllowed": true
         });
 
-        let result = build_factory_live_result(auth, limits, Some("browser")).expect("result");
+        let result =
+            build_factory_live_result(auth, limits, None, Some("browser")).expect("result");
         assert_eq!(
             result.plan_label.as_deref(),
             Some("Factory Pro Annual Plan")
@@ -948,8 +997,8 @@ mod tests {
         let usage = result
             .detail_sections
             .iter()
-            .find(|section| section.title == "Usage")
-            .expect("usage section");
+            .find(|section| section.title == "Standard")
+            .expect("standard section");
         assert_eq!(usage.rows.len(), 3);
         assert_eq!(usage.rows[0].label, "5 hours");
         assert!(usage.rows[0].value.starts_with("30% used"));
@@ -958,11 +1007,16 @@ mod tests {
         assert_eq!(usage.rows[2].label, "1 month");
         assert!(usage.rows[2].value.starts_with("19% used"));
 
-        // Empty core buckets are omitted.
-        assert!(!result
+        let core = result
             .detail_sections
             .iter()
-            .any(|section| section.title == "Core"));
+            .find(|section| section.title == "Droid Core")
+            .expect("droid core section");
+        assert_eq!(core.rows.len(), 3);
+        assert_eq!(core.rows[0].label, "5 hours");
+        assert_eq!(core.rows[0].value, "0% used · Use Droid to start");
+        assert_eq!(core.rows[1].value, "0% used · Use Droid to start");
+        assert_eq!(core.rows[2].value, "0% used · Use Droid to start");
 
         // Extra usage allowed → Credits section with $0.00 balance.
         let credits = result
@@ -972,5 +1026,141 @@ mod tests {
             .expect("credits section");
         assert_eq!(credits.rows[1].value, "$0.00");
         assert_eq!(result.credits_label.as_deref(), Some("$0.00"));
+    }
+
+    #[test]
+    fn keeps_droid_core_windows_separate_from_standard() {
+        let auth = json!({
+            "organization": {
+                "name": "AruNi's Org",
+                "subscription": {
+                    "orbSubscription": { "name": "Factory Pro Annual Plan" }
+                }
+            }
+        });
+        let limits = json!({
+            "usesTokenRateLimitsBilling": true,
+            "limits": {
+                "standard": {
+                    "fiveHour": {
+                        "usedPercent": 5,
+                        "windowEnd": "2026-09-10T13:15:07.606Z",
+                        "secondsRemaining": 15446
+                    },
+                    "weekly": {
+                        "usedPercent": 2,
+                        "windowEnd": "2026-09-17T08:15:07.606Z",
+                        "secondsRemaining": 602246
+                    },
+                    "monthly": {
+                        "usedPercent": 3,
+                        "windowEnd": "2026-09-25T08:25:43.141Z",
+                        "secondsRemaining": 1294082
+                    }
+                },
+                "core": {
+                    "fiveHour": {
+                        "usedPercent": 12,
+                        "windowEnd": "2026-09-10T13:15:07.606Z",
+                        "secondsRemaining": 15446
+                    },
+                    "weekly": { "usedPercent": 4, "windowEnd": null, "secondsRemaining": 602246 },
+                    "monthly": { "usedPercent": 1, "windowEnd": null, "secondsRemaining": 1294082 }
+                }
+            },
+            "extraUsageBalanceCents": 0,
+            "extraUsageAllowed": false
+        });
+
+        let result = build_factory_live_result(auth, limits, None, None).expect("result");
+        let titles: Vec<&str> = result
+            .detail_sections
+            .iter()
+            .map(|section| section.title.as_str())
+            .collect();
+        assert_eq!(titles, vec!["Account", "Standard", "Droid Core"]);
+
+        let standard = result
+            .detail_sections
+            .iter()
+            .find(|section| section.title == "Standard")
+            .expect("standard");
+        assert!(standard.rows[0].value.starts_with("5% used"));
+        assert!(standard.rows[1].value.starts_with("2% used"));
+        assert!(standard.rows[2].value.starts_with("3% used"));
+        assert!(standard.rows[0].value.contains("Resets in"));
+        assert!(standard.rows[1].value.contains("Resets in"));
+
+        let core = result
+            .detail_sections
+            .iter()
+            .find(|section| section.title == "Droid Core")
+            .expect("droid core");
+        assert!(core.rows[0].value.starts_with("12% used"));
+        assert!(core.rows[1].value.starts_with("4% used"));
+        assert!(core.rows[2].value.starts_with("1% used"));
+        assert!(core.rows[0].value.contains("Resets in"));
+        assert!(!core
+            .rows
+            .iter()
+            .any(|row| row.value.contains("Use Droid to start")));
+    }
+
+    #[test]
+    fn formats_compute_duration_like_factory() {
+        assert_eq!(format_compute_duration_ms(0), "0m");
+        assert_eq!(format_compute_duration_ms(1_451_118), "0.4h");
+        assert_eq!(format_compute_duration_ms(18_000_000), "5.0h");
+    }
+
+    #[test]
+    fn includes_managed_computers_when_limit_is_present() {
+        let auth = json!({ "organization": { "name": "AruNi's Org" } });
+        let limits = json!({
+            "usesTokenRateLimitsBilling": true,
+            "limits": {
+                "standard": {
+                    "fiveHour": { "usedPercent": 5, "secondsRemaining": 100 }
+                }
+            },
+            "extraUsageAllowed": false
+        });
+        let compute = json!({
+            "orgUsageMs": 0,
+            "limitMs": 18_000_000,
+            "periodEnd": "2027-01-27T08:00:00.000Z"
+        });
+        let result = build_factory_live_result(auth, limits, Some(compute), None).expect("result");
+        let computers = result
+            .detail_sections
+            .iter()
+            .find(|section| section.title == "Managed Computers")
+            .expect("managed computers");
+        assert_eq!(computers.rows[0].label, "Managed Computers");
+        assert!(computers.rows[0].value.starts_with("0% used · 0m / 5.0h"));
+        assert!(computers.rows[0].value.contains("Resets in"));
+    }
+
+    #[test]
+    fn omits_managed_computers_when_limit_is_missing() {
+        let auth = json!({ "organization": { "name": "AruNi's Org" } });
+        let limits = json!({
+            "usesTokenRateLimitsBilling": true,
+            "limits": {
+                "standard": {
+                    "fiveHour": { "usedPercent": 5, "secondsRemaining": 100 }
+                }
+            },
+            "extraUsageAllowed": false
+        });
+        let compute = json!({
+            "orgUsageMs": 0,
+            "limitMs": null
+        });
+        let result = build_factory_live_result(auth, limits, Some(compute), None).expect("result");
+        assert!(!result
+            .detail_sections
+            .iter()
+            .any(|section| section.title == "Managed Computers"));
     }
 }

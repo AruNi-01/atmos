@@ -1,9 +1,19 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { QuotaProviderResponse } from "@/api/ws-api";
 import {
+  displayResetText,
+  FACTORY_USAGE_MODE_DROID_CORE,
+  FACTORY_USAGE_MODE_STANDARD,
+  factoryManagedComputerMetrics,
+  factoryWindowMetrics,
   presentQuotaMetric,
   providerCreditsLabel,
+  quotaMetricHeading,
+  quotaMetricShowsBar,
   quotaMetrics,
+  usagePortalUrl,
   usageSegmentFillClass,
 } from "@/app-shell/quota-popover-utils";
 
@@ -89,6 +99,7 @@ describe("presentQuotaMetric", () => {
     expect(views[0]?.resetText).toMatch(/resets in/i);
 
     expect(views[1]).toEqual({
+      group: null,
       label: "Extra usage",
       valueText: "Disabled",
       resetText: null,
@@ -123,6 +134,7 @@ describe("presentQuotaMetric", () => {
     );
 
     expect(views[1]).toEqual({
+      group: null,
       label: "Extra usage",
       valueText: "$1.20 / $25.00",
       resetText: null,
@@ -158,6 +170,7 @@ describe("presentQuotaMetric", () => {
 
     expect(views).toEqual([
       {
+        group: null,
         label: "Extra usage",
         valueText: "Disabled",
         resetText: null,
@@ -199,6 +212,7 @@ describe("presentQuotaMetric", () => {
     });
     expect(views[0]?.resetText).toMatch(/resets in/i);
     expect(views[1]).toEqual({
+      group: null,
       label: "On-Demand",
       valueText: "$4.10 / $10.00",
       resetText: null,
@@ -229,6 +243,7 @@ describe("presentQuotaMetric", () => {
     );
 
     expect(views[1]).toEqual({
+      group: null,
       label: "Bonus",
       valueText: "+10% for 7d",
       resetText: null,
@@ -308,6 +323,153 @@ describe("presentQuotaMetric", () => {
     });
 
     expect(providerCreditsLabel(grok)).toBeNull();
+  });
+
+  test("Factory Standard and Droid Core stay separate and keep their own resets", () => {
+    const fiveHourReset = Math.floor(Date.now() / 1000) + 4 * 3600 + 25 * 60;
+    const views = present(
+      provider({
+        id: "factory",
+        label: "Factory Droid",
+        subscription_summary: {
+          plan_label: "Factory Pro Annual Plan",
+          window_label: null,
+          credits_label: "$0.00",
+          billing_state: "active",
+          reset_at: fiveHourReset,
+        },
+        detail_sections: [
+          {
+            title: "Standard",
+            rows: [
+              { label: "5 hours", value: "5% used · Resets in 4h 25m", tone: "default" },
+              { label: "1 week", value: "2% used · Resets in 6d 0h", tone: "default" },
+              { label: "1 month", value: "3% used · Resets in 14d 23h", tone: "default" },
+            ],
+          },
+          {
+            title: "Droid Core",
+            rows: [
+              { label: "5 hours", value: "0% used · Use Droid to start", tone: "default" },
+              { label: "1 week", value: "0% used · Use Droid to start", tone: "default" },
+              { label: "1 month", value: "0% used · Use Droid to start", tone: "default" },
+            ],
+          },
+          {
+            title: "Managed Computers",
+            rows: [
+              {
+                label: "Managed Computers",
+                value: "0% used · 0m / 5.0h · Resets in 138d 0h",
+                tone: "default",
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(views).toHaveLength(7);
+    expect(views[0]).toMatchObject({
+      group: "Standard",
+      label: "5 hours",
+      valueText: "5%",
+      percent: 5,
+    });
+    expect(views[0]?.resetText).toMatch(/4h/i);
+    expect(views[0]?.resetText).not.toMatch(/6d/i);
+
+    expect(views[1]).toMatchObject({
+      group: "Standard",
+      label: "1 week",
+      valueText: "2%",
+      percent: 2,
+    });
+    expect(views[1]?.resetText).toMatch(/6d/i);
+    expect(views[1]?.resetText).not.toMatch(/4h/i);
+
+    expect(views[2]?.resetText).toMatch(/14d/i);
+
+    expect(views[3]).toMatchObject({
+      group: "Droid Core",
+      label: "5 hours",
+      valueText: "0%",
+      percent: 0,
+      resetText: "Use Droid to start",
+    });
+    expect(views[6]).toMatchObject({
+      group: "Managed Computers",
+      label: "Managed Computers",
+      valueText: "0%",
+      percent: 0,
+    });
+    const metrics = quotaMetrics(
+      provider({
+        id: "factory",
+        label: "Factory Droid",
+        detail_sections: [
+          {
+            title: "Standard",
+            rows: [{ label: "5 hours", value: "5% used · Resets in 4h 25m", tone: "default" }],
+          },
+          {
+            title: "Droid Core",
+            rows: [{ label: "5 hours", value: "0% used · Use Droid to start", tone: "default" }],
+          },
+          {
+            title: "Managed Computers",
+            rows: [{ label: "Managed Computers", value: "0% used · 0m / 5.0h · Resets in 138d 0h", tone: "default" }],
+          },
+        ],
+      }),
+    );
+    expect(factoryWindowMetrics(metrics, FACTORY_USAGE_MODE_STANDARD)).toHaveLength(1);
+    expect(factoryWindowMetrics(metrics, FACTORY_USAGE_MODE_DROID_CORE)[0]?.label).toBe("5 hours");
+    expect(factoryManagedComputerMetrics(metrics)).toHaveLength(1);
+    expect(factoryManagedComputerMetrics(metrics)[0]?.detailText).toBe("0m / 5.0h");
+    expect(quotaMetricHeading("5 hours", "9% used")).toBe("5 hours · 9% used");
+    expect(quotaMetricShowsBar(0)).toBe(true);
+    expect(quotaMetricShowsBar(views[3]?.percent)).toBe(true);
+    expect(quotaMetricShowsBar(views[6]?.percent)).toBe(true);
+    expect(quotaMetricShowsBar(null)).toBe(false);
+  });
+});
+
+describe("displayResetText", () => {
+  test("does not replace a window's own countdown with the subscription reset", () => {
+    const fiveHourReset = Math.floor(Date.now() / 1000) + 4 * 3600;
+    expect(
+      displayResetText("Resets in 6d 0h", fiveHourReset, {}, "en"),
+    ).toMatch(/6d/i);
+    expect(
+      displayResetText("Resets in 6d 0h", fiveHourReset, {}, "en"),
+    ).not.toMatch(/4h/i);
+    expect(displayResetText("Use Droid to start", fiveHourReset, {}, "en")).toBe(
+      "Use Droid to start",
+    );
+  });
+});
+
+describe("quota popover factory chrome", () => {
+  test("uses center-style motion tabs and one-line window headings", () => {
+    const detail = readFileSync(join(import.meta.dir, "../quota-popover-detail.tsx"), "utf8");
+    const components = readFileSync(
+      join(import.meta.dir, "../quota-popover-components.tsx"),
+      "utf8",
+    );
+    expect(detail).toContain("QuotaModeTabs");
+    expect(detail).toContain("factoryWindowMetrics");
+    expect(detail).toContain("factoryManagedComputerMetrics");
+    expect(components).toContain('from "@workspace/ui/components/motion/tabs"');
+    expect(components).toContain("${label} · ${usedText}");
+    expect(components).toContain("quotaMetricShowsBar(percent)");
+    expect(components).toContain('role="progressbar"');
+  });
+});
+
+describe("usagePortalUrl", () => {
+  test("links Factory Droid to the usage settings page", () => {
+    expect(usagePortalUrl("factory", null)).toBe("https://app.factory.ai/settings/usage");
   });
 });
 

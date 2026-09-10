@@ -134,6 +134,61 @@ describe("Grok quota display", () => {
   });
 });
 
+describe("Factory quota display", () => {
+  test("carousel uses Standard windows and ignores unused Droid Core", () => {
+    expect(
+      formatQuotaCarouselText(
+        provider({
+          id: "factory",
+          label: "Factory Droid",
+          kind: "cli",
+          subscription_summary: {
+            plan_label: "Factory Pro Annual Plan",
+            window_label: null,
+            credits_label: "$0.00",
+            billing_state: "active",
+            reset_at: Math.floor(Date.now() / 1000) + 4 * 3600,
+          },
+          usage_summary: {
+            unit: "percent",
+            currency: null,
+            used: 5,
+            remaining: 95,
+            cap: 100,
+            percent: 5,
+            used_label: "5% used",
+            remaining_label: "95% left",
+            cap_label: "100%",
+          },
+          detail_sections: [
+            {
+              title: "Standard",
+              rows: [
+                { label: "5 hours", value: "5% used · Resets in 4h 25m", tone: "default" },
+                { label: "1 week", value: "2% used · Resets in 6d 0h", tone: "default" },
+                { label: "1 month", value: "3% used · Resets in 14d 23h", tone: "default" },
+              ],
+            },
+            {
+              title: "Droid Core",
+              rows: [
+                { label: "5 hours", value: "0% used · Use Droid to start", tone: "default" },
+                { label: "1 week", value: "0% used · Use Droid to start", tone: "default" },
+                { label: "1 month", value: "0% used · Use Droid to start", tone: "default" },
+              ],
+            },
+            {
+              title: "Credits",
+              rows: [{ label: "Balance", value: "$0.00", tone: "default" }],
+            },
+          ],
+          manual_setup: null,
+        }),
+      ),
+    ).toBe("Factory Droid: 5h 5% used, 1w 2% used, 1m 3% used, $0.00");
+  });
+});
+
 describe("formatQuotaFetchFailureMessage", () => {
   const issues = [
     { provider_id: "grok", provider_label: "Grok Build", message: "network unreachable" },

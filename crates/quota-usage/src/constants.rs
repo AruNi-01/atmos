@@ -25,6 +25,8 @@ pub(crate) const FACTORY_API_URL: &str = "https://api.factory.ai";
 pub(crate) const FACTORY_AUTH_ME_PATH: &str = "/api/app/auth/me";
 /// Token-rate-limit windows (5h / weekly / monthly) used by Factory billing UI.
 pub(crate) const FACTORY_BILLING_LIMITS_PATH: &str = "/api/billing/limits";
+/// Included Managed Computers compute for the current billing period.
+pub(crate) const FACTORY_COMPUTE_USAGE_PATH: &str = "/api/organization/compute-usage";
 pub(crate) const ZED_BILLING_USAGE_URL: &str = "https://cloud.zed.dev/frontend/billing/usage";
 pub(crate) const ZED_SUBSCRIPTION_URL: &str =
     "https://cloud.zed.dev/frontend/billing/subscriptions/current";

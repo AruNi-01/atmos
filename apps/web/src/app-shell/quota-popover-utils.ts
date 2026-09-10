@@ -72,6 +72,7 @@ export type QuotaPopoverFormatters = {
   resettingNowLabel?: string;
   resetsInPrefixLabel?: string;
   nextUpdateInLabel?: string;
+  useDroidToStartLabel?: string;
 };
 
 function defaultLocale(): Intl.LocalesArgument | undefined {
@@ -209,13 +210,22 @@ export function extractPercent(text?: string | null): number | null {
   return Number(match[1]);
 }
 
+/** Window rows keep a track at 0%. Extra-usage / amount rows stay bar-less. */
+export function quotaMetricShowsBar(percent: number | null | undefined): boolean {
+  return typeof percent === "number" && Number.isFinite(percent);
+}
+
+function isResetOrStartStatusPart(part: string): boolean {
+  return /^reset/i.test(part) || /^use droid to start$/i.test(part);
+}
+
 export function extractResetText(text?: string | null): string | null {
   if (!text) return null;
   const parts = text
     .split("·")
     .map((part) => part.trim())
     .filter(Boolean);
-  const resetPart = parts.findLast((part) => /^reset/i.test(part));
+  const resetPart = parts.findLast((part) => isResetOrStartStatusPart(part));
   return resetPart ?? null;
 }
 
@@ -226,8 +236,42 @@ function extractMetricDetail(text?: string | null): string | null {
     .map((part) => part.trim())
     .filter(Boolean);
   if (parts.length < 2) return null;
-  const detailParts = parts.slice(1).filter((part) => !/^reset/i.test(part));
+  const detailParts = parts.slice(1).filter((part) => !isResetOrStartStatusPart(part));
   return detailParts[0] ?? null;
+}
+
+function parseEnglishResetDuration(
+  text: string,
+): { days: number; hours: number; minutes: number } | null {
+  const match = text
+    .trim()
+    .match(
+      /^resets?\s+in\s+(?:(\d+)\s*d(?:ays?)?)?\s*,?\s*(?:(\d+)\s*h(?:ours?)?)?\s*,?\s*(?:(\d+)\s*m(?:in(?:utes?)?)?)?$/i,
+    );
+  if (!match || (!match[1] && !match[2] && !match[3])) return null;
+  return {
+    days: match[1] ? Number(match[1]) : 0,
+    hours: match[2] ? Number(match[2]) : 0,
+    minutes: match[3] ? Number(match[3]) : 0,
+  };
+}
+
+function formatParsedResetDuration(
+  duration: { days: number; hours: number; minutes: number },
+  formatters: QuotaPopoverFormatters,
+  locale?: Intl.LocalesArgument,
+): string {
+  const parts: string[] = [];
+  if (duration.days > 0) {
+    parts.push(formatCompactUnit(duration.days, "day", locale));
+    if (duration.hours > 0) parts.push(formatCompactUnit(duration.hours, "hour", locale));
+  } else if (duration.hours > 0) {
+    parts.push(formatCompactUnit(duration.hours, "hour", locale));
+    if (duration.minutes > 0) parts.push(formatCompactUnit(duration.minutes, "minute", locale));
+  } else {
+    parts.push(formatCompactUnit(duration.minutes, "minute", locale));
+  }
+  return `${resolveFormatterValue(formatters.resetsInPrefixLabel, "Resets in")} ${formatCompactDuration(parts, locale)}`;
 }
 
 export function displayResetText(
@@ -236,19 +280,33 @@ export function displayResetText(
   formatters: QuotaPopoverFormatters = {},
   locale?: Intl.LocalesArgument,
 ): string | null {
-  const normalizedResetText = explicitResetText?.trim();
-  const looksLikeEnglishResetText = normalizedResetText
-    ? /^(reset(?:ting)?(?:\s+unknown|\s+now)?|resets?\s+in)\b/i.test(normalizedResetText)
-    : false;
+  const normalizedResetText = explicitResetText?.trim() || "";
+  if (/^use droid to start$/i.test(normalizedResetText)) {
+    return resolveFormatterValue(formatters.useDroidToStartLabel, "Use Droid to start");
+  }
 
-  if (fallbackResetAt && looksLikeEnglishResetText) {
-    return formatRelativeReset(fallbackResetAt, formatters, locale);
+  if (/^reset unknown$/i.test(normalizedResetText)) {
+    if (fallbackResetAt) return formatRelativeReset(fallbackResetAt, formatters, locale);
+    return resolveFormatterValue(formatters.resetUnknownLabel, "Reset unknown");
+  }
+
+  if (/^resetting now$/i.test(normalizedResetText)) {
+    return resolveFormatterValue(formatters.resettingNowLabel, "Resetting now");
+  }
+
+  const parsedDuration = normalizedResetText
+    ? parseEnglishResetDuration(normalizedResetText)
+    : null;
+  if (parsedDuration) {
+    return formatParsedResetDuration(parsedDuration, formatters, locale);
   }
 
   if (normalizedResetText) return normalizedResetText;
   if (!fallbackResetAt) return null;
   const fallbackText = formatRelativeReset(fallbackResetAt, formatters, locale);
-  return fallbackText === resolveFormatterValue(formatters.resetUnknownLabel, "Reset unknown") ? null : fallbackText;
+  return fallbackText === resolveFormatterValue(formatters.resetUnknownLabel, "Reset unknown")
+    ? null
+    : fallbackText;
 }
 
 export function displayMetricUsedText(
@@ -260,9 +318,6 @@ export function displayMetricUsedText(
   }
 
   const amountSuffix = metric.amountText ? ` (${metric.amountText})` : "";
-  if (metric.detailText) {
-    return `${metric.percent.toFixed(0)}% ${usedSuffix}${amountSuffix} (${metric.detailText})`;
-  }
   return `${metric.percent.toFixed(0)}% ${usedSuffix}${amountSuffix}`;
 }
 
@@ -289,6 +344,7 @@ export function usageSegmentFillClass(label: string, index: number): string {
 }
 
 export type QuotaMetricRow = {
+  group: string | null;
   label: string;
   value: string;
   percent: number | null;
@@ -299,6 +355,7 @@ export type QuotaMetricRow = {
 };
 
 export type QuotaMetricPresentation = {
+  group: string | null;
   label: string;
   /** Right-side value: `13%` for a window, otherwise the row amount/status. */
   valueText: string | null;
@@ -331,6 +388,7 @@ export function presentQuotaMetric(
 
   if (percent != null) {
     return {
+      group: metric.group,
       label: metric.label,
       valueText: `${Math.round(percent)}%`,
       resetText: displayResetText(
@@ -346,6 +404,7 @@ export function presentQuotaMetric(
 
   const valueText = metric.value.trim() || null;
   return {
+    group: metric.group,
     label: metric.label,
     valueText,
     resetText: displayResetText(
@@ -386,12 +445,34 @@ export function firstRowValue(
   return row?.value ?? null;
 }
 
-function sectionRows(provider: QuotaProviderResponse, sectionTitle: string) {
+export const FACTORY_USAGE_MODE_STANDARD = "Standard";
+export const FACTORY_USAGE_MODE_DROID_CORE = "Droid Core";
+export const FACTORY_MANAGED_COMPUTERS_GROUP = "Managed Computers";
+
+function isUsageMetricSectionTitle(title: string): boolean {
+  const normalized = title.trim().toLowerCase();
   return (
-    provider.detail_sections.find(
-      (item) => item.title.toLowerCase() === sectionTitle.toLowerCase(),
-    )?.rows ?? []
+    normalized === "usage" ||
+    normalized === "standard" ||
+    normalized === "droid core" ||
+    normalized === "core" ||
+    normalized === "managed computers"
   );
+}
+
+function usageSectionGroup(provider: QuotaProviderResponse, title: string): string | null {
+  const normalized = title.trim().toLowerCase();
+  if (normalized === "standard") return FACTORY_USAGE_MODE_STANDARD;
+  if (normalized === "droid core" || normalized === "core") return FACTORY_USAGE_MODE_DROID_CORE;
+  if (normalized === "managed computers") return FACTORY_MANAGED_COMPUTERS_GROUP;
+  if (normalized === "usage") {
+    const hasCore = provider.detail_sections.some((section) => {
+      const sectionTitle = section.title.trim().toLowerCase();
+      return sectionTitle === "droid core" || sectionTitle === "core";
+    });
+    return hasCore ? FACTORY_USAGE_MODE_STANDARD : null;
+  }
+  return null;
 }
 
 export function extraSections(provider: QuotaProviderResponse) {
@@ -400,10 +481,72 @@ export function extraSections(provider: QuotaProviderResponse) {
     return (
       title !== "account" &&
       title !== "usage" &&
+      title !== "standard" &&
+      title !== "droid core" &&
+      title !== "core" &&
+      title !== "managed computers" &&
       title !== "credits" &&
       title !== "fetch pipeline"
     );
   });
+}
+
+export function factoryUsageModes(metrics: Array<Pick<QuotaMetricRow, "group">>): string[] {
+  const modes: string[] = [];
+  if (metrics.some((metric) => metric.group === FACTORY_USAGE_MODE_STANDARD)) {
+    modes.push(FACTORY_USAGE_MODE_STANDARD);
+  }
+  if (metrics.some((metric) => metric.group === FACTORY_USAGE_MODE_DROID_CORE)) {
+    modes.push(FACTORY_USAGE_MODE_DROID_CORE);
+  }
+  return modes;
+}
+
+export function factoryWindowMetrics<T extends Pick<QuotaMetricRow, "group">>(
+  metrics: T[],
+  mode: string | null,
+): T[] {
+  const windows = metrics.filter((metric) => metric.group !== FACTORY_MANAGED_COMPUTERS_GROUP);
+  if (!mode) return windows;
+  const filtered = windows.filter((metric) => metric.group === mode);
+  return filtered.length > 0 ? filtered : windows;
+}
+
+export function factoryManagedComputerMetrics<T extends Pick<QuotaMetricRow, "group">>(
+  metrics: T[],
+): T[] {
+  return metrics.filter((metric) => metric.group === FACTORY_MANAGED_COMPUTERS_GROUP);
+}
+
+export function quotaMetricHeading(label: string, usedText: string): string {
+  if (!usedText.trim()) return label;
+  if (!label.trim()) return usedText;
+  return `${label} · ${usedText}`;
+}
+
+export function metricRowKey(metric: Pick<QuotaMetricRow, "group" | "label">): string {
+  return metric.group ? `${metric.group}:${metric.label}` : metric.label;
+}
+
+export function shouldShowMetricGroup(
+  metrics: Array<Pick<QuotaMetricRow, "group">>,
+  index: number,
+): boolean {
+  const groups = new Set(metrics.map((metric) => metric.group).filter(Boolean));
+  if (groups.size < 2) return false;
+  const current = metrics[index]?.group;
+  if (!current) return false;
+  return current !== metrics[index - 1]?.group;
+}
+
+export function metricGroupLabel(
+  group: string,
+  labels: { standard: string; droidCore: string },
+): string {
+  const normalized = group.trim().toLowerCase();
+  if (normalized === "standard") return labels.standard;
+  if (normalized === "droid core" || normalized === "core") return labels.droidCore;
+  return group;
 }
 
 export function sectionHeaderValue(
@@ -474,6 +617,10 @@ export function usagePortalUrl(providerId: string, region: ProviderRegion | null
     return "https://platform.deepseek.com";
   }
 
+  if (providerId === "factory") {
+    return "https://app.factory.ai/settings/usage";
+  }
+
   return null;
 }
 
@@ -519,20 +666,33 @@ function foldSharedPoolSegments(
 
 export function quotaMetrics(provider: QuotaProviderResponse): QuotaMetricRow[] {
   const amountText = formatQuotaAmountText(provider);
-  const rows = sectionRows(provider, "Usage")
-    .filter((row) => Boolean(row.value?.trim()))
-    .filter((row) => row.label.toLowerCase() !== "billing period")
-    .map((row, index) => ({
-      label: row.label,
-      value: row.value,
-      percent:
-        extractPercent(row.value) ??
-        (index === 0 ? (provider.usage_summary?.percent ?? null) : null),
-      amountText: index === 0 ? amountText : null,
-      detailText: extractMetricDetail(row.value),
-      resetText: extractResetText(row.value),
-      segments: [] as QuotaMetricSegment[],
-    }));
+  const rows: QuotaMetricRow[] = [];
+  for (const section of provider.detail_sections) {
+    if (!isUsageMetricSectionTitle(section.title)) continue;
+    const group = usageSectionGroup(provider, section.title);
+    for (const row of section.rows) {
+      if (!row.value?.trim()) continue;
+      if (row.label.toLowerCase() === "billing period") continue;
+      const index = rows.length;
+      const extractedPercent = extractPercent(row.value);
+      const factoryWindowGroup =
+        group === FACTORY_USAGE_MODE_STANDARD ||
+        group === FACTORY_USAGE_MODE_DROID_CORE ||
+        group === FACTORY_MANAGED_COMPUTERS_GROUP;
+      rows.push({
+        group,
+        label: row.label,
+        value: row.value,
+        percent:
+          extractedPercent ??
+          (factoryWindowGroup ? 0 : index === 0 ? (provider.usage_summary?.percent ?? null) : null),
+        amountText: index === 0 ? amountText : null,
+        detailText: extractMetricDetail(row.value),
+        resetText: extractResetText(row.value),
+        segments: [],
+      });
+    }
+  }
   return foldSharedPoolSegments(provider.id, rows);
 }
 

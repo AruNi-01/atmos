@@ -23,11 +23,19 @@ import {
   type ContextWindowBarTone,
 } from "@/features/agent/lib/context-window-usage";
 import {
+  FACTORY_USAGE_MODE_STANDARD,
+  factoryManagedComputerMetrics,
+  factoryUsageModes,
+  factoryWindowMetrics,
+  metricGroupLabel,
+  metricRowKey,
   presentQuotaMetric,
   providerIdentity,
+  quotaMetricHeading,
+  quotaMetricShowsBar,
   quotaMetrics,
 } from "@/app-shell/quota-popover-utils";
-import { QuotaFetchFailureBanner, UsageBar, UsageBarLegend } from "@/app-shell/quota-popover-components";
+import { QuotaFetchFailureBanner, QuotaModeTabs, UsageBar, UsageBarLegend } from "@/app-shell/quota-popover-components";
 
 function CircularProgress({
   percent,
@@ -101,8 +109,16 @@ function AgentQuotaSection({
   provider: QuotaProviderResponse;
 }) {
   const t = useTranslations("Agent.components.contextWindow");
+  const tQuota = useTranslations("appShell.usagePopover");
   const locale = useLocale();
   const metrics = quotaMetrics(provider);
+  const modes = factoryUsageModes(metrics);
+  const [mode, setMode] = useState(modes[0] ?? FACTORY_USAGE_MODE_STANDARD);
+  const resolvedMode = modes.includes(mode) ? mode : (modes[0] ?? null);
+  const visibleMetrics = [
+    ...factoryWindowMetrics(metrics, modes.length >= 2 ? resolvedMode : null),
+    ...factoryManagedComputerMetrics(metrics),
+  ];
   if (metrics.length === 0) return null;
 
   const { planLabel } = providerIdentity(provider, t("notDetected"));
@@ -113,28 +129,48 @@ function AgentQuotaSection({
   return (
     <div className="space-y-2.5 border-t border-border/60 pt-3">
       <div className="text-xs text-muted-foreground">{sectionTitle}</div>
+      {modes.length >= 2 ? (
+        <QuotaModeTabs
+          value={resolvedMode ?? FACTORY_USAGE_MODE_STANDARD}
+          options={modes.map((item) => ({
+            value: item,
+            label: metricGroupLabel(item, {
+              standard: tQuota("detail.standard"),
+              droidCore: tQuota("detail.droidCore"),
+            }),
+          }))}
+          onValueChange={setMode}
+        />
+      ) : null}
       <div className="space-y-2.5">
-        {metrics.map((metric) => {
+        {visibleMetrics.map((metric) => {
           const view = presentQuotaMetric(metric, {
             fallbackResetAt: provider.subscription_summary?.reset_at,
             locale,
+            formatters: {
+              resetUnknownLabel: tQuota("formatters.resetUnknown"),
+              resettingNowLabel: tQuota("formatters.resettingNow"),
+              resetsInPrefixLabel: tQuota("formatters.resetsIn"),
+              useDroidToStartLabel: tQuota("formatters.useDroidToStart"),
+            },
           });
+          const usedText = view.percent != null ? `${Math.round(view.percent)}% ${tQuota("detail.usedSuffix")}` : view.valueText;
           return (
-            <div key={metric.label} className="space-y-1">
+            <div key={metricRowKey(metric)} className="space-y-1">
               <div className="flex items-baseline justify-between gap-3 text-xs">
-                <span className="font-medium text-foreground">{view.label}</span>
+                <span className="font-medium text-foreground">
+                  {quotaMetricHeading(view.label, usedText ?? "")}
+                </span>
                 <div className="flex min-w-0 items-baseline gap-2 text-right">
+                  {metric.detailText ? (
+                    <span className="truncate text-muted-foreground">{metric.detailText}</span>
+                  ) : null}
                   {view.resetText ? (
                     <span className="truncate text-muted-foreground">{view.resetText}</span>
                   ) : null}
-                  {view.valueText ? (
-                    <span className="shrink-0 font-medium tabular-nums text-foreground">
-                      {view.valueText}
-                    </span>
-                  ) : null}
                 </div>
               </div>
-              {view.percent != null ? (
+              {quotaMetricShowsBar(view.percent) ? (
                 <UsageBar
                   percent={view.percent}
                   segments={view.segments}

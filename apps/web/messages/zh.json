@@ -605,6 +605,7 @@
         "resetUnknown": "重置时间未知",
         "resettingNow": "正在重置",
         "resetsIn": "将在",
+        "useDroidToStart": "使用 Droid 后开始",
         "nextUpdateIn": "下次更新于"
       },
       "autoRefresh": {
@@ -648,6 +649,8 @@
         "detectionRequired": "需要检测",
         "detectSetupHint": "请登录本地应用，或添加受支持的本地 token / 配置，Atmos 才能检测到这个 provider。",
         "usage": "用量",
+        "standard": "标准",
+        "droidCore": "Droid Core",
         "noUsageData": "暂无用量数据",
         "credits": "额度",
         "unknown": "未知",
@@ -8830,6 +8833,11 @@
       "editZoom": "点击编辑缩放比例",
       "zoomIn": "放大",
       "close": "关闭"
+    },
+    "imagePreviewOverlay": {
+      "copyImage": "复制图片",
+      "copyFailedTitle": "复制失败",
+      "clipboardUnavailable": "无法将图片复制到剪贴板。"
     },
     "markdownRenderer": {
       "mermaid": {
