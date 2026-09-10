@@ -1,0 +1,37 @@
+apps/web/src/app-shell/__tests__/quota-metric-presentation.test.ts
+  s_344be036cbe8bc::t_64bb189db3a458 6-10,13-14,16,102,137,173,215,246,327-409,418-420
+  s_344be036cbe8bc::t_212dfa3a7bc0b3 410-412,415-417
+  s_344be036cbe8bc::t_4cce2ca0778d1c 421-423
+crates/quota-usage/src/providers/factory/mod.rs
+  s_344be036cbe8bc::t_fda61874b3840d 414-415,454-457,459-475,506-511,720-788,797,801,807-811,832-833,900,962-963,1000-1001,1010,1013-1019,1030-1055
+  s_344be036cbe8bc::t_64474a0d60bd23 411-413
+  s_344be036cbe8bc::t_1ee2390f24a283 1056-1058
+apps/web/src/features/quota-usage/lib/__tests__/quota-display.test.ts
+  s_344be036cbe8bc::t_64bb189db3a458 137-191
+apps/web/src/app-shell/quota-popover-utils.ts
+  s_344be036cbe8bc::t_76dcba4cc5c1a8 215,252,258,270,448-453,455-459,463-477,484-487,494-551,620-623,682
+  s_344be036cbe8bc::t_12f67cedbab751 213-214
+  s_344be036cbe8bc::t_bd933aa4b6295c 216-218
+  s_344be036cbe8bc::t_e4b1e2ff8ac9ef 249-251
+  s_344be036cbe8bc::t_44cc20105705c8 253-257
+  s_344be036cbe8bc::t_acdc157f3b9736 259-261,267-269
+  s_344be036cbe8bc::t_8698705e8d010f 271-273
+  s_344be036cbe8bc::t_d35a48077d20b1 679-681
+  s_344be036cbe8bc::t_5c8cb69de777e1 683-685
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "1d00f35125ad84440c739cc032725159c5f90fca",
+  "prompts": {},
+  "sessions": {
+    "s_344be036cbe8bc": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "d81e6bb0-74bb-4505-a0ea-385e1586ffa9",
+        "model": "glm-5.3-flash"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
