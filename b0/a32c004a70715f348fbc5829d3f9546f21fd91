@@ -1,0 +1,98 @@
+crates/agent/src/providers/acp/tool_map.rs
+  s_344be036cbe8bc::t_fda61874b3840d 789,804,1848
+  s_ec0236d1a10516::t_041b88175046ae 711,739,790,803,805,1777,1780,1782,1794-1796,1802-1847,1849-1851
+  s_ec0236d1a10516::t_cc1db0e409b49d 709-710
+  s_ec0236d1a10516::t_f05730fbe4368d 737-738
+  s_344be036cbe8bc::t_356661e972d6ff 786-788
+  s_ec0236d1a10516::t_d0ab4f6f53706c 791-793,800-802
+  s_ec0236d1a10516::t_a176d8a17eabae 806-808
+  s_ec0236d1a10516::t_4e0a7c5e4f2822 1778-1779
+  s_ec0236d1a10516::t_e08754ab55ddaf 1781
+  s_ec0236d1a10516::t_04ef0010d027d8 1783-1785,1791-1793
+  s_ec0236d1a10516::t_7cc5c323346a6c 1797-1801
+crates/agent/src/options/probe/cli/mod.rs
+  s_344be036cbe8bc::t_fda61874b3840d 1
+crates/core-service/src/service/agent_chat/apply_event.rs
+  s_344be036cbe8bc::t_fda61874b3840d 9-10,87-102,104,170,172,175-176,257,797-815,817-819,834-848,909-924,1001-1012,1109-1110,1920,1924,1934-1967,2299-2311,2687-2736
+  s_344be036cbe8bc::t_032c117c7c0c1f 2737-2739
+crates/agent/src/lib.rs
+  s_344be036cbe8bc::t_fda61874b3840d 40,43-47,54-56
+  s_344be036cbe8bc::t_4b27bb54c9dcd8 38-39
+crates/agent/src/acp_client/terminal.rs
+  s_99bf04f6e90a86::t_f09a6a89cab8ad 1-437,439-440
+  s_99bf04f6e90a86::t_5ec77c97b11c2d 438
+  s_99bf04f6e90a86::t_f0b0af01852815 441-443
+crates/agent/src/map/classify.rs
+  s_ec0236d1a10516::t_b65060892d9a82 749-756
+  s_344be036cbe8bc::t_fda61874b3840d 103-104
+crates/core-service/src/service/agent_chat/service.rs
+  s_344be036cbe8bc::t_fda61874b3840d 8-12,1230-1262,1265,1287,1347,1349-1354
+crates/agent/src/providers/acp/event_map.rs
+  s_ec0236d1a10516::t_620f5de8eb32c2 80,627,634,648,754-755,914-915,918-962
+  s_344be036cbe8bc::t_fda61874b3840d 916-917
+  s_ec0236d1a10516::t_b7859068b814a7 78-79
+  s_ec0236d1a10516::t_e398afb2860e26 81
+  s_ec0236d1a10516::t_cf8dce7409dc21 625-626
+  s_ec0236d1a10516::t_5d994163b37f68 628-633
+  s_ec0236d1a10516::t_0ed07322dc4122 635-637,645-647
+  s_ec0236d1a10516::t_4ca5234dcac227 649
+  s_ec0236d1a10516::t_3f3e556fe64677 963-964
+crates/agent/src/options/probe/cli/parse.rs
+  s_ec0236d1a10516::t_620f5de8eb32c2 224,611,909,973-1025
+  s_ec0236d1a10516::t_ca4efabaf23188 223
+  s_ec0236d1a10516::t_92ec3b14620eca 612
+  s_ec0236d1a10516::t_86ad34d0ae607c 908
+  s_ec0236d1a10516::t_74f3a6d525cf80 972
+crates/agent/src/options/probe/cli/droid.rs
+  s_ec0236d1a10516::t_ce2ebe76c4af5d 19,23,51,68,151,153-282,330,334,338,342,362
+  s_ec0236d1a10516::t_9720eab1dd95c9 16-18
+  s_ec0236d1a10516::t_cc13e8dab6d8c4 20-22
+  s_ec0236d1a10516::t_d3471edf9e5316 24-26,48-50
+  s_ec0236d1a10516::t_7e736ab6af01be 52-54,65-67
+  s_ec0236d1a10516::t_b9cb42587ef1b3 69-71,148-150
+  s_ec0236d1a10516::t_54b8023ca34a1b 152
+  s_ec0236d1a10516::t_88c3c0be0861a8 283-285,327-329
+  s_ec0236d1a10516::t_d62f7207eae0ed 331-333
+  s_ec0236d1a10516::t_251723688cb41b 335-337
+  s_ec0236d1a10516::t_3dfd5503acb38a 339-341
+  s_ec0236d1a10516::t_cce91796425609 343-345,359-361
+  s_ec0236d1a10516::t_3402302c745b25 363-365
+crates/agent/src/policy/honesty.rs
+  s_ec0236d1a10516::t_620f5de8eb32c2 259-261
+crates/agent/src/policy/aliases.rs
+  s_344be036cbe8bc::t_bcc70ede2b1c86 14-22
+crates/agent/src/policy/mod.rs
+  s_344be036cbe8bc::t_d0930cbe7c9dc2 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "b0a32c004a70715f348fbc5829d3f9546f21fd91",
+  "prompts": {},
+  "sessions": {
+    "s_344be036cbe8bc": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "d81e6bb0-74bb-4505-a0ea-385e1586ffa9",
+        "model": "glm-5.3-flash"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_99bf04f6e90a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a08aa4-99dc-74b1-baa5-73dd641e2741",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_ec0236d1a10516": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "dbd52a5e-c1a1-4571-96e9-218a042f9786",
+        "model": "gpt-5.6-luna"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
