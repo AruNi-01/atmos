@@ -1075,7 +1075,7 @@ export function fillEmptyDescriptorOptionsFromSnapshot(
   );
   const composer = foldDroidComposerOptions(
     catalog.agent_id,
-    (options.modes?.length ?? 0) > 0 ? options.modes : catalog.modes,
+    ((options.modes?.length ?? 0) > 0 ? options.modes : catalog.modes) ?? [],
     preferRicherPermissionModes(
       (options.permission_modes?.length ?? 0) > 0
         ? options.permission_modes

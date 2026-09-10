@@ -1407,6 +1407,43 @@ describe("agent chat helpers", () => {
     expect(filled.supported_options.modes).toEqual([{ id: "plan", label: "Plan" }]);
   });
 
+  it("fills omitted descriptor modes from the catalog", () => {
+    const descriptor: AgentDescriptor = {
+      identity: { id: "claude", name: "Claude" },
+      capabilities: {
+        steer: "unsupported",
+        resume: "supported",
+        permission: "supported",
+        configure: "supported",
+        fork: "unsupported",
+        rewind: "unsupported",
+      },
+      support: {
+        models: "supported",
+        thinking: "supported",
+        modes: "supported",
+        permission_modes: "unsupported",
+      },
+      supported_options: {
+        models: [{ id: "opus", label: "Opus" }],
+        thinking: { type: "enum", options: ["low"] },
+      },
+      current_config: { model: "opus" },
+    };
+    const filled = fillEmptyDescriptorOptionsFromSnapshot(descriptor, {
+      agent_id: "claude",
+      status: "ok",
+      models: [{ id: "sonnet", label: "Sonnet" }],
+      modes: [{ id: "plan", label: "Plan" }],
+      thinking: { type: "enum", options: ["high"] },
+      strategies_used: [],
+      fetched_at: "",
+      source: "cache",
+      message: null,
+    });
+    expect(filled.supported_options.modes).toEqual([{ id: "plan", label: "Plan" }]);
+  });
+
   it("replaces pre-PMP Cursor CLI-encoded models with bare catalog list", () => {
     const descriptor: AgentDescriptor = {
       identity: { id: "cursor", name: "Cursor" },
