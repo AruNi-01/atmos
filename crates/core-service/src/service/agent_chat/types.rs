@@ -2,11 +2,11 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use agent::{
-    canonicalize_chat_provider_id, capabilities_for_provider, map_to_advertised_cursor_model,
-    models_look_like_cursor_acp, option_support_for_provider, AgentCurrentConfig, AgentDescriptor,
-    AgentIdentity, AgentOptionSupport, AgentSessionOpRequest, AgentSupportedOptions,
-    AgentThinkingSupport, AgentTool, AgentToolKind, AgentToolParams, AgentToolResult,
-    AgentToolStatus, UserMessageKind,
+    canonicalize_chat_provider_id, capabilities_for_provider, is_fast_on,
+    map_to_advertised_cursor_model, models_look_like_cursor_acp, option_support_for_provider,
+    AgentCurrentConfig, AgentDescriptor, AgentIdentity, AgentOptionSupport, AgentSessionOpRequest,
+    AgentSupportedOptions, AgentThinkingSupport, AgentTool, AgentToolKind, AgentToolParams,
+    AgentToolResult, AgentToolStatus, UserMessageKind,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -765,7 +765,13 @@ pub fn pending_permission_mode_change(meta: &AgentChatMeta) -> Option<String> {
 
 pub fn pending_fast_change(meta: &AgentChatMeta) -> Option<String> {
     let selected = trimmed_opt(meta.descriptor.current_config.fast.as_ref())?.to_string();
-    match trimmed_opt(meta.applied_fast.as_ref()) {
+    let applied = trimmed_opt(meta.applied_fast.as_ref());
+    // `"false"` vs unset is not a Fast write. New Chat stamps Fast off after a
+    // model change; treating that as pending makes Droid call set_session_model.
+    if !is_fast_on(Some(&selected)) && !is_fast_on(applied) {
+        return None;
+    }
+    match applied {
         Some(applied) if applied == selected => None,
         _ => Some(selected),
     }
@@ -1796,9 +1802,10 @@ mod usage_parse_tests {
 mod session_config_change_tests {
     use super::{
         advertised_option_for_kind, config_kind_matches, map_advertised_select_value,
-        merge_advertised_options, pending_session_config_change, resolve_session_config_select,
-        AgentChatMeta, AgentChatOrigin, AgentCurrentConfig, ResolvedSessionConfig, RuntimeStatus,
-        SessionAdvertisedOption, SessionAdvertisedOptionValue,
+        merge_advertised_options, pending_fast_change, pending_session_config_change,
+        resolve_session_config_select, AgentChatMeta, AgentChatOrigin, AgentCurrentConfig,
+        ResolvedSessionConfig, RuntimeStatus, SessionAdvertisedOption,
+        SessionAdvertisedOptionValue,
     };
     use agent::AgentModel;
     use chrono::Utc;
@@ -1846,6 +1853,22 @@ mod session_config_change_tests {
     #[test]
     fn first_session_is_not_a_switch() {
         assert!(pending_session_config_change(&meta()).is_none());
+    }
+
+    #[test]
+    fn fast_off_is_not_pending_when_the_session_never_set_fast() {
+        let mut row = meta();
+        row.applied_model = Some("claude-opus-5".into());
+        row.descriptor.current_config.model = Some("claude-opus-5".into());
+        row.descriptor.current_config.fast = Some("false".into());
+        assert!(pending_fast_change(&row).is_none());
+        row.applied_fast = Some("false".into());
+        assert!(pending_fast_change(&row).is_none());
+        row.applied_fast = Some("true".into());
+        assert_eq!(pending_fast_change(&row).as_deref(), Some("false"));
+        row.descriptor.current_config.fast = Some("true".into());
+        row.applied_fast = None;
+        assert_eq!(pending_fast_change(&row).as_deref(), Some("true"));
     }
 
     #[test]

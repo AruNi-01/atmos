@@ -6,8 +6,9 @@ use std::time::{Duration, Instant};
 
 use agent::providers::{chat_provider_kind, ChatProviderKind};
 use agent::{
-    apply_droid_fast_current_config, boolean_fast_modes, collapse_droid_fast_models,
-    droid_fast_base, encode_droid_fast_model, is_droid_chat_provider, overlay_droid_model_catalog,
+    apply_droid_fast_current_config, apply_droid_mode_permission_current_config,
+    boolean_fast_modes, collapse_droid_fast_models, droid_fast_base, encode_droid_fast_model,
+    fold_droid_composer_options, is_droid_chat_provider, overlay_droid_model_catalog,
     AgentAvailableCommand, AgentEvent, AgentEventEnvelope, AgentMode, AgentModel,
     AgentRuntimeConfigUpdate, AgentRuntimeControl, AgentThinkingSupport, AgentTool, Capability,
     SessionOpOutcome, TurnStop,
@@ -1009,6 +1010,15 @@ fn apply_config_changed(
                 meta.applied_fast = Some("true".into());
             }
         }
+        let modes = std::mem::take(&mut meta.descriptor.supported_options.modes);
+        let permission_modes =
+            std::mem::take(&mut meta.descriptor.supported_options.permission_modes);
+        let (modes, permission_modes) = fold_droid_composer_options(modes, permission_modes);
+        meta.descriptor.supported_options.modes = modes;
+        meta.descriptor.supported_options.permission_modes = permission_modes;
+        apply_droid_mode_permission_current_config(&mut meta.descriptor.current_config);
+        meta.applied_mode = meta.descriptor.current_config.mode.clone();
+        meta.applied_permission_mode = meta.descriptor.current_config.permission_mode.clone();
     }
 }
 
@@ -1805,7 +1815,7 @@ pub(super) async fn apply_pending_session_config(
     persist_switch_failed_hints(
         chat_id,
         Some(turn_id.to_string()),
-        outcome.failed_model,
+        outcome.failed_model && !is_first_user_turn(store, chat_id, turn_id),
         outcome.failed_mode,
         store,
         events,
@@ -1942,11 +1952,16 @@ pub(super) async fn apply_live_session_config(
             let fast_value = fast
                 .clone()
                 .or_else(|| meta.descriptor.current_config.fast.clone());
-            model = Some(encode_droid_fast_model(
+            let wire = encode_droid_fast_model(
                 &base,
                 fast_value.as_deref(),
                 &meta.descriptor.supported_options.models,
-            ));
+            );
+            if droid_already_on_encoded_model(&meta, &wire) {
+                model = None;
+            } else {
+                model = Some(wire);
+            }
         }
         fast = None;
     }
@@ -2054,6 +2069,29 @@ fn resolve_pending_select(
         | ResolvedSessionConfig::PassThrough(value) => Some(value),
         ResolvedSessionConfig::Invalid => None,
     }
+}
+
+fn droid_already_on_encoded_model(meta: &AgentChatMeta, wire: &str) -> bool {
+    let Some(applied) = meta
+        .applied_model
+        .as_deref()
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+    else {
+        return false;
+    };
+    encode_droid_fast_model(
+        applied,
+        meta.applied_fast.as_deref(),
+        &meta.descriptor.supported_options.models,
+    ) == wire
+}
+
+fn is_first_user_turn(store: &AgentChatStore, chat_id: &str, turn_id: &str) -> bool {
+    store
+        .folded_turns(chat_id)
+        .map(|turns| turns.iter().all(|turn| turn.id == turn_id))
+        .unwrap_or(false)
 }
 
 fn config_write(
@@ -2253,6 +2291,20 @@ mod tests {
         assert_eq!(state.persist_turn_id(None), "t1");
         assert_eq!(state.persist_turn_id(Some("unknown")), "t1");
         assert_eq!(state.persist_turn_id(Some("turn-2")), "turn-2");
+    }
+
+    #[test]
+    fn droid_skips_set_config_when_encoded_model_already_matches() {
+        let mut row = meta();
+        row.provider_id = "factory-droid".into();
+        row.applied_model = Some("claude-opus-5".into());
+        row.descriptor.current_config.model = Some("claude-opus-5".into());
+        row.descriptor.current_config.fast = Some("false".into());
+        assert!(droid_already_on_encoded_model(&row, "claude-opus-5"));
+        row.applied_model = Some("claude-opus-5-fast".into());
+        row.applied_fast = Some("true".into());
+        assert!(!droid_already_on_encoded_model(&row, "claude-opus-5"));
+        assert!(droid_already_on_encoded_model(&row, "claude-opus-5-fast"));
     }
 
     fn runtime() -> RuntimeState {
@@ -2742,6 +2794,77 @@ mod tests {
         assert_eq!(row.applied_model.as_deref(), Some("gpt-5.5"));
         assert_eq!(row.applied_fast.as_deref(), Some("true"));
         assert_eq!(row.descriptor.supported_options.fast.len(), 2);
+    }
+
+    #[test]
+    fn droid_config_changed_folds_auto_levels_out_of_mode() {
+        let mut row = meta();
+        row.provider_id = "factory-droid".into();
+        row.descriptor = crate::service::agent_chat::types::chat_descriptor(
+            "factory-droid",
+            agent::AgentCurrentConfig::default(),
+        );
+        apply_config_changed(
+            &mut row,
+            vec![SessionAdvertisedOption {
+                id: "mode".into(),
+                name: Some("Mode".into()),
+                category: Some("mode".into()),
+                option_type: "select".into(),
+                current_value: Some("Auto (High)".into()),
+                options: vec![
+                    SessionAdvertisedOptionValue {
+                        value: "Auto (Off)".into(),
+                        name: Some("Auto (Off)".into()),
+                    },
+                    SessionAdvertisedOptionValue {
+                        value: "spec".into(),
+                        name: Some("Spec".into()),
+                    },
+                    SessionAdvertisedOptionValue {
+                        value: "Auto (Low)".into(),
+                        name: Some("Auto (Low)".into()),
+                    },
+                    SessionAdvertisedOptionValue {
+                        value: "Auto (Medium)".into(),
+                        name: Some("Auto (Medium)".into()),
+                    },
+                    SessionAdvertisedOptionValue {
+                        value: "Auto (High)".into(),
+                        name: Some("Auto (High)".into()),
+                    },
+                ],
+            }],
+            None,
+            None,
+            Some(&"Auto (High)".into()),
+            None,
+            None,
+            None,
+        );
+        assert_eq!(
+            row.descriptor
+                .supported_options
+                .modes
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["auto", "spec"]
+        );
+        assert_eq!(
+            row.descriptor
+                .supported_options
+                .permission_modes
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["yolo", "accept_edits", "auto", "ask_always"]
+        );
+        assert_eq!(row.descriptor.current_config.mode.as_deref(), Some("auto"));
+        assert_eq!(
+            row.descriptor.current_config.permission_mode.as_deref(),
+            Some("auto")
+        );
     }
 
     #[test]
