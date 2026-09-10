@@ -1,0 +1,20 @@
+apps/desktop-electron/native/host-shortcuts/host_shortcuts.c
+  h_5be255725524c8 8-10,12-14,18,20,28,40-41,56-57,82-86,96-98,100-118,121-122,160-170,174-191,194-197,199-200,202-211,215,307-308,312-313,319,324-327,408
+apps/desktop-electron/scripts/build-appshot-shift-native.ts
+  h_5be255725524c8 84-85
+apps/desktop-electron/src/host-shortcuts.ts
+  h_5be255725524c8 43-44,218,259-264,267-269,272,274-282,290,309,324,361,477
+apps/desktop-electron/src/os-reserved-shortcuts.test.ts
+  h_5be255725524c8 108-117,122-132,156-158,160
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "01808aeb01959a575c148f1d42de2ef3bc911420",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
