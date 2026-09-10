@@ -273,7 +273,9 @@
       "connectErrorTitle": "Could not connect",
       "connectErrorHint": "Try again.",
       "accessKeyRequired": "Sign in required",
-      "accessKeyRequiredDescription": "Sign in under Settings → Account so this app can use your Hub device. Then switch computers from the header.",
+      "accessKeyRequiredDescription": "Sign in with GitHub or Google so this app can use your Hub device. Then switch computers here.",
+      "signIn": "Sign in",
+      "openAccountSettings": "Open Account settings",
       "openComputerSettings": "Open Computer Settings",
       "noComputers": "No computers yet",
       "noComputersDescription": "Register this computer or add another machine under the same Atmos account.",
@@ -2630,7 +2632,7 @@
         "connectComputerBeforeSetup": "Connect a computer with Relay before setting up GitHub triggers.",
         "connectComputerBeforeSync": "Connect a computer with Relay before syncing the GitHub route.",
         "connectComputerBeforeRemove": "Connect a computer with Relay before removing the GitHub route.",
-        "accessTokenMissing": "Relay access token is missing."
+        "accessTokenMissing": "Sign in before using GitHub triggers."
       }
     },
     "runHistory": {
@@ -2728,7 +2730,8 @@
         "error": "Error",
         "deleted": "Deleted",
         "archived": "Archived",
-        "untitled": "Untitled"
+        "untitled": "Untitled",
+        "undo": "Undo"
       },
       "accessToken": {
         "errors": {
@@ -2770,7 +2773,8 @@
           "workspaceSetupStartedTitle": "Workspace setup started",
           "openingWorkspace": "Opening {name}",
           "workspaceRemovedCleanupMayStillRun": "{name} was removed. Cleanup may still run in the background.",
-          "workspaceArchived": "Workspace archived"
+          "workspaceArchived": "Workspace archived",
+          "workspaceArchivedNamed": "{name} archived"
         }
       },
       "subscriptions": {
@@ -2805,8 +2809,8 @@
         "errors": {
           "cannotReachLocalServer": "Cannot reach Atmos Server on this computer.",
           "computerApiUnavailable": "Computer API is not available on this Atmos Server.",
-          "accessKeyTooShort": "Access key is too short.",
-          "couldNotSaveAccessKey": "Could not save access key.",
+          "accessKeyTooShort": "Sign in required before connecting to a remote computer.",
+          "couldNotSaveAccessKey": "Could not save the account device on this computer.",
           "couldNotConnectComputer": "Could not connect to that computer.",
           "remoteRelayUnreachable": "Remote computer is not reachable through relay.",
           "remoteRelayUnreachableWithReason": "Remote computer is not reachable through relay: {message}"
@@ -4174,29 +4178,19 @@
           },
           "toast": {
             "couldNotLoadComputersTitle": "Could not load computers",
-            "couldNotSaveAccessKeyTitle": "Could not save access key",
-            "couldNotCreateAccessKeyTitle": "Could not create access key",
             "couldNotConnectTitle": "Could not connect remote computer"
           },
-          "notice": {
-            "savedOnConnectedComputer": "Access key saved on the connected Computer.",
-            "notConnectedCopyBeforeClose": "Copy the access key before closing if this computer is not connected."
-          },
-          "accessKeyTitle": "Access key",
-          "accessKeyDescription": "Use the same access key on each computer you want to connect.",
-          "accessKeyPlaceholder": "Paste access key",
-          "generateKey": "Generate key",
-          "useKey": "Use key",
+          "signInTitle": "Sign in to connect",
+          "signInDescription": "Sign in with GitHub or Google. Atmos uses your account to list and connect to your Computers.",
+          "signIn": "Sign in",
+          "signedInHint": "Using your Atmos account to list computers.",
+          "hubNotConfigured": "Atmos account sign-in is not available in this build. Reinstall Atmos or check for updates.",
           "privateRelayTitle": "Private relay",
           "privateRelayDescription": "Optional relay settings for self-hosted deployments.",
           "relayUrlLabel": "Relay URL",
           "relayUrlPlaceholder": "wss://relay.example.com",
           "privateRelayTokenLabel": "Private relay token",
           "privateRelayTokenPlaceholder": "Paste relay token",
-          "copyAccessKeyNow": "Copy access key now",
-          "generatedKeySaved": "Generated key saved",
-          "generatedKeyNotSaved": "Generated key not saved",
-          "copyKey": "Copy key",
           "availableComputersTitle": "Available computers",
           "availableComputersDescription": "Choose a connected computer to continue.",
           "badge": {
@@ -4204,8 +4198,8 @@
             "connected": "Connected"
           },
           "reconnect": "Reconnect",
-          "emptyWithKey": "No computers found for this access key yet.",
-          "emptyWithoutKey": "Create or paste an access key to see remote computers."
+          "emptySignedIn": "No computers on this account yet.",
+          "emptySignedOut": "Sign in to see remote computers."
         }
       },
       "advanced": {
@@ -9856,9 +9850,9 @@
         "savedForSession": "Saved for this session",
         "couldNotSaveLocally": "Could not save on this computer. Ensure Atmos is running locally.",
         "signInRequired": "Sign in required",
-        "signInBeforeRegistering": "Sign in under Settings → Account before registering this computer.",
-        "signInBeforeConnecting": "Sign in under Settings → Account before connecting to another computer.",
-        "signInBeforeRemoving": "Sign in under Settings → Account before removing computers.",
+        "signInBeforeRegistering": "Sign in before registering this computer.",
+        "signInBeforeConnecting": "Sign in before connecting to another computer.",
+        "signInBeforeRemoving": "Sign in before removing computers.",
         "remoteConnectionRestored": "Remote connection restored",
         "computerAvailable": "This computer is available for Atmos Computer connections.",
         "couldNotConnectRelay": "Could not connect relay",
@@ -9884,7 +9878,7 @@
       "panels": {
         "accountRequired": {
           "title": "Account required",
-          "description": "Sign in under Settings → Account. Atmos mints a device credential for this install automatically — you never need to copy or paste it.",
+          "description": "Sign in with GitHub or Google. Atmos mints a device credential for this install automatically — you never need to copy or paste it.",
           "syncing": "Syncing your account device…"
         },
         "mobilePair": {
@@ -9923,13 +9917,13 @@
           "useLocalTitle": "Use this computer locally",
           "useLocalDescription": "Switch back from the selected remote Computer to the local Desktop runtime.",
           "useLocalButton": "Use locally",
-          "signInPrompt": "Sign in under Settings → Account to register this computer."
+          "signInPrompt": "Sign in to register this computer."
         },
         "myComputers": {
           "title": "My Computers",
           "description": "Computers linked to your account.",
           "refresh": "Refresh",
-          "signInPrompt": "Sign in under Settings → Account to see your computers.",
+          "signInPrompt": "Sign in to see your computers.",
           "empty": "No computers yet. Register this computer, or add another remote computer under the same account.",
           "connected": "Connected",
           "fallbackName": "Computer",
@@ -10036,7 +10030,7 @@
         "copyFailed": "Copy failed"
       },
       "description": {
-        "useAccessKeyFirst": "Sign in under Settings → Account first so this install has a Hub device.",
+        "useAccessKeyFirst": "Sign in first so this install has a Hub device.",
         "preparing": "Preparing registration code…",
         "expired": "Registration code expired — generate and copy a fresh setup command.",
         "generateAndCopy": "Generate and copy a setup command to link this remote computer to your account.",
@@ -10049,7 +10043,7 @@
       "showQr": "Show QR",
       "refresh": "New code",
       "expiresIn": "Expires in {seconds}s",
-      "signInFirst": "Sign in under Settings → Account first.",
+      "signInFirst": "Sign in first.",
       "hubNotConfigured": "Hub is not configured.",
       "createFailed": "Could not create pair code"
     }

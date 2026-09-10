@@ -12,6 +12,7 @@ import {
 import {
   Laptop,
   LoaderCircle,
+  LogIn,
   RotateCw,
   Trash2,
 } from 'lucide-react';
@@ -56,6 +57,8 @@ import {
   SettingsPageStack,
 } from '@/features/settings/components/settings/SettingsGroupCard';
 import { SettingsToggleRow } from '@/features/settings/components/settings/SettingsToggleRow';
+import { HubSignInDialog } from '@/features/settings/components/HubSignInDialog';
+import { hubConfigured } from '@/api/hub-client';
 
 function SettingsBlock({
   title,
@@ -98,6 +101,7 @@ function SettingsBlock({
 
 export function AtmosComputerSection() {
   const t = useTranslations("atmosComputer.section");
+  const accountT = useTranslations("settings.accountSection");
   const {
     connectionMode,
     relayUrl,
@@ -121,6 +125,7 @@ export function AtmosComputerSection() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [remoteComputerExpanded, setRemoteComputerExpanded] = useState(false);
   const [accountSyncBusy, setAccountSyncBusy] = useState(false);
+  const [signInOpen, setSignInOpen] = useState(false);
   const relayAutoSyncAttemptedRef = useRef(false);
 
   const hasConfiguredKey =
@@ -560,9 +565,26 @@ export function AtmosComputerSection() {
                 ? t("panels.accountRequired.syncing")
                 : t("panels.accountRequired.description")}
             </p>
+            {hubConfigured() ? (
+              <Button
+                type="button"
+                size="sm"
+                className="mt-3"
+                onClick={() => setSignInOpen(true)}
+              >
+                <LogIn className="mr-1.5 size-3.5" />
+                {accountT("signIn")}
+              </Button>
+            ) : (
+              <p className="mt-3 text-xs leading-5 text-muted-foreground">
+                {accountT("hubNotConfigured")}
+              </p>
+            )}
           </div>
         </SettingsGroup>
       ) : null}
+
+      <HubSignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
 
       <SettingsBlock
         title={t("panels.mobilePair.title")}

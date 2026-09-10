@@ -16,9 +16,10 @@ test.describe("smoke onboarding remote", () => {
     await remoteTab.click();
 
     await expect(remoteTab).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("heading", { name: /Access Key/i })).toBeVisible();
-    await expect(page.getByPlaceholder("Paste access key")).toBeVisible();
-    await expect(page.getByRole("button", { name: /Use key/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Sign in to connect/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Sign in$/i })).toBeVisible();
+    await expect(page.getByPlaceholder("Paste access key")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Use key/i })).toHaveCount(0);
     await expect(
       page.getByRole("heading", { name: /Available Computers/i }),
     ).toBeVisible();

@@ -26,6 +26,7 @@ import {
   ExternalLink,
   Globe,
   LoaderCircle,
+  LogIn,
   RotateCcw,
 } from "lucide-react";
 
@@ -51,6 +52,7 @@ import {
 import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import { AppshotCapturePreview, AppshotsHeaderButton } from "@/features/appshot";
 import { isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
+import { HubSignInDialog } from "@/features/settings/components/HubSignInDialog";
 import { useOpenSettings } from "@/features/settings/lib/open-settings";
 import { LocalModelDownloadProgress } from "@/app-shell/LocalModelDownloadProgress";
 import { QuotaPopover } from "./QuotaPopover";
@@ -104,6 +106,7 @@ function RemoteAccessPopover({
   isOpeningDesktopWeb,
   isTunnelConnectorRunning,
   onOpenDesktopWeb,
+  onOpenHubSignIn,
   renewTunnelConnector,
   setDesktopWebPopoverOpen,
 }: {
@@ -113,6 +116,7 @@ function RemoteAccessPopover({
   isOpeningDesktopWeb: boolean;
   isTunnelConnectorRunning: boolean;
   onOpenDesktopWeb: () => Promise<void> | void;
+  onOpenHubSignIn: () => void;
   renewTunnelConnector: (
     provider: ProviderKind,
     ttlSecs: number,
@@ -158,6 +162,7 @@ function RemoteAccessPopover({
         </TabsList>
         <TabsContent value="computer" className="mt-0">
           <AtmosComputerPopoverContent
+            onOpenHubSignIn={onOpenHubSignIn}
             onOpenSettings={() => openSettings("atmos-computer")}
             onConnected={() => setDesktopWebPopoverOpen(false)}
           />
@@ -181,9 +186,11 @@ function RemoteAccessPopover({
 
 function AtmosComputerPopoverContent({
   onConnected,
+  onOpenHubSignIn,
   onOpenSettings,
 }: {
   onConnected: () => void;
+  onOpenHubSignIn: () => void;
   onOpenSettings: () => void;
 }) {
   const t = useTranslations("header");
@@ -241,7 +248,7 @@ function AtmosComputerPopoverContent({
     return () => {
       cancelled = true;
     };
-  }, [refreshComputers]);
+  }, [accessToken, refreshComputers]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -316,8 +323,9 @@ function AtmosComputerPopoverContent({
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
           {t("remoteAccess.accessKeyRequiredDescription")}
         </p>
-        <Button size="sm" className="mt-3 w-full cursor-pointer" onClick={onOpenSettings}>
-          {t("remoteAccess.openComputerSettings")}
+        <Button size="sm" className="mt-3 w-full cursor-pointer" onClick={onOpenHubSignIn}>
+          <LogIn className="mr-1.5 size-3.5" />
+          {t("remoteAccess.signIn")}
         </Button>
       </div>
     );
@@ -603,6 +611,7 @@ export function HeaderActionControls({
   const showRemoteAccess = useLayoutSettingsStore((state) => state.showHeaderRemoteAccess);
   const showAppshot = useLayoutSettingsStore((state) => state.showHeaderAppshot);
   const loadLayoutSettings = useLayoutSettingsStore((state) => state.loadSettings);
+  const [hubSignInOpen, setHubSignInOpen] = React.useState(false);
 
   React.useEffect(() => {
     void loadLayoutSettings();
@@ -647,9 +656,13 @@ export function HeaderActionControls({
           <AppshotsHeaderButton onCloseAutoFocus={onCloseAutoFocusPrevent} />
         ) : null}
         {isDesktopRuntime && showRemoteAccess ? (
+          <>
           <Popover
             open={desktopWebPopoverOpen}
             onOpenChange={(open) => {
+              if (!open && hubSignInOpen) {
+                return;
+              }
               setDesktopWebPopoverOpen(open);
               if (open) {
                 void refreshDesktopWebStatus();
@@ -678,6 +691,16 @@ export function HeaderActionControls({
               align="end"
               sideOffset={8}
               className="w-[420px] max-w-[calc(100vw-24px)] max-h-[76vh] overflow-y-auto p-3 bg-popover border border-border shadow-md"
+              onInteractOutside={(event) => {
+                if (hubSignInOpen) {
+                  event.preventDefault();
+                }
+              }}
+              onFocusOutside={(event) => {
+                if (hubSignInOpen) {
+                  event.preventDefault();
+                }
+              }}
             >
               <RemoteAccessPopover
                 activeTunnelConnectors={activeTunnelConnectors}
@@ -686,11 +709,14 @@ export function HeaderActionControls({
                 isOpeningDesktopWeb={isOpeningDesktopWeb}
                 isTunnelConnectorRunning={isTunnelConnectorRunning}
                 onOpenDesktopWeb={onOpenDesktopWeb}
+                onOpenHubSignIn={() => setHubSignInOpen(true)}
                 renewTunnelConnector={renewTunnelConnector}
                 setDesktopWebPopoverOpen={setDesktopWebPopoverOpen}
               />
             </PopoverContent>
           </Popover>
+          <HubSignInDialog open={hubSignInOpen} onOpenChange={setHubSignInOpen} />
+          </>
         ) : null}
 
         <Tooltip>

@@ -273,7 +273,9 @@
       "connectErrorTitle": "无法连接",
       "connectErrorHint": "请重试。",
       "accessKeyRequired": "需要登录账号",
-      "accessKeyRequiredDescription": "请先在 设置 → 账号 登录，以便本机使用 Hub 设备身份，然后再从页头切换 Computer。",
+      "accessKeyRequiredDescription": "用 GitHub 或 Google 登录后，本机即可使用 Hub 设备身份，然后在这里切换 Computer。",
+      "signIn": "登录",
+      "openAccountSettings": "打开账号设置",
       "openComputerSettings": "打开设备设置",
       "noComputers": "还没有设备",
       "noComputersDescription": "请先注册本机，或在同一 Atmos 账号下添加其它机器。",
@@ -2630,7 +2632,7 @@
         "connectComputerBeforeSetup": "设置 GitHub 触发器前，请先连接已配置 Relay 的计算机。",
         "connectComputerBeforeSync": "同步 GitHub 路由前，请先连接已配置 Relay 的计算机。",
         "connectComputerBeforeRemove": "移除 GitHub 路由前，请先连接已配置 Relay 的计算机。",
-        "accessTokenMissing": "缺少 Relay 访问令牌。"
+        "accessTokenMissing": "使用 GitHub 触发器前，请先登录。"
       }
     },
     "runHistory": {
@@ -2728,7 +2730,8 @@
         "error": "错误",
         "deleted": "已删除",
         "archived": "已归档",
-        "untitled": "未命名"
+        "untitled": "未命名",
+        "undo": "撤销"
       },
       "accessToken": {
         "errors": {
@@ -2770,7 +2773,8 @@
           "workspaceSetupStartedTitle": "工作区初始化已开始",
           "openingWorkspace": "正在打开 {name}",
           "workspaceRemovedCleanupMayStillRun": "{name} 已移除，后台清理可能仍在继续。",
-          "workspaceArchived": "工作区已归档"
+          "workspaceArchived": "工作区已归档",
+          "workspaceArchivedNamed": "{name} 已归档"
         }
       },
       "subscriptions": {
@@ -2805,8 +2809,8 @@
         "errors": {
           "cannotReachLocalServer": "无法连接到这台电脑上的 Atmos Server。",
           "computerApiUnavailable": "此 Atmos Server 不提供 Computer API。",
-          "accessKeyTooShort": "访问密钥过短。",
-          "couldNotSaveAccessKey": "无法保存访问密钥。",
+          "accessKeyTooShort": "连接远程 Computer 前需要先登录。",
+          "couldNotSaveAccessKey": "无法在这台 Computer 上保存账号设备凭证。",
           "couldNotConnectComputer": "无法连接到该电脑。",
           "remoteRelayUnreachable": "无法通过 relay 访问远程电脑。",
           "remoteRelayUnreachableWithReason": "无法通过 relay 访问远程电脑：{message}"
@@ -4174,29 +4178,19 @@
           },
           "toast": {
             "couldNotLoadComputersTitle": "无法加载设备列表",
-            "couldNotSaveAccessKeyTitle": "无法保存访问密钥",
-            "couldNotCreateAccessKeyTitle": "无法创建访问密钥",
             "couldNotConnectTitle": "无法连接远程设备"
           },
-          "notice": {
-            "savedOnConnectedComputer": "访问密钥已保存到当前连接的设备。",
-            "notConnectedCopyBeforeClose": "如果当前设备未连接，请在关闭前先复制访问密钥。"
-          },
-          "accessKeyTitle": "访问密钥",
-          "accessKeyDescription": "在每台你想连接的设备上使用同一个访问密钥。",
-          "accessKeyPlaceholder": "粘贴访问密钥",
-          "generateKey": "生成密钥",
-          "useKey": "使用密钥",
+          "signInTitle": "登录后连接",
+          "signInDescription": "使用 GitHub 或 Google 登录。Atmos 会用你的账号列出并连接 Computers。",
+          "signIn": "登录",
+          "signedInHint": "正在使用你的 Atmos 账号列出 Computers。",
+          "hubNotConfigured": "当前版本无法登录 Atmos 账号。请重新安装 Atmos 或检查更新。",
           "privateRelayTitle": "私有 Relay",
           "privateRelayDescription": "自托管部署时可选的 Relay 配置。",
           "relayUrlLabel": "Relay URL",
           "relayUrlPlaceholder": "wss://relay.example.com",
           "privateRelayTokenLabel": "私有 Relay Token",
           "privateRelayTokenPlaceholder": "粘贴 Relay Token",
-          "copyAccessKeyNow": "立即复制访问密钥",
-          "generatedKeySaved": "已生成并保存密钥",
-          "generatedKeyNotSaved": "已生成但未保存密钥",
-          "copyKey": "复制密钥",
           "availableComputersTitle": "可用设备",
           "availableComputersDescription": "选择一台已连接的设备继续。",
           "badge": {
@@ -4204,8 +4198,8 @@
             "connected": "已连接"
           },
           "reconnect": "重新连接",
-          "emptyWithKey": "这个访问密钥下还没有发现设备。",
-          "emptyWithoutKey": "先创建或粘贴访问密钥，才能看到远程设备。"
+          "emptySignedIn": "这个账号下还没有 Computer。",
+          "emptySignedOut": "登录后即可查看远程 Computer。"
         }
       },
       "advanced": {
@@ -9856,9 +9850,9 @@
         "savedForSession": "已为当前会话保存",
         "couldNotSaveLocally": "无法保存到这台电脑。请确保 Atmos 正在本地运行。",
         "signInRequired": "需要登录账号",
-        "signInBeforeRegistering": "注册这台 Computer 前，请先在 设置 → 账号 登录。",
-        "signInBeforeConnecting": "连接另一台 Computer 前，请先在 设置 → 账号 登录。",
-        "signInBeforeRemoving": "移除 Computer 前，请先在 设置 → 账号 登录。",
+        "signInBeforeRegistering": "注册这台 Computer 前，请先登录。",
+        "signInBeforeConnecting": "连接另一台 Computer 前，请先登录。",
+        "signInBeforeRemoving": "移除 Computer 前，请先登录。",
         "remoteConnectionRestored": "远程连接已恢复",
         "computerAvailable": "这台 Computer 已可用于 Atmos Computer 连接。",
         "couldNotConnectRelay": "无法连接 Relay",
@@ -9884,7 +9878,7 @@
       "panels": {
         "accountRequired": {
           "title": "需要登录账号",
-          "description": "请先在 设置 → 账号 登录。Atmos 会为本机自动签发设备凭证，无需复制或粘贴。",
+          "description": "用 GitHub 或 Google 登录。Atmos 会为本机自动签发设备凭证，无需复制或粘贴。",
           "syncing": "正在同步账号设备…"
         },
         "mobilePair": {
@@ -9923,13 +9917,13 @@
           "useLocalTitle": "使用这台 Computer 本地运行",
           "useLocalDescription": "从当前远程 Computer 切回本机 Desktop runtime。",
           "useLocalButton": "本地使用",
-          "signInPrompt": "请先在 设置 → 账号 登录，再注册这台 Computer。"
+          "signInPrompt": "请先登录，再注册这台 Computer。"
         },
         "myComputers": {
           "title": "我的 Computers",
           "description": "与你账户关联的 Computers。",
           "refresh": "刷新",
-          "signInPrompt": "请先在 设置 → 账号 登录，才能查看你的 Computers。",
+          "signInPrompt": "请先登录，才能查看你的 Computers。",
           "empty": "还没有任何 Computer。先注册这台 Computer，或在同一账号下添加另一台远程 Computer。",
           "connected": "已连接",
           "fallbackName": "Computer",
@@ -10036,7 +10030,7 @@
         "copyFailed": "复制失败"
       },
       "description": {
-        "useAccessKeyFirst": "请先在 设置 → 账号 登录，以便本机拥有 Hub 设备身份。",
+        "useAccessKeyFirst": "请先登录，以便本机拥有 Hub 设备身份。",
         "preparing": "正在准备注册码…",
         "expired": "注册码已过期，请重新生成并复制新的启动命令。",
         "generateAndCopy": "生成并复制启动命令，将这台远程 Computer 关联到你的账号。",
@@ -10049,7 +10043,7 @@
       "showQr": "显示二维码",
       "refresh": "刷新代码",
       "expiresIn": "{seconds} 秒后过期",
-      "signInFirst": "请先在 设置 → 账号 登录。",
+      "signInFirst": "请先登录。",
       "hubNotConfigured": "Hub 未配置。",
       "createFailed": "无法创建配对码"
     }

@@ -9,9 +9,10 @@ describe("TokenUsageComputerScopeHint", () => {
     "utf8",
   );
 
-  it("sends unsigned users to Account settings and one-computer users to Atmos Computer", () => {
-    expect(source).toContain('openSettings("account")');
+  it("offers Hub sign-in and sends one-computer users to Atmos Computer", () => {
+    expect(source).toContain("HubSignInDialog");
     expect(source).toContain('openSettings("remote-access", "atmos-computer")');
+    expect(source).not.toContain('openSettings("account")');
     expect(source).toContain("hintSignInTooltip");
     expect(source).toContain("hintAddComputerTooltip");
   });
