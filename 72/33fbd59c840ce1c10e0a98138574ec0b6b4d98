@@ -1,0 +1,37 @@
+apps/web/src/features/agent/components/AgentActivityIndicator.tsx
+  s_ec0236d1a10516::t_a461af85f22996 79,86,94,96-100
+apps/web/src/features/agent/components/AgentMessageTimelineNav.tsx
+  s_ec0236d1a10516::t_1fe213c8d121ca 142-144,147
+apps/web/src/features/agent/components/__tests__/agent-activity-indicator.test.ts
+  s_ec0236d1a10516::t_f8eb89c7a5a7bd 35
+  s_344be036cbe8bc::t_8261f93bd3c4c2 39-47
+apps/web/src/features/agent/components/__tests__/agent-chat-modal-frame.test.ts
+  s_ec0236d1a10516::t_f64eb24bc3f940 175
+  s_344be036cbe8bc::t_c2a7343e5e3fa6 39,226,228
+apps/web/src/features/agent/components/AgentChatPanel.tsx
+  s_344be036cbe8bc::t_51f6f99df5aee0 962,964-977
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "7233fbd59c840ce1c10e0a98138574ec0b6b4d98",
+  "prompts": {},
+  "sessions": {
+    "s_344be036cbe8bc": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "d81e6bb0-74bb-4505-a0ea-385e1586ffa9",
+        "model": "glm-5.3-flash"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_ec0236d1a10516": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "dbd52a5e-c1a1-4571-96e9-218a042f9786",
+        "model": "gpt-5.6-luna"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
