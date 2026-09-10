@@ -130,6 +130,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             }],
             modes: Vec::new(),
             permission_modes: Vec::new(),

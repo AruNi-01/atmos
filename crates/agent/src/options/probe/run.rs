@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::options::{AgentOptionsSnapshot, OptionsProbeStrategy, OptionsStatus};
-use crate::policy::canonicalize_chat_provider_id;
+use crate::policy::{canonicalize_chat_provider_id, is_droid_chat_provider};
 
 use super::auth::{
     catalog_probe_error_fragment, is_cli_login_method_id, is_native_oauth_method_id,
@@ -38,34 +38,47 @@ impl OptionsProbe {
     }
 
     pub async fn probe(&self, spec: &ProbePlan) -> AgentOptionsSnapshot {
-        let mut fragments = Vec::new();
-        for kind in spec.default_strategies() {
-            match kind {
-                OptionsProbeStrategy::Config => fragments.push(self.config_fragment(spec)),
-                OptionsProbeStrategy::Cli => {
-                    if let Some(fragment) = self.cli_fragment(spec).await {
-                        fragments.push(fragment);
+        let droid = is_droid_chat_provider(&spec.agent_id);
+        let catalog_path = super::cli::droid_catalog::droid_catalog_path(&self.probe_root);
+        let refresh = async {
+            if droid && !cfg!(test) {
+                super::cli::droid_catalog::refresh_droid_factory_catalog(&catalog_path).await;
+            } else if droid {
+                super::cli::droid_catalog::set_droid_catalog_path(catalog_path);
+            }
+        };
+        let collect = async {
+            let mut fragments = Vec::new();
+            for kind in spec.default_strategies() {
+                match kind {
+                    OptionsProbeStrategy::Config => fragments.push(self.config_fragment(spec)),
+                    OptionsProbeStrategy::Cli => {
+                        if let Some(fragment) = self.cli_fragment(spec).await {
+                            fragments.push(fragment);
+                        }
                     }
-                }
-                OptionsProbeStrategy::Acp => {
-                    if spec.acp {
-                        if let Some(fragment) = self.acp_fragment(spec).await {
+                    OptionsProbeStrategy::Acp => {
+                        if spec.acp {
+                            if let Some(fragment) = self.acp_fragment(spec).await {
+                                fragments.push(fragment);
+                            }
+                        }
+                    }
+                    OptionsProbeStrategy::Native => {
+                        if let Some(fragment) = self.native_fragment(spec).await {
                             fragments.push(fragment);
                         }
                     }
                 }
-                OptionsProbeStrategy::Native => {
-                    if let Some(fragment) = self.native_fragment(spec).await {
-                        fragments.push(fragment);
-                    }
+            }
+            if canonicalize_chat_provider_id(&spec.agent_id) == "amp" {
+                if let Some(fragment) = self.amp_commands_fragment().await {
+                    fragments.push(fragment);
                 }
             }
-        }
-        if canonicalize_chat_provider_id(&spec.agent_id) == "amp" {
-            if let Some(fragment) = self.amp_commands_fragment().await {
-                fragments.push(fragment);
-            }
-        }
+            fragments
+        };
+        let (_, fragments) = tokio::join!(refresh, collect);
         if fragments.is_empty() {
             return AgentOptionsSnapshot::unsupported(
                 &spec.agent_id,
@@ -75,6 +88,9 @@ impl OptionsProbe {
         let mut catalog = merge_options_snapshots(&spec.agent_id, &fragments);
         if canonicalize_chat_provider_id(&spec.agent_id) == "grok" {
             apply_grok_thinking_overlay(&mut catalog);
+        }
+        if droid {
+            super::cli::overlay_droid_model_catalog(&mut catalog.models);
         }
         catalog
     }
@@ -369,6 +385,8 @@ mod tests {
                     thinking: None,
                     context: Vec::new(),
                     fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
                 }],
                 modes: Vec::new(),
                 permission_modes: vec![AgentMode {
@@ -527,6 +545,8 @@ mod tests {
                     thinking: None,
                     context: Vec::new(),
                     fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
                 }],
                 modes: Vec::new(),
                 permission_modes: vec![AgentMode {
@@ -770,6 +790,8 @@ mod tests {
                             thinking: None,
                             context: Vec::new(),
                             fast: false,
+                            multiplier: None,
+                            fast_multiplier: None,
                         })
                         .collect(),
                     modes: Vec::new(),

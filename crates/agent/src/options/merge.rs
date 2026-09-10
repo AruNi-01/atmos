@@ -6,8 +6,12 @@ use crate::options::probe::cli::cursor::{
     cursor_model_display_label, cursor_model_has_brackets, fill_cursor_thinking_by_base,
     models_look_like_cursor_acp,
 };
+use crate::options::probe::cli::droid::collapse_droid_fast_models;
+use crate::options::probe::cli::droid_catalog::overlay_droid_model_catalog;
 use crate::options::{AgentOptionsSnapshot, OptionsProbeStrategy, OptionsSource, OptionsStatus};
-use crate::policy::{canonicalize_chat_provider_id, expand_sparse_permission_modes};
+use crate::policy::{
+    canonicalize_chat_provider_id, expand_sparse_permission_modes, is_droid_chat_provider,
+};
 
 use crate::options::probe::cli::parse::dedupe_models;
 
@@ -130,6 +134,10 @@ pub fn merge_options_snapshots(
     if canonicalize_chat_provider_id(agent_id) == "cursor" {
         permission_modes = expand_sparse_permission_modes("cursor", permission_modes);
     }
+    if is_droid_chat_provider(agent_id) {
+        models = collapse_droid_fast_models(models);
+        overlay_droid_model_catalog(&mut models);
+    }
 
     let auth_message = fragments.iter().find_map(|fragment| {
         fragment
@@ -218,10 +226,26 @@ fn overlay_models(target: &mut Vec<AgentModel>, incoming: &[AgentModel]) {
                 model.context.clone()
             };
             let fast = existing.fast || model.fast;
+            let group = if model.group.is_some() {
+                model.group.clone()
+            } else {
+                existing.group.clone()
+            };
+            let multiplier = model
+                .multiplier
+                .clone()
+                .or_else(|| existing.multiplier.clone());
+            let fast_multiplier = model
+                .fast_multiplier
+                .clone()
+                .or_else(|| existing.fast_multiplier.clone());
             *existing = model.clone();
             existing.thinking = thinking;
             existing.context = context;
             existing.fast = fast;
+            existing.group = group;
+            existing.multiplier = multiplier;
+            existing.fast_multiplier = fast_multiplier;
         } else {
             target.push(model.clone());
         }
@@ -251,6 +275,17 @@ fn fill_thinking_on_models(target: &mut [AgentModel], config_models: &[AgentMode
                 }
             }
         }
+        if let Some(config) = config_models.iter().find(|item| item.id == model.id) {
+            if model.group.is_none() {
+                model.group = config.group.clone();
+            }
+            if model.multiplier.is_none() {
+                model.multiplier = config.multiplier.clone();
+            }
+            if model.fast_multiplier.is_none() {
+                model.fast_multiplier = config.fast_multiplier.clone();
+            }
+        }
     }
 }
 
@@ -272,6 +307,8 @@ mod tests {
                 }),
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             }],
             thinking: AgentThinkingSupport::Enum {
                 arg: Some("--effort".into()),
@@ -290,6 +327,8 @@ mod tests {
                     thinking: None,
                     context: Vec::new(),
                     fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
                 },
                 AgentModel {
                     id: "sonnet".into(),
@@ -299,6 +338,8 @@ mod tests {
                     thinking: None,
                     context: Vec::new(),
                     fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
                 },
             ],
             status: Some(OptionsStatus::Ok),
@@ -329,6 +370,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             }],
             status: Some(OptionsStatus::Ok),
             strategy: Some(OptionsProbeStrategy::Acp),
@@ -361,6 +404,8 @@ mod tests {
                 }),
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             }],
             status: Some(OptionsStatus::Ok),
             strategy: Some(OptionsProbeStrategy::Cli),
@@ -375,6 +420,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             }],
             thinking: AgentThinkingSupport::Manual {
                 arg: "--reasoning-effort".into(),
@@ -399,6 +446,60 @@ mod tests {
     }
 
     #[test]
+    fn factory_droid_collapses_acp_fast_mode_siblings() {
+        let cli = OptionsFragment {
+            models: vec![AgentModel {
+                id: "gpt-5.6-sol".into(),
+                label: "GPT-5.6 Sol".into(),
+                group: None,
+                is_default: true,
+                thinking: None,
+                context: Vec::new(),
+                fast: true,
+                multiplier: None,
+                fast_multiplier: None,
+            }],
+            status: Some(OptionsStatus::Ok),
+            strategy: Some(OptionsProbeStrategy::Cli),
+            ..Default::default()
+        };
+        let acp = OptionsFragment {
+            models: vec![
+                AgentModel {
+                    id: "gpt-5.6-sol".into(),
+                    label: "GPT-5.6 Sol".into(),
+                    group: None,
+                    is_default: true,
+                    thinking: None,
+                    context: Vec::new(),
+                    fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
+                },
+                AgentModel {
+                    id: "gpt-5.6-sol-fast".into(),
+                    label: "GPT-5.6 Sol Fast Mode".into(),
+                    group: None,
+                    is_default: false,
+                    thinking: None,
+                    context: Vec::new(),
+                    fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
+                },
+            ],
+            status: Some(OptionsStatus::Ok),
+            strategy: Some(OptionsProbeStrategy::Acp),
+            ..Default::default()
+        };
+        let merged = merge_options_snapshots("factory-droid", &[cli, acp]);
+        assert_eq!(merged.models.len(), 1);
+        assert_eq!(merged.models[0].id, "gpt-5.6-sol");
+        assert_eq!(merged.models[0].label, "GPT-5.6 Sol");
+        assert!(merged.models[0].fast);
+    }
+
+    #[test]
     fn live_enum_overrides_config_manual() {
         let config = OptionsFragment {
             thinking: AgentThinkingSupport::Manual {
@@ -418,6 +519,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             }],
             thinking: AgentThinkingSupport::Enum {
                 arg: Some("thought_level".into()),
@@ -456,6 +559,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             }],
             thinking: AgentThinkingSupport::None,
             status: Some(OptionsStatus::Ok),
@@ -494,6 +599,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             }],
             status: Some(OptionsStatus::Ok),
             strategy: Some(OptionsProbeStrategy::Cli),
@@ -527,6 +634,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             }],
             permission_modes: vec![AgentMode {
                 id: "default".into(),
@@ -636,6 +745,8 @@ mod tests {
                     thinking: None,
                     context: Vec::new(),
                     fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
                 },
                 AgentModel {
                     id: "gpt-5.3-codex-high-fast".into(),
@@ -645,6 +756,8 @@ mod tests {
                     thinking: None,
                     context: Vec::new(),
                     fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
                 },
                 AgentModel {
                     id: "composer-2.5-fast".into(),
@@ -654,6 +767,8 @@ mod tests {
                     thinking: None,
                     context: Vec::new(),
                     fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
                 },
             ]),
             status: Some(OptionsStatus::Ok),
@@ -670,6 +785,8 @@ mod tests {
                     thinking: None,
                     context: Vec::new(),
                     fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
                 },
                 AgentModel {
                     id: "composer-2.5[fast=true]".into(),
@@ -679,6 +796,8 @@ mod tests {
                     thinking: None,
                     context: Vec::new(),
                     fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
                 },
             ],
             thinking: AgentThinkingSupport::Enum {
@@ -770,6 +889,8 @@ mod tests {
                     thinking: None,
                     context: Vec::new(),
                     fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
                 },
                 AgentModel {
                     id: "gpt-5.3-codex".into(),
@@ -779,6 +900,8 @@ mod tests {
                     thinking: None,
                     context: Vec::new(),
                     fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
                 },
                 AgentModel {
                     id: "claude-sonnet-4-6".into(),
@@ -788,6 +911,8 @@ mod tests {
                     thinking: None,
                     context: Vec::new(),
                     fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
                 },
                 AgentModel {
                     id: "composer-2.5".into(),
@@ -797,6 +922,8 @@ mod tests {
                     thinking: None,
                     context: Vec::new(),
                     fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
                 },
             ],
             thinking: AgentThinkingSupport::Enum {
@@ -875,6 +1002,8 @@ mod tests {
                         thinking: None,
                         context: Vec::new(),
                         fast: false,
+                        multiplier: None,
+                        fast_multiplier: None,
                     }],
                     status: Some(OptionsStatus::Ok),
                     strategy: Some(OptionsProbeStrategy::Cli),

@@ -1960,6 +1960,8 @@ async fn s18_prefetch_worker_starts_once() {
                     thinking: None,
                     context: Vec::new(),
                     fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
                 }],
                 thinking: AgentThinkingSupport::None,
                 strategies: vec![OptionsProbeStrategy::Config],
@@ -1975,6 +1977,8 @@ async fn s18_prefetch_worker_starts_once() {
                     thinking: None,
                     context: Vec::new(),
                     fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
                 }],
                 strategies: vec![OptionsProbeStrategy::Config],
                 ..Default::default()
@@ -2018,6 +2022,8 @@ async fn s19_fresh_ok_cache_skips_probe() {
             thinking: None,
             context: Vec::new(),
             fast: false,
+            multiplier: None,
+            fast_multiplier: None,
         }],
         strategies: vec![OptionsProbeStrategy::Config],
         ..Default::default()
@@ -2056,6 +2062,8 @@ async fn failed_probe_keeps_last_good_cursor_catalog() {
             thinking: None,
             context: Vec::new(),
             fast: false,
+            multiplier: None,
+            fast_multiplier: None,
         }],
         modes: vec![AgentMode {
             id: "agent".into(),
@@ -2134,6 +2142,8 @@ async fn auth_required_keeps_last_good_and_broadcasts_auth_message() {
             thinking: None,
             context: Vec::new(),
             fast: false,
+            multiplier: None,
+            fast_multiplier: None,
         }],
         modes: vec![AgentMode {
             id: "agent".into(),
@@ -2191,6 +2201,8 @@ async fn degraded_ok_probe_keeps_last_good_for_any_agent() {
             thinking: None,
             context: Vec::new(),
             fast: false,
+            multiplier: None,
+            fast_multiplier: None,
         }],
         modes: vec![AgentMode {
             id: "default".into(),
@@ -2225,6 +2237,8 @@ async fn degraded_ok_probe_keeps_last_good_for_any_agent() {
             thinking: None,
             context: Vec::new(),
             fast: false,
+            multiplier: None,
+            fast_multiplier: None,
         }],
         ..Default::default()
     };
@@ -2279,6 +2293,8 @@ async fn s20_merge_cli_wins_thinking_from_config_and_probe_isolated() {
             }),
             context: Vec::new(),
             fast: false,
+            multiplier: None,
+            fast_multiplier: None,
         }],
         thinking: AgentThinkingSupport::Enum {
             arg: Some("--effort".into()),
@@ -2296,6 +2312,8 @@ async fn s20_merge_cli_wins_thinking_from_config_and_probe_isolated() {
             thinking: None,
             context: Vec::new(),
             fast: false,
+            multiplier: None,
+            fast_multiplier: None,
         }],
         status: Some(OptionsStatus::Ok),
         strategy: Some(OptionsProbeStrategy::Cli),
@@ -2697,6 +2715,8 @@ fn create_stamps_ready_options_into_descriptor() {
             thinking: None,
             context: Vec::new(),
             fast: false,
+            multiplier: None,
+            fast_multiplier: None,
         }],
         modes: Vec::new(),
         permission_modes: vec![AgentMode {
@@ -2761,6 +2781,8 @@ async fn configure_rebuilds_descriptor_when_switching_provider() {
             thinking: None,
             context: Vec::new(),
             fast: false,
+            multiplier: None,
+            fast_multiplier: None,
         }],
         modes: vec![AgentMode {
             id: "default".into(),

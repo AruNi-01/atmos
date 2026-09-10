@@ -5,10 +5,11 @@ use std::time::{Duration, Instant};
 
 use agent::providers::{chat_provider_kind, ChatProviderKind};
 use agent::{
-    canonicalize_chat_provider_id, AgentAction, AgentActionError, AgentActionResult,
-    AgentCheckpoint, AgentEvent, AgentPermissionOption, AgentPersistenceHandle, AgentPrompt,
-    AgentProviderFactory, AgentRuntime, AgentRuntimeConfig, AgentRuntimeControl,
-    AgentSessionOpRequest, Capability, SessionOpKind, UserMessageKind,
+    apply_droid_fast_current_config, canonicalize_chat_provider_id, encode_droid_fast_model,
+    is_droid_chat_provider, AgentAction, AgentActionError, AgentActionResult, AgentCheckpoint,
+    AgentEvent, AgentPermissionOption, AgentPersistenceHandle, AgentPrompt, AgentProviderFactory,
+    AgentRuntime, AgentRuntimeConfig, AgentRuntimeControl, AgentSessionOpRequest, Capability,
+    SessionOpKind, UserMessageKind,
 };
 use chrono::Utc;
 use tokio::sync::{broadcast, Mutex};
@@ -1226,23 +1227,42 @@ impl AgentChatService {
         } else {
             meta.descriptor.current_config.model.clone()
         };
+        let selected_fast = if meta.persistence_handle.is_some() {
+            meta.applied_fast
+                .clone()
+                .or_else(|| meta.descriptor.current_config.fast.clone())
+        } else {
+            meta.descriptor.current_config.fast.clone()
+        };
+        let mut spawn_model = selected_model.and_then(nonempty_opt).or_else(|| {
+            self.ready_options(&meta.provider_id).and_then(|catalog| {
+                catalog
+                    .models
+                    .iter()
+                    .find(|model| model.is_default && model_id_usable(&model.id))
+                    .or_else(|| {
+                        catalog
+                            .models
+                            .iter()
+                            .find(|model| model_id_usable(&model.id))
+                    })
+                    .map(|model| model.id.clone())
+            })
+        });
+        let mut spawn_fast = selected_fast.and_then(nonempty_opt);
+        if is_droid_chat_provider(&meta.provider_id) {
+            if let Some(model) = spawn_model.as_deref() {
+                spawn_model = Some(encode_droid_fast_model(
+                    model,
+                    spawn_fast.as_deref(),
+                    &meta.descriptor.supported_options.models,
+                ));
+            }
+            spawn_fast = None;
+        }
         let cfg = AgentRuntimeConfig {
             cwd: std::path::PathBuf::from(&meta.cwd),
-            model: selected_model.and_then(nonempty_opt).or_else(|| {
-                self.ready_options(&meta.provider_id).and_then(|catalog| {
-                    catalog
-                        .models
-                        .iter()
-                        .find(|model| model.is_default && model_id_usable(&model.id))
-                        .or_else(|| {
-                            catalog
-                                .models
-                                .iter()
-                                .find(|model| model_id_usable(&model.id))
-                        })
-                        .map(|model| model.id.clone())
-                })
-            }),
+            model: spawn_model,
             thinking: if meta.persistence_handle.is_some() {
                 meta.applied_thinking
                     .clone()
@@ -1264,13 +1284,7 @@ impl AgentChatService {
             } else {
                 meta.descriptor.current_config.permission_mode.clone()
             },
-            fast: if meta.persistence_handle.is_some() {
-                meta.applied_fast
-                    .clone()
-                    .or_else(|| meta.descriptor.current_config.fast.clone())
-            } else {
-                meta.descriptor.current_config.fast.clone()
-            },
+            fast: spawn_fast,
             extra_config: {
                 let mut extra = HashMap::new();
                 let context = if meta.persistence_handle.is_some() {
@@ -1330,8 +1344,14 @@ impl AgentChatService {
             ) {
                 meta.runtime_status = RuntimeStatus::Starting;
             }
-            let picker = meta.descriptor.current_config.clone();
+            let mut picker = meta.descriptor.current_config.clone();
             meta.descriptor = live_descriptor.clone();
+            if is_droid_chat_provider(&meta.provider_id) {
+                apply_droid_fast_current_config(
+                    &mut picker,
+                    &meta.descriptor.supported_options.models,
+                );
+            }
             meta.descriptor.current_config = picker;
             if let Some(handle) = session.persistence_handle() {
                 meta.persistence_handle = Some(handle.as_str().to_string());

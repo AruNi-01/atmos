@@ -177,6 +177,8 @@ pub(crate) fn models_from_initialize(payload: &Value) -> Vec<AgentModel> {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             });
             continue;
         }
@@ -209,6 +211,8 @@ pub(crate) fn models_from_initialize(payload: &Value) -> Vec<AgentModel> {
             thinking: thinking_from_supported_effort_levels(item),
             context: Vec::new(),
             fast: false,
+            multiplier: None,
+            fast_multiplier: None,
         });
     }
     models
@@ -306,6 +310,8 @@ fn model_from_system_init(frame: &Value) -> Option<AgentModel> {
         thinking: None,
         context: Vec::new(),
         fast: false,
+        multiplier: None,
+        fast_multiplier: None,
     })
 }
 

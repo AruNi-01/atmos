@@ -13,7 +13,10 @@ use crate::contract::{
 use crate::options::{
     is_mode_config_id, is_permission_mode_config_id, probe_result_from_config_options,
 };
-use crate::policy::{capabilities_for_provider, option_support_for_provider};
+use crate::policy::{
+    boolean_fast_modes, capabilities_for_provider, is_droid_chat_provider, is_fast_on,
+    option_support_for_provider,
+};
 
 use super::overlays::OverlayState;
 use super::tool_map::{map_tool_call, merge_tool_call_patch, ToolEventKind, ToolMapOut};
@@ -70,6 +73,10 @@ impl EventMapState {
 
     fn is_cursor(&self) -> bool {
         crate::policy::canonicalize_chat_provider_id(&self.provider_id) == "cursor"
+    }
+
+    fn is_droid(&self) -> bool {
+        is_droid_chat_provider(&self.provider_id)
     }
 
     fn in_plan_mode(&self) -> bool {
@@ -615,6 +622,31 @@ fn merge_config_options(state: &mut EventMapState, options: &[AgentConfigOption]
             }
         }
     }
+    if state.is_droid() {
+        apply_droid_fast_options(state);
+    }
+}
+
+fn apply_droid_fast_options(state: &mut EventMapState) {
+    if !state.supported_options.models.is_empty() {
+        let models = std::mem::take(&mut state.supported_options.models);
+        state.supported_options.models = crate::options::collapse_droid_fast_models(models);
+        crate::options::overlay_droid_model_catalog(&mut state.supported_options.models);
+    }
+    crate::options::apply_droid_fast_current_config(
+        &mut state.current_config,
+        &state.supported_options.models,
+    );
+    if state.supported_options.fast.is_empty()
+        && state
+            .supported_options
+            .models
+            .iter()
+            .any(|model| model.fast)
+    {
+        state.supported_options.fast =
+            boolean_fast_modes(is_fast_on(state.current_config.fast.as_deref()));
+    }
 }
 
 fn apply_permission_current(state: &mut EventMapState, current: &str) {
@@ -719,7 +751,8 @@ fn fast_modes_from_options(
 mod tests {
     use super::*;
     use crate::acp_client::types::{
-        AgentCapabilityState, AgentConfigOptionValue, StreamDelta, ToolCallStatus, ToolCallUpdate,
+        AgentCapabilityState, AgentConfigOption, AgentConfigOptionValue, StreamDelta,
+        ToolCallStatus, ToolCallUpdate,
     };
     use crate::contract::AgentAvailableCommand;
     use crate::contract::AgentToolKind;
@@ -876,6 +909,57 @@ mod tests {
         assert!(config.get("config_options").is_none());
         assert_eq!(state.current_config.model.as_deref(), Some("opus"));
         assert_eq!(state.supported_options.models.len(), 1);
+    }
+
+    #[test]
+    fn droid_collapses_fast_mode_siblings_into_fast_option() {
+        let mut state =
+            EventMapState::new("factory-droid".into(), AgentCurrentConfig::default(), false);
+        payloads(
+            &mut state,
+            AcpSessionEvent::ConfigOptionsUpdate(vec![AgentConfigOption {
+                id: "model".into(),
+                name: Some("Model".into()),
+                description: None,
+                category: None,
+                r#type: "select".into(),
+                current_value: Some("gpt-5.6-sol-fast".into()),
+                options: vec![
+                    AgentConfigOptionValue {
+                        value: "gpt-5.6-sol".into(),
+                        name: Some("GPT-5.6 Sol".into()),
+                        description: None,
+                    },
+                    AgentConfigOptionValue {
+                        value: "gpt-5.6-sol-fast".into(),
+                        name: Some("GPT-5.6 Sol Fast Mode".into()),
+                        description: None,
+                    },
+                    AgentConfigOptionValue {
+                        value: "gpt-6-astra".into(),
+                        name: Some("GPT-6 Astra".into()),
+                        description: None,
+                    },
+                ],
+            }]),
+        );
+        assert_eq!(
+            state
+                .supported_options
+                .models
+                .iter()
+                .map(|model| (model.id.as_str(), model.label.as_str(), model.fast))
+                .collect::<Vec<_>>(),
+            vec![
+                ("gpt-5.6-sol", "GPT-5.6 Sol", true),
+                ("gpt-6-astra", "GPT-6 Astra", false),
+            ]
+        );
+        assert!(state.supported_options.models[0].is_default);
+        assert_eq!(state.current_config.model.as_deref(), Some("gpt-5.6-sol"));
+        assert_eq!(state.current_config.fast.as_deref(), Some("true"));
+        assert_eq!(state.supported_options.fast.len(), 2);
+        assert_eq!(state.supported_options.fast[1].id, "true");
     }
 
     #[test]

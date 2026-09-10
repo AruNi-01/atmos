@@ -98,6 +98,8 @@ fn parse_provider_model_table_row(line: &str) -> Option<AgentModel> {
         thinking: None,
         context: Vec::new(),
         fast: false,
+        multiplier: None,
+        fast_multiplier: None,
     })
 }
 
@@ -218,6 +220,8 @@ pub fn parse_line_list(output: &str) -> Vec<AgentModel> {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
             is_current,
         ));
@@ -250,6 +254,8 @@ pub fn parse_grok(output: &str) -> Vec<AgentModel> {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             })
         })
         .collect()
@@ -418,7 +424,7 @@ pub fn parse_droid_help(output: &str) -> Vec<AgentModel> {
             model.thinking = Some(AgentThinkingSupport::None);
         }
     }
-    models
+    super::droid::collapse_droid_fast_models(models)
 }
 
 fn parse_droid_available_models(output: &str) -> Vec<AgentModel> {
@@ -460,6 +466,8 @@ fn parse_droid_model_row(line: &str) -> Option<AgentModel> {
         thinking: None,
         context: Vec::new(),
         fast: false,
+        multiplier: None,
+        fast_multiplier: None,
     })
 }
 
@@ -505,6 +513,8 @@ fn model_from_map_entry(key: &str, value: &Value) -> Option<AgentModel> {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             }),
         Value::Object(_) => {
             let mut model = model_from_json(value).or_else(|| {
@@ -516,6 +526,8 @@ fn model_from_map_entry(key: &str, value: &Value) -> Option<AgentModel> {
                     thinking: None,
                     context: Vec::new(),
                     fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
                 })
             })?;
             if model.id.is_empty() {
@@ -534,6 +546,8 @@ fn model_from_map_entry(key: &str, value: &Value) -> Option<AgentModel> {
             thinking: None,
             context: Vec::new(),
             fast: false,
+            multiplier: None,
+            fast_multiplier: None,
         }),
     }
 }
@@ -548,6 +562,8 @@ fn model_from_json(value: &Value) -> Option<AgentModel> {
             thinking: None,
             context: Vec::new(),
             fast: false,
+            multiplier: None,
+            fast_multiplier: None,
         }),
         Value::Object(map) => {
             // Codex `debug models` uses visibility=hide for non-list entries.
@@ -592,6 +608,8 @@ fn model_from_json(value: &Value) -> Option<AgentModel> {
                 thinking,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             })
         }
         _ => None,
@@ -887,6 +905,8 @@ mod tests {
                 }),
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             }],
             modes: Vec::new(),
             permission_modes: Vec::new(),
@@ -947,6 +967,60 @@ Model details:
         }
         let auto = models.iter().find(|model| model.id == "auto").unwrap();
         assert!(matches!(auto.thinking, Some(AgentThinkingSupport::None)));
+    }
+
+    #[test]
+    fn droid_help_collapses_fast_mode_into_per_model_fast() {
+        let models = parse_droid_help(
+            r#"
+Available Models:
+  gpt-5.6-sol                     GPT-5.6 Sol (default)
+  gpt-5.6-sol-fast                GPT-5.6 Sol Fast Mode
+  gpt-5.5                         GPT-5.5
+  gpt-5.5-fast                    GPT-5.5 Fast Mode
+  gpt-5.5-pro                     GPT-5.5 Pro
+  glm-5.2                         GLM-5.2 (Droid Core)
+  glm-5.2-fast                    GLM-5.2 Fast (Droid Core)
+  gemini-3.8-flash                Gemini 3.8 Flash
+
+Model details:
+  - GPT-5.6 Sol: supports reasoning: Yes; supported: [low, medium, high]; default: medium
+  - GPT-5.5: supports reasoning: Yes; supported: [low, medium, high]; default: low
+"#,
+        );
+        assert_eq!(models.len(), 5);
+        let sol = models
+            .iter()
+            .find(|model| model.id == "gpt-5.6-sol")
+            .unwrap();
+        assert!(sol.is_default);
+        assert!(sol.fast);
+        assert_eq!(sol.label, "GPT-5.6 Sol");
+        let gpt55 = models.iter().find(|model| model.id == "gpt-5.5").unwrap();
+        assert!(gpt55.fast);
+        assert_eq!(gpt55.label, "GPT-5.5");
+        let pro = models
+            .iter()
+            .find(|model| model.id == "gpt-5.5-pro")
+            .unwrap();
+        assert!(!pro.fast);
+        let glm = models.iter().find(|model| model.id == "glm-5.2").unwrap();
+        assert!(glm.fast);
+        assert_eq!(glm.label, "GLM-5.2 (Droid Core)");
+        let flash = models
+            .iter()
+            .find(|model| model.id == "gemini-3.8-flash")
+            .unwrap();
+        assert!(!flash.fast);
+        assert!(!models.iter().any(|model| model.id.ends_with("-fast")));
+        assert!(sol.group.is_none());
+        assert!(sol.multiplier.is_none());
+        match &sol.thinking {
+            Some(AgentThinkingSupport::Enum { options, .. }) => {
+                assert_eq!(options, &["low", "medium", "high"]);
+            }
+            other => panic!("expected sol thinking, got {other:?}"),
+        }
     }
 
     #[test]

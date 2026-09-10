@@ -6,6 +6,8 @@ use std::time::{Duration, Instant};
 
 use agent::providers::{chat_provider_kind, ChatProviderKind};
 use agent::{
+    apply_droid_fast_current_config, boolean_fast_modes, collapse_droid_fast_models,
+    droid_fast_base, encode_droid_fast_model, is_droid_chat_provider, overlay_droid_model_catalog,
     AgentAvailableCommand, AgentEvent, AgentEventEnvelope, AgentMode, AgentModel,
     AgentRuntimeConfigUpdate, AgentRuntimeControl, AgentThinkingSupport, AgentTool, Capability,
     SessionOpOutcome, TurnStop,
@@ -82,10 +84,24 @@ impl RuntimeState {
         }
     }
 
-    fn mark_thinking(&mut self) {
-        if self.thinking_started_at.is_none() {
-            self.thinking_started_at = Some(Utc::now());
+    fn mark_thinking(&mut self, previous_activity: Instant) {
+        if self.thinking_started_at.is_some() {
+            return;
         }
+        // Droid ACP buffers `thinking-text-delta` until `streaming-complete`, then
+        // dumps one fat thought chunk. Count from the last chat event so
+        // "Thought for Ns" matches wall time instead of the dump (~1s).
+        let gap = previous_activity
+            .elapsed()
+            .min(Duration::from_secs(30 * 60));
+        let mut start = Utc::now()
+            - chrono::Duration::from_std(gap).unwrap_or_else(|_| chrono::Duration::zero());
+        if let Some(turn) = self.turn_started_at {
+            if start < turn {
+                start = turn;
+            }
+        }
+        self.thinking_started_at = Some(start);
     }
 
     fn close_thinking(&mut self) -> u64 {
@@ -151,11 +167,13 @@ pub(super) async fn apply_event(
     let emit_host = |payload: AgentChatPayload| -> Result<()> {
         emit_live(chat_id, payload, store, events, recent_events)
     };
-    {
+    let previous_activity = {
         let mut state = state.lock().await;
+        let previous_activity = state.last_activity;
         state.last_activity = Instant::now();
         state.ensure_turn_clock();
-    }
+        previous_activity
+    };
     match envelope.payload {
         AgentEvent::SessionStarted { persistence_handle } => {
             store.update_meta(chat_id, |meta| {
@@ -236,7 +254,7 @@ pub(super) async fn apply_event(
         AgentEvent::ThinkingDelta { message_id, delta } => {
             {
                 let mut state = state.lock().await;
-                state.mark_thinking();
+                state.mark_thinking(previous_activity);
                 let turn_id = state.persist_turn_id(adapter_turn_id.as_deref());
                 state
                     .thinking_text
@@ -776,7 +794,29 @@ fn apply_config_changed(
                     .filter(|item| item.fast)
                     .map(|item| (item.id.clone(), true))
                     .collect();
+                let previous_group: HashMap<String, String> = meta
+                    .descriptor
+                    .supported_options
+                    .models
+                    .iter()
+                    .filter_map(|item| item.group.clone().map(|group| (item.id.clone(), group)))
+                    .collect();
+                let previous_multiplier: HashMap<String, (Option<String>, Option<String>)> = meta
+                    .descriptor
+                    .supported_options
+                    .models
+                    .iter()
+                    .map(|item| {
+                        (
+                            item.id.clone(),
+                            (item.multiplier.clone(), item.fast_multiplier.clone()),
+                        )
+                    })
+                    .collect();
                 let mut models = models_from_option(option, &meta.provider_id);
+                if is_droid_chat_provider(&meta.provider_id) {
+                    models = collapse_droid_fast_models(models);
+                }
                 for model in &mut models {
                     if model.thinking.is_none() {
                         if let Some(thinking) = previous_thinking.get(&model.id) {
@@ -791,6 +831,21 @@ fn apply_config_changed(
                     if previous_fast.contains_key(&model.id) {
                         model.fast = true;
                     }
+                    if model.group.is_none() {
+                        model.group = previous_group.get(&model.id).cloned();
+                    }
+                    if let Some((multiplier, fast_multiplier)) = previous_multiplier.get(&model.id)
+                    {
+                        if model.multiplier.is_none() {
+                            model.multiplier = multiplier.clone();
+                        }
+                        if model.fast_multiplier.is_none() {
+                            model.fast_multiplier = fast_multiplier.clone();
+                        }
+                    }
+                }
+                if is_droid_chat_provider(&meta.provider_id) {
+                    overlay_droid_model_catalog(&mut models);
                 }
                 meta.descriptor.supported_options.models = models;
             }
@@ -851,10 +906,22 @@ fn apply_config_changed(
                 ];
             }
             _ => {
-                // Fast is per current model. Auto omits it; keep the true/false
-                // list so other models can still show the switch.
-                meta.descriptor.current_config.fast = None;
-                meta.applied_fast = None;
+                if meta
+                    .descriptor
+                    .supported_options
+                    .models
+                    .iter()
+                    .any(|model| model.fast)
+                {
+                    if meta.descriptor.supported_options.fast.is_empty() {
+                        meta.descriptor.supported_options.fast = boolean_fast_modes(false);
+                    }
+                } else {
+                    // Fast is per current model. Auto omits it; keep the true/false
+                    // list so other models can still show the switch.
+                    meta.descriptor.current_config.fast = None;
+                    meta.applied_fast = None;
+                }
             }
         }
         match advertised_option_for_kind(&advertised, "context") {
@@ -929,6 +996,18 @@ fn apply_config_changed(
         stamp_session_context_on_current_model(meta);
         if advertised_option_for_kind(&advertised, "fast").is_some() {
             stamp_session_fast_on_current_model(meta);
+        }
+    }
+    if is_droid_chat_provider(&meta.provider_id) {
+        apply_droid_fast_current_config(
+            &mut meta.descriptor.current_config,
+            &meta.descriptor.supported_options.models,
+        );
+        if let Some(base) = meta.applied_model.as_deref().and_then(droid_fast_base) {
+            if meta.descriptor.current_config.model.as_deref() == Some(base) {
+                meta.applied_model = Some(base.to_string());
+                meta.applied_fast = Some("true".into());
+            }
         }
     }
 }
@@ -1027,6 +1106,8 @@ fn models_from_option(option: &SessionAdvertisedOption, provider_id: &str) -> Ve
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             }
         })
         .collect()
@@ -1836,11 +1917,11 @@ pub(super) async fn apply_live_session_config(
         .and_then(|value| resolve_pending_select(&meta, "thinking", Some(value.as_str())));
     let permission_mode = pending_permission_mode_change(&meta)
         .and_then(|value| resolve_pending_select(&meta, "permission_mode", Some(value.as_str())));
-    let fast = pending_fast_change(&meta)
+    let mut fast = pending_fast_change(&meta)
         .and_then(|value| resolve_pending_select(&meta, "fast", Some(value.as_str())));
     let context = pending_context_change(&meta)
         .and_then(|value| resolve_pending_select(&meta, "context", Some(value.as_str())));
-    let model = change.and_then(|item| item.model.as_ref().map(|value| value.to.clone()));
+    let mut model = change.and_then(|item| item.model.as_ref().map(|value| value.to.clone()));
     let mode = change.and_then(|item| item.mode.as_ref().map(|value| value.to.clone()));
     let mut outcome = ConfigWriteOutcome {
         failed_model: false,
@@ -1850,7 +1931,40 @@ pub(super) async fn apply_live_session_config(
         failed_fast: false,
         failed_context: false,
     };
-    if let Some(update) = config_write(
+    let droid_fast_via_model =
+        is_droid_chat_provider(&meta.provider_id) && (model.is_some() || fast.is_some());
+    let pending_fast = fast.clone();
+    if droid_fast_via_model {
+        if let Some(base) = model
+            .clone()
+            .or_else(|| meta.descriptor.current_config.model.clone())
+        {
+            let fast_value = fast
+                .clone()
+                .or_else(|| meta.descriptor.current_config.fast.clone());
+            model = Some(encode_droid_fast_model(
+                &base,
+                fast_value.as_deref(),
+                &meta.descriptor.supported_options.models,
+            ));
+        }
+        fast = None;
+    }
+    if droid_fast_via_model {
+        if let Some(wire) = model {
+            let update = AgentRuntimeConfigUpdate {
+                model: Some(wire),
+                previous_model: meta.applied_model.clone(),
+                ..AgentRuntimeConfigUpdate::default()
+            };
+            if control.set_config(update).await.is_err() {
+                outcome.failed_model = true;
+                if pending_fast.is_some() {
+                    outcome.failed_fast = true;
+                }
+            }
+        }
+    } else if let Some(update) = config_write(
         &meta,
         "model",
         model,
@@ -2180,6 +2294,19 @@ mod tests {
             running_turn_id: Some("t1".into()),
             running_turn_started_at: None,
         }
+    }
+
+    #[test]
+    fn dumped_thinking_counts_from_last_activity_gap() {
+        let mut state = runtime();
+        state.turn_started_at = Some(Utc::now() - chrono::Duration::seconds(8));
+        let previous = Instant::now() - std::time::Duration::from_secs(8);
+        state.mark_thinking(previous);
+        let ms = state.close_thinking();
+        assert!(
+            (7_000..10_000).contains(&ms),
+            "dumped thinking should count the silent gap, got {ms}"
+        );
     }
 
     #[test]
@@ -2555,6 +2682,66 @@ mod tests {
             row.descriptor.current_config.thinking.as_deref(),
             Some("xhigh")
         );
+    }
+
+    #[test]
+    fn droid_config_changed_collapses_fast_mode_models() {
+        let mut row = meta();
+        row.provider_id = "factory-droid".into();
+        row.descriptor = crate::service::agent_chat::types::chat_descriptor(
+            "factory-droid",
+            agent::AgentCurrentConfig::default(),
+        );
+        apply_config_changed(
+            &mut row,
+            vec![SessionAdvertisedOption {
+                id: "model".into(),
+                name: Some("Model".into()),
+                category: None,
+                option_type: "select".into(),
+                current_value: Some("gpt-5.5-fast".into()),
+                options: vec![
+                    SessionAdvertisedOptionValue {
+                        value: "gpt-5.5".into(),
+                        name: Some("GPT-5.5".into()),
+                    },
+                    SessionAdvertisedOptionValue {
+                        value: "gpt-5.5-fast".into(),
+                        name: Some("GPT-5.5 Fast Mode".into()),
+                    },
+                    SessionAdvertisedOptionValue {
+                        value: "gpt-5.5-pro".into(),
+                        name: Some("GPT-5.5 Pro".into()),
+                    },
+                ],
+            }],
+            Some(&"gpt-5.5-fast".into()),
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        assert_eq!(
+            row.descriptor
+                .supported_options
+                .models
+                .iter()
+                .map(|model| (model.id.as_str(), model.label.as_str(), model.fast))
+                .collect::<Vec<_>>(),
+            vec![
+                ("gpt-5.5", "GPT-5.5", true),
+                ("gpt-5.5-pro", "GPT-5.5 Pro", false),
+            ]
+        );
+        assert_eq!(
+            row.descriptor.current_config.model.as_deref(),
+            Some("gpt-5.5")
+        );
+        assert_eq!(row.descriptor.current_config.fast.as_deref(), Some("true"));
+        assert_eq!(row.applied_model.as_deref(), Some("gpt-5.5"));
+        assert_eq!(row.applied_fast.as_deref(), Some("true"));
+        assert_eq!(row.descriptor.supported_options.fast.len(), 2);
     }
 
     #[test]

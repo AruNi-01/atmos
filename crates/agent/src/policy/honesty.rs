@@ -256,5 +256,8 @@ mod tests {
         assert!(native_fast_modes_for_provider("claude").is_some());
         assert!(native_fast_modes_for_provider("codex").is_some());
         assert!(native_fast_modes_for_provider("cursor").is_none());
+        assert!(crate::policy::is_droid_chat_provider("droid"));
+        assert!(crate::policy::is_droid_chat_provider("factory-droid"));
+        assert!(!crate::policy::is_droid_chat_provider("cursor"));
     }
 }

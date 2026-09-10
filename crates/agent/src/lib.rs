@@ -33,25 +33,27 @@ pub use models::{
     KnownAgent, NativeChatAgent, RegistryAgent, RegistryInstallResult,
 };
 pub use options::{
-    apply_grok_thinking_overlay, apply_native_chat_options_plan,
+    apply_droid_fast_current_config, apply_grok_thinking_overlay, apply_native_chat_options_plan,
     apply_options_defaults_to_current_config, apply_options_to_descriptor,
-    collapse_cursor_cli_models, cursor_model_base, cursor_model_display_label,
-    cursor_model_has_brackets, fill_cursor_thinking_by_base, grok_thinking_for_model_id,
+    collapse_cursor_cli_models, collapse_droid_fast_models, cursor_model_base,
+    cursor_model_display_label, cursor_model_has_brackets, droid_fast_base,
+    encode_droid_fast_model, fill_cursor_thinking_by_base, grok_thinking_for_model_id,
     is_cli_login_method_id, is_native_chat_options_id, is_native_oauth_method_id,
     map_to_advertised_cursor_model, merge_options_snapshots, model_id_is_table_noise,
-    models_look_like_cursor_acp, options_cache_dir, parse_droid_help, parse_line_list,
-    probe_result_from_config_options, rebuild_descriptor_for_provider, snapshot_message_needs_auth,
-    sort_thinking_levels, supported_options_from_snapshot, thinking_from_builtin,
-    AcpLaunchResolved, AcpLaunchResolver, AcpOptionsProbe, AcpOptionsProbeResult,
-    AgentOptionsSnapshot, CommandOutput, CommandRunner, NativeOptionsProbe,
+    models_look_like_cursor_acp, options_cache_dir, overlay_droid_model_catalog, parse_droid_help,
+    parse_line_list, probe_result_from_config_options, rebuild_descriptor_for_provider,
+    snapshot_message_needs_auth, sort_thinking_levels, supported_options_from_snapshot,
+    thinking_from_builtin, AcpLaunchResolved, AcpLaunchResolver, AcpOptionsProbe,
+    AcpOptionsProbeResult, AgentOptionsSnapshot, CommandOutput, CommandRunner, NativeOptionsProbe,
     NativeOptionsProbeResult, NoopAcpOptionsProbe, NoopNativeOptionsProbe, OptionsCache,
     OptionsFragment, OptionsParserKind, OptionsProbe, OptionsProbeStrategy, OptionsSource,
     OptionsStatus, ProbePlan, ProcessCommandRunner, StdioAcpOptionsProbe, CLI_LOGIN_METHOD_PREFIX,
     ERROR_CACHE_TTL, NATIVE_OAUTH_METHOD_PREFIX, OK_CACHE_TTL,
 };
 pub use policy::{
-    canonicalize_chat_provider_id, capabilities_for_provider, is_plan_mode,
-    normalize_stored_permission, option_support_for_provider,
+    boolean_fast_modes, canonicalize_chat_provider_id, capabilities_for_provider,
+    is_droid_chat_provider, is_fast_on, is_plan_mode, normalize_stored_permission,
+    option_support_for_provider,
 };
 pub use providers::acp::{AcpAgentProvider, AcpProviderParams};
 pub use providers::claude::ClaudeNativeProvider;

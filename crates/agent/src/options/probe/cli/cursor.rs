@@ -182,6 +182,8 @@ pub fn collapse_cursor_cli_models(models: Vec<AgentModel>) -> Vec<AgentModel> {
                         Vec::new()
                     },
                     fast: group.has_fast,
+                    multiplier: None,
+                    fast_multiplier: None,
                 },
             )
         })
@@ -586,6 +588,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
             AgentModel {
                 id: "gpt-5.3-codex-high-fast".into(),
@@ -595,6 +599,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
             AgentModel {
                 id: "gpt-5.3-codex-xhigh".into(),
@@ -604,6 +610,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
             AgentModel {
                 id: "composer-2.5".into(),
@@ -613,6 +621,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
             AgentModel {
                 id: "composer-2.5-fast".into(),
@@ -622,6 +632,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
             AgentModel {
                 id: "auto".into(),
@@ -631,6 +643,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
         ]);
         assert_eq!(
@@ -679,6 +693,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
             AgentModel {
                 id: "gpt-5.4-medium".into(),
@@ -688,6 +704,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
             AgentModel {
                 id: "claude-opus-4-8-low".into(),
@@ -697,6 +715,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
             AgentModel {
                 id: "gpt-5.4-mini-low".into(),
@@ -706,6 +726,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
         ]);
         let gpt = collapsed.iter().find(|item| item.id == "gpt-5.4").unwrap();
@@ -767,6 +789,8 @@ mod tests {
             thinking: None,
             context: Vec::new(),
             fast: false,
+            multiplier: None,
+            fast_multiplier: None,
         }];
         let cli = collapse_cursor_cli_models(vec![
             AgentModel {
@@ -777,6 +801,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
             AgentModel {
                 id: "gpt-5.3-codex-high".into(),
@@ -786,6 +812,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
         ]);
         fill_cursor_thinking_by_base(&mut acp, &cli);
@@ -807,6 +835,8 @@ mod tests {
             thinking: None,
             context: Vec::new(),
             fast: false,
+            multiplier: None,
+            fast_multiplier: None,
         }];
         let cli = collapse_cursor_cli_models(vec![
             AgentModel {
@@ -817,6 +847,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
             AgentModel {
                 id: "claude-opus-4-8-high".into(),
@@ -826,6 +858,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
         ]);
         fill_cursor_thinking_by_base(&mut acp, &cli);
@@ -849,6 +883,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
             AgentModel {
                 id: "cursor-grok-4.6-high".into(),
@@ -858,6 +894,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
             AgentModel {
                 id: "claude-4.6-sonnet-medium".into(),
@@ -867,6 +905,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
             AgentModel {
                 id: "claude-4.6-sonnet-high".into(),
@@ -876,6 +916,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
             AgentModel {
                 id: "auto".into(),
@@ -885,6 +927,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
         ]);
         let mut acp = vec![
@@ -896,6 +940,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
             AgentModel {
                 id: "claude-sonnet-4-6".into(),
@@ -905,6 +951,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
             AgentModel {
                 id: "default".into(),
@@ -914,6 +962,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
         ];
         fill_cursor_thinking_by_base(&mut acp, &cli);

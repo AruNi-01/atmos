@@ -410,11 +410,14 @@ use tokio::sync::{broadcast, mpsc, oneshot};
 use tracing::warn;
 
 use crate::acp_client::logging::append_acp_log;
+use crate::acp_client::terminal::{
+    apply_terminal_output, terminal_ids, TerminalRegistry, TerminalSnapshot,
+};
 use crate::acp_client::tools::AcpToolHandler;
 use crate::acp_client::types::{
     AgentCapabilitiesSnapshot, AgentConfigOption, AgentCost, AgentImplementationInfo, AgentPlan,
-    AgentPlanEntry, AgentSessionInfoUpdate, AgentTurnUsage, AgentUsage, StreamDelta,
-    ToolCallStatus, ToolCallUpdate,
+    AgentPlanEntry, AgentSessionInfoUpdate, AgentToolCallContentItem, AgentTurnUsage, AgentUsage,
+    StreamDelta, ToolCallStatus, ToolCallUpdate,
 };
 use crate::acp_client::types::{PermissionOption, PermissionRequest, RiskLevel};
 
@@ -502,6 +505,7 @@ pub struct AtmosAcpClient {
     permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<String>)>,
     event_tx: mpsc::UnboundedSender<AcpSessionEvent>,
     ext_notify_tx: broadcast::Sender<(String, serde_json::Value)>,
+    terminals: TerminalRegistry,
     /// Last `_meta.totalTokens` emitted as `AcpSessionEvent::Usage` (dedupe stream spam).
     last_context_used: AtomicU64,
 }
@@ -520,8 +524,47 @@ impl AtmosAcpClient {
             permission_tx,
             event_tx,
             ext_notify_tx,
+            terminals: TerminalRegistry::new(),
             last_context_used: AtomicU64::new(0),
         }
+    }
+
+    async fn emit_mapped_tool_call(&self, mut update: ToolCallUpdate) {
+        for terminal_id in terminal_ids(&update.content) {
+            self.terminals
+                .bind_tool(&terminal_id, &update.tool_call_id)
+                .await;
+            if let Some(snapshot) = self.terminals.snapshot(&terminal_id).await {
+                apply_terminal_output(&mut update, &snapshot);
+            }
+        }
+        let _ = self.event_tx.send(AcpSessionEvent::ToolCall(update));
+    }
+
+    fn emit_terminal_progress(&self, terminal_id: &str, snapshot: &TerminalSnapshot) {
+        let Some(tool_call_id) = snapshot.tool_call_id.clone() else {
+            return;
+        };
+        if snapshot.output.len() <= snapshot.last_emitted_len && snapshot.exit_code.is_none() {
+            return;
+        }
+        let mut update = ToolCallUpdate {
+            tool_call_id,
+            parent_tool_call_id: None,
+            tool: String::new(),
+            description: String::new(),
+            acp_kind: Some("execute".into()),
+            status: ToolCallStatus::Running,
+            raw_input: None,
+            content: vec![AgentToolCallContentItem::Terminal {
+                terminal_id: terminal_id.to_string(),
+            }],
+            locations: Vec::new(),
+            raw_output: None,
+            detail: None,
+        };
+        apply_terminal_output(&mut update, snapshot);
+        let _ = self.event_tx.send(AcpSessionEvent::ToolCall(update));
     }
 
     fn emit_context_tokens_from_meta(&self, args: &schema::SessionNotification) {
@@ -539,6 +582,21 @@ impl AtmosAcpClient {
         };
         let _ = self.event_tx.send(AcpSessionEvent::Usage(usage));
     }
+}
+
+fn terminal_error(message: String) -> acp::Error {
+    acp::Error::invalid_params().data(serde_json::Value::String(message))
+}
+
+fn terminal_exit_status(snapshot: &TerminalSnapshot) -> schema::TerminalExitStatus {
+    schema::TerminalExitStatus::new()
+        .exit_code(snapshot.exit_code.and_then(|code| u32::try_from(code).ok()))
+        .signal(snapshot.signal.clone())
+}
+
+fn terminal_output_response(snapshot: &TerminalSnapshot) -> schema::TerminalOutputResponse {
+    schema::TerminalOutputResponse::new(snapshot.output.clone(), snapshot.truncated)
+        .exit_status(terminal_exit_status(snapshot))
 }
 
 impl AtmosAcpClient {
@@ -733,37 +791,76 @@ impl AtmosAcpClient {
 
     pub async fn create_terminal(
         &self,
-        _args: schema::CreateTerminalRequest,
+        args: schema::CreateTerminalRequest,
     ) -> acp::Result<schema::CreateTerminalResponse> {
-        Err(acp::Error::method_not_found())
+        let env = args
+            .env
+            .iter()
+            .map(|item| (item.name.clone(), item.value.clone()))
+            .collect();
+        let terminal_id = self
+            .terminals
+            .create(
+                args.command,
+                args.args,
+                args.cwd,
+                env,
+                args.output_byte_limit,
+                &self.cwd,
+            )
+            .await
+            .map_err(terminal_error)?;
+        Ok(schema::CreateTerminalResponse::new(terminal_id))
     }
 
     pub async fn terminal_output(
         &self,
-        _args: schema::TerminalOutputRequest,
+        args: schema::TerminalOutputRequest,
     ) -> acp::Result<schema::TerminalOutputResponse> {
-        Err(acp::Error::method_not_found())
+        let snapshot = self
+            .terminals
+            .output(args.terminal_id.0.as_ref())
+            .await
+            .map_err(terminal_error)?;
+        self.emit_terminal_progress(args.terminal_id.0.as_ref(), &snapshot);
+        Ok(terminal_output_response(&snapshot))
     }
 
     pub async fn release_terminal(
         &self,
-        _args: schema::ReleaseTerminalRequest,
+        args: schema::ReleaseTerminalRequest,
     ) -> acp::Result<schema::ReleaseTerminalResponse> {
-        Err(acp::Error::method_not_found())
+        self.terminals
+            .release(args.terminal_id.0.as_ref())
+            .await
+            .map_err(terminal_error)?;
+        Ok(schema::ReleaseTerminalResponse::new())
     }
 
     pub async fn wait_for_terminal_exit(
         &self,
-        _args: schema::WaitForTerminalExitRequest,
+        args: schema::WaitForTerminalExitRequest,
     ) -> acp::Result<schema::WaitForTerminalExitResponse> {
-        Err(acp::Error::method_not_found())
+        let snapshot = self
+            .terminals
+            .wait(args.terminal_id.0.as_ref())
+            .await
+            .map_err(terminal_error)?;
+        self.emit_terminal_progress(args.terminal_id.0.as_ref(), &snapshot);
+        Ok(schema::WaitForTerminalExitResponse::new(
+            terminal_exit_status(&snapshot),
+        ))
     }
 
     pub async fn kill_terminal(
         &self,
-        _args: schema::KillTerminalRequest,
+        args: schema::KillTerminalRequest,
     ) -> acp::Result<schema::KillTerminalResponse> {
-        Err(acp::Error::method_not_found())
+        self.terminals
+            .kill(args.terminal_id.0.as_ref())
+            .await
+            .map_err(terminal_error)?;
+        Ok(schema::KillTerminalResponse::new())
     }
 
     pub async fn session_notification(&self, args: schema::SessionNotification) -> acp::Result<()> {
@@ -834,19 +931,18 @@ impl AtmosAcpClient {
                     _ => ToolCallStatus::Running,
                 };
                 let claude_code_meta = extract_claude_code_meta(&tool_call);
-                let _ = self
-                    .event_tx
-                    .send(AcpSessionEvent::ToolCall(map_protocol_tool_call(
-                        tool_call.tool_call_id.to_string(),
-                        Some(&tool_call.kind),
-                        Some(tool_call.title.as_str()),
-                        status,
-                        tool_call.raw_input.clone(),
-                        tool_call.raw_output.clone(),
-                        Some(tool_call.locations.as_slice()),
-                        &tool_call.content,
-                        claude_code_meta.as_ref(),
-                    )));
+                self.emit_mapped_tool_call(map_protocol_tool_call(
+                    tool_call.tool_call_id.to_string(),
+                    Some(&tool_call.kind),
+                    Some(tool_call.title.as_str()),
+                    status,
+                    tool_call.raw_input.clone(),
+                    tool_call.raw_output.clone(),
+                    Some(tool_call.locations.as_slice()),
+                    &tool_call.content,
+                    claude_code_meta.as_ref(),
+                ))
+                .await;
             }
             schema::SessionUpdate::ToolCallUpdate(update) => {
                 let status = match update
@@ -861,19 +957,18 @@ impl AtmosAcpClient {
                 };
                 let claude_code_meta = extract_claude_code_meta(&update);
                 let content = update.fields.content.as_deref().unwrap_or(&[]);
-                let _ = self
-                    .event_tx
-                    .send(AcpSessionEvent::ToolCall(map_protocol_tool_call(
-                        update.tool_call_id.to_string(),
-                        update.fields.kind.as_ref(),
-                        update.fields.title.as_deref(),
-                        status,
-                        update.fields.raw_input.clone(),
-                        update.fields.raw_output.clone(),
-                        update.fields.locations.as_deref(),
-                        content,
-                        claude_code_meta.as_ref(),
-                    )));
+                self.emit_mapped_tool_call(map_protocol_tool_call(
+                    update.tool_call_id.to_string(),
+                    update.fields.kind.as_ref(),
+                    update.fields.title.as_deref(),
+                    status,
+                    update.fields.raw_input.clone(),
+                    update.fields.raw_output.clone(),
+                    update.fields.locations.as_deref(),
+                    content,
+                    claude_code_meta.as_ref(),
+                ))
+                .await;
             }
             schema::SessionUpdate::Plan(plan) => {
                 let entries = plan

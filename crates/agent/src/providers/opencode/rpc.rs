@@ -243,6 +243,8 @@ pub fn models_from_providers(body: &Value) -> (AgentSupportedOptions, Option<Str
                 thinking: thinking_from_model_variants(model),
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             });
         }
     }

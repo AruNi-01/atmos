@@ -1935,6 +1935,8 @@ mod session_config_change_tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             })
             .collect();
         assert_eq!(
@@ -1968,6 +1970,8 @@ mod session_config_change_tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
             AgentModel {
                 id: "gpt-5.3-codex[reasoning=medium,fast=false]".into(),
@@ -1977,6 +1981,8 @@ mod session_config_change_tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             },
         ];
         assert_eq!(

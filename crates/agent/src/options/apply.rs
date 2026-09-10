@@ -134,6 +134,9 @@ pub fn apply_options_defaults_to_current_config(
     config: &mut AgentCurrentConfig,
     catalog: &AgentOptionsSnapshot,
 ) {
+    if crate::policy::is_droid_chat_provider(&catalog.agent_id) {
+        crate::options::probe::cli::droid::apply_droid_fast_current_config(config, &catalog.models);
+    }
     config.model = default_model_id(catalog, config.model.as_deref());
     if let Some(model_id) = &config.model {
         let thinking = thinking_options_for_catalog(catalog, model_id);
@@ -235,6 +238,8 @@ mod tests {
                 thinking: None,
                 context: Vec::new(),
                 fast: false,
+                multiplier: None,
+                fast_multiplier: None,
             }],
             modes: Vec::new(),
             permission_modes: vec![AgentMode {
@@ -297,6 +302,8 @@ mod tests {
                     thinking: None,
                     context: Vec::new(),
                     fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
                 },
                 AgentModel {
                     id: "opus".into(),
@@ -309,6 +316,8 @@ mod tests {
                     }),
                     context: Vec::new(),
                     fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
                 },
             ],
             modes: vec![AgentMode {
@@ -356,6 +365,43 @@ mod tests {
     }
 
     #[test]
+    fn factory_droid_decodes_fast_wire_id_and_synthesizes_fast_modes() {
+        let catalog = AgentOptionsSnapshot {
+            agent_id: "factory-droid".into(),
+            status: OptionsStatus::Ok,
+            models: vec![AgentModel {
+                id: "gpt-5.6-sol".into(),
+                label: "GPT-5.6 Sol".into(),
+                group: None,
+                is_default: true,
+                thinking: None,
+                context: Vec::new(),
+                fast: true,
+                multiplier: None,
+                fast_multiplier: None,
+            }],
+            modes: Vec::new(),
+            permission_modes: Vec::new(),
+            commands: Vec::new(),
+            thinking: AgentThinkingSupport::None,
+            strategies_used: Vec::new(),
+            fetched_at: chrono::Utc::now(),
+            source: OptionsSource::Live,
+            message: None,
+        };
+        let mut config = AgentCurrentConfig {
+            model: Some("gpt-5.6-sol-fast".into()),
+            ..AgentCurrentConfig::default()
+        };
+        apply_options_defaults_to_current_config(&mut config, &catalog);
+        assert_eq!(config.model.as_deref(), Some("gpt-5.6-sol"));
+        assert_eq!(config.fast.as_deref(), Some("true"));
+        let options = supported_options_from_snapshot(&catalog);
+        assert_eq!(options.fast.len(), 2);
+        assert_eq!(options.fast[1].id, "true");
+    }
+
+    #[test]
     fn default_model_id_skips_list_models_table_header() {
         let catalog = AgentOptionsSnapshot {
             agent_id: "pi".into(),
@@ -371,6 +417,8 @@ mod tests {
                     thinking: None,
                     context: Vec::new(),
                     fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
                 },
                 AgentModel {
                     id: "deepseek/deepseek-v4-flash".into(),
@@ -380,6 +428,8 @@ mod tests {
                     thinking: None,
                     context: Vec::new(),
                     fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
                 },
             ],
             modes: Vec::new(),

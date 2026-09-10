@@ -179,6 +179,8 @@ export type AgentDescriptor = {
       thinking?: AgentThinkingSupport | null;
       context?: Array<{ id: string; label: string; is_default?: boolean }>;
       fast?: boolean;
+      multiplier?: string | null;
+      fast_multiplier?: string | null;
     }>;
     thinking?: AgentThinkingSupport;
     modes?: Array<{ id: string; label: string; is_default?: boolean }>;
@@ -604,6 +606,8 @@ export type AgentOptionsSnapshot = {
     thinking?: AgentThinkingSupport | null;
     context?: Array<{ id: string; label: string; is_default?: boolean }>;
     fast?: boolean;
+    multiplier?: string | null;
+    fast_multiplier?: string | null;
   }>;
   modes: Array<{ id: string; label: string; is_default?: boolean }>;
   permission_modes?: Array<{ id: string; label: string; is_default?: boolean }>;

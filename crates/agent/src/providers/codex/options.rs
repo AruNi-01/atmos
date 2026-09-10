@@ -204,6 +204,8 @@ pub(crate) fn parse_model_list(result: &Value) -> (Vec<AgentModel>, AgentThinkin
             thinking,
             context: Vec::new(),
             fast: false,
+            multiplier: None,
+            fast_multiplier: None,
         });
     }
     let thinking = if efforts.is_empty() {

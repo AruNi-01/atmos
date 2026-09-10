@@ -706,6 +706,9 @@ fn looks_like_unified_diff(text: &str) -> bool {
 
 fn diff_from_edit_payload(payload: Option<&Value>, fallback_path: &str) -> Option<AgentToolResult> {
     let value = payload?;
+    if let Some(patch) = edit_patch_text(value) {
+        return Some(AgentToolResult::Text { text: patch });
+    }
     if let Some(diff) = diff_from_flat_edit_fields(
         value,
         fallback_path,
@@ -731,6 +734,9 @@ fn diff_from_edit_payload(payload: Option<&Value>, fallback_path: &str) -> Optio
 /// explicit old/new string fields (and nested EditsApplied).
 fn diff_from_output_edit(output: Option<&Value>, fallback_path: &str) -> Option<AgentToolResult> {
     let value = output?;
+    if let Some(patch) = edit_patch_text(value) {
+        return Some(AgentToolResult::Text { text: patch });
+    }
     if let Some(diff) =
         diff_from_flat_edit_fields(value, fallback_path, &["new_string", "new_text", "newText"])
     {
@@ -769,13 +775,47 @@ fn diff_from_flat_edit_fields(
     })
 }
 
+/// Droid's ACP bridge nests tool arguments under `input` and sends
+/// `apply_patch` as a patch string there. Keep this normalization here so the
+/// frontend receives the same diff presentation as native ACP Diff blocks.
+fn edit_objects<'a>(value: &'a Value, out: &mut Vec<&'a serde_json::Map<String, Value>>) {
+    let Some(object) = value.as_object() else {
+        return;
+    };
+    out.push(object);
+    for key in ["args", "parameters", "input", "action", "result", "Result"] {
+        if let Some(nested) = object.get(key) {
+            edit_objects(nested, out);
+        }
+    }
+}
+
+fn edit_patch_text(value: &Value) -> Option<String> {
+    let mut objects = Vec::new();
+    edit_objects(value, &mut objects);
+    for object in objects {
+        for key in ["patch", "diff", "input"] {
+            let Some(text) = object.get(key).and_then(Value::as_str) else {
+                continue;
+            };
+            if looks_like_unified_diff(text) || text.trim_start().starts_with("*** Begin Patch") {
+                return Some(text.to_string());
+            }
+        }
+    }
+    None
+}
+
 /// Keep trailing newlines — Edit/Write hunks are not display labels.
 fn edit_payload_string(value: &Value, keys: &[&str]) -> Option<String> {
-    let object = value.as_object()?;
-    for key in keys {
-        if let Some(text) = object.get(*key).and_then(Value::as_str) {
-            if !text.is_empty() {
-                return Some(text.to_string());
+    let mut objects = Vec::new();
+    edit_objects(value, &mut objects);
+    for object in objects {
+        for key in keys {
+            if let Some(text) = object.get(*key).and_then(Value::as_str) {
+                if !text.is_empty() {
+                    return Some(text.to_string());
+                }
             }
         }
     }
@@ -1732,6 +1772,81 @@ mod tests {
             }
             other => panic!("expected Diff from EditsApplied, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn droid_execute_terminal_text_raw_output_becomes_command_result() {
+        let tool = mapped_for(
+            "factory-droid",
+            update(
+                "Execute",
+                ToolCallStatus::Completed,
+                serde_json::json!({"command": "git status --short"}),
+                Some(serde_json::json!({
+                    "text": "README.md\nCargo.toml\n",
+                    "exit_code": 0
+                })),
+            ),
+        );
+        assert_eq!(tool.kind, AgentToolKind::Execute);
+        match tool.result {
+            Some(AgentToolResult::Execute { output, exit_code }) => {
+                assert!(output.contains("README.md"));
+                assert_eq!(exit_code, Some(0));
+            }
+            other => panic!("expected execute output, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn droid_nested_write_file_input_becomes_diff() {
+        let path = "/tmp/app/src/main.rs";
+        let call = update(
+            "write_file",
+            ToolCallStatus::Completed,
+            serde_json::json!({
+                "input": {
+                    "file_path": path,
+                    "content": "fn main() {}\n"
+                }
+            }),
+            Some(serde_json::json!({
+                "input": {
+                    "success": true
+                }
+            })),
+        );
+        let tool = mapped_for("factory-droid", call);
+        assert_eq!(tool.kind, AgentToolKind::Edit);
+        match tool.result {
+            Some(AgentToolResult::Diff {
+                path: result_path,
+                old_content,
+                new_content,
+            }) => {
+                assert_eq!(result_path, path);
+                assert_eq!(old_content.as_deref(), Some(""));
+                assert_eq!(new_content, "fn main() {}\n");
+            }
+            other => panic!("expected Droid write diff, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn droid_apply_patch_input_becomes_patch_result() {
+        let patch = "*** Begin Patch\n*** Update File: src/main.rs\n@@\n-fn main() {}\n+fn main() { println!(\"ok\"); }\n*** End Patch";
+        let call = update(
+            "apply_patch",
+            ToolCallStatus::Completed,
+            serde_json::json!({ "input": patch }),
+            Some(serde_json::json!({ "success": true })),
+        );
+        let tool = mapped_for("factory-droid", call);
+        assert_eq!(tool.kind, AgentToolKind::Edit);
+        assert_eq!(
+            tool.result,
+            Some(AgentToolResult::Text { text: patch.into() })
+        );
     }
 
     #[test]

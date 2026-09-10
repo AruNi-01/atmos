@@ -273,7 +273,7 @@ fn atmos_initialize_request() -> schema::InitializeRequest {
     );
     schema::InitializeRequest::new(ProtocolVersion::V1)
         .client_info(schema::Implementation::new("atmos", "0.1.0").title("ATMOS"))
-        .client_capabilities(schema::ClientCapabilities::new().meta(meta))
+        .client_capabilities(schema::ClientCapabilities::new().terminal(true).meta(meta))
 }
 
 /// Atmos UI may store logical keys (`thinking`, `effort`, …). Cursor ACP only

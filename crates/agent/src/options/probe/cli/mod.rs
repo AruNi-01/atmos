@@ -1,4 +1,4 @@
-//! CLI options probe strategy: argv runner, stdout parsers, Cursor collapse.
+//! CLI options probe strategy: argv runner, stdout parsers, Cursor / Droid collapse.
 
 use std::time::Duration;
 
@@ -11,12 +11,22 @@ use crate::policy::canonicalize_chat_provider_id;
 use super::plan::OptionsParserKind;
 
 pub mod cursor;
+pub mod droid;
+pub mod droid_catalog;
 pub mod parse;
 
 pub use cursor::{
     collapse_cursor_cli_models, cursor_model_base, cursor_model_display_label,
     cursor_model_has_brackets, fill_cursor_thinking_by_base, map_to_advertised_cursor_model,
     models_look_like_cursor_acp,
+};
+pub use droid::{
+    apply_droid_fast_current_config, collapse_droid_fast_models, droid_fast_base,
+    encode_droid_fast_model,
+};
+pub use droid_catalog::{
+    droid_catalog_path, overlay_droid_model_catalog, refresh_droid_factory_catalog,
+    set_droid_catalog_path,
 };
 pub use parse::{
     apply_grok_thinking_overlay, grok_thinking_for_model_id, model_id_is_table_noise,

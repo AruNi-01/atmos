@@ -100,7 +100,8 @@ pub fn classify_tool(
         }
         // Cursor ACP titles use "Find …" for workspace glob/search, not filesystem read.
         "find" => AgentToolKind::Search,
-        "edit" | "write" | "write_file" | "searchreplace" | "search_replace" | "str_replace"
+        "edit" | "write" | "write_file" | "writefile" | "create_file" | "createfile"
+        | "edit_file" | "editfile" | "searchreplace" | "search_replace" | "str_replace"
         | "strreplace" | "applypatch" | "apply_patch" | "editnotebook" | "edit_notebook" => {
             AgentToolKind::Edit
         }
@@ -744,6 +745,14 @@ mod tests {
         assert_eq!(
             classify_tool("Bash", None, None),
             ClassifiedTool::Call(AgentToolKind::Execute)
+        );
+        assert_eq!(
+            classify_tool("create_file", None, None),
+            ClassifiedTool::Call(AgentToolKind::Edit)
+        );
+        assert_eq!(
+            classify_tool("edit_file", None, None),
+            ClassifiedTool::Call(AgentToolKind::Edit)
         );
         assert_eq!(classify_tool("think", None, None), ClassifiedTool::Thinking);
         assert_eq!(classify_tool("TodoWrite", None, None), ClassifiedTool::Plan);

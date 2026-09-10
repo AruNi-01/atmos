@@ -4,6 +4,7 @@ pub mod client;
 pub mod logging;
 pub mod process;
 pub mod runner;
+pub mod terminal;
 pub mod tools;
 pub mod types;
 pub mod usage_normalize;

@@ -507,6 +507,8 @@ pub fn probe_result_from_config_options(
                     thinking: None,
                     context: Vec::new(),
                     fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
                 })
                 .collect();
         } else if is_mode_config_id(&option.id) {

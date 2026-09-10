@@ -41,9 +41,32 @@ pub struct AgentModel {
     /// Per-model context window choices (Cursor PMP `context`, e.g. `272k` / `1m`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub context: Vec<AgentMode>,
-    /// True when this model advertises a Fast toggle (Cursor CLI `-fast` / ACP `fast`).
+    /// True when this model advertises a Fast toggle (Cursor CLI `-fast` /
+    /// ACP `fast`, or Droid `*-fast` sibling models).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub fast: bool,
+    /// Credit multiplier shown in the picker (`2x`). Droid Factory catalog.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub multiplier: Option<String>,
+    /// Multiplier when Fast is on (`4x`). Droid `*-fast` sibling.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fast_multiplier: Option<String>,
+}
+
+impl Default for AgentModel {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            label: String::new(),
+            group: None,
+            is_default: false,
+            thinking: None,
+            context: Vec::new(),
+            fast: false,
+            multiplier: None,
+            fast_multiplier: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

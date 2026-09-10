@@ -222,6 +222,8 @@ pub(crate) fn models_from_session_new(result: &Value) -> Vec<AgentModel> {
             thinking: thinking_from_reasoning_efforts(meta),
             context: Vec::new(),
             fast: false,
+            multiplier: None,
+            fast_multiplier: None,
         });
     }
     out

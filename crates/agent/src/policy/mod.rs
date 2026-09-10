@@ -2,7 +2,7 @@ pub mod aliases;
 pub mod honesty;
 pub mod permission;
 
-pub use aliases::canonicalize_chat_provider_id;
+pub use aliases::{canonicalize_chat_provider_id, is_droid_chat_provider};
 pub use honesty::{
     boolean_fast_modes, capabilities_for_provider, is_fast_on, native_fast_modes_for_provider,
     option_support_for_provider,
