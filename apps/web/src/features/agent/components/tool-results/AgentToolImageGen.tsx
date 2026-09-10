@@ -11,6 +11,7 @@ import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import { isActiveToolStatus } from "@/features/agent/lib/agent-tool-kind";
 import { composerFileUrlFromPath } from "@/features/agent/lib/agent-composer-attachment";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
+import { ImageCopyMenuHost } from "@/shared/components/image-copy-context-menu";
 import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
 import { AgentToolCard, AgentToolFileChip, type AgentToolSurface } from "./AgentToolCard";
 
@@ -178,15 +179,17 @@ export function AgentToolImageGen({
                   showStatus={status !== "complete"}
                 >
                   {src ? (
-                    <button
-                      type="button"
-                      className="cursor-zoom-in"
-                      aria-label={t("imagePreview")}
-                      onClick={() => setPreview({ src, alt: previewAlt })}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element -- tool result URLs / data / workspace file proxy */}
-                      <img src={src} alt={previewAlt} draggable={false} />
-                    </button>
+                    <ImageCopyMenuHost src={src}>
+                      <button
+                        type="button"
+                        className="cursor-zoom-in"
+                        aria-label={t("imagePreview")}
+                        onClick={() => setPreview({ src, alt: previewAlt })}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element -- tool result URLs / data / workspace file proxy */}
+                        <img src={src} alt={previewAlt} draggable={false} />
+                      </button>
+                    </ImageCopyMenuHost>
                   ) : null}
                 </ImageGeneration>
               );

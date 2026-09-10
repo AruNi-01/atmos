@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { BorderBeam, cn, DotmSquare12, TextShimmer } from "@workspace/ui";
 
+import { ImageCopyMenuHost } from "@/shared/components/image-copy-context-menu";
 import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
 import {
   AGENT_SURFACE_FEED_STALE_MS,
@@ -290,29 +291,31 @@ function HistoryRow({
         )}
       </span>
       {shot ? (
-        <button
-          type="button"
-          aria-label={copy.openScreenshotPreview}
-          title={copy.openScreenshotPreview}
-          onClick={(e) => {
-            e.stopPropagation();
-            setPreviewOpen(true);
-          }}
-          className={cn(
-            "size-7 shrink-0 overflow-hidden rounded-md border border-border/60 bg-muted/40",
-            "cursor-zoom-in transition-opacity hover:opacity-90",
-          )}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={shot.dataUrl}
-            alt={copy.screenshotPreviewAlt}
-            width={shot.width || 28}
-            height={shot.height || 28}
-            className="size-full object-cover object-top"
-            draggable={false}
-          />
-        </button>
+        <ImageCopyMenuHost src={shot.dataUrl}>
+          <button
+            type="button"
+            aria-label={copy.openScreenshotPreview}
+            title={copy.openScreenshotPreview}
+            onClick={(e) => {
+              e.stopPropagation();
+              setPreviewOpen(true);
+            }}
+            className={cn(
+              "size-7 shrink-0 overflow-hidden rounded-md border border-border/60 bg-muted/40",
+              "cursor-zoom-in transition-opacity hover:opacity-90",
+            )}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={shot.dataUrl}
+              alt={copy.screenshotPreviewAlt}
+              width={shot.width || 28}
+              height={shot.height || 28}
+              className="size-full object-cover object-top"
+              draggable={false}
+            />
+          </button>
+        </ImageCopyMenuHost>
       ) : null}
       <time
         className="shrink-0 tabular-nums text-[10px] text-muted-foreground"

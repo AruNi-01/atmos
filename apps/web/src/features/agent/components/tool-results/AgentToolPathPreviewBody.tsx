@@ -8,6 +8,7 @@ import {
   isImageToolPath,
   languageFromPath,
 } from "@/features/agent/lib/tool-results/parse-tool-result";
+import { ImageCopyMenuHost } from "@/shared/components/image-copy-context-menu";
 import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
 import { isBrowserPreviewableImageMediaType } from "@/shared/lib/composer-image";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
@@ -121,21 +122,23 @@ export function AgentToolPathPreviewBody({
   if (state.kind === "image") {
     return (
       <>
-        <button
-          type="button"
-          className="block cursor-zoom-in leading-none"
-          aria-label={t("imagePreview")}
-          onClick={() => setPreview({ src: state.url, alt })}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element -- absolute path preview via system file proxy */}
-          <img
-            src={state.url}
-            alt={alt}
-            draggable={false}
-            className="block max-h-32 max-w-56 object-contain"
-            onError={() => setState({ kind: "missing" })}
-          />
-        </button>
+        <ImageCopyMenuHost src={state.url}>
+          <button
+            type="button"
+            className="block cursor-zoom-in leading-none"
+            aria-label={t("imagePreview")}
+            onClick={() => setPreview({ src: state.url, alt })}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- absolute path preview via system file proxy */}
+            <img
+              src={state.url}
+              alt={alt}
+              draggable={false}
+              className="block max-h-32 max-w-56 object-contain"
+              onError={() => setState({ kind: "missing" })}
+            />
+          </button>
+        </ImageCopyMenuHost>
         {preview ? (
           <ImagePreviewOverlay
             src={preview.src}

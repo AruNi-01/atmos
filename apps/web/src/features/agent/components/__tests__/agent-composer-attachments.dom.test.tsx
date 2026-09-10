@@ -7,6 +7,7 @@ import { createRoot, type Root } from "react-dom/client";
 mock.module("@workspace/ui", () => ({
   cn: (...values: Array<string | false | null | undefined>) =>
     values.filter(Boolean).join(" "),
+  toastManager: { add: () => undefined },
   usePromptInputAttachments: () => ({
     files: [],
     add: () => undefined,
@@ -107,6 +108,38 @@ describe("agent composer attachments", () => {
     const overlay = document.querySelector("[data-image-preview-overlay]");
     expect(overlay).not.toBeNull();
     expect(overlay?.querySelector("img")?.getAttribute("src")).toBe("blob:shot");
+  });
+
+  it("opens a copy-image menu on thumbnail right-click without enlarging", async () => {
+    const container = renderList({
+      files: [
+        {
+          id: "img-1",
+          filename: "shot.png",
+          mediaType: "image/png",
+          url: "blob:shot",
+        },
+      ],
+      onRemove: () => undefined,
+    });
+
+    const previewButton = container.querySelector(
+      '[data-agent-composer-attachment="image"] button',
+    );
+    await act(async () => {
+      previewButton?.dispatchEvent(
+        new window.MouseEvent("contextmenu", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 18,
+          clientY: 18,
+        }),
+      );
+    });
+
+    expect(document.querySelector("[data-image-preview-overlay]")).toBeNull();
+    expect(document.querySelector("[data-image-preview-context-menu]")).not.toBeNull();
+    expect(document.querySelector("[data-image-preview-copy]")).not.toBeNull();
   });
 
   it("removes an image without opening the preview overlay", async () => {
@@ -270,6 +303,7 @@ function installDom(): void {
   setGlobal("Node", win.Node);
   setGlobal("Text", win.Text);
   setGlobal("Event", win.Event);
+  setGlobal("MouseEvent", win.MouseEvent);
   setGlobal("IS_REACT_ACT_ENVIRONMENT", true);
 }
 
@@ -283,6 +317,7 @@ function cleanupDom(): void {
     "Node",
     "Text",
     "Event",
+    "MouseEvent",
     "IS_REACT_ACT_ENVIRONMENT",
   ]) {
     Reflect.deleteProperty(globalThis, key);

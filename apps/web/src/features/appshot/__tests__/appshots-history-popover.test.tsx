@@ -192,6 +192,7 @@ mock.module("@workspace/ui", () => ({
   },
   cn: (...values: Array<string | false | null | undefined>) =>
     values.filter(Boolean).join(" "),
+  toastManager: { add: () => undefined },
   getFileIconProps: ({
     className,
   }: {

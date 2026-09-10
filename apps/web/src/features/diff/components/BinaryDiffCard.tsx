@@ -9,6 +9,7 @@ import {
   type BinaryDiffPanel,
 } from "@/features/diff/lib/diff-content-kind";
 import { resolveBlobUrl } from "@/features/diff/lib/resolve-blob-url";
+import { ImageCopyMenuHost } from "@/shared/components/image-copy-context-menu";
 import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
 import { cn } from "@/shared/lib/utils";
 import { getFileIconProps } from "@workspace/ui";
@@ -76,19 +77,21 @@ function SideImage({
         ) : null}
       </div>
       {url ? (
-        <button
-          type="button"
-          onClick={() => onPreview?.(url, label)}
-          className="flex min-h-[120px] w-full cursor-zoom-in items-center justify-center overflow-hidden rounded-md border border-border/50 bg-[image:repeating-conic-gradient(#80808018_0%_25%,transparent_0%_50%)] bg-[length:16px_16px] p-2 hover:border-border focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          aria-label={label}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={url}
-            alt={label}
-            className="max-h-[320px] max-w-full object-contain"
-          />
-        </button>
+        <ImageCopyMenuHost src={url}>
+          <button
+            type="button"
+            onClick={() => onPreview?.(url, label)}
+            className="flex min-h-[120px] w-full cursor-zoom-in items-center justify-center overflow-hidden rounded-md border border-border/50 bg-[image:repeating-conic-gradient(#80808018_0%_25%,transparent_0%_50%)] bg-[length:16px_16px] p-2 hover:border-border focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            aria-label={label}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={url}
+              alt={label}
+              className="max-h-[320px] max-w-full object-contain"
+            />
+          </button>
+        </ImageCopyMenuHost>
       ) : (
         <div className="flex min-h-[120px] flex-1 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border/60 bg-muted/20 px-3 py-6 text-center">
           <ImageIcon className="size-5 text-muted-foreground/50" />

@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useTranslations } from "next-intl";
 import { File as FileIcon, X } from "lucide-react";
 import { cn, usePromptInputAttachments } from "@workspace/ui";
+import { ImageCopyMenuHost } from "@/shared/components/image-copy-context-menu";
 import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
 import {
   composerAttachmentLabel,
@@ -106,7 +107,7 @@ function ComposerImageTile({
   onPreview,
   onRemove,
 }: {
-  file: ComposerAttachmentFile;
+  file: ComposerAttachmentFile & { url: string };
   density: "composer" | "compact";
   label: string;
   previewLabel: string;
@@ -120,28 +121,30 @@ function ComposerImageTile({
       data-attachment-id={file.id}
       className="group relative shrink-0"
     >
-      <button
-        type="button"
-        aria-label={previewLabel}
-        title={previewLabel}
-        onClick={onPreview}
-        className={cn(
-          "block cursor-zoom-in overflow-hidden",
-          "bg-muted/40 ring-1 ring-border/50",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          density === "compact"
-            ? "h-14 w-32 rounded-xl"
-            : "h-20 w-44 rounded-2xl",
-        )}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element -- composer previews use local object/data URLs. */}
-        <img
-          src={file.url}
-          alt={label}
-          draggable={false}
-          className="size-full object-cover"
-        />
-      </button>
+      <ImageCopyMenuHost src={file.url}>
+        <button
+          type="button"
+          aria-label={previewLabel}
+          title={previewLabel}
+          onClick={onPreview}
+          className={cn(
+            "block cursor-zoom-in overflow-hidden",
+            "bg-muted/40 ring-1 ring-border/50",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            density === "compact"
+              ? "h-14 w-32 rounded-xl"
+              : "h-20 w-44 rounded-2xl",
+          )}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- composer previews use local object/data URLs. */}
+          <img
+            src={file.url}
+            alt={label}
+            draggable={false}
+            className="size-full object-cover"
+          />
+        </button>
+      </ImageCopyMenuHost>
       {onRemove && removeLabel ? (
         <button
           type="button"

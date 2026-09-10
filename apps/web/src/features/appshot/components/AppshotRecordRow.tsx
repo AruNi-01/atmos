@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { Button, cn } from "@workspace/ui";
 import { Check, Copy, ImageOff, Trash2 } from "lucide-react";
+import { ImageCopyMenuHost } from "@/shared/components/image-copy-context-menu";
 
 import {
   formatQualityLabel,
@@ -53,20 +54,22 @@ export function AppshotRecordRow({
     >
       <div className="h-full w-24 overflow-hidden border-r border-border bg-background">
         {record.snapshot_url ? (
-          <button
-            type="button"
-            className="block h-full w-full cursor-zoom-in overflow-hidden"
-            aria-label={t("history.recordRow.previewScreenshotAriaLabel", { label: previewLabel })}
-            onClick={() => onPreview(record)}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element -- Appshot thumbnails are local Tauri data URLs, not remote optimized assets. */}
-            <img
-              src={record.snapshot_url}
-              alt={t("history.recordRow.previewScreenshotAlt", { label: previewLabel })}
-              className="h-full w-full object-cover"
-              draggable={false}
-            />
-          </button>
+          <ImageCopyMenuHost src={record.snapshot_url}>
+            <button
+              type="button"
+              className="block h-full w-full cursor-zoom-in overflow-hidden"
+              aria-label={t("history.recordRow.previewScreenshotAriaLabel", { label: previewLabel })}
+              onClick={() => onPreview(record)}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- Appshot thumbnails are local Tauri data URLs, not remote optimized assets. */}
+              <img
+                src={record.snapshot_url}
+                alt={t("history.recordRow.previewScreenshotAlt", { label: previewLabel })}
+                className="h-full w-full object-cover"
+                draggable={false}
+              />
+            </button>
+          </ImageCopyMenuHost>
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground">
             <ImageOff className="size-4" />
