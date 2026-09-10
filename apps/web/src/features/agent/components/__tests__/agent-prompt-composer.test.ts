@@ -52,6 +52,8 @@ describe("agent prompt composer", () => {
     expect(composer).toContain("agentLocked={agentLocked || !onProviderChange}");
     expect(composer).toContain("thinkingLevels=");
     expect(composer).toContain("group: entry.group");
+    expect(composer).toContain("fastEnabled: isFastOnValue");
+    expect(composer).toContain("entry.fastMultiplier");
     expect(composer).toContain('fastMode: t("composer.fastMode")');
     expect(composer).toContain("isThinkingConfigId(option.id, option.category)");
     expect(composer).toContain("modes={toModePromptModels");
@@ -75,7 +77,7 @@ describe("agent prompt composer", () => {
     expect(composer).not.toContain("joinUpperCards");
     expect(composer).not.toContain("!rounded-t-none border-t-0");
     expect(composer).toContain(
-      "relative z-[1] mx-6 -mb-px overflow-hidden rounded-t-3xl border border-b-0 border-foreground/10 bg-foreground/[0.04]",
+      "relative z-[1] mx-6 overflow-hidden rounded-t-3xl border border-b-0 border-foreground/10 bg-foreground/[0.04]",
     );
     expect(composer).not.toContain("mx-6 overflow-hidden rounded-3xl border border-border/70 bg-background/95");
     expect(composer).not.toContain("border-b-0 border-border/70 bg-background/95");

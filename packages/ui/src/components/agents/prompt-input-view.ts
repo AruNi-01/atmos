@@ -85,6 +85,31 @@ export function formatModelProviderLabel(
   return `${name} / ${group}`;
 }
 
+export type GroupedPromptRow<T> =
+  | { type: "header"; label: string }
+  | { type: "option"; option: T };
+
+/** Insert muted section headers when consecutive options share a `group`. */
+export function groupedPromptModelRows<T extends { group?: string }>(
+  options: T[],
+): Array<GroupedPromptRow<T>> {
+  const hasGroup = options.some((item) => (item.group ?? "").trim());
+  if (!hasGroup) {
+    return options.map((option) => ({ type: "option", option }));
+  }
+  const rows: Array<GroupedPromptRow<T>> = [];
+  let last = "";
+  for (const option of options) {
+    const group = (option.group ?? "").trim();
+    if (group && group !== last) {
+      rows.push({ type: "header", label: group });
+    }
+    last = group;
+    rows.push({ type: "option", option });
+  }
+  return rows;
+}
+
 /** One chip: `Low · Fast` when Fast is on, otherwise `Low` or `Fast`. */
 export function modelEffortTriggerLabel(input: {
   thinkingLabel?: string;

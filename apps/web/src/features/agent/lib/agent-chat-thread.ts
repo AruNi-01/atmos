@@ -396,7 +396,11 @@ export function optionsSnapshotToConfigOptions(
           resolvedContextId,
           context,
         ),
-        group: model.group?.trim() || undefined,
+        ...(model.group?.trim() ? { group: model.group.trim() } : {}),
+        ...(model.multiplier?.trim() ? { multiplier: model.multiplier.trim() } : {}),
+        ...(model.fast_multiplier?.trim()
+          ? { fastMultiplier: model.fast_multiplier.trim() }
+          : {}),
       })),
     });
   } else if (resolvedModelId) {
@@ -832,7 +836,13 @@ function overlayCatalogModelThinking<T extends { id: string; thinking?: AgentThi
 }
 
 function overlayCatalogModelLabels<
-  T extends { id: string; label?: string | null; group?: string | null },
+  T extends {
+    id: string;
+    label?: string | null;
+    group?: string | null;
+    multiplier?: string | null;
+    fast_multiplier?: string | null;
+  },
 >(
   models: T[],
   catalogModels: T[],
@@ -857,6 +867,16 @@ function overlayCatalogModelLabels<
     if (!liveGroup && catalogGroup && nextModel.group !== catalogModel!.group) {
       changed = true;
       nextModel = { ...nextModel, group: catalogModel!.group };
+    }
+    const catalogMultiplier = catalogModel?.multiplier?.trim() || "";
+    if (!nextModel.multiplier?.trim() && catalogMultiplier) {
+      changed = true;
+      nextModel = { ...nextModel, multiplier: catalogModel!.multiplier };
+    }
+    const catalogFastMultiplier = catalogModel?.fast_multiplier?.trim() || "";
+    if (!nextModel.fast_multiplier?.trim() && catalogFastMultiplier) {
+      changed = true;
+      nextModel = { ...nextModel, fast_multiplier: catalogModel!.fast_multiplier };
     }
     return nextModel;
   });
@@ -983,7 +1003,11 @@ export function descriptorToConfigOptions(
           resolvedContextId,
           context,
         ),
-        group: model.group?.trim() || undefined,
+        ...(model.group?.trim() ? { group: model.group.trim() } : {}),
+        ...(model.multiplier?.trim() ? { multiplier: model.multiplier.trim() } : {}),
+        ...(model.fast_multiplier?.trim()
+          ? { fastMultiplier: model.fast_multiplier.trim() }
+          : {}),
       })),
     });
     if (optionSupportEnabled(support, "thinking")) {
@@ -1158,6 +1182,54 @@ export function queueToPrompts(
   }));
 }
 
+function canonicalPlanStatus(value: string): "completed" | "in_progress" | "pending" | null {
+  const compact = value.trim().toLowerCase().replace(/[\s-]/g, "_");
+  if (compact === "completed") return "completed";
+  if (compact === "in_progress" || compact === "inprogress") return "in_progress";
+  if (compact === "pending") return "pending";
+  return null;
+}
+
+/** Droid TodoWrite often encodes `[completed]` in content and leaves status pending. */
+export function normalizePlanEntry(
+  content: string,
+  status: string,
+): { content: string; status: string } {
+  let text = content.trim();
+  let inferred: "completed" | "in_progress" | "pending" | null = null;
+  let strippedStatus = false;
+  for (;;) {
+    const tagged = text.match(/^\[(completed|in[_\s-]?progress|pending)\]\s*/i);
+    if (tagged?.[1]) {
+      inferred = canonicalPlanStatus(tagged[1]) ?? inferred;
+      strippedStatus = true;
+      text = text.slice(tagged[0].length);
+      continue;
+    }
+    const broken = text.match(/^\[(completed|in[_\s-]?progress|pending)\s+(?=\d+\.|\[[^\]]+\])/i);
+    if (broken?.[1]) {
+      inferred = canonicalPlanStatus(broken[1]) ?? inferred;
+      strippedStatus = true;
+      text = text.slice(broken[0].length);
+      continue;
+    }
+    if (strippedStatus) {
+      const numbered = text.match(/^\d+\.\s+/);
+      if (numbered) {
+        text = text.slice(numbered[0].length);
+        continue;
+      }
+    }
+    break;
+  }
+  const current = canonicalPlanStatus(status) ?? "pending";
+  const nextStatus =
+    current === "pending" && (inferred === "completed" || inferred === "in_progress")
+      ? inferred
+      : status;
+  return { content: text.trim() || content.trim(), status: nextStatus };
+}
+
 export function parsePlan(value: unknown): AgentPlan | null {
   if (!value || typeof value !== "object") return null;
   const record = value as { entries?: unknown };
@@ -1167,10 +1239,14 @@ export function parsePlan(value: unknown): AgentPlan | null {
       if (!entry || typeof entry !== "object") return null;
       const item = entry as { content?: unknown; priority?: unknown; status?: unknown };
       if (typeof item.content !== "string") return null;
+      const normalized = normalizePlanEntry(
+        item.content,
+        typeof item.status === "string" ? item.status : "pending",
+      );
       return {
-        content: item.content,
+        content: normalized.content,
         priority: typeof item.priority === "string" ? item.priority : "medium",
-        status: typeof item.status === "string" ? item.status : "pending",
+        status: normalized.status,
       };
     })
     .filter((entry): entry is AgentPlan["entries"][number] => entry !== null);

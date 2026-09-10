@@ -8,6 +8,7 @@ import {
   capitalizeLeading,
   contextModelSuffix,
   formatModelProviderLabel,
+  groupedPromptModelRows,
   modelEffortTriggerLabel,
 } from "./prompt-input-view";
 
@@ -238,6 +239,26 @@ describe("formatModelProviderLabel", () => {
   });
 });
 
+describe("groupedPromptModelRows", () => {
+  it("inserts a header when the group changes and leaves ungrouped rows first", () => {
+    expect(
+      groupedPromptModelRows([
+        { value: "auto", group: undefined },
+        { value: "opus", group: "Anthropic" },
+        { value: "sonnet", group: "Anthropic" },
+        { value: "sol", group: "OpenAI" },
+      ]),
+    ).toEqual([
+      { type: "option", option: { value: "auto", group: undefined } },
+      { type: "header", label: "Anthropic" },
+      { type: "option", option: { value: "opus", group: "Anthropic" } },
+      { type: "option", option: { value: "sonnet", group: "Anthropic" } },
+      { type: "header", label: "OpenAI" },
+      { type: "option", option: { value: "sol", group: "OpenAI" } },
+    ]);
+  });
+});
+
 describe("S2 thinking control visibility", () => {
   it("shows the effort slider only when there are at least two levels", () => {
     expect(promptInput).toContain("thinkingLevels.length > 1");
@@ -296,6 +317,11 @@ describe("PromptAgentConfigMenu", () => {
     expect(promptInput).not.toContain("searchPlaceholder={labels.searchAgents}");
   });
 
+  it("keeps the send-adjacent trigger on the model name without multiplier", () => {
+    expect(promptInput).toContain("modelLabel: optionName(currentModel)");
+    expect(promptInput).not.toContain("modelLabel: optionLabelText(currentModel)");
+  });
+
   it("renders PromptModel.trailing immediately after the option label", () => {
     expect(promptInput).toContain("trailing?: ReactNode");
     expect(promptInput).toContain("option.trailing");
@@ -304,13 +330,16 @@ describe("PromptAgentConfigMenu", () => {
     );
   });
 
-  it("shows the provider after the model name and tooltips the full label", () => {
+  it("shows group headers and a muted multiplier, not a / provider suffix", () => {
     expect(promptInput).toContain("group?: string");
-    expect(promptInput).toContain("formatModelProviderLabel");
-    expect(promptInput).toContain("` / ${provider}`");
-    expect(promptInput).toContain("const fullLabel = modelLabelWithContext(optionLabelText(option), isSelected ? contextSuffix : \"\")");
+    expect(promptInput).toContain("multiplier?: string");
+    expect(promptInput).toContain("groupedPromptModelRows");
+    expect(promptInput).toContain("row.type === \"header\"");
+    expect(promptInput).toContain("text-sm text-muted-foreground");
+    expect(promptInput).not.toContain("` / ${provider}`");
+    expect(promptInput).toContain("const fullLabel = modelLabelWithContext(optionName(option), isSelected ? contextSuffix : \"\")");
     expect(promptInput).toContain(
-      "label: modelLabelWithContext(optionLabelText(option), contextSuffix)",
+      "label: modelLabelWithContext(optionName(option), contextSuffix)",
     );
     expect(promptInput).toContain("{modelsLocked ? labels.modelLocked : fullLabel}");
     expect(promptInput).toContain("min-w-0 truncate text-sm");

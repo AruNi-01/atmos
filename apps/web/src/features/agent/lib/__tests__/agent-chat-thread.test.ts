@@ -82,6 +82,33 @@ describe("agent chat helpers", () => {
     expect(parsePlan({ entries: [] })).toBeNull();
   });
 
+  it("strips Droid status prefixes from plan content and infers completed", () => {
+    const plan = parsePlan({
+      entries: [
+        {
+          content: "[completed 1. [completed] Rename skillsParams.tab → skillsTab",
+          priority: "high",
+          status: "pending",
+        },
+        {
+          content: "Update SkillsView.tsx to use skillsTab param",
+          priority: "high",
+          status: "completed",
+        },
+        {
+          content: "1. Keep numbered titles that are not status-tagged",
+          priority: "medium",
+          status: "pending",
+        },
+      ],
+    });
+    expect(plan?.entries.map((entry) => ({ content: entry.content, status: entry.status }))).toEqual([
+      { content: "Rename skillsParams.tab → skillsTab", status: "completed" },
+      { content: "Update SkillsView.tsx to use skillsTab param", status: "completed" },
+      { content: "1. Keep numbered titles that are not status-tagged", status: "pending" },
+    ]);
+  });
+
   it("treats a missing or probing catalog as models still loading", () => {
     expect(isOptionsModelsLoading(null, "cursor")).toBe(true);
     expect(
@@ -245,6 +272,42 @@ describe("agent chat helpers", () => {
     expect(options.find((item) => item.id === "model")?.options).toEqual([
       { value: "openai/gpt-5", name: "GPT-5", group: "openai" },
       { value: "anthropic/claude-sonnet-4-5", name: "Sonnet", group: "Anthropic" },
+    ]);
+  });
+
+  it("keeps Droid catalog multipliers on model options", () => {
+    const options = optionsSnapshotToConfigOptions(
+      {
+        agent_id: "factory-droid",
+        status: "ok",
+        models: [
+          {
+            id: "gpt-5.6-sol",
+            label: "GPT-5.6 Sol",
+            group: "OpenAI",
+            multiplier: "2x",
+            fast_multiplier: "4x",
+            fast: true,
+          },
+        ],
+        modes: [],
+        thinking: { type: "none" },
+        strategies_used: [],
+        fetched_at: "",
+        source: "cache",
+        message: null,
+      },
+      "gpt-5.6-sol",
+      "",
+    );
+    expect(options.find((item) => item.id === "model")?.options).toEqual([
+      {
+        value: "gpt-5.6-sol",
+        name: "GPT-5.6 Sol",
+        group: "OpenAI",
+        multiplier: "2x",
+        fastMultiplier: "4x",
+      },
     ]);
   });
 

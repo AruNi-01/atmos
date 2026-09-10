@@ -128,12 +128,16 @@ function AttachmentFileInput() {
 function toPromptModels(
   option: AgentConfigOption | null,
   localize?: (value: string, name?: string) => string,
+  extras?: { fastEnabled?: boolean },
 ): PromptModel[] {
   if (!option) return [];
   return option.options.map((entry) => ({
     value: entry.value,
     label: localize ? localize(entry.value, entry.name) : (entry.name || entry.value),
     group: entry.group,
+    multiplier: extras?.fastEnabled && entry.fastMultiplier
+      ? entry.fastMultiplier
+      : entry.multiplier,
   }));
 }
 
@@ -574,7 +578,9 @@ function ComposerPromptInput({
             </CenterStageTabList>
           )
         }
-        models={toPromptModels(modelOption)}
+        models={toPromptModels(modelOption, undefined, {
+          fastEnabled: isFastOnValue(resolvedConfigOptionValue(fastOption, "fast")),
+        })}
         model={modelOption?.currentValue || ""}
         onModelChange={(value) => modelOption && setConfigOption(modelOption.id, value)}
         modelsLocked={modelsLocked}
@@ -1041,7 +1047,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
         {hasUpperComposerCards ? (
           <div
             data-agent-composer-upper-cards=""
-            className="relative z-[1] mx-6 -mb-px overflow-hidden rounded-t-3xl border border-b-0 border-foreground/10 bg-foreground/[0.04]"
+            className="relative z-[1] mx-6 overflow-hidden rounded-t-3xl border border-b-0 border-foreground/10 bg-foreground/[0.04]"
           >
             {currentPlan ? (
               <div className={

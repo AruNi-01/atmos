@@ -48,9 +48,9 @@ import { SPRING_PRESS, SPRING_SWAP } from "../../lib/ease";
 import { cn } from "../../lib/utils";
 import {
   agentConfigTriggerText,
-  capitalizeLeading,
   contextModelSuffix,
   formatModelProviderLabel,
+  groupedPromptModelRows,
   modelEffortTriggerLabel,
   modelLabelWithContext,
 } from "./prompt-input-view";
@@ -58,8 +58,10 @@ import {
 export interface PromptModel {
   value: string;
   label: ReactNode;
-  /** Provider / source shown after the model name as ` / Provider`. */
+  /** Provider / source shown as a section header in the model list. */
   group?: string;
+  /** Credit multiplier shown after the model name (`2x`). */
+  multiplier?: string;
   description?: ReactNode;
   icon?: ReactNode;
   /** Chip shown immediately after the option label (e.g. Native / ACP). */
@@ -712,16 +714,20 @@ function PromptAgentConfigMenu({
     fastLabel: labels.fastChip,
   }) || contextLabel;
   const triggerText = agentConfigTriggerText({
-    modelLabel: optionLabelText(currentModel),
+    modelLabel: optionName(currentModel),
     contextLabel: contextSuffix,
     thinkingLabel,
-    agentLabel: optionLabelText(currentAgent) || labels.chooseAgent,
+    agentLabel: optionName(currentAgent) || labels.chooseAgent,
   });
   const filteredModels = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return models;
-    return models.filter((option) => optionLabelText(option).toLowerCase().includes(q));
+    return models.filter((option) => optionSearchText(option).toLowerCase().includes(q));
   }, [models, search]);
+  const groupedModels = useMemo(
+    () => groupedPromptModelRows(filteredModels),
+    [filteredModels],
+  );
   const selectedAgent = agent || agents[0]?.value || "";
 
   useEffect(() => {
@@ -913,10 +919,21 @@ function PromptAgentConfigMenu({
                   {labels.noResults}
                 </div>
               ) : (
-                filteredModels.map((option) => {
+                groupedModels.map((row) => {
+                  if (row.type === "header") {
+                    return (
+                      <div
+                        key={`group:${row.label}`}
+                        className="px-2.5 pt-2 pb-0.5 text-xs text-muted-foreground"
+                      >
+                        {row.label}
+                      </div>
+                    );
+                  }
+                  const option = row.option;
                   const isSelected = option.value === model;
                   const warning = isSelected && option.tone === "warning";
-                  const fullLabel = modelLabelWithContext(optionLabelText(option), isSelected ? contextSuffix : "");
+                  const fullLabel = modelLabelWithContext(optionName(option), isSelected ? contextSuffix : "");
                   return (
                     <div
                       key={option.value}
@@ -945,7 +962,7 @@ function PromptAgentConfigMenu({
                               <OptionRow
                                 option={
                                   isSelected && contextSuffix
-                                    ? { ...option, label: modelLabelWithContext(optionLabelText(option), contextSuffix) }
+                                    ? { ...option, label: modelLabelWithContext(optionName(option), contextSuffix) }
                                     : option
                                 }
                               />
@@ -1356,7 +1373,7 @@ function SelectSearch({
 }
 
 function OptionRow({ option }: { option: PromptModel }) {
-  const provider = capitalizeLeading(option.group ?? "");
+  const multiplier = option.multiplier?.trim() ?? "";
   return (
     <span className={cn("flex min-w-0 gap-2", option.description ? "items-start" : "items-center")}>
       {option.icon ? (
@@ -1373,10 +1390,10 @@ function OptionRow({ option }: { option: PromptModel }) {
         <span className="flex min-w-0 items-center gap-1.5">
           <span className="min-w-0 truncate text-sm">
             {option.label}
-            {provider ? (
-              <span className="text-muted-foreground">{` / ${provider}`}</span>
-            ) : null}
           </span>
+          {multiplier ? (
+            <span className="shrink-0 text-sm text-muted-foreground">{multiplier}</span>
+          ) : null}
           {option.trailing ? (
             <span className="shrink-0">{option.trailing}</span>
           ) : null}
@@ -1391,8 +1408,18 @@ function OptionRow({ option }: { option: PromptModel }) {
   );
 }
 
+function optionName(option?: PromptModel): string {
+  if (!option) return "";
+  return typeof option.label === "string" ? option.label : option.value;
+}
+
+function optionSearchText(option: PromptModel): string {
+  return [optionName(option), option.group, option.multiplier]
+    .filter((item): item is string => Boolean(item && item.trim()))
+    .join(" ");
+}
+
 function optionLabelText(option?: PromptModel): string {
   if (!option) return "";
-  const label = typeof option.label === "string" ? option.label : option.value;
-  return formatModelProviderLabel(label, option.group);
+  return formatModelProviderLabel(optionName(option), option.group);
 }
