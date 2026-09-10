@@ -114,8 +114,9 @@ fn host_discovers_slash_commands(agent_id: &str) -> bool {
 }
 
 /// Native probes stamp a non-empty fallback for these lists. Empty means the
-/// cache predates that stamp (or the native arm never ran). ACP may legitimately
-/// have neither list; those caches stay usable.
+/// cache predates that stamp (or the native arm never ran). Most ACP agents
+/// may legitimately have neither list; Factory Droid now stamps Mode
+/// (`auto`/`spec`) and the four permission rows.
 fn host_missing_stamped_composer_options(catalog: &AgentOptionsSnapshot) -> bool {
     if catalog.status != OptionsStatus::Ok {
         return false;
@@ -141,6 +142,18 @@ fn host_missing_stamped_composer_options(catalog: &AgentOptionsSnapshot) -> bool
                         .iter()
                         .any(|have| have.id == need.id)
                 })
+        }
+        id if crate::policy::is_droid_chat_provider(id) => {
+            catalog.modes.iter().all(|mode| mode.id != "spec")
+                || catalog.permission_modes.is_empty()
+                || advertised_permission_modes("factory-droid")
+                    .iter()
+                    .any(|need| {
+                        !catalog
+                            .permission_modes
+                            .iter()
+                            .any(|have| have.id == need.id)
+                    })
         }
         _ => false,
     }
@@ -428,15 +441,18 @@ mod tests {
     }
 
     #[test]
-    fn acp_cache_without_composer_option_lists_still_skips() {
+    fn factory_droid_cache_without_mode_and_permission_does_not_skip() {
         let dir = tempfile::tempdir().unwrap();
         let cache = OptionsCache::new(dir.path().to_path_buf());
         let now = Utc::now();
         let mut catalog = ok_models_and_commands("factory-droid", now);
         catalog.commands.clear();
         cache.put(&catalog).unwrap();
-        assert!(cache.get("factory-droid", now).is_some());
-        assert!(cache.should_skip_probe("factory-droid", now));
+        assert!(
+            cache.get("factory-droid", now).is_none(),
+            "factory-droid cache without auto/spec + permission must not be fresh"
+        );
+        assert!(!cache.should_skip_probe("factory-droid", now));
     }
 
     #[test]

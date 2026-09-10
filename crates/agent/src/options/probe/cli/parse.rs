@@ -1024,6 +1024,41 @@ Model details:
     }
 
     #[test]
+    fn droid_help_collapses_anthropic_opus_fast_mode_siblings() {
+        let models = parse_droid_help(
+            r#"
+Available Models:
+  auto                         Auto Model
+  claude-fable-5               Fable 5
+  claude-opus-5                Opus 5 (default)
+  claude-opus-5-fast           Opus 5 Fast Mode
+  claude-opus-4-8              Opus 4.8
+  claude-opus-4-8-fast         Opus 4.8 Fast Mode
+  claude-opus-4-7              Opus 4.7
+"#,
+        );
+        assert_eq!(
+            models
+                .iter()
+                .map(|model| (
+                    model.id.as_str(),
+                    model.label.as_str(),
+                    model.fast,
+                    model.is_default
+                ))
+                .collect::<Vec<_>>(),
+            vec![
+                ("auto", "Auto Model", false, false),
+                ("claude-fable-5", "Fable 5", false, false),
+                ("claude-opus-5", "Opus 5", true, true),
+                ("claude-opus-4-8", "Opus 4.8", true, false),
+                ("claude-opus-4-7", "Opus 4.7", false, false),
+            ]
+        );
+        assert!(!models.iter().any(|model| model.label.contains("Fast Mode")));
+    }
+
+    #[test]
     fn line_list_keeps_id_only_rows_and_default_suffix() {
         let models = parse_line_list(
             "Available models:\n* grok-4.5 (default)\n- grok-composer-2.5-fast\n\n",

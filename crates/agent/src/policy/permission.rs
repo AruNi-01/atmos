@@ -88,6 +88,9 @@ pub fn default_collaboration_modes() -> Vec<AgentMode> {
 }
 
 pub fn advertised(host: &str) -> Vec<AtmosPermission> {
+    if super::is_droid_chat_provider(host) {
+        return AtmosPermission::DISPLAY_ORDER.to_vec();
+    }
     match canonicalize_chat_provider_id(host) {
         // Claude: spawn `--permission-mode` + mid-session `set_permission_mode`.
         "claude" => AtmosPermission::DISPLAY_ORDER.to_vec(),
@@ -204,6 +207,14 @@ pub fn classify(raw: &str) -> Option<AtmosPermission> {
 }
 
 pub fn to_vendor(host: &str, atmos: AtmosPermission) -> Option<&'static str> {
+    if super::is_droid_chat_provider(host) {
+        return Some(match atmos {
+            AtmosPermission::Yolo => "skip-permissions-unsafe",
+            AtmosPermission::AcceptEdits => "low",
+            AtmosPermission::Auto => "medium",
+            AtmosPermission::AskAlways => "off",
+        });
+    }
     match canonicalize_chat_provider_id(host) {
         "claude" | "grok" => Some(match atmos {
             AtmosPermission::Yolo => "bypassPermissions",
@@ -285,9 +296,14 @@ pub fn vendor_permission_for_spawn(
 ///   (`/always-approve`, `/auto`) and ACP `session/set_mode` for Plan — not
 ///   `set_config_option` (Method not found).
 /// - **Claude** (native id): uses stream-json `set_permission_mode`, not ACP config
-///   options. Keep `claude-acp` / gemini / factory-droid as `true` when they expose a
-///   real permission configId.
+///   options. Keep `claude-acp` / gemini as `true` when they expose a real
+///   permission configId.
+/// - **Factory Droid**: spawn `--auto low|medium` / `--skip-permissions-unsafe`
+///   / `--use-spec`. Autonomy is not an ACP `permissionMode` alias.
 pub fn acp_permission_via_config_option(host: &str) -> bool {
+    if super::is_droid_chat_provider(host) {
+        return false;
+    }
     !matches!(
         canonicalize_chat_provider_id(host),
         "cursor" | "grok" | "claude"
@@ -517,7 +533,30 @@ mod tests {
         assert!(to_vendor("opencode", AtmosPermission::Auto).is_some());
         assert!(to_vendor("opencode", AtmosPermission::AskAlways).is_none());
         assert!(advertised_permission_modes("pi").is_empty());
-        assert!(advertised_permission_modes("factory-droid").is_empty());
+        let droid = advertised_permission_modes("factory-droid");
+        assert_eq!(
+            droid
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["yolo", "accept_edits", "auto", "ask_always"]
+        );
+        assert_eq!(
+            to_vendor("factory-droid", AtmosPermission::Yolo),
+            Some("skip-permissions-unsafe")
+        );
+        assert_eq!(
+            to_vendor("factory-droid", AtmosPermission::AcceptEdits),
+            Some("low")
+        );
+        assert_eq!(
+            to_vendor("factory-droid", AtmosPermission::Auto),
+            Some("medium")
+        );
+        assert_eq!(
+            to_vendor("factory-droid", AtmosPermission::AskAlways),
+            Some("off")
+        );
         let cursor = advertised_permission_modes("cursor");
         assert_eq!(
             cursor
@@ -587,7 +626,8 @@ mod tests {
         assert!(!acp_permission_via_config_option("claude-code"));
         assert!(acp_permission_via_config_option("gemini"));
         assert!(acp_permission_via_config_option("claude-acp"));
-        assert!(acp_permission_via_config_option("factory-droid"));
+        assert!(!acp_permission_via_config_option("factory-droid"));
+        assert!(!acp_permission_via_config_option("droid"));
         assert!(acp_permission_via_config_option("grok-build"));
     }
 }

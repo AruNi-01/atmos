@@ -272,6 +272,11 @@ pub(crate) fn plan_set_config_writes(
         writes.push((config_alias_ids("context"), context));
     }
     if let Some(mode) = update.mode.clone() {
+        let mode = if crate::policy::is_droid_chat_provider(provider_id) {
+            crate::options::probe::cli::droid::droid_interaction_wire(&mode).to_string()
+        } else {
+            mode
+        };
         writes.push((config_alias_ids("mode"), mode.clone()));
         // Only agents that advertise a permission configId encode Plan there.
         // Cursor Plan is `mode=plan` only — do not guess `permissionMode`.
@@ -488,6 +493,31 @@ pub(crate) fn with_cursor_permission_spawn_args(
     launch_spec
 }
 
+pub(crate) fn with_droid_spawn_args(
+    mut launch_spec: AgentLaunchSpec,
+    mode: Option<&str>,
+    permission: Option<&str>,
+) -> AgentLaunchSpec {
+    let flags = crate::options::probe::cli::droid::droid_spawn_flags(mode, permission);
+    if flags.is_empty() {
+        return launch_spec;
+    }
+    if let Some(pos) = launch_spec.args.iter().position(|arg| arg == "exec") {
+        for (offset, flag) in flags.into_iter().enumerate() {
+            launch_spec.args.insert(pos + 1 + offset, flag);
+        }
+    } else if let Some(pos) = launch_spec.args.iter().position(|arg| arg == "acp") {
+        for (offset, flag) in flags.into_iter().enumerate() {
+            launch_spec.args.insert(pos + offset, flag);
+        }
+    } else {
+        let mut args = flags;
+        args.extend(launch_spec.args);
+        launch_spec.args = args;
+    }
+    launch_spec
+}
+
 fn provider_descriptor(params: &AcpProviderParams) -> AgentDescriptor {
     AgentDescriptor {
         identity: AgentIdentity {
@@ -530,6 +560,11 @@ async fn open_acp_session(
             extra.insert("fast".into(), fast);
         }
         if let Some(mode) = cfg.mode.clone() {
+            let mode = if crate::policy::is_droid_chat_provider(&params.provider_id) {
+                crate::options::probe::cli::droid::droid_interaction_wire(&mode).to_string()
+            } else {
+                mode
+            };
             extra.insert("mode".into(), mode);
         }
         // Cursor: Atmos expands sparse ACP permission to the advertised subset
@@ -584,6 +619,13 @@ async fn open_acp_session(
             permission
         };
         launch_spec = with_cursor_permission_spawn_args(launch_spec, permission.as_deref());
+    }
+    if crate::policy::is_droid_chat_provider(&params.provider_id) {
+        launch_spec = with_droid_spawn_args(
+            launch_spec,
+            cfg.mode.as_deref(),
+            cfg.permission_mode.as_deref(),
+        );
     }
     let handle = run_acp_session(
         uuid::Uuid::new_v4().to_string(),
@@ -644,8 +686,8 @@ impl AgentProvider for AcpAgentProvider {
 mod tests {
     use super::{
         config_alias_ids, cursor_permission_cli_flags, dispatch_acp_action, plan_set_config_writes,
-        provider_descriptor, with_cursor_permission_spawn_args, AcpDispatchedAction,
-        AcpProviderParams,
+        provider_descriptor, with_cursor_permission_spawn_args, with_droid_spawn_args,
+        AcpDispatchedAction, AcpProviderParams,
     };
     use crate::acp_client::tools::AcpToolHandler;
     use crate::contract::Capability;
@@ -841,6 +883,59 @@ mod tests {
             )
             .args,
             vec!["--yolo".to_string(), "acp".to_string()]
+        );
+    }
+
+    #[test]
+    fn factory_droid_permission_is_spawn_flags_not_permission_mode() {
+        let writes = plan_set_config_writes(
+            "factory-droid",
+            AgentRuntimeConfigUpdate {
+                mode: Some("plan".into()),
+                permission_mode: Some("accept_edits".into()),
+                extra_config: [("permissionMode".into(), "bypassPermissions".into())]
+                    .into_iter()
+                    .collect(),
+                ..AgentRuntimeConfigUpdate::default()
+            },
+        );
+        let ids = write_ids(&writes);
+        assert!(ids.contains(&"mode"));
+        assert_eq!(
+            writes
+                .iter()
+                .find(|(ids, _)| ids.iter().any(|id| id == "mode"))
+                .map(|(_, value)| value.as_str()),
+            Some("spec")
+        );
+        assert!(
+            !ids.iter().any(|id| {
+                matches!(
+                    *id,
+                    "permissionMode" | "permission_mode" | "permission" | "approval"
+                )
+            }),
+            "unexpected permission writes: {ids:?}"
+        );
+        assert_eq!(
+            with_droid_spawn_args(
+                AgentLaunchSpec {
+                    program: "droid".into(),
+                    args: vec!["exec".into(), "--output-format".into(), "acp-daemon".into()],
+                    env: None,
+                },
+                Some("spec"),
+                Some("auto"),
+            )
+            .args,
+            vec![
+                "exec".to_string(),
+                "--use-spec".to_string(),
+                "--auto".to_string(),
+                "medium".to_string(),
+                "--output-format".to_string(),
+                "acp-daemon".to_string(),
+            ]
         );
     }
 

@@ -5,8 +5,9 @@
 
 use std::collections::{BTreeMap, HashSet};
 
-use crate::contract::{AgentCurrentConfig, AgentModel, AgentThinkingSupport};
+use crate::contract::{AgentCurrentConfig, AgentMode, AgentModel, AgentThinkingSupport};
 use crate::policy::is_fast_on;
+use crate::policy::permission::{advertised_permission_modes, classify, AtmosPermission};
 
 const FAST_ID_SUFFIX: &str = "-fast";
 
@@ -239,10 +240,150 @@ pub fn apply_droid_fast_current_config(config: &mut AgentCurrentConfig, models: 
     config.fast = Some("true".into());
 }
 
+fn compact_droid_token(raw: &str) -> String {
+    raw.trim()
+        .to_ascii_lowercase()
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric())
+        .collect()
+}
+
+/// Droid interaction mode: Normal (`auto`) vs Spec. Combined labels such as
+/// `Auto (Low)` still count as `auto`.
+pub fn droid_interaction_wire(raw: &str) -> &'static str {
+    match compact_droid_token(raw).as_str() {
+        "spec" | "specmode" | "specification" | "usespec" | "plan" => "spec",
+        _ => "auto",
+    }
+}
+
+/// Autonomy only — not interaction-mode `auto`. High collapses into Atmos Auto.
+pub fn classify_droid_autonomy(raw: &str) -> Option<AtmosPermission> {
+    match compact_droid_token(raw).as_str() {
+        "skippermissionsunsafe" | "skippermissions" => Some(AtmosPermission::Yolo),
+        "low" | "autolow" => Some(AtmosPermission::AcceptEdits),
+        "medium" | "automedium" | "high" | "autohigh" => Some(AtmosPermission::Auto),
+        "off" | "readonly" | "autooff" => Some(AtmosPermission::AskAlways),
+        _ => classify(raw).filter(|item| *item != AtmosPermission::Auto),
+    }
+}
+
+/// Stamp Atmos Mode (`auto` / `spec`) and the four permission rows. Peel
+/// autonomy levels out of ACP `mode` lists so they do not appear as Mode.
+pub fn fold_droid_composer_options(
+    modes: Vec<AgentMode>,
+    permission_modes: Vec<AgentMode>,
+) -> (Vec<AgentMode>, Vec<AgentMode>) {
+    let mut spec_default = false;
+    let mut default_permission = None;
+    for item in &modes {
+        let spec = droid_interaction_wire(&item.id) == "spec"
+            || droid_interaction_wire(&item.label) == "spec";
+        if spec && item.is_default {
+            spec_default = true;
+        }
+        if item.is_default {
+            if let Some(permission) =
+                classify_droid_autonomy(&item.id).or_else(|| classify_droid_autonomy(&item.label))
+            {
+                default_permission = Some(permission);
+            }
+        }
+    }
+    for item in &permission_modes {
+        if item.is_default {
+            if let Some(permission) =
+                classify_droid_autonomy(&item.id).or_else(|| classify(&item.id))
+            {
+                default_permission = Some(permission);
+            }
+        }
+    }
+    let modes = vec![
+        AgentMode {
+            id: "auto".into(),
+            label: "Auto".into(),
+            is_default: !spec_default,
+        },
+        AgentMode {
+            id: "spec".into(),
+            label: "Spec".into(),
+            is_default: spec_default,
+        },
+    ];
+    let mut permission_modes = advertised_permission_modes("factory-droid");
+    if let Some(default_permission) = default_permission {
+        for item in &mut permission_modes {
+            item.is_default = classify(&item.id) == Some(default_permission);
+        }
+    }
+    (modes, permission_modes)
+}
+
+pub fn apply_droid_mode_permission_current_config(config: &mut AgentCurrentConfig) {
+    if let Some(raw) = config
+        .mode
+        .as_deref()
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+        .map(ToOwned::to_owned)
+    {
+        if let Some(permission) = classify_droid_autonomy(&raw) {
+            if config.permission_mode.as_deref().is_none_or(|value| {
+                classify_droid_autonomy(value).is_none() && classify(value).is_none()
+            }) {
+                config.permission_mode = Some(permission.as_str().into());
+            }
+        }
+        config.mode = Some(droid_interaction_wire(&raw).into());
+    }
+    if let Some(raw) = config
+        .permission_mode
+        .as_deref()
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+        .map(ToOwned::to_owned)
+    {
+        if droid_interaction_wire(&raw) == "spec"
+            && classify_droid_autonomy(&raw).is_none()
+            && classify(&raw).is_none()
+        {
+            config.mode = Some("spec".into());
+            config.permission_mode = None;
+        } else if let Some(permission) = classify_droid_autonomy(&raw).or_else(|| classify(&raw)) {
+            config.permission_mode = Some(permission.as_str().into());
+        }
+    }
+}
+
+pub fn droid_spawn_flags(mode: Option<&str>, permission: Option<&str>) -> Vec<String> {
+    let mut flags = Vec::new();
+    if mode.is_some_and(|value| droid_interaction_wire(value) == "spec") {
+        flags.push("--use-spec".into());
+    }
+    match permission
+        .and_then(classify_droid_autonomy)
+        .or_else(|| permission.and_then(classify))
+    {
+        Some(AtmosPermission::Yolo) => flags.push("--skip-permissions-unsafe".into()),
+        Some(AtmosPermission::AcceptEdits) => {
+            flags.push("--auto".into());
+            flags.push("low".into());
+        }
+        Some(AtmosPermission::Auto) => {
+            flags.push("--auto".into());
+            flags.push("medium".into());
+        }
+        _ => {}
+    }
+    flags
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::contract::AgentThinkingSupport;
+    use crate::contract::{AgentMode, AgentThinkingSupport};
+    use crate::policy::permission::AtmosPermission;
 
     fn model(id: &str, label: &str, is_default: bool) -> AgentModel {
         AgentModel {
@@ -362,5 +503,72 @@ mod tests {
         apply_droid_fast_current_config(&mut config, &models);
         assert_eq!(config.model.as_deref(), Some("gpt-5.5"));
         assert_eq!(config.fast.as_deref(), Some("true"));
+    }
+
+    fn mode(id: &str, label: &str, is_default: bool) -> AgentMode {
+        AgentMode {
+            id: id.into(),
+            label: label.into(),
+            is_default,
+        }
+    }
+
+    #[test]
+    fn folds_autonomy_out_of_mode_into_atmos_permission() {
+        let (modes, permission) = fold_droid_composer_options(
+            vec![
+                mode("auto", "Auto", true),
+                mode("spec", "Spec", false),
+                mode("Auto (Low)", "Auto (Low)", false),
+                mode("Auto (Medium)", "Auto (Medium)", false),
+                mode("Auto (High)", "Auto (High)", false),
+            ],
+            Vec::new(),
+        );
+        assert_eq!(
+            modes
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["auto", "spec"]
+        );
+        assert!(modes
+            .iter()
+            .any(|item| item.id == "auto" && item.is_default));
+        assert_eq!(
+            permission
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["yolo", "accept_edits", "auto", "ask_always"]
+        );
+        assert_eq!(droid_interaction_wire("plan"), "spec");
+        assert_eq!(droid_interaction_wire("Auto (Low)"), "auto");
+        assert_eq!(
+            classify_droid_autonomy("Auto (Low)"),
+            Some(AtmosPermission::AcceptEdits)
+        );
+        assert_eq!(
+            classify_droid_autonomy("medium"),
+            Some(AtmosPermission::Auto)
+        );
+        assert_eq!(classify_droid_autonomy("auto"), None);
+        assert_eq!(
+            droid_spawn_flags(Some("spec"), Some("accept_edits")),
+            ["--use-spec", "--auto", "low"]
+        );
+        assert_eq!(
+            droid_spawn_flags(Some("auto"), Some("yolo")),
+            ["--skip-permissions-unsafe"]
+        );
+        assert!(droid_spawn_flags(Some("auto"), Some("ask_always")).is_empty());
+
+        let mut config = AgentCurrentConfig {
+            mode: Some("Auto (Medium)".into()),
+            ..AgentCurrentConfig::default()
+        };
+        apply_droid_mode_permission_current_config(&mut config);
+        assert_eq!(config.mode.as_deref(), Some("auto"));
+        assert_eq!(config.permission_mode.as_deref(), Some("auto"));
     }
 }

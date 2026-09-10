@@ -15,8 +15,6 @@ pub fn canonicalize_chat_provider_id(provider_id: &str) -> &str {
 /// Factory Droid Chat / ACP registry ids. Do not fold these in
 /// `canonicalize_chat_provider_id` — spawn must stay ACP.
 pub fn is_droid_chat_provider(provider_id: &str) -> bool {
-    matches!(
-        canonicalize_chat_provider_id(provider_id),
-        "droid" | "factory-droid" | "factory_droid"
-    )
+    let compact = canonicalize_chat_provider_id(provider_id).replace('_', "-");
+    compact == "droid" || compact == "factory-droid" || compact.starts_with("factory-droid-")
 }

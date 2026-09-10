@@ -21,8 +21,9 @@ pub use cursor::{
     models_look_like_cursor_acp,
 };
 pub use droid::{
-    apply_droid_fast_current_config, collapse_droid_fast_models, droid_fast_base,
-    encode_droid_fast_model,
+    apply_droid_fast_current_config, apply_droid_mode_permission_current_config,
+    collapse_droid_fast_models, droid_fast_base, encode_droid_fast_model,
+    fold_droid_composer_options,
 };
 pub use droid_catalog::{
     droid_catalog_path, overlay_droid_model_catalog, refresh_droid_factory_catalog,

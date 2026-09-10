@@ -137,6 +137,10 @@ pub fn merge_options_snapshots(
     if is_droid_chat_provider(agent_id) {
         models = collapse_droid_fast_models(models);
         overlay_droid_model_catalog(&mut models);
+        let folded =
+            crate::options::probe::cli::droid::fold_droid_composer_options(modes, permission_modes);
+        modes = folded.0;
+        permission_modes = folded.1;
     }
 
     let auth_message = fragments.iter().find_map(|fragment| {

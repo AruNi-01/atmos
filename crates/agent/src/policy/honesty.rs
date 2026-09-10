@@ -258,6 +258,8 @@ mod tests {
         assert!(native_fast_modes_for_provider("cursor").is_none());
         assert!(crate::policy::is_droid_chat_provider("droid"));
         assert!(crate::policy::is_droid_chat_provider("factory-droid"));
+        assert!(crate::policy::is_droid_chat_provider("factory_droid"));
+        assert!(crate::policy::is_droid_chat_provider("factory-droid-acp"));
         assert!(!crate::policy::is_droid_chat_provider("cursor"));
     }
 }

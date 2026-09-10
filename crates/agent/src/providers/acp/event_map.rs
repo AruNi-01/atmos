@@ -624,6 +624,7 @@ fn merge_config_options(state: &mut EventMapState, options: &[AgentConfigOption]
     }
     if state.is_droid() {
         apply_droid_fast_options(state);
+        apply_droid_composer_modes(state);
     }
 }
 
@@ -647,6 +648,18 @@ fn apply_droid_fast_options(state: &mut EventMapState) {
         state.supported_options.fast =
             boolean_fast_modes(is_fast_on(state.current_config.fast.as_deref()));
     }
+}
+
+fn apply_droid_composer_modes(state: &mut EventMapState) {
+    let modes = std::mem::take(&mut state.supported_options.modes);
+    let permission_modes = std::mem::take(&mut state.supported_options.permission_modes);
+    let (modes, permission_modes) =
+        crate::options::probe::cli::droid::fold_droid_composer_options(modes, permission_modes);
+    state.supported_options.modes = modes;
+    state.supported_options.permission_modes = permission_modes;
+    crate::options::probe::cli::droid::apply_droid_mode_permission_current_config(
+        &mut state.current_config,
+    );
 }
 
 fn apply_permission_current(state: &mut EventMapState, current: &str) {

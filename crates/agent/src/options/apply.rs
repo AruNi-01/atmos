@@ -3,13 +3,22 @@ use crate::contract::{
     AgentThinkingSupport,
 };
 use crate::options::types::{AgentOptionsSnapshot, OptionsStatus};
+use crate::policy::is_droid_chat_provider;
 
 pub fn supported_options_from_snapshot(catalog: &AgentOptionsSnapshot) -> AgentSupportedOptions {
+    let (modes, permission_modes) = if is_droid_chat_provider(&catalog.agent_id) {
+        crate::options::probe::cli::droid::fold_droid_composer_options(
+            catalog.modes.clone(),
+            catalog.permission_modes.clone(),
+        )
+    } else {
+        (catalog.modes.clone(), catalog.permission_modes.clone())
+    };
     AgentSupportedOptions {
         models: catalog.models.clone(),
         thinking: catalog.thinking.clone(),
-        modes: catalog.modes.clone(),
-        permission_modes: catalog.permission_modes.clone(),
+        modes,
+        permission_modes,
         fast: crate::policy::native_fast_modes_for_provider(&catalog.agent_id).unwrap_or_else(
             || {
                 if catalog.models.iter().any(|model| model.fast) {
@@ -136,6 +145,7 @@ pub fn apply_options_defaults_to_current_config(
 ) {
     if crate::policy::is_droid_chat_provider(&catalog.agent_id) {
         crate::options::probe::cli::droid::apply_droid_fast_current_config(config, &catalog.models);
+        crate::options::probe::cli::droid::apply_droid_mode_permission_current_config(config);
     }
     config.model = default_model_id(catalog, config.model.as_deref());
     if let Some(model_id) = &config.model {
@@ -399,6 +409,22 @@ mod tests {
         let options = supported_options_from_snapshot(&catalog);
         assert_eq!(options.fast.len(), 2);
         assert_eq!(options.fast[1].id, "true");
+        assert_eq!(
+            options
+                .modes
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["auto", "spec"]
+        );
+        assert_eq!(
+            options
+                .permission_modes
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["yolo", "accept_edits", "auto", "ask_always"]
+        );
     }
 
     #[test]

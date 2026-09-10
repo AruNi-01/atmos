@@ -20,11 +20,12 @@ pub use cli::parse::{
     parse_droid_help, parse_line_list,
 };
 pub use cli::{
-    apply_droid_fast_current_config, collapse_cursor_cli_models, collapse_droid_fast_models,
-    cursor_model_base, cursor_model_display_label, cursor_model_has_brackets, droid_fast_base,
-    encode_droid_fast_model, fill_cursor_thinking_by_base, map_to_advertised_cursor_model,
-    models_look_like_cursor_acp, overlay_droid_model_catalog, CommandOutput, CommandRunner,
-    ProcessCommandRunner,
+    apply_droid_fast_current_config, apply_droid_mode_permission_current_config,
+    collapse_cursor_cli_models, collapse_droid_fast_models, cursor_model_base,
+    cursor_model_display_label, cursor_model_has_brackets, droid_fast_base,
+    encode_droid_fast_model, fill_cursor_thinking_by_base, fold_droid_composer_options,
+    map_to_advertised_cursor_model, models_look_like_cursor_acp, overlay_droid_model_catalog,
+    CommandOutput, CommandRunner, ProcessCommandRunner,
 };
 pub use native::{
     DispatchNativeOptionsProbe, NativeOptionsProbe, NativeOptionsProbeResult,
