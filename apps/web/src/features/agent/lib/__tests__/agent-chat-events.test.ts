@@ -577,6 +577,43 @@ describe("agent chat fold stays on AgentMessage", () => {
     });
   });
 
+  it("merges same-id tool progress in place after later assistant text", () => {
+    const started = chatEvent("chat-1", 1, {
+      type: "tool_call_started",
+      tool_call: {
+        tool_call_id: "t-edit",
+        name: "Edit",
+        kind: "edit",
+        status: "running",
+        params: { type: "edit", path: "a.ts" },
+      },
+    });
+    const text = chatEvent("chat-1", 2, {
+      type: "assistant_message_delta",
+      message_id: "a1",
+      delta: "## 验证",
+    });
+    const completed = chatEvent("chat-1", 3, {
+      type: "tool_call_completed",
+      tool_call: {
+        tool_call_id: "t-edit",
+        name: "Edit",
+        kind: "edit",
+        status: "completed",
+        params: { type: "edit", path: "a.ts" },
+      },
+    });
+    let messages = foldMessagesFromEvent([], started, "chat-1");
+    messages = foldMessagesFromEvent(messages, text, "chat-1");
+    messages = foldMessagesFromEvent(messages, completed, "chat-1");
+    expect(messages[0]?.parts.map((part) => part.type)).toEqual(["tool_call", "text"]);
+    expect(messages[0]?.parts[0]).toMatchObject({
+      type: "tool_call",
+      tool_call_id: "t-edit",
+      status: "completed",
+    });
+  });
+
   it("completes stuck tools when the turn ends but keeps background execute running", () => {
     const todo = chatEvent("chat-1", 1, {
       type: "tool_call_started",

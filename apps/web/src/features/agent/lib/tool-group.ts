@@ -2,7 +2,8 @@ import type { AgentPart, AgentToolKind } from "@atmos/api-types/ws/dto/agent-cha
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import {
   isAssistantAnswerTextPart,
-  splitTrailingAnswer,
+  isSoftAssistantProcessPart,
+  layoutAssistantAnswer,
 } from "@/features/agent/lib/assistant-process-parts";
 import {
   DEFAULT_TOOL_CALL_DENSITY,
@@ -123,7 +124,10 @@ export function segmentAssistantParts(
   const segments: AssistantSegment[] = [];
   let pending: { part: AgentPart; origIndex: number }[] = [];
   const flushPending = () => {
-    if (pending.length >= 1) {
+    if (pending.length === 1) {
+      const [{ part, origIndex }] = pending;
+      segments.push({ type: "part", part, origIndex });
+    } else if (pending.length > 1) {
       segments.push({
         type: "tool_group",
         parts: pending.map((item) => item.part),
@@ -153,15 +157,24 @@ export function segmentAssistantParts(
   return segments;
 }
 
+function isSoftProcessSegment(segment: AssistantSegment): boolean {
+  if (segment.type === "part") return isSoftAssistantProcessPart(segment.part);
+  return segment.parts.every((part) => isSoftAssistantProcessPart(part));
+}
+
 export function splitSegmentedAssistantParts(segments: AssistantSegment[]): {
   processSegments: AssistantSegment[];
-  answerSegments: AssistantSegment[];
+  tailSegments: AssistantSegment[];
 } {
-  const { process, answer } = splitTrailingAnswer(
+  const layout = layoutAssistantAnswer(
     segments,
     (segment) => segment.type === "part" && isAssistantAnswerTextPart(segment.part),
+    isSoftProcessSegment,
   );
-  return { processSegments: process, answerSegments: answer };
+  return {
+    processSegments: layout.process,
+    tailSegments: layout.tail,
+  };
 }
 
 export function countToolGroupOverview(

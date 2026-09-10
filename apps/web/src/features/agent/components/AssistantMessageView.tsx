@@ -156,7 +156,7 @@ export function AssistantMessageView({
   }, [loadDensity]);
 
   const segments = useMemo(() => segmentAssistantParts(parts, density), [density, parts]);
-  const { processSegments, answerSegments } = useMemo(
+  const { processSegments, tailSegments } = useMemo(
     () => splitSegmentedAssistantParts(segments),
     [segments],
   );
@@ -259,7 +259,7 @@ export function AssistantMessageView({
             collapseLabel={t("assistantTurn.process.collapseLabel")}
           />
         </Collapsible>
-        {answerSegments.map((segment) => renderSegment(segment))}
+        {tailSegments.map((segment) => renderSegment(segment))}
       </AssistantProcessInspectProvider>
     );
   }

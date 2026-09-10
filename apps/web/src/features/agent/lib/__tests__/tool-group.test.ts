@@ -114,7 +114,7 @@ describe("segmentAssistantParts", () => {
       tool({ tool_call_id: "t4", kind: "execute" }),
       { type: "text", text: "final" },
     ];
-    const { processSegments, answerSegments } = splitSegmentedAssistantParts(
+    const { processSegments, tailSegments } = splitSegmentedAssistantParts(
       segmentAssistantParts(parts, "standard"),
     );
     expect(processSegments.map((segment) =>
@@ -127,14 +127,61 @@ describe("segmentAssistantParts", () => {
       "tool_call",
       "tool_call",
     ]);
-    expect(answerSegments).toHaveLength(1);
-    expect(answerSegments[0]).toMatchObject({
+    expect(tailSegments).toHaveLength(1);
+    expect(tailSegments[0]).toMatchObject({
       type: "part",
       part: { type: "text", text: "final" },
     });
   });
 
-  it("compact groups every non-text process part, including singles", () => {
+  it("keeps thinking before the first closing text inside the process fold", () => {
+    const parts: AgentPart[] = [
+      tool({ tool_call_id: "t1", kind: "edit" }),
+      { type: "thinking", text: "wrap up" },
+      { type: "text", text: "done" },
+    ];
+    const { processSegments, tailSegments } = splitSegmentedAssistantParts(
+      segmentAssistantParts(parts, "standard"),
+    );
+    expect(processSegments.map((segment) =>
+      segment.type === "part" ? segment.part.type : segment.type,
+    )).toEqual(["tool_call", "thinking"]);
+    expect(tailSegments).toEqual([
+      { type: "part", part: parts[2], origIndex: 2 },
+    ]);
+  });
+
+  it("keeps think, extra text, and the last text visible after the last tool", () => {
+    const parts: AgentPart[] = [
+      { type: "thinking", text: "work" },
+      tool({ tool_call_id: "t1", kind: "edit" }),
+      { type: "thinking", text: "draft the summary" },
+      { type: "text", text: "## 验证\n\n- 浏览器实测通过。" },
+      { type: "thinking", text: "update todos then reply Plan is up-to-date." },
+      {
+        type: "plan",
+        plan: { entries: [{ content: "Rename tab", priority: "high", status: "completed" }] },
+      },
+      { type: "text", text: "one more note" },
+      { type: "text", text: "Plan is up-to-date." },
+    ];
+    const { processSegments, tailSegments } = splitSegmentedAssistantParts(
+      segmentAssistantParts(parts, "standard"),
+    );
+    expect(processSegments.map((segment) =>
+      segment.type === "part" ? segment.part.type : segment.type,
+    )).toEqual(["thinking", "tool_call", "thinking"]);
+    expect(tailSegments.map((segment) =>
+      segment.type === "part" && segment.part.type === "text" ? segment.part.text : segment.part.type,
+    )).toEqual([
+      "## 验证\n\n- 浏览器实测通过。",
+      "thinking",
+      "one more note",
+      "Plan is up-to-date.",
+    ]);
+  });
+
+  it("compact groups consecutive process parts but leaves single parts ungrouped", () => {
     const parts: AgentPart[] = [
       { type: "thinking", text: "hmm" },
       tool({ tool_call_id: "t1", kind: "read" }),
@@ -146,16 +193,24 @@ describe("segmentAssistantParts", () => {
     expect(segments.map((segment) => segment.type)).toEqual([
       "tool_group",
       "part",
-      "tool_group",
+      "part",
     ]);
     expect(segments[0]).toMatchObject({
       type: "tool_group",
       origIndexes: [0, 1],
     });
     expect(segments[2]).toMatchObject({
-      type: "tool_group",
-      origIndexes: [3],
+      type: "part",
+      part: parts[3],
+      origIndex: 3,
     });
+  });
+
+  it("compact renders a single thinking part directly", () => {
+    const parts: AgentPart[] = [{ type: "thinking", text: "hmm" }];
+    expect(segmentAssistantParts(parts, "compact")).toEqual([
+      { type: "part", part: parts[0], origIndex: 0 },
+    ]);
   });
 
   it("compact keeps create and resume session chrome out of thinking groups", () => {
