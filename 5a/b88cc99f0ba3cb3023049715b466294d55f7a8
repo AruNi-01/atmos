@@ -1,0 +1,31 @@
+apps/web/src/features/agent/components/__tests__/agent-prompt-composer.test.ts
+  s_344be036cbe8bc::t_0c2d6462fd4c70 80
+apps/web/src/features/agent/components/AgentPromptComposer.tsx
+  s_ec0236d1a10516::t_3581a90ed810ff 1050
+apps/web/src/features/agent/components/__tests__/usage-badges.test.ts
+  s_344be036cbe8bc::t_0c2d6462fd4c70 57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "5ab88cc99f0ba3cb3023049715b466294d55f7a8",
+  "prompts": {},
+  "sessions": {
+    "s_344be036cbe8bc": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "d81e6bb0-74bb-4505-a0ea-385e1586ffa9",
+        "model": "glm-5.3-flash"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_ec0236d1a10516": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "dbd52a5e-c1a1-4571-96e9-218a042f9786",
+        "model": "gpt-5.6-luna"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
