@@ -959,8 +959,22 @@ export function AgentChatPanel({
         data-agent-chat-column=""
       >
       <div
-        className={cn("flex min-h-0 w-full", !isNewChatLanding && "flex-1")}
+        className={cn("flex min-h-0 w-full pr-1", !isNewChatLanding && "flex-1")}
       >
+        {showTimelineNav ? (
+          <div
+            data-agent-chat-timeline-nav=""
+            className="relative w-5 shrink-0"
+          >
+            <AgentMessageTimelineNav
+              activeAgent={activeAgent}
+              messages={messages}
+              userMessageIndices={userMessageIndices}
+              activeMessageIndex={messageNavIndex}
+              onSelectMessage={handleSelectMessage}
+            />
+          </div>
+        ) : null}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div
         ref={transcriptRef}
@@ -1153,20 +1167,6 @@ export function AgentChatPanel({
         </div>
       </div>
         </div>
-        {showTimelineNav ? (
-          <div
-            data-agent-chat-timeline-nav=""
-            className="relative w-4 shrink-0"
-          >
-            <AgentMessageTimelineNav
-              activeAgent={activeAgent}
-              messages={messages}
-              userMessageIndices={userMessageIndices}
-              activeMessageIndex={messageNavIndex}
-              onSelectMessage={handleSelectMessage}
-            />
-          </div>
-        ) : null}
       </div>
       </div>
       <AgentAuthDialog

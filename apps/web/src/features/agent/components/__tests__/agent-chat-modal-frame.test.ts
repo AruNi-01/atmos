@@ -36,7 +36,7 @@ describe("agent chat modal frame", () => {
     expect(panel).toContain("transcriptBottomPadPx");
     expect(panel).toContain('className={cn("relative z-10 shrink-0", wideContentClassName)}');
     expect(panel).toContain('data-agent-chat-timeline-nav=""');
-    expect(panel).toContain("relative w-4 shrink-0");
+    expect(panel).toContain("relative w-5 shrink-0");
     expect(panel).toContain("gap-3 p-4! pr-2!");
     expect(panel).toContain("userMessageIndices.length > 1");
     expect(panel).toContain("<AgentPromptComposer");
@@ -172,7 +172,7 @@ describe("agent chat modal frame", () => {
     expect(panel).toContain('isNewChatLanding ? "justify-center overflow-y-auto pb-20" : "overflow-hidden"');
     expect(panel).toContain('isNewChatLanding ? "hidden" : "flex-1"');
     expect(panel).toContain("showTimelineNav");
-    expect(panel).toContain('cn("flex min-h-0 w-full", !isNewChatLanding && "flex-1")');
+    expect(panel).toContain('cn("flex min-h-0 w-full pr-1", !isNewChatLanding && "flex-1")');
     expect(panel).toContain("landing={isNewChatLanding}");
     expect(panel).toContain("LogoSvg");
     expect(panel).toContain("h-20 w-auto text-foreground");
@@ -223,8 +223,9 @@ describe("agent chat modal frame", () => {
       join(import.meta.dir, "../AgentMessageTimelineNav.tsx"),
       "utf8",
     );
-    expect(nav).toContain("inset-y-0 right-0");
+    expect(nav).toContain("inset-y-0 left-1");
     expect(nav).toContain("flex w-4 min-h-0");
+    expect(nav).toContain("previewContainerClassName=\"inset-y-0 left-full right-auto ml-3");
     expect(nav).not.toContain("absolute right-4 top-1/2");
     expect(nav).not.toContain("inset-y-0 right-1");
     const composerSource = readFileSync(

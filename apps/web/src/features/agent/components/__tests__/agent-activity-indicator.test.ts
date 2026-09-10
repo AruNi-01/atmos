@@ -28,17 +28,23 @@ describe("agent activity indicator", () => {
 
   it("matches session-lifecycle / tool-header icon + text chrome", () => {
     expect(source).toContain(
-      'className="inline-flex min-w-0 max-w-full items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground"',
-    );
-    expect(source).toContain(
       'className="flex size-4 shrink-0 items-center justify-center overflow-visible"',
     );
     expect(source).toContain("const GLYPH_SIZE = 20");
     expect(source).toContain("size={GLYPH_SIZE}");
-    expect(source).toContain('className="text-sm leading-5"');
+    expect(source).toContain("text-sm leading-5");
     expect(source).toContain("SlidingNumber");
     expect(source).toContain("WorkDurationClock");
     expect(source).toContain("DurationUnit");
+    expect(source).toContain(
+      'className="flex w-full min-w-0 max-w-full items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground"',
+    );
+    expect(source).toContain(
+      'className="relative flex h-5 min-w-0 flex-1 items-center overflow-hidden"',
+    );
+    expect(source).toContain(
+      'className="block max-w-full truncate text-sm leading-5"',
+    );
     expect(source).toContain(
       '"inline-flex items-baseline font-mono text-sm tabular-nums leading-none text-muted-foreground"',
     );
