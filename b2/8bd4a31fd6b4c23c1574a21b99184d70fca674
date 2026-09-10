@@ -1,0 +1,42 @@
+apps/web/src/features/agent/components/AgentComposerAttachments.tsx
+  h_5be255725524c8 7,110,124-147
+apps/web/src/features/agent/components/__tests__/agent-composer-attachments.dom.test.tsx
+  h_5be255725524c8 10,113-144,306,320
+apps/web/src/features/agent/components/tool-results/AgentToolImageGen.tsx
+  h_5be255725524c8 14,182-192
+apps/web/src/features/agent/components/tool-results/AgentToolPathPreviewBody.tsx
+  h_5be255725524c8 11,125-141
+apps/web/src/features/appshot/__tests__/appshots-history-popover.test.tsx
+  h_5be255725524c8 195
+apps/web/src/features/appshot/components/AppshotRecordRow.tsx
+  h_5be255725524c8 6,57-72
+apps/web/src/features/diff/components/BinaryDiffCard.tsx
+  h_5be255725524c8 12,80-94
+apps/web/src/features/welcome/components/AttachmentBar.tsx
+  h_5be255725524c8 7,31-33,49,66-90
+apps/web/src/shared/components/__tests__/image-copy-context-menu.test.tsx
+  h_5be255725524c8 1-140
+apps/web/src/shared/components/__tests__/image-preview-overlay.test.tsx
+  h_5be255725524c8 1-199
+apps/web/src/shared/components/agent-surface-island.tsx
+  h_5be255725524c8 20,294-318
+apps/web/src/shared/components/image-copy-context-menu.tsx
+  h_5be255725524c8 1-172
+apps/web/src/shared/components/image-preview-overlay.tsx
+  h_5be255725524c8 5-8,21-22,25-27,31,44-51,55,60-67
+apps/web/src/shared/utils/__tests__/copy-image.test.ts
+  h_5be255725524c8 1-104
+apps/web/src/shared/utils/copy-image.ts
+  h_5be255725524c8 1-123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "b28bd4a31fd6b4c23c1574a21b99184d70fca674",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
