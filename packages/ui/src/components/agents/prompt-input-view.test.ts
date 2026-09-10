@@ -257,6 +257,26 @@ describe("groupedPromptModelRows", () => {
       { type: "option", option: { value: "sol", group: "OpenAI" } },
     ]);
   });
+
+  it("clusters a repeated group so the header is unique", () => {
+    expect(
+      groupedPromptModelRows([
+        { value: "auto", group: undefined },
+        { value: "opus-5", group: "Anthropic" },
+        { value: "opus-5-fast", group: undefined },
+        { value: "opus-4-8", group: "Anthropic" },
+        { value: "sol", group: "OpenAI" },
+      ]),
+    ).toEqual([
+      { type: "option", option: { value: "auto", group: undefined } },
+      { type: "option", option: { value: "opus-5-fast", group: undefined } },
+      { type: "header", label: "Anthropic" },
+      { type: "option", option: { value: "opus-5", group: "Anthropic" } },
+      { type: "option", option: { value: "opus-4-8", group: "Anthropic" } },
+      { type: "header", label: "OpenAI" },
+      { type: "option", option: { value: "sol", group: "OpenAI" } },
+    ]);
+  });
 });
 
 describe("S2 thinking control visibility", () => {
@@ -335,6 +355,8 @@ describe("PromptAgentConfigMenu", () => {
     expect(promptInput).toContain("multiplier?: string");
     expect(promptInput).toContain("groupedPromptModelRows");
     expect(promptInput).toContain("row.type === \"header\"");
+    expect(promptInput).toContain("key={`group:${index}:${row.label}`}");
+    expect(promptInput).toContain('(option.group ?? "").trim() ? "pl-4 pr-2.5" : "px-2.5"');
     expect(promptInput).toContain("text-sm text-muted-foreground");
     expect(promptInput).not.toContain("` / ${provider}`");
     expect(promptInput).toContain("const fullLabel = modelLabelWithContext(optionName(option), isSelected ? contextSuffix : \"\")");

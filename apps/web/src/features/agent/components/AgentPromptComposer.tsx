@@ -30,6 +30,7 @@ import {
   ListTodo,
   MessageCircleQuestionMark,
   MessageSquare,
+  NotebookPen,
   PencilSparkles,
   Shield,
   ShieldAlert,
@@ -165,6 +166,12 @@ function modeIcon(value: string) {
   switch (compactModeId(value)) {
     case "plan":
       return <ListTodo className="size-3.5 shrink-0" />;
+    case "spec":
+      return <NotebookPen className="size-3.5 shrink-0" />;
+    case "auto":
+    case "default":
+    case "normal":
+      return <MessageSquare className="size-3.5 shrink-0" />;
     case "build":
       return <Hammer className="size-3.5 shrink-0" />;
     case "code":
@@ -173,9 +180,6 @@ function modeIcon(value: string) {
       return <MessageCircleQuestionMark className="size-3.5 shrink-0" />;
     case "agent":
       return <BotMessageSquare className="size-3.5 shrink-0" />;
-    case "default":
-    case "normal":
-      return <MessageSquare className="size-3.5 shrink-0" />;
     default:
       return <Layers className="size-3.5 shrink-0" />;
   }

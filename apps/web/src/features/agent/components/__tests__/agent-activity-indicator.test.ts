@@ -37,16 +37,18 @@ describe("agent activity indicator", () => {
     expect(source).toContain("WorkDurationClock");
     expect(source).toContain("DurationUnit");
     expect(source).toContain(
-      'className="flex w-full min-w-0 max-w-full items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground"',
+      'className="inline-flex min-w-0 max-w-full items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground"',
     );
     expect(source).toContain(
-      'className="relative flex h-5 min-w-0 flex-1 items-center overflow-hidden"',
+      'className="relative inline-flex h-5 min-w-0 items-center overflow-hidden"',
     );
+    expect(source).not.toContain("flex-1");
+    expect(source).not.toContain("flex w-full");
     expect(source).toContain(
       'className="block max-w-full truncate text-sm leading-5"',
     );
     expect(source).toContain(
-      '"inline-flex items-baseline font-mono text-sm tabular-nums leading-none text-muted-foreground"',
+      '"inline-flex shrink-0 items-baseline font-mono text-sm tabular-nums leading-none text-muted-foreground"',
     );
     expect(source).not.toContain("px-1");
     expect(source).not.toContain("py-1.5");

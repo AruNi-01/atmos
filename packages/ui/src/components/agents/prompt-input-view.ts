@@ -89,7 +89,7 @@ export type GroupedPromptRow<T> =
   | { type: "header"; label: string }
   | { type: "option"; option: T };
 
-/** Insert muted section headers when consecutive options share a `group`. */
+/** Cluster by `group` so the same header is not repeated, then insert muted labels. */
 export function groupedPromptModelRows<T extends { group?: string }>(
   options: T[],
 ): Array<GroupedPromptRow<T>> {
@@ -97,15 +97,32 @@ export function groupedPromptModelRows<T extends { group?: string }>(
   if (!hasGroup) {
     return options.map((option) => ({ type: "option", option }));
   }
-  const rows: Array<GroupedPromptRow<T>> = [];
-  let last = "";
+  const ungrouped: T[] = [];
+  const grouped = new Map<string, T[]>();
+  const order: string[] = [];
   for (const option of options) {
     const group = (option.group ?? "").trim();
-    if (group && group !== last) {
-      rows.push({ type: "header", label: group });
+    if (!group) {
+      ungrouped.push(option);
+      continue;
     }
-    last = group;
-    rows.push({ type: "option", option });
+    const bucket = grouped.get(group);
+    if (bucket) {
+      bucket.push(option);
+      continue;
+    }
+    order.push(group);
+    grouped.set(group, [option]);
+  }
+  const rows: Array<GroupedPromptRow<T>> = ungrouped.map((option) => ({
+    type: "option",
+    option,
+  }));
+  for (const label of order) {
+    rows.push({ type: "header", label });
+    for (const option of grouped.get(label) ?? []) {
+      rows.push({ type: "option", option });
+    }
   }
   return rows;
 }

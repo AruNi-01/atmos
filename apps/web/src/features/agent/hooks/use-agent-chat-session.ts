@@ -130,6 +130,11 @@ import {
   thinkingChoices,
   contextChoicesForModels,
   defaultContextChoiceId,
+  collapseDroidFastModels,
+  foldDroidFastSelection,
+  fastIdAfterModelChange,
+  rememberFastForModel,
+  modelsHavePerModelFast,
   type AgentChatHistoryRow,
 } from "@/features/agent/lib/agent-chat-thread";
 
@@ -288,6 +293,7 @@ export function useAgentChatSession({
   const [permissionModeId, setPermissionModeId] = useState(composerSeed.preferred.permissionModeId);
   const [fastId, setFastId] = useState(composerSeed.preferred.fastId);
   const [contextId, setContextId] = useState(composerSeed.preferred.contextId);
+  const fastByModelRef = useRef<Record<string, string>>({});
   const [catalog, setCatalogState] = useState<AgentOptionsSnapshot | null>(composerSeed.catalog);
   const [optionsRefreshing, setOptionsRefreshing] = useState(false);
   const catalogRef = useRef(catalog);
@@ -519,12 +525,27 @@ export function useAgentChatSession({
     setDescriptor(next);
     setSupportsSteer(next.capabilities.steer === "supported");
     if (opts?.keepComposerChrome) return;
-    setModelId(next.current_config.model ?? "");
+    const nextModel = next.current_config.model ?? "";
+    const nextFast = next.current_config.fast ?? "";
+    setModelId(nextModel);
     setThinkingId(next.current_config.thinking ?? "");
     setModeId(next.current_config.mode ?? "");
     setPermissionModeId(next.current_config.permission_mode ?? "");
-    setFastId(next.current_config.fast ?? "");
+    setFastId(nextFast);
     setContextId(next.current_config.context ?? "");
+    if (nextModel.trim() && nextFast.trim()) {
+      const folded = foldDroidFastSelection(
+        providerIdRef.current,
+        nextModel,
+        nextFast,
+        next.supported_options.models ?? [],
+      );
+      fastByModelRef.current = rememberFastForModel(
+        fastByModelRef.current,
+        folded.modelId,
+        folded.fastId || nextFast,
+      );
+    }
   }, []);
 
   const load = useCallback(async (id = activeChatId) => {
@@ -1982,12 +2003,44 @@ export function useAgentChatSession({
       context: contextId,
     };
     if (configKindMatches(key, undefined, "model")) {
-      setModelId(value);
-      next.model = value;
-      const choices = contextChoicesForModels(
-        descriptor?.supported_options.models ?? catalog?.models,
-        descriptor?.supported_options.context ?? catalog?.context,
+      const rawModels = descriptor?.supported_options.models ?? catalog?.models ?? [];
+      const models = collapseDroidFastModels(rawModels);
+      const folded = foldDroidFastSelection(
+        providerIdRef.current,
         value,
+        "",
+        models,
+      );
+      setModelId(folded.modelId);
+      next.model = folded.modelId;
+      if (modelsHavePerModelFast(models)) {
+        if (modelId.trim() && fastId.trim()) {
+          fastByModelRef.current = rememberFastForModel(
+            fastByModelRef.current,
+            modelId,
+            fastId,
+          );
+        }
+        if (folded.fastId === "true") {
+          fastByModelRef.current = rememberFastForModel(
+            fastByModelRef.current,
+            folded.modelId,
+            folded.fastId,
+          );
+        }
+        const nextFast = fastIdAfterModelChange({
+          nextModelId: folded.modelId,
+          models,
+          rememberedFastByModel: fastByModelRef.current,
+          sessionFastId: fastId,
+        });
+        setFastId(nextFast);
+        next.fast = nextFast;
+      }
+      const choices = contextChoicesForModels(
+        models,
+        descriptor?.supported_options.context ?? catalog?.context,
+        folded.modelId,
       );
       if (choices.length < 2) {
         setContextId("");
@@ -2009,6 +2062,13 @@ export function useAgentChatSession({
     } else if (configKindMatches(key, undefined, "fast")) {
       setFastId(value);
       next.fast = value;
+      if (modelId.trim()) {
+        fastByModelRef.current = rememberFastForModel(
+          fastByModelRef.current,
+          modelId,
+          value,
+        );
+      }
     } else if (configKindMatches(key, undefined, "context")) {
       setContextId(value);
       next.context = value;
@@ -2043,6 +2103,7 @@ export function useAgentChatSession({
 
   const setProviderId = useCallback((next: string) => {
     if (agentLocked) return;
+    fastByModelRef.current = {};
     setProviderIdState(next);
     const cached =
       optionsByAgentRef.current[next] ?? readComposerLocalCache().optionsByAgent[next];

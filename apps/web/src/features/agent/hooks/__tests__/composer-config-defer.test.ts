@@ -14,7 +14,8 @@ describe("composer config defer-until-send", () => {
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
     const body = session.slice(start, end);
-    expect(body).toContain('setModelId(value)');
+    expect(body).toContain("setModelId(folded.modelId)");
+    expect(body).toContain("fastIdAfterModelChange");
     expect(body).toContain('setModeId(value)');
     expect(body).toContain('setPermissionModeId(value)');
     expect(body).toContain('setThinkingId(value)');

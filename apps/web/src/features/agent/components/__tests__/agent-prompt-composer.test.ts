@@ -40,6 +40,9 @@ describe("agent prompt composer", () => {
     expect(composer).toContain("PencilSparkles");
     expect(composer).toContain("function modeIcon");
     expect(composer).toContain("ListTodo");
+    expect(composer).toContain("NotebookPen");
+    expect(composer).toContain('case "spec":');
+    expect(composer).toContain('case "auto":');
     expect(composer).toContain("Hammer");
     expect(composer).toContain("MessageSquare");
     expect(composer).toContain("MessageCircleQuestionMark");

@@ -28,6 +28,15 @@ import {
   composerConfigOptions,
   displayedComposerConfigValue,
   configKindMatches,
+  collapseDroidFastModels,
+  droidCleanDisplayLabel,
+  foldDroidFastSelection,
+  foldDroidComposerOptions,
+  foldDroidModePermissionSelection,
+  fastIdAfterModelChange,
+  isDroidChatProvider,
+  modelsHavePerModelFast,
+  rememberFastForModel,
 } from "@/features/agent/lib/agent-chat-thread";
 import type { AgentCapabilities, AgentDescriptor, AgentOptionSupport } from "@atmos/api-types/ws/dto/agent-chat";
 
@@ -311,6 +320,296 @@ describe("agent chat helpers", () => {
     ]);
   });
 
+  it("collapses Droid Fast Mode siblings into one model plus a Fast toggle", () => {
+    expect(isDroidChatProvider("factory-droid-acp")).toBe(true);
+    expect(droidCleanDisplayLabel("Opus 5 Fast Mode")).toBe("Opus 5");
+    expect(droidCleanDisplayLabel("GLM-5.2 Fast (Droid Core)")).toBe("GLM-5.2 (Droid Core)");
+    const collapsed = collapseDroidFastModels([
+      { id: "auto", label: "Auto Model" },
+      { id: "claude-fable-5", label: "Fable 5", group: "Anthropic", multiplier: "4x" },
+      { id: "claude-opus-5", label: "Opus 5", group: "Anthropic", multiplier: "2x" },
+      { id: "claude-opus-5-fast", label: "Opus 5 Fast Mode", multiplier: "4x" },
+      { id: "claude-opus-4-8", label: "Opus 4.8", group: "Anthropic", multiplier: "2x" },
+      { id: "claude-opus-4-8-fast", label: "Opus 4.8 Fast Mode" },
+      { id: "claude-opus-4-7", label: "Opus 4.7", group: "Anthropic", multiplier: "2x" },
+    ]);
+    expect(collapsed.map((model) => ({
+      id: model.id,
+      label: model.label,
+      fast: Boolean(model.fast),
+      group: model.group,
+    }))).toEqual([
+      { id: "auto", label: "Auto Model", fast: false, group: undefined },
+      { id: "claude-fable-5", label: "Fable 5", fast: false, group: "Anthropic" },
+      { id: "claude-opus-5", label: "Opus 5", fast: true, group: "Anthropic" },
+      { id: "claude-opus-4-8", label: "Opus 4.8", fast: true, group: "Anthropic" },
+      { id: "claude-opus-4-7", label: "Opus 4.7", fast: false, group: "Anthropic" },
+    ]);
+    expect(collapsed.find((model) => model.id === "claude-opus-5")?.fast_multiplier).toBe("4x");
+    expect(foldDroidFastSelection(
+      "factory-droid",
+      "claude-opus-5-fast",
+      "",
+      collapsed,
+    )).toEqual({ modelId: "claude-opus-5", fastId: "true" });
+
+    const options = optionsSnapshotToConfigOptions(
+      {
+        agent_id: "factory-droid",
+        status: "ok",
+        models: [
+          { id: "claude-opus-5", label: "Opus 5", group: "Anthropic", multiplier: "2x" },
+          { id: "claude-opus-5-fast", label: "Opus 5 Fast Mode" },
+          { id: "claude-opus-4-8", label: "Opus 4.8", group: "Anthropic", multiplier: "2x" },
+          { id: "claude-opus-4-8-fast", label: "Opus 4.8 Fast Mode" },
+        ],
+        modes: [],
+        thinking: { type: "none" },
+        strategies_used: [],
+        fetched_at: "",
+        source: "cache",
+        message: null,
+      },
+      "claude-opus-5-fast",
+      "",
+    );
+    expect(options.find((item) => item.id === "model")?.options).toEqual([
+      {
+        value: "claude-opus-5",
+        name: "Opus 5",
+        group: "Anthropic",
+        multiplier: "2x",
+      },
+      { value: "claude-opus-4-8", name: "Opus 4.8", group: "Anthropic", multiplier: "2x" },
+    ]);
+    expect(options.find((item) => item.id === "model")?.currentValue).toBe("claude-opus-5");
+    expect(options.find((item) => item.id === "fast")?.currentValue).toBe("true");
+  });
+
+  it("folds Droid Auto (Off/Low/Medium/High) out of Mode into Permission", () => {
+    expect(foldDroidModePermissionSelection(
+      "factory-droid",
+      "Auto (Off)",
+      "",
+    )).toEqual({ modeId: "auto", permissionId: "ask_always" });
+    expect(foldDroidModePermissionSelection(
+      "factory-droid",
+      "Auto (High)",
+      "",
+    )).toEqual({ modeId: "auto", permissionId: "auto" });
+    const folded = foldDroidComposerOptions(
+      "factory-droid",
+      [
+        { id: "Auto (Off)", label: "Auto (Off)" },
+        { id: "spec", label: "Spec" },
+        { id: "Auto (Low)", label: "Auto (Low)" },
+        { id: "Auto (Medium)", label: "Auto (Medium)" },
+        { id: "Auto (High)", label: "Auto (High)", is_default: true },
+      ],
+    );
+    expect(folded.modes.map((item) => item.id)).toEqual(["auto", "spec"]);
+    expect(folded.permissionModes.map((item) => item.id)).toEqual([
+      "yolo",
+      "accept_edits",
+      "auto",
+      "ask_always",
+    ]);
+    expect(folded.permissionModes.find((item) => item.id === "auto")?.is_default).toBe(true);
+
+    const options = optionsSnapshotToConfigOptions(
+      {
+        agent_id: "factory-droid",
+        status: "ok",
+        models: [{ id: "glm-5", label: "GLM 5" }],
+        modes: [
+          { id: "Auto (Off)", label: "Auto (Off)" },
+          { id: "spec", label: "Spec" },
+          { id: "Auto (Low)", label: "Auto (Low)" },
+          { id: "Auto (Medium)", label: "Auto (Medium)" },
+          { id: "Auto (High)", label: "Auto (High)" },
+        ],
+        permission_modes: [],
+        thinking: { type: "none" },
+        strategies_used: [],
+        fetched_at: "",
+        source: "cache",
+        message: null,
+      },
+      "glm-5",
+      "",
+      "Auto (High)",
+      "",
+    );
+    expect(options.find((item) => item.id === "mode")?.options.map((item) => item.value)).toEqual([
+      "auto",
+      "spec",
+    ]);
+    expect(options.find((item) => item.id === "mode")?.currentValue).toBe("auto");
+    expect(
+      options.find((item) => item.id === "permission_mode")?.options.map((item) => item.value),
+    ).toEqual(["yolo", "accept_edits", "auto", "ask_always"]);
+    expect(options.find((item) => item.id === "permission_mode")?.currentValue).toBe("auto");
+
+    const filled = fillEmptyDescriptorOptionsFromSnapshot(
+      {
+        identity: { id: "factory-droid", name: "Factory Droid" },
+        capabilities: {
+          steer: "unsupported",
+          resume: "supported",
+          permission: "supported",
+          configure: "supported",
+          fork: "unsupported",
+          rewind: "unsupported",
+        },
+        support: {
+          models: "supported",
+          thinking: "unsupported",
+          modes: "supported",
+          permission_modes: "supported",
+        },
+        supported_options: {
+          models: [{ id: "glm-5", label: "GLM 5" }],
+          thinking: { type: "none" },
+          modes: [
+            { id: "Auto (Off)", label: "Auto (Off)" },
+            { id: "spec", label: "Spec" },
+            { id: "Auto (Low)", label: "Auto (Low)" },
+            { id: "Auto (Medium)", label: "Auto (Medium)" },
+            { id: "Auto (High)", label: "Auto (High)" },
+          ],
+          permission_modes: [],
+        },
+        current_config: { model: "glm-5", mode: "Auto (High)" },
+      },
+      {
+        agent_id: "factory-droid",
+        status: "ok",
+        models: [{ id: "glm-5", label: "GLM 5" }],
+        modes: [],
+        thinking: { type: "none" },
+        strategies_used: [],
+        fetched_at: "",
+        source: "cache",
+        message: null,
+      },
+    );
+    expect(filled.supported_options.modes.map((item) => item.id)).toEqual(["auto", "spec"]);
+    expect(filled.current_config.mode).toBe("auto");
+    expect(filled.current_config.permission_mode).toBe("auto");
+    const fromDescriptor = descriptorToConfigOptions(filled);
+    expect(fromDescriptor.find((item) => item.id === "mode")?.options.map((item) => item.value))
+      .toEqual(["auto", "spec"]);
+    expect(fromDescriptor.find((item) => item.id === "mode")?.currentValue).toBe("auto");
+  });
+
+  it("collapses live Droid Fast Mode siblings when filling from catalog groups", () => {
+    const descriptor: AgentDescriptor = {
+      identity: { id: "factory-droid", name: "Factory Droid" },
+      capabilities: {
+        steer: "unsupported",
+        resume: "supported",
+        permission: "supported",
+        configure: "supported",
+        fork: "unsupported",
+        rewind: "unsupported",
+      },
+      support: {
+        models: "supported",
+        thinking: "supported",
+        modes: "supported",
+        permission_modes: "supported",
+        fast: "supported",
+      },
+      supported_options: {
+        models: [
+          { id: "claude-opus-5", label: "Opus 5" },
+          { id: "claude-opus-5-fast", label: "Opus 5 Fast Mode" },
+          { id: "claude-opus-4-8", label: "Opus 4.8" },
+          { id: "claude-opus-4-8-fast", label: "Opus 4.8 Fast Mode" },
+        ],
+        thinking: { type: "none" },
+        modes: [],
+        permission_modes: [],
+        fast: [],
+      },
+      current_config: { model: "claude-opus-5-fast" },
+    };
+    const filled = fillEmptyDescriptorOptionsFromSnapshot(descriptor, {
+      agent_id: "factory-droid",
+      status: "ok",
+      models: [
+        { id: "claude-opus-5", label: "Opus 5", group: "Anthropic", multiplier: "2x", fast: true, fast_multiplier: "4x" },
+        { id: "claude-opus-4-8", label: "Opus 4.8", group: "Anthropic", multiplier: "2x", fast: true },
+      ],
+      modes: [],
+      permission_modes: [],
+      thinking: { type: "none" },
+      strategies_used: [],
+      fetched_at: "",
+      source: "cache",
+      message: null,
+    });
+    expect(filled.supported_options.models.map((model) => ({
+      id: model.id,
+      label: model.label,
+      fast: Boolean(model.fast),
+      group: model.group,
+    }))).toEqual([
+      { id: "claude-opus-5", label: "Opus 5", fast: true, group: "Anthropic" },
+      { id: "claude-opus-4-8", label: "Opus 4.8", fast: true, group: "Anthropic" },
+    ]);
+    expect(filled.current_config.model).toBe("claude-opus-5");
+    expect(filled.current_config.fast).toBe("true");
+    expect(descriptorToConfigOptions(filled).find((item) => item.id === "fast")).toBeTruthy();
+  });
+
+  it("keeps Fast per model instead of carrying session Fast across Droid models", () => {
+    const models = [
+      { id: "claude-opus-5", fast: true },
+      { id: "claude-opus-4-8", fast: true },
+      { id: "claude-fable-5" },
+    ];
+    expect(modelsHavePerModelFast(models)).toBe(true);
+    expect(rememberFastForModel({}, "claude-opus-5", "true")).toEqual({
+      "claude-opus-5": "true",
+    });
+    expect(fastIdAfterModelChange({
+      nextModelId: "claude-opus-4-8",
+      models,
+      rememberedFastByModel: {},
+      sessionFastId: "true",
+    })).toBe("false");
+    expect(fastIdAfterModelChange({
+      nextModelId: "claude-opus-4-8",
+      models,
+      rememberedFastByModel: { "claude-opus-4-8": "true" },
+      sessionFastId: "false",
+    })).toBe("true");
+    expect(fastIdAfterModelChange({
+      nextModelId: "claude-fable-5",
+      models,
+      rememberedFastByModel: {},
+      sessionFastId: "true",
+    })).toBe("");
+    expect(fastIdAfterModelChange({
+      nextModelId: "claude-opus-5",
+      models: [
+        { id: "claude-opus-5" },
+        { id: "claude-opus-5-fast" },
+        { id: "claude-opus-4-8" },
+        { id: "claude-opus-4-8-fast" },
+      ],
+      rememberedFastByModel: {},
+      sessionFastId: "true",
+    })).toBe("false");
+    expect(fastIdAfterModelChange({
+      nextModelId: "sonnet",
+      models: [{ id: "sonnet" }, { id: "opus" }],
+      rememberedFastByModel: {},
+      sessionFastId: "true",
+    })).toBe("true");
+  });
+
   it("shows an ACP-reported model before the catalog list arrives", () => {
     const options = optionsSnapshotToConfigOptions(
       probingOptionsSnapshot("claude"),
@@ -407,6 +706,8 @@ describe("agent chat helpers", () => {
     expect(thinkingLevelMessageKey("extra_high")).toBe("extraHigh");
     expect(permissionModeMessageKey("yolo")).toBe("yolo");
     expect(permissionModeMessageKey("bypassPermissions")).toBe("yolo");
+    expect(permissionModeMessageKey("skip-permissions-unsafe")).toBe("yolo");
+    expect(permissionModeMessageKey("Auto (Low)")).toBe("acceptEdits");
     expect(permissionModeMessageKey("accept_edits")).toBe("acceptEdits");
     expect(permissionModeMessageKey("auto")).toBe("auto");
     expect(permissionModeMessageKey("ask_always")).toBe("askAlways");

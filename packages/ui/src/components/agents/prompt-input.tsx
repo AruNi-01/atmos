@@ -919,11 +919,11 @@ function PromptAgentConfigMenu({
                   {labels.noResults}
                 </div>
               ) : (
-                groupedModels.map((row) => {
+                groupedModels.map((row, index) => {
                   if (row.type === "header") {
                     return (
                       <div
-                        key={`group:${row.label}`}
+                        key={`group:${index}:${row.label}`}
                         className="px-2.5 pt-2 pb-0.5 text-xs text-muted-foreground"
                       >
                         {row.label}
@@ -953,7 +953,8 @@ function PromptAgentConfigMenu({
                             disabled={option.disabled || modelsLocked}
                             onClick={() => onModelChange(option.value)}
                             className={cn(
-                              "flex min-w-0 flex-1 gap-2 px-2.5 py-2 text-left text-sm outline-none",
+                              "flex min-w-0 flex-1 gap-2 py-2 text-left text-sm outline-none",
+                              (option.group ?? "").trim() ? "pl-4 pr-2.5" : "px-2.5",
                               option.description ? "items-start" : "items-center",
                               "disabled:pointer-events-none disabled:opacity-50",
                             )}

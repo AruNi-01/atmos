@@ -116,7 +116,7 @@ export function thinkingLevelMessageKey(value: string): string | null {
 }
 
 function compactConfigId(value: string): string {
-  return value.trim().toLowerCase().replace(/[-_]/g, "");
+  return value.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 export function permissionModeMessageKey(value: string): string | null {
@@ -127,16 +127,22 @@ export function permissionModeMessageKey(value: string): string | null {
     case "never":
     case "allow":
     case "alwaysapprove":
+    case "skippermissionsunsafe":
+    case "skippermissions":
       return "yolo";
     case "acceptedits":
+    case "autolow":
       return "acceptEdits";
     case "auto":
+    case "automedium":
+    case "autohigh":
       return "auto";
     case "askalways":
     case "default":
     case "ask":
     case "onrequest":
     case "manual":
+    case "autooff":
       return "askAlways";
     default:
       return null;
@@ -287,6 +293,338 @@ export function selectedModelSupportsFast(
   return (sessionFast?.length ?? 0) > 0;
 }
 
+const DROID_FAST_ID_SUFFIX = "-fast";
+
+export function isDroidChatProvider(providerId: string): boolean {
+  const compact = providerId.trim().toLowerCase().replace(/_/g, "-");
+  return compact === "droid"
+    || compact === "factory-droid"
+    || compact.startsWith("factory-droid-");
+}
+
+export function droidFastBase(id: string): string | null {
+  const trimmed = id.trim();
+  if (!trimmed.endsWith(DROID_FAST_ID_SUFFIX) || trimmed.length <= DROID_FAST_ID_SUFFIX.length) {
+    return null;
+  }
+  return trimmed.slice(0, -DROID_FAST_ID_SUFFIX.length);
+}
+
+export function droidCleanDisplayLabel(label: string): string {
+  const trimmed = label.trim();
+  if (!trimmed) return "";
+  const { body, suffix } = splitTrailingParens(trimmed);
+  let next = body;
+  const lower = next.toLowerCase();
+  for (const ending of [" fast mode", " fast"]) {
+    if (lower.endsWith(ending)) {
+      next = next.slice(0, next.length - ending.length).trimEnd();
+      break;
+    }
+  }
+  if (!suffix) return next;
+  return next ? `${next} ${suffix}` : suffix;
+}
+
+function splitTrailingParens(label: string): { body: string; suffix: string } {
+  if (!label.endsWith(")")) return { body: label, suffix: "" };
+  const start = label.lastIndexOf("(");
+  if (start <= 0) return { body: label, suffix: "" };
+  return {
+    body: label.slice(0, start).trimEnd(),
+    suffix: label.slice(start),
+  };
+}
+
+type DroidCollapseModel = {
+  id: string;
+  label?: string | null;
+  group?: string | null;
+  is_default?: boolean;
+  fast?: boolean | null;
+  thinking?: AgentThinkingSupport | ThinkingShape | null;
+  context?: unknown;
+  multiplier?: string | null;
+  fast_multiplier?: string | null;
+};
+
+export function collapseDroidFastModels<T extends DroidCollapseModel>(models: T[]): T[] {
+  if (models.length < 2) return models;
+  const ids = new Set(models.map((model) => model.id));
+  const hasPair = models.some((model) => {
+    const base = droidFastBase(model.id);
+    return Boolean(base && ids.has(base)) || ids.has(`${model.id}${DROID_FAST_ID_SUFFIX}`);
+  });
+  if (!hasPair) return models;
+
+  type Group<TModel> = { order: number; model: TModel; label: string; hasFast: boolean };
+  const groups = new Map<string, Group<T>>();
+  const unpairedFast: T[] = [];
+  let order = 0;
+  for (const model of models) {
+    const id = model.id.trim();
+    if (!id) continue;
+    const base = droidFastBase(id);
+    if (base) {
+      if (!ids.has(base)) {
+        unpairedFast.push(model);
+        continue;
+      }
+      const entry = groups.get(base) ?? {
+        order: order++,
+        model,
+        label: "",
+        hasFast: true,
+      };
+      entry.hasFast = true;
+      mergeDroidFastGroup(entry, model, true);
+      groups.set(base, entry);
+      continue;
+    }
+    const entry = groups.get(id) ?? {
+      order: order++,
+      model,
+      label: "",
+      hasFast: ids.has(`${id}${DROID_FAST_ID_SUFFIX}`),
+    };
+    if (ids.has(`${id}${DROID_FAST_ID_SUFFIX}`)) entry.hasFast = true;
+    mergeDroidFastGroup(entry, model, false);
+    groups.set(id, entry);
+  }
+  return [
+    ...[...groups.entries()]
+      .sort((left, right) => left[1].order - right[1].order)
+      .map(([id, group]) => ({
+        ...group.model,
+        id,
+        label: group.label || id,
+        fast: group.hasFast,
+      })),
+    ...unpairedFast,
+  ];
+}
+
+function mergeDroidFastGroup<T extends DroidCollapseModel>(
+  entry: { model: T; label: string },
+  model: T,
+  fromFast: boolean,
+) {
+  if (model.is_default) {
+    entry.model = { ...entry.model, is_default: true };
+  }
+  if (!(entry.model.group ?? "").toString().trim() && (model.group ?? "").toString().trim()) {
+    entry.model = { ...entry.model, group: model.group };
+  }
+  if (Array.isArray(model.context) && model.context.length >= 2) {
+    const existing = entry.model.context;
+    if (!Array.isArray(existing) || existing.length < 2) {
+      entry.model = { ...entry.model, context: model.context };
+    }
+  }
+  if (thinkingIsUsable(model.thinking) && !thinkingIsUsable(entry.model.thinking)) {
+    entry.model = { ...entry.model, thinking: model.thinking };
+  }
+  if (fromFast) {
+    const fastMultiplier = model.fast_multiplier?.trim() || model.multiplier?.trim() || "";
+    if (fastMultiplier && !entry.model.fast_multiplier?.trim()) {
+      entry.model = { ...entry.model, fast_multiplier: fastMultiplier };
+    }
+  }
+  const cleaned = droidCleanDisplayLabel(model.label ?? "");
+  if (!cleaned) return;
+  if (!entry.label || !fromFast) entry.label = cleaned;
+  if (!fromFast) {
+    entry.model = {
+      ...model,
+      is_default: Boolean(entry.model.is_default || model.is_default),
+      group: entry.model.group || model.group,
+      thinking: thinkingIsUsable(entry.model.thinking) ? entry.model.thinking : model.thinking,
+      context: Array.isArray(entry.model.context) && entry.model.context.length >= 2
+        ? entry.model.context
+        : model.context,
+      fast_multiplier: entry.model.fast_multiplier || model.fast_multiplier,
+    };
+  }
+}
+
+function thinkingIsUsable(
+  thinking: AgentThinkingSupport | ThinkingShape | null | undefined,
+): boolean {
+  return Boolean(thinking) && thinking?.type !== "none";
+}
+
+function collapseDroidFastModelsIfNeeded<T extends DroidCollapseModel>(
+  providerId: string,
+  models: T[],
+): T[] {
+  return isDroidChatProvider(providerId) ? collapseDroidFastModels(models) : models;
+}
+
+export function foldDroidFastSelection(
+  providerId: string,
+  modelId: string,
+  fastId: string,
+  models: Array<{ id: string }>,
+): { modelId: string; fastId: string } {
+  if (!isDroidChatProvider(providerId)) return { modelId, fastId };
+  const base = droidFastBase(modelId);
+  if (!base) return { modelId, fastId };
+  if (models.length > 0 && !models.some((model) => model.id === base)) {
+    return { modelId, fastId };
+  }
+  return { modelId: base, fastId: "true" };
+}
+
+function compactDroidToken(raw: string): string {
+  return raw.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+export function droidInteractionWire(raw: string): "auto" | "spec" {
+  switch (compactDroidToken(raw)) {
+    case "spec":
+    case "specmode":
+    case "specification":
+    case "usespec":
+    case "plan":
+      return "spec";
+    default:
+      return "auto";
+  }
+}
+
+function droidAutonomyId(raw: string): "yolo" | "accept_edits" | "auto" | "ask_always" | null {
+  switch (compactDroidToken(raw)) {
+    case "skippermissionsunsafe":
+    case "skippermissions":
+      return "yolo";
+    case "low":
+    case "autolow":
+      return "accept_edits";
+    case "medium":
+    case "automedium":
+    case "high":
+    case "autohigh":
+      return "auto";
+    case "off":
+    case "readonly":
+    case "autooff":
+      return "ask_always";
+    default: {
+      const key = permissionModeMessageKey(raw);
+      if (key === "yolo") return "yolo";
+      if (key === "acceptEdits") return "accept_edits";
+      if (key === "askAlways") return "ask_always";
+      if (key === "auto" && compactDroidToken(raw) !== "auto") return "auto";
+      return null;
+    }
+  }
+}
+
+type DroidComposerMode = { id: string; label?: string | null; is_default?: boolean };
+
+export function foldDroidComposerOptions<T extends DroidComposerMode>(
+  providerId: string,
+  modes: T[],
+  permissionModes: T[] = [],
+): { modes: T[]; permissionModes: T[] } {
+  if (!isDroidChatProvider(providerId)) return { modes, permissionModes };
+  let specDefault = false;
+  let defaultPermission: ReturnType<typeof droidAutonomyId> = null;
+  for (const item of modes) {
+    if (droidInteractionWire(item.id) === "spec" || droidInteractionWire(item.label ?? "") === "spec") {
+      if (item.is_default) specDefault = true;
+    }
+    if (item.is_default) {
+      defaultPermission = droidAutonomyId(item.id) ?? droidAutonomyId(item.label ?? "") ?? defaultPermission;
+    }
+  }
+  for (const item of permissionModes) {
+    if (!item.is_default) continue;
+    const mapped = droidAutonomyId(item.id)
+      ?? (permissionModeMessageKey(item.id) === "auto" ? "auto" : null);
+    if (mapped) defaultPermission = mapped;
+  }
+  const nextModes = [
+    { id: "auto", label: "Auto", is_default: !specDefault },
+    { id: "spec", label: "Spec", is_default: specDefault },
+  ] as T[];
+  const nextPermission = [
+    { id: "yolo", label: "Yolo", is_default: defaultPermission === "yolo" },
+    { id: "accept_edits", label: "Accept edits", is_default: defaultPermission === "accept_edits" },
+    { id: "auto", label: "Auto", is_default: defaultPermission === "auto" },
+    {
+      id: "ask_always",
+      label: "Ask always",
+      is_default: defaultPermission === "ask_always" || defaultPermission == null,
+    },
+  ] as T[];
+  if (defaultPermission) {
+    for (const item of nextPermission) {
+      item.is_default = item.id === defaultPermission;
+    }
+  }
+  return { modes: nextModes, permissionModes: nextPermission };
+}
+
+export function foldDroidModePermissionSelection(
+  providerId: string,
+  modeId: string,
+  permissionId: string,
+): { modeId: string; permissionId: string } {
+  if (!isDroidChatProvider(providerId)) return { modeId, permissionId };
+  let nextMode = modeId;
+  let nextPermission = permissionId;
+  if (modeId.trim()) {
+    const autonomy = droidAutonomyId(modeId);
+    if (autonomy && !droidAutonomyId(permissionId) && permissionModeMessageKey(permissionId) !== "auto") {
+      nextPermission = autonomy;
+    }
+    nextMode = droidInteractionWire(modeId);
+  }
+  if (permissionId.trim()) {
+    const mapped = droidAutonomyId(permissionId)
+      ?? (permissionModeMessageKey(permissionId) === "auto" ? "auto" : null);
+    if (mapped) nextPermission = mapped;
+  }
+  return { modeId: nextMode, permissionId: nextPermission };
+}
+
+/** Droid/Cursor stamp `fast` on capable rows. Claude/Codex keep a session-wide toggle. */
+export function modelsHavePerModelFast(
+  models: Array<{ fast?: boolean | null }> | null | undefined,
+): boolean {
+  return (models ?? []).some((model) => Boolean(model.fast));
+}
+
+export function rememberFastForModel(
+  remembered: Record<string, string>,
+  modelId: string,
+  fastId: string,
+): Record<string, string> {
+  const id = modelId.trim();
+  const fast = fastId.trim();
+  if (!id || !fast) return remembered;
+  if (remembered[id] === fast) return remembered;
+  return { ...remembered, [id]: fast };
+}
+
+/** Per-model Fast stays with that model; session-wide Fast is left alone. */
+export function fastIdAfterModelChange(input: {
+  nextModelId: string;
+  models: Array<{ id: string; fast?: boolean | null }>;
+  rememberedFastByModel: Record<string, string>;
+  sessionFastId: string;
+}): string {
+  const models = collapseDroidFastModels(input.models);
+  if (!modelsHavePerModelFast(models)) return input.sessionFastId;
+  const nextId = input.nextModelId.trim();
+  const next = models.find((model) => model.id === nextId);
+  if (!next?.fast) return "";
+  const remembered = input.rememberedFastByModel[nextId]?.trim();
+  if (remembered) return remembered;
+  return "false";
+}
+
 function modelsHavePerModelThinking(
   models: Array<{ thinking?: AgentThinkingSupport | ThinkingShape | null }>,
 ): boolean {
@@ -340,8 +678,28 @@ export function optionsSnapshotToConfigOptions(
   fastId = "",
 ): AgentConfigOption[] {
   if (!catalog) return [];
+  const collapsedModels = collapseDroidFastModelsIfNeeded(catalog.agent_id, catalog.models);
+  if (collapsedModels !== catalog.models) {
+    catalog = { ...catalog, models: collapsedModels };
+  }
+  ({ modelId, fastId } = foldDroidFastSelection(
+    catalog.agent_id,
+    modelId,
+    fastId,
+    catalog.models,
+  ));
+  const composer = foldDroidComposerOptions(
+    catalog.agent_id,
+    catalog.modes ?? [],
+    catalog.permission_modes ?? [],
+  );
+  ({ modeId, permissionId: permissionModeId } = foldDroidModePermissionSelection(
+    catalog.agent_id,
+    modeId,
+    permissionModeId,
+  ));
   const options: AgentConfigOption[] = [];
-  const permissionModes = catalog.permission_modes ?? [];
+  const permissionModes = composer.permissionModes;
   if (permissionModes.length > 0) {
     const listed = permissionModes.map((mode) => mode.id);
     const defaultPermissionMode =
@@ -360,16 +718,16 @@ export function optionsSnapshotToConfigOptions(
       })),
     });
   }
-  if (catalog.modes.length > 0) {
-    const listed = catalog.modes.map((mode) => mode.id);
+  if (composer.modes.length > 0) {
+    const listed = composer.modes.map((mode) => mode.id);
     const defaultMode =
-      catalog.modes.find((mode) => mode.is_default)?.id || listed[0] || "";
+      composer.modes.find((mode) => mode.is_default)?.id || listed[0] || "";
     options.push({
       id: "mode",
       name: "Mode",
       type: "select",
       currentValue: matchListedConfigValue(listed, modeId, "mode") || defaultMode,
-      options: catalog.modes.map((mode) => ({
+      options: composer.modes.map((mode) => ({
         value: mode.id,
         name: mode.label || mode.id,
       })),
@@ -546,6 +904,11 @@ export function composerConfigOptions(args: {
   fastId?: string;
   contextId?: string;
 }): AgentConfigOption[] {
+  const { modeId, permissionId: permissionModeId } = foldDroidModePermissionSelection(
+    args.providerId,
+    args.modeId,
+    args.permissionModeId,
+  );
   const matched = descriptorForComposerProvider(args.descriptor, args.providerId);
   const filled = matched
     ? fillEmptyDescriptorOptionsFromSnapshot(matched, args.catalog)
@@ -556,16 +919,16 @@ export function composerConfigOptions(args: {
         args.catalog,
         args.modelId,
         args.thinkingId,
-        args.modeId,
-        args.permissionModeId,
+        modeId,
+        permissionModeId,
         args.contextId,
         args.fastId,
       );
   return overlayPendingConfigValues(base, {
     modelId: args.modelId,
-    modeId: args.modeId,
+    modeId,
     thinkingId: args.thinkingId,
-    permissionModeId: args.permissionModeId,
+    permissionModeId,
     fastId: args.fastId,
     contextId: args.contextId,
   });
@@ -688,15 +1051,20 @@ export function fillEmptyDescriptorOptionsFromSnapshot(
         thinkingSupportIsEmpty(options.thinking)
       )
     );
+  const sourceModels = preferCatalogModels
+    ? catalog.models
+    : options.models.length > 0
+      ? options.models
+      : catalog.models;
+  const collapsedSource = collapseDroidFastModelsIfNeeded(
+    catalog.agent_id,
+    sourceModels,
+  );
   const models = overlayCatalogModelLabels(
     overlayCatalogModelFast(
       overlayCatalogModelContext(
         overlayCatalogModelThinking(
-          preferCatalogModels
-            ? catalog.models
-            : options.models.length > 0
-              ? options.models
-              : catalog.models,
+          collapsedSource,
           catalog.models,
         ),
         catalog.models,
@@ -705,13 +1073,18 @@ export function fillEmptyDescriptorOptionsFromSnapshot(
     ),
     catalog.models,
   );
-  const modes = (options.modes?.length ?? 0) > 0 ? options.modes : catalog.modes;
-  const permissionModes = preferRicherPermissionModes(
-    (options.permission_modes?.length ?? 0) > 0
-      ? options.permission_modes
-      : catalog.permission_modes,
-    catalog.permission_modes,
+  const composer = foldDroidComposerOptions(
+    catalog.agent_id,
+    (options.modes?.length ?? 0) > 0 ? options.modes : catalog.modes,
+    preferRicherPermissionModes(
+      (options.permission_modes?.length ?? 0) > 0
+        ? options.permission_modes
+        : catalog.permission_modes,
+      catalog.permission_modes,
+    ),
   );
+  const modes = composer.modes;
+  const permissionModes = composer.permissionModes;
   const thinking =
     preferCatalogThinking
       ? catalog.thinking
@@ -734,6 +1107,17 @@ export function fillEmptyDescriptorOptionsFromSnapshot(
       : models.some((model) => model.fast)
         ? booleanFastModes()
         : [];
+  const folded = foldDroidFastSelection(
+    catalog.agent_id,
+    descriptor.current_config.model || "",
+    descriptor.current_config.fast || "",
+    models,
+  );
+  const selection = foldDroidModePermissionSelection(
+    catalog.agent_id,
+    descriptor.current_config.mode || "",
+    descriptor.current_config.permission_mode || "",
+  );
   return {
     ...descriptor,
     supported_options: {
@@ -746,6 +1130,22 @@ export function fillEmptyDescriptorOptionsFromSnapshot(
       context: (options.context?.length ?? 0) >= 2
         ? options.context
         : catalog.context,
+    },
+    current_config: {
+      ...descriptor.current_config,
+      ...(folded.modelId && folded.modelId !== descriptor.current_config.model
+        ? { model: folded.modelId }
+        : {}),
+      ...(folded.fastId && folded.fastId !== (descriptor.current_config.fast || "")
+        ? { fast: folded.fastId }
+        : {}),
+      ...(selection.modeId && selection.modeId !== (descriptor.current_config.mode || "")
+        ? { mode: selection.modeId }
+        : {}),
+      ...(selection.permissionId
+        && selection.permissionId !== (descriptor.current_config.permission_mode || "")
+        ? { permission_mode: selection.permissionId }
+        : {}),
     },
   };
 }
@@ -930,10 +1330,30 @@ export function descriptorToConfigOptions(
 ): AgentConfigOption[] {
   const options: AgentConfigOption[] = [];
   const support = descriptor.support;
-  const permissionModes = descriptor.supported_options.permission_modes ?? [];
-  const modes = descriptor.supported_options.modes ?? [];
-  const models = descriptor.supported_options.models;
+  const composer = foldDroidComposerOptions(
+    descriptor.identity.id,
+    descriptor.supported_options.modes ?? [],
+    descriptor.supported_options.permission_modes ?? [],
+  );
+  const permissionModes = composer.permissionModes;
+  const modes = composer.modes;
+  const models = collapseDroidFastModelsIfNeeded(
+    descriptor.identity.id,
+    descriptor.supported_options.models,
+  );
   const current = descriptor.current_config;
+  const folded = foldDroidFastSelection(
+    descriptor.identity.id,
+    selectedModelId || current.model || "",
+    current.fast || "",
+    models,
+  );
+  selectedModelId = folded.modelId;
+  const selection = foldDroidModePermissionSelection(
+    descriptor.identity.id,
+    current.mode || "",
+    current.permission_mode || "",
+  );
   if (optionSupportEnabled(support, "permission_modes") && permissionModes.length > 0) {
     const listed = permissionModes.map((mode) => mode.id);
     const defaultPermissionMode =
@@ -945,7 +1365,7 @@ export function descriptorToConfigOptions(
       type: "select",
       // Map vendor ids (e.g. Claude/Cursor `default`) onto Atmos listed ids.
       currentValue:
-        matchListedConfigValue(listed, current.permission_mode || "", "permission_mode")
+        matchListedConfigValue(listed, selection.permissionId, "permission_mode")
         || defaultPermissionMode,
       options: permissionModes.map((mode) => ({
         value: mode.id,
@@ -961,7 +1381,7 @@ export function descriptorToConfigOptions(
       name: "Mode",
       type: "select",
       // Keep each agent's own mode ids; only fall back when current is missing/unknown.
-      currentValue: matchListedConfigValue(listed, current.mode || "", "mode") || defaultMode,
+      currentValue: matchListedConfigValue(listed, selection.modeId, "mode") || defaultMode,
       options: modes.map((mode) => ({
         value: mode.id,
         name: mode.label || mode.id,
@@ -1011,7 +1431,7 @@ export function descriptorToConfigOptions(
       })),
     });
     if (optionSupportEnabled(support, "thinking")) {
-      const thinking = descriptorThinkingChoices(descriptor, modelId);
+      const thinking = descriptorThinkingChoices(descriptor, modelId, models);
       if (thinking.length > 0) {
         options.push({
           id: "thinking",
@@ -1041,15 +1461,19 @@ export function descriptorToConfigOptions(
         })),
       });
     }
-    const sessionFast = descriptor.supported_options.fast ?? [];
+    const sessionFast = (descriptor.supported_options.fast?.length ?? 0) > 0
+      ? descriptor.supported_options.fast ?? []
+      : models.some((model) => model.fast)
+        ? booleanFastModes()
+        : [];
     if (
-      optionSupportEnabled(support, "fast")
+      (optionSupportEnabled(support, "fast") || sessionFast.length > 0)
       && selectedModelSupportsFast(models, modelId, sessionFast)
     ) {
       const fastModes = sessionFast.length > 0 ? sessionFast : booleanFastModes();
       const defaultFast = fastModes.find((mode) => mode.is_default)?.id || fastModes[0]?.id || "";
       const listedFast = new Set(fastModes.map((mode) => mode.id));
-      const currentFast = current.fast?.trim() || "";
+      const currentFast = folded.fastId.trim() || current.fast?.trim() || "";
       options.push({
         id: "fast",
         name: "Fast",
@@ -1065,8 +1489,11 @@ export function descriptorToConfigOptions(
   return options;
 }
 
-function descriptorThinkingChoices(descriptor: AgentDescriptor, modelId: string): string[] {
-  const models = descriptor.supported_options.models;
+function descriptorThinkingChoices(
+  descriptor: AgentDescriptor,
+  modelId: string,
+  models = descriptor.supported_options.models,
+): string[] {
   const model = models.find((item) => item.id === modelId);
   const perModel = model?.thinking;
   if (perModel && perModel.type === "none") return [];
