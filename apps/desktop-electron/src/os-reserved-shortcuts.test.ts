@@ -105,10 +105,31 @@ describe("os-reserved shortcuts", () => {
     expect(src).toContain("screenshot_process_running");
     expect(src).toContain("screenshot_window_on_screen");
     expect(src).toContain("g_prev_shot_present");
+    expect(src).toContain("kStealWatchSec = 5 * 60");
+    expect(src).toContain("steal_watch_active");
+    expect(src).toContain("stop_steal_watch");
+    expect(src).toContain("proc_listpids");
+    expect(src).toContain("proc_name");
+    expect(src).toContain("kCGWindowOwnerPID");
+    expect(src).not.toContain("NSWorkspace");
+    expect(src).not.toContain("localizedName");
+    expect(src).not.toContain("runningApplications");
+    expect(src).not.toContain("objc_msgSend");
     expect(src).not.toContain("AXIsProcessTrustedWithOptions");
     expect(src).not.toContain("kAXTrustedCheckOptionPrompt");
     expect(src).not.toContain("cgs_claim");
     expect(src).not.toContain("atmos_host_shortcuts_skylight_ready");
+    const build = readFileSync(
+      join(here, "../scripts/build-appshot-shift-native.ts"),
+      "utf8",
+    );
+    const hostLink = build.slice(
+      build.indexOf("buildDylib(outHostShortcuts"),
+      build.indexOf("buildDylib(outInject"),
+    );
+    expect(hostLink).toContain("ApplicationServices");
+    expect(hostLink).not.toContain('"AppKit"');
+    expect(hostLink).not.toContain('"Foundation"');
     const inject = readFileSync(
       join(here, "../native/appshot-shift/appshot_shift.c"),
       "utf8",
@@ -132,7 +153,11 @@ describe("os-reserved shortcuts", () => {
     expect(guard).toContain("host_shortcuts");
     expect(guard).toContain("presentHostShortcutAxGrant");
     expect(guard).toContain("startScreenshotStealWatch");
+    expect(guard).toContain("stopScreenshotStealWatch");
+    expect(guard).toContain("SCREENSHOT_STEAL_WATCH_MS = 5 * 60 * 1000");
+    expect(guard).toContain("HOST_SHORTCUT_AX_GRANT_WAIT_MS = 5 * 60 * 1000");
     expect(guard).toContain("screencaptureui");
+    expect(guard).not.toContain("120_000");
     expect(guard).toContain("leftSidebarGrantOrigin");
     expect(guard).toContain('openSettings: "after"');
     expect(guard).toContain("holdAtOriginMs");

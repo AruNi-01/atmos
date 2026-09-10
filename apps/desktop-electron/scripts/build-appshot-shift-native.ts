@@ -81,6 +81,8 @@ function main(): void {
   if (!existsSync(hostShortcutsSrc)) {
     throw new Error(`missing native source: ${hostShortcutsSrc}`);
   }
+  // No AppKit: this dylib is loaded into Electron. AppKit + LaunchServices
+  // from the tap thread SIGTRAPs PartitionAlloc (display-name → XPC alloc).
   buildDylib(outHostShortcuts, [
     "-dynamiclib",
     "-O2",
@@ -93,10 +95,6 @@ function main(): void {
     "CoreFoundation",
     "-framework",
     "CoreGraphics",
-    "-framework",
-    "AppKit",
-    "-framework",
-    "Foundation",
     "-install_name",
     "@rpath/libatmos_host_shortcuts.dylib",
   ]);

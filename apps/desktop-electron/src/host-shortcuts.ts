@@ -40,6 +40,8 @@ const nodeRequire = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const execFileAsync = promisify(execFile);
 const HOST_SHORTCUT_HOLD_MS = 640;
+const SCREENSHOT_STEAL_WATCH_MS = 5 * 60 * 1000;
+const HOST_SHORTCUT_AX_GRANT_WAIT_MS = 5 * 60 * 1000;
 
 type ElectronApi = typeof import("electron");
 
@@ -213,6 +215,7 @@ function drainNative(api: ElectronApi): void {
   }
   try {
     if (native.takeAxNudge() === 1) {
+      stopScreenshotStealWatch();
       void presentHostShortcutAxGrant(api);
     }
   } catch {
@@ -253,12 +256,30 @@ async function screenshotUiRunning(): Promise<boolean> {
   );
 }
 
+function stopScreenshotStealWatch(): void {
+  if (!screenshotWatch) return;
+  clearInterval(screenshotWatch);
+  screenshotWatch = null;
+}
+
 function startScreenshotStealWatch(api: ElectronApi): void {
   if (process.platform !== "darwin" || screenshotWatch) return;
+  if (tapIsReady() || hostShortcutAxGrantStarted) return;
+  // Native steal-watch + takeAxNudge already covers this (5 min, one-shot).
+  if (native) return;
   let prevShot = false;
   let inFlight = false;
+  const deadline = Date.now() + SCREENSHOT_STEAL_WATCH_MS;
   screenshotWatch = setInterval(() => {
-    if (tornDown || tapIsReady() || hostShortcutAxGrantStarted) return;
+    if (
+      tornDown ||
+      tapIsReady() ||
+      hostShortcutAxGrantStarted ||
+      Date.now() >= deadline
+    ) {
+      stopScreenshotStealWatch();
+      return;
+    }
     if (atmosIsActive(api)) rememberAtmosBounds(api);
     if (inFlight) return;
     inFlight = true;
@@ -266,6 +287,7 @@ function startScreenshotStealWatch(api: ElectronApi): void {
       .then((shot) => {
         const recentAtmos = Date.now() - atmosSeenAt < 2500;
         if (shot && !prevShot && recentAtmos) {
+          stopScreenshotStealWatch();
           void presentHostShortcutAxGrant(api);
         }
         prevShot = shot;
@@ -284,6 +306,7 @@ function ensureElectronTap(api: ElectronApi): void {
     if (native && !nativePoll) {
       nativePoll = setInterval(() => drainNative(api), 20);
       nativePoll.unref?.();
+      stopScreenshotStealWatch();
     }
   }
   native?.setEnabled(enabled ? 1 : 0);
@@ -298,6 +321,7 @@ async function presentHostShortcutAxGrant(api: ElectronApi): Promise<void> {
   if (hostShortcutAxGrantStarted || hostShortcutAxGrantInFlight) return;
   hostShortcutAxGrantStarted = true;
   hostShortcutAxGrantInFlight = true;
+  stopScreenshotStealWatch();
   try {
     const { grantAtmosAppPermission, leftSidebarGrantOrigin } = await import(
       "./macos-app-permissions.js"
@@ -334,7 +358,7 @@ async function presentHostShortcutAxGrant(api: ElectronApi): Promise<void> {
     );
     if (!result.ok) hostShortcutAxGrantStarted = false;
     const started = Date.now();
-    while (!tornDown && Date.now() - started < 120_000) {
+    while (!tornDown && Date.now() - started < HOST_SHORTCUT_AX_GRANT_WAIT_MS) {
       ensureElectronTap(api);
       if (tapIsReady()) {
         try {
@@ -450,10 +474,7 @@ export function installAppShortcutGuard(): void {
       clearInterval(nativePoll);
       nativePoll = null;
     }
-    if (screenshotWatch) {
-      clearInterval(screenshotWatch);
-      screenshotWatch = null;
-    }
+    stopScreenshotStealWatch();
     try {
       native?.stop();
     } catch {

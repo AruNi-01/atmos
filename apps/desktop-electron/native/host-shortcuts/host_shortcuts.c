@@ -5,15 +5,19 @@
  * hotkeys stay enabled — we do not toggle WindowServer symbolic hotkeys.
  *
  * A consuming tap needs Accessibility on this process. Do not prompt for it
- * here. Start without AX and keep an observer so JS can show the drag-to-list
- * overlay on first screenshot steal.
+ * here. Start without AX and watch up to 5 minutes for the first screenshot
+ * steal so JS can show the drag-to-list overlay. After a hit, a grant, or
+ * that deadline, stop scanning.
  * JS polls atmos_host_shortcuts_take_digit() and take_ax_nudge().
+ *
+ * This dylib is koffi-loaded into the Electron process, so it shares
+ * Chromium PartitionAlloc. Stay on CoreGraphics + libproc — never AppKit.
  */
 #include <ApplicationServices/ApplicationServices.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <CoreGraphics/CoreGraphics.h>
 #include <dlfcn.h>
-#include <objc/message.h>
-#include <objc/runtime.h>
+#include <libproc.h>
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -21,6 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #if defined(__APPLE__)
@@ -32,6 +37,8 @@ enum {
   VK_ANSI_4 = 0x15,
   VK_ANSI_5 = 0x17,
   VK_ANSI_6 = 0x16,
+  /* First screenshot steal while untrusted: stop if nothing shows up. */
+  kStealWatchSec = 5 * 60,
 };
 
 static pthread_t g_thread;
@@ -46,6 +53,8 @@ static CFRunLoopRef g_rl = NULL;
 static CFRunLoopSourceRef g_source = NULL;
 static bool g_prev_atmos_frontmost = false;
 static bool g_prev_shot_present = false;
+static bool g_steal_watch = false;
+static time_t g_steal_deadline = 0;
 
 static int digit_from_keycode(int64_t keycode) {
   switch (keycode) {
@@ -70,20 +79,11 @@ static bool is_cmd_shift_only(CGEventFlags flags) {
   return cmd && shift && !alt && !ctrl;
 }
 
-static bool bundle_id_is_atmos(const char *bid) {
-  if (!bid) return false;
-  return strcmp(bid, "com.atmos.desktop") == 0 ||
-         strcmp(bid, "com.atmos.desktop.dev") == 0;
-}
-
-static bool bundle_id_is_screenshot(const char *bid) {
-  if (!bid) return false;
-  return strcmp(bid, "com.apple.screencaptureui") == 0 ||
-         strcmp(bid, "com.apple.Screenshot") == 0 ||
-         strcmp(bid, "com.apple.screenshot.launcher") == 0 ||
-         strcmp(bid, "com.apple.ScreenCaptureUI") == 0;
-}
-
+/*
+ * This process is Atmos (com.atmos.desktop / com.atmos.desktop.dev).
+ * Do not call AppKit from this thread: LaunchServices XPC allocations
+ * CHECK-fail in Chromium PartitionAlloc (EXC_BREAKPOINT / SIGTRAP).
+ */
 static bool name_is_screenshot(const char *n) {
   if (!n || !n[0]) return false;
   return strcasecmp(n, "screencaptureui") == 0 ||
@@ -93,43 +93,33 @@ static bool name_is_screenshot(const char *n) {
          strcmp(n, "屏幕截图") == 0;
 }
 
-static const char *nsstring_utf8(id nsstr) {
-  if (!nsstr) return NULL;
-  return ((const char *(*)(id, SEL))objc_msgSend)(
-      nsstr, sel_registerName("UTF8String"));
-}
-
-/* ⌘⇧4 keeps Atmos frontmost and only launches screencaptureui. */
+/* ⌘⇧4 keeps Atmos frontmost and only launches screencaptureui
+ * (com.apple.screencaptureui / com.apple.Screenshot /
+ * com.apple.screenshot.launcher / com.apple.ScreenCaptureUI). */
 static bool screenshot_process_running(void) {
-  Class wsClass = objc_getClass("NSWorkspace");
-  if (!wsClass) return false;
-  id ws = ((id(*)(Class, SEL))objc_msgSend)(
-      wsClass, sel_registerName("sharedWorkspace"));
-  if (!ws) return false;
-  id apps = ((id(*)(id, SEL))objc_msgSend)(
-      ws, sel_registerName("runningApplications"));
-  if (!apps) return false;
-  unsigned long n = ((unsigned long (*)(id, SEL))objc_msgSend)(
-      apps, sel_registerName("count"));
-  for (unsigned long i = 0; i < n; i++) {
-    id app = ((id(*)(id, SEL, unsigned long))objc_msgSend)(
-        apps, sel_registerName("objectAtIndex:"), i);
-    if (!app) continue;
-    id bid = ((id(*)(id, SEL))objc_msgSend)(
-        app, sel_registerName("bundleIdentifier"));
-    if (bundle_id_is_screenshot(nsstring_utf8(bid))) return true;
-    id loc = ((id(*)(id, SEL))objc_msgSend)(
-        app, sel_registerName("localizedName"));
-    if (name_is_screenshot(nsstring_utf8(loc))) return true;
-    id url = ((id(*)(id, SEL))objc_msgSend)(
-        app, sel_registerName("executableURL"));
-    if (url) {
-      id last = ((id(*)(id, SEL))objc_msgSend)(
-          url, sel_registerName("lastPathComponent"));
-      if (name_is_screenshot(nsstring_utf8(last))) return true;
+  int need = proc_listpids(PROC_ALL_PIDS, 0, NULL, 0);
+  if (need <= 0) return false;
+  need += (int)sizeof(pid_t) * 32;
+  pid_t *pids = (pid_t *)malloc((size_t)need);
+  if (!pids) return false;
+  int bytes = proc_listpids(PROC_ALL_PIDS, 0, pids, need);
+  if (bytes <= 0) {
+    free(pids);
+    return false;
+  }
+  int count = bytes / (int)sizeof(pid_t);
+  char name[64];
+  bool found = false;
+  for (int i = 0; i < count; i++) {
+    if (pids[i] <= 0) continue;
+    if (proc_name((int)pids[i], name, sizeof(name)) <= 0) continue;
+    if (name_is_screenshot(name)) {
+      found = true;
+      break;
     }
   }
-  return false;
+  free(pids);
+  return found;
 }
 
 /* Screenshot selection UI is often a non-zero window layer overlay. */
@@ -167,45 +157,62 @@ static bool screenshot_ui_present(void) {
   return screenshot_process_running() || screenshot_window_on_screen();
 }
 
-/* Fail open: empty string if we cannot read the frontmost app. */
-static bool copy_frontmost_bundle_id(char *out, size_t out_len) {
-  if (!out || out_len == 0) return false;
-  out[0] = '\0';
-  Class wsClass = objc_getClass("NSWorkspace");
-  if (!wsClass) return false;
-  id ws = ((id(*)(Class, SEL))objc_msgSend)(
-      wsClass, sel_registerName("sharedWorkspace"));
-  if (!ws) return false;
-  id app = ((id(*)(id, SEL))objc_msgSend)(
-      ws, sel_registerName("frontmostApplication"));
-  if (!app) return false;
-  id bid = ((id(*)(id, SEL))objc_msgSend)(
-      app, sel_registerName("bundleIdentifier"));
-  if (!bid) return false;
-  const char *c = ((const char *(*)(id, SEL))objc_msgSend)(
-      bid, sel_registerName("UTF8String"));
-  if (!c) return false;
-  strncpy(out, c, out_len - 1);
-  out[out_len - 1] = '\0';
-  return true;
+static bool window_is_usable_layer0(CFDictionaryRef win) {
+  if (!win) return false;
+  int layer = 0;
+  CFNumberRef layerRef = CFDictionaryGetValue(win, kCGWindowLayer);
+  if (layerRef) CFNumberGetValue(layerRef, kCFNumberIntType, &layer);
+  if (layer != 0) return false;
+  CFDictionaryRef bounds = CFDictionaryGetValue(win, kCGWindowBounds);
+  if (!bounds) return true;
+  CGRect r = CGRectZero;
+  if (!CGRectMakeWithDictionaryRepresentation(bounds, &r)) return true;
+  return r.size.width >= 2 && r.size.height >= 2;
 }
 
 static bool frontmost_is_atmos(void) {
-  char bid[256];
-  if (!copy_frontmost_bundle_id(bid, sizeof(bid))) return false;
-  return bundle_id_is_atmos(bid);
+  CFArrayRef list = CGWindowListCopyWindowInfo(
+      kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
+      kCGNullWindowID);
+  if (!list) return false;
+  pid_t self = getpid();
+  bool found = false;
+  CFIndex n = CFArrayGetCount(list);
+  for (CFIndex i = 0; i < n; i++) {
+    CFDictionaryRef win = CFArrayGetValueAtIndex(list, i);
+    if (!window_is_usable_layer0(win)) continue;
+    int ownerPid = 0;
+    CFNumberRef pidRef = CFDictionaryGetValue(win, kCGWindowOwnerPID);
+    if (pidRef) CFNumberGetValue(pidRef, kCFNumberIntType, &ownerPid);
+    found = ownerPid == (int)self;
+    break;
+  }
+  CFRelease(list);
+  return found;
+}
+
+static void stop_steal_watch(void) { g_steal_watch = false; }
+
+static bool steal_watch_active(void) {
+  if (!g_steal_watch) return false;
+  if (g_tap || AXIsProcessTrusted()) {
+    stop_steal_watch();
+    return false;
+  }
+  if (g_steal_deadline != 0 && time(NULL) >= g_steal_deadline) {
+    stop_steal_watch();
+    return false;
+  }
+  return true;
 }
 
 static void poll_screenshot_steal(void) {
+  if (!steal_watch_active()) return;
   bool atmos = frontmost_is_atmos();
-  if (g_tap || AXIsProcessTrusted()) {
-    g_prev_atmos_frontmost = atmos;
-    g_prev_shot_present = screenshot_ui_present();
-    return;
-  }
   bool shot = screenshot_ui_present();
   if (shot && !g_prev_shot_present && (atmos || g_prev_atmos_frontmost)) {
     atomic_store(&g_pending_ax_nudge, 1);
+    stop_steal_watch();
   }
   g_prev_atmos_frontmost = atmos;
   g_prev_shot_present = shot;
@@ -297,20 +304,27 @@ static void *thread_main(void *arg) {
   g_rl = CFRunLoopGetCurrent();
   g_prev_atmos_frontmost = frontmost_is_atmos();
   g_prev_shot_present = screenshot_ui_present();
+  g_steal_deadline = time(NULL) + kStealWatchSec;
+  g_steal_watch = true;
 
   if (!install_tap()) {
     atomic_store(&g_status, 4);
+  } else {
+    stop_steal_watch();
   }
 
   while (atomic_load(&g_running)) {
     if (!g_tap) {
       (void)install_tap();
+      if (g_tap) stop_steal_watch();
     }
     if (g_tap && !CGEventTapIsEnabled(g_tap)) {
       CGEventTapEnable(g_tap, true);
     }
-    poll_screenshot_steal();
-    CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, true);
+    if (steal_watch_active()) poll_screenshot_steal();
+    /* Tap sources wake this immediately. 0.1s only while steal-watching. */
+    CFTimeInterval wait = (g_tap || !g_steal_watch) ? 1.0 : 0.1;
+    CFRunLoopRunInMode(kCFRunLoopDefaultMode, wait, true);
   }
 
   teardown_tap();
@@ -391,6 +405,7 @@ void atmos_host_shortcuts_stop(void) {
   if (g_rl) CFRunLoopWakeUp(g_rl);
   pthread_join(g_thread, NULL);
   atomic_store(&g_thread_started, false);
+  stop_steal_watch();
   atomic_store(&g_status, 0);
 }
 
