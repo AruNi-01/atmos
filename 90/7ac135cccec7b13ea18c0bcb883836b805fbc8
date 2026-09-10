@@ -1,0 +1,25 @@
+apps/web/src/app-shell/CenterStage.tsx
+  s_344be036cbe8bc::t_6a968fc6a0a1d8 1459-1462,1472
+apps/web/src/features/skills/components/SkillsView.tsx
+  s_344be036cbe8bc::t_0473205b27b3dc 55,326,380
+apps/web/src/features/skills/lib/skills-view-utils.ts
+  s_344be036cbe8bc::t_12cc6402cb317e 45
+apps/web/src/shared/lib/nuqs/searchParams.ts
+  s_344be036cbe8bc::t_6085ad2472910c 145-150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "907ac135cccec7b13ea18c0bcb883836b805fbc8",
+  "prompts": {},
+  "sessions": {
+    "s_344be036cbe8bc": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "d81e6bb0-74bb-4505-a0ea-385e1586ffa9",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
