@@ -42,7 +42,7 @@ export function buildSkillListUrl({
   const searchParams = new URLSearchParams();
 
   if (activeTab !== "installed") {
-    searchParams.set("tab", activeTab);
+    searchParams.set("skillsTab", activeTab);
   }
   if (filter !== "all") {
     searchParams.set("filter", filter);

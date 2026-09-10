@@ -1456,7 +1456,10 @@ const CenterStage: React.FC = () => {
   }, [currentView, effectiveContextId, isCenterContextSettled, primeWorkspace]);
 
   React.useEffect(() => {
-    if (!isCenterContextSettled || honorUrlTab) return;
+    // `?tab=` / `?wikiPage=` are workspace-scoped center deep links. Without a
+    // center context (launchpad pages own their own params) there is nothing
+    // to strip — clearing here would eat pages' writes and pin them to defaults.
+    if (!isCenterContextSettled || !effectiveContextId || honorUrlTab) return;
     if (tabFromUrl || wikiPageFromUrl || (terminalTmux && ignoreLeftoverDeepLinkRef.current) || (sideChat && ignoreLeftoverDeepLinkRef.current)) {
       void setUrlParams({
         tab: null,
@@ -1466,6 +1469,7 @@ const CenterStage: React.FC = () => {
       });
     }
   }, [
+    effectiveContextId,
     honorUrlTab,
     isCenterContextSettled,
     setUrlParams,

@@ -142,7 +142,12 @@ export type SkillsTab = "installed" | "market" | "resources";
 export type ScopeFilter = "all" | "global" | "project" | "system";
 
 export const skillsParams = {
-  tab: parseAsStringEnum<SkillsTab>(["installed", "market", "resources"]).withDefault("installed"),
+  /**
+   * URL key must stay page-prefixed: `?tab=` is owned by CenterStage's one-shot
+   * workspace deep link (centerStageParams), which strips values it does not
+   * honor. Generic `tab` here made Skills header tabs revert on click.
+   */
+  skillsTab: parseAsStringEnum<SkillsTab>(["installed", "market", "resources"]).withDefault("installed"),
   filter: parseAsStringEnum<ScopeFilter>(["all", "global", "project", "system"]).withDefault("all"),
   projects: parseAsString.withDefault(""),
   q: parseAsString.withDefault(""),
