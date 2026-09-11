@@ -15,6 +15,8 @@ import {
   userMessageNeedsCollapse,
   type ComposerDisplaySegment,
 } from "@/shared/lib/composer-paste";
+import { splitTextWithHttpUrls } from "@/shared/lib/link-preview";
+import { LinkPreviewChip } from "@/shared/components/link-preview-chip";
 
 export function UserMessageBody({ text }: { text: string }) {
   const display = displayTextForSentMessage(text);
@@ -75,8 +77,24 @@ function UserMessageText({ text }: { text: string }) {
       className="whitespace-pre-wrap"
       style={{ overflowWrap: "break-word", wordBreak: "normal" }}
     >
-      {text}
+      <UrlAwareText text={text} />
     </div>
+  );
+}
+
+function UrlAwareText({ text }: { text: string }) {
+  return (
+    <>
+      {splitTextWithHttpUrls(text).map((segment, index) =>
+        segment.type === "url" ? (
+          <LinkPreviewChip key={`url-${index}`} href={segment.url}>
+            {segment.url}
+          </LinkPreviewChip>
+        ) : (
+          <React.Fragment key={`text-${index}`}>{segment.value}</React.Fragment>
+        ),
+      )}
+    </>
   );
 }
 
@@ -94,7 +112,7 @@ function UserMessageSegments({ segments }: { segments: ComposerDisplaySegment[] 
             text={segment.text}
           />
         ) : (
-          <React.Fragment key={`text-${index}`}>{segment.value}</React.Fragment>
+          <UrlAwareText key={`text-${index}`} text={segment.value} />
         ),
       )}
     </div>
@@ -109,7 +127,7 @@ function PastedTextChip({ lineCount, text }: { lineCount: number; text: string }
       <HoverCardTrigger asChild>
         <span
           data-paste-chip=""
-          className="inline-flex cursor-pointer select-none items-center gap-1 rounded-md border border-border/70 bg-muted/60 px-1.5 py-px align-middle text-[12px] font-medium leading-[18px] text-foreground"
+          className="inline-flex h-5 cursor-pointer select-none items-center gap-1 box-border rounded-full border border-border/70 bg-muted/60 px-1.5 align-middle text-[12px] font-medium leading-none text-foreground"
         >
           <PasteChipIcon />
           {t("chip", { count: lineCount })}
@@ -118,6 +136,8 @@ function PastedTextChip({ lineCount, text }: { lineCount: number; text: string }
       <HoverCardContent
         side="top"
         align="center"
+        avoidCollisions
+        collisionPadding={12}
         className="w-max max-w-80 p-3 text-xs leading-5"
       >
         <div className="whitespace-pre-wrap break-words">{preview.head.join("\n")}</div>
@@ -139,8 +159,8 @@ function PasteChipIcon() {
     <svg
       aria-hidden="true"
       viewBox="0 0 24 24"
-      width="13"
-      height="13"
+      width="12"
+      height="12"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"

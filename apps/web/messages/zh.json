@@ -8859,6 +8859,9 @@
     "scriptTrustReview": {
       "empty": "该项目的脚本文件里没有任何命令。",
       "aboutToRun": "即将执行"
+    },
+    "linkPreview": {
+      "openInBrowser": "在浏览器中打开"
     }
   },
   "diff": {

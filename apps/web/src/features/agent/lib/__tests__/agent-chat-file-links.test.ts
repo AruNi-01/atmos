@@ -225,6 +225,7 @@ describe("agent chat file-link wiring", () => {
     expect(source).toContain("resolveAgentChatWorkspaceFile");
     expect(source).toContain("AgentChatMarkdownFileChip");
     expect(source).toContain("AgentChatMarkdownFileLink");
+    expect(source).toContain("LinkPreviewChip");
     expect(source).not.toContain("AgentToolFileChip");
     expect(source).toContain("useOpenAgentChatWorkspacePath");
     expect(source).toContain('classified.kind === "plain"');

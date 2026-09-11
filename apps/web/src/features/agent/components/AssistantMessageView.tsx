@@ -29,6 +29,8 @@ import {
   classifyAgentChatHref,
   resolveAgentChatWorkspaceFile,
 } from "@/features/agent/lib/agent-chat-file-links";
+import { isHttpUrl } from "@/shared/lib/link-preview";
+import { LinkPreviewChip } from "@/shared/components/link-preview-chip";
 import {
   isDetailExpandedTool,
   segmentAssistantParts,
@@ -91,6 +93,13 @@ function useReviewLinkComponents() {
         return <span>{children}</span>;
       }
       if (classified.kind !== "workspace") {
+        if (isHttpUrl(href)) {
+          return (
+            <LinkPreviewChip href={href} onClick={onClick} {...rest}>
+              {children}
+            </LinkPreviewChip>
+          );
+        }
         return (
           <a href={href} onClick={onClick} {...rest}>
             {children}

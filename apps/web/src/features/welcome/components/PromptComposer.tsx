@@ -40,6 +40,19 @@ import {
   shouldChipPlainPaste,
 } from "@/shared/lib/composer-paste";
 import {
+  URL_TOKEN_SOURCE,
+  applyLinkPreviewToChip,
+  formatUrlToken,
+  googleFaviconUrl,
+  hostnameFromUrl,
+  LINK_OG_CARD_HEIGHT,
+  LINK_OG_CARD_WIDTH,
+  parsePastedHttpUrl,
+  parseUrlToken,
+} from "@/shared/lib/link-preview";
+import { FollowHoverCard } from "@/shared/components/follow-hover-card";
+import { ComposerLinkOgPreview } from "@/shared/components/composer-link-og-preview";
+import {
   imageExtensionForFile,
   normalizeComposerImageFile,
   pickClipboardImageFiles,
@@ -147,11 +160,15 @@ interface PromptComposerProps extends ComposerCallbacks {
 }
 
 const CHIP_TOKEN_PATTERN =
-  String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|\/cmd:[^\s]+|atmos:\/\/terminal-selection\/[a-zA-Z0-9_.:-]+|atmos:\/\/side-chat\/[a-zA-Z0-9_.:-]+|atmos:\/\/spawn\/[a-zA-Z0-9_.:-]+|atmos:\/\/skill-disable|\[#img-\d+\]|\[#appshot:\d{13}\]|\[#ctx:[a-z0-9-]+:[a-zA-Z0-9_-]+\]|${PASTE_TOKEN_SOURCE}`;
+  String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|\/cmd:[^\s]+|atmos:\/\/terminal-selection\/[a-zA-Z0-9_.:-]+|atmos:\/\/side-chat\/[a-zA-Z0-9_.:-]+|atmos:\/\/spawn\/[a-zA-Z0-9_.:-]+|atmos:\/\/skill-disable|\[#img-\d+\]|\[#appshot:\d{13}\]|\[#ctx:[a-z0-9-]+:[a-zA-Z0-9_-]+\]|${PASTE_TOKEN_SOURCE}|${URL_TOKEN_SOURCE}`;
 const TOKEN_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})`, "g");
 const BACKSPACE_CHIP_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})\\u00A0?$`);
 const DELETE_CHIP_REGEX = new RegExp(`^(${CHIP_TOKEN_PATTERN})\\u00A0?`);
 const CHIP_TRAILING_SPACER = "\u00A0";
+const COMPOSER_CHIP_BASE =
+  "inline-flex max-w-full select-none items-center gap-1 box-border rounded-full border px-1.5 text-[12px] leading-none font-medium align-middle mx-[1px]";
+/** Keep chips inside the editor line box (text-sm/leading-5 = 20px) so paste doesn't grow the input. */
+const COMPOSER_CHIP_CLASS = `${COMPOSER_CHIP_BASE} h-5`;
 const TRAILING_CHIP_SPACER_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})([ \\u00A0]+)$`);
 
 let cachedPromptComposerLocale: "en" | "zh" | null = null;
@@ -200,8 +217,8 @@ function buildMessageCirclePlusIcon(): SVGSVGElement {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("width", "13");
-  svg.setAttribute("height", "13");
+  svg.setAttribute("width", "12");
+  svg.setAttribute("height", "12");
   svg.setAttribute("fill", "none");
   svg.setAttribute("stroke", "currentColor");
   svg.setAttribute("stroke-width", "2");
@@ -226,8 +243,8 @@ function buildMessageCircleMoreIcon(): SVGSVGElement {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("width", "13");
-  svg.setAttribute("height", "13");
+  svg.setAttribute("width", "12");
+  svg.setAttribute("height", "12");
   svg.setAttribute("fill", "none");
   svg.setAttribute("stroke", "currentColor");
   svg.setAttribute("stroke-width", "2");
@@ -253,8 +270,8 @@ function buildMessagesSquareIcon(): SVGSVGElement {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("width", "13");
-  svg.setAttribute("height", "13");
+  svg.setAttribute("width", "12");
+  svg.setAttribute("height", "12");
   svg.setAttribute("fill", "none");
   svg.setAttribute("stroke", "currentColor");
   svg.setAttribute("stroke-width", "2");
@@ -279,8 +296,8 @@ function buildBrowserUseChipIcon(): SVGSVGElement {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("width", "13");
-  svg.setAttribute("height", "13");
+  svg.setAttribute("width", "12");
+  svg.setAttribute("height", "12");
   svg.setAttribute("fill", "none");
   svg.setAttribute("stroke", "currentColor");
   svg.setAttribute("stroke-width", "2");
@@ -321,8 +338,8 @@ function buildDesktopUseChipIcon(): SVGSVGElement {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("width", "13");
-  svg.setAttribute("height", "13");
+  svg.setAttribute("width", "12");
+  svg.setAttribute("height", "12");
   svg.setAttribute("fill", "none");
   svg.setAttribute("stroke", "currentColor");
   svg.setAttribute("stroke-width", "2");
@@ -357,8 +374,8 @@ function buildStrokeIcon(paths: string[]): SVGSVGElement {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("width", "13");
-  svg.setAttribute("height", "13");
+  svg.setAttribute("width", "12");
+  svg.setAttribute("height", "12");
   svg.setAttribute("fill", "none");
   svg.setAttribute("stroke", "currentColor");
   svg.setAttribute("stroke-width", "2");
@@ -481,8 +498,7 @@ function buildChipNode(token: string): HTMLSpanElement {
   // Vertically tight: no padding, line-height matches the editor's caret so the
   // chip sits flush with the surrounding text without the bordered box towering
   // above/below the caret line.
-  span.className =
-    "inline-flex select-none items-center gap-1 rounded-md border px-1.5 py-px text-[12px] leading-[18px] font-medium align-middle mx-[1px]";
+  span.className = COMPOSER_CHIP_CLASS;
 
   if (token.startsWith("@issue#")) {
     span.dataset.kind = "issue";
@@ -508,7 +524,7 @@ function buildChipNode(token: string): HTMLSpanElement {
     const isDir = relativePath.endsWith("/");
     span.dataset.tooltip = relativePath;
     span.className += " border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400";
-    const iconProps = getFileIconProps({ name: filename, isDir, className: "size-3.5" });
+    const iconProps = getFileIconProps({ name: filename, isDir, className: "size-3" });
     const icon = document.createElement("img");
     icon.src = iconProps.src;
     icon.alt = iconProps.alt ?? "";
@@ -575,8 +591,7 @@ function buildChipNode(token: string): HTMLSpanElement {
   } else if (parseSkillDisableProtocolToken(token)) {
     span.dataset.kind = "skill-disable";
     span.dataset.tooltip = promptComposerT("skillDisable.chipTooltip");
-    span.className +=
-      " max-w-full flex-wrap border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300";
+    span.className = `${COMPOSER_CHIP_BASE} h-auto min-h-5 max-w-full flex-wrap border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300`;
     span.appendChild(buildMaskIcon("/icons/puzzle.svg"));
     const label = document.createElement("span");
     label.dataset.sdLabel = "true";
@@ -643,6 +658,28 @@ function buildChipNode(token: string): HTMLSpanElement {
     const label = document.createElement("span");
     label.textContent = promptComposerT("paste.chip", { count: lineCount });
     span.appendChild(label);
+  } else if (parseUrlToken(token)) {
+    const url = parseUrlToken(token)!;
+    span.dataset.kind = "url";
+    span.dataset.tooltip = url;
+    span.className +=
+      " cursor-default border-border/70 bg-muted/60 text-foreground";
+    const icon = document.createElement("img");
+    icon.dataset.urlChipIcon = "";
+    icon.src = googleFaviconUrl(url);
+    icon.alt = "";
+    icon.referrerPolicy = "no-referrer";
+    icon.className = "size-3 shrink-0 rounded-full";
+    span.appendChild(icon);
+    const label = document.createElement("span");
+    label.dataset.urlChipLabel = "";
+    label.className = "min-w-0 max-w-[12rem] truncate";
+    label.textContent = hostnameFromUrl(url);
+    span.appendChild(label);
+    void import("@/shared/lib/link-preview-query")
+      .then(({ fetchLinkPreview }) => fetchLinkPreview(url))
+      .then((preview) => applyLinkPreviewToChip(span, preview))
+      .catch(() => {});
   }
   return span;
 }
@@ -1082,14 +1119,14 @@ function renderSkillDisableSessionActions(
   if (enabled > 0) {
     const pill = document.createElement("span");
     pill.className =
-      "inline-flex items-center rounded-md border border-emerald-500/35 bg-emerald-500/10 px-1.5 py-px text-[10px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-300";
+      "inline-flex h-4 items-center rounded-full border border-emerald-500/35 bg-emerald-500/10 px-1.5 text-[10px] font-semibold leading-none tabular-nums text-emerald-700 dark:text-emerald-300";
     pill.textContent = `+${enabled}`;
     container.appendChild(pill);
   }
   if (disabled > 0) {
     const pill = document.createElement("span");
     pill.className =
-      "inline-flex items-center rounded-md border border-red-500/40 bg-red-500/15 px-1.5 py-px text-[10px] font-semibold tabular-nums text-red-700 dark:text-red-300";
+      "inline-flex h-4 items-center rounded-full border border-red-500/40 bg-red-500/15 px-1.5 text-[10px] font-semibold leading-none tabular-nums text-red-700 dark:text-red-300";
     pill.textContent = `-${disabled}`;
     container.appendChild(pill);
   }
@@ -1133,8 +1170,13 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       head?: string[];
       more?: number;
       tail?: string[];
+      anchor?: HTMLElement;
       top: number;
       left: number;
+    } | null>(null);
+    const [urlHover, setUrlHover] = React.useState<{
+      el: HTMLElement;
+      url: string;
     } | null>(null);
     const savedCaretOffsetRef = React.useRef<number | null>(null);
 
@@ -1709,11 +1751,10 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       const appshotProtocol = parseAppshotProtocol(text);
       if (appshotProtocol && editorRef.current) {
         event.preventDefault();
-        insertNodeAtCaret(
+        insertChipAtCaretWithUndo(
           editorRef.current,
-          buildChipNode(`[#appshot:${appshotProtocol.timestamp}]`),
+          `[#appshot:${appshotProtocol.timestamp}]`,
         );
-        insertNodeAtCaret(editorRef.current, document.createTextNode("\u00A0"));
         fireChange();
         return;
       }
@@ -1721,28 +1762,42 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       if (aiContext && editorRef.current) {
         event.preventDefault();
         const token = registerAiContextPrompt(aiContext.kind, aiContext.promptText);
-        insertNodeAtCaret(editorRef.current, buildChipNode(token));
-        insertNodeAtCaret(editorRef.current, document.createTextNode("\u00A0"));
+        insertChipAtCaretWithUndo(editorRef.current, token);
         fireChange();
         return;
       }
       event.preventDefault();
       if (!text || !editorRef.current) return;
-      if (shouldChipPlainPaste(text)) {
-        const token = registerComposerPaste(text);
-        insertNodeAtCaret(editorRef.current, buildChipNode(token));
-        insertNodeAtCaret(editorRef.current, document.createTextNode(CHIP_TRAILING_SPACER));
+      const pastedUrl = parsePastedHttpUrl(text);
+      if (pastedUrl) {
+        insertChipAtCaretWithUndo(editorRef.current, formatUrlToken(pastedUrl));
         fireChange();
         rememberCaretOffset();
         return;
       }
-      insertPlainTextAtCaret(editorRef.current, text);
+      if (shouldChipPlainPaste(text)) {
+        const token = registerComposerPaste(text);
+        insertChipAtCaretWithUndo(editorRef.current, token);
+        fireChange();
+        rememberCaretOffset();
+        return;
+      }
+      insertPlainTextAtCaretWithUndo(editorRef.current, text);
       fireChange();
       rememberCaretOffset();
     };
 
     const handleEditorMouseOver = (event: React.MouseEvent<HTMLDivElement>) => {
       const target = event.target as HTMLElement | null;
+      const urlChip = target?.closest?.("[data-kind='url']") as HTMLElement | null;
+      if (urlChip && editorRef.current?.contains(urlChip)) {
+        const url = parseUrlToken(urlChip.getAttribute("data-token") ?? "");
+        if (url) {
+          setChipTooltip(null);
+          setUrlHover({ el: urlChip, url });
+        }
+        return;
+      }
       const pasteChip = target?.closest?.("[data-kind='paste']") as HTMLElement | null;
       if (pasteChip && editorRef.current?.contains(pasteChip)) {
         const payload = resolveComposerPaste(pasteChip.getAttribute("data-token") ?? "");
@@ -1754,6 +1809,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           head: preview.head,
           more: preview.more,
           tail: preview.tail,
+          anchor: pasteChip,
           top: rect.bottom + 6,
           left: rect.left + rect.width / 2,
         });
@@ -1779,6 +1835,8 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
     const handleEditorMouseOut = (event: React.MouseEvent<HTMLDivElement>) => {
       const related = event.relatedTarget as Node | null;
       const target = event.target as HTMLElement | null;
+      const urlChip = target?.closest?.("[data-kind='url']") as HTMLElement | null;
+      if (urlChip) return;
       const pasteChip = target?.closest?.("[data-kind='paste']") as HTMLElement | null;
       if (pasteChip) {
         if (related && pasteChip.contains(related)) return;
@@ -1852,29 +1910,49 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           )}
           spellCheck={false}
         />
+        <FollowHoverCard
+          open={urlHover != null}
+          anchor={urlHover?.el ?? null}
+          onOpenChange={(next) => {
+            if (!next) setUrlHover(null);
+          }}
+          cardWidth={LINK_OG_CARD_WIDTH}
+          cardApproxHeight={LINK_OG_CARD_HEIGHT}
+          contentClassName="overflow-hidden p-0"
+          content={
+            urlHover ? <ComposerLinkOgPreview url={urlHover.url} /> : null
+          }
+        />
+        <FollowHoverCard
+          open={chipTooltip?.kind === "paste"}
+          anchor={chipTooltip?.anchor ?? null}
+          side="bottom"
+          cardWidth={320}
+          cardApproxHeight={180}
+          contentClassName="w-max max-w-80 rounded-md border border-border/70 bg-popover px-3 py-2 text-xs leading-5 text-popover-foreground shadow-md"
+          content={
+            chipTooltip?.kind === "paste" ? (
+              <>
+                <div className="whitespace-pre-wrap break-words">
+                  {(chipTooltip.head ?? []).join("\n")}
+                </div>
+                {(chipTooltip.more ?? 0) > 0 ? (
+                  <div className="py-0.5 text-muted-foreground/55">
+                    {promptComposerT("paste.moreLines", { count: chipTooltip.more ?? 0 })}
+                  </div>
+                ) : null}
+                {(chipTooltip.tail ?? []).length > 0 ? (
+                  <div className="whitespace-pre-wrap break-words">
+                    {(chipTooltip.tail ?? []).join("\n")}
+                  </div>
+                ) : null}
+              </>
+            ) : null
+          }
+        />
         {chipTooltip && typeof document !== "undefined"
           ? createPortal(
-              chipTooltip.kind === "paste" ? (
-                <div
-                  role="tooltip"
-                  className="pointer-events-none fixed z-[2147483646] w-max max-w-80 -translate-x-1/2 rounded-md border border-border/70 bg-popover px-3 py-2 text-xs leading-5 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95"
-                  style={{ top: chipTooltip.top, left: chipTooltip.left }}
-                >
-                  <div className="whitespace-pre-wrap break-words">
-                    {(chipTooltip.head ?? []).join("\n")}
-                  </div>
-                  {(chipTooltip.more ?? 0) > 0 ? (
-                    <div className="py-0.5 text-muted-foreground/55">
-                      {promptComposerT("paste.moreLines", { count: chipTooltip.more ?? 0 })}
-                    </div>
-                  ) : null}
-                  {(chipTooltip.tail ?? []).length > 0 ? (
-                    <div className="whitespace-pre-wrap break-words">
-                      {(chipTooltip.tail ?? []).join("\n")}
-                    </div>
-                  ) : null}
-                </div>
-              ) : (
+              chipTooltip.kind === "text" ? (
                 <div
                   role="tooltip"
                   className="pointer-events-none fixed z-[2147483646] -translate-x-1/2 whitespace-pre-line rounded-md bg-foreground px-3 py-1.5 text-xs text-background shadow-md animate-in fade-in-0 zoom-in-95"
@@ -1882,7 +1960,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
                 >
                   {chipTooltip.text}
                 </div>
-              ),
+              ) : null,
               document.body,
             )
           : null}
@@ -1895,6 +1973,29 @@ function insertPlainTextAtCaret(root: HTMLElement, text: string) {
   const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   if (!normalized) return;
   insertNodeAtCaret(root, document.createTextNode(normalized));
+}
+
+/**
+ * `Range#insertNode` bypasses the browser's editing transaction, so pasted
+ * content cannot be restored with Cmd/Ctrl+Z. Use the native command when
+ * available, with the direct DOM insertion kept as a test-environment fallback.
+ */
+function insertPlainTextAtCaretWithUndo(root: HTMLElement, text: string) {
+  const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  if (!normalized) return;
+  if (document.execCommand?.("insertText", false, normalized)) return;
+  insertPlainTextAtCaret(root, normalized);
+}
+
+function insertChipAtCaretWithUndo(root: HTMLElement, token: string) {
+  const container = document.createElement("div");
+  container.append(
+    buildChipNode(token),
+    document.createTextNode(CHIP_TRAILING_SPACER),
+  );
+  if (document.execCommand?.("insertHTML", false, container.innerHTML)) return;
+  insertNodeAtCaret(root, buildChipNode(token));
+  insertNodeAtCaret(root, document.createTextNode(CHIP_TRAILING_SPACER));
 }
 
 function expandPasteChipInPlace(chip: HTMLElement): boolean {

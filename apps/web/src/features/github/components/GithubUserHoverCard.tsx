@@ -1,18 +1,6 @@
 "use client";
 
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-import { createPortal } from "react-dom";
-import {
-  motion,
-  useMotionValue,
-  useSpring,
-  useTransform,
-} from "motion/react";
+import React, { useState } from "react";
 import { useTheme } from "next-themes";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -21,6 +9,7 @@ import {
   AvatarImage,
 } from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
+import { FollowHoverCard } from "@/shared/components/follow-hover-card";
 import { useGithubUserCardQuery } from "@/features/github/hooks/use-github-user-card-query";
 import {
   formatContributionDate,
@@ -74,16 +63,10 @@ export interface GithubUserAvatarProps {
   source?: GithubUserCardSource;
 }
 
-type Placement = "top" | "bottom";
-
 const COLOR_SCHEME = {
   light: ["#ebedf0", "#9be9a8", "#40c463", "#30a14e", "#216e39"],
   dark: ["#161b22", "#0e4429", "#006d32", "#26a641", "#39d353"],
 } as const;
-
-const CARD_WIDTH = 320;
-const CARD_APPROX_HEIGHT = 220;
-const VIEWPORT_PAD = 12;
 
 function githubAvatarSrc(username?: string | null, avatarUrl?: string | null) {
   if (avatarUrl) return avatarUrl;
@@ -109,60 +92,6 @@ export function isGithubBotLogin(login?: string | null): boolean {
     lower === "cursor" ||
     lower === "vercel" ||
     lower === "copilot"
-  );
-}
-
-function readPointerOffset(
-  event: React.MouseEvent,
-  el: HTMLElement | null,
-): { nx: number; ny: number } {
-  if (!el) return { nx: 0, ny: 0 };
-  const rect = el.getBoundingClientRect();
-  const halfW = Math.max(rect.width / 2, 1);
-  const halfH = Math.max(rect.height / 2, 1);
-  const nx = ((event.clientX - rect.left - halfW) / halfW) * 20;
-  const ny = ((event.clientY - rect.top - halfH) / halfH) * 20;
-  return {
-    nx: Math.max(-20, Math.min(20, nx)),
-    ny: Math.max(-20, Math.min(20, ny)),
-  };
-}
-
-function resolveVerticalPlacement(
-  preferred: GithubUserHoverCardProps["side"],
-  rect: DOMRect,
-): Placement {
-  if (preferred === "top" || preferred === "bottom") return preferred;
-
-  const spaceTop = rect.top;
-  const spaceBottom = window.innerHeight - rect.bottom;
-  // Prefer above when either fits or top has more room.
-  if (spaceTop >= CARD_APPROX_HEIGHT + 24) return "top";
-  if (spaceBottom >= CARD_APPROX_HEIGHT + 24) return "bottom";
-  return spaceTop >= spaceBottom ? "top" : "bottom";
-}
-
-function computeCardOrigin(rect: DOMRect, placement: Placement) {
-  const gap = 14;
-  if (placement === "bottom") {
-    return {
-      left: rect.left + rect.width / 2,
-      top: rect.bottom + gap,
-      transformOrigin: "top center",
-    };
-  }
-  return {
-    left: rect.left + rect.width / 2,
-    top: rect.top - gap,
-    transformOrigin: "bottom center",
-  };
-}
-
-function clampHorizontal(left: number) {
-  const halfW = CARD_WIDTH / 2;
-  return Math.min(
-    Math.max(left, VIEWPORT_PAD + halfW),
-    window.innerWidth - VIEWPORT_PAD - halfW,
   );
 }
 
@@ -285,247 +214,40 @@ export function GithubUserHoverCard({
   children,
 }: GithubUserHoverCardProps) {
   const login = normalizeGithubLogin(username);
-  const triggerRef = useRef<HTMLSpanElement>(null);
-  const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Track whether the pointer is on the trigger ("link") or the popover ("card").
-  // Follow + 3D tilt only apply while on the trigger — matching Great UI's link phase,
-  // and skipping card-phase motion per product preference.
-  const hoverSurfaceRef = useRef<"none" | "link" | "card">("none");
-
-  const [isHovered, setIsHovered] = useState(false);
-  const [placement, setPlacement] = useState<Placement>("top");
-  const [origin, setOrigin] = useState({
-    left: 0,
-    top: 0,
-    transformOrigin: "bottom center",
-  });
-
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const mouseXSpring = useSpring(x, { stiffness: 300, damping: 20 });
-  const mouseYSpring = useSpring(y, { stiffness: 300, damping: 20 });
-
-  // Great UI formula: map pointer offset (-20..20) → tilt degrees.
-  const rotateX = useTransform(mouseYSpring, (val) => {
-    const pct = (val + 20) / 40;
-    return linkTiltMaxRotate - pct * (2 * linkTiltMaxRotate);
-  });
-  const rotateY = useTransform(mouseXSpring, (val) => {
-    const pct = (val + 20) / 40;
-    return -linkTiltMaxRotate + pct * (2 * linkTiltMaxRotate);
-  });
-
+  const [open, setOpen] = useState(false);
   const { data: card, isFetching } = useGithubUserCardQuery({
     login,
-    enabled: isHovered && Boolean(login),
+    enabled: open && Boolean(login),
     source,
   });
-
-  useEffect(() => {
-    return () => {
-      if (openTimerRef.current) clearTimeout(openTimerRef.current);
-      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-    };
-  }, []);
-
-  const updateAnchor = useCallback(() => {
-    const el = triggerRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const nextPlacement = resolveVerticalPlacement(side, rect);
-    const raw = computeCardOrigin(rect, nextPlacement);
-    setPlacement(nextPlacement);
-    setOrigin({
-      left: clampHorizontal(raw.left),
-      top: raw.top,
-      transformOrigin: raw.transformOrigin,
-    });
-  }, [side]);
-
-  const clearCloseTimer = useCallback(() => {
-    if (closeTimerRef.current) {
-      clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
-    }
-  }, []);
-
-  const clearOpenTimer = useCallback(() => {
-    if (openTimerRef.current) {
-      clearTimeout(openTimerRef.current);
-      openTimerRef.current = null;
-    }
-  }, []);
-
-  const resetMotion = useCallback(() => {
-    x.set(0);
-    y.set(0);
-  }, [x, y]);
-
-  const openCard = useCallback(() => {
-    clearCloseTimer();
-    clearOpenTimer();
-    hoverSurfaceRef.current = "link";
-    openTimerRef.current = setTimeout(() => {
-      updateAnchor();
-      setIsHovered(true);
-    }, openDelay);
-  }, [clearCloseTimer, clearOpenTimer, openDelay, updateAnchor]);
-
-  const scheduleClose = useCallback(() => {
-    clearOpenTimer();
-    clearCloseTimer();
-    closeTimerRef.current = setTimeout(() => {
-      setIsHovered(false);
-      hoverSurfaceRef.current = "none";
-      resetMotion();
-    }, closeDelay);
-  }, [clearCloseTimer, clearOpenTimer, closeDelay, resetMotion]);
-
-  useEffect(() => {
-    if (!isHovered) return;
-    const onScrollOrResize = () => updateAnchor();
-    window.addEventListener("scroll", onScrollOrResize, true);
-    window.addEventListener("resize", onScrollOrResize);
-    return () => {
-      window.removeEventListener("scroll", onScrollOrResize, true);
-      window.removeEventListener("resize", onScrollOrResize);
-    };
-  }, [isHovered, updateAnchor]);
-
-  /** Only while pointer is on the trigger — drives popover x-follow + 3D tilt. */
-  const handleLinkMouseMove = useCallback(
-    (event: React.MouseEvent) => {
-      if (hoverSurfaceRef.current !== "link") return;
-      const { nx, ny } = readPointerOffset(event, triggerRef.current);
-      x.set(nx);
-      y.set(ny);
-    },
-    [x, y],
-  );
 
   if (!login || disabled || isGithubBotLogin(username)) {
     return <>{children}</>;
   }
 
-  const placementTranslate =
-    placement === "top" ? "translate(-50%, -100%)" : "translate(-50%, 0)";
-
-  const popover =
-    isHovered && typeof document !== "undefined"
-      ? createPortal(
-          // Fixed anchor point at the trigger edge.
-          <div
-            style={{
-              position: "fixed",
-              left: origin.left,
-              top: origin.top,
-              zIndex: 80,
-              pointerEvents: "none",
-            }}
-          >
-            {/*
-              Perspective MUST live on an ancestor of the rotated element.
-              Official Great UI puts [perspective:1000px] on the trigger wrapper;
-              we recreate that here around the portaled card.
-            */}
-            <div
-              style={{
-                transform: placementTranslate,
-                perspective: 1000,
-                pointerEvents: "none",
-              }}
-            >
-              <motion.div
-                onMouseEnter={() => {
-                  // Entering the popover: stop following, settle flat (no card-phase tilt).
-                  clearCloseTimer();
-                  hoverSurfaceRef.current = "card";
-                  resetMotion();
-                }}
-                onMouseLeave={() => {
-                  scheduleClose();
-                }}
-                initial="hidden"
-                animate="visible"
-                variants={{
-                  hidden: {
-                    opacity: 0,
-                    // Entrance offset only — not the mouse-follow spring.
-                    y: placement === "bottom" ? -6 : 6,
-                    scale: 0.98,
-                    filter: "blur(2px)",
-                    transition: { duration: 0.15, ease: "easeIn" },
-                  },
-                  visible: {
-                    opacity: 1,
-                    y: 0,
-                    scale: 1,
-                    filter: "blur(0px)",
-                    transition: {
-                      duration: 0.22,
-                      ease: [0.16, 1, 0.3, 1],
-                    },
-                  },
-                }}
-                style={{
-                  // Great UI popoverStyle: spring x + rotateX/Y under a perspective parent.
-                  x: mouseXSpring,
-                  rotateX,
-                  rotateY,
-                  transformStyle: "preserve-3d",
-                  transformOrigin: origin.transformOrigin,
-                  pointerEvents: "auto",
-                }}
-                className={cn(
-                  "relative w-80 select-none rounded-2xl border border-dashed border-border/70 bg-popover/95 p-5 shadow-xl backdrop-blur-md will-change-transform",
-                  // Hover bridge so the pointer can travel trigger → card without closing.
-                  placement === "top" &&
-                    "after:absolute after:left-0 after:top-full after:h-4 after:w-full",
-                  placement === "bottom" &&
-                    "after:absolute after:bottom-full after:left-0 after:h-4 after:w-full",
-                  contentClassName,
-                )}
-              >
-                <GithubUserCardBody
-                  username={login}
-                  name={name}
-                  avatarUrl={avatarUrl}
-                  card={card}
-                  isLoading={isFetching}
-                />
-              </motion.div>
-            </div>
-          </div>,
-          document.body,
-        )
-      : null;
-
   return (
-    <>
-      <span
-        ref={triggerRef}
-        className={cn(
-          "relative inline-flex max-w-full items-center gap-1.5 align-middle",
-          className,
-        )}
-        onMouseEnter={() => {
-          hoverSurfaceRef.current = "link";
-          openCard();
-        }}
-        onMouseMove={handleLinkMouseMove}
-        onMouseLeave={() => {
-          // Leaving trigger toward the card is handled by the card's enter;
-          // a short close delay covers the bridge gap.
-          scheduleClose();
-        }}
-        onClick={(event) => event.stopPropagation()}
-        onPointerDown={(event) => event.stopPropagation()}
-      >
-        {children}
-      </span>
-      {popover}
-    </>
+    <FollowHoverCard
+      side={side}
+      openDelay={openDelay}
+      closeDelay={closeDelay}
+      className={className}
+      contentClassName={cn("p-5", contentClassName)}
+      linkTiltMaxRotate={linkTiltMaxRotate}
+      cardWidth={320}
+      cardApproxHeight={220}
+      onOpenChange={setOpen}
+      content={
+        <GithubUserCardBody
+          username={login}
+          name={name}
+          avatarUrl={avatarUrl}
+          card={card}
+          isLoading={isFetching}
+        />
+      }
+    >
+      {children}
+    </FollowHoverCard>
   );
 }
 

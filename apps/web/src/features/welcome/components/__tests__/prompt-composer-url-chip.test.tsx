@@ -5,10 +5,7 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import type { ComposerHandle } from "../PromptComposer";
-import {
-  __resetComposerPasteForTests,
-  expandPasteTokens,
-} from "@/shared/lib/composer-paste";
+import { expandUrlTokens } from "@/shared/lib/link-preview";
 
 type TestIconProps = {
   name: string;
@@ -33,64 +30,40 @@ mock.module("next-intl", () => ({
     values?.count != null ? String(values.count) : key,
 }));
 
-const { PromptComposer } = await import("../PromptComposer");
+mock.module("@/shared/lib/link-preview-query", () => ({
+  fetchLinkPreview: async () => {
+    throw new Error("offline");
+  },
+  peekLinkPreview: () => null,
+}));
 
-function manyLines(count: number): string {
-  return Array.from({ length: count }, (_, i) => `paste line ${i + 1}`).join("\n");
-}
+const { PromptComposer } = await import("../PromptComposer");
 
 let root: Root | null = null;
 
-beforeEach(() => {
-  installDom();
-  __resetComposerPasteForTests();
-});
-
-afterEach(async () => {
-  if (root) {
-    const currentRoot = root;
-    root = null;
-    await act(async () => {
-      currentRoot.unmount();
-    });
-  }
-  cleanupDom();
-  __resetComposerPasteForTests();
-});
-
-describe("PromptComposer large paste chips", () => {
-  it("records plain-text paste through the native undo transaction", async () => {
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    root = createRoot(container);
-    const execCommand = mock(() => true);
-    Object.defineProperty(document, "execCommand", {
-      configurable: true,
-      value: execCommand,
-    });
-
-    await act(async () => {
-      root?.render(<PromptComposer />);
-    });
-
-    const editor = container.querySelector<HTMLElement>("[contenteditable='true']");
-    if (!editor) throw new Error("PromptComposer editor not found");
-    placeCaretAtEnd(editor);
-
-    await act(async () => {
-      editor.dispatchEvent(pasteEvent("Pasted text"));
-    });
-
-    expect(execCommand).toHaveBeenCalledWith("insertText", false, "Pasted text");
+describe("PromptComposer URL chips", () => {
+  beforeEach(() => {
+    installDom();
   });
 
-  it("collapses pastes over 10 lines into a chip and expands the body on send", async () => {
+  afterEach(async () => {
+    if (root) {
+      const currentRoot = root;
+      root = null;
+      await act(async () => {
+        currentRoot.unmount();
+      });
+    }
+    cleanupDom();
+  });
+
+  it("collapses a pasted http URL into a title chip and expands it on send", async () => {
     const composerRef = React.createRef<ComposerHandle>();
     let latestText = "";
     const container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
-    const body = manyLines(12);
+    const url = "https://payloadcms.com/docs/components";
 
     await act(async () => {
       root?.render(
@@ -108,33 +81,23 @@ describe("PromptComposer large paste chips", () => {
     placeCaretAtEnd(editor);
 
     await act(async () => {
-      editor.dispatchEvent(pasteEvent(body));
+      editor.dispatchEvent(pasteEvent(url));
     });
 
-    const chip = editor.querySelector("[data-kind='paste']");
+    const chip = editor.querySelector("[data-kind='url']");
     expect(chip).not.toBeNull();
     expect(chip?.className).toContain("rounded-full");
     expect(chip?.className).toContain("h-5");
-    expect(chip?.textContent).toContain("12");
-    expect(editor.querySelectorAll("br").length).toBe(0);
-    expect(latestText.trim()).toMatch(/^\[#paste:[a-zA-Z0-9_-]+\]$/);
-    expect(expandPasteTokens(latestText.trim())).toBe(body);
-
-    await act(async () => {
-      chip?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-    });
-    const tooltip = document.querySelector("[data-slot='follow-hover-card']");
-    expect(tooltip?.textContent).toContain("paste line 1");
-    expect(tooltip?.textContent).toContain("paste line 12");
-    expect(tooltip?.textContent).toMatch(/6/);
+    expect(chip?.textContent).toContain("payloadcms.com");
+    expect(latestText.trim()).toMatch(/^\[#url:/);
+    expect(expandUrlTokens(latestText.trim())).toBe(url);
   });
 
-  it("inserts 10-line pastes as text instead of a chip", async () => {
+  it("leaves mixed text pastes as plain text", async () => {
     const composerRef = React.createRef<ComposerHandle>();
     const container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
-    const body = manyLines(10);
 
     await act(async () => {
       root?.render(<PromptComposer ref={composerRef} />);
@@ -145,45 +108,11 @@ describe("PromptComposer large paste chips", () => {
     placeCaretAtEnd(editor);
 
     await act(async () => {
-      editor.dispatchEvent(pasteEvent(body));
+      editor.dispatchEvent(pasteEvent("see https://example.com please"));
     });
 
-    expect(editor.querySelector("[data-kind='paste']")).toBeNull();
-    expect(composerRef.current?.getText()).toBe(body);
-  });
-
-  it("expands a paste chip in place on click and does not chip it again", async () => {
-    const composerRef = React.createRef<ComposerHandle>();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    root = createRoot(container);
-    const body = manyLines(11);
-
-    await act(async () => {
-      root?.render(<PromptComposer ref={composerRef} />);
-    });
-
-    const editor = container.querySelector<HTMLElement>("[contenteditable='true']");
-    if (!editor) throw new Error("PromptComposer editor not found");
-    placeCaretAtEnd(editor);
-
-    await act(async () => {
-      editor.dispatchEvent(pasteEvent(body));
-    });
-
-    const chip = editor.querySelector("[data-kind='paste']");
-    if (!chip) throw new Error("paste chip not found");
-
-    await act(async () => {
-      chip.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-    });
-
-    expect(editor.querySelector("[data-kind='paste']")).toBeNull();
-    expect(composerRef.current?.getText()).toBe(body);
-    expect(editor.querySelectorAll("br").length).toBe(0);
-    const textNodes = [...editor.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE);
-    expect(textNodes).toHaveLength(1);
-    expect(textNodes[0]?.textContent).toBe(body);
+    expect(editor.querySelector("[data-kind='url']")).toBeNull();
+    expect(composerRef.current?.getText()).toBe("see https://example.com please");
   });
 });
 

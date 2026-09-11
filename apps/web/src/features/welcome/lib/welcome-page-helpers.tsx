@@ -11,6 +11,7 @@ import type { ComposerAttachment } from "@/features/welcome/components/Attachmen
 import { formatAppshotPrompt } from "@/features/appshot/lib/appshot-protocol";
 import { materializeAiContextText } from "@/shared/lib/ai-context-protocol";
 import { expandPasteTokens } from "@/shared/lib/composer-paste";
+import { expandUrlTokens } from "@/shared/lib/link-preview";
 import { agentCliRouteLabel } from "@/app-shell/llm-providers-modal-utils";
 
 export interface RepoContext {
@@ -376,19 +377,21 @@ export function resolvePromptPlaceholders(
   options?: { preserveFileMentions?: boolean },
 ): string {
   return materializeAiContextText(
-    expandPasteTokens(
-      text
-        .replace(/@(?:issue|pr)#\d+/g, () => ".atmos/context/requirement.md")
-        .replace(/@file:([^\s]+)/g, (match, relativePath: string) =>
-          options?.preserveFileMentions ? match : relativePath,
-        )
-        .replace(/\[#appshot:(\d{13})\]/g, (_match, timestamp: string) =>
-          formatAppshotPrompt(timestamp),
-        )
-        .replace(/\[#img-(\d+)\]/g, (match, n: string) => {
-          const att = atts.find((a) => a.number === Number(n));
-          return att ? `.atmos/attachments/${att.filename}` : match;
-        }),
+    expandUrlTokens(
+      expandPasteTokens(
+        text
+          .replace(/@(?:issue|pr)#\d+/g, () => ".atmos/context/requirement.md")
+          .replace(/@file:([^\s]+)/g, (match, relativePath: string) =>
+            options?.preserveFileMentions ? match : relativePath,
+          )
+          .replace(/\[#appshot:(\d{13})\]/g, (_match, timestamp: string) =>
+            formatAppshotPrompt(timestamp),
+          )
+          .replace(/\[#img-(\d+)\]/g, (match, n: string) => {
+            const att = atts.find((a) => a.number === Number(n));
+            return att ? `.atmos/attachments/${att.filename}` : match;
+          }),
+      ),
     ),
   );
 }

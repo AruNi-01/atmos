@@ -8859,6 +8859,9 @@
     "scriptTrustReview": {
       "empty": "This project's script file has no commands in it.",
       "aboutToRun": "About to run"
+    },
+    "linkPreview": {
+      "openInBrowser": "Open in browser"
     }
   },
   "diff": {

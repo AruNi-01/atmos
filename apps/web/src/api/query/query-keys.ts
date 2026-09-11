@@ -399,6 +399,16 @@ export const queryKeys = {
         params.login,
       ] as const,
 
+    linkPreview: (
+      scope: ComputerQueryScope,
+      params: { url: string },
+    ) =>
+      [
+        ...queryKeys.computer.root(scope),
+        "linkPreview",
+        params.url,
+      ] as const,
+
     /** GitHub: API rate limits (core / search / graphql) for local gh token */
     githubRateLimit: (scope: ComputerQueryScope) =>
       [...queryKeys.computer.root(scope), "github", "rateLimit"] as const,
