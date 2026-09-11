@@ -1,0 +1,89 @@
+crates/agent/src/providers/acp/tool_map.rs
+  s_dee50dbbc61b2e::t_f058195ff35592 230,241-245
+  s_dee50dbbc61b2e::t_e00edd9f51c7e6 253,406-410,883,942
+  s_dee50dbbc61b2e::t_2e3420684b1918 227-229
+  s_dee50dbbc61b2e::t_183c3751b98dbc 231-233,238-240
+  s_dee50dbbc61b2e::t_253a9e2fd1ef6b 246
+  s_dee50dbbc61b2e::t_cafa311330eed0 225-226,234-237,1870-1873
+crates/agent/src/providers/acp/adapter.rs
+  s_dee50dbbc61b2e::t_ac185a0c0bb5b6 729
+crates/agent/src/map/extract.rs
+  s_dee50dbbc61b2e::t_c5060145554f1c 1185,1214,1236
+  s_dee50dbbc61b2e::t_01cdf82b10b660 97-99,130-140,144-155,1036-1051
+crates/agent/src/providers/claude/tool_map.rs
+  s_dee50dbbc61b2e::t_a56f28741ca57e 157,169,628,667-683,685,715
+  s_dee50dbbc61b2e::t_863d29168e5801 165
+  s_dee50dbbc61b2e::t_82d9f9b4cacca6 1407-1436
+  s_dee50dbbc61b2e::t_82343f13fd1ffb 128,183-184
+  s_dee50dbbc61b2e::t_9533f169ccdd8f 1370-1406,1437-1439
+  s_dee50dbbc61b2e::t_b2eecd3affeff3 156
+  s_dee50dbbc61b2e::t_32ad644c10ae23 158-160,162-164
+  s_dee50dbbc61b2e::t_08c34574cb50a5 166-168
+  s_dee50dbbc61b2e::t_40f044510b96c0 170-172,180-182
+  s_dee50dbbc61b2e::t_5c4ac435b686a3 185-187
+  s_dee50dbbc61b2e::t_922937f362b86b 625-627
+  s_dee50dbbc61b2e::t_3668118d5185d1 629-631
+  s_dee50dbbc61b2e::t_3e4e8d75a665ea 684
+  s_dee50dbbc61b2e::t_4ed36b81ed73ad 686
+  s_dee50dbbc61b2e::t_269f13895e6067 712-714
+  s_dee50dbbc61b2e::t_f40f7015370404 716-718
+  s_dee50dbbc61b2e::t_58a260a39eaabf 1367-1369
+  s_dee50dbbc61b2e::t_57f475a0812237 1440
+crates/agent/src/providers/codex/tool_map.rs
+  s_dee50dbbc61b2e::t_43a1fbc2226884 10,13,83,146,184,229,250,353,395,432,463,517,613,615,617,621,623,640-641,645,648,650,652,656,658,666,682-767
+  s_dee50dbbc61b2e::t_45461c9f7b1b67 1190-1216
+  s_dee50dbbc61b2e::t_36ccb0affa7f93 1152-1153,1181
+  s_dee50dbbc61b2e::t_1c525e36e9d220 768
+  s_dee50dbbc61b2e::t_b132f7ddf31aa9 1189
+crates/agent/src/contract/tool.rs
+  s_dee50dbbc61b2e::t_55f14c7194b8a4 41-43,105-107
+crates/agent/src/providers/grok/tool_map.rs
+  s_dee50dbbc61b2e::t_ef4f06fa14223f 347-360,366
+  s_dee50dbbc61b2e::t_ec4c59deee4a24 2281-2282,2342,2367
+  s_dee50dbbc61b2e::t_de3aac815fd6ff 286,361-365,509
+  s_dee50dbbc61b2e::t_d6411f93e8c770 285
+  s_dee50dbbc61b2e::t_55773b88ffe59c 287-289
+  s_dee50dbbc61b2e::t_3136989943446f 367
+  s_dee50dbbc61b2e::t_0e87ec5f274c12 2283-2284
+  s_dee50dbbc61b2e::t_0bc3932df33adb 2339-2341
+  s_dee50dbbc61b2e::t_37874342f868cf 2343-2345,2364-2366
+  s_dee50dbbc61b2e::t_1dc8a2aaf64564 2368-2370
+crates/agent/src/providers/codex/event_map.rs
+  s_dee50dbbc61b2e::t_52574425d24f22 371-374,376-377,379,381,384-393,407-459,606-611
+  s_dee50dbbc61b2e::t_52b7699c21004a 378
+  s_dee50dbbc61b2e::t_c1488b2069ac56 825-847,849-903
+  s_dee50dbbc61b2e::t_9d06d2da0e4321 848
+  s_dee50dbbc61b2e::t_1fb149300382a5 11
+crates/agent/src/providers/grok/event_map.rs
+  s_dee50dbbc61b2e::t_9f9996425b2141 131-136,474
+  s_dee50dbbc61b2e::t_262c4c6eb6798f 129-130
+crates/agent/src/providers/acp/overlays/grok_acp.rs
+  s_dee50dbbc61b2e::t_f207f9ffe3c2e8 65-72,74-85,87,94-112
+  s_dee50dbbc61b2e::t_89d5ab188155b4 422-483
+crates/agent/src/providers/opencode/event_map.rs
+  s_dee50dbbc61b2e::t_b5e80f994ff94d 515
+crates/agent/src/providers/opencode/tool_map.rs
+  s_dee50dbbc61b2e::t_30502319423462 101,228,291
+crates/agent/src/providers/pi/tool_map.rs
+  s_dee50dbbc61b2e::t_71a20389eaf212 61,141,203,342
+crates/core-service/src/service/agent_chat/types.rs
+  s_dee50dbbc61b2e::t_517a72a67ebac4 804-805
+packages/api-types/src/ws/dto/agent-chat.ts
+  s_dee50dbbc61b2e::t_e3019fa01c59a4 303-309,380
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "d98a9fcdd4d61053ba6c11a15035a08cf4a78d30",
+  "prompts": {},
+  "sessions": {
+    "s_dee50dbbc61b2e": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "a06030a6-10a4-40c6-8993-0d5a5065fe4d",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
