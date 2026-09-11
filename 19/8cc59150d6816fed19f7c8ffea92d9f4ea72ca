@@ -1,0 +1,56 @@
+apps/web/src/app-shell/__tests__/center-pane-leaf-metrics.test.ts
+  s_316780ce39bce6::t_de7cfa575313a2 43-44
+apps/web/src/shared/components/image-copy-context-menu.tsx
+  s_b99654d87252bb::t_9c483cc5894c14 139
+apps/web/src/features/agent/components/AgentPromptComposer.tsx
+  s_9f7e23b9e80383::t_9f089064bc240b 510
+apps/web/src/app-shell/center-pane/center-pane-leaf-metrics.ts
+  s_316780ce39bce6::t_3eaaac9eb51e88 4
+apps/web/src/features/diff/components/DiffCodeViewSettingsMenu.tsx
+  s_f948878df505a0::t_56a7fb6e4be5a3 99
+  s_f948878df505a0::t_963c597d3450e5 19,75-98
+apps/web/src/app-shell/center-pane/center-pane-dock-hover.ts
+  s_316780ce39bce6::t_9620937e1d4061 37
+apps/web/src/shared/components/__tests__/image-copy-context-menu.test.tsx
+  s_b99654d87252bb::t_fa205fe8524b36 59-60,63-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "198cc59150d6816fed19f7c8ffea92d9f4ea72ca",
+  "prompts": {},
+  "sessions": {
+    "s_316780ce39bce6": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "3e7827b6-1c22-4839-b1cc-7bf2b1fdc965",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_9f7e23b9e80383": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "f4835856-1cc6-4fec-ab82-b178d10d8757",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_b99654d87252bb": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "cbcb0769-27b8-4467-8ac1-a769f4d63e95",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_f948878df505a0": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "a4c49706-a24b-4b66-9e2c-e1eb47b1819e",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
