@@ -257,7 +257,7 @@ fn map_grok_task_output(
         // Orphan TaskOutput / get_command_or_subagent_output without a parent — hide.
         return ToolMapOut::Hide;
     };
-    let Some(mut original) = resolve_grok_task_parent(grok_tasks, &task_id, output) else {
+    let Some(mut original) = grok_tasks.get(&task_id).cloned() else {
         return ToolMapOut::Hide;
     };
     let kill = is_kill_command(update);
@@ -274,30 +274,32 @@ fn map_grok_task_output(
     } else {
         original.status = grok_task_status(output).unwrap_or_else(|| map_status(&update.status));
     }
-    match &original.kind {
-        AgentToolKind::Subagent => {
-            original.result = Some(AgentToolResult::Text {
+    if !kill || original.result.is_none() {
+        original.result = Some(match original.kind {
+            AgentToolKind::Subagent => AgentToolResult::Text {
                 text: strip_grok_poll_footer(
                     &value_text(output)
                         .or_else(|| content_text(&update.content))
                         .unwrap_or_default(),
                 ),
-            });
+            },
+            _ => execute_result(output, Some(update)),
+        });
+    }
+    match &mut original.params {
+        AgentToolParams::Execute {
+            task_id: stored_task,
+            ..
         }
-        _ => {
-            if !kill || original.result.is_none() {
-                original.result = Some(execute_result(output, Some(update)));
-            }
-            if let AgentToolParams::Execute {
-                task_id: stored_task,
-                ..
-            } = &mut original.params
-            {
-                if stored_task.is_none() {
-                    *stored_task = Some(task_id.clone());
-                }
+        | AgentToolParams::Subagent {
+            task_id: stored_task,
+            ..
+        } => {
+            if stored_task.is_none() {
+                *stored_task = Some(task_id.clone());
             }
         }
+        _ => {}
     }
     grok_tasks.insert(task_id, original.clone());
     grok_tasks.insert(original.tool_call_id.clone(), original.clone());
@@ -305,67 +307,6 @@ fn map_grok_task_output(
         tool_call_id: original.tool_call_id.clone(),
         tool: original,
     }
-}
-
-fn resolve_grok_task_parent(
-    grok_tasks: &HashMap<String, AgentTool>,
-    task_id: &str,
-    output: Option<&Value>,
-) -> Option<AgentTool> {
-    if let Some(tool) = grok_tasks.get(task_id) {
-        return Some(tool.clone());
-    }
-    let command = output
-        .and_then(|value| first_string(value, &["command"]))
-        .or_else(|| {
-            output
-                .and_then(|value| value.get("Result"))
-                .and_then(|value| first_string(value, &["command"]))
-        })?;
-    let (agent_type, description) = parse_subagent_command_label(&command)?;
-    grok_tasks.values().find_map(|tool| {
-        if tool.kind != AgentToolKind::Subagent {
-            return None;
-        }
-        let AgentToolParams::Subagent {
-            description: stored_desc,
-            agent_type: stored_type,
-        } = &tool.params
-        else {
-            return None;
-        };
-        if stored_desc != &description {
-            return None;
-        }
-        if agent_type.is_some()
-            && stored_type
-                .as_ref()
-                .is_some_and(|value| Some(value.as_str()) != agent_type.as_deref())
-        {
-            return None;
-        }
-        Some(tool.clone())
-    })
-}
-
-/// Grok TaskOutput `command` looks like `[subagent:explore] Read test-note.md content`.
-fn parse_subagent_command_label(command: &str) -> Option<(Option<String>, String)> {
-    let command = command.trim();
-    let rest = command.strip_prefix("[subagent:")?;
-    let (agent_type, description) = rest.split_once(']')?;
-    let description = description.trim();
-    if description.is_empty() {
-        return None;
-    }
-    let agent_type = agent_type.trim();
-    Some((
-        if agent_type.is_empty() {
-            None
-        } else {
-            Some(agent_type.to_string())
-        },
-        description.to_string(),
-    ))
 }
 
 fn remember_grok_task(
@@ -403,14 +344,31 @@ fn build_typed_tool(
     output: Option<&Value>,
 ) -> Option<AgentTool> {
     let params = typed_params(kind, payload, output, update)?;
-    let status = map_status(&update.status);
-    let result = match &update.status {
-        ToolCallStatus::Running => None,
-        ToolCallStatus::Failed => Some(mapped_result(kind, payload, output, update, true)),
-        ToolCallStatus::Completed => Some(mapped_result(kind, payload, output, update, false)),
+    let dispatched_subagent = matches!(
+        &params,
+        AgentToolParams::Subagent {
+            task_id: Some(_),
+            ..
+        }
+    );
+    // `spawn_subagent` completes its dispatch tool call before the child itself
+    // finishes. The later TaskOutput poll is authoritative for child status/output.
+    let status = if dispatched_subagent {
+        AgentToolStatus::Running
+    } else {
+        map_status(&update.status)
+    };
+    let result = match (&update.status, dispatched_subagent) {
+        (_, true) => None,
+        (ToolCallStatus::Running, false) => None,
+        (ToolCallStatus::Failed, false) => Some(mapped_result(kind, payload, output, update, true)),
+        (ToolCallStatus::Completed, false) => {
+            Some(mapped_result(kind, payload, output, update, false))
+        }
     };
     Some(AgentTool {
         tool_call_id: update.tool_call_id.clone(),
+        parent_tool_call_id: update.parent_tool_call_id.clone(),
         name: update.tool.clone(),
         title: tool_display_title(update, kind, payload),
         kind,
@@ -548,6 +506,7 @@ fn typed_params(
             Some(AgentToolParams::Subagent {
                 description,
                 agent_type,
+                task_id: task_id_of(output).or_else(|| task_id_of(value)),
             })
         }
         AgentToolKind::McpList => Some(AgentToolParams::McpList {
@@ -974,6 +933,7 @@ fn other_tool(update: &ToolCallUpdate) -> AgentTool {
     };
     AgentTool {
         tool_call_id: update.tool_call_id.clone(),
+        parent_tool_call_id: update.parent_tool_call_id.clone(),
         name: update.tool.clone(),
         title: nonempty_title(update).map(str::to_string),
         kind: AgentToolKind::Other,
@@ -1022,6 +982,7 @@ fn plan_document_tool(update: &ToolCallUpdate, input: Option<&Value>) -> AgentTo
     };
     AgentTool {
         tool_call_id: update.tool_call_id.clone(),
+        parent_tool_call_id: update.parent_tool_call_id.clone(),
         name,
         title,
         kind: AgentToolKind::PlanDocument,
@@ -2317,7 +2278,10 @@ mod tests {
             })),
             content: Vec::new(),
             locations: Vec::new(),
-            raw_output: None,
+            raw_output: Some(serde_json::json!({
+                "task_id": "01a07059-5b5f-71a3-96b8-30f7674966cb",
+                "status": "running"
+            })),
             detail: None,
         };
         let ToolMapOut::Tool(sub) = map_tool_call(&spawned, &mut grok_tasks) else {
@@ -2361,6 +2325,125 @@ mod tests {
         match tool.result {
             Some(AgentToolResult::Text { text }) if text.contains("full content") => {}
             other => panic!("expected subagent text result, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn grok_taskoutput_requires_a_known_task_id() {
+        let mut grok_tasks = HashMap::new();
+        let spawned = ToolCallUpdate {
+            tool_call_id: "tc_sub".into(),
+            parent_tool_call_id: None,
+            tool: "Tool".into(),
+            description: "spawn_subagent".into(),
+            acp_kind: None,
+            status: ToolCallStatus::Running,
+            raw_input: Some(serde_json::json!({
+                "description": "Read test-note.md content",
+                "subagent_type": "explore"
+            })),
+            content: Vec::new(),
+            locations: Vec::new(),
+            raw_output: None,
+            detail: None,
+        };
+        let ToolMapOut::Tool(_) = map_tool_call(&spawned, &mut grok_tasks) else {
+            panic!("expected subagent");
+        };
+
+        let poll = ToolCallUpdate {
+            tool_call_id: "tc_poll".into(),
+            parent_tool_call_id: None,
+            tool: "Tool".into(),
+            description: "get_command_or_subagent_output".into(),
+            acp_kind: None,
+            status: ToolCallStatus::Completed,
+            raw_input: Some(serde_json::json!({"task_id": "unknown-child"})),
+            content: Vec::new(),
+            locations: Vec::new(),
+            raw_output: Some(serde_json::json!({
+                "task_id": "unknown-child",
+                "command": "[subagent:explore] Read test-note.md content",
+                "status": "completed",
+                "output": "This must not attach to an arbitrary task."
+            })),
+            detail: None,
+        };
+        assert!(matches!(
+            map_tool_call(&poll, &mut grok_tasks),
+            ToolMapOut::Hide
+        ));
+    }
+
+    #[test]
+    fn grok_kill_does_not_clobber_a_completed_subagent_result() {
+        let mut grok_tasks = HashMap::new();
+        let spawned = ToolCallUpdate {
+            tool_call_id: "tc_sub".into(),
+            parent_tool_call_id: None,
+            tool: "Tool".into(),
+            description: "spawn_subagent".into(),
+            acp_kind: None,
+            status: ToolCallStatus::Completed,
+            raw_input: Some(serde_json::json!({
+                "description": "Read test-note.md content",
+                "subagent_type": "explore"
+            })),
+            content: Vec::new(),
+            locations: Vec::new(),
+            raw_output: Some(serde_json::json!({
+                "task_id": "child-1",
+                "status": "running"
+            })),
+            detail: None,
+        };
+        assert!(matches!(
+            map_tool_call(&spawned, &mut grok_tasks),
+            ToolMapOut::Tool(_)
+        ));
+
+        let poll = ToolCallUpdate {
+            tool_call_id: "tc_poll".into(),
+            parent_tool_call_id: None,
+            tool: "Tool".into(),
+            description: "get_command_or_subagent_output".into(),
+            acp_kind: None,
+            status: ToolCallStatus::Completed,
+            raw_input: Some(serde_json::json!({"task_id": "child-1"})),
+            content: Vec::new(),
+            locations: Vec::new(),
+            raw_output: Some(serde_json::json!({
+                "task_id": "child-1",
+                "status": "completed",
+                "output": "Here is the full content.\n"
+            })),
+            detail: None,
+        };
+        let ToolMapOut::Replace { tool, .. } = map_tool_call(&poll, &mut grok_tasks) else {
+            panic!("expected completed subagent");
+        };
+        assert_eq!(tool.status, crate::contract::AgentToolStatus::Completed);
+
+        let kill = ToolCallUpdate {
+            tool_call_id: "tc_kill".into(),
+            parent_tool_call_id: None,
+            tool: "Tool".into(),
+            description: "kill_command_or_subagent".into(),
+            acp_kind: None,
+            status: ToolCallStatus::Completed,
+            raw_input: Some(serde_json::json!({"task_id": "child-1"})),
+            content: Vec::new(),
+            locations: Vec::new(),
+            raw_output: Some(serde_json::json!({"success": true})),
+            detail: None,
+        };
+        let ToolMapOut::Replace { tool, .. } = map_tool_call(&kill, &mut grok_tasks) else {
+            panic!("expected kill to replace the original subagent");
+        };
+        assert_eq!(tool.status, crate::contract::AgentToolStatus::Completed);
+        match tool.result {
+            Some(AgentToolResult::Text { text }) if text.contains("full content") => {}
+            other => panic!("kill must not clobber the completed result, got {other:?}"),
         }
     }
 }

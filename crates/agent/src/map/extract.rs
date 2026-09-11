@@ -94,6 +94,9 @@ fn first_u32(value: &Value, keys: &[&str]) -> Option<u32> {
 }
 
 pub fn extract_path(value: &Value) -> Option<String> {
+    if let Some(text) = value.as_str() {
+        return path_from_patch(text);
+    }
     const KEYS: &[&str] = &[
         "file_path",
         "filePath",
@@ -124,7 +127,30 @@ pub fn extract_path(value: &Value) -> Option<String> {
             return Some(text.to_string());
         }
     }
+    for object in walk_objects(value) {
+        for key in ["patch", "diff", "input"] {
+            if let Some(path) = object
+                .get(key)
+                .and_then(Value::as_str)
+                .and_then(path_from_patch)
+            {
+                return Some(path);
+            }
+        }
+    }
     None
+}
+
+fn path_from_patch(text: &str) -> Option<String> {
+    text.lines().find_map(|line| {
+        let path = line
+            .trim()
+            .strip_prefix("*** Update File: ")
+            .or_else(|| line.trim().strip_prefix("*** Add File: "))
+            .or_else(|| line.trim().strip_prefix("*** Delete File: "))?
+            .trim();
+        (!path.is_empty()).then(|| path.to_string())
+    })
 }
 
 pub fn extract_command(value: &Value) -> Option<String> {
@@ -1008,6 +1034,22 @@ mod tests {
     }
 
     #[test]
+    fn extract_path_reads_the_first_file_from_apply_patch() {
+        assert_eq!(
+            extract_path(&serde_json::json!(
+                "*** Begin Patch\n*** Update File: apps/web/src/a.ts\n@@\n-old\n+new\n*** Add File: apps/web/src/b.ts\n*** End Patch"
+            )),
+            Some("apps/web/src/a.ts".into())
+        );
+        assert_eq!(
+            extract_path(&serde_json::json!({
+                "input": "*** Begin Patch\n*** Update File: apps/web/src/b.ts\n@@\n-old\n+new\n*** End Patch"
+            })),
+            Some("apps/web/src/b.ts".into())
+        );
+    }
+
+    #[test]
     fn extract_command_unifies_bash_shapes() {
         assert_eq!(
             extract_command(&serde_json::json!({"command": "ls -la"})),
@@ -1140,6 +1182,7 @@ mod tests {
     fn unknown_tool_serializes_without_bag_fields() {
         let tool = AgentTool {
             tool_call_id: "tc_x".into(),
+            parent_tool_call_id: None,
             name: "vendor_mystery".into(),
             title: None,
             kind: AgentToolKind::Other,
@@ -1168,6 +1211,7 @@ mod tests {
     fn mapped_web_search_and_workspace_search_keep_aligned_types() {
         let web = AgentTool {
             tool_call_id: "tc_web".into(),
+            parent_tool_call_id: None,
             name: "web_search".into(),
             title: None,
             kind: AgentToolKind::WebSearch,
@@ -1189,6 +1233,7 @@ mod tests {
 
         let search = AgentTool {
             tool_call_id: "tc_grep".into(),
+            parent_tool_call_id: None,
             name: "Grep".into(),
             title: None,
             kind: AgentToolKind::Search,

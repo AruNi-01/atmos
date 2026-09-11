@@ -2,7 +2,7 @@ use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
 
 use crate::acp_client::client::{AcpSessionEvent, AcpTurnStop};
-use crate::acp_client::types::{AgentConfigOption, StreamDelta, ToolCallStatus, ToolCallUpdate};
+use crate::acp_client::types::{AgentConfigOption, StreamDelta, ToolCallUpdate};
 use crate::contract::AgentPersistenceHandle;
 use crate::contract::AgentTool;
 use crate::contract::{AgentCurrentConfig, AgentIdentity, AgentSupportedOptions, Capability};
@@ -115,7 +115,6 @@ pub(crate) fn map_event(
         AcpSessionEvent::Stream(delta) => map_stream(state, turn_id, delta),
         AcpSessionEvent::ToolCall(update) => {
             let update = merge_stored_tool(state, update);
-            let status = update.status.clone();
             match map_tool_call(&update, &mut state.grok_tasks) {
                 ToolMapOut::FoldThinking { text, done } => {
                     let event = fold_thinking(state, turn_id.clone(), text, done);
@@ -127,11 +126,14 @@ pub(crate) fn map_event(
                     wrap(turn_id, AgentEvent::PlanUpdated { plan }),
                 )),
                 ToolMapOut::Hide => None,
-                ToolMapOut::Tool(tool) => Some(complete_before_thinking(
-                    state,
-                    turn_id.clone(),
-                    wrap(turn_id, tool_event(tool, tool_status_kind(status))),
-                )),
+                ToolMapOut::Tool(tool) => {
+                    let kind = tool_status_kind(tool.status);
+                    Some(complete_before_thinking(
+                        state,
+                        turn_id.clone(),
+                        wrap(turn_id, tool_event(tool, kind)),
+                    ))
+                }
                 ToolMapOut::Replace { tool_call_id, tool } => {
                     debug_assert_eq!(tool_call_id, tool.tool_call_id);
                     let kind = match tool.status {
@@ -469,11 +471,11 @@ fn merge_stored_tool(state: &mut EventMapState, update: ToolCallUpdate) -> ToolC
     merged
 }
 
-fn tool_status_kind(status: ToolCallStatus) -> ToolEventKind {
+fn tool_status_kind(status: crate::contract::AgentToolStatus) -> ToolEventKind {
     match status {
-        ToolCallStatus::Running => ToolEventKind::Started,
-        ToolCallStatus::Completed => ToolEventKind::Completed,
-        ToolCallStatus::Failed => ToolEventKind::Failed,
+        crate::contract::AgentToolStatus::Completed => ToolEventKind::Completed,
+        crate::contract::AgentToolStatus::Failed => ToolEventKind::Failed,
+        _ => ToolEventKind::Started,
     }
 }
 
@@ -1076,6 +1078,39 @@ mod tests {
             Some(AgentToolResult::Execute { output, .. }) => assert_eq!(output, "hello"),
             other => panic!("expected execute result, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn subagent_dispatch_stays_started_until_taskoutput_is_terminal() {
+        let mut state = state();
+        let dispatch = map_event(
+            &mut state,
+            Some("turn-1".into()),
+            AcpSessionEvent::ToolCall(ToolCallUpdate {
+                tool_call_id: "tc_sub".into(),
+                parent_tool_call_id: None,
+                tool: "Tool".into(),
+                description: "spawn_subagent".into(),
+                acp_kind: None,
+                status: ToolCallStatus::Completed,
+                raw_input: Some(serde_json::json!({
+                    "description": "Inspect test coverage",
+                    "subagent_type": "explore"
+                })),
+                content: Vec::new(),
+                locations: Vec::new(),
+                raw_output: Some(serde_json::json!({
+                    "task_id": "child-1",
+                    "status": "running"
+                })),
+                detail: None,
+            }),
+        )
+        .expect("subagent dispatch");
+        let AgentEvent::ToolCallStarted { tool_call } = dispatch.payload else {
+            panic!("expected started dispatch, got {:?}", dispatch.payload);
+        };
+        assert_eq!(tool_call.status, AgentToolStatus::Running);
     }
 
     #[test]

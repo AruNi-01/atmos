@@ -98,6 +98,7 @@ pub(crate) fn map_tool_part(part: &Value) -> Option<ToolMapOut> {
             return Some(ToolMapOut::Tool {
                 tool: AgentTool {
                     tool_call_id: call_id.to_string(),
+                    parent_tool_call_id: None,
                     name,
                     title,
                     kind: crate::contract::AgentToolKind::PlanDocument,
@@ -224,6 +225,7 @@ fn build_tool(
     };
     AgentTool {
         tool_call_id,
+        parent_tool_call_id: None,
         name,
         title,
         kind,
@@ -286,6 +288,7 @@ fn typed_params(kind: crate::contract::AgentToolKind, input: &Value) -> Option<A
             Some(AgentToolParams::Subagent {
                 description,
                 agent_type,
+                task_id: None,
             })
         }
         crate::contract::AgentToolKind::McpList => Some(AgentToolParams::McpList {

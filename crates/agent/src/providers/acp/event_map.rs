@@ -2,7 +2,7 @@ use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
 
 use crate::acp_client::client::{AcpSessionEvent, AcpTurnStop};
-use crate::acp_client::types::{AgentConfigOption, StreamDelta, ToolCallStatus, ToolCallUpdate};
+use crate::acp_client::types::{AgentConfigOption, StreamDelta, ToolCallUpdate};
 use crate::contract::AgentPersistenceHandle;
 use crate::contract::AgentTool;
 use crate::contract::{AgentCurrentConfig, AgentIdentity, AgentSupportedOptions, Capability};
@@ -148,7 +148,6 @@ pub(crate) fn map_event(
         AcpSessionEvent::Stream(delta) => map_stream(state, turn_id, delta),
         AcpSessionEvent::ToolCall(update) => {
             let update = merge_stored_tool(state, update);
-            let status = update.status.clone();
             match map_tool_call(&state.provider_id, &update, &mut state.overlay) {
                 ToolMapOut::FoldThinking { text, done } => {
                     let event = fold_thinking(state, turn_id.clone(), text, done);
@@ -176,7 +175,8 @@ pub(crate) fn map_event(
                     {
                         state.plan_document_active = true;
                     }
-                    let mapped = wrap(turn_id.clone(), tool_event(tool, tool_status_kind(status)));
+                    let kind = tool_status_kind(tool.status);
+                    let mapped = wrap(turn_id.clone(), tool_event(tool, kind));
                     if clear_execution_plan {
                         // Drop any companion session-plan that already polluted the dock.
                         state.pending.push_back(wrap(
@@ -230,6 +230,8 @@ pub(crate) fn map_event(
             ),
         )),
         AcpSessionEvent::TurnEnd(stop) => {
+            state.overlay.grok_tasks.clear();
+            state.tools.clear();
             let turn_id = turn_id?;
             let event = match stop {
                 AcpTurnStop::Canceled => AgentEvent::TurnCanceled {
@@ -319,6 +321,8 @@ pub(crate) fn map_event(
             None
         }
         AcpSessionEvent::SessionClosed { .. } | AcpSessionEvent::SessionEnded => {
+            state.overlay.grok_tasks.clear();
+            state.tools.clear();
             Some(complete_before_thinking(
                 state,
                 turn_id.clone(),
@@ -533,11 +537,11 @@ fn merge_stored_tool(state: &mut EventMapState, update: ToolCallUpdate) -> ToolC
     merged
 }
 
-fn tool_status_kind(status: ToolCallStatus) -> ToolEventKind {
+fn tool_status_kind(status: crate::contract::AgentToolStatus) -> ToolEventKind {
     match status {
-        ToolCallStatus::Running => ToolEventKind::Started,
-        ToolCallStatus::Completed => ToolEventKind::Completed,
-        ToolCallStatus::Failed => ToolEventKind::Failed,
+        crate::contract::AgentToolStatus::Completed => ToolEventKind::Completed,
+        crate::contract::AgentToolStatus::Failed => ToolEventKind::Failed,
+        _ => ToolEventKind::Started,
     }
 }
 
@@ -769,6 +773,7 @@ mod tests {
     };
     use crate::contract::AgentAvailableCommand;
     use crate::contract::AgentToolKind;
+    use crate::contract::AgentToolStatus;
     use crate::contract::{AgentToolParams, AgentToolResult};
 
     fn state() -> EventMapState {
@@ -1070,6 +1075,49 @@ mod tests {
             tool_call.result,
             Some(AgentToolResult::Execute { .. })
         ));
+    }
+
+    #[test]
+    fn subagent_dispatch_stays_started_until_taskoutput_is_terminal() {
+        let mut state =
+            EventMapState::new("grok-build".into(), AgentCurrentConfig::default(), false);
+        let dispatch = map_event(
+            &mut state,
+            Some("turn-1".into()),
+            AcpSessionEvent::ToolCall(ToolCallUpdate {
+                tool_call_id: "tc_sub".into(),
+                parent_tool_call_id: None,
+                tool: "spawn_subagent".into(),
+                description: "Inspect test coverage".into(),
+                acp_kind: None,
+                status: ToolCallStatus::Completed,
+                raw_input: Some(serde_json::json!({
+                    "description": "Inspect test coverage",
+                    "subagent_type": "explore"
+                })),
+                content: Vec::new(),
+                locations: Vec::new(),
+                raw_output: Some(serde_json::json!({
+                    "task_id": "child-1",
+                    "status": "running"
+                })),
+                detail: None,
+            }),
+        )
+        .expect("subagent dispatch");
+        let AgentEvent::ToolCallStarted { tool_call } = dispatch.payload else {
+            panic!("expected started dispatch, got {:?}", dispatch.payload);
+        };
+        assert_eq!(tool_call.status, AgentToolStatus::Running);
+        assert!(state.overlay.grok_tasks.contains_key("child-1"));
+
+        let _ = map_event(
+            &mut state,
+            Some("turn-1".into()),
+            AcpSessionEvent::TurnEnd(AcpTurnStop::Completed),
+        );
+        assert!(state.overlay.grok_tasks.is_empty());
+        assert!(state.tools.is_empty());
     }
 
     #[test]

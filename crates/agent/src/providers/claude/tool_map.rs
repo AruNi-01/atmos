@@ -34,11 +34,22 @@ pub(crate) enum ToolMapOut {
     Tool(AgentTool),
 }
 
+#[cfg(test)]
 pub(crate) fn map_tool_use(
     name: &str,
     tool_use_id: &str,
     input: &Value,
     tools: &mut HashMap<String, AgentTool>,
+) -> ToolMapOut {
+    map_tool_use_nested(name, tool_use_id, input, tools, None)
+}
+
+pub(crate) fn map_tool_use_nested(
+    name: &str,
+    tool_use_id: &str,
+    input: &Value,
+    tools: &mut HashMap<String, AgentTool>,
+    parent_tool_call_id: Option<String>,
 ) -> ToolMapOut {
     match classify_claude_name(name, input) {
         ClassifiedTool::Thinking => ToolMapOut::FoldThinking {
@@ -48,7 +59,7 @@ pub(crate) fn map_tool_use(
             // Remember the id so tool_result does not surface as `unknown`.
             tools.insert(
                 tool_use_id.to_string(),
-                folded_away_marker(name, tool_use_id),
+                folded_away_marker(name, tool_use_id, parent_tool_call_id.clone()),
             );
             ToolMapOut::FoldPlan {
                 plan: plan_from_tool_input_or_stub(name, plan_fold_title(name), Some(input)),
@@ -75,6 +86,7 @@ pub(crate) fn map_tool_use(
             };
             let tool = AgentTool {
                 tool_call_id: tool_use_id.to_string(),
+                parent_tool_call_id: parent_tool_call_id.clone(),
                 name: name.to_string(),
                 title,
                 kind: AgentToolKind::PlanDocument,
@@ -92,14 +104,14 @@ pub(crate) fn map_tool_use(
                 // AskUserQuestion: permission chrome owns the card.
                 tools.insert(
                     tool_use_id.to_string(),
-                    folded_away_marker(name, tool_use_id),
+                    folded_away_marker(name, tool_use_id, parent_tool_call_id.clone()),
                 );
                 ToolMapOut::Hide
             }
         }
         ClassifiedTool::Call(kind) => {
             if let Some(mode) = mode_from_claude_name(name) {
-                let tool = mode_tool(name, tool_use_id, mode);
+                let tool = mode_tool(name, tool_use_id, mode, parent_tool_call_id.clone());
                 tools.insert(tool_use_id.to_string(), tool.clone());
                 return ToolMapOut::SyncMode {
                     mode: mode.into(),
@@ -113,8 +125,9 @@ pub(crate) fn map_tool_use(
                 input,
                 AgentToolStatus::Running,
                 None,
+                parent_tool_call_id.clone(),
             );
-            remember_execute(&tool, tools);
+            remember_task(&tool, tools);
             ToolMapOut::Tool(tool)
         }
     }
@@ -140,6 +153,53 @@ pub(crate) fn map_tool_result(
         return ToolMapOut::Tool(unknown_completed(tool_use_id, content, is_error));
     }
     let mut tool = tools.get(tool_use_id).cloned().expect("checked");
+    if tool.kind == AgentToolKind::Subagent {
+        let is_original_dispatch = tool.tool_call_id == tool_use_id;
+        if is_original_dispatch && !is_error {
+            if let Some(task_id) = extract_claude_task_id(content) {
+                if let AgentToolParams::Subagent {
+                    task_id: stored_task_id,
+                    ..
+                } = &mut tool.params
+                {
+                    *stored_task_id = Some(task_id);
+                }
+                let terminal =
+                    task_status(content).is_some_and(|status| status != AgentToolStatus::Running);
+                if !terminal {
+                    // A Task's first result only acknowledges dispatch. TaskOutput
+                    // carries the child's eventual output and terminal status.
+                    remember_task(&tool, tools);
+                    return ToolMapOut::Tool(tool);
+                }
+            }
+        }
+        if let Some(status) = task_status(content) {
+            tool.status = status;
+        } else {
+            tool.status = if is_error {
+                AgentToolStatus::Failed
+            } else {
+                AgentToolStatus::Completed
+            };
+        }
+        if is_error {
+            tool.status = AgentToolStatus::Failed;
+        }
+        tool.result = Some(if is_error {
+            AgentToolResult::Error {
+                message: content_text(content),
+            }
+        } else {
+            AgentToolResult::Text {
+                text: content_text(content),
+            }
+        });
+        remember_task(&tool, tools);
+        tools.insert(tool.tool_call_id.clone(), tool.clone());
+        tools.insert(tool_use_id.to_string(), tool.clone());
+        return ToolMapOut::Tool(tool);
+    }
     tool.status = if is_error {
         AgentToolStatus::Failed
     } else {
@@ -154,7 +214,7 @@ pub(crate) fn map_tool_result(
     } else {
         result_for_kind(tool.kind, &tool.params, content)
     });
-    remember_execute(&tool, tools);
+    remember_task(&tool, tools);
     tools.insert(tool_use_id.to_string(), tool.clone());
     ToolMapOut::Tool(tool)
 }
@@ -223,9 +283,14 @@ fn plan_fold_title(name: &str) -> Option<&str> {
     }
 }
 
-fn folded_away_marker(name: &str, tool_use_id: &str) -> AgentTool {
+fn folded_away_marker(
+    name: &str,
+    tool_use_id: &str,
+    parent_tool_call_id: Option<String>,
+) -> AgentTool {
     AgentTool {
         tool_call_id: tool_use_id.to_string(),
+        parent_tool_call_id,
         name: name.to_string(),
         title: None,
         kind: AgentToolKind::Other,
@@ -235,7 +300,12 @@ fn folded_away_marker(name: &str, tool_use_id: &str) -> AgentTool {
     }
 }
 
-fn mode_tool(name: &str, tool_use_id: &str, mode: &str) -> AgentTool {
+fn mode_tool(
+    name: &str,
+    tool_use_id: &str,
+    mode: &str,
+    parent_tool_call_id: Option<String>,
+) -> AgentTool {
     let title = if mode == "plan" {
         "Enter plan mode"
     } else {
@@ -243,6 +313,7 @@ fn mode_tool(name: &str, tool_use_id: &str, mode: &str) -> AgentTool {
     };
     AgentTool {
         tool_call_id: tool_use_id.to_string(),
+        parent_tool_call_id,
         name: name.to_string(),
         title: Some(title.into()),
         kind: AgentToolKind::Other,
@@ -261,11 +332,13 @@ fn build_tool(
     input: &Value,
     status: AgentToolStatus,
     result: Option<AgentToolResult>,
+    parent_tool_call_id: Option<String>,
 ) -> AgentTool {
     let mcp = mcp_ref_from_input(name, input).or_else(|| mcp_ref_from_name(name));
     match typed_params(kind, name, input) {
         Some(params) => AgentTool {
             tool_call_id: tool_use_id.to_string(),
+            parent_tool_call_id: parent_tool_call_id.clone(),
             name: name.to_string(),
             title: mcp_title(name, mcp.as_ref()),
             kind,
@@ -275,6 +348,7 @@ fn build_tool(
         },
         None => AgentTool {
             tool_call_id: tool_use_id.to_string(),
+            parent_tool_call_id,
             name: name.to_string(),
             title: mcp_title(name, mcp.as_ref()),
             kind: match kind {
@@ -390,6 +464,7 @@ fn typed_params(
             Some(AgentToolParams::Subagent {
                 description,
                 agent_type,
+                task_id: extract_task_id(input),
             })
         }
         crate::contract::AgentToolKind::McpList => Some(AgentToolParams::McpList {
@@ -531,7 +606,7 @@ fn result_for_kind(
 }
 
 fn merge_hidden_output(
-    name: &str,
+    _name: &str,
     poll_id: &str,
     input: &Value,
     output: Option<&Value>,
@@ -546,19 +621,28 @@ fn merge_hidden_output(
     };
     if output.is_some() {
         let payload = output.unwrap_or(input);
-        parent.result = Some(AgentToolResult::Execute {
-            output: content_text(payload),
-            exit_code: extract_exit_code(payload),
+        parent.result = Some(match parent.kind {
+            AgentToolKind::Subagent => AgentToolResult::Text {
+                text: content_text(payload),
+            },
+            _ => AgentToolResult::Execute {
+                output: content_text(payload),
+                exit_code: extract_exit_code(payload),
+            },
         });
-        if looks_complete(payload, name) {
-            parent.status = AgentToolStatus::Completed;
+        if let Some(status) = task_status(payload) {
+            parent.status = status;
         }
-        if let AgentToolParams::Execute { task_id, .. } = &mut parent.params {
-            if task_id.is_none() {
-                *task_id = extract_task_id(payload).or_else(|| Some(parent_id.clone()));
+        match &mut parent.params {
+            AgentToolParams::Execute { task_id, .. }
+            | AgentToolParams::Subagent { task_id, .. } => {
+                if task_id.is_none() {
+                    *task_id = extract_task_id(payload).or_else(|| Some(parent_id.clone()));
+                }
             }
+            _ => {}
         }
-        remember_execute(&parent, tools);
+        remember_task(&parent, tools);
         tools.insert(poll_id.to_string(), parent.clone());
         ToolMapOut::Merge { tool: parent }
     } else {
@@ -570,33 +654,75 @@ fn merge_hidden_output(
 fn extract_parent_id(input: &Value, output: Option<&Value>) -> Option<String> {
     first_string(
         input,
-        &["bash_id", "bashId", "task_id", "taskId", "tool_use_id"],
+        &[
+            "bash_id",
+            "bashId",
+            "task_id",
+            "taskId",
+            "agentId",
+            "agent_id",
+            "tool_use_id",
+        ],
     )
-    .or_else(|| {
-        output.and_then(|value| {
-            first_string(
-                value,
-                &["bash_id", "bashId", "task_id", "taskId", "tool_use_id"],
-            )
-        })
-    })
-    .or_else(|| extract_task_id(input))
+    .or_else(|| output.and_then(extract_claude_task_id))
+    .or_else(|| extract_claude_task_id(input))
 }
 
-fn remember_execute(tool: &AgentTool, tools: &mut HashMap<String, AgentTool>) {
+fn extract_claude_task_id(content: &Value) -> Option<String> {
+    extract_task_id(content)
+        .or_else(|| first_string(content, &["agentId", "agent_id"]))
+        .or_else(|| {
+            let text = content_text(content);
+            if text.is_empty() {
+                return None;
+            }
+            if let Ok(value) = serde_json::from_str::<Value>(&text) {
+                if let Some(id) = extract_task_id(&value)
+                    .or_else(|| first_string(&value, &["agentId", "agent_id"]))
+                {
+                    return Some(id);
+                }
+            }
+            extract_agent_id_from_text(&text)
+        })
+}
+
+fn extract_agent_id_from_text(text: &str) -> Option<String> {
+    let marker = "agentId: ";
+    let pos = text.find(marker)?;
+    let start = pos + marker.len();
+    let rest = &text[start..];
+    let end = rest
+        .find(|c: char| !c.is_ascii_alphanumeric())
+        .unwrap_or(rest.len());
+    if end > 0 {
+        Some(rest[..end].to_string())
+    } else {
+        None
+    }
+}
+
+fn remember_task(tool: &AgentTool, tools: &mut HashMap<String, AgentTool>) {
     tools.insert(tool.tool_call_id.clone(), tool.clone());
-    if let AgentToolParams::Execute {
-        task_id: Some(task_id),
-        ..
-    } = &tool.params
-    {
-        tools.insert(task_id.clone(), tool.clone());
+    match &tool.params {
+        AgentToolParams::Execute {
+            task_id: Some(task_id),
+            ..
+        }
+        | AgentToolParams::Subagent {
+            task_id: Some(task_id),
+            ..
+        } => {
+            tools.insert(task_id.clone(), tool.clone());
+        }
+        _ => {}
     }
 }
 
 fn unknown_completed(tool_use_id: &str, content: &Value, is_error: bool) -> AgentTool {
     AgentTool {
         tool_call_id: tool_use_id.to_string(),
+        parent_tool_call_id: None,
         name: "unknown".into(),
         title: None,
         kind: crate::contract::AgentToolKind::Other,
@@ -622,12 +748,32 @@ fn thinking_from_input(input: &Value) -> String {
     first_string(input, &["thought", "text", "content", "thinking"]).unwrap_or_default()
 }
 
-fn looks_complete(payload: &Value, name: &str) -> bool {
-    matches!(
-        first_string(payload, &["status"]).as_deref(),
-        Some("completed" | "complete" | "done")
-    ) || name == "BashOutput"
-        || name == "TaskOutput"
+fn task_status(payload: &Value) -> Option<AgentToolStatus> {
+    match first_string(payload, &["status", "state"])
+        .as_deref()
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("completed" | "complete" | "done") => Some(AgentToolStatus::Completed),
+        Some("failed" | "error" | "cancelled" | "canceled") => Some(AgentToolStatus::Failed),
+        _ if payload
+            .get("failed")
+            .or_else(|| payload.get("error"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false) =>
+        {
+            Some(AgentToolStatus::Failed)
+        }
+        _ if payload
+            .get("completed")
+            .or_else(|| payload.get("done"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false) =>
+        {
+            Some(AgentToolStatus::Completed)
+        }
+        _ => None,
+    }
 }
 
 fn nested_object(content: &Value) -> &Value {
@@ -1093,6 +1239,203 @@ mod tests {
             merged.result,
             Some(AgentToolResult::Execute { ref output, exit_code: Some(0) }) if output == "done"
         ));
+    }
+
+    #[test]
+    fn task_output_completes_the_original_subagent_card() {
+        let mut tools = HashMap::new();
+        let _ = map_tool_use(
+            "Task",
+            "tu_task",
+            &json!({"description":"Inspect tests","subagent_type":"explore"}),
+            &mut tools,
+        );
+        let dispatched = match map_tool_result(
+            "tu_task",
+            &json!({"task_id":"child-1","status":"running"}),
+            false,
+            &mut tools,
+        ) {
+            ToolMapOut::Tool(tool) => tool,
+            other => panic!("expected dispatched task, got {other:?}"),
+        };
+        assert_eq!(dispatched.status, AgentToolStatus::Running);
+
+        let completed = match map_hidden_poll(
+            "TaskOutput",
+            "tu_poll",
+            &json!({"task_id":"child-1"}),
+            Some(&json!({"task_id":"child-1","status":"completed","output":"All tests pass."})),
+            &mut tools,
+        ) {
+            ToolMapOut::Merge { tool } => tool,
+            other => panic!("expected merged task output, got {other:?}"),
+        };
+        assert_eq!(completed.tool_call_id, "tu_task");
+        assert_eq!(completed.status, AgentToolStatus::Completed);
+        assert_eq!(
+            completed.result,
+            Some(AgentToolResult::Text {
+                text: "All tests pass.".into()
+            })
+        );
+    }
+
+    #[test]
+    fn task_output_failure_fails_the_original_subagent_card() {
+        let mut tools = HashMap::new();
+        let _ = map_tool_use(
+            "Task",
+            "tu_task",
+            &json!({"description":"Inspect tests","subagent_type":"explore"}),
+            &mut tools,
+        );
+        let _ = map_tool_result(
+            "tu_task",
+            &json!({"task_id":"child-1","status":"running"}),
+            false,
+            &mut tools,
+        );
+
+        let failed = match map_hidden_poll(
+            "TaskOutput",
+            "tu_poll",
+            &json!({"task_id":"child-1"}),
+            Some(&json!({
+                "task_id":"child-1",
+                "status":"failed",
+                "output":"The child agent could not inspect the tests."
+            })),
+            &mut tools,
+        ) {
+            ToolMapOut::Merge { tool } => tool,
+            other => panic!("expected merged task output, got {other:?}"),
+        };
+        assert_eq!(failed.tool_call_id, "tu_task");
+        assert_eq!(failed.status, AgentToolStatus::Failed);
+    }
+
+    #[test]
+    fn task_output_tool_result_completes_the_original_subagent_card() {
+        let mut tools = HashMap::new();
+        let _ = map_tool_use(
+            "Task",
+            "tu_task",
+            &json!({"description":"Inspect tests","subagent_type":"explore"}),
+            &mut tools,
+        );
+        let _ = map_tool_result(
+            "tu_task",
+            &json!({"task_id":"child-1","status":"running"}),
+            false,
+            &mut tools,
+        );
+        assert!(matches!(
+            map_tool_use(
+                "TaskOutput",
+                "tu_poll",
+                &json!({"task_id":"child-1"}),
+                &mut tools,
+            ),
+            ToolMapOut::Hide
+        ));
+
+        let completed = match map_tool_result(
+            "tu_poll",
+            &json!({
+                "task_id":"child-1",
+                "status":"completed",
+                "output":"All tests pass."
+            }),
+            false,
+            &mut tools,
+        ) {
+            ToolMapOut::Tool(tool) => tool,
+            other => panic!("expected completed task output, got {other:?}"),
+        };
+        assert_eq!(completed.tool_call_id, "tu_task");
+        assert_eq!(completed.status, AgentToolStatus::Completed);
+        assert_eq!(
+            completed.result,
+            Some(AgentToolResult::Text {
+                text: "All tests pass.".into()
+            })
+        );
+    }
+
+    #[test]
+    fn agent_id_text_result_keeps_the_subagent_running() {
+        let mut tools = HashMap::new();
+        let _ = map_tool_use(
+            "Task",
+            "tu_task",
+            &json!({"description":"Inspect tests","subagent_type":"explore"}),
+            &mut tools,
+        );
+        let dispatched = match map_tool_result(
+            "tu_task",
+            &json!([{
+                "type": "text",
+                "text": "agentId: child1 (use SendMessage to resume)"
+            }]),
+            false,
+            &mut tools,
+        ) {
+            ToolMapOut::Tool(tool) => tool,
+            other => panic!("expected dispatch ack, got {other:?}"),
+        };
+        assert_eq!(dispatched.status, AgentToolStatus::Running);
+        match dispatched.params {
+            AgentToolParams::Subagent {
+                task_id: Some(task_id),
+                ..
+            } => assert_eq!(task_id, "child1"),
+            other => panic!("expected stored agent id, got {other:?}"),
+        }
+
+        assert!(matches!(
+            map_tool_use(
+                "TaskOutput",
+                "tu_poll",
+                &json!({"task_id":"child1"}),
+                &mut tools,
+            ),
+            ToolMapOut::Hide
+        ));
+        let completed = match map_tool_result(
+            "tu_poll",
+            &json!([{ "type": "text", "text": "All tests pass." }]),
+            false,
+            &mut tools,
+        ) {
+            ToolMapOut::Tool(tool) => tool,
+            other => panic!("expected completed task output, got {other:?}"),
+        };
+        assert_eq!(completed.tool_call_id, "tu_task");
+        assert_eq!(completed.status, AgentToolStatus::Completed);
+        assert_eq!(
+            completed.result,
+            Some(AgentToolResult::Text {
+                text: "All tests pass.".into()
+            })
+        );
+    }
+
+    #[test]
+    fn nested_tool_use_keeps_parent_tool_call_id() {
+        let mut tools = HashMap::new();
+        let tool = match map_tool_use_nested(
+            "Read",
+            "tu_child",
+            &json!({"file_path":"README.md"}),
+            &mut tools,
+            Some("tu_task".into()),
+        ) {
+            ToolMapOut::Tool(tool) => tool,
+            other => panic!("expected nested read, got {other:?}"),
+        };
+        assert_eq!(tool.parent_tool_call_id.as_deref(), Some("tu_task"));
+        assert_eq!(tool.kind, AgentToolKind::Read);
     }
 
     #[test]

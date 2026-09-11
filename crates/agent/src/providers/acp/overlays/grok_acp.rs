@@ -62,34 +62,54 @@ pub(super) fn task_replace(
             grok_task_status(output.as_ref()).unwrap_or_else(|| map_status(&update.status));
     }
     if !kill || original.result.is_none() {
-        original.result = Some(execute_result(output.as_ref(), update));
+        original.result = Some(match original.kind {
+            crate::contract::AgentToolKind::Subagent => AgentToolResult::Text {
+                text: value_text(output.as_ref())
+                    .or_else(|| content_text(update))
+                    .unwrap_or_default(),
+            },
+            _ => execute_result(output.as_ref(), update),
+        });
     }
-    if let AgentToolParams::Execute {
-        task_id: stored_task,
-        ..
-    } = &mut original.params
-    {
-        if stored_task.is_none() {
-            *stored_task = Some(task_id.clone());
+    match &mut original.params {
+        AgentToolParams::Execute {
+            task_id: stored_task,
+            ..
         }
+        | AgentToolParams::Subagent {
+            task_id: stored_task,
+            ..
+        } => {
+            if stored_task.is_none() {
+                *stored_task = Some(task_id.clone());
+            }
+        }
+        _ => {}
     }
     grok_tasks.insert(task_id, original.clone());
     Some((original.tool_call_id.clone(), original))
 }
 
 pub(super) fn remember(tool: &AgentTool, grok_tasks: &mut HashMap<String, AgentTool>) {
-    let AgentToolParams::Execute {
-        background,
-        task_id,
-        ..
-    } = &tool.params
-    else {
-        return;
-    };
-    if let Some(task_id) = task_id {
-        grok_tasks.insert(task_id.clone(), tool.clone());
-    } else if *background {
-        grok_tasks.insert(tool.tool_call_id.clone(), tool.clone());
+    match &tool.params {
+        AgentToolParams::Execute {
+            background,
+            task_id,
+            ..
+        } => {
+            if let Some(task_id) = task_id {
+                grok_tasks.insert(task_id.clone(), tool.clone());
+            } else if *background {
+                grok_tasks.insert(tool.tool_call_id.clone(), tool.clone());
+            }
+        }
+        AgentToolParams::Subagent {
+            task_id: Some(task_id),
+            ..
+        } => {
+            grok_tasks.insert(task_id.clone(), tool.clone());
+        }
+        _ => {}
     }
 }
 
@@ -398,5 +418,67 @@ mod tests {
             }
             other => panic!("expected execute result, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn subagent_taskoutput_replaces_the_dispatched_card() {
+        let mut state = OverlayState::default();
+        let dispatched = mapped(
+            "grok-build",
+            ToolCallUpdate {
+                tool_call_id: "tc_subagent".into(),
+                parent_tool_call_id: None,
+                tool: "Tool".into(),
+                description: "spawn_subagent".into(),
+                acp_kind: Some("other".into()),
+                status: ToolCallStatus::Completed,
+                raw_input: Some(serde_json::json!({
+                    "type": "Task",
+                    "description": "Inspect tests",
+                    "subagent_type": "explore"
+                })),
+                content: Vec::new(),
+                locations: Vec::new(),
+                raw_output: Some(serde_json::json!({
+                    "task_id": "child-1",
+                    "status": "running"
+                })),
+                detail: None,
+            },
+            &mut state,
+        );
+        assert_eq!(dispatched.kind, AgentToolKind::Subagent);
+        assert_eq!(dispatched.status, AgentToolStatus::Running);
+
+        let poll = ToolCallUpdate {
+            tool_call_id: "tc_poll".into(),
+            parent_tool_call_id: None,
+            tool: "TaskOutput".into(),
+            description: String::new(),
+            acp_kind: Some("other".into()),
+            status: ToolCallStatus::Completed,
+            raw_input: Some(serde_json::json!({"task_id":"child-1"})),
+            content: Vec::new(),
+            locations: Vec::new(),
+            raw_output: Some(serde_json::json!({
+                "task_id": "child-1",
+                "status": "completed",
+                "output": "All tests pass."
+            })),
+            detail: None,
+        };
+        let ToolMapOut::Replace { tool_call_id, tool } =
+            map_tool_call("grok-build", &poll, &mut state)
+        else {
+            panic!("expected subagent replacement");
+        };
+        assert_eq!(tool_call_id, "tc_subagent");
+        assert_eq!(tool.status, AgentToolStatus::Completed);
+        assert_eq!(
+            tool.result,
+            Some(AgentToolResult::Text {
+                text: "All tests pass.".into()
+            })
+        );
     }
 }

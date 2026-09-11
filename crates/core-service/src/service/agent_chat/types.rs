@@ -801,6 +801,8 @@ pub enum MessagePart {
     },
     ToolCall {
         tool_call_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        parent_tool_call_id: Option<String>,
         name: String,
         #[serde(default)]
         title: Option<String>,

@@ -13,7 +13,7 @@ use crate::policy::{capabilities_for_provider, option_support_for_provider};
 
 use super::codec::{frame_kind, ClaudeFrameKind};
 use super::rpc::{pending_from_can_use_tool, permission_request_event};
-use super::tool_map::{map_tool_result, map_tool_use, ToolMapOut};
+use super::tool_map::{map_tool_result, map_tool_use_nested, ToolMapOut};
 
 pub(crate) struct EventMapState {
     pub persistence: Option<AgentPersistenceHandle>,
@@ -319,7 +319,13 @@ fn map_assistant(state: &mut EventMapState, turn_id: Option<String>, frame: &Val
                     .unwrap_or("unknown");
                 let id = block.get("id").and_then(Value::as_str).unwrap_or("");
                 let input = block.get("input").cloned().unwrap_or(json!({}));
-                match map_tool_use(name, id, &input, &mut state.tools) {
+                match map_tool_use_nested(
+                    name,
+                    id,
+                    &input,
+                    &mut state.tools,
+                    parent_tool_use_id(frame),
+                ) {
                     ToolMapOut::FoldThinking { text } => {
                         let message_id = thinking_id(state);
                         let event = complete_before_assistant(
@@ -562,6 +568,15 @@ fn tool_event(tool: AgentTool, status: AgentToolStatus) -> AgentEvent {
     }
 }
 
+fn parent_tool_use_id(frame: &Value) -> Option<String> {
+    frame
+        .get("parent_tool_use_id")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .map(str::to_string)
+}
+
 fn merge_tool_event(tool: AgentTool, status: AgentToolStatus) -> AgentEvent {
     match status {
         AgentToolStatus::Completed => AgentEvent::ToolCallCompleted { tool_call: tool },
@@ -719,6 +734,7 @@ pub(crate) fn drain_mapped(
 mod tests {
     use super::*;
     use crate::contract::AgentToolKind;
+    use crate::contract::AgentToolStatus;
     use crate::contract::Capability;
     use crate::contract::{AgentToolParams, AgentToolResult};
 
@@ -915,5 +931,92 @@ mod tests {
         let usage = context.expect("context usage");
         assert_eq!(usage.used, 310);
         assert_eq!(usage.context_window, Some(1_000_000));
+    }
+
+    #[test]
+    fn task_agent_id_text_stays_running_until_taskoutput() {
+        let mut state = EventMapState::new(AgentCurrentConfig::default());
+        let dispatch = json!({
+            "type": "assistant",
+            "message": {
+                "content": [{
+                    "type": "tool_use",
+                    "id": "tu_task",
+                    "name": "Task",
+                    "input": {
+                        "description": "Inspect tests",
+                        "subagent_type": "explore"
+                    }
+                }]
+            }
+        });
+        let (started, _) = drain_mapped(&mut state, Some("turn-1".into()), &dispatch);
+        let AgentEvent::ToolCallStarted { tool_call } = &started[0].payload else {
+            panic!("expected started task, got {:?}", started[0].payload);
+        };
+        assert_eq!(tool_call.status, AgentToolStatus::Running);
+
+        let ack = json!({
+            "type": "user",
+            "message": {
+                "content": [{
+                    "type": "tool_result",
+                    "tool_use_id": "tu_task",
+                    "content": [{
+                        "type": "text",
+                        "text": "agentId: child1 (use SendMessage to resume)"
+                    }]
+                }]
+            }
+        });
+        let (acked, _) = drain_mapped(&mut state, Some("turn-1".into()), &ack);
+        let AgentEvent::ToolCallUpdated { tool_call } = &acked[0].payload else {
+            panic!("expected running ack, got {:?}", acked[0].payload);
+        };
+        assert_eq!(tool_call.status, AgentToolStatus::Running);
+        match &tool_call.params {
+            AgentToolParams::Subagent {
+                task_id: Some(task_id),
+                ..
+            } => assert_eq!(task_id, "child1"),
+            other => panic!("expected stored agent id, got {other:?}"),
+        }
+
+        let poll = json!({
+            "type": "assistant",
+            "message": {
+                "content": [{
+                    "type": "tool_use",
+                    "id": "tu_poll",
+                    "name": "TaskOutput",
+                    "input": { "task_id": "child1" }
+                }]
+            }
+        });
+        let (hidden, _) = drain_mapped(&mut state, Some("turn-1".into()), &poll);
+        assert!(hidden.is_empty());
+
+        let done = json!({
+            "type": "user",
+            "message": {
+                "content": [{
+                    "type": "tool_result",
+                    "tool_use_id": "tu_poll",
+                    "content": [{ "type": "text", "text": "All tests pass." }]
+                }]
+            }
+        });
+        let (completed, _) = drain_mapped(&mut state, Some("turn-1".into()), &done);
+        let AgentEvent::ToolCallCompleted { tool_call } = &completed[0].payload else {
+            panic!("expected completed task, got {:?}", completed[0].payload);
+        };
+        assert_eq!(tool_call.tool_call_id, "tu_task");
+        assert_eq!(tool_call.status, AgentToolStatus::Completed);
+        assert_eq!(
+            tool_call.result,
+            Some(AgentToolResult::Text {
+                text: "All tests pass.".into()
+            })
+        );
     }
 }

@@ -726,6 +726,7 @@ mod tests {
             config_alias_ids("thinking"),
             vec![
                 "effort",
+                "reasoning",
                 "reasoning_effort",
                 "thought_level",
                 "thinking",

@@ -300,7 +300,13 @@ export type AgentToolParams =
     }
   | { type: "fetch"; url: string }
   | { type: "skill"; skill: string }
-  | { type: "subagent"; description: string; agent_type?: string | null }
+  | {
+      type: "subagent";
+      description: string;
+      agent_type?: string | null;
+      /** Provider task ID used to attach later child output to this card. */
+      task_id?: string | null;
+    }
   | { type: "mcp_list"; server?: string | null }
   | { type: "mcp_call"; server?: string | null; tool?: string | null }
   | {
@@ -371,6 +377,7 @@ export type AgentToolResult =
 
 export type AgentTool = {
   tool_call_id: string;
+  parent_tool_call_id?: string | null;
   name: string;
   title?: string | null;
   kind: AgentToolKind;

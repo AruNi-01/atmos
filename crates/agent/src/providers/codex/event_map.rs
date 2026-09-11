@@ -5,10 +5,10 @@ use std::collections::{HashMap, VecDeque};
 use serde_json::Value;
 
 use crate::contract::AgentPersistenceHandle;
-use crate::contract::AgentTool;
 use crate::contract::{AgentCurrentConfig, AgentIdentity, AgentSupportedOptions};
 use crate::contract::{AgentDescriptor, TurnStop};
 use crate::contract::{AgentEvent, AgentEventEnvelope};
+use crate::contract::{AgentTool, AgentToolKind, AgentToolParams, AgentToolStatus};
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
 
 use super::tool_map::{
@@ -368,25 +368,29 @@ fn map_tool_item(
         ItemMapOut::Tools(tools) => {
             let mut events = Vec::new();
             for tool in tools {
+                let Some(tool) = attach_subagent_activity(state, item, tool) else {
+                    continue;
+                };
+                let was_seen = state.tools.contains_key(&tool.tool_call_id);
                 remember_tool(state, &tool);
-                let event = match phase {
-                    ItemPhase::Started => AgentEvent::ToolCallStarted { tool_call: tool },
-                    ItemPhase::Updated => AgentEvent::ToolCallUpdated { tool_call: tool },
-                    ItemPhase::Completed => {
-                        if tool.status == crate::contract::AgentToolStatus::Failed {
-                            AgentEvent::ToolCallFailed {
-                                error: match &tool.result {
-                                    Some(crate::contract::AgentToolResult::Error { message }) => {
-                                        Some(message.clone())
-                                    }
-                                    _ => None,
-                                },
-                                tool_call: tool,
-                            }
+                let event = match tool.status {
+                    AgentToolStatus::Pending | AgentToolStatus::Running => {
+                        if was_seen {
+                            AgentEvent::ToolCallUpdated { tool_call: tool }
                         } else {
-                            AgentEvent::ToolCallCompleted { tool_call: tool }
+                            AgentEvent::ToolCallStarted { tool_call: tool }
                         }
                     }
+                    AgentToolStatus::Failed => AgentEvent::ToolCallFailed {
+                        error: match &tool.result {
+                            Some(crate::contract::AgentToolResult::Error { message }) => {
+                                Some(message.clone())
+                            }
+                            _ => None,
+                        },
+                        tool_call: tool,
+                    },
+                    AgentToolStatus::Completed => AgentEvent::ToolCallCompleted { tool_call: tool },
                 };
                 events.push(wrap(turn_id.clone(), event));
             }
@@ -398,6 +402,59 @@ fn map_tool_item(
             Some(complete_before_thinking(state, turn_id, first))
         }
     }
+}
+
+/// `subAgentActivity` is a progress signal for the collaboration call. It is
+/// not a separate subagent invocation. Reuse the dispatched call ID so the
+/// frontend folds its status and output into the original card.
+fn attach_subagent_activity(
+    state: &EventMapState,
+    item: &Value,
+    mut tool: AgentTool,
+) -> Option<AgentTool> {
+    if item.get("type").and_then(Value::as_str) != Some("subAgentActivity") {
+        return Some(tool);
+    }
+    let AgentToolParams::Subagent {
+        task_id: Some(task_id),
+        ..
+    } = &tool.params
+    else {
+        return None;
+    };
+    let original = state.tools.get(task_id)?;
+    if original.kind != AgentToolKind::Subagent {
+        return None;
+    }
+    tool.tool_call_id = original.tool_call_id.clone();
+    tool.parent_tool_call_id = original.parent_tool_call_id.clone();
+    if tool.title.is_none() {
+        tool.title = original.title.clone();
+    }
+    if let (
+        AgentToolParams::Subagent {
+            description,
+            agent_type,
+            task_id,
+        },
+        AgentToolParams::Subagent {
+            description: original_description,
+            agent_type: original_agent_type,
+            task_id: original_task_id,
+        },
+    ) = (&mut tool.params, &original.params)
+    {
+        if description.is_empty() || description == "subagent" {
+            *description = original_description.clone();
+        }
+        if agent_type.is_none() {
+            *agent_type = original_agent_type.clone();
+        }
+        if task_id.is_none() {
+            *task_id = original_task_id.clone();
+        }
+    }
+    Some(tool)
 }
 
 fn map_output_delta(
@@ -545,6 +602,12 @@ fn remember_tool(state: &mut EventMapState, tool: &AgentTool) {
             state
                 .path_to_tool
                 .insert(path.clone(), tool.tool_call_id.clone());
+        }
+        AgentToolParams::Subagent {
+            task_id: Some(task_id),
+            ..
+        } => {
+            state.tools.insert(task_id.clone(), tool.clone());
         }
         _ => {}
     }
@@ -758,5 +821,84 @@ mod tests {
         let usage = context.expect("context");
         assert_eq!(usage.used, 5168);
         assert_eq!(usage.context_window, Some(258_400));
+    }
+
+    #[test]
+    fn subagent_activity_updates_the_dispatched_card() {
+        let mut state = EventMapState::new(AgentCurrentConfig::default());
+        let dispatch = map_notification(
+            &mut state,
+            Some("turn-1".into()),
+            "item/completed",
+            &serde_json::json!({
+                "item": {
+                    "type": "collabAgentToolCall",
+                    "id": "collab_1",
+                    "tool": "spawn_agent",
+                    "prompt": "Inspect the tests",
+                    "receiverThreadIds": ["child-1"],
+                    "status": "completed",
+                    "agentsStates": {}
+                }
+            }),
+        );
+        assert!(matches!(
+            dispatch.as_slice(),
+            [AgentEventEnvelope {
+                payload: AgentEvent::ToolCallStarted { tool_call },
+                ..
+            }] if tool_call.tool_call_id == "collab_1"
+                && tool_call.status == AgentToolStatus::Running
+        ));
+
+        let progress = map_notification(
+            &mut state,
+            Some("turn-1".into()),
+            "item/completed",
+            &serde_json::json!({
+                "item": {
+                    "type": "subAgentActivity",
+                    "id": "activity_1",
+                    "kind": "started",
+                    "agentThreadId": "child-1",
+                    "agentPath": "/root/inspect-tests"
+                }
+            }),
+        );
+        assert!(matches!(
+            progress.as_slice(),
+            [AgentEventEnvelope {
+                payload: AgentEvent::ToolCallUpdated { tool_call },
+                ..
+            }] if tool_call.tool_call_id == "collab_1"
+                && tool_call.status == AgentToolStatus::Running
+        ));
+
+        let complete = map_notification(
+            &mut state,
+            Some("turn-1".into()),
+            "item/completed",
+            &serde_json::json!({
+                "item": {
+                    "type": "subAgentActivity",
+                    "id": "activity_2",
+                    "kind": "completed",
+                    "agentThreadId": "child-1",
+                    "agentPath": "/root/inspect-tests",
+                    "result": "All tests pass."
+                }
+            }),
+        );
+        assert!(matches!(
+            complete.as_slice(),
+            [AgentEventEnvelope {
+                payload: AgentEvent::ToolCallCompleted { tool_call },
+                ..
+            }] if tool_call.tool_call_id == "collab_1"
+                && matches!(
+                    &tool_call.result,
+                    Some(crate::contract::AgentToolResult::Text { text }) if text == "All tests pass."
+                )
+        ));
     }
 }

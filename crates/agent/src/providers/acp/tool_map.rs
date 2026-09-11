@@ -221,19 +221,36 @@ fn build_typed_tool(
     payload: Option<&Value>,
     output: Option<&Value>,
 ) -> AgentTool {
-    let status = map_status(&update.status);
-    let result = match &update.status {
-        ToolCallStatus::Running => None,
-        ToolCallStatus::Failed => Some(mapped_result(kind, payload, output, update, true)),
-        ToolCallStatus::Completed => Some(mapped_result(kind, payload, output, update, false)),
-    };
     let params = typed_params(kind, payload, update);
+    let dispatched_subagent = matches!(
+        &params,
+        AgentToolParams::Subagent {
+            task_id: Some(_),
+            ..
+        }
+    );
+    // A task ID means this tool has dispatched a child. Its own completed
+    // transport update does not mean the child completed.
+    let status = if dispatched_subagent {
+        AgentToolStatus::Running
+    } else {
+        map_status(&update.status)
+    };
+    let result = match (&update.status, dispatched_subagent) {
+        (_, true) => None,
+        (ToolCallStatus::Running, false) => None,
+        (ToolCallStatus::Failed, false) => Some(mapped_result(kind, payload, output, update, true)),
+        (ToolCallStatus::Completed, false) => {
+            Some(mapped_result(kind, payload, output, update, false))
+        }
+    };
     let name = payload
         .and_then(|v| first_string(v, &["_toolName", "toolName"]))
         .filter(|name| !is_generic_tool_label(name))
         .unwrap_or_else(|| update.tool.clone());
     AgentTool {
         tool_call_id: update.tool_call_id.clone(),
+        parent_tool_call_id: update.parent_tool_call_id.clone(),
         name,
         title: cleaned_title(kind, update, &params),
         kind,
@@ -386,6 +403,11 @@ fn typed_params(
             AgentToolParams::Subagent {
                 description,
                 agent_type,
+                task_id: update
+                    .raw_output
+                    .as_ref()
+                    .and_then(extract_task_id)
+                    .or_else(|| value.and_then(extract_task_id)),
             }
         }
         AgentToolKind::McpList => AgentToolParams::McpList {
@@ -858,6 +880,7 @@ fn other_tool(update: &ToolCallUpdate) -> AgentTool {
     };
     AgentTool {
         tool_call_id: update.tool_call_id.clone(),
+        parent_tool_call_id: update.parent_tool_call_id.clone(),
         name: update.tool.clone(),
         title: nonempty_title(update).map(str::to_string),
         kind: AgentToolKind::Other,
@@ -916,6 +939,7 @@ fn plan_document_tool(update: &ToolCallUpdate, input: Option<&Value>) -> AgentTo
     };
     AgentTool {
         tool_call_id: update.tool_call_id.clone(),
+        parent_tool_call_id: update.parent_tool_call_id.clone(),
         name,
         title,
         kind: AgentToolKind::PlanDocument,
@@ -1843,6 +1867,10 @@ mod tests {
         );
         let tool = mapped_for("factory-droid", call);
         assert_eq!(tool.kind, AgentToolKind::Edit);
+        assert!(matches!(
+            tool.params,
+            AgentToolParams::Edit { path } if path == "src/main.rs"
+        ));
         assert_eq!(
             tool.result,
             Some(AgentToolResult::Text { text: patch.into() })

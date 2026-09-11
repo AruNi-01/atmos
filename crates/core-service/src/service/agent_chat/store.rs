@@ -801,6 +801,7 @@ fn apply_thinking_snapshot_part(
 fn merge_tool_call_part(existing: &MessagePart, incoming: MessagePart) -> MessagePart {
     let MessagePart::ToolCall {
         tool_call_id: existing_id,
+        parent_tool_call_id: existing_parent_id,
         name: existing_name,
         title: existing_title,
         kind: existing_kind,
@@ -812,6 +813,7 @@ fn merge_tool_call_part(existing: &MessagePart, incoming: MessagePart) -> Messag
         return incoming;
     };
     let MessagePart::ToolCall {
+        parent_tool_call_id,
         name,
         title,
         kind,
@@ -825,6 +827,7 @@ fn merge_tool_call_part(existing: &MessagePart, incoming: MessagePart) -> Messag
     };
     MessagePart::ToolCall {
         tool_call_id: existing_id.clone(),
+        parent_tool_call_id: parent_tool_call_id.or_else(|| existing_parent_id.clone()),
         name: if name.is_empty() && !existing_name.is_empty() {
             existing_name.clone()
         } else {
@@ -1103,6 +1106,7 @@ fn apply_tool_call(turn: &mut FoldedTurn, tool: AgentTool, created_at: chrono::D
     };
     let part = MessagePart::ToolCall {
         tool_call_id: tool.tool_call_id.clone(),
+        parent_tool_call_id: tool.parent_tool_call_id,
         name,
         title: tool.title,
         kind: tool.kind,
@@ -1215,6 +1219,7 @@ mod tests {
     ) -> AgentTool {
         AgentTool {
             tool_call_id: id.into(),
+            parent_tool_call_id: None,
             name: "Read".into(),
             title: Some("Read file".into()),
             kind: AgentToolKind::Read,
@@ -2260,6 +2265,7 @@ mod tests {
     fn execute_tool(id: &str) -> AgentTool {
         AgentTool {
             tool_call_id: id.into(),
+            parent_tool_call_id: None,
             name: "Execute".into(),
             title: Some("ls".into()),
             kind: AgentToolKind::Execute,

@@ -58,6 +58,7 @@ pub fn map_tool_execution(
             };
             ToolMapOut::Tool(AgentTool {
                 tool_call_id: tool_call_id.to_string(),
+                parent_tool_call_id: None,
                 name: tool_name.to_string(),
                 title,
                 kind: AgentToolKind::PlanDocument,
@@ -137,6 +138,7 @@ fn build_typed(
     let result = mapped_result(kind, args, result, status, is_error);
     Some(AgentTool {
         tool_call_id: tool_call_id.to_string(),
+        parent_tool_call_id: None,
         name: name.to_string(),
         title: None,
         kind,
@@ -198,6 +200,7 @@ fn typed_params(kind: AgentToolKind, args: &Value) -> Option<AgentToolParams> {
             Some(AgentToolParams::Subagent {
                 description,
                 agent_type,
+                task_id: None,
             })
         }
         AgentToolKind::McpList => Some(AgentToolParams::McpList {
@@ -336,6 +339,7 @@ fn other_tool(
     };
     AgentTool {
         tool_call_id: tool_call_id.to_string(),
+        parent_tool_call_id: None,
         name: name.to_string(),
         title: None,
         kind: AgentToolKind::Other,

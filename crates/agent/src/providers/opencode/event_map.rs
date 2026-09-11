@@ -512,6 +512,7 @@ fn map_part_removed(
     if state.started_tools.remove(part_id) {
         let tool = AgentTool {
             tool_call_id: part_id.to_string(),
+            parent_tool_call_id: None,
             name: "tool".into(),
             title: None,
             kind: crate::contract::AgentToolKind::Other,

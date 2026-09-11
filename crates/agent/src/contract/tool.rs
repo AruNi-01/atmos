@@ -38,6 +38,9 @@ pub enum AgentToolStatus {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AgentTool {
     pub tool_call_id: String,
+    /// Parent tool call when this event belongs to a subagent invocation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_tool_call_id: Option<String>,
     pub name: String,
     #[serde(default)]
     pub title: Option<String>,
@@ -99,6 +102,9 @@ pub enum AgentToolParams {
     Subagent {
         description: String,
         agent_type: Option<String>,
+        /// Provider task ID used to correlate later child output.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        task_id: Option<String>,
     },
     McpList {
         #[serde(default, skip_serializing_if = "Option::is_none")]

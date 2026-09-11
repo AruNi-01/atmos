@@ -156,6 +156,7 @@ async fn s13_get_new_jsonl_exposes_params_result_without_spawn() {
                 TranscriptEvent::ToolCall {
                     tool: AgentTool {
                         tool_call_id: "tc_1".into(),
+                        parent_tool_call_id: None,
                         name: "Bash".into(),
                         title: Some("ls".into()),
                         kind: AgentToolKind::Execute,
@@ -2551,6 +2552,7 @@ async fn get_overlays_unpersisted_live_text_without_duplicate_ids() {
 fn execute_tool(id: &str, status: agent::AgentToolStatus) -> agent::AgentTool {
     agent::AgentTool {
         tool_call_id: id.into(),
+        parent_tool_call_id: None,
         name: "Execute".into(),
         title: Some("ls".into()),
         kind: agent::AgentToolKind::Execute,

@@ -7,10 +7,10 @@ use crate::contract::{AgentTool, AgentToolParams, AgentToolResult, AgentToolStat
 use crate::map::{classify_tool, ClassifiedTool};
 use crate::map::{
     extract_command, extract_cwd, extract_links, extract_path, extract_query, extract_search_hits,
-    extract_skill, extract_subagent, extract_url,
+    extract_skill, extract_subagent, extract_task_id, extract_url,
 };
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ItemPhase {
     Started,
     Updated,
@@ -80,6 +80,7 @@ fn map_command(item: &Value, phase: ItemPhase) -> AgentTool {
     };
     AgentTool {
         tool_call_id: item_id(item),
+        parent_tool_call_id: None,
         name: "commandExecution".into(),
         title: None,
         kind: AgentToolKind::Execute,
@@ -142,6 +143,7 @@ fn map_file_changes(item: &Value, phase: ItemPhase) -> Vec<AgentTool> {
             };
             Some(AgentTool {
                 tool_call_id,
+                parent_tool_call_id: None,
                 name: "fileChange".into(),
                 title: Some(path),
                 kind,
@@ -179,6 +181,7 @@ fn map_web_search(item: &Value, phase: ItemPhase) -> AgentTool {
     };
     AgentTool {
         tool_call_id: item_id(item),
+        parent_tool_call_id: None,
         name: "webSearch".into(),
         title: None,
         kind: AgentToolKind::WebSearch,
@@ -223,6 +226,7 @@ fn map_web_fetch(item: &Value, phase: ItemPhase, action_type: Option<&str>) -> A
     };
     AgentTool {
         tool_call_id: item_id(item),
+        parent_tool_call_id: None,
         name: "webSearch".into(),
         title: None,
         kind: AgentToolKind::Fetch,
@@ -243,6 +247,7 @@ fn map_image_view(item: &Value, phase: ItemPhase) -> AgentTool {
     let status = status_of(item, phase);
     AgentTool {
         tool_call_id: item_id(item),
+        parent_tool_call_id: None,
         name: "imageView".into(),
         title: None,
         kind: AgentToolKind::Read,
@@ -345,6 +350,7 @@ fn mcp_list_tool(item: &Value, name: &str, server: Option<String>, phase: ItemPh
     let content = tool_content(item);
     AgentTool {
         tool_call_id: item_id(item),
+        parent_tool_call_id: None,
         name: if name.is_empty() {
             "mcp_list".into()
         } else {
@@ -386,6 +392,7 @@ fn mcp_call_tool(item: &Value, name: &str, server: Option<String>, phase: ItemPh
     };
     AgentTool {
         tool_call_id: item_id(item),
+        parent_tool_call_id: None,
         name: tool_name.clone().unwrap_or_else(|| "mcp_call".into()),
         title,
         kind: AgentToolKind::McpCall,
@@ -422,6 +429,7 @@ fn map_skill(item: &Value, name: &str, arguments: &Value, phase: ItemPhase) -> A
     let content = tool_content(item);
     AgentTool {
         tool_call_id: item_id(item),
+        parent_tool_call_id: None,
         name: if name.is_empty() {
             "skill".into()
         } else {
@@ -452,6 +460,7 @@ fn map_read_like(item: &Value, name: &str, arguments: &Value, phase: ItemPhase) 
     let content = tool_content(item);
     AgentTool {
         tool_call_id: item_id(item),
+        parent_tool_call_id: None,
         name: if name.is_empty() {
             "read".into()
         } else {
@@ -505,6 +514,7 @@ fn map_search(item: &Value, name: &str, arguments: &Value, phase: ItemPhase) -> 
     };
     AgentTool {
         tool_call_id: item_id(item),
+        parent_tool_call_id: None,
         name: if name.is_empty() {
             item.get("type")
                 .and_then(Value::as_str)
@@ -600,15 +610,17 @@ fn map_collab(item: &Value, phase: ItemPhase) -> AgentTool {
         });
     AgentTool {
         tool_call_id: item_id(item),
+        parent_tool_call_id: None,
         name: "collabToolCall".into(),
-        title: None,
+        title: subagent_title(item),
         kind: AgentToolKind::Subagent,
-        status: status_of(item, phase),
+        status: collab_status(item, phase),
         params: AgentToolParams::Subagent {
             description,
             agent_type,
+            task_id: subagent_task_id(item),
         },
-        result: complete_other_result(item, phase),
+        result: collab_result(item, phase),
     }
 }
 
@@ -625,21 +637,25 @@ fn map_subagent_activity(item: &Value, phase: ItemPhase) -> AgentTool {
         .unwrap_or("subagent")
         .to_string();
     let agent_type = item
-        .get("kind")
+        .get("agentType")
+        .or_else(|| item.get("agent_type"))
         .and_then(Value::as_str)
         .filter(|text| !text.is_empty())
         .map(str::to_string);
+    let status = activity_status(item, phase);
     AgentTool {
         tool_call_id: item_id(item),
+        parent_tool_call_id: None,
         name: "subAgentActivity".into(),
-        title: None,
+        title: subagent_title(item),
         kind: AgentToolKind::Subagent,
-        status: status_of(item, phase),
+        status,
         params: AgentToolParams::Subagent {
             description,
             agent_type,
+            task_id: subagent_task_id(item),
         },
-        result: complete_other_result(item, phase),
+        result: activity_result(item, status),
     }
 }
 
@@ -647,6 +663,7 @@ fn other_tool(item: &Value, phase: ItemPhase) -> AgentTool {
     let status = status_of(item, phase);
     AgentTool {
         tool_call_id: item_id(item),
+        parent_tool_call_id: None,
         name: item
             .get("type")
             .and_then(Value::as_str)
@@ -660,6 +677,93 @@ fn other_tool(item: &Value, phase: ItemPhase) -> AgentTool {
         },
         result: complete_other_result(item, phase),
     }
+}
+
+fn subagent_title(item: &Value) -> Option<String> {
+    ["title", "agentName", "agent_name", "name"]
+        .into_iter()
+        .find_map(|key| {
+            item.get(key)
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+        })
+}
+
+fn subagent_task_id(item: &Value) -> Option<String> {
+    extract_task_id(item)
+        .or_else(|| {
+            item.get("agentThreadId")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+        })
+        .or_else(|| {
+            item.get("receiverThreadIds")
+                .and_then(Value::as_array)
+                .and_then(|items| items.first())
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+        })
+}
+
+fn collab_status(item: &Value, phase: ItemPhase) -> AgentToolStatus {
+    if subagent_task_id(item).is_some()
+        && !item
+            .get("agentsStates")
+            .and_then(Value::as_object)
+            .is_some_and(|states| {
+                !states.is_empty()
+                    && states.values().all(|state| {
+                        matches!(
+                            state.get("status").and_then(Value::as_str),
+                            Some("completed" | "failed" | "canceled" | "cancelled")
+                        )
+                    })
+            })
+    {
+        AgentToolStatus::Running
+    } else {
+        status_of(item, phase)
+    }
+}
+
+fn activity_status(item: &Value, phase: ItemPhase) -> AgentToolStatus {
+    match item.get("kind").and_then(Value::as_str) {
+        Some("started" | "running" | "progress") => AgentToolStatus::Running,
+        Some("completed" | "complete" | "done") => AgentToolStatus::Completed,
+        Some("failed" | "error" | "canceled" | "cancelled") => AgentToolStatus::Failed,
+        _ => status_of(item, phase),
+    }
+}
+
+fn collab_result(item: &Value, phase: ItemPhase) -> Option<AgentToolResult> {
+    let status = collab_status(item, phase);
+    if matches!(status, AgentToolStatus::Pending | AgentToolStatus::Running) {
+        return None;
+    }
+    if status == AgentToolStatus::Failed {
+        return Some(failed_result(item, None));
+    }
+    Some(AgentToolResult::Text {
+        text: value_text(tool_content(item)),
+    })
+}
+
+fn activity_result(item: &Value, status: AgentToolStatus) -> Option<AgentToolResult> {
+    if matches!(status, AgentToolStatus::Pending | AgentToolStatus::Running) {
+        return None;
+    }
+    if status == AgentToolStatus::Failed {
+        return Some(failed_result(item, None));
+    }
+    Some(AgentToolResult::Text {
+        text: value_text(tool_content(item)),
+    })
 }
 
 fn complete_other_result(item: &Value, phase: ItemPhase) -> Option<AgentToolResult> {
@@ -1045,7 +1149,8 @@ mod tests {
                     tools[0].params,
                     AgentToolParams::Subagent {
                         description: "/root/tool_test_echo".into(),
-                        agent_type: Some("started".into()),
+                        agent_type: None,
+                        task_id: Some("thread-1".into()),
                     }
                 );
             }
@@ -1073,10 +1178,39 @@ mod tests {
                     AgentToolParams::Subagent {
                         description: "wait".into(),
                         agent_type: Some("wait".into()),
+                        task_id: None,
                     }
                 );
             }
             ItemMapOut::Hide => panic!("collab wait must be a tool"),
+        }
+    }
+
+    #[test]
+    fn collab_dispatch_stays_running_until_child_finishes() {
+        let item = serde_json::json!({
+            "type": "collabAgentToolCall",
+            "id": "collab_1",
+            "tool": "spawn_agent",
+            "prompt": "Inspect the tests",
+            "receiverThreadIds": ["child-1"],
+            "status": "completed",
+            "agentsStates": {}
+        });
+        match map_item(&item, ItemPhase::Completed) {
+            ItemMapOut::Tools(tools) => {
+                assert_eq!(tools[0].status, AgentToolStatus::Running);
+                assert_eq!(
+                    tools[0].params,
+                    AgentToolParams::Subagent {
+                        description: "Inspect the tests".into(),
+                        agent_type: Some("spawn_agent".into()),
+                        task_id: Some("child-1".into()),
+                    }
+                );
+                assert!(tools[0].result.is_none());
+            }
+            ItemMapOut::Hide => panic!("collaboration dispatch must be a tool"),
         }
     }
 
