@@ -20,6 +20,7 @@ mod fs;
 mod git;
 mod github;
 mod linear;
+mod link_preview;
 mod resource_monitor;
 mod review;
 mod skills;
@@ -33,6 +34,7 @@ pub use fs::*;
 pub use git::*;
 pub use github::*;
 pub use linear::*;
+pub use link_preview::*;
 pub use resource_monitor::*;
 pub use review::*;
 pub use skills::*;
@@ -856,6 +858,10 @@ pub enum WsAction {
     ResourceMonitorUnsubscribe,
     /// Kill leftover Chrome-for-Testing / agent-browser trees
     ResourceMonitorKillLeaked,
+
+    // ===== Link preview =====
+    /// Fetch Open Graph / HTML metadata for a public http(s) URL
+    LinkPreview,
 }
 
 /// 服务端主动推送的事件类型

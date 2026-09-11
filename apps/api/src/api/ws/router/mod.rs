@@ -14,6 +14,7 @@ mod github;
 mod github_job_log_split;
 mod group;
 mod linear;
+mod link_preview;
 mod local_model;
 mod local_services;
 mod permission_access;
@@ -1423,6 +1424,8 @@ impl WsMessageService {
             WsAction::ResourceMonitorKillLeaked => {
                 self.handle_resource_monitor_kill_leaked(request.data).await
             }
+
+            WsAction::LinkPreview => self.handle_link_preview(request.data).await,
         }
     }
 

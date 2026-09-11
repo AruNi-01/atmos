@@ -10,6 +10,7 @@ import type { GitContract } from "./contract/git";
 import type { GithubContract } from "./contract/github";
 import type { GroupContract } from "./contract/group";
 import type { LinearContract } from "./contract/linear";
+import type { LinkPreviewContract } from "./contract/link-preview";
 import type { LocalModelContract } from "./contract/local-model";
 import type { LocalServicesContract } from "./contract/local-services";
 import type { PermissionContract } from "./contract/permission";
@@ -47,7 +48,8 @@ export type WsContract = FsContract &
   LocalModelContract &
   DiskAnalyzerContract &
   SimulatorContract &
-  ResourceMonitorContract;
+  ResourceMonitorContract &
+  LinkPreviewContract;
 
 export type MappedWsAction = keyof WsContract & WsAction;
 /** Empty once every `WsAction` has a `WsContract` row. */
