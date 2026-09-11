@@ -507,7 +507,7 @@ function ComposerPromptInput({
             placeholder={placeholder}
             editorClassName={
               landing
-                ? "min-h-16 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
+                ? "min-h-10 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
                 : "min-h-5 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
             }
             placeholderClassName="left-0 top-0 text-sm leading-5 text-muted-foreground/55"

@@ -464,6 +464,30 @@ describe("quota popover factory chrome", () => {
     expect(components).toContain("${label} · ${usedText}");
     expect(components).toContain("quotaMetricShowsBar(percent)");
     expect(components).toContain('role="progressbar"');
+    expect(components).toContain('"h-1.5 w-full shrink-0 overflow-hidden rounded-full bg-muted"');
+  });
+
+  test("factory mode tabs sit above usage rows, not above the provider header", () => {
+    const detail = readFileSync(join(import.meta.dir, "../quota-popover-detail.tsx"), "utf8");
+    const providerDetail = detail.slice(detail.indexOf("export function ProviderDetail"));
+    const headerLabel = providerDetail.indexOf(
+      'className="text-[18px] font-semibold tracking-tight text-foreground">{provider.label}',
+    );
+    const tabs = providerDetail.indexOf("<QuotaUsageModeTabs");
+    const firstMetric = providerDetail.indexOf("{visibleMetrics.map");
+    expect(headerLabel).toBeGreaterThan(-1);
+    expect(tabs).toBeGreaterThan(headerLabel);
+    expect(firstMetric).toBeGreaterThan(tabs);
+
+    const detectedDetails = detail.slice(detail.indexOf("function DetectedProviderDetails"));
+    const detectedHeader = detectedDetails.indexOf(
+      'className="truncate text-sm text-foreground">{accountLabel}',
+    );
+    const detectedTabs = detectedDetails.indexOf("<QuotaUsageModeTabs");
+    const detectedMetrics = detectedDetails.indexOf("{visibleMetrics.length > 0");
+    expect(detectedHeader).toBeGreaterThan(-1);
+    expect(detectedTabs).toBeGreaterThan(detectedHeader);
+    expect(detectedMetrics).toBeGreaterThan(detectedTabs);
   });
 });
 

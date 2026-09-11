@@ -87,7 +87,7 @@ export function UsageBar({
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(total)}
-      className={cn("h-3 w-full shrink-0 overflow-hidden rounded-full bg-muted", className)}
+      className={cn("h-1.5 w-full shrink-0 overflow-hidden rounded-full bg-muted", className)}
     >
       {visibleSegments.length > 0 ? (
         <div className="flex h-full gap-px" style={{ width: `${groupWidth}%` }}>

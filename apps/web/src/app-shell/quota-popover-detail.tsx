@@ -389,11 +389,6 @@ function DetectedProviderDetails({
   const visibleMetrics = [...windowMetrics, ...managedMetrics];
   return (
     <>
-      {modes.length >= 2 ? (
-        <div className="mb-3">
-          <QuotaUsageModeTabs modes={modes} mode={mode} onModeChange={setMode} />
-        </div>
-      ) : null}
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="truncate text-sm text-foreground">{accountLabel}</div>
@@ -414,6 +409,9 @@ function DetectedProviderDetails({
       </div>
 
       <div className="mt-3.5 space-y-3.5">
+        {modes.length >= 2 ? (
+          <QuotaUsageModeTabs modes={modes} mode={mode} onModeChange={setMode} />
+        ) : null}
         {visibleMetrics.length > 0 ? (
           visibleMetrics.map((metric) => (
             <QuotaMetricBlock
@@ -492,11 +490,6 @@ export function ProviderDetail({
       <div className="space-y-2">
         <div className="flex items-start justify-between gap-4">
           <div>
-            {modes.length >= 2 ? (
-              <div className="mb-3">
-                <QuotaUsageModeTabs modes={modes} mode={mode} onModeChange={setMode} />
-              </div>
-            ) : null}
             <div className="flex items-center gap-2">
               <div className="text-[18px] font-semibold tracking-tight text-foreground">{provider.label}</div>
               <UsageSwitch
@@ -524,12 +517,16 @@ export function ProviderDetail({
         </div>
       </div>
 
-      {visibleMetrics.map((metric) => (
+      {modes.length >= 2 ? (
+        <QuotaUsageModeTabs modes={modes} mode={mode} onModeChange={setMode} />
+      ) : null}
+
+      {visibleMetrics.map((metric, index) => (
         <QuotaMetricBlock
           key={metricRowKey(metric)}
           provider={provider}
           metric={metric}
-          bordered
+          bordered={modes.length < 2 || index > 0}
         />
       ))}
 

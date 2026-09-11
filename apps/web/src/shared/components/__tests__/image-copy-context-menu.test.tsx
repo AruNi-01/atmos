@@ -56,9 +56,12 @@ describe("ImageCopyMenuHost", () => {
 
     const menu = document.querySelector("[data-image-preview-context-menu]");
     expect(menu).not.toBeNull();
-    expect(menu?.querySelector("[data-image-preview-copy]")).not.toBeNull();
+    const copyItem = menu?.querySelector("[data-image-preview-copy]");
+    expect(copyItem).not.toBeNull();
     expect(menu?.textContent).toMatch(/Copy image|copyImage/);
     expect(onPreview).not.toHaveBeenCalled();
+    expect(copyItem?.className).not.toContain("focus:bg-accent");
+    expect(copyItem?.className).toContain("hover:bg-accent");
   });
 
   it("does not treat right-click as a preview click", async () => {
