@@ -9,6 +9,7 @@ import {
   segmentAssistantParts,
   sentenceCaseOverview,
   splitSegmentedAssistantParts,
+  toolCallPartsFromGroup,
 } from "@/features/agent/lib/tool-group";
 
 function tool(
@@ -229,6 +230,44 @@ describe("segmentAssistantParts", () => {
         origIndexes: [1, 2],
       });
     }
+  });
+
+  it("omits nested subagent children from the top-level timeline", () => {
+    const parts: AgentPart[] = [
+      tool({
+        tool_call_id: "parent",
+        kind: "subagent",
+        params: { type: "subagent", description: "Inspect tests" },
+      }),
+      tool({
+        tool_call_id: "child-read",
+        kind: "read",
+        parent_tool_call_id: "parent",
+      }),
+      tool({
+        tool_call_id: "child-sub",
+        kind: "subagent",
+        parent_tool_call_id: "parent",
+        params: { type: "subagent", description: "Nested explore" },
+      }),
+      tool({
+        tool_call_id: "grandchild",
+        kind: "search",
+        parent_tool_call_id: "child-sub",
+      }),
+      { type: "text", text: "done" },
+    ];
+    expect(segmentAssistantParts(parts, "compact")).toEqual([
+      { type: "part", part: parts[0], origIndex: 0 },
+      { type: "part", part: parts[4], origIndex: 4 },
+    ]);
+    expect(segmentAssistantParts(parts, "standard").map((segment) =>
+      segment.type === "part" ? segment.part : segment.parts,
+    )).toEqual([parts[0], parts[4]]);
+    expect(countToolGroupOverview(toolCallPartsFromGroup(
+      segmentAssistantParts(parts, "compact")
+        .flatMap((segment) => segment.type === "part" ? [segment.part] : segment.parts),
+    ))).toEqual([{ kind: "subagent", count: 1 }]);
   });
 
   it("detailed keeps every tool on its own row", () => {

@@ -17,6 +17,7 @@ import {
   thinkingBlockDurationMs,
   thinkingDurationSeconds,
 } from "@/features/agent/lib/agent-chat-timing";
+import { isNestedSubagentChild } from "@/features/agent/lib/tool-group";
 import { agentMessageLinkSafety } from "./AgentMessageLinkSafetyModal";
 import { ToolView } from "./ToolView";
 
@@ -116,7 +117,18 @@ export function AgentPartView({
   }
 
   if (part.type === "tool_call") {
-    return <ToolView part={part} defaultOpen={toolResultOpen} />;
+    if (isNestedSubagentChild(part, parts)) return null;
+    const toolParts = parts.filter(
+      (candidate): candidate is Extract<AgentPart, { type: "tool_call" }> =>
+        candidate.type === "tool_call",
+    );
+    return (
+      <ToolView
+        part={part}
+        defaultOpen={toolResultOpen}
+        childTools={toolParts}
+      />
+    );
   }
 
   return null;

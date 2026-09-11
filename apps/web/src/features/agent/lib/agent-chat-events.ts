@@ -27,6 +27,7 @@ function mergeToolPart(
   return {
     type: "tool_call",
     tool_call_id: incoming.tool_call_id || existing.tool_call_id,
+    parent_tool_call_id: incoming.parent_tool_call_id ?? existing.parent_tool_call_id,
     name:
       isGenericToolLabel(incoming.name) && existing.name
         ? existing.name
@@ -421,6 +422,7 @@ function foldAgentChatEvent(
     const part: Extract<AgentPart, { type: "tool_call" }> = {
       type: "tool_call",
       tool_call_id: tool.tool_call_id,
+      parent_tool_call_id: tool.parent_tool_call_id,
       name,
       title: tool.title,
       status: tool.status

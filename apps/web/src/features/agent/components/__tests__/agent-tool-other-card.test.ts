@@ -6,6 +6,7 @@ import { otherToolBodies } from "@/features/agent/lib/tool-results/parse-tool-re
 
 const view = readFileSync(join(import.meta.dir, "../ToolView.tsx"), "utf8");
 const card = readFileSync(join(import.meta.dir, "../tool-results/OtherToolCard.tsx"), "utf8");
+const subagent = readFileSync(join(import.meta.dir, "../SubAgentBlockView.tsx"), "utf8");
 
 describe("S9 generic other tool card", () => {
   it("routes execute to the terminal block and other to one card", () => {
@@ -18,6 +19,17 @@ describe("S9 generic other tool card", () => {
     expect(card).not.toContain("pathFromOtherParams");
     expect(card).not.toContain("AgentToolFileChip");
     expect(card).not.toContain("native");
+  });
+
+  it("keeps subagent details behind the standard tool disclosure", () => {
+    expect(view).toContain("<SubAgentBlockView");
+    expect(view).toContain("childTools={directChildTools}");
+    expect(view).toContain("allTools={childTools}");
+    expect(subagent).toContain("<AgentToolCard");
+    expect(subagent).toContain("defaultOpen={defaultOpen}");
+    expect(subagent).toContain('icon={getToolKindIcon("subagent")}');
+    expect(subagent).toContain("childTools.map");
+    expect(subagent).not.toContain('useState(true)');
   });
 
   it("keeps the kind verb in the title and uses the file chip as accessory", () => {

@@ -718,6 +718,70 @@ describe("agent chat fold stays on AgentMessage", () => {
     expect(messages[0]?.parts.some((part) => part.type === "tool_call" && part.name === "TaskOutput")).toBe(true);
   });
 
+  it("updates one subagent card from dispatch through child completion", () => {
+    const started = chatEvent("chat-1", 1, {
+      type: "tool_call_started",
+      tool_call: {
+        tool_call_id: "subagent-1",
+        name: "Task",
+        title: "Explore tests",
+        kind: "subagent",
+        status: "running",
+        params: {
+          type: "subagent",
+          description: "Inspect the relevant test coverage",
+          agent_type: "explore",
+          task_id: "child-1",
+        },
+      },
+    });
+    const progress = chatEvent("chat-1", 2, {
+      type: "tool_call_updated",
+      tool_call: {
+        tool_call_id: "subagent-1",
+        name: "Task",
+        title: "Explore tests",
+        kind: "subagent",
+        status: "running",
+        params: {
+          type: "subagent",
+          description: "Inspect the relevant test coverage",
+          agent_type: "explore",
+          task_id: "child-1",
+        },
+      },
+    });
+    const completed = chatEvent("chat-1", 3, {
+      type: "tool_call_completed",
+      tool_call: {
+        tool_call_id: "subagent-1",
+        name: "Task",
+        title: "Explore tests",
+        kind: "subagent",
+        status: "completed",
+        params: {
+          type: "subagent",
+          description: "Inspect the relevant test coverage",
+          agent_type: "explore",
+          task_id: "child-1",
+        },
+        result: { type: "text", text: "Tests are covered." },
+      },
+    });
+
+    let messages = foldMessagesFromEvent([], started, "chat-1");
+    messages = foldMessagesFromEvent(messages, progress, "chat-1");
+    messages = foldMessagesFromEvent(messages, completed, "chat-1");
+    const cards = messages[0]?.parts.filter(
+      (part) => part.type === "tool_call" && part.tool_call_id === "subagent-1",
+    );
+    expect(cards).toHaveLength(1);
+    expect(cards?.[0]).toMatchObject({
+      status: "completed",
+      result: { type: "text", text: "Tests are covered." },
+    });
+  });
+
   it("folds create and resume session lifecycle onto the current assistant", () => {
     const user = chatEvent("chat-1", 1, {
       type: "user_message",

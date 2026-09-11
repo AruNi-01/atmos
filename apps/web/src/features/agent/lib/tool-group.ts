@@ -106,6 +106,17 @@ function isFoldableProcessPart(part: AgentPart): boolean {
   return isRenderedNonToolPart(part);
 }
 
+export function isNestedSubagentChild(part: AgentPart, parts: AgentPart[]): boolean {
+  if (part.type !== "tool_call" || !part.parent_tool_call_id) return false;
+  const parentId = part.parent_tool_call_id;
+  return parts.some(
+    (candidate) =>
+      candidate.type === "tool_call"
+      && candidate.tool_call_id === parentId
+      && candidate.kind === "subagent",
+  );
+}
+
 export function toolCallPartsFromGroup(parts: AgentPart[]): AgentToolCallPart[] {
   return parts.filter((part): part is AgentToolCallPart => part.type === "tool_call");
 }
@@ -138,6 +149,7 @@ export function segmentAssistantParts(
   };
 
   parts.forEach((part, origIndex) => {
+    if (isNestedSubagentChild(part, parts)) return;
     if (density === "compact") {
       if (isFoldableProcessPart(part)) {
         pending.push({ part, origIndex });

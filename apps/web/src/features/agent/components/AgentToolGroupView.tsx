@@ -115,22 +115,31 @@ export function AgentToolGroupView({
       <CollapsibleContent className="data-[state=open]:overflow-visible">
         <AgentTreeRevealProvider reveal={autoOpen}>
           <div className="relative">
-            {visibleParts.map((part, index) => {
-              const origIndex = origIndexes[index] ?? index;
-              const itemKey = part.type === "tool_call"
-                ? part.tool_call_id || `${part.name}-${index}`
-                : `${part.type}-${origIndex}`;
-              return (
-                <AgentTreeBranch
-                  key={itemKey}
-                  isFirst={index === 0}
-                  isLast={index === visibleParts.length - 1}
-                  animate={autoOpen}
-                >
-                  {renderPart(part, origIndex)}
-                </AgentTreeBranch>
-              );
-            })}
+            {visibleParts
+              .map((part, index) => {
+                const origIndex = origIndexes[index] ?? index;
+                const rendered = renderPart(part, origIndex);
+                if (rendered == null) return null;
+                return { part, origIndex, rendered };
+              })
+              .filter((row): row is { part: AgentPart; origIndex: number; rendered: ReactNode } =>
+                row != null
+              )
+              .map((row, index, rows) => {
+                const itemKey = row.part.type === "tool_call"
+                  ? row.part.tool_call_id || `${row.part.name}-${index}`
+                  : `${row.part.type}-${row.origIndex}`;
+                return (
+                  <AgentTreeBranch
+                    key={itemKey}
+                    isFirst={index === 0}
+                    isLast={index === rows.length - 1}
+                    animate={autoOpen}
+                  >
+                    {row.rendered}
+                  </AgentTreeBranch>
+                );
+              })}
           </div>
         </AgentTreeRevealProvider>
       </CollapsibleContent>

@@ -11,16 +11,28 @@ export function ToolView({
   part,
   surface = "plain",
   defaultOpen = false,
+  childTools = [],
 }: {
   part: AgentToolCallPart;
   surface?: AgentToolSurface;
   defaultOpen?: boolean;
+  childTools?: AgentToolCallPart[];
 }) {
+  const directChildTools = childTools.filter(
+    (candidate) => candidate.parent_tool_call_id === part.tool_call_id,
+  );
   switch (part.kind) {
     case "execute":
       return <TerminalBlock part={part} surface={surface} defaultOpen={defaultOpen} />;
     case "subagent":
-      return <SubAgentBlockView part={part} />;
+      return (
+        <SubAgentBlockView
+          part={part}
+          defaultOpen={defaultOpen}
+          childTools={directChildTools}
+          allTools={childTools}
+        />
+      );
     case "other":
       return <OtherToolCard part={part} surface={surface} defaultOpen={defaultOpen} />;
     default:
