@@ -32,6 +32,7 @@ pub struct Model {
     pub last_run_guid: Option<String>,
     pub last_status: Option<String>,
     pub run_count: i32,
+    pub execute_mode: String,
 }
 
 impl_base_entity!(Model);

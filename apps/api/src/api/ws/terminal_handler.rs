@@ -351,6 +351,10 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
                 side_chat_id,
                 source_pane_id,
                 source_tmux_window_name,
+                origin: None,
+                run_guid: None,
+                automation_guid: None,
+                initial_input: None,
             })
             .await
         {

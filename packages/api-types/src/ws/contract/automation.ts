@@ -14,6 +14,10 @@ import type {
   AutomationRunGuidRequest,
   AutomationRunListRequest,
   AutomationRunListResponse,
+  AutomationRunCompleteRequest,
+  AutomationRunPaths,
+  AutomationRunPathsRequest,
+  AutomationRunStaleDismissRequest,
   AutomationSchedulePreviewRequest,
   AutomationSchedulePreviewResponse,
   AutomationUpdateRequest,
@@ -87,5 +91,17 @@ export type AutomationContract = {
   automation_github_event_route_delete: {
     input: AutomationGithubRelayRequest;
     output: unknown;
+  };
+  automation_run_complete: {
+    input: AutomationRunCompleteRequest;
+    output: AutomationRunDetail;
+  };
+  automation_run_paths: {
+    input: AutomationRunPathsRequest;
+    output: AutomationRunPaths;
+  };
+  automation_run_stale_dismiss: {
+    input: AutomationRunStaleDismissRequest;
+    output: AutomationRunDetail;
   };
 };

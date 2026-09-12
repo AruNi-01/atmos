@@ -50,6 +50,24 @@ pub fn automation_event_to_ws_message(event: AutomationEvent) -> Option<WsMessag
             }),
         ),
         AutomationEvent::Notification(payload) => (WsEvent::AutomationNotification, json!(payload)),
+        AutomationEvent::StalePrompt {
+            automation_guid,
+            run_guid,
+            display_name,
+            execute_mode,
+            surface_scope_id,
+            surface_session_id,
+        } => (
+            WsEvent::AutomationStalePrompt,
+            json!({
+                "automation_guid": automation_guid,
+                "run_guid": run_guid,
+                "display_name": display_name,
+                "execute_mode": execute_mode,
+                "surface_scope_id": surface_scope_id,
+                "surface_session_id": surface_session_id,
+            }),
+        ),
     };
 
     Some(WsMessage::notification(ws_event, data))

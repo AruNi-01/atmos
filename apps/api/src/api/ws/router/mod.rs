@@ -143,6 +143,7 @@ impl WsMessageService {
             .attach_agent_service(Arc::clone(&agent_service)),
         );
         agent_chat_service.set_options_worker(Arc::clone(&options_worker));
+        automation_service.attach_agent_chat(Arc::clone(&agent_chat_service));
 
         let simulator =
             Arc::new(DevicePreviewService::new().expect("device preview pins must parse"));
@@ -1057,6 +1058,18 @@ impl WsMessageService {
             }
             WsAction::AutomationGithubEventRouteDelete => {
                 self.handle_automation_github_event_route_delete(request.data)
+                    .await
+            }
+            WsAction::AutomationRunComplete => {
+                self.handle_automation_run_complete(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AutomationRunPaths => {
+                self.handle_automation_run_paths(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AutomationRunStaleDismiss => {
+                self.handle_automation_run_stale_dismiss(parse_request(request.data)?)
                     .await
             }
 

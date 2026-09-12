@@ -14,6 +14,7 @@ import type {
   AutomationNotificationPayload,
   AutomationRunOutputEvent,
   AutomationRunUpdatedEvent,
+  AutomationStalePromptEvent,
 } from "./dto/automation";
 import type { ResourceMonitorSnapshot } from "./dto/resource-monitor";
 import type {
@@ -59,6 +60,7 @@ export type WsEventContract = {
   automation_run_updated: { payload: AutomationRunUpdatedEvent };
   automation_run_output: { payload: AutomationRunOutputEvent };
   automation_notification: { payload: AutomationNotificationPayload };
+  automation_stale_prompt: { payload: AutomationStalePromptEvent };
   disk_analyzer_scan_progress: { payload: DiskScanProgress };
   simulator_download_progress: { payload: SimulatorDownloadProgress };
   resource_monitor_updated: { payload: ResourceMonitorSnapshot };

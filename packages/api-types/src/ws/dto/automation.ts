@@ -42,7 +42,10 @@ export type AutomationRunStatus =
   | "cancelled"
   | "interrupted";
 
-export type AutomationTargetKind =
+export type AutomationExecuteMode = "headless" | "terminal" | "chat";
+export type AutomationSurfaceKind = "none" | "terminal" | "chat";
+
+export type AutomationTargetKind = {
   | "project"
   | "workspace"
   | "new_workspace"
@@ -88,6 +91,7 @@ export type AutomationSummary = {
   last_run_guid: string | null;
   last_status: AutomationRunStatus | null;
   run_count: number;
+  execute_mode?: AutomationExecuteMode | string;
 };
 
 export type AutomationListResponse = {
@@ -147,6 +151,7 @@ export type AutomationCreateRequest = {
   schedule: AutomationScheduleInput | null;
   trigger?: AutomationTriggerInput | null;
   attachments?: AutomationAttachmentPayload[];
+  execute_mode?: AutomationExecuteMode | null;
 };
 
 export type AutomationUpdateRequest = {
@@ -160,6 +165,7 @@ export type AutomationUpdateRequest = {
   schedule?: AutomationScheduleInput | null;
   trigger?: AutomationTriggerInput | null;
   attachments?: AutomationAttachmentPayload[];
+  execute_mode?: AutomationExecuteMode | null;
 };
 
 export type AutomationGuidRequest = {
@@ -215,6 +221,49 @@ export type AutomationRunSummary = {
   started_at: string;
   completed_at: string | null;
   exit_code: number | null;
+  execute_mode?: AutomationExecuteMode | string;
+  surface_kind?: AutomationSurfaceKind | string | null;
+  surface_session_id?: string | null;
+  surface_scope_id?: string | null;
+  stale_prompted_at?: string | null;
+  stale_prompt_dismissed?: boolean;
+};
+
+export type AutomationRunCompleteRequest = {
+  run_guid: string;
+  failed?: boolean;
+  message?: string | null;
+};
+
+export type AutomationRunPathsRequest = {
+  run_guid: string;
+};
+
+export type AutomationRunStaleDismissRequest = {
+  run_guid: string;
+};
+
+export type AutomationRunPaths = {
+  run_guid: string;
+  automation_guid: string;
+  definition_dir: string;
+  instructions_path: string;
+  memory_path: string;
+  run_dir: string;
+  prompt_path: string;
+  result_path: string;
+  run_json_path: string;
+  skill_path: string;
+  cwd: string;
+};
+
+export type AutomationStalePromptEvent = {
+  automation_guid: string;
+  run_guid: string;
+  display_name: string;
+  execute_mode: string;
+  surface_scope_id?: string | null;
+  surface_session_id?: string | null;
 };
 
 export type AutomationRunListResponse = {

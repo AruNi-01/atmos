@@ -6,6 +6,7 @@ mod server_invoke;
 
 use api_client::ApiClientArgs;
 use clap::{Parser, Subcommand};
+use commands::automation::{execute_automation, AutomationCommand};
 use commands::browser_use::{execute_cmd as execute_browser_use, BrowserUseCommand};
 use commands::canvas::{execute as execute_canvas, CanvasCommand, CanvasOpts};
 use commands::computer::{execute as execute_computer, ComputerCommand};
@@ -130,6 +131,11 @@ enum Commands {
         #[command(subcommand)]
         command: SimulatorCommand,
     },
+    /// Complete, inspect, or start an Atmos automation run
+    Automation {
+        #[command(subcommand)]
+        command: AutomationCommand,
+    },
     /// Check for or install CLI updates
     Update(UpdateArgs),
 }
@@ -192,6 +198,7 @@ async fn run() -> i32 {
             wrap_legacy("atmos browser-use", execute_browser_use(command).await)
         }
         Some(Commands::Simulator { command }) => execute_simulator(cli.api, command).await,
+        Some(Commands::Automation { command }) => execute_automation(cli.api, command).await,
         Some(Commands::Canvas { canvas, command }) => wrap_legacy(
             "atmos canvas",
             execute_canvas(cli.api, canvas, command).await,

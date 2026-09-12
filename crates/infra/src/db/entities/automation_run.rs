@@ -37,6 +37,12 @@ pub struct Model {
     pub completed_at: Option<DateTime>,
     pub exit_code: Option<i32>,
     pub cancellation_requested: bool,
+    pub execute_mode: String,
+    pub surface_kind: Option<String>,
+    pub surface_session_id: Option<String>,
+    pub surface_scope_id: Option<String>,
+    pub stale_prompted_at: Option<DateTime>,
+    pub stale_prompt_dismissed: bool,
 }
 
 impl_base_entity!(Model);

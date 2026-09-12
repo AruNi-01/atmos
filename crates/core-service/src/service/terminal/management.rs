@@ -685,6 +685,33 @@ impl TerminalService {
         Ok(())
     }
 
+    /// Send named tmux keys to a window looked up by workspace + window name.
+    ///
+    /// Returns `true` when the window existed and keys were delivered. Used by
+    /// automation Cancel: the launch PTY client is already detached.
+    pub async fn send_named_keys_to_named_window(
+        &self,
+        workspace_id: &str,
+        window_name: &str,
+        keys: &[&str],
+    ) -> Result<bool> {
+        if workspace_id.trim().is_empty() || window_name.trim().is_empty() || keys.is_empty() {
+            return Ok(false);
+        }
+        let session_name = self
+            .resolve_tmux_session_name(workspace_id, None, None)
+            .await;
+        let Some(index) = self
+            .tmux_engine
+            .find_window_index_by_name(&session_name, window_name)?
+        else {
+            return Ok(false);
+        };
+        self.tmux_engine
+            .send_named_keys(&session_name, index, keys)?;
+        Ok(true)
+    }
+
     /// Kill a tmux window by its user-visible window name in the given session.
     pub fn kill_window_by_name(&self, session_name: &str, tmux_window_name: &str) -> Result<bool> {
         if let Some(index) = self

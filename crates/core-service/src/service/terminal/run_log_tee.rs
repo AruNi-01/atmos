@@ -19,6 +19,7 @@ pub use super::text_capture::strip_ansi_and_controls;
 
 const RUN_LOGS_REL: &str = ".atmos/run-logs";
 const ARCHIVE_REL: &str = "archive";
+const LAST_START_NAME: &str = "last-start";
 const MAX_LATEST_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_ARCHIVES_PER_WINDOW: usize = 8;
 const MAX_TOTAL_BYTES: u64 = 64 * 1024 * 1024;
@@ -52,6 +53,68 @@ pub fn run_logs_dir(project_root: &Path) -> PathBuf {
 
 pub fn latest_log_path(project_root: &Path, window_name: &str) -> PathBuf {
     run_logs_dir(project_root).join(format!("{}.latest.log", sanitize_window_name(window_name)))
+}
+
+fn last_start_path(project_root: &Path) -> PathBuf {
+    run_logs_dir(project_root).join(LAST_START_NAME)
+}
+
+fn write_last_start(project_root: &Path, window: &str) {
+    let _ = fs::write(last_start_path(project_root), format!("{window}\n"));
+}
+
+fn read_last_start(project_root: &Path) -> Option<String> {
+    let raw = fs::read_to_string(last_start_path(project_root)).ok()?;
+    let name = sanitize_window_name(raw.trim());
+    is_run_window_name(&name).then_some(name)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RunLogResolveReason {
+    LastStart,
+    PreferredWindow,
+    RunMain,
+    Fallback,
+}
+
+impl RunLogResolveReason {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::LastStart => "last_start",
+            Self::PreferredWindow => "preferred_window",
+            Self::RunMain => "run_main",
+            Self::Fallback => "fallback",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ResolvedRunLog {
+    pub path: PathBuf,
+    pub window_name: String,
+    pub reason: RunLogResolveReason,
+    pub other_paths: Vec<PathBuf>,
+}
+
+fn list_latest_logs(project_root: &Path) -> Vec<(String, PathBuf)> {
+    let dir = run_logs_dir(project_root);
+    let Ok(entries) = fs::read_dir(&dir) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        if !name.ends_with(".latest.log") {
+            continue;
+        }
+        let window = name[..name.len() - ".latest.log".len()].to_string();
+        if !is_run_window_name(&window) {
+            continue;
+        }
+        out.push((window, path));
+    }
+    out
 }
 
 fn utc_stamp_for_archive() -> String {
@@ -162,6 +225,7 @@ impl RunLogTee {
         );
         file.write_all(header.as_bytes())?;
         file.flush()?;
+        write_last_start(project_root, &window);
         let written = header.len() as u64;
 
         {
@@ -433,34 +497,69 @@ impl RunLogTee {
 
     /// Resolve the latest log for the View Run Logs slash command.
     ///
-    /// Extra Run tabs write `run-{tabId}.latest.log`. Prefer the most recently
-    /// updated `*.latest.log` so a just-run extra terminal wins over a stale
-    /// default Run tab. `run-main` wins mtime ties.
+    /// Order: last `run_log_start` pointer → currently open Run tab
+    /// (`preferred_window`) → `run-main` → any remaining extra tab.
     pub fn resolve_latest_path(project_root: &Path) -> Option<PathBuf> {
-        let dir = run_logs_dir(project_root);
-        let mut best: Option<(SystemTime, bool, PathBuf)> = None;
-        let entries = fs::read_dir(&dir).ok()?;
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-            if !name.ends_with(".latest.log") {
-                continue;
+        Self::resolve_latest(project_root, None).map(|resolved| resolved.path)
+    }
+
+    pub fn resolve_latest(
+        project_root: &Path,
+        preferred_window: Option<&str>,
+    ) -> Option<ResolvedRunLog> {
+        let logs = list_latest_logs(project_root);
+        if logs.is_empty() {
+            return None;
+        }
+
+        let pick = |window: &str, reason: RunLogResolveReason| -> Option<ResolvedRunLog> {
+            let (window_name, path) = logs.iter().find(|(name, _)| name == window)?.clone();
+            let other_paths = logs
+                .iter()
+                .filter(|(name, _)| name != window)
+                .map(|(_, path)| path.clone())
+                .collect();
+            Some(ResolvedRunLog {
+                path,
+                window_name,
+                reason,
+                other_paths,
+            })
+        };
+
+        if let Some(window) = read_last_start(project_root) {
+            if let Some(resolved) = pick(&window, RunLogResolveReason::LastStart) {
+                return Some(resolved);
             }
-            let mtime = entry
-                .metadata()
-                .and_then(|m| m.modified())
-                .unwrap_or(SystemTime::UNIX_EPOCH);
-            let is_main = name == "run-main.latest.log";
-            match &best {
-                None => best = Some((mtime, is_main, path)),
-                Some((t, was_main, _)) => {
-                    if mtime > *t || (mtime == *t && is_main && !*was_main) {
-                        best = Some((mtime, is_main, path));
-                    }
+        }
+
+        if let Some(preferred) = preferred_window {
+            let preferred = sanitize_window_name(preferred);
+            if is_run_window_name(&preferred) {
+                if let Some(resolved) = pick(&preferred, RunLogResolveReason::PreferredWindow) {
+                    return Some(resolved);
                 }
             }
         }
-        best.map(|(_, _, p)| p)
+
+        if let Some(resolved) = pick("run-main", RunLogResolveReason::RunMain) {
+            return Some(resolved);
+        }
+
+        let mut extras = logs;
+        extras.sort_by(|a, b| a.0.cmp(&b.0));
+        let (window_name, path) = extras.first()?.clone();
+        let other_paths = extras
+            .into_iter()
+            .skip(1)
+            .map(|(_, extra_path)| extra_path)
+            .collect();
+        Some(ResolvedRunLog {
+            path,
+            window_name,
+            reason: RunLogResolveReason::Fallback,
+            other_paths,
+        })
     }
 }
 
@@ -541,34 +640,59 @@ mod tests {
     }
 
     #[test]
-    fn resolve_prefers_newer_run_over_stale_run_main() {
+    fn resolve_prefers_last_start_over_stale_run_main() {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path();
-        let logs = run_logs_dir(root);
-        fs::create_dir_all(&logs).unwrap();
-        fs::write(logs.join("run-main.latest.log"), "old main\n").unwrap();
-        std::thread::sleep(std::time::Duration::from_millis(20));
-        fs::write(logs.join("run-2.latest.log"), "new extra\n").unwrap();
-        let resolved = RunLogTee::resolve_latest_path(root).unwrap();
-        assert!(
-            resolved.ends_with("run-2.latest.log"),
-            "expected extra tab, got {}",
-            resolved.display()
-        );
+        let tee = RunLogTee::new();
+        tee.start_run(root, "run-main", Some("old"), None).unwrap();
+        tee.append(root, "run-main", b"old main\n");
+        tee.start_run(root, "run-2", Some("new"), None).unwrap();
+        tee.append(root, "run-2", b"new extra\n");
+        tee.append(root, "run-main", b"later server noise\n");
+        let resolved = RunLogTee::resolve_latest(root, None).unwrap();
+        assert!(resolved.path.ends_with("run-2.latest.log"));
+        assert_eq!(resolved.reason, RunLogResolveReason::LastStart);
+        assert_eq!(resolved.other_paths.len(), 1);
     }
 
     #[test]
-    fn resolve_prefers_newer_run_main() {
+    fn resolve_prefers_later_run_main_start() {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path();
         let tee = RunLogTee::new();
         tee.start_run(root, "run-2", Some("x"), None).unwrap();
         tee.append(root, "run-2", b"other\n");
-        std::thread::sleep(std::time::Duration::from_millis(20));
         tee.start_run(root, "run-main", Some("y"), None).unwrap();
         tee.append(root, "run-main", b"main\n");
-        let resolved = RunLogTee::resolve_latest_path(root).unwrap();
-        assert!(resolved.ends_with("run-main.latest.log"));
+        let resolved = RunLogTee::resolve_latest(root, Some("run-2")).unwrap();
+        assert!(resolved.path.ends_with("run-main.latest.log"));
+        assert_eq!(resolved.reason, RunLogResolveReason::LastStart);
+    }
+
+    #[test]
+    fn resolve_uses_preferred_window_when_last_start_is_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let logs = run_logs_dir(root);
+        fs::create_dir_all(&logs).unwrap();
+        fs::write(logs.join("run-main.latest.log"), "main\n").unwrap();
+        fs::write(logs.join("run-2.latest.log"), "extra\n").unwrap();
+        let resolved = RunLogTee::resolve_latest(root, Some("run-2")).unwrap();
+        assert!(resolved.path.ends_with("run-2.latest.log"));
+        assert_eq!(resolved.reason, RunLogResolveReason::PreferredWindow);
+    }
+
+    #[test]
+    fn resolve_falls_back_to_run_main_without_pointer() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let logs = run_logs_dir(root);
+        fs::create_dir_all(&logs).unwrap();
+        fs::write(logs.join("run-2.latest.log"), "extra\n").unwrap();
+        fs::write(logs.join("run-main.latest.log"), "main\n").unwrap();
+        let resolved = RunLogTee::resolve_latest(root, None).unwrap();
+        assert!(resolved.path.ends_with("run-main.latest.log"));
+        assert_eq!(resolved.reason, RunLogResolveReason::RunMain);
     }
 
     #[test]
@@ -578,8 +702,9 @@ mod tests {
         let tee = RunLogTee::new();
         tee.start_run(root, "run-2", Some("x"), None).unwrap();
         tee.append(root, "run-2", b"other\n");
-        let resolved = RunLogTee::resolve_latest_path(root).unwrap();
-        assert!(resolved.ends_with("run-2.latest.log"));
+        let resolved = RunLogTee::resolve_latest(root, None).unwrap();
+        assert!(resolved.path.ends_with("run-2.latest.log"));
+        assert_eq!(resolved.reason, RunLogResolveReason::LastStart);
     }
 
     #[test]

@@ -87,6 +87,8 @@ impl AgentChatStore {
             parent_chat_id: None,
             rewind_view: None,
             pending_session_op: None,
+            source: req.source,
+            automation_run_guid: req.automation_run_guid,
         };
         if meta
             .persistence_handle
@@ -128,6 +130,8 @@ impl AgentChatStore {
             fast: parent.descriptor.current_config.fast.clone(),
             context: parent.descriptor.current_config.context.clone(),
             title: parent.title.clone(),
+            source: parent.source.clone(),
+            automation_run_guid: parent.automation_run_guid.clone(),
         })?;
         let src = self.dir_for(parent_id).join("transcript.jsonl");
         let dst = self.dir_for(&child.id).join("transcript.jsonl");
@@ -1251,6 +1255,8 @@ mod tests {
                 fast: None,
                 context: None,
                 title: None,
+                source: None,
+                automation_run_guid: None,
             })
             .unwrap()
     }
@@ -2531,6 +2537,8 @@ mod tests {
                 fast: None,
                 context: None,
                 title: Some("Workspace chat".into()),
+                source: None,
+                automation_run_guid: None,
             })
             .unwrap();
         assert_eq!(
@@ -2571,6 +2579,8 @@ mod tests {
                 fast: None,
                 context: None,
                 title: Some("Quick chat".into()),
+                source: None,
+                automation_run_guid: None,
             })
             .unwrap();
         let quick = store

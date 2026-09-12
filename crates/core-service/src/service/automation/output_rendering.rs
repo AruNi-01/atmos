@@ -546,6 +546,12 @@ mod tests {
             completed_at: None,
             exit_code: None,
             cancellation_requested: false,
+            execute_mode: "headless".to_string(),
+            surface_kind: Some("none".to_string()),
+            surface_session_id: None,
+            surface_scope_id: None,
+            stale_prompted_at: None,
+            stale_prompt_dismissed: false,
         }
     }
 

@@ -1,11 +1,14 @@
 use std::collections::HashSet;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex as StdMutex};
 
 mod agents;
 mod artifacts;
+mod complete;
 mod events;
+mod execute_mode;
 mod external_trigger;
 mod github_trigger;
+mod interactive_runner;
 mod lifecycle;
 mod output_rendering;
 mod process_runner;
@@ -15,6 +18,7 @@ mod scheduler;
 mod scheduler_service;
 mod target;
 pub(crate) mod terminal_agent_manifest;
+mod tui_interrupt;
 mod validation;
 
 use chrono::NaiveDateTime;
@@ -29,6 +33,7 @@ use uuid::Uuid;
 use crate::error::{Result, ServiceError};
 use crate::WorkspaceAttachmentPayload;
 
+use super::agent_chat::AgentChatService;
 use super::notification::NotificationService;
 use super::project::ProjectService;
 use super::terminal::TerminalService;
@@ -48,6 +53,11 @@ pub use agents::{
 };
 pub use builtin_agent_upgrade::ensure_builtin_terminal_agents_upgraded;
 pub use events::{AutomationDefinitionChange, AutomationEvent};
+pub use execute_mode::{
+    parse_standalone_scope, standalone_definition_dir, standalone_scope_id,
+    AutomationChatAgentConfig, AutomationExecuteMode, AutomationRunPaths, AutomationSurfaceKind,
+    STANDALONE_GROUP_ID, STANDALONE_SCOPE_PREFIX,
+};
 pub use external_trigger::{
     ExternalTriggerOutcome, ExternalTriggerRejectReason, ExternalTriggerRejection,
 };
@@ -239,7 +249,9 @@ pub struct AutomationCreateReq {
     pub memory: Option<String>,
     pub agent_id: String,
     #[serde(default)]
-    pub agent_config: Option<AutomationAgentRunConfig>,
+    pub agent_config: Option<Value>,
+    #[serde(default)]
+    pub execute_mode: Option<AutomationExecuteMode>,
     pub target: AutomationTargetInput,
     #[serde(default)]
     pub attachments: Vec<WorkspaceAttachmentPayload>,
@@ -263,7 +275,9 @@ pub struct AutomationUpdateReq {
     #[serde(default)]
     pub agent_id: Option<String>,
     #[serde(default)]
-    pub agent_config: Option<AutomationAgentRunConfig>,
+    pub agent_config: Option<Value>,
+    #[serde(default)]
+    pub execute_mode: Option<AutomationExecuteMode>,
     #[serde(default)]
     pub target: Option<AutomationTargetInput>,
     #[serde(default, deserialize_with = "deserialize_nullable_update_field")]
@@ -309,6 +323,25 @@ pub struct AutomationRunListReq {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutomationCancelRunReq {
+    pub run_guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutomationRunCompleteReq {
+    pub run_guid: String,
+    #[serde(default)]
+    pub failed: bool,
+    #[serde(default)]
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutomationRunPathsReq {
+    pub run_guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutomationRunStaleDismissReq {
     pub run_guid: String,
 }
 
@@ -381,6 +414,7 @@ pub struct AutomationSummary {
     pub last_run_guid: Option<String>,
     pub last_status: Option<String>,
     pub run_count: i32,
+    pub execute_mode: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -414,6 +448,12 @@ pub struct AutomationRunSummary {
     pub started_at: NaiveDateTime,
     pub completed_at: Option<NaiveDateTime>,
     pub exit_code: Option<i32>,
+    pub execute_mode: String,
+    pub surface_kind: Option<String>,
+    pub surface_session_id: Option<String>,
+    pub surface_scope_id: Option<String>,
+    pub stale_prompted_at: Option<NaiveDateTime>,
+    pub stale_prompt_dismissed: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -451,9 +491,11 @@ pub struct AutomationService {
     db: Arc<DatabaseConnection>,
     project_service: Arc<ProjectService>,
     workspace_service: Arc<WorkspaceService>,
+    terminal_service: Arc<TerminalService>,
     notification_service: Arc<NotificationService>,
     event_tx: broadcast::Sender<AutomationEvent>,
     active_start_guids: Arc<Mutex<HashSet<String>>>,
+    agent_chat: StdMutex<Option<Arc<AgentChatService>>>,
 }
 
 impl AutomationService {
@@ -461,7 +503,7 @@ impl AutomationService {
         db: Arc<DatabaseConnection>,
         project_service: Arc<ProjectService>,
         workspace_service: Arc<WorkspaceService>,
-        _terminal_service: Arc<TerminalService>,
+        terminal_service: Arc<TerminalService>,
         notification_service: Arc<NotificationService>,
     ) -> Self {
         let (event_tx, _) = broadcast::channel(128);
@@ -469,10 +511,19 @@ impl AutomationService {
             db,
             project_service,
             workspace_service,
+            terminal_service,
             notification_service,
             event_tx,
             active_start_guids: Arc::new(Mutex::new(HashSet::new())),
+            agent_chat: StdMutex::new(None),
         }
+    }
+
+    pub fn attach_agent_chat(&self, service: Arc<AgentChatService>) {
+        *self
+            .agent_chat
+            .lock()
+            .unwrap_or_else(|error| error.into_inner()) = Some(service);
     }
 
     pub fn subscribe_events(&self) -> broadcast::Receiver<AutomationEvent> {
@@ -501,8 +552,13 @@ impl AutomationService {
 
     pub async fn create_automation(&self, req: AutomationCreateReq) -> Result<AutomationDetail> {
         let display_name = validate_display_name(req.display_name)?;
-        self.validate_agent(&req.agent_id)?;
-        agents::validate_agent_run_config(&req.agent_id, req.agent_config.as_ref())?;
+        let execute_mode = req.execute_mode.unwrap_or_default();
+        self.validate_agent_for_mode(execute_mode, &req.agent_id)?;
+        let agent_config_json = execute_mode::normalize_stored_agent_config(
+            execute_mode,
+            &req.agent_id,
+            req.agent_config,
+        )?;
         self.validate_target(&req.target).await?;
         let normalized_schedule = req
             .schedule
@@ -521,16 +577,6 @@ impl AutomationService {
         )?;
 
         let repo = AutomationRepo::new(&self.db);
-        let agent_config_json = req
-            .agent_config
-            .as_ref()
-            .map(serde_json::to_string)
-            .transpose()
-            .map_err(|error| {
-                ServiceError::Validation(format!(
-                    "Failed to serialize automation agent config: {error}"
-                ))
-            })?;
         let model = match repo
             .create_automation(CreateAutomationRecord {
                 guid: automation_guid.clone(),
@@ -564,6 +610,7 @@ impl AutomationService {
                     .artifact_root()
                     .to_string_lossy()
                     .to_string(),
+                execute_mode: execute_mode.as_str().to_string(),
             })
             .await
         {
@@ -591,21 +638,28 @@ impl AutomationService {
             })?;
 
         let display_name = req.display_name.map(validate_display_name).transpose()?;
-        if let Some(agent_id) = req.agent_id.as_deref() {
-            self.validate_agent(agent_id)?;
-        }
-        if let Some(agent_id) = req.agent_id.as_deref() {
-            agents::validate_agent_run_config(agent_id, req.agent_config.as_ref())?;
+        let execute_mode = req.execute_mode.unwrap_or_else(|| {
+            AutomationExecuteMode::parse(&existing.execute_mode).unwrap_or_default()
+        });
+        let agent_id = req
+            .agent_id
+            .clone()
+            .unwrap_or_else(|| existing.agent_id.clone());
+        self.validate_agent_for_mode(execute_mode, &agent_id)?;
+        let agent_config_json = if req.agent_config.is_some() || req.execute_mode.is_some() {
+            Some(execute_mode::normalize_stored_agent_config(
+                execute_mode,
+                &agent_id,
+                req.agent_config.or_else(|| {
+                    existing
+                        .agent_config_json
+                        .as_deref()
+                        .and_then(|raw| serde_json::from_str(raw).ok())
+                }),
+            )?)
         } else {
-            let existing_config = existing
-                .agent_config_json
-                .as_deref()
-                .and_then(|raw| serde_json::from_str::<AutomationAgentRunConfig>(raw).ok());
-            agents::validate_agent_run_config(
-                &existing.agent_id,
-                req.agent_config.as_ref().or(existing_config.as_ref()),
-            )?;
-        }
+            None
+        };
         if let Some(target) = req.target.as_ref() {
             self.validate_target(target).await?;
         }
@@ -638,17 +692,7 @@ impl AutomationService {
         let update = UpdateAutomationRecord {
             display_name,
             agent_id: req.agent_id,
-            agent_config_json: Some(
-                req.agent_config
-                    .as_ref()
-                    .map(serde_json::to_string)
-                    .transpose()
-                    .map_err(|error| {
-                        ServiceError::Validation(format!(
-                            "Failed to serialize automation agent config: {error}"
-                        ))
-                    })?,
-            ),
+            agent_config_json,
             target_kind: req
                 .target
                 .as_ref()
@@ -687,6 +731,7 @@ impl AutomationService {
                 .as_ref()
                 .map(|trigger| trigger.status.clone()),
             trigger_config_json: normalized_trigger.map(|trigger| trigger.config_json),
+            execute_mode: req.execute_mode.map(|mode| mode.as_str().to_string()),
         };
 
         let model = match repo.update_automation(&req.automation_guid, update).await {
@@ -1008,6 +1053,7 @@ impl From<automation::Model> for AutomationSummary {
             last_run_guid: model.last_run_guid,
             last_status: model.last_status,
             run_count: model.run_count,
+            execute_mode: model.execute_mode,
         }
     }
 }
@@ -1094,6 +1140,12 @@ impl From<automation_run::Model> for AutomationRunSummary {
             started_at: model.started_at,
             completed_at: model.completed_at,
             exit_code: model.exit_code,
+            execute_mode: model.execute_mode,
+            surface_kind: model.surface_kind,
+            surface_session_id: model.surface_session_id,
+            surface_scope_id: model.surface_scope_id,
+            stale_prompted_at: model.stale_prompted_at,
+            stale_prompt_dismissed: model.stale_prompt_dismissed,
         }
     }
 }

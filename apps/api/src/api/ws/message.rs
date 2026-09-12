@@ -625,6 +625,9 @@ pub enum WsAction {
     AutomationGithubRepositories,
     AutomationGithubEventRouteUpsert,
     AutomationGithubEventRouteDelete,
+    AutomationRunComplete,
+    AutomationRunPaths,
+    AutomationRunStaleDismiss,
 
     // ===== GitHub 操作 =====
     /// 获取分支关联的所有 PR 列表
@@ -924,6 +927,7 @@ pub enum WsEvent {
     AutomationRunOutput,
     /// Automation outcome notification
     AutomationNotification,
+    AutomationStalePrompt,
     /// Disk analyzer scan progress / completion (APP-042)
     DiskAnalyzerScanProgress,
     /// serve-sim helper download progress (APP-060)

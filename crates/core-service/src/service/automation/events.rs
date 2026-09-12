@@ -40,4 +40,12 @@ pub enum AutomationEvent {
         final_chunk: bool,
     },
     Notification(AutomationNotificationPayload),
+    StalePrompt {
+        automation_guid: String,
+        run_guid: String,
+        display_name: String,
+        execute_mode: String,
+        surface_scope_id: Option<String>,
+        surface_session_id: Option<String>,
+    },
 }

@@ -34,6 +34,12 @@ pub struct TmuxWindowAtmosMetadata {
     pub context_id: Option<String>,
     pub source_pane_id: Option<String>,
     pub source_tmux_window_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run_guid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub automation_guid: Option<String>,
 }
 
 /// Snapshot of a tmux pane for initial terminal hydration.

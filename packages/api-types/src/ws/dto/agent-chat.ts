@@ -1,9 +1,17 @@
 export type AgentChatOrigin = "quick" | "normal";
 
+export type AgentChatFavoriteModel = {
+  agent_id: string;
+  model: string;
+  label?: string | null;
+};
+
 export type AgentChatPrefs = {
   last_registry_id?: string | null;
   /** Last New Chat composer snapshot keyed by agent id. */
   last_new_chat_configs?: Record<string, Record<string, string>>;
+  /** Favorited agent+model pairs from `~/.atmos/config/agent/chat_prefs.json`. */
+  favorite_models?: AgentChatFavoriteModel[];
 };
 
 export type AgentChatLastNewChatConfigPatch = {
@@ -20,6 +28,8 @@ export type AgentChatPrefsSetRequest = {
   last_registry_id?: string | null;
   /** Landing composer snapshot for one agent. Omitted fields are left unchanged on disk. */
   last_new_chat_config?: AgentChatLastNewChatConfigPatch | null;
+  /** Replace the favorited model list. Omitted → leave disk unchanged. */
+  favorite_models?: AgentChatFavoriteModel[] | null;
 };
 
 export type AgentChatCreateRequest = {
@@ -36,6 +46,8 @@ export type AgentChatCreateRequest = {
   context?: string | null;
   title?: string | null;
   origin?: AgentChatOrigin | null;
+  source?: string | null;
+  automation_run_guid?: string | null;
 };
 
 export type AgentChatListRequest = {
@@ -209,6 +221,8 @@ export type AgentChatMeta = {
   project_id: string | null;
   space_id?: string | null;
   origin?: AgentChatOrigin | null;
+  source?: string | null;
+  automation_run_guid?: string | null;
   provider_id: string;
   last_message_at: string | null;
   last_event_seq: number;

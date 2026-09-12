@@ -79,6 +79,10 @@
       "skills/atmos-device-preview/SKILL.md",
       "skills/atmos-device-preview/references/cli.md"
     ],
+    "atmos-automation": [
+      "skills/atmos-automation/SKILL.md",
+      "skills/atmos-automation/references/cli.md"
+    ],
     "atmos-cli": [
       "skills/atmos-cli/SKILL.md",
       "skills/atmos-cli/references/envelope.md",

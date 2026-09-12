@@ -25,6 +25,11 @@ impl WsMessageService {
             .filter(|path| !path.is_empty())
             .map(PathBuf::from);
         if let Some(wid) = workspace_id {
+            if let Some(automation_guid) = core_service::parse_standalone_scope(wid) {
+                let root = core_service::standalone_definition_dir(automation_guid)?;
+                std::fs::create_dir_all(&root).ok();
+                return bound_cwd(requested, root);
+            }
             let workspace = self
                 .workspace_service
                 .get_workspace(wid.to_string())
@@ -77,6 +82,8 @@ impl WsMessageService {
             context: req.context.clone(),
             title: req.title,
             origin: req.origin.unwrap_or_default(),
+            source: req.source,
+            automation_run_guid: req.automation_run_guid,
         })?;
         agent_chat_meta_json(&meta)
             .map_err(|e| ServiceError::Processing(format!("serialize chat: {e}")))
@@ -372,6 +379,18 @@ impl WsMessageService {
                     patch.context.as_deref(),
                 )?;
             }
+        }
+        if let Some(favorites) = req.favorite_models {
+            core_service::save_favorite_models(
+                favorites
+                    .into_iter()
+                    .map(|item| core_service::AgentChatFavoriteModel {
+                        agent_id: item.agent_id,
+                        model: item.model,
+                        label: item.label,
+                    })
+                    .collect(),
+            )?;
         }
         self.handle_agent_chat_prefs_get()
     }

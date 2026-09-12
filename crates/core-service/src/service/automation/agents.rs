@@ -465,27 +465,6 @@ pub fn terminal_agent_options(agent_id: &str, refresh: bool) -> Result<TerminalA
     Ok(catalog)
 }
 
-fn agent_yolo_mode_enabled() -> bool {
-    let path = dirs::home_dir()
-        .map(|home| {
-            home.join(".atmos")
-                .join("config")
-                .join("function_settings.json")
-        })
-        .unwrap_or_else(|| PathBuf::from("function_settings.json"));
-    let Ok(raw) = std::fs::read_to_string(path) else {
-        return true;
-    };
-    let Ok(value) = serde_json::from_str::<Value>(&raw) else {
-        return true;
-    };
-    value
-        .get("agent_cli")
-        .and_then(|agent_cli| agent_cli.get("yolo_mode"))
-        .and_then(|mode| mode.as_bool())
-        .unwrap_or(true)
-}
-
 fn definition_launch_flags(definition: &TerminalAgentDefinition, yolo: bool) -> (String, String) {
     if yolo && (definition.yolo_params.is_some() || definition.yolo_interactive_params.is_some()) {
         let params = definition
@@ -574,7 +553,8 @@ fn resolve_terminal_agents_with_settings(
     settings: TerminalCodeAgentFile,
 ) -> Vec<ResolvedTerminalAgent> {
     let mut resolved = Vec::with_capacity(built_ins.len() + settings.agents.len());
-    let yolo = agent_yolo_mode_enabled();
+    // Automations run unattended, so launch flags always skip confirmation.
+    let yolo = true;
 
     for definition in built_ins {
         let (default_params, default_interactive) = definition_launch_flags(&definition, yolo);
@@ -1506,11 +1486,21 @@ mod tests {
             && agent.stdout_parser == StdoutParser::CodexJsonl));
         assert!(agents.iter().any(|agent| agent.id == "cursor"
             && agent.cmd == "cursor-agent"
+            && agent.interactive_params.as_deref() == Some("--trust")
             && agent
                 .yolo_params
                 .as_deref()
                 .is_some_and(|p| p.contains("--force --print"))
-            && agent.yolo_interactive_params.as_deref() == Some("--yolo")));
+            && agent.yolo_interactive_params.as_deref() == Some("--yolo --trust")));
+        assert!(agents.iter().any(|agent| agent.id == "gemini"
+            && agent.interactive_params.as_deref() == Some("--skip-trust")
+            && agent.yolo_interactive_params.as_deref() == Some("--yolo --skip-trust")));
+        assert!(agents.iter().any(|agent| agent.id == "commandcode"
+            && agent.interactive_params.as_deref() == Some("--trust --skip-onboarding")));
+        assert!(agents
+            .iter()
+            .any(|agent| agent.id == "pi"
+                && agent.interactive_params.as_deref() == Some("--approve")));
         assert!(agents.iter().any(|agent| {
             agent.id == "antigravity"
                 && agent.cmd == "agy"

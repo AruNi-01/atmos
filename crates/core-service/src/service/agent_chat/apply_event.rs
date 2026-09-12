@@ -2281,6 +2281,8 @@ mod tests {
             parent_chat_id: None,
             rewind_view: None,
             pending_session_op: None,
+            source: None,
+            automation_run_guid: None,
         }
     }
 
@@ -2948,6 +2950,8 @@ mod tests {
                 fast: None,
                 context: None,
                 title: None,
+                source: None,
+                automation_run_guid: None,
             })
             .unwrap();
         let (tx, mut rx) = broadcast::channel(8);
@@ -3006,6 +3010,8 @@ mod tests {
                 fast: None,
                 context: None,
                 title: None,
+                source: None,
+                automation_run_guid: None,
             })
             .unwrap();
         store
@@ -3081,6 +3087,8 @@ mod tests {
                 fast: None,
                 context: None,
                 title: None,
+                source: None,
+                automation_run_guid: None,
             })
             .unwrap();
         let (tx, _rx) = broadcast::channel(8);
@@ -3145,6 +3153,8 @@ mod tests {
                 fast: None,
                 context: None,
                 title: None,
+                source: None,
+                automation_run_guid: None,
             })
             .unwrap();
         let (tx, _rx) = broadcast::channel(8);
@@ -3219,6 +3229,8 @@ mod tests {
                 fast: None,
                 context: None,
                 title: None,
+                source: None,
+                automation_run_guid: None,
             })
             .unwrap();
         store

@@ -45,6 +45,8 @@ fn create_req_for(cwd: &str, provider_id: &str) -> CreateAgentChatRequest {
         fast: None,
         context: None,
         title: None,
+        source: None,
+        automation_run_guid: None,
     }
 }
 
@@ -1400,6 +1402,8 @@ async fn app069_s10_acp_send_fork_goes_as_prompt() {
             fast: None,
             context: None,
             title: None,
+            source: None,
+            automation_run_guid: None,
         })
         .unwrap();
     let _ = service.send(&meta.id, "/fork", Vec::new()).await.unwrap();

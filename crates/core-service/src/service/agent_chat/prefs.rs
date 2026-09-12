@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -10,6 +10,14 @@ use super::new_chat_configs::{
 use crate::error::{Result, ServiceError};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AgentChatFavoriteModel {
+    pub agent_id: String,
+    pub model: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub label: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AgentChatPrefs {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_registry_id: Option<String>,
@@ -17,12 +25,17 @@ pub struct AgentChatPrefs {
     /// Backed by `~/.atmos/config/agent/new_chat_configs.json` (landing chrome).
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub last_new_chat_configs: HashMap<String, HashMap<String, String>>,
+    /// Favorited agent+model pairs. Backed by `~/.atmos/config/agent/chat_prefs.json`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub favorite_models: Vec<AgentChatFavoriteModel>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 struct ChatPrefsDisk {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     last_registry_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    favorite_models: Vec<AgentChatFavoriteModel>,
 }
 
 pub fn agent_chat_prefs_path() -> PathBuf {
@@ -45,7 +58,13 @@ pub fn load_agent_chat_prefs() -> Result<AgentChatPrefs> {
 }
 
 pub fn save_agent_chat_prefs(prefs: &AgentChatPrefs) -> Result<()> {
-    save_last_registry_id_to(&agent_chat_prefs_path(), prefs.last_registry_id.clone())
+    write_chat_prefs_disk(
+        &agent_chat_prefs_path(),
+        &ChatPrefsDisk {
+            last_registry_id: normalize_registry_id(prefs.last_registry_id.clone()),
+            favorite_models: normalize_favorite_models(prefs.favorite_models.clone()),
+        },
+    )
 }
 
 pub fn load_agent_chat_prefs_from(
@@ -57,6 +76,7 @@ pub fn load_agent_chat_prefs_from(
     Ok(AgentChatPrefs {
         last_registry_id: normalize_registry_id(disk.last_registry_id),
         last_new_chat_configs: configs.agents,
+        favorite_models: normalize_favorite_models(disk.favorite_models),
     })
 }
 
@@ -64,16 +84,32 @@ pub fn save_last_registry_id(last_registry_id: Option<String>) -> Result<()> {
     save_last_registry_id_to(&agent_chat_prefs_path(), last_registry_id)
 }
 
+pub fn save_favorite_models(favorite_models: Vec<AgentChatFavoriteModel>) -> Result<()> {
+    save_favorite_models_to(&agent_chat_prefs_path(), favorite_models)
+}
+
 pub fn save_last_registry_id_to(path: &Path, last_registry_id: Option<String>) -> Result<()> {
+    let mut disk = load_chat_prefs_disk(path)?;
+    disk.last_registry_id = normalize_registry_id(last_registry_id);
+    write_chat_prefs_disk(path, &disk)
+}
+
+pub fn save_favorite_models_to(
+    path: &Path,
+    favorite_models: Vec<AgentChatFavoriteModel>,
+) -> Result<()> {
+    let mut disk = load_chat_prefs_disk(path)?;
+    disk.favorite_models = normalize_favorite_models(favorite_models);
+    write_chat_prefs_disk(path, &disk)
+}
+
+fn write_chat_prefs_disk(path: &Path, disk: &ChatPrefsDisk) -> Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|error| {
             ServiceError::Validation(format!("Failed to create agent config dir: {error}"))
         })?;
     }
-    let next = ChatPrefsDisk {
-        last_registry_id: normalize_registry_id(last_registry_id),
-    };
-    let pretty = serde_json::to_string_pretty(&next).map_err(|error| {
+    let pretty = serde_json::to_string_pretty(disk).map_err(|error| {
         ServiceError::Validation(format!("Failed to serialize agent chat prefs: {error}"))
     })?;
     fs::write(path, pretty).map_err(|error| {
@@ -103,6 +139,36 @@ fn normalize_registry_id(value: Option<String>) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
+fn normalize_favorite_models(items: Vec<AgentChatFavoriteModel>) -> Vec<AgentChatFavoriteModel> {
+    let mut out = Vec::new();
+    let mut seen = HashSet::new();
+    for item in items {
+        let agent_id = item.agent_id.trim().to_string();
+        let model = item.model.trim().to_string();
+        if agent_id.is_empty() || model.is_empty() {
+            continue;
+        }
+        let key = format!("{agent_id}\u{1f}{model}");
+        if !seen.insert(key) {
+            continue;
+        }
+        let label = {
+            let trimmed = item.label.trim();
+            if trimmed.is_empty() {
+                model.clone()
+            } else {
+                trimmed.to_string()
+            }
+        };
+        out.push(AgentChatFavoriteModel {
+            agent_id,
+            model,
+            label,
+        });
+    }
+    out
+}
+
 /// Test helper: aggregate view used by prefs_get.
 #[allow(dead_code)]
 pub fn prefs_with_new_chat_configs(
@@ -112,6 +178,7 @@ pub fn prefs_with_new_chat_configs(
     AgentChatPrefs {
         last_registry_id: normalize_registry_id(last_registry_id),
         last_new_chat_configs: configs.agents,
+        favorite_models: Vec::new(),
     }
 }
 
@@ -188,5 +255,51 @@ mod tests {
         let after = load_agent_chat_prefs_from(&prefs_path, &configs_path).unwrap();
         assert_eq!(after.last_registry_id.as_deref(), Some("claude"));
         assert!(after.last_new_chat_configs.contains_key("cursor"));
+    }
+
+    #[test]
+    fn favorite_models_round_trip_without_wiping_registry() {
+        let dir = tempfile::tempdir().unwrap();
+        let prefs_path = dir.path().join("chat_prefs.json");
+        let configs_path = dir.path().join("new_chat_configs.json");
+        save_last_registry_id_to(&prefs_path, Some("claude".into())).unwrap();
+        save_favorite_models_to(
+            &prefs_path,
+            vec![
+                AgentChatFavoriteModel {
+                    agent_id: " claude ".into(),
+                    model: " opus ".into(),
+                    label: "Opus".into(),
+                },
+                AgentChatFavoriteModel {
+                    agent_id: "claude".into(),
+                    model: "opus".into(),
+                    label: "Opus 4".into(),
+                },
+                AgentChatFavoriteModel {
+                    agent_id: "".into(),
+                    model: "haiku".into(),
+                    label: "Haiku".into(),
+                },
+            ],
+        )
+        .unwrap();
+        let loaded = load_agent_chat_prefs_from(&prefs_path, &configs_path).unwrap();
+        assert_eq!(loaded.last_registry_id.as_deref(), Some("claude"));
+        assert_eq!(
+            loaded.favorite_models,
+            vec![AgentChatFavoriteModel {
+                agent_id: "claude".into(),
+                model: "opus".into(),
+                label: "Opus".into(),
+            }]
+        );
+        save_last_registry_id_to(&prefs_path, Some("cursor".into())).unwrap();
+        let after = load_agent_chat_prefs_from(&prefs_path, &configs_path).unwrap();
+        assert_eq!(after.last_registry_id.as_deref(), Some("cursor"));
+        assert_eq!(after.favorite_models.len(), 1);
+        let raw = fs::read_to_string(&prefs_path).unwrap();
+        assert!(raw.contains("\"favorite_models\""));
+        assert!(raw.contains("\"agent_id\": \"claude\""));
     }
 }

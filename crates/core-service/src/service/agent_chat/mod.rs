@@ -21,8 +21,8 @@ pub use options::{
     terminal_options_from, FollowupPolicy, OptionsPrefetchWorker, OptionsUpdated, PREFETCH_POLL,
 };
 pub use prefs::{
-    agent_chat_prefs_path, load_agent_chat_prefs, save_agent_chat_prefs, save_last_registry_id,
-    AgentChatPrefs,
+    agent_chat_prefs_path, load_agent_chat_prefs, save_agent_chat_prefs, save_favorite_models,
+    save_last_registry_id, AgentChatFavoriteModel, AgentChatPrefs,
 };
 pub use service::{chat_resource_session_id, AgentChatResourceRoot, AgentChatService};
 pub use store::AgentChatStore;

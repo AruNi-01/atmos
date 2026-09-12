@@ -59,6 +59,9 @@ impl AutomationService {
         let repo = AutomationRepo::new(&self.db);
         let runs = repo.list_running_runs().await?;
         for run in runs {
+            if super::complete::run_is_interactive(&run.execute_mode) {
+                continue;
+            }
             match runner::read_run_json(&run.run_json_path) {
                 Ok(run_json) if runner::is_terminal_status(&run_json.status) => {
                     let completed_at = runner::completed_at_from_run_json(&run_json)
@@ -183,6 +186,10 @@ impl AutomationService {
             }
         }
 
+        if let Err(error) = self.scan_stale_interactive_prompts().await {
+            warn!("Automation stale prompt scan failed: {}", error);
+        }
+
         Ok(())
     }
 
@@ -225,6 +232,10 @@ impl AutomationService {
                 tmux_window_name: None,
                 tmux_window_index: None,
                 started_at: prepared.started_at,
+                execute_mode: automation.execute_mode.clone(),
+                surface_kind: Some("none".to_string()),
+                surface_session_id: None,
+                surface_scope_id: None,
             })
             .await?;
         let running_json = runner::AutomationRunJson::from_run_model(&run);

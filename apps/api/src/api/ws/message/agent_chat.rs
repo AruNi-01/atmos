@@ -32,6 +32,10 @@ pub struct AgentChatCreateRequest {
     pub title: Option<String>,
     #[serde(default)]
     pub origin: Option<AgentChatOrigin>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub automation_run_guid: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -193,6 +197,19 @@ pub struct AgentChatPrefsSetRequest {
     /// Landing composer snapshot. Omitted → leave `new_chat_configs.json` unchanged.
     #[serde(default)]
     pub last_new_chat_config: Option<AgentChatLastNewChatConfigPatch>,
+    /// Omitted → leave favorites unchanged. `Some([])` clears the list.
+    #[serde(default)]
+    pub favorite_models: Option<Vec<AgentChatFavoriteModelPatch>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AgentChatFavoriteModelPatch {
+    #[serde(default)]
+    pub agent_id: String,
+    #[serde(default)]
+    pub model: String,
+    #[serde(default)]
+    pub label: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -336,6 +353,8 @@ mod wire_tests {
             parent_chat_id: None,
             rewind_view: None,
             pending_session_op: None,
+            source: None,
+            automation_run_guid: None,
         }
     }
 

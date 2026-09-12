@@ -948,6 +948,8 @@ mod tests {
             parent_chat_id: None,
             rewind_view: None,
             pending_session_op: None,
+            source: None,
+            automation_run_guid: None,
         }
     }
 
@@ -1515,6 +1517,8 @@ mod tests {
             parent_chat_id: None,
             rewind_view: None,
             pending_session_op: None,
+            source: None,
+            automation_run_guid: None,
         };
         apply_host_event(
             &service,

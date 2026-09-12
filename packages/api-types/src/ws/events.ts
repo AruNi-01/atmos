@@ -29,6 +29,7 @@ export const WS_EVENTS = [
   "automation_run_updated",
   "automation_run_output",
   "automation_notification",
+  "automation_stale_prompt",
   "disk_analyzer_scan_progress",
   "simulator_download_progress",
   "resource_monitor_updated",

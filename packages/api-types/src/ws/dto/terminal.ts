@@ -39,6 +39,10 @@ export type TerminalSessionCreateRequest = {
   cols?: number | null;
   rows?: number | null;
   detach_after_create?: boolean;
+  origin?: string | null;
+  run_guid?: string | null;
+  automation_guid?: string | null;
+  initial_input?: string | null;
 };
 
 export type TerminalSessionCreateResponse = {
@@ -101,10 +105,13 @@ export type RunLogStartResponse = {
 
 export type RunLogResolveLatestRequest = {
   project_root: string;
+  preferred_window?: string | null;
 };
 
 export type RunLogResolveLatestResponse = {
   latest_path?: string | null;
+  reason?: string | null;
+  other_latest_paths?: string[];
 };
 
 export type TerminalSideContextCaptureRequest = {

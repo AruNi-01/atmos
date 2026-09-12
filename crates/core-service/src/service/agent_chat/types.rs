@@ -101,6 +101,10 @@ pub struct AgentChatMeta {
     pub rewind_view: Option<RewindView>,
     #[serde(default)]
     pub pending_session_op: Option<PendingSessionOp>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub automation_run_guid: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -1596,6 +1600,8 @@ pub struct CreateAgentChatRequest {
     pub fast: Option<String>,
     pub context: Option<String>,
     pub title: Option<String>,
+    pub source: Option<String>,
+    pub automation_run_guid: Option<String>,
 }
 
 #[cfg(test)]
@@ -1849,6 +1855,8 @@ mod session_config_change_tests {
             parent_chat_id: None,
             rewind_view: None,
             pending_session_op: None,
+            source: None,
+            automation_run_guid: None,
         }
     }
 
