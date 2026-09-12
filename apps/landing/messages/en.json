@@ -42,23 +42,27 @@
     "features": {
       "agent": {
         "title": "Agent Terminal Use Flow",
+        "tab": "Agent",
         "label": "Overview",
-        "description": "Streaming responses, tool-call updates, permissions, and custom ACP agents in one unified workspace."
+        "description": "Launch a coding agent in the terminal and follow the run in the same workspace."
       },
       "browser": {
         "title": "Browser Element Inspector",
+        "tab": "Browser",
         "label": "Browser Element Inspector",
         "description": "Hover and click to select elements in live browser preview, locating source code in React, Vue, Angular, and Svelte projects."
       },
       "search": {
-        "title": "Global Search Command Panel",
-        "label": "Global Search Command Panel",
-        "description": "A command surface for jumping between workspaces, files, actions, and app-level tools."
+        "title": "Global Search & Command Palette",
+        "tab": "Search",
+        "label": "Global Search & Command Palette",
+        "description": "Keyboard-driven workflow for searching and executing Atmos features."
       },
       "git": {
         "title": "Integrated Git Workflow",
+        "tab": "Git",
         "label": "Integrated Git Workflow",
-        "description": "Diff review, branch state, AI-assisted commits, and PR context stay in the same cockpit."
+        "description": "Diff view, commit assistance, code review, and GitHub PR management in one place."
       },
       "review": {
         "title": "Review Workflow",
@@ -66,24 +70,28 @@
         "description": "Inline review comments, threaded revisions, and terminal fix runners for agent handoff."
       },
       "run": {
-        "title": "Built In Terminal Agents",
-        "label": "Built In Terminal Agents",
-        "description": "Run scripts, preview output, and verify changes without leaving the development surface."
+        "title": "15+ Built-in Terminal Agents",
+        "tab": "Agents",
+        "label": "15+ Built-in Terminal Agents",
+        "description": "Launch and manage Claude Code, Codex, Gemini, Cursor, Devin, Antigravity, and more from one unified terminal interface."
       },
       "terminal": {
         "title": "Terminal Side Chat",
+        "tab": "Side Chat",
         "label": "Terminal Side Chat",
-        "description": "Persistent tmux-backed terminals survive reloads, reconnect cleanly, and keep agent work alive."
+        "description": "Quick /side conversations from the terminal AI input without leaving your terminal workflow."
       },
       "usage": {
         "title": "Usage Analytics Dashboard",
+        "tab": "Usage",
         "label": "Usage Analytics Dashboard",
-        "description": "Provider-specific token usage, subscription quota tracking, and cost estimates for AI work."
+        "description": "Track AI coding subscription quotas, agent token consumption, and cost estimation."
       },
       "auto": {
-        "title": "Local Automations",
-        "label": "Auto",
-        "description": "Scheduled and manual terminal-agent runs with artifacts, notifications, and issue automation."
+        "title": "Automations & GitHub Triggers",
+        "tab": "Auto",
+        "label": "Automations & GitHub Triggers",
+        "description": "Scheduled local automation runs powered by Atmos terminal agents, with optional GitHub App webhook triggers."
       },
       "remote": {
         "title": "Atmos Computer",
@@ -92,23 +100,27 @@
       },
       "appshots": {
         "title": "Appshots",
+        "tab": "Appshots",
         "label": "Appshots",
         "description": "Cross-app desktop snapshots as lightweight clipboard references for quick capture during development."
       },
       "hooks": {
-        "title": "Agent Status Notifications",
-        "label": "Agent Status Notifications",
-        "description": "Hook-based lifecycle sync shows running, idle, waiting, and done states across the UI."
+        "title": "Agent Status & Notifications",
+        "tab": "Status",
+        "label": "Agent Status & Notifications",
+        "description": "Real-time agent lifecycle tracking via hooks (running, idle, waiting for permission, done) across the UI, with native notifications and self-hosted push server support (ntfy, Gotify, or a custom webhook)."
       },
       "kanban": {
         "title": "Kanban View",
+        "tab": "Kanban",
         "label": "Kanban View",
-        "description": "Drag workspace cards through status, priority, labels, issues, and PR-linked workflows."
+        "description": "Quickly manage Workspace status, priority, labels and other information in Kanban view."
       },
       "canvas": {
-        "title": "Canvas Workbench",
+        "title": "Canvas",
+        "tab": "Canvas",
         "label": "Canvas",
-        "description": "Pin terminals, notes, and diagrams from multiple projects onto a persistent working board."
+        "description": "A cross-project infinite canvas: pin terminal cards from any workspace or project onto one persistent board, and let Code Agents drive the canvas diagrams, notes, and layout without leaving your agent workflow."
       },
       "mobile": {
         "title": "Mobile Companion",
@@ -116,19 +128,22 @@
         "description": "Expo mobile surfaces keep remote workspaces, git state, and terminal follow-up within reach."
       },
       "files": {
-        "title": "Built In Lightweight Editor",
-        "label": "Built In Lightweight Editor",
-        "description": "Live file status, inline previews, and quick edits keep manual coding close to agent work."
+        "title": "Built-in Lightweight Editor",
+        "tab": "Editor",
+        "label": "Built-in Lightweight Editor",
+        "description": "File preview, inline editing, and switch back to manual coding mode anytime."
       },
       "skills": {
-        "title": "Skill Manager",
-        "label": "Skill Manager",
-        "description": "Discover, enable, disable, and tune skills and custom agent definitions from settings."
+        "title": "Skill Management System",
+        "tab": "Skills",
+        "label": "Skill Management System",
+        "description": "Discover, enable/disable, and delete agent skills with one-click control."
       },
       "work": {
-        "title": "Multi Workspace Dev",
-        "label": "Multi Workspace Dev",
-        "description": "Git worktree isolation lets multiple agents operate in parallel without trampling changes."
+        "title": "Multi-Workspace Development",
+        "tab": "Workspaces",
+        "label": "Multi-Workspace Development",
+        "description": "Git worktree isolation for parallel agent execution across multiple environments."
       }
     }
   },
@@ -142,19 +157,38 @@
     "badge": "FAQ",
     "title": "Frequently asked questions",
     "description": "Here are some quick answers to help you understand how Atmos powers your productivity.",
-    "previewAlt": "Atmos dashboard preview",
     "items": [
       {
-        "question": "Is Atmos free and open source?",
-        "answer": "Yes. Atmos is fully open source under the MIT license. You can download it for free, self-host it, or build from source."
+        "question": "What is Atmos?",
+        "answer": "A development environment for Agentic Builders. It includes multi-agent execution (TUI / GUI), isolated Worktree spaces, and built-in Git Changes, PRs, file editing, browser, and mobile emulator — everything you need to develop."
       },
       {
-        "question": "Will I lose my terminal sessions if my computer crashes?",
-        "answer": "No. All terminal sessions are backed by tmux and persist independently of Atmos. If your computer crashes, the Atmos app crashes, or you close it, your sessions keep running and can be reattached when you return."
+        "question": "How does Atmos relate to agents like Claude Code and Codex?",
+        "answer": "Atmos is where you run those agents. It reuses the agents you already have, so you can more easily manage multiple agents, isolate each agent's workspace, and observe how they are running."
       },
       {
-        "question": "Can multiple agents work in parallel?",
-        "answer": "Yes. Atmos uses Git worktree isolation to give each agent its own independent workspace. Multiple agents can run side-by-side without interfering with each other's file changes."
+        "question": "Is Atmos right for me?",
+        "answer": "If you often run multiple agents, need to develop several projects or features in parallel, or don't want to keep switching between Terminal, IDE, and browser, Atmos is worth a try."
+      },
+      {
+        "question": "Is it free? Open source? Do I need an API key or extra fees?",
+        "answer": "Open source (MIT) and free, with no subscription required. Atmos runs agents using your existing Claude, Codex, Cursor, and similar subscriptions."
+      },
+      {
+        "question": "How do I run agents in Atmos?",
+        "answer": "You can run any agent in the Terminal for a native agent experience, or use the Atmos Chat UI when you need it (via Native Adapt / ACP)."
+      },
+      {
+        "question": "Which agents does Atmos support?",
+        "answer": "Atmos supports every CLI-based agent that runs in a Terminal. Chat UI supports mainstream agents and all ACP-compatible agents, including Claude Code, Codex, OpenCode, Pi, Hermes, Grok Build, and more."
+      },
+      {
+        "question": "Can I remotely control agents in Atmos?",
+        "answer": "Yes. Connect all of your computers, VPS instances, and similar machines through the Atmos Relay server, then access them from any computer — or from the mobile app."
+      },
+      {
+        "question": "What else does Atmos include?",
+        "answer": "Additional capabilities include, but are not limited to: Skills management (enable / disable skills); Automation for scheduled and automated tasks; quota windows and token usage analysis for each agent; a Canvas workspace for managing any components across workspaces on one canvas (Terminal, Files, PRs, Diffs, and more); and Tasks, where a Kanban board can manage all workspaces in Atmos as well as GitHub or Linear tasks."
       }
     ]
   },

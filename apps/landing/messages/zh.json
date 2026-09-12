@@ -42,23 +42,27 @@
     "features": {
       "agent": {
         "title": "智能体终端使用流",
+        "tab": "智能体",
         "label": "总览",
-        "description": "在同一个工作区查看流式回复、工具调用更新、权限控制和自定义 ACP 智能体。"
+        "description": "在终端里启动编码 Agent，并在同一个工作区里跟进执行过程。"
       },
       "browser": {
-        "title": "Browser Element Inspector",
-        "label": "元素检查",
-        "description": "在实时浏览器预览中悬停并点击选中元素，定位 React、Vue、Angular 和 Svelte 项目中的源码。"
+        "title": "浏览器元素检查器",
+        "tab": "浏览器",
+        "label": "浏览器元素检查器",
+        "description": "在实时浏览器预览中悬停点击选取元素，自动定位 React、Vue、Angular、Svelte 项目中的源码位置。"
       },
       "search": {
-        "title": "Global Search Command Panel",
-        "label": "搜索",
-        "description": "在工作区、文件、动作和应用级工具之间快速跳转的命令入口。"
+        "title": "全局搜索/命令面板",
+        "tab": "搜索",
+        "label": "全局搜索/命令面板",
+        "description": "键盘驱动的工作流，快速搜索与执行 Atmos 功能。"
       },
       "git": {
-        "title": "Integrated Git Workflow",
-        "label": "Git",
-        "description": "Diff 审阅、分支状态、AI 辅助提交和 PR 上下文都保留在同一个工作台里。"
+        "title": "集成 Git 工作流",
+        "tab": "Git",
+        "label": "集成 Git 工作流",
+        "description": "Diff 视图、提交辅助、代码审查与 GitHub PR 管理一体化。"
       },
       "review": {
         "title": "审阅工作流",
@@ -66,24 +70,28 @@
         "description": "通过内联审阅评论、线程化修改和终端修复任务完成智能体交接。"
       },
       "run": {
-        "title": "Built In Terminal Agents",
-        "label": "运行",
-        "description": "不离开开发界面即可运行脚本、查看预览输出并验证改动。"
+        "title": "15+ 内置终端 Agent",
+        "tab": "终端 Agent",
+        "label": "15+ 内置终端 Agent",
+        "description": "统一管理 Claude Code、Codex、Gemini、Cursor、Devin、Antigravity 等主流编码 Agent，一个界面随时切换。"
       },
       "terminal": {
-        "title": "Terminal Side Chat",
-        "label": "终端",
-        "description": "基于 tmux 的持久终端可以跨刷新保留状态，重连后继续保持智能体任务运行。"
+        "title": "终端侧聊",
+        "tab": "侧聊",
+        "label": "终端侧聊",
+        "description": "在终端 AI 输入框中通过 /side 快速发起侧聊，不打断终端工作流。"
       },
       "usage": {
-        "title": "Usage Analytics Dashboard",
-        "label": "用量",
-        "description": "按供应商追踪 token 用量、订阅额度和 AI 工作的成本估算。"
+        "title": "用量分析看板",
+        "tab": "用量",
+        "label": "用量分析看板",
+        "description": "AI 编码订阅额度跟踪、各 Agent Token 消耗与费用预估。"
       },
       "auto": {
-        "title": "本地自动化",
-        "label": "自动",
-        "description": "支持定时或手动运行终端智能体，并管理产物、通知和 issue 自动化。"
+        "title": "自动化与 GitHub 触发器",
+        "tab": "自动化",
+        "label": "自动化与 GitHub 触发器",
+        "description": "基于 Atmos 终端 Agent 的本地定时自动化，可选配 GitHub App Webhook 事件触发。"
       },
       "remote": {
         "title": "Atmos Computer",
@@ -92,23 +100,27 @@
       },
       "appshots": {
         "title": "Appshots",
-        "label": "截图",
-        "description": "跨应用桌面快照，可作为轻量剪贴板引用，方便开发过程中快速捕获界面。"
+        "tab": "Appshots",
+        "label": "Appshots",
+        "description": "桌面端跨应用快照，轻量剪贴板引用，开发过程中快速记录。"
       },
       "hooks": {
-        "title": "Agent Status Notifications",
-        "label": "Hooks",
-        "description": "基于 hook 的生命周期同步会在界面中展示运行、空闲、等待和完成状态。"
+        "title": "Agent 状态与通知",
+        "tab": "通知",
+        "label": "Agent 状态与通知",
+        "description": "通过 Agent Hooks 将运行中、空闲、等待授权、完成等状态实时同步到全站 UI；状态变化时推送通知，支持系统原生提醒及自托管推送（ntfy、Gotify 或自定义 Webhook）。"
       },
       "kanban": {
-        "title": "Kanban View",
-        "label": "看板",
-        "description": "通过状态、优先级、标签、issue 和 PR 关联工作流拖拽管理工作区卡片。"
+        "title": "Kanban 视图",
+        "tab": "Kanban",
+        "label": "Kanban 视图",
+        "description": "在 Kanban 视图中快捷管理 Workspace 的状态、优先级、标签等信息。"
       },
       "canvas": {
-        "title": "画布工作台",
-        "label": "画布",
-        "description": "把多个项目的终端、笔记和图表固定到一个持久工作画布上。"
+        "title": "Canvas",
+        "tab": "Canvas",
+        "label": "Canvas",
+        "description": "跨项目的无限画布：把任意工作区/项目的终端会话固定为卡片，在同一张持久化画板上排布；Code Agent 可操作画布，画示意图、便签与布局，无需离开 Agent 工作流。"
       },
       "mobile": {
         "title": "移动端伴侣",
@@ -116,19 +128,22 @@
         "description": "Expo 移动端界面让远程工作区、Git 状态和终端跟进随时可用。"
       },
       "files": {
-        "title": "Built In Lightweight Editor",
-        "label": "文件",
-        "description": "通过实时文件状态、内联预览和快速编辑，让手动编码紧贴智能体工作流。"
+        "title": "内置轻量级编辑器",
+        "tab": "编辑器",
+        "label": "内置轻量级编辑器",
+        "description": "文件预览与行内编辑，随时随地切换回原始人 coding 模式。"
       },
       "skills": {
-        "title": "Skill Manager",
-        "label": "技能",
-        "description": "在设置中发现、启用、停用并调整技能和自定义智能体定义。"
+        "title": "技能管理系统",
+        "tab": "技能",
+        "label": "技能管理系统",
+        "description": "一键启用/禁用或删除 Agent 技能，灵活控制能力集合。"
       },
       "work": {
-        "title": "Multi Workspace Dev",
-        "label": "工作",
-        "description": "Git worktree 隔离让多个智能体并行工作，避免互相覆盖改动。"
+        "title": "多工作区开发",
+        "tab": "工作区",
+        "label": "多工作区开发",
+        "description": "基于 Git worktree 的环境隔离，实现多环境下的 Agent 并行执行。"
       }
     }
   },
@@ -142,19 +157,38 @@
     "badge": "FAQ",
     "title": "常见问题",
     "description": "这里整理了一些简短回答，帮助你快速理解 Atmos 如何提升你的生产力。",
-    "previewAlt": "Atmos 仪表盘预览",
     "items": [
       {
-        "question": "Atmos 是免费开源的吗？",
-        "answer": "是的。Atmos 基于 MIT 协议完全开源。你可以免费下载、自行托管，或者从源码构建。"
+        "question": "Atmos 是什么？",
+        "answer": "一个 Agentic Builder 的开发环境，包含多 Agent 运行（TUI / GUI）、隔离的 Worktree 空间、内置 Git Changes、PR、文件编辑、浏览器、手机模拟器等一切开发所需的功能。"
       },
       {
-        "question": "如果电脑崩溃了，我会丢失终端会话吗？",
-        "answer": "不会。所有终端会话都由 tmux 托管，并独立于 Atmos 持久运行。即使电脑崩溃、Atmos 应用崩溃或被关闭，会话仍会继续运行，回来后可以重新连接。"
+        "question": "和 Claude Code、Codex 等 Agent 是什么关系？",
+        "answer": "Atmos 是运行各 Agent 的地方，复用你已有的 Agent，让你更方便地管理多 Agent、隔离 Agent 的运行空间，以及观察它们的运行状态。"
       },
       {
-        "question": "多个智能体可以并行工作吗？",
-        "answer": "可以。Atmos 使用 Git worktree 隔离，为每个智能体提供独立工作区。多个智能体可以并行运行，而不会互相覆盖文件改动。"
+        "question": "我适合使用 Atmos 吗？",
+        "answer": "如果你经常多开 Agent、需要并行开发多个项目或功能，或不想在 Terminal、IDE、浏览器等来回切换，那值得尝试一下 Atmos。"
+      },
+      {
+        "question": "免费吗？开源吗？需要 API Key 或额外的费用吗？",
+        "answer": "开源（MIT）免费，并且无需任何订阅费用。Atmos 复用你自己的 Claude / Codex / Cursor 等订阅来运行 Agent。"
+      },
+      {
+        "question": "Atmos 中如何运行 Agent？",
+        "answer": "你可以使用 Terminal 运行任何 Agent 以获得原生的 Agent 体验，也可以在需要的时候通过 Atmos Chat UI 运行（通过 Native Adapt / ACP 运行）。"
+      },
+      {
+        "question": "Atmos 支持哪些 Agent？",
+        "answer": "Atmos 支持所有基于 CLI 在 Terminal 中运行的 Agent。Chat UI 支持主流 Agent 以及所有支持 ACP 的 Agent，包括 Claude Code、Codex、OpenCode、Pi、Hermes、Grok Build 等。"
+      },
+      {
+        "question": "可以在 Atmos 中远程控制 Agent 吗？",
+        "answer": "可以。你可以通过 Atmos Relay 服务器连接你的所有电脑、VPS 等，然后可以在任何一台电脑上访问它们，也可以在手机 App 中访问。"
+      },
+      {
+        "question": "Atmos 中还有哪些额外的功能？",
+        "answer": "还包括但不限于 Skills 管理（启动/禁用 Skill）、Automation 运行定时/自动化任务、各 Agent 的额度窗口和 Token 用量分析、Canvas 工作空间（在一块画布中管理跨 Workspace 的任意组件，如 Terminal、Files、PRs、Diffs 等），以及 Task 中可通过 Kanban 管理 Atmos 中所有 Workspace、GitHub 或 Linear 的任务。"
       }
     ]
   },
