@@ -79,7 +79,7 @@ function slashOverlayIsOpen(node: HTMLElement | null): boolean {
   return host?.dataset.show === "true" && host.style.display !== "none";
 }
 
-export function MdLiveSlashMenu({ query, onPick, copy }: MdLiveSlashMenuProps) {
+export function MdLiveSlashMenu({ query, onPick, copy, hiddenGroups }: MdLiveSlashMenuProps) {
   const label = useCallback((key: string) => mdLiveLabel(key, copy), [copy]);
   const rootRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -88,13 +88,17 @@ export function MdLiveSlashMenu({ query, onPick, copy }: MdLiveSlashMenuProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const filtered = useMemo(() => {
+    const hidden = new Set(hiddenGroups ?? []);
+    const catalog = hidden.size
+      ? MD_LIVE_SLASH_ITEMS.filter((item) => !hidden.has(item.group))
+      : MD_LIVE_SLASH_ITEMS;
     const q = query.trim().toLowerCase();
-    if (!q) return MD_LIVE_SLASH_ITEMS;
-    return MD_LIVE_SLASH_ITEMS.filter((item) => {
+    if (!q) return catalog;
+    return catalog.filter((item) => {
       const itemLabel = label(item.label).toLowerCase();
       return item.keywords.includes(q) || itemLabel.includes(q) || item.id.includes(q);
     });
-  }, [label, query]);
+  }, [hiddenGroups, label, query]);
 
   const selectedKey = `${mode}:${filtered.map((item) => item.id).join(",")}`;
   const [selectionKey, setSelectionKey] = useState(selectedKey);

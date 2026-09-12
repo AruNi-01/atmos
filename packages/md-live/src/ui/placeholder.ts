@@ -339,6 +339,12 @@ function createPlaceholderLayer(
   scroller.addEventListener("scroll", onScroll);
   window.addEventListener("scroll", onScroll, true);
   window.addEventListener("resize", onScroll);
+  const resizeObserver =
+    typeof ResizeObserver === "undefined"
+      ? null
+      : new ResizeObserver(() => schedule(false));
+  resizeObserver?.observe(host);
+  if (view.dom !== host) resizeObserver?.observe(view.dom);
 
   schedule(false);
 
@@ -347,6 +353,7 @@ function createPlaceholderLayer(
     destroy: () => {
       window.cancelAnimationFrame(raf);
       clearTimers();
+      resizeObserver?.disconnect();
       view.dom.removeEventListener("scroll", onScroll, true);
       view.dom.removeEventListener("focusin", onFocusChange);
       view.dom.removeEventListener("focusout", onFocusChange);

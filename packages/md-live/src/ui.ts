@@ -3,6 +3,7 @@ export type {
   MdLiveBlockAction,
   MdLiveCopyFn,
   MdLiveEditorHandle,
+  MdLiveFocusCaret,
   MdLiveHeadingLevel,
   MdLiveMarkdownHeadingLevel,
   MdLiveMediaOpenKind,

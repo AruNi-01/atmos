@@ -181,11 +181,17 @@ const NativeFileViewer: React.FC<{ ext: string; uri: string; fileName: string; o
 
   if (isVideo) {
     return (
-      <div className="h-full w-full flex items-center justify-center bg-black/5">
-        <video controls className="max-w-full max-h-full" onError={onError}>
-          <source src={uri} />
-          {t("fileViewer.browserNoVideo")}
-        </video>
+      <div className="h-full w-full bg-black/5 p-4">
+        <div className="flex h-full w-full items-center justify-center overflow-hidden">
+          <video
+            controls
+            className="max-h-full max-w-full overflow-hidden rounded-xl object-contain"
+            onError={onError}
+          >
+            <source src={uri} />
+            {t("fileViewer.browserNoVideo")}
+          </video>
+        </div>
       </div>
     );
   }

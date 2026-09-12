@@ -191,6 +191,36 @@ describe("md-live editor caret", () => {
     expect(from).toBe(1);
     await editor.destroy();
   });
+
+  test("focusEditorCaret end puts the caret at the end of the document", async () => {
+    const editor = await createEditor("Hello world");
+    const expected = editor.action((ctx) =>
+      TextSelection.atEnd(ctx.get(editorViewCtx).state.doc).from,
+    );
+    editor.action((ctx) => {
+      focusEditorCaret(ctx, "end");
+    });
+    const from = editor.action((ctx) => ctx.get(editorViewCtx).state.selection.from);
+    expect(from).toBe(expected);
+    expect(from).toBeGreaterThan(1);
+    await editor.destroy();
+  });
+
+  test("focusEditorCaret preserve keeps the existing selection", async () => {
+    const editor = await createEditor("Hello world");
+    const inside = editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const pos = Math.min(view.state.doc.content.size - 1, 4);
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos)));
+      return pos;
+    });
+    editor.action((ctx) => {
+      focusEditorCaret(ctx, "preserve");
+    });
+    const from = editor.action((ctx) => ctx.get(editorViewCtx).state.selection.from);
+    expect(from).toBe(inside);
+    await editor.destroy();
+  });
 });
 
 describe("md-live block backspace", () => {

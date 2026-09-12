@@ -61,6 +61,16 @@ describe("md-live ui chrome", () => {
     expect(editor).toContain("formatMdLiveSerializedMarkdown");
     expect(editor).toContain("commitMarkdown.arm()");
     expect(editor).toContain("focusEditorCaret");
+    expect(editor).toContain("focus: (options)");
+    expect(editor).toContain("options?.caret");
+    expect(editor).toContain("readOnlyRef");
+    expect(editor).toContain("autoFocusRef");
+    expect(editor).toContain("md-live--embedded");
+    expect(editor).toContain("editable: () => !readOnlyRef.current");
+    const css = readFileSync(join(here, "live-editor.css"), "utf8");
+    expect(css).toContain(".md-live.md-live--embedded .milkdown");
+    expect(css).toContain(".md-live.md-live--embedded.md-live--page-column .milkdown");
+    expect(css).toContain("width: 66%");
     expect(editor).toContain("mdLiveTogglePlugins");
     expect(editor).toContain("mdLivePlaceholderPlugin");
     expect(editor).toContain("mdLiveBlockBackspacePlugin");
@@ -94,6 +104,13 @@ describe("md-live ui chrome", () => {
     const actions = readFileSync(join(here, "actions.ts"), "utf8");
     expect(actions).not.toContain("`code`");
     expect(actions).toContain("mdLiveInsertEmptyInlineCode");
+    expect(actions).toContain('caret: MdLiveFocusCaret = "start"');
+    expect(actions).toContain("TextSelection.atEnd");
+    expect(actions).toContain("TextSelection.atStart");
+    expect(actions).toContain('"preserve"');
+    const types = readFileSync(join(here, "types.ts"), "utf8");
+    expect(types).toContain("MdLiveFocusCaret");
+    expect(types).toContain("focus: (options?: { caret?: MdLiveFocusCaret }) => void");
     const tableChrome = readFileSync(join(here, "table-chrome.ts"), "utf8");
     expect(tableChrome).toContain("md-live-table-handle");
     expect(tableChrome).toContain("tableAddRowAbove");
@@ -118,6 +135,7 @@ describe("md-live ui chrome", () => {
     expect(placeholder).toContain("requestAnimationFrame");
     expect(placeholder).toContain("focusin");
     expect(placeholder).toContain("focusout");
+    expect(placeholder).toContain("ResizeObserver");
     expect(placeholder).not.toContain("void layer.offsetWidth");
     expect(placeholder).toContain("getComputedStyle(info.nodeDOM)");
     expect(placeholder).toContain("paddingLeft");

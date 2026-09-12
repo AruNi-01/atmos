@@ -37,9 +37,12 @@ export type MdLiveSlashPick =
   | { kind: "text"; text: string }
   | { kind: "open"; open: MdLiveMediaOpenKind };
 
+export type MdLiveFocusCaret = "start" | "end" | "preserve";
+
 export type MdLiveEditorHandle = {
   getMarkdown: () => string;
   getSelectionMarkdown: () => string;
+  focus: (options?: { caret?: MdLiveFocusCaret }) => void;
   insertMarkdown: (markdown: string, options?: { replaceSlash?: boolean }) => void;
   insertText: (text: string, options?: { replaceSlash?: boolean }) => void;
   runBlockAction: (action: MdLiveBlockAction) => void;
@@ -58,6 +61,7 @@ export type MdLiveSlashMenuProps = {
   query: string;
   onPick: (pick: MdLiveSlashPick) => void;
   copy?: MdLiveCopyFn;
+  hiddenGroups?: Array<"heading" | "basic" | "advanced" | "media" | "others">;
 };
 
 export type MdLiveSelectionToolbarProps = {

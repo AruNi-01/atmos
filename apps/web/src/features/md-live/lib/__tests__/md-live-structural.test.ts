@@ -39,9 +39,14 @@ describe("md-live structural gates", () => {
     expect(source).toContain('@atmos/md-live/ui');
     expect(source).toContain("MdLiveEditor");
     expect(source).toContain("mdLiveEmbedBlock");
-    expect(source).toContain("slashMenu={MdLiveSlashMenu}");
+    expect(source).toContain("slashMenu={slashMenu}");
     expect(source).toContain("selectionToolbar={MdLiveSelectionToolbar}");
     expect(source).toContain("onOpenMedia");
+    expect(source).toContain("enableMedia");
+    expect(source).toContain("enableAi");
+    expect(source).toContain("embedded");
+    expect(source).toContain("autoFocus");
+    expect(source).toContain("hiddenGroups");
     expect(source).toContain("mdLiveMediaViewPlugin");
     expect(source).toContain("mdLivePreviewBlockPlugins");
     expect(source).toContain("defaultToggleOpen");
@@ -85,6 +90,7 @@ describe("md-live structural gates", () => {
     expect(slash).toContain('kind: "open"');
     expect(slash).toContain("ListCollapse");
     expect(slash).toContain('id === "toggle"');
+    expect(slash).toContain("hiddenGroups");
     expect(slash).not.toContain("slashFilter");
     expect(slash).not.toContain("onMouseEnter={() => setSelectedIndex");
     expect(toolbar).toContain("DropdownMenu");

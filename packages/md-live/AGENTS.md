@@ -7,4 +7,4 @@ Two layers in one package:
 
 **Must not** import `api-*`, `apps/*`, `@workspace/ui`, or `@atmos/shared`.
 
-Host business UI (Agent dock, Save as, Atmos GitHub embeds, PTY) lives in `apps/web/src/features/md-live`.
+Host business UI (Agent dock, Save as, Atmos GitHub embeds, PTY) lives in `apps/web/src/features/md-live`. Embedded hosts (Automation Instructions / Memories) pass `embedded` and turn off file-tab AI/media. Expand/collapse must keep that same editor instance; expanded hosts add `md-live--page-column` on the same node so the column matches the file-tab live markdown.

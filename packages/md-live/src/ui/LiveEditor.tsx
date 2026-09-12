@@ -108,6 +108,9 @@ export type MdLiveEditorProps = {
   onStreamEnded?: () => void;
   onStreamAborted?: () => void;
   defaultToggleOpen?: boolean;
+  readOnly?: boolean;
+  autoFocus?: boolean;
+  embedded?: boolean;
   className?: string;
 };
 
@@ -141,6 +144,9 @@ export function MdLiveEditor({
   onStreamEnded,
   onStreamAborted,
   defaultToggleOpen = true,
+  readOnly = false,
+  autoFocus = true,
+  embedded = false,
   className,
 }: MdLiveEditorProps) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -157,6 +163,8 @@ export function MdLiveEditor({
   const slashMenuRef = useRef(SlashMenu);
   const selectionToolbarRef = useRef(SelectionToolbar);
   const defaultToggleOpenRef = useRef(defaultToggleOpen);
+  const readOnlyRef = useRef(readOnly);
+  const autoFocusRef = useRef(autoFocus);
   onChangeRef.current = onChange;
   onSaveRef.current = onSave;
   copyRef.current = copy;
@@ -170,6 +178,8 @@ export function MdLiveEditor({
   slashMenuRef.current = SlashMenu;
   selectionToolbarRef.current = SelectionToolbar;
   defaultToggleOpenRef.current = defaultToggleOpen;
+  readOnlyRef.current = readOnly;
+  autoFocusRef.current = autoFocus;
 
   useEffect(() => {
     const el = hostRef.current;
@@ -314,6 +324,7 @@ export function MdLiveEditor({
         ctx.set(rootCtx, el);
         ctx.set(defaultValueCtx, value);
         ctx.set(editorViewOptionsCtx, {
+          editable: () => !readOnlyRef.current,
           attributes: {
             class: "editor",
             spellcheck: "false",
@@ -400,6 +411,9 @@ export function MdLiveEditor({
     const handle: MdLiveEditorHandle = {
       getMarkdown: () => run((ctx) => getEditorMarkdown(ctx)) ?? "",
       getSelectionMarkdown: () => run((ctx) => getSelectionMarkdown(ctx)) ?? "",
+      focus: (options) => {
+        run((ctx) => focusEditorCaret(ctx, options?.caret ?? "start"));
+      },
       insertMarkdown: (markdown, options) => {
         run((ctx) => insertMarkdown(ctx, markdown, options?.replaceSlash));
       },
@@ -438,7 +452,7 @@ export function MdLiveEditor({
       }
       commitMarkdown(handle.getMarkdown());
       commitMarkdown.arm();
-      run((ctx) => focusEditorCaret(ctx));
+      if (autoFocusRef.current) run((ctx) => focusEditorCaret(ctx));
       onReadyRef.current?.(handle);
     });
 
@@ -508,6 +522,7 @@ export function MdLiveEditor({
       spellCheck={false}
       className={cn(
         "md-live prose prose-[14px] dark:prose-invert max-w-none bg-background",
+        embedded && "md-live--embedded",
         "prose-code:before:content-none prose-code:after:content-none prose-blockquote:before:content-none prose-blockquote:after:content-none prose-p:my-2 prose-a:break-all",
         "[&_[data-show='false']]:hidden [&_.milkdown]:border-0 [&_.milkdown]:outline-none [&_.editor]:border-0 [&_.editor]:outline-none",
         className,

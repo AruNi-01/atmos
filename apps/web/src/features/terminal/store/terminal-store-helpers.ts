@@ -188,6 +188,61 @@ export function createFixedTerminalTab(): TerminalCenterTab {
   };
 }
 
+/** Keep in-memory tabs, or seed Term when tmux already has windows (automation landing). */
+export function terminalTabsAfterUnpersistedHydrate(
+  existingTabs: TerminalCenterTab[],
+  hasTmuxWindows: boolean,
+): TerminalCenterTab[] {
+  if (existingTabs.length > 0) return existingTabs;
+  if (hasTmuxWindows) return [createFixedTerminalTab()];
+  return [];
+}
+
+/** Automation Terminal runs use `auto-{first 8 of run guid}` tmux windows. */
+export function isAutomationTmuxWindowName(name: string): boolean {
+  return name.startsWith("auto-");
+}
+
+export function automationTerminalTabIdFromWindowName(windowName: string): string {
+  return `${TERMINAL_TAB_VALUE_PREFIX}${windowName}`;
+}
+
+export function automationWindowNameFromTerminalTabId(tabId: string): string | null {
+  if (!tabId.startsWith(TERMINAL_TAB_VALUE_PREFIX)) return null;
+  const windowName = tabId.slice(TERMINAL_TAB_VALUE_PREFIX.length);
+  return isAutomationTmuxWindowName(windowName) ? windowName : null;
+}
+
+export function panesMissingTmuxWindows(
+  panes: Record<string, TerminalPaneProps> | undefined,
+  windows: Array<{ name: string }>,
+  workspaceId: string,
+): boolean {
+  if (windows.length === 0) return false;
+  const extraPrefix = extraCenterSpaceTmuxWindowPrefix(workspaceId);
+  const relevant = windows.filter((win) => {
+    // Each automation run owns its own extra tab — never absorb into Term.
+    if (isAutomationTmuxWindowName(win.name)) return false;
+    if (extraPrefix) return win.name.startsWith(extraPrefix);
+    return !isExtraCenterSpaceTmuxWindowName(win.name);
+  });
+  if (relevant.length === 0) return false;
+  const known = new Set(
+    Object.values(panes ?? {})
+      .map((pane) => pane.tmuxWindowName)
+      .filter((name): name is string => Boolean(name)),
+  );
+  const missingRelevant = relevant.some((win) => !known.has(win.name));
+  if (!missingRelevant) return false;
+  // Extra automation tabs only own `auto-*` panes. Host windows like `"1"`
+  // are Term's job — treating them as a gap would rehydrate the extra tab
+  // into a new shell split.
+  if (known.size > 0 && relevant.every((win) => !known.has(win.name))) {
+    return false;
+  }
+  return true;
+}
+
 /**
  * Extra center spaces share the host workspace tmux session (same cwd / git).
  * Window names must still be unique: backend create is attach-if-exists, so a
@@ -280,6 +335,9 @@ export function samePaneAgent(
     left?.pipeCommand === right.pipeCommand
   );
 }
+
+/** Stable empty panes record for Zustand snapshots (never allocate `{}` in selectors). */
+export const EMPTY_TERMINAL_TAB_PANES: Record<string, TerminalPaneProps> = {};
 
 export function getScopeKey(
   workspaceId: string,
@@ -616,6 +674,7 @@ export function createLayoutFromTmuxWindows(
 
   const extraPrefix = extraCenterSpaceTmuxWindowPrefix(workspaceId);
   for (const win of windows) {
+    if (isAutomationTmuxWindowName(win.name)) continue;
     if (extraPrefix) {
       if (!win.name.startsWith(extraPrefix)) continue;
     } else if (isExtraCenterSpaceTmuxWindowName(win.name)) {

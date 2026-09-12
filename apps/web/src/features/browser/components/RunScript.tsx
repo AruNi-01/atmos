@@ -39,6 +39,7 @@ import { namespacedTmuxWindowName } from "@/features/terminal/store/terminal-sto
 import { useUiPrefStore } from '@/shared/stores/use-ui-pref-store';
 import { isRunTerminalBusyFromTitle } from "@/features/browser/lib/run-terminal-busy";
 import { runLogApi } from "@/features/browser/lib/run-log-api";
+import { setRunLogPanelWindow } from "@/features/browser/lib/run-log-active-window";
 
 type RunTerminalTab = {
   id: string;
@@ -190,6 +191,15 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
       setHasBeenActive(true);
     }
   }, [isActive, hasBeenActive]);
+
+  React.useEffect(() => {
+    if (!currentProjectPath) return;
+    setRunLogPanelWindow({
+      projectRoot: currentProjectPath,
+      windowName: getRunTerminalWindowName(activeTabId),
+      panelActive: isActive,
+    });
+  }, [activeTabId, currentProjectPath, isActive]);
 
   React.useEffect(() => {
     setLoadedTabsContextId(null);
@@ -620,28 +630,6 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
                   </TooltipContent>
                 </Tooltip>
               )}
-
-              {activeTabId === RUN_TAB_ID ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={() => setIsLocked((locked) => !locked)}
-                      className={cn(
-                        "size-6 flex items-center justify-center hover:bg-muted hover:cursor-pointer rounded-sm",
-                        isLocked
-                          ? "text-primary"
-                          : "text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      {isLocked ? <Lock className="size-3.5" /> : <Unlock className="size-3.5" />}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    {isLocked ? unlockTerminalTooltip : lockTerminalTooltip}
-                  </TooltipContent>
-                </Tooltip>
-              ) : null}
 
             <button
               onClick={() => setIsScriptDialogOpen(true)}

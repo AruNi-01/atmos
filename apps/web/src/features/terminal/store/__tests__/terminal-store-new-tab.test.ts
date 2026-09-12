@@ -232,3 +232,111 @@ describe("createTerminalTabWithInitialPane", () => {
     expect(saveCalls).toEqual(["workspace-1"]);
   });
 });
+
+describe("ensureAutomationTerminalTab", () => {
+  beforeEach(() => {
+    useTerminalStore.setState(initialState, true);
+  });
+
+  it("creates an extra tab attached to the auto window without stealing Term", () => {
+    const saveCalls: string[] = [];
+    useTerminalStore.setState({
+      loadedWorkspaces: new Set([getTerminalWorkspaceScopeKey("workspace-1", false)]),
+      workspaceContexts: {
+        "workspace-1": false,
+      },
+      workspaceTerminalTabs: {
+        "workspace-1": [
+          {
+            id: FIXED_TERMINAL_TAB_VALUE,
+            title: "Term",
+            closable: true,
+          },
+        ],
+      },
+      workspaceActiveTerminalTabIds: {
+        "workspace-1": FIXED_TERMINAL_TAB_VALUE,
+      },
+      saveToBackend: (workspaceId) => {
+        saveCalls.push(workspaceId);
+      },
+    });
+
+    const created = useTerminalStore.getState().ensureAutomationTerminalTab("workspace-1", {
+      windowName: "auto-c03b5c3b",
+      title: "Daily health",
+    });
+
+    const state = useTerminalStore.getState();
+    expect(created).toEqual({
+      id: `${TERMINAL_TAB_VALUE_PREFIX}auto-c03b5c3b`,
+      title: "Daily health",
+      closable: true,
+    });
+    expect(state.workspaceActiveTerminalTabIds["workspace-1"]).toBe(FIXED_TERMINAL_TAB_VALUE);
+    expect(state.workspaceTerminalTabs["workspace-1"]?.map((tab) => tab.id)).toEqual([
+      FIXED_TERMINAL_TAB_VALUE,
+      `${TERMINAL_TAB_VALUE_PREFIX}auto-c03b5c3b`,
+    ]);
+    const panes = state.getPanes("workspace-1", created!.id);
+    const pane = Object.values(panes)[0];
+    expect(pane?.tmuxWindowName).toBe("auto-c03b5c3b");
+    expect(pane?.isNewPane).toBe(false);
+    expect(saveCalls).toEqual(["workspace-1"]);
+
+    const again = useTerminalStore.getState().ensureAutomationTerminalTab("workspace-1", {
+      windowName: "auto-c03b5c3b",
+      title: "Daily health",
+    });
+    expect(again?.id).toBe(created?.id);
+    expect(saveCalls).toEqual(["workspace-1"]);
+  });
+
+  it("returns null for non-automation window names", () => {
+    expect(
+      useTerminalStore.getState().ensureAutomationTerminalTab("workspace-1", {
+        windowName: "1",
+      }),
+    ).toBeNull();
+    expect(
+      useTerminalStore.getState().ensureAutomationTerminalTab("workspace-1", {
+        windowName: "cs__space-abc__1",
+      }),
+    ).toBeNull();
+  });
+
+  it("reuses the existing Term tab when that pane already owns the auto window", () => {
+    useTerminalStore.setState({
+      workspaceTerminalTabs: {
+        "workspace-1": [
+          {
+            id: FIXED_TERMINAL_TAB_VALUE,
+            title: "Term",
+            closable: true,
+          },
+        ],
+      },
+      workspacePanes: {
+        "workspace-1": {
+          "pane-1": {
+            id: "pane-1",
+            label: "auto-c03b5c3b",
+            sessionId: "s1",
+            workspaceId: "workspace-1",
+            tmuxWindowName: "auto-c03b5c3b",
+            isNewPane: false,
+          },
+        },
+      },
+      saveToBackend: () => {
+        throw new Error("saveToBackend should not be called");
+      },
+    });
+
+    const existing = useTerminalStore.getState().ensureAutomationTerminalTab("workspace-1", {
+      windowName: "auto-c03b5c3b",
+    });
+    expect(existing?.id).toBe(FIXED_TERMINAL_TAB_VALUE);
+    expect(useTerminalStore.getState().workspaceTerminalTabs["workspace-1"]).toHaveLength(1);
+  });
+});

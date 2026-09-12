@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
-import { MdLiveEditor } from "@atmos/md-live/ui";
+import { useCallback, useEffect, useMemo, type ComponentType } from "react";
+import { MdLiveEditor, type MdLiveCopyFn, type MdLiveSlashMenuProps } from "@atmos/md-live/ui";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useEditorSettingsStore } from "@/features/settings/store/editor-settings-store";
 import { MdLiveSelectionToolbar } from "./MdLiveSelectionToolbar";
@@ -25,18 +25,34 @@ import {
 import { copyMdLivePrompt } from "../lib/md-live-adapters";
 import { mdLiveCopy } from "../lib/md-live-copy";
 
+function SlashMenuWithoutMedia(props: MdLiveSlashMenuProps) {
+  return <MdLiveSlashMenu {...props} hiddenGroups={["media"]} />;
+}
+
 export function MarkdownLiveEditor({
   filePath,
   value,
   onChange,
   onSave,
   className,
+  placeholder,
+  readOnly = false,
+  autoFocus = true,
+  embedded = false,
+  enableAi = true,
+  enableMedia = true,
 }: {
   filePath: string;
   value: string;
   onChange: (markdown: string) => void;
   onSave?: () => void;
   className?: string;
+  placeholder?: string;
+  readOnly?: boolean;
+  autoFocus?: boolean;
+  embedded?: boolean;
+  enableAi?: boolean;
+  enableMedia?: boolean;
 }) {
   const workspaceRoot = useEditorStore((state) => state.currentProjectPath);
   const mdToggleDefaultOpen = useEditorSettingsStore((state) => state.mdToggleDefaultOpen);
@@ -52,6 +68,16 @@ export function MarkdownLiveEditor({
     ],
     [filePath, workspaceRoot],
   );
+  const copy = useCallback<MdLiveCopyFn>(
+    (key) => {
+      if (key === "placeholderEmptyLine" && placeholder) return placeholder;
+      return mdLiveCopy(key);
+    },
+    [placeholder],
+  );
+  const slashMenu: ComponentType<MdLiveSlashMenuProps> = enableMedia
+    ? MdLiveSlashMenu
+    : SlashMenuWithoutMedia;
 
   useEffect(() => {
     getMdLiveEditor(filePath)?.setToggleDefaultOpen(mdToggleDefaultOpen);
@@ -63,46 +89,69 @@ export function MarkdownLiveEditor({
       onChange={onChange}
       onSave={onSave}
       className={className}
-      copy={mdLiveCopy}
-      slashMenu={MdLiveSlashMenu}
+      copy={copy}
+      slashMenu={slashMenu}
       selectionToolbar={MdLiveSelectionToolbar}
       extraPlugins={extraPlugins}
       defaultToggleOpen={mdToggleDefaultOpen}
-      onOpenMedia={(kind) => {
-        void insertMdLiveMedia({
-          kind,
-          documentPath: filePath,
-          workspaceRoot,
-        }).then((markdown) => {
-          if (!markdown) return;
-          getMdLiveEditor(filePath)?.insertMarkdown(markdown);
-        });
-      }}
+      readOnly={readOnly}
+      autoFocus={autoFocus}
+      embedded={embedded}
+      onOpenMedia={
+        enableMedia
+          ? (kind) => {
+              void insertMdLiveMedia({
+                kind,
+                documentPath: filePath,
+                workspaceRoot,
+              }).then((markdown) => {
+                if (!markdown) return;
+                getMdLiveEditor(filePath)?.insertMarkdown(markdown);
+              });
+            }
+          : undefined
+      }
       onReady={(handle) => registerMdLiveEditor(filePath, handle)}
       onDispose={(handle) => unregisterMdLiveEditor(filePath, handle)}
-      onAiAction={(kind, selection) => {
-        emitMdLiveEditorEvent(filePath, { type: "ai-action", kind, selection });
-      }}
-      onStreamEnded={() => {
-        emitMdLiveEditorEvent(filePath, { type: "stream-ended" });
-      }}
-      onStreamAborted={() => {
-        emitMdLiveEditorEvent(filePath, { type: "stream-aborted" });
-      }}
-      onCopyPrompt={() => {
-        const api = getMdLiveEditor(filePath);
-        if (!api) return;
-        const selection = api.getSelectionMarkdown();
-        if (!selection.trim()) return;
-        void copyMdLivePrompt({
-          instruction: "",
-          document: { path: filePath, markdown: api.getMarkdown(), truncated: false },
-          selection: { markdown: selection },
-          references: [],
-          execution: { kind: "copy" },
-          outputHint: "markdown",
-        });
-      }}
+      onAiAction={
+        enableAi
+          ? (kind, selection) => {
+              emitMdLiveEditorEvent(filePath, { type: "ai-action", kind, selection });
+            }
+          : undefined
+      }
+      onStreamEnded={
+        enableAi
+          ? () => {
+              emitMdLiveEditorEvent(filePath, { type: "stream-ended" });
+            }
+          : undefined
+      }
+      onStreamAborted={
+        enableAi
+          ? () => {
+              emitMdLiveEditorEvent(filePath, { type: "stream-aborted" });
+            }
+          : undefined
+      }
+      onCopyPrompt={
+        enableAi
+          ? () => {
+              const api = getMdLiveEditor(filePath);
+              if (!api) return;
+              const selection = api.getSelectionMarkdown();
+              if (!selection.trim()) return;
+              void copyMdLivePrompt({
+                instruction: "",
+                document: { path: filePath, markdown: api.getMarkdown(), truncated: false },
+                selection: { markdown: selection },
+                references: [],
+                execution: { kind: "copy" },
+                outputHint: "markdown",
+              });
+            }
+          : undefined
+      }
     />
   );
 }

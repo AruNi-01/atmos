@@ -48,6 +48,13 @@ export interface TerminalStore {
   getTerminalTabs: (workspaceId: string) => TerminalCenterTab[];
   getActiveTerminalTabId: (workspaceId: string) => string;
   setActiveTerminalTab: (workspaceId: string, terminalTabId: string) => void;
+  /** Show Term in the tab strip without marking the scope hydrated (so tmux windows can attach). */
+  ensureFixedTerminalTab: (workspaceId: string) => TerminalCenterTab;
+  /** One extra Terminal tab per automation run, attached to `auto-{run}` — not a Term split. */
+  ensureAutomationTerminalTab: (
+    workspaceId: string,
+    options: { windowName: string; title?: string },
+  ) => TerminalCenterTab | null;
   createTerminalTab: (workspaceId: string, options?: CreateTerminalTabOptions) => TerminalCenterTab;
   createTerminalTabWithInitialPane: (workspaceId: string, contextScope?: TerminalContextScope, options?: CreateTerminalTabWithInitialPaneOptions) => Promise<{
     tab: TerminalCenterTab;

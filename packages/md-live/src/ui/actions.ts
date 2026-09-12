@@ -25,23 +25,20 @@ import {
   acceptAllDiffsCmd,
   clearDiffReviewCmd,
 } from "@milkdown/kit/plugin/diff";
-import type { MdLiveBlockAction } from "./types";
+import type { MdLiveBlockAction, MdLiveFocusCaret } from "./types";
 import { formatMdLiveSerializedMarkdown } from "./markdown-stringify";
 import { applyMdLiveBlockConvert } from "./convert-block";
 import { mdLiveInsertEmptyInlineCode } from "./inline-code";
 
-export function focusEditorCaret(ctx: Ctx): void {
+export function focusEditorCaret(ctx: Ctx, caret: MdLiveFocusCaret = "start"): void {
   const view = ctx.get(editorViewCtx);
   const { state } = view;
-  let pos: number | null = null;
-  state.doc.descendants((node, nodePos) => {
-    if (pos != null) return false;
-    if (!node.isTextblock) return;
-    pos = nodePos + 1;
-    return false;
-  });
-  if (pos != null && (!state.selection.empty || state.selection.from !== pos)) {
-    view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, pos)));
+  if (caret !== "preserve") {
+    const next =
+      caret === "end" ? TextSelection.atEnd(state.doc) : TextSelection.atStart(state.doc);
+    if (state.selection.from !== next.from || state.selection.to !== next.to) {
+      view.dispatch(state.tr.setSelection(next));
+    }
   }
   view.focus();
 }

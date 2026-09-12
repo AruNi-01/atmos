@@ -64,6 +64,7 @@ import {
   resolveViewRunLogsPromptText,
   VIEW_RUN_LOGS_SLASH_COMMAND_ID,
 } from "@/features/browser/lib/run-log-context";
+import { getPreferredRunLogWindow } from "@/features/browser/lib/run-log-active-window";
 import {
   buildDevicePreviewSlashCommand,
   DEVICE_PREVIEW_SLASH_COMMAND_ID,
@@ -632,7 +633,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         setSlashPopover(null);
         setSlashPopoverView("menu");
         void resolveViewRunLogsPromptText(localPath, (root) =>
-          runLogApi.resolveLatest(root),
+          runLogApi.resolveLatest(root, getPreferredRunLogWindow(root)),
         ).then((promptText) => {
           composerRef.current?.applyAiContextAtRange(
             popover.slashOffset,
