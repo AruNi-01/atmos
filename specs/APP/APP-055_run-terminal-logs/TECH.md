@@ -376,3 +376,16 @@ Reuse existing `fsApi` list/stat/read. No new REST.
 - [ ] Whether `run_log_start` is a distinct WS action or an internal method invoked from the same path that injects the Run command — implement whichever keeps fewer protocol surfaces.
 - [ ] Exact icon/tone for `run-log` chip in the design system (use existing terminal defaults if unsure).
 - [ ] Workspace-only context without project id: write under workspace root if that is what Run uses as cwd/project path today.
+
+## Implementation Delta · 2026-09-12
+
+View Run Logs no longer picks by last-append mtime.
+
+Resolve order:
+
+1. `.atmos/run-logs/last-start` written on `run_log_start` (the last Run click)
+2. Optional `preferred_window` — the inner Run tab while the Run panel is active
+3. `run-main.latest.log`
+4. Any remaining extra `*.latest.log`
+
+`run_log_resolve_latest` may return `reason` and `other_latest_paths`. The chip prompt states why that file was picked, lists other latest logs, and tells the agent to ask — or the user to name `run-main` / another `run-*` window — if the tab is wrong.

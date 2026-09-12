@@ -149,6 +149,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-069** | Agent Chat hits, Grok host, fork/rewind (promotes APP-068 N1 / Grok-from-N3 / N4; crates not embedded) | `specs/APP/APP-069_agent_chat_hits_and_session_ops/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-070** | Device Preview: iOS + Android, exclusive workspace claims, vendored serve-emu | `specs/APP/APP-070_simulator-optimize-add-android/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-071** | Device Preview agent control (screenshot / tap / swipe / type / press via CLI + skill) | `specs/APP/APP-071_device-preview-agent-control/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-072** | Automation execute modes (Headless Spawn / Terminal Agent / Agent Chat) | `specs/APP/APP-072_automation-execute-modes/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **QUALITY-001** | Large File Code Debt Cleanup | `specs/APP/QUALITY-001_large-file-code-debt-cleanup/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-002** | Spec Test Execution Loop | `specs/APP/QUALITY-002_spec-test-execution-loop/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-003** | Playwright E2E Harness | `specs/APP/QUALITY-003_playwright-e2e-harness/` (`TECH.md`, `TEST.md`) |
