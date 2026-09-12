@@ -16,6 +16,7 @@ import {
   migrateLegacySinglePaneStripOrder,
   normalizeCenterPaneLayout,
   openTabOnFocusedPane,
+  offerTabOnFocusedPane,
   withCanonicalTabStrip,
   reorderPaneTabIds,
   reorderPanes,
@@ -66,6 +67,8 @@ type CenterPaneLayoutStore = {
   resizeRows: (contextId: string, boundaryIndex: number, delta: number) => void;
   setActiveTab: (contextId: string, paneId: string, tabId: string) => void;
   openTab: (contextId: string, tabId: string) => void;
+  /** Append a tab to the focused pane strip without activating it. */
+  offerTab: (contextId: string, tabId: string) => void;
   removeTab: (
     contextId: string,
     tabId: string,
@@ -240,6 +243,11 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
 
   openTab: (contextId, tabId) => {
     get().patchLayout(contextId, (layout) => openTabOnFocusedPane(layout, tabId));
+  },
+
+  offerTab: (contextId, tabId) => {
+    if (!contextId || !tabId || !get().getLayout(contextId)) return;
+    get().patchLayout(contextId, (layout) => offerTabOnFocusedPane(layout, tabId));
   },
 
   removeTab: (contextId, tabId, preferredNextActiveId) => {

@@ -39,6 +39,7 @@ describe("center-stage chrome", () => {
     // Ring and overflow-hidden must not share a node — that double-paints
     // the rounded left edge in light mode as stacked shadow lines.
     expect(CENTER_STAGE_CARD_CLASS).not.toContain("overflow-hidden");
+    expect(CENTER_STAGE_CARD_CLIP_CLASS).toContain("relative");
     expect(CENTER_STAGE_CARD_CLIP_CLASS).toContain("overflow-hidden");
     expect(CENTER_STAGE_CARD_CLIP_CLASS).toContain("rounded-[inherit]");
   });
@@ -153,6 +154,7 @@ describe("center-stage chrome", () => {
     const chrome = read("../center-stage-chrome.tsx");
     expect(chrome).toContain("CENTER_STAGE_CARD_CLASS");
     expect(chrome).toContain("CENTER_STAGE_CARD_CLIP_CLASS");
+    expect(chrome).toContain('data-center-stage-card-clip=""');
   });
 
   test("center-stage card chrome is tagged for drawer insets", () => {

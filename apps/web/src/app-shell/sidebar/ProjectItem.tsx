@@ -42,7 +42,7 @@ import {
 } from "@workspace/ui";
 import type { Group, Project, WorkspaceLabel, WorkspacePriority } from "@/shared/types/domain";
 import { findGroupIdForMember } from "@/app-shell/sidebar/user-groups";
-import { FolderMinus, FolderPlus, ImageIcon } from "lucide-react";
+import { FolderMinus, FolderPlus, ImageIcon, Timer } from "lucide-react";
 import { WorkspaceItem } from "./WorkspaceItem";
 import { GroupNamePopoverForm } from "@/app-shell/sidebar/GroupNamePopoverForm";
 import {
@@ -56,6 +56,7 @@ import {
 } from "@/features/agent/store/agent-attention-store";
 import type { WorkspaceWorkflowStatus } from "@/shared/types/domain";
 import { FileBrowser } from "@/features/files/components/FileBrowser";
+import { STANDALONE_GROUP_ID } from "@/features/automations/lib/standalone-sidebar";
 import { ProjectLogoMark } from "@/features/project/components/ProjectLogoMark";
 import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import { pickLocalFile } from "@/shared/lib/desktop-directory-picker";
@@ -242,6 +243,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   const t = useTranslations("AppShell.chrome");
   const groupsT = useTranslations("appShell.groups");
   const projectGroupId = findGroupIdForMember(groups, "project", project.id);
+  const isStandaloneGroup = project.id === STANDALONE_GROUP_ID;
   const initialLetter = project.name.charAt(0).toUpperCase();
 
   const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
@@ -500,7 +502,9 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
               className="size-6 flex items-center justify-center bg-sidebar rounded-md border border-sidebar-border text-[10px] font-bold text-muted-foreground shrink-0 hover:bg-sidebar-accent relative"
               style={{ borderLeft: project.borderColor ? `2px solid ${project.borderColor}` : undefined }}
             >
-              {logoUrl && !hasLogoLoadError ? (
+              {isStandaloneGroup ? (
+                <Timer className="size-3.5" />
+              ) : logoUrl && !hasLogoLoadError ? (
                 <ProjectLogoMark
                   src={logoUrl}
                   className="group-hover/project:hidden"
@@ -509,24 +513,26 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
               ) : (
                 <span className="group-hover/project:hidden transition-all duration-200">{initialLetter}</span>
               )}
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectMain(project.id);
-                      }}
-                      className="hidden group-hover/project:flex items-center justify-center size-full absolute inset-0 text-muted-foreground hover:text-foreground hover:cursor-pointer"
-                    >
-                      <MapPinned className="size-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">
-                    {t("projectItem.mainDirectoryTooltip")}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              {isStandaloneGroup ? null : (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectMain(project.id);
+                        }}
+                        className="hidden group-hover/project:flex items-center justify-center size-full absolute inset-0 text-muted-foreground hover:text-foreground hover:cursor-pointer"
+                      >
+                        <MapPinned className="size-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">
+                      {t("projectItem.mainDirectoryTooltip")}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
             <span
               className={cn(

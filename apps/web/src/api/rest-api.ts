@@ -437,7 +437,9 @@ export const systemApi = {
    * List tmux windows for a workspace
    */
   listTmuxWindows: async (workspaceId: string): Promise<{ windows: TmuxWindow[] }> => {
-    return fetchApi<{ windows: TmuxWindow[] }>(`/api/system/tmux-windows/${workspaceId}`);
+    return fetchApi<{ windows: TmuxWindow[] }>(
+      `/api/system/tmux-windows/${encodeURIComponent(workspaceId)}`,
+    );
   },
 
   /**
@@ -447,7 +449,9 @@ export const systemApi = {
     workspaceId: string,
     tmuxWindowName: string,
   ): Promise<{ killed: boolean; message?: string }> => {
-    return fetchApi<{ killed: boolean; message?: string }>(`/api/system/tmux-window/${workspaceId}`, {
+    return fetchApi<{ killed: boolean; message?: string }>(
+      `/api/system/tmux-window/${encodeURIComponent(workspaceId)}`,
+      {
       method: 'POST',
       body: JSON.stringify({ tmux_window_name: tmuxWindowName }),
     });
@@ -488,7 +492,7 @@ export const systemApi = {
     if (params.workspace_name) {
       search.set("workspace_name", params.workspace_name);
     }
-    return fetchApi(`/api/system/tmux-capture/${workspaceId}?${search.toString()}`);
+    return fetchApi(`/api/system/tmux-capture/${encodeURIComponent(workspaceId)}?${search.toString()}`);
   },
 
   /**

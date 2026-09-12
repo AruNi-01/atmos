@@ -13,11 +13,13 @@ import { useAppStorage } from "@atmos/shared";
 import type { Project } from '@/shared/types/domain';
 import { useProjectStore } from '@/features/project/store/use-project-store';
 import {
-  useProjects,
   useWorkspaceLabels,
   useGroups,
   useProjectBootstrapQuery,
 } from '@/features/project/hooks/use-project-bootstrap-query';
+import { useProjectsWithStandaloneAutomations } from '@/features/automations/hooks/use-projects-with-standalone-automations';
+import { STANDALONE_GROUP_ID } from '@/features/automations/lib/standalone-sidebar';
+import { parseStandaloneScope, standaloneJobHref } from '@/features/automations/lib/automation-run-landing';
 import {
   createGroup,
   deleteGroup,
@@ -133,7 +135,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     // Full catalog — used for selection/existence/current context. Never replace this with a
     // filtered list: hiding attention-only rows would make the app think the active workspace
     // was deleted and route to welcome (`router.replace('/')`).
-    const projects = useProjects();
+    const projects = useProjectsWithStandaloneAutomations();
     const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
     const attentionContextKey = useAgentAttentionStore(selectAttentionContextKey);
     // Display-only subset for the sidebar tree when the header attention filter is on.
@@ -1078,7 +1080,15 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             const target = collectSidebarShortcutTargets(document)[digit - 1];
             if (!target) return false;
             if (target.kind === "workspace") {
+                const jobGuid = parseStandaloneScope(target.id);
+                if (jobGuid) {
+                    router.push(standaloneJobHref(jobGuid));
+                    return true;
+                }
                 router.push(`/workspace?id=${target.id}`);
+                return true;
+            }
+            if (target.id === STANDALONE_GROUP_ID) {
                 return true;
             }
             router.push(`/project?id=${target.id}`);
@@ -1101,6 +1111,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     );
 
     const handleQuickAddWorkspace = async (projectId: string) => {
+        if (projectId === STANDALONE_GROUP_ID) return;
         const jobId = startCreating({
             originKey: getWorkspaceCreateOriginKey({
                 currentView,
@@ -1218,6 +1229,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     };
 
     const handleSelectProjectMain = useCallback((id: string) => {
+        if (id === STANDALONE_GROUP_ID) return;
         router.push(`/project?id=${id}`);
     }, [router]);
 
@@ -1252,7 +1264,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     };
 
     const handleEnterWorkspaceFromSidebarKanban = useCallback((projectId: string, workspaceId: string) => {
-        void projectId;
+        const jobGuid = parseStandaloneScope(workspaceId);
+        if (jobGuid || projectId === STANDALONE_GROUP_ID) {
+            router.push(standaloneJobHref(jobGuid ?? workspaceId));
+            return;
+        }
         router.push(`/workspace?id=${workspaceId}`);
     }, [router]);
 

@@ -8,6 +8,7 @@ import {
 } from "@workspace/ui";
 import { Bot, CheckCircle2 } from "lucide-react";
 
+import { useTranslations } from "next-intl";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import type { AutomationAgentCapability } from "@/features/automations/types";
 
@@ -22,10 +23,11 @@ export function AutomationAgentPicker({
   selectedAgentId: string;
   onSelect: (agentId: string) => void;
 }) {
+  const t = useTranslations("automation.setup.picker");
   if (loading) {
     return (
       <div className="flex h-10 items-center rounded-md border border-dashed border-border px-3 text-sm text-muted-foreground">
-        Loading agents
+        {t("loading")}
       </div>
     );
   }
@@ -33,7 +35,7 @@ export function AutomationAgentPicker({
   if (agents.length === 0) {
     return (
       <div className="flex h-10 items-center rounded-md border border-dashed border-border px-3 text-sm text-muted-foreground">
-        No agents available
+        {t("empty")}
       </div>
     );
   }
@@ -66,7 +68,7 @@ export function AutomationAgentPicker({
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium text-foreground">{agent.label}</span>
                     <span className="block truncate text-xs text-muted-foreground">
-                      {agent.automation_supported ? "Ready for non-interactive runs" : agent.unavailable_reason}
+                      {agent.automation_supported ? t("ready") : agent.unavailable_reason}
                     </span>
                   </span>
                   {selected ? <CheckCircle2 className="size-4 text-primary" /> : null}

@@ -31,6 +31,7 @@ import {
   TERMINAL_TAB_VALUE_PREFIX,
   useTerminalStore,
 } from "@/features/terminal/store/use-terminal-store";
+import { automationWindowNameFromTerminalTabId } from "@/features/terminal/store/terminal-store-helpers";
 import { setCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
 
 function isTerminalTab(tab: string): boolean {
@@ -98,7 +99,23 @@ export function activateCenterChromeTab(
     useGitHistoryCenterTabStore.getState().open(contextId);
   }
   if (isTerminalTab(resolvedTab)) {
-    useTerminalStore.getState().setActiveTerminalTab(contextId, resolvedTab);
+    const terminalStore = useTerminalStore.getState();
+    const existingTabs = terminalStore.getTerminalTabs(contextId);
+    if (!existingTabs.some((tab) => tab.id === resolvedTab)) {
+      const automationWindow = automationWindowNameFromTerminalTabId(resolvedTab);
+      if (automationWindow) {
+        const ensured = terminalStore.ensureAutomationTerminalTab(contextId, {
+          windowName: automationWindow,
+        });
+        if (ensured) resolvedTab = ensured.id;
+      } else {
+        const ensured = terminalStore.ensureFixedTerminalTab(contextId);
+        if (resolvedTab === FIXED_TERMINAL_TAB_VALUE || existingTabs.length === 0) {
+          resolvedTab = ensured.id;
+        }
+      }
+    }
+    terminalStore.setActiveTerminalTab(contextId, resolvedTab);
   }
   if (boundChatId) {
     useAgentAttentionStore.getState().notifyPaneFocused(`chat:${boundChatId}`, {

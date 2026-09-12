@@ -42,6 +42,10 @@ describe("parseWorkspaceContextHref", () => {
     expect(parseWorkspaceContextHref("/project/?id=p-1").contextId).toBe("p-1");
     expect(parseWorkspaceContextHref("/project/?id=p-1").view).toBe("project");
     expect(parseWorkspaceContextHref("/agents").contextId).toBeNull();
+    expect(parseWorkspaceContextHref("/automation?id=job-1").view).toBe("workspace");
+    expect(parseWorkspaceContextHref("/automation?id=job-1").contextId).toBe(
+      "automation:job-1",
+    );
   });
 
   it("detects explicit tab param", () => {

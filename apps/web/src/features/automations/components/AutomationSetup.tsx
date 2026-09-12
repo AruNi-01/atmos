@@ -2,14 +2,13 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Button, Label, TooltipProvider } from "@workspace/ui";
-import { ArrowLeft, Brain, ChevronDown, LoaderCircle, Sparkles } from "lucide-react";
-import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { Button, Label, TooltipProvider, agentConfigTriggerText } from "@workspace/ui";
+import { ArrowLeft, Bot, Brain, LoaderCircle, Sparkles } from "lucide-react";
 import {
   sanitizeRunConfig,
 } from "@/features/agent/lib/terminal-agent-run-config";
 
-import { AutomationAttachmentPreviewDialog } from "@/features/automations/components/AutomationAttachmentPreviewDialog";
+import { AutomationEditorExpandHost } from "@/features/automations/components/automation-editor-expand";
 import { AutomationMemoryEditor } from "@/features/automations/components/AutomationMemoryEditor";
 import { AutomationSetupUnsavedDialog } from "@/features/automations/components/AutomationSetupUnsavedDialog";
 import {
@@ -18,8 +17,8 @@ import {
 } from "@/features/automations/components/AutomationSetupControls";
 import {
   buildTargetInput,
-  formatAutomationAgentDisplayName,
 } from "@/features/automations/lib/automation-format";
+import { automationMdLivePath } from "@/features/automations/lib/automation-md-live-path";
 import {
   validationMessage,
 } from "@/features/automations/lib/automation-schedule";
@@ -31,39 +30,38 @@ import {
 import { useAutomationSetupForm } from "@/features/automations/hooks/use-automation-setup-form";
 import { useAutomationSetupLeaveGuard } from "@/features/automations/hooks/use-automation-setup-leave-guard";
 import { useGithubTriggerSetup } from "@/features/automations/hooks/use-github-trigger-setup";
+import { CenterStageTab, CenterStageTabList } from "@/app-shell/center-stage-shared-tabs";
+import {
+  useAgentRegistryListQuery,
+  useCustomAgentListQuery,
+  useNativeChatAgentListQuery,
+} from "@/features/agent/hooks/use-agent-registry-query";
+import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { ChatAgentConfigInput } from "@/features/agent/components/ChatAgentConfigInput";
+import { mergeInstalledAgents } from "@/features/agent/lib/custom-agent-registry";
+import {
+  composerConfigOptions,
+  configKindMatches,
+  defaultOptionsModelId,
+} from "@/features/agent/lib/agent-chat-thread";
+import type { AgentConfigOption } from "@/features/agent/lib/agent-chat-types";
+import { useAutomationChatAgentCatalog } from "@/features/automations/hooks/use-automation-chat-agent-catalog";
+import { automationChatAgentConfig } from "@/features/automations/lib/automation-chat-config";
+import { applyAutomationRunSurface } from "@/features/automations/lib/apply-automation-run-surface";
 import type {
   AutomationAgentCapability,
   AutomationCreateRequest,
   AutomationDetail,
+  AutomationRunDetail,
   AutomationScheduleInput,
   AutomationSchedulePreviewResponse,
   AutomationUpdateRequest,
 } from "@/features/automations/types";
-import { type ComposerHandle } from "@/features/welcome/components/PromptComposer";
-import {
-  type MentionNavItem,
-  type MentionPopoverState,
-  WelcomeMentionPopover,
-} from "@/features/welcome/components/WelcomeMentionPopover";
-import { SlashCommandPopover } from "@/features/welcome/components/SlashCommandPopover";
 import { WelcomeAgentSelector } from "@/features/welcome/components/WelcomeComposerControls";
-import { AttachmentBar } from "@/features/welcome/components/AttachmentBar";
-import { PromptComposer } from "@/features/welcome/components/PromptComposer";
-import { useWelcomeComposerAttachments } from "@/features/welcome/hooks/use-welcome-composer-attachments";
-import { useWelcomeMentionSearch } from "@/features/welcome/hooks/use-welcome-mention-search";
 import {
-  COLLAPSED_SLASH_SECTIONS,
-  type WelcomeSlashPopoverState,
-  useWelcomeSlashNavigation,
-} from "@/features/welcome/hooks/use-welcome-slash-navigation";
-import { useWelcomeSlashSearch } from "@/features/welcome/hooks/use-welcome-slash-search";
-import {
-  blobToBase64,
   resolvePromptPlaceholders,
   type AgentMenuOption,
-  type MentionFileCandidate,
 } from "@/features/welcome/lib/welcome-page-helpers";
-import type { SkillInfo } from "@/api/ws-api";
 import { useOpenSettings } from "@/features/settings/lib/open-settings";
 import type { Project } from "@/shared/types/domain";
 
@@ -80,6 +78,7 @@ export function AutomationSetup({
   onCancel,
   onCreate,
   onUpdate,
+  onRunNow,
 }: {
   mode: SetupMode;
   initialAutomation: AutomationDetail | null;
@@ -95,29 +94,37 @@ export function AutomationSetup({
   onCancel: () => void;
   onCreate: (request: AutomationCreateRequest) => Promise<AutomationDetail>;
   onUpdate: (request: AutomationUpdateRequest) => Promise<AutomationDetail>;
+  onRunNow?: (automationGuid: string) => Promise<AutomationRunDetail>;
 }) {
   const t = useTranslations("automation.setup");
-  const composerRef = React.useRef<ComposerHandle | null>(null);
-  const {
-    attachments,
-    clearAttachments,
-    handleAttachmentRemove,
-    handleImagePaste,
-    previewAttachment,
-    setPreviewAttachment,
-    syncAttachmentPlaceholders,
-  } = useWelcomeComposerAttachments(composerRef);
+  const registryQuery = useAgentRegistryListQuery();
+  const customAgentsQuery = useCustomAgentListQuery();
+  const chatAgentsQuery = useNativeChatAgentListQuery();
+  const chatAgents = React.useMemo(
+    () =>
+      mergeInstalledAgents(
+        (registryQuery.data?.agents ?? []).filter((agent) => agent.installed),
+        customAgentsQuery.data?.agents ?? [],
+        chatAgentsQuery.data?.agents ?? [],
+      ),
+    [customAgentsQuery.data, chatAgentsQuery.data, registryQuery.data],
+  );
+  const chatCatalogReady =
+    !registryQuery.isLoading &&
+    !customAgentsQuery.isLoading &&
+    !chatAgentsQuery.isLoading;
   const openSettings = useOpenSettings();
-  const [mentionPopover, setMentionPopover] =
-    React.useState<MentionPopoverState>(null);
-  const [slashPopover, setSlashPopover] =
-    React.useState<WelcomeSlashPopoverState>(null);
   const {
     timezone,
     displayName,
     instructions,
     memory,
     agentId,
+    chatModel,
+    chatThinking,
+    chatFast,
+    chatContext,
+    executeMode,
     targetKind,
     projectGuid,
     workspaceGuid,
@@ -137,7 +144,6 @@ export function AutomationSetup({
     agentRunConfigs,
     selectedAgent,
     selectedAgentRunConfig,
-    selectedTargetProject,
     targetValid,
     scheduleValid,
     formValid,
@@ -149,6 +155,11 @@ export function AutomationSetup({
     clearSubmitError,
     setDisplayName,
     setAgentId,
+    setChatModel,
+    setChatThinking,
+    setChatFast,
+    setChatContext,
+    setExecuteMode,
     setTargetKind,
     setProjectGuid,
     setWorkspaceGuid,
@@ -165,10 +176,10 @@ export function AutomationSetup({
     initialAutomation,
     agents,
     projects,
+    chatProviderIds: chatAgents.map((agent) => agent.id),
+    chatCatalogReady,
     schedulePreview,
-    clearAttachments,
   });
-  const selectedProjectPath = selectedTargetProject?.mainFilePath ?? null;
   const agentOptions = React.useMemo<AgentMenuOption[]>(
     () =>
       agents.map((agent) => ({
@@ -187,106 +198,96 @@ export function AutomationSetup({
       })),
     [agents, t],
   );
-  const { filteredAgents, filteredProjects, filteredSkills, isSkillsLoading } =
-    useWelcomeSlashSearch({
-      availableAgents: agentOptions,
-      activeProjectId: selectedTargetProject?.id ?? null,
-      popover: slashPopover,
-      projects,
+  const terminalAgentOptions = React.useMemo<AgentMenuOption[]>(
+    () =>
+      agents.map((agent) => ({
+        id: agent.agent_id,
+        label: agent.label,
+        command: "",
+        launchCommand: "",
+        iconType: "built-in",
+      })),
+    [agents],
+  );
+  const chatAgentOptions = React.useMemo<AgentMenuOption[]>(
+    () =>
+      chatAgents.map((agent) => ({
+        id: agent.id,
+        label: agent.name,
+        command: "",
+        launchCommand: "",
+        iconType: agent.install_method === "custom" ? "custom" : "built-in",
+      })),
+    [chatAgents],
+  );
+  const selectedExecuteOption = React.useMemo(() => {
+    const options =
+      executeMode === "chat"
+        ? chatAgentOptions
+        : executeMode === "headless"
+          ? agentOptions
+          : terminalAgentOptions;
+    return options.find((option) => option.id === agentId) ?? null;
+  }, [agentId, agentOptions, chatAgentOptions, executeMode, terminalAgentOptions]);
+  const {
+    catalog: chatAgentCatalog,
+    loading: chatModelsLoading,
+    refreshing: chatModelsRefreshing,
+    reload: reloadChatModels,
+  } = useAutomationChatAgentCatalog(agentId, executeMode === "chat");
+  const chatConfigOptions = React.useMemo(
+    () =>
+      composerConfigOptions({
+        descriptor: null,
+        catalog: chatAgentCatalog,
+        providerId: agentId,
+        modelId: chatModel,
+        thinkingId: chatThinking,
+        modeId: "",
+        permissionModeId: "",
+        fastId: chatFast,
+        contextId: chatContext,
+      }),
+    [
+      agentId,
+      chatAgentCatalog,
+      chatContext,
+      chatFast,
+      chatModel,
+      chatThinking,
+    ],
+  );
+  const chatModelOption =
+    chatConfigOptions.find((option) =>
+      configKindMatches(option.id, option.category, "model"),
+    ) ?? null;
+  const chatThinkingOption =
+    chatConfigOptions.find((option) =>
+      configKindMatches(option.id, option.category, "thinking"),
+    ) ?? null;
+  const chatFastOption =
+    chatConfigOptions.find((option) =>
+      configKindMatches(option.id, option.category, "fast"),
+    ) ?? null;
+  const chatContextOption =
+    chatConfigOptions.find((option) =>
+      configKindMatches(option.id, option.category, "context"),
+    ) ?? null;
+  const selectedExecuteDetail = React.useMemo(() => {
+    if (executeMode !== "chat") return "";
+    return agentConfigTriggerText({
+      modelLabel: configOptionLabel(chatModelOption),
+      thinkingLabel:
+        chatThinkingOption && chatThinkingOption.options.length > 1
+          ? configOptionLabel(chatThinkingOption)
+          : "",
     });
-  const selectMentionFile = React.useCallback(
-    (item: MentionFileCandidate) => {
-      const popover = mentionPopover;
-      if (!popover) return;
-      composerRef.current?.applyMentionAtRange(
-        popover.atOffset,
-        popover.query.length,
-        { kind: "file", relativePath: item.relativePath },
-      );
-      setMentionPopover(null);
-    },
-    [mentionPopover],
-  );
-  const selectMentionNavItem = React.useCallback(
-    (item: MentionNavItem) => {
-      if (item.type === "file") {
-        selectMentionFile(item.file);
-      }
-    },
-    [selectMentionFile],
-  );
-  const {
-    activeMentionFileIndex,
-    isMentionFilesLoading,
-    mentionFiles,
-    mentionPopoverListRef,
-    setIsMentionFilesLoading,
-    setMentionItemRef,
-  } = useWelcomeMentionSearch({
-    issuePreview: null,
-    onSelectNavItem: selectMentionNavItem,
-    popover: mentionPopover,
-    prPreview: null,
-    selectedProjectPath,
-  });
-  const selectSlashSkill = React.useCallback(
-    (skill: SkillInfo) => {
-      const popover = slashPopover;
-      if (!popover) return;
-      composerRef.current?.applySlashAtRange(
-        popover.slashOffset,
-        popover.query.length,
-        { kind: "skill", absolutePath: skill.path, name: skill.name },
-      );
-      setSlashPopover(null);
-    },
-    [slashPopover],
-  );
-  const selectSlashProject = React.useCallback(
-    (project: { id: string }) => {
-      const popover = slashPopover;
-      if (!popover) return;
-      setSlashPopover(null);
-      composerRef.current?.removeSlashAtRange(
-        popover.slashOffset,
-        popover.query.length,
-      );
-      setTargetKind("project");
-      setProjectGuid(project.id);
-      setWorkspaceGuid("");
-      setSubmitError(null);
-    },
-    [slashPopover, setProjectGuid, setSubmitError, setTargetKind, setWorkspaceGuid],
-  );
-  const selectSlashAgent = React.useCallback(
-    (agent: AgentMenuOption) => {
-      const popover = slashPopover;
-      if (!popover) return;
-      setSlashPopover(null);
-      composerRef.current?.removeSlashAtRange(
-        popover.slashOffset,
-        popover.query.length,
-      );
-      setAgentId(agent.id);
-      setSubmitError(null);
-    },
-    [slashPopover, setAgentId, setSubmitError],
-  );
-  const {
-    activeIndex: activeSlashItemIndex,
-    expandedSections,
-    listRef: slashPopoverListRef,
-    setExpandedSections,
-    setItemRef: setSlashItemRef,
-  } = useWelcomeSlashNavigation({
-    filteredAgents,
-    filteredProjects,
-    filteredSkills,
-    onSelectAgent: selectSlashAgent,
-    onSelectProject: selectSlashProject,
-    onSelectSkill: selectSlashSkill,
-    popover: slashPopover,
-  });
+  }, [chatModelOption, chatThinkingOption, executeMode]);
+  React.useEffect(() => {
+    if (executeMode !== "chat") return;
+    const nextModel = defaultOptionsModelId(chatAgentCatalog, chatModel);
+    if (nextModel && nextModel !== chatModel) setChatModel(nextModel);
+  }, [chatAgentCatalog, chatModel, executeMode, setChatModel]);
   const {
     githubPrereqs,
     githubRelayReady,
@@ -326,14 +327,6 @@ export function AutomationSetup({
     setGithubWorkflowConclusion,
   } = useGithubTriggerSetup({ mode, initialAutomation, trigger });
 
-  React.useEffect(() => {
-    if (mode === "edit" && initialAutomation) {
-      window.requestAnimationFrame(() => {
-        composerRef.current?.setText(initialAutomation.instructions);
-      });
-    }
-  }, [initialAutomation, mode]);
-
   const setupSnapshot = React.useMemo(
     () =>
       JSON.stringify({
@@ -341,6 +334,11 @@ export function AutomationSetup({
         instructions,
         memory,
         agentId,
+        chatModel,
+        chatThinking,
+        chatFast,
+        chatContext,
+        executeMode,
         targetKind,
         projectGuid,
         workspaceGuid,
@@ -352,7 +350,6 @@ export function AutomationSetup({
         dayOfMonth,
         cronExpr,
         agentRunConfig: sanitizeRunConfig(selectedAgentRunConfig),
-        attachmentIds: attachments.map((attachment) => attachment.id),
         github:
           trigger === "github"
             ? {
@@ -372,11 +369,15 @@ export function AutomationSetup({
       }),
     [
       agentId,
-      attachments,
+      chatContext,
+      chatFast,
+      chatModel,
+      chatThinking,
       cronExpr,
       dayOfMonth,
       dayOfWeek,
       displayName,
+      executeMode,
       githubBranchFilter,
       githubCommentContains,
       githubEventFamily,
@@ -431,33 +432,25 @@ export function AutomationSetup({
             })
           : t("errors.githubFiltersRequired"),
       );
-      return false;
+      return null;
     }
 
     const target = buildTargetInput(targetKind, projectGuid, workspaceGuid);
     if (trigger !== "manual" && trigger !== "github" && !requestSchedule) {
       setSubmitError(t("errors.invalidSchedule"));
-      return false;
+      return null;
     }
     const githubConfig = trigger === "github" ? buildGithubConfig() : null;
     const previousGithubConfig = mode === "edit" ? initialGithubConfig : null;
 
     setSubmitting(true);
     try {
-      const rawInstructions = composerRef.current?.getText() ?? instructions;
       const resolvedInstructions = resolvePromptPlaceholders(
-        rawInstructions,
+        instructions,
         [],
         {
           preserveFileMentions: true,
         },
-      );
-      const attachmentPayload = await Promise.all(
-        attachments.map(async (attachment) => ({
-          filename: attachment.filename,
-          mime: attachment.blob.type || "application/octet-stream",
-          data_base64: await blobToBase64(attachment.blob),
-        })),
       );
       let savedAutomation: AutomationDetail | null = null;
 
@@ -468,11 +461,19 @@ export function AutomationSetup({
             instructions: resolvedInstructions.trim(),
             memory,
             agent_id: agentId,
-            agent_config: sanitizeRunConfig(selectedAgentRunConfig),
+            agent_config:
+              executeMode === "chat"
+                ? automationChatAgentConfig(agentId, {
+                    model: chatModel,
+                    thinking: chatThinking,
+                    fast: chatFast,
+                    context: chatContext,
+                  })
+                : sanitizeRunConfig(selectedAgentRunConfig),
+            execute_mode: executeMode,
             target,
             schedule: requestSchedule,
             trigger: triggerInputForSubmit(trigger, githubConfig, false),
-            attachments: attachmentPayload,
           },
           githubConfig,
           githubRouteReady,
@@ -488,10 +489,18 @@ export function AutomationSetup({
             instructions: resolvedInstructions.trim(),
             memory,
             agent_id: agentId,
-            agent_config: sanitizeRunConfig(selectedAgentRunConfig),
+            agent_config:
+              executeMode === "chat"
+                ? automationChatAgentConfig(agentId, {
+                    model: chatModel,
+                    thinking: chatThinking,
+                    fast: chatFast,
+                    context: chatContext,
+                  })
+                : sanitizeRunConfig(selectedAgentRunConfig),
+            execute_mode: executeMode,
             target,
             schedule: requestSchedule,
-            attachments: attachmentPayload,
           },
           initialAutomation,
           trigger,
@@ -505,16 +514,14 @@ export function AutomationSetup({
       if (savedAutomation) {
         setInstructions(savedAutomation.instructions);
         setMemory(savedAutomation.memory ?? "");
-        composerRef.current?.setText(savedAutomation.instructions);
         clearDirtyBaseline();
       }
-      clearAttachments();
-      return Boolean(savedAutomation);
+      return savedAutomation;
     } catch (err) {
       setSubmitError(
         err instanceof Error ? err.message : t("errors.saveFailed"),
       );
-      return false;
+      return null;
     } finally {
       setSubmitting(false);
     }
@@ -523,6 +530,27 @@ export function AutomationSetup({
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     await saveAutomation();
+  };
+
+  const handleTryRun = async () => {
+    if (!onRunNow) return;
+    const saved = await saveAutomation();
+    if (!saved) return;
+    setSubmitting(true);
+    try {
+      const run = await onRunNow(saved.guid);
+      if (run.status === "failed") {
+        setSubmitError(run.error_message ?? t("errors.tryRunFailed"));
+        return;
+      }
+      applyAutomationRunSurface(run);
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : t("errors.tryRunFailed"),
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleBack = () => {
@@ -556,7 +584,7 @@ export function AutomationSetup({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="h-full overflow-auto bg-background">
+      <AutomationEditorExpandHost className="h-full overflow-auto bg-background">
         <div className="mx-auto flex w-full max-w-3xl flex-col px-5 py-6 sm:px-8 sm:py-8">
           <Button
             type="button"
@@ -683,141 +711,142 @@ export function AutomationSetup({
             />
 
             <section className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="size-4 text-muted-foreground" />
-                  <Label className="text-sm font-semibold text-foreground">
-                    {t("instructions.label")}
-                  </Label>
-                </div>
-                <WelcomeAgentSelector
-                  variant="menu"
-                  availableAgents={agentOptions}
-                  selectedAgentId={agentId}
-                  runConfigByAgentId={agentRunConfigs}
-                  onRunConfigChange={(nextAgentId, nextValue) => {
-                    setAgentRunConfig(nextAgentId, nextValue);
-                    setAgentId(nextAgentId);
-                    clearSubmitError();
-                  }}
-                  purpose="automation"
-                  trigger={
-                    <button
-                      type="button"
-                      className="inline-flex h-8 max-w-[24rem] items-center gap-2 rounded-md border border-border bg-background px-2.5 text-sm text-foreground hover:bg-muted"
-                    >
-                      {selectedAgent ? (
-                        <AgentIcon
-                          registryId={selectedAgent.agent_id}
-                          name={selectedAgent.label}
-                          size={16}
-                        />
-                      ) : null}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Bot className="size-4 text-muted-foreground" />
+                    <Label className="text-sm font-semibold text-foreground">
+                      {t("executeAgent.label")}
+                    </Label>
+                  </div>
+                  {selectedExecuteOption ? (
+                    <span className="inline-flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+                      <AgentIcon
+                        registryId={selectedExecuteOption.id}
+                        name={selectedExecuteOption.label}
+                        size={14}
+                        isCustom={selectedExecuteOption.iconType === "custom"}
+                      />
                       <span className="truncate">
-                        {selectedAgent
-                          ? formatAutomationAgentDisplayName(
-                              selectedAgent.label,
-                              selectedAgentRunConfig,
-                            )
-                          : t("agentOptions.select")}
+                        {selectedExecuteOption.label}
+                        {selectedExecuteDetail
+                          ? ` · ${selectedExecuteDetail}`
+                          : ""}
                       </span>
-                      <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
-                    </button>
-                  }
-                  onSelectAgent={(nextAgentId) => {
-                    setAgentId(nextAgentId);
-                    clearSubmitError();
-                  }}
-                />
-              </div>
-              <div className="relative overflow-visible rounded-lg border border-border bg-background">
-                <div className="px-3 pt-2">
-                  <PromptComposer
-                    ref={composerRef}
-                    placeholder={<span>{placeholder}</span>}
-                    editorClassName="min-h-[160px] max-h-[280px] rounded-none border-0 py-2"
-                    onTextChange={(text) => {
-                      setInstructions(text);
+                    </span>
+                  ) : null}
+                </div>
+                <CenterStageTabList
+                  value={executeMode}
+                  onValueChange={(value) => {
+                    if (
+                      value === "headless" ||
+                      value === "terminal" ||
+                      value === "chat"
+                    ) {
+                      setExecuteMode(value);
                       clearSubmitError();
-                      setMentionPopover((prev) => {
-                        if (!prev) return prev;
-                        if (text.length < prev.atOffset) return null;
-                        if (text.charAt(prev.atOffset - 1) !== "@") return null;
-                        const newQuery = text.slice(prev.atOffset);
-                        const spaceIdx = newQuery.search(/\s/);
-                        if (spaceIdx >= 0) return null;
-                        return newQuery === prev.query
-                          ? prev
-                          : { ...prev, query: newQuery };
-                      });
-                      syncAttachmentPlaceholders(text);
+                    }
+                  }}
+                  className="px-0 py-0"
+                >
+                  <CenterStageTab value="headless">
+                    {t("executeAgent.headless")}
+                  </CenterStageTab>
+                  <CenterStageTab value="terminal">
+                    {t("executeAgent.terminal")}
+                  </CenterStageTab>
+                  <CenterStageTab value="chat">
+                    {t("executeAgent.chat")}
+                  </CenterStageTab>
+                </CenterStageTabList>
+                {executeMode === "chat" ? (
+                  <ChatAgentConfigInput
+                    configOnly
+                    menuInline
+                    className="w-full"
+                    disabled={submitting}
+                    installedAgents={chatAgents}
+                    registryId={agentId}
+                    modelOption={chatModelOption}
+                    thinkingOption={chatThinkingOption}
+                    modeOption={null}
+                    permissionOption={null}
+                    fastOption={chatFastOption}
+                    contextOption={chatContextOption}
+                    modelsLoading={chatModelsLoading}
+                    modelsReloading={chatModelsRefreshing}
+                    onEmptyModelsOpen={reloadChatModels}
+                    onLoadModels={reloadChatModels}
+                    onProviderChange={(providerId, opts) => {
+                      setAgentId(providerId);
+                      if (opts?.model) setChatModel(opts.model);
+                      setChatThinking("");
+                      setChatFast("");
+                      setChatContext("");
+                      clearSubmitError();
                     }}
-                    onImagePaste={handleImagePaste}
-                    onAtCancel={() => {
-                      setMentionPopover(null);
-                      setIsMentionFilesLoading(false);
-                    }}
-                    onAtTrigger={(ctx) => {
-                      setMentionPopover({
-                        top: ctx.caretRect.bottom + 4,
-                        left: ctx.caretRect.left,
-                        atOffset: ctx.atOffset,
-                        query: ctx.query,
-                      });
-                    }}
-                    onSlashCancel={() => {
-                      setSlashPopover(null);
-                      setExpandedSections({ ...COLLAPSED_SLASH_SECTIONS });
-                    }}
-                    onSlashTrigger={(ctx) => {
-                      setSlashPopover({
-                        top: ctx.caretRect.bottom + 4,
-                        left: ctx.caretRect.left,
-                        slashOffset: ctx.slashOffset,
-                        query: ctx.query,
-                      });
+                    onConfigChange={(kind, value) => {
+                      if (kind === "model") setChatModel(value);
+                      if (kind === "thinking") setChatThinking(value);
+                      if (kind === "fast") setChatFast(value);
+                      if (kind === "context") setChatContext(value);
+                      clearSubmitError();
                     }}
                   />
-                </div>
-                {attachments.length > 0 ? (
-                  <div className="border-t border-border px-3 py-2">
-                    <AttachmentBar
-                      attachments={attachments}
-                      onRemove={handleAttachmentRemove}
-                      onPreview={(attachment) => setPreviewAttachment(attachment)}
+                ) : (
+                  <div className="rounded-lg border border-border bg-muted/30 p-1">
+                    <WelcomeAgentSelector
+                      variant="panel"
+                      availableAgents={
+                        executeMode === "headless"
+                          ? agentOptions
+                          : terminalAgentOptions
+                      }
+                      selectedAgentId={agentId}
+                      runConfigByAgentId={agentRunConfigs}
+                      onRunConfigChange={(nextAgentId, nextValue) => {
+                        setAgentRunConfig(nextAgentId, nextValue);
+                        setAgentId(nextAgentId);
+                        clearSubmitError();
+                      }}
+                      purpose="automation"
+                      showRunConfig
+                      onSelectAgent={(nextAgentId) => {
+                        setAgentId(nextAgentId);
+                        clearSubmitError();
+                      }}
                     />
                   </div>
-                ) : null}
-                <WelcomeMentionPopover
-                  activeIndex={activeMentionFileIndex}
-                  issuePreview={null}
-                  isLoading={isMentionFilesLoading}
-                  listRef={mentionPopoverListRef}
-                  mentionFiles={mentionFiles}
-                  onClose={() => setMentionPopover(null)}
-                  onSelectFile={selectMentionFile}
-                  onSelectNavItem={selectMentionNavItem}
-                  onSetItemRef={setMentionItemRef}
-                  popover={mentionPopover}
-                  prPreview={null}
-                />
-                <SlashCommandPopover
-                  activeIndex={activeSlashItemIndex}
-                  expandedSections={expandedSections}
-                  filteredAgents={filteredAgents}
-                  filteredProjects={filteredProjects}
-                  filteredSkills={filteredSkills}
-                  isSkillsLoading={isSkillsLoading}
-                  listRef={slashPopoverListRef}
-                  onClose={() => setSlashPopover(null)}
-                  onSelectAgent={selectSlashAgent}
-                  onSelectProject={selectSlashProject}
-                  onSelectSkill={selectSlashSkill}
-                  popover={slashPopover}
-                  setExpandedSections={setExpandedSections}
-                  setItemRef={setSlashItemRef}
-                />
+                )}
               </div>
+              <div className="flex items-center gap-2">
+                <Sparkles className="size-4 text-muted-foreground" />
+                <Label className="text-sm font-semibold text-foreground">
+                  {t("instructions.label")}
+                </Label>
+              </div>
+              {ready ? (
+                <AutomationMemoryEditor
+                  compact
+                  chrome={false}
+                  expandId="instructions"
+                  placeholder={placeholder}
+                  value={instructions}
+                  onChange={(next) => {
+                    setInstructions(next);
+                    clearSubmitError();
+                  }}
+                  filePath={automationMdLivePath("instructions", {
+                    guid: initialAutomation?.guid,
+                  })}
+                  disabled={submitting}
+                />
+              ) : (
+                <div className="flex h-[280px] items-center justify-center rounded-lg border border-border text-muted-foreground">
+                  <LoaderCircle className="size-4 animate-spin" />
+                </div>
+              )}
             </section>
 
             <section className="space-y-3">
@@ -832,17 +861,28 @@ export function AutomationSetup({
                   {t("memory.description")}
                 </p>
               </div>
-              <AutomationMemoryEditor
-                compact
-                defaultPreview={mode !== "create"}
-                value={memory}
-                onChange={(next) => {
-                  setMemory(next);
-                  clearSubmitError();
-                }}
-                path={initialAutomation?.memory_path}
-                disabled={submitting}
-              />
+              {ready ? (
+                <AutomationMemoryEditor
+                  compact
+                  chrome={false}
+                  expandId="memory"
+                  value={memory}
+                  onChange={(next) => {
+                    setMemory(next);
+                    clearSubmitError();
+                  }}
+                  path={initialAutomation?.memory_path}
+                  filePath={automationMdLivePath("memory", {
+                    guid: initialAutomation?.guid,
+                    diskPath: initialAutomation?.memory_path,
+                  })}
+                  disabled={submitting}
+                />
+              ) : (
+                <div className="flex h-[280px] items-center justify-center rounded-lg border border-border text-muted-foreground">
+                  <LoaderCircle className="size-4 animate-spin" />
+                </div>
+              )}
             </section>
 
             {submitError ? (
@@ -851,7 +891,20 @@ export function AutomationSetup({
               </div>
             ) : null}
 
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              {onRunNow ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={disabledSubmit}
+                  onClick={() => void handleTryRun()}
+                >
+                  {submitting ? (
+                    <LoaderCircle className="size-4 animate-spin" />
+                  ) : null}
+                  {t("tryRun")}
+                </Button>
+              ) : null}
               <AutomationSetupSubmitButton
                 mode={mode}
                 disabledSubmit={disabledSubmit}
@@ -860,10 +913,6 @@ export function AutomationSetup({
             </div>
           </form>
         </div>
-        <AutomationAttachmentPreviewDialog
-          attachment={previewAttachment}
-          onClose={() => setPreviewAttachment(null)}
-        />
         <AutomationSetupUnsavedDialog
           open={leaveDialogOpen}
           mode={mode}
@@ -874,7 +923,14 @@ export function AutomationSetup({
             void runSaveAndLeave(saveAutomation);
           }}
         />
-      </div>
+      </AutomationEditorExpandHost>
     </TooltipProvider>
   );
+}
+
+function configOptionLabel(option: AgentConfigOption | null): string {
+  if (!option) return "";
+  const current = option.currentValue?.trim() || "";
+  const listed = option.options.find((item) => item.value === current);
+  return (listed?.name || listed?.value || current).trim();
 }

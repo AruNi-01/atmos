@@ -20,6 +20,8 @@ import type { CenterToolTabValue } from "@/app-shell/center-tool-tabs";
 import {
   EMPTY_PANE_LIST_MAX_WIDTH_PX,
   UNMEASURED_EMPTY_PANE_LAUNCHER_PLAN,
+  emptyPaneGridItemCount,
+  emptyPaneLastItemSpansFullRow,
   emptyPaneLauncherPlansEqual,
   planEmptyPaneLauncher,
   type EmptyPaneLauncherPlan,
@@ -122,8 +124,9 @@ function EmptyPaneTypeButton({
 
 /**
  * Empty center pane launcher. At most two tiles per row. Compact tiles use a
- * rounded border and hover fill. Close sits in the last-row gap when the
- * count is odd; extra rows wrap and scroll when the pane is short.
+ * rounded border and hover fill. The last tile spans the full row when the
+ * count is odd so the grid stays balanced. Extra rows wrap and scroll when
+ * the pane is short.
  */
 export function CenterPaneEmptyState({
   actions,
@@ -163,6 +166,9 @@ export function CenterPaneEmptyState({
   }, [actions.length, hasClose]);
 
   const compact = plan.mode === "grid";
+  const itemCount = emptyPaneGridItemCount(actions.length, hasClose);
+  const lastSpansFullRow =
+    compact && emptyPaneLastItemSpansFullRow(itemCount, plan.columns);
 
   return (
     <div
@@ -188,7 +194,10 @@ export function CenterPaneEmptyState({
         }}
       >
         <div
-          className="mx-auto grid w-full min-w-0"
+          className={cn(
+            "mx-auto grid w-full min-w-0",
+            lastSpansFullRow && "[&>*:last-child]:col-span-full",
+          )}
           style={
             compact
               ? {
@@ -288,6 +297,7 @@ export function buildDefaultEmptyPaneActions(input: {
   onCreateToolTab: (tab: CenterToolTabValue) => void;
   onCreateSimulator: () => void;
   onOpenOverview?: () => void;
+  hideGitChrome?: boolean;
 }): CenterPaneEmptyAction[] {
   const { labels, modKey } = input;
   const actions: CenterPaneEmptyAction[] = [];
@@ -325,30 +335,38 @@ export function buildDefaultEmptyPaneActions(input: {
       icon: <FolderTree />,
       onSelect: () => input.onCreateToolTab("files"),
     },
-    {
-      id: "changes",
-      label: labels.changes,
-      icon: <GitBranch />,
-      onSelect: () => input.onCreateToolTab("changes"),
-    },
-    {
-      id: "review",
-      label: labels.review,
-      icon: <FileDiff />,
-      onSelect: () => input.onCreateToolTab("review"),
-    },
+    ...(input.hideGitChrome
+      ? []
+      : [
+          {
+            id: "changes" as const,
+            label: labels.changes,
+            icon: <GitBranch />,
+            onSelect: () => input.onCreateToolTab("changes"),
+          },
+          {
+            id: "review" as const,
+            label: labels.review,
+            icon: <FileDiff />,
+            onSelect: () => input.onCreateToolTab("review"),
+          },
+        ]),
     {
       id: "run",
       label: labels.run,
       icon: <Play />,
       onSelect: () => input.onCreateToolTab("run"),
     },
-    {
-      id: "github",
-      label: labels.github,
-      icon: <Github />,
-      onSelect: () => input.onCreateToolTab("github"),
-    },
+    ...(input.hideGitChrome
+      ? []
+      : [
+          {
+            id: "github" as const,
+            label: labels.github,
+            icon: <Github />,
+            onSelect: () => input.onCreateToolTab("github"),
+          },
+        ]),
     {
       id: "simulator",
       label: labels.simulator,

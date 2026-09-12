@@ -42,6 +42,7 @@ import {
   ListTodo,
   SquareTerminal,
   Timer,
+  Trash2,
 } from "lucide-react";
 import { BotIcon } from "@workspace/ui/components/icons/bot-icon";
 import CanvasIcon from "@workspace/ui/components/icons/canvas-icon";
@@ -67,9 +68,12 @@ import type {
   LaunchpadPlacement,
 } from "@/features/settings/store/experiment-settings-store";
 import {
+  LAUNCHPAD_DROP_HIDE,
   LAUNCHPAD_DROP_INSIDE,
   LAUNCHPAD_DROP_OUTSIDE,
+  applyLaunchpadHide,
   applyLaunchpadReorder,
+  isLaunchpadHideTarget,
   isLaunchpadItemId,
   launchpadPreviewPlacement,
   selectLaunchpadItemsByPlacement,
@@ -115,10 +119,13 @@ const launchpadDropAnimation: DropAnimation = {
 
 const launchpadCollisionDetection: CollisionDetection = (args) => {
   const pointerHits = pointerWithin(args);
+  const hideHit = pointerHits.find((hit) => isLaunchpadHideTarget(String(hit.id)));
+  if (hideHit) return [hideHit];
   const itemHits = pointerHits.filter((hit) => isLaunchpadItemId(String(hit.id)));
   if (itemHits.length > 0) return itemHits;
-  if (pointerHits.length > 0) return pointerHits;
-  return closestCenter(args);
+  const zoneHits = pointerHits.filter((hit) => !isLaunchpadHideTarget(String(hit.id)));
+  if (zoneHits.length > 0) return zoneHits;
+  return closestCenter(args).filter((hit) => !isLaunchpadHideTarget(String(hit.id)));
 };
 
 function handleLaunchpadActivate(
@@ -217,6 +224,7 @@ export function LeftSidebarLaunchpadBlock(props: LeftSidebarLaunchpadProps) {
     const overId = event.over?.id;
     if (overId == null) return;
     const overKey = String(overId);
+    if (isLaunchpadHideTarget(overKey)) return;
     const activeId = String(event.active.id);
     const dest = launchpadPreviewPlacement(overKey, liveItems, "inside");
     if (dest === "inside" && !props.isExpanded) {
@@ -243,11 +251,18 @@ export function LeftSidebarLaunchpadBlock(props: LeftSidebarLaunchpadProps) {
   const handleDragEnd = (event: DragEndEvent) => {
     releaseLaunchpadClickSuppression();
     const overId = event.over?.id;
+    const activeId = String(event.active.id);
+    if (isLaunchpadHideTarget(overId == null ? null : String(overId))) {
+      const next = applyLaunchpadHide(props.launchpadItems, activeId) ?? props.launchpadItems;
+      setDraft(null);
+      void commitLaunchpadItems(next);
+      return;
+    }
     const base = draftRef.current ?? props.launchpadItems;
     const next =
       overId == null
         ? base
-        : applyLaunchpadReorder(base, String(event.active.id), String(overId)) ?? base;
+        : applyLaunchpadReorder(base, activeId, String(overId)) ?? base;
     setDraft(null);
     void commitLaunchpadItems(next);
   };
@@ -264,6 +279,7 @@ export function LeftSidebarLaunchpadBlock(props: LeftSidebarLaunchpadProps) {
       <div className="flex shrink-0 flex-col">
         <LeftSidebarLaunchpad {...props} launchpadItems={liveItems} />
         <LeftSidebarLaunchpadOutside {...props} launchpadItems={liveItems} />
+        <LaunchpadHideDroppable />
       </div>
       <LaunchpadDragOverlay launchpadItems={liveItems} />
     </DndContext>
@@ -332,6 +348,48 @@ function LaunchpadInsideGrid({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-2 gap-1.5" data-launchpad-inside-grid>
       {children}
+    </div>
+  );
+}
+
+function LaunchpadHideDroppable() {
+  const t = useTranslations("AppShell.chrome");
+  const { active } = useDndContext();
+  const dragging = active != null;
+  const { setNodeRef, isOver } = useDroppable({ id: LAUNCHPAD_DROP_HIDE });
+  const label = t("launchpad.hideDrop");
+
+  return (
+    <div
+      ref={setNodeRef}
+      data-launchpad-hide-zone
+      aria-hidden={!dragging}
+      aria-label={dragging ? label : undefined}
+      className={cn(
+        "grid motion-reduce:transition-none",
+        "transition-[grid-template-rows] ease-[cubic-bezier(0.22,1,0.36,1)]",
+        dragging ? "grid-rows-[1fr] duration-300" : "grid-rows-[0fr] duration-200",
+        !dragging && "pointer-events-none",
+      )}
+    >
+      <div className="min-h-0 overflow-hidden">
+        <div
+          className={cn(
+            "mb-1.5 ml-2.5 flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-dashed px-2 py-2 text-center text-xs leading-tight",
+            LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS,
+            "transition-[opacity,transform,border-color,background-color,color] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+            dragging
+              ? "translate-y-0 opacity-100 duration-300"
+              : "translate-y-1 opacity-0 duration-200",
+            isOver
+              ? "border-destructive bg-destructive/10 text-destructive"
+              : "border-border/70 text-muted-foreground",
+          )}
+        >
+          <Trash2 className="size-3.5 shrink-0" aria-hidden />
+          <span>{label}</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -507,6 +565,7 @@ function LaunchpadDragOverlay({
     activeId && isLaunchpadItemId(activeId)
       ? launchpadItems[activeId].placement
       : "outside";
+  const hiding = isLaunchpadHideTarget(over ? String(over.id) : null);
   const placement = launchpadPreviewPlacement(
     over ? String(over.id) : null,
     launchpadItems,
@@ -524,6 +583,7 @@ function LaunchpadDragOverlay({
         <LaunchpadDragPreview
           item={item}
           placement={placement}
+          hiding={hiding}
           insideWidth={widths.inside}
           outsideWidth={widths.outside}
         />
@@ -535,11 +595,13 @@ function LaunchpadDragOverlay({
 function LaunchpadDragPreview({
   item,
   placement,
+  hiding,
   insideWidth,
   outsideWidth,
 }: {
   item: LaunchpadItemDef;
   placement: LaunchpadPlacement;
+  hiding: boolean;
   insideWidth: number;
   outsideWidth: number;
 }) {
@@ -552,18 +614,20 @@ function LaunchpadDragPreview({
     <div
       className={cn(
         "pointer-events-none box-border flex h-9 items-center overflow-hidden text-sm shadow-md",
-        "transition-[width,border-radius,padding,gap] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
-        isInside
-          ? "justify-center rounded-xl bg-background/90 px-0 text-muted-foreground"
-          : "justify-start gap-2 rounded-lg bg-sidebar-accent px-3 text-sidebar-accent-foreground",
+        "transition-[width,border-radius,padding,gap,background-color,color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+        hiding
+          ? "justify-start gap-2 rounded-xl border border-dashed border-destructive/70 bg-destructive/10 px-3 text-destructive"
+          : isInside
+            ? "justify-center rounded-xl bg-background/90 px-0 text-muted-foreground"
+            : "justify-start gap-2 rounded-lg bg-sidebar-accent px-3 text-sidebar-accent-foreground",
       )}
-      style={{ width: isInside ? insideWidth : outsideWidth }}
+      style={{ width: hiding ? outsideWidth : isInside ? insideWidth : outsideWidth }}
     >
       <LaunchpadOutsideIcon itemId={item.id} iconRef={iconRef} />
       <span
         className={cn(
           "min-w-0 truncate transition-[max-width,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
-          isInside ? "max-w-0 opacity-0" : "max-w-[14rem] opacity-100",
+          hiding || !isInside ? "max-w-[14rem] opacity-100" : "max-w-0 opacity-0",
         )}
       >
         {label}

@@ -5,16 +5,30 @@ import { useTranslations } from "next-intl";
 import { toastManager } from "@workspace/ui";
 import { useQueryState, useQueryStates } from "nuqs";
 
+import { useAgentChatCenterTabsStore } from "@/features/agent/store/use-agent-chat-center-tabs";
 import { useAutomations } from "@/features/automations/hooks/use-automations";
 import { useGithubRelayPrerequisites } from "@/features/automations/hooks/use-github-relay-prerequisites";
 import { useAutomationRunHistoryState } from "@/features/automations/hooks/use-automation-run-history-state";
 import { useAutomationWebsocketSync } from "@/features/automations/hooks/use-automation-websocket-sync";
 import { formatShortId } from "@/features/automations/lib/automation-format";
+import {
+  automationsCreateQuery,
+  automationsEditQuery,
+  automationsListQuery,
+  automationsViewFromLocation,
+  resolveAutomationsPageView,
+} from "@/features/automations/lib/automation-page-query";
+import { applyAutomationRunSurface } from "@/features/automations/lib/apply-automation-run-surface";
+import {
+  runEnvironmentHref,
+  runLandingHref,
+} from "@/features/automations/lib/automation-run-landing";
 import { deleteAutomationWithGithubRoute } from "@/features/automations/lib/github-route-lifecycle";
 import { parseGithubTriggerConfig } from "@/features/automations/lib/github-trigger-relay";
 import type { AutomationListFilters } from "@/features/automations/lib/automation-list-filters";
 import type { SetupMode } from "@/features/automations/components/AutomationSetup";
 import type {
+  AutomationContinueInTerminalResponse,
   AutomationCreateRequest,
   AutomationDetail,
   AutomationRunSummary,
@@ -44,6 +58,31 @@ async function copyTextToClipboard(text: string) {
   } catch (error) {
     console.error("Failed to copy automation continue prompt:", error);
     return false;
+  }
+}
+
+function continueTargetRun(
+  run: AutomationRunSummary,
+  response: AutomationContinueInTerminalResponse,
+): AutomationRunSummary {
+  return {
+    ...run,
+    project_guid: response.project_guid ?? run.project_guid,
+    workspace_guid: response.workspace_guid ?? run.workspace_guid,
+    created_workspace_guid: response.workspace_guid ?? run.created_workspace_guid,
+  };
+}
+
+async function revealContinueWorkspace(
+  workspaceGuid: string | null | undefined,
+  ensureWorkspaceVisible: (workspaceId: string) => Promise<boolean>,
+) {
+  if (!workspaceGuid) return;
+  const workspaceReady = await ensureWorkspaceVisible(workspaceGuid);
+  if (!workspaceReady) {
+    console.warn(
+      `Automation continue target workspace ${workspaceGuid} is not in the project store yet.`,
+    );
   }
 }
 
@@ -77,9 +116,33 @@ export function useAutomationPageState() {
   const isProjectsLoading = useProjectsLoading();
   const ensureWorkspaceVisible = useProjectStore((state) => state.ensureWorkspaceVisible);
 
-  const [pageView, setPageView] = useQueryState(
-    "automationView",
-    automationsParams.view,
+  const [{ automationView: hookPageView, automationId: automationParam, automationRun: runParam }, setPageParams] =
+    useQueryStates(
+      {
+        automationView: automationsParams.view,
+        automationId: automationsParams.automation,
+        automationRun: automationsParams.run,
+      },
+      { history: "push" },
+    );
+  const pageView = resolveAutomationsPageView(
+    hookPageView,
+    automationsViewFromLocation(
+      typeof window === "undefined" ? null : window.location.search,
+    ),
+  );
+  const setPageView = React.useCallback(
+    (view: AutomationsView | null) =>
+      setPageParams({ automationView: view ?? "list" }),
+    [setPageParams],
+  );
+  const setAutomationParam = React.useCallback(
+    (guid: string | null) => setPageParams({ automationId: guid }),
+    [setPageParams],
+  );
+  const setRunParam = React.useCallback(
+    (guid: string | null) => setPageParams({ automationRun: guid }),
+    [setPageParams],
   );
   const [listTab, setListTab] = useQueryState(
     "automationTab",
@@ -92,14 +155,6 @@ export function useAutomationPageState() {
   const [runAutomationGuids, setRunAutomationGuids] = useQueryState(
     "automationRunAutomations",
     automationsParams.runAutomations,
-  );
-  const [automationParam, setAutomationParam] = useQueryState(
-    "automationId",
-    automationsParams.automation,
-  );
-  const [runParam, setRunParam] = useQueryState(
-    "automationRun",
-    automationsParams.run,
   );
   const [filterParams, setFilterParams] = useQueryStates({
     automationEnvironments: automationsParams.environments,
@@ -210,11 +265,11 @@ export function useAutomationPageState() {
   React.useEffect(() => {
     if (pageView === "history") {
       void setListTab("history");
-      void setPageView("list");
+      void setPageParams(automationsListQuery());
       return;
     }
     if (pageView === "edit" && !selectedAutomationGuid) {
-      void setPageView("list");
+      void setPageParams(automationsListQuery());
       return;
     }
     if (
@@ -225,10 +280,10 @@ export function useAutomationPageState() {
       )
     ) {
       if (pageView === "edit") {
-        void setPageView("list");
-        void setRunParam(null);
+        void setPageParams(automationsListQuery());
+      } else {
+        void setAutomationParam(null);
       }
-      void setAutomationParam(null);
     }
   }, [
     automations,
@@ -236,8 +291,7 @@ export function useAutomationPageState() {
     selectedAutomationGuid,
     setAutomationParam,
     setListTab,
-    setPageView,
-    setRunParam,
+    setPageParams,
   ]);
 
   React.useEffect(() => {
@@ -299,22 +353,12 @@ export function useAutomationPageState() {
         type: "success",
       });
       upsertAutomation(detail);
-      void setAutomationParam(null);
+      void setPageParams(automationsListQuery());
       setSelectedDetail(detail);
       setRuns([]);
-      void setRunParam(null);
-      void setPageView("list");
       return detail;
     },
-    [
-      createAutomation,
-      setAutomationParam,
-      setPageView,
-      setRunParam,
-      setRuns,
-      upsertAutomation,
-      t,
-    ],
+    [createAutomation, setPageParams, setRuns, upsertAutomation, t],
   );
 
   const handleUpdate = React.useCallback(
@@ -326,12 +370,11 @@ export function useAutomationPageState() {
         type: "success",
       });
       upsertAutomation(detail);
-      void setAutomationParam(null);
+      void setPageParams(automationsListQuery());
       setSelectedDetail(detail);
-      void setPageView("list");
       return detail;
     },
-    [setAutomationParam, setPageView, t, updateAutomation, upsertAutomation],
+    [setPageParams, t, updateAutomation, upsertAutomation],
   );
 
   const handleDefinitionAction = React.useCallback(
@@ -360,11 +403,7 @@ export function useAutomationPageState() {
               type: "error",
             });
           } else {
-            toastManager.add({
-              title: t("toasts.runStarted"),
-              description: automation.display_name,
-              type: "success",
-            });
+            applyAutomationRunSurface(run);
           }
         } else if (action === "pause") {
           const detail = await pauseAutomation(automation.guid);
@@ -383,12 +422,10 @@ export function useAutomationPageState() {
           });
           removeAutomation(automation.guid);
           if (automation.guid === selectedAutomationGuidRef.current) {
-            void setAutomationParam(null);
+            void setPageParams(automationsListQuery());
             setSelectedDetail(null);
             setRuns([]);
-            void setRunParam(null);
             setSelectedRun(null);
-            void setPageView("list");
           }
           toastManager.add({
             title: t("toasts.deleted"),
@@ -430,8 +467,7 @@ export function useAutomationPageState() {
       removeAutomation,
       resumeAutomation,
       runNow,
-      setAutomationParam,
-      setPageView,
+      setPageParams,
       setRunParam,
       setRuns,
       setSelectedRun,
@@ -536,7 +572,51 @@ export function useAutomationPageState() {
 
   const handleContinueInTerminal = React.useCallback(
     async (run: AutomationRunSummary) => {
-      setBusyAction(`continue:${run.guid}`);
+      setBusyAction(`continue-terminal:${run.guid}`);
+      try {
+        const response = await continueInTerminal(run.guid);
+        const copied = await copyTextToClipboard(response.prompt_content);
+        const href = runEnvironmentHref(
+          continueTargetRun(run, response),
+          "tab=terminal",
+        );
+        if (href.startsWith("/automations?")) {
+          toastManager.add({
+            title: t("errors.continueInTerminalFailed"),
+            description: t("errors.unknown"),
+            type: "error",
+          });
+          return;
+        }
+        await revealContinueWorkspace(response.workspace_guid, ensureWorkspaceVisible);
+        router.pushWorkspaceDeepLink(href);
+        toastManager.add({
+          title: t("toasts.openingTerminal"),
+          description: copied
+            ? t("toasts.promptCopied")
+            : t("toasts.clipboardUnavailable", {
+                promptPath: response.prompt_path,
+              }),
+          type: copied ? "success" : "warning",
+        });
+      } catch (err) {
+        toastManager.add({
+          title: t("errors.continueInTerminalFailed"),
+          description: err instanceof Error ? err.message : t("errors.unknown"),
+          type: "error",
+        });
+      } finally {
+        setBusyAction((current) =>
+          current === `continue-terminal:${run.guid}` ? null : current,
+        );
+      }
+    },
+    [continueInTerminal, ensureWorkspaceVisible, router, t],
+  );
+
+  const handleContinueInChat = React.useCallback(
+    async (run: AutomationRunSummary) => {
+      setBusyAction(`continue-chat:${run.guid}`);
       try {
         const response = await continueInTerminal(run.guid);
         const copied = await copyTextToClipboard(response.prompt_content);
@@ -555,23 +635,18 @@ export function useAutomationPageState() {
           return;
         }
 
-        if (response.workspace_guid) {
-          const workspaceReady = await ensureWorkspaceVisible(
-            response.workspace_guid,
-          );
-          if (!workspaceReady) {
-            console.warn(
-              `Automation continue target workspace ${response.workspace_guid} is not in the project store yet.`,
-            );
-          }
-        }
-
-        const route = response.workspace_guid
-          ? `/workspace?id=${response.workspace_guid}&tab=terminal`
-          : `/project?id=${contextId}&tab=terminal`;
-        router.push(route);
+        const tab = useAgentChatCenterTabsStore.getState().openDraftTab({
+          contextId,
+          title: run.terminal_display_name,
+        });
+        const href = runEnvironmentHref(
+          continueTargetRun(run, response),
+          `tab=${encodeURIComponent(tab.value)}`,
+        );
+        await revealContinueWorkspace(response.workspace_guid, ensureWorkspaceVisible);
+        router.pushWorkspaceDeepLink(href);
         toastManager.add({
-          title: t("toasts.openingTerminal"),
+          title: t("toasts.openingChat"),
           description: copied
             ? t("toasts.promptCopied")
             : t("toasts.clipboardUnavailable", {
@@ -581,17 +656,40 @@ export function useAutomationPageState() {
         });
       } catch (err) {
         toastManager.add({
-          title: t("errors.continueInTerminalFailed"),
+          title: t("errors.continueInChatFailed"),
           description: err instanceof Error ? err.message : t("errors.unknown"),
           type: "error",
         });
       } finally {
         setBusyAction((current) =>
-          current === `continue:${run.guid}` ? null : current,
+          current === `continue-chat:${run.guid}` ? null : current,
         );
       }
     },
     [continueInTerminal, ensureWorkspaceVisible, router, t],
+  );
+
+  const handleOpenRunSurface = React.useCallback(
+    async (run: AutomationRunSummary) => {
+      setBusyAction(`open:${run.guid}`);
+      try {
+        applyAutomationRunSurface(run);
+        const workspaceId = run.created_workspace_guid || run.workspace_guid;
+        await revealContinueWorkspace(workspaceId, ensureWorkspaceVisible);
+        router.pushWorkspaceDeepLink(runLandingHref(run));
+      } catch (err) {
+        toastManager.add({
+          title: t("errors.openSurfaceFailed"),
+          description: err instanceof Error ? err.message : t("errors.unknown"),
+          type: "error",
+        });
+      } finally {
+        setBusyAction((current) =>
+          current === `open:${run.guid}` ? null : current,
+        );
+      }
+    },
+    [ensureWorkspaceVisible, router, t],
   );
 
   const handleSaveMemory = React.useCallback(
@@ -616,44 +714,38 @@ export function useAutomationPageState() {
   );
 
   const openList = React.useCallback(() => {
-    void setPageView("list");
-    void setAutomationParam(null);
-    void setRunParam(null);
-  }, [setAutomationParam, setPageView, setRunParam]);
+    void setPageParams(automationsListQuery());
+  }, [setPageParams]);
 
   const openHistory = React.useCallback(
     (runGuid?: string) => {
       void setListTab("history");
-      void setPageView("list");
-      void setRunParam(runGuid ?? null);
+      void setPageParams(
+        automationsListQuery({ automationRun: runGuid ?? null }),
+      );
     },
-    [setListTab, setPageView, setRunParam],
+    [setListTab, setPageParams],
   );
 
   const openAutomationRuns = React.useCallback(
     (automationGuid: string) => {
       setRunFilters(runFiltersForAutomation(automationGuid, runFilters));
       void setListTab("history");
-      void setPageView("list");
-      void setRunParam(null);
+      void setPageParams(automationsListQuery());
     },
-    [runFilters, setListTab, setPageView, setRunFilters, setRunParam],
+    [runFilters, setListTab, setPageParams, setRunFilters],
   );
 
   const openEdit = React.useCallback(
     (automationGuid: string) => {
-      void setAutomationParam(automationGuid);
-      void setRunParam(null);
-      void setPageView("edit");
+      void setPageParams(automationsEditQuery(automationGuid));
     },
-    [setAutomationParam, setPageView, setRunParam],
+    [setPageParams],
   );
 
   const openCreate = React.useCallback(() => {
-    void setAutomationParam(null);
-    void setRunParam(null);
-    void setPageView("create");
-  }, [setAutomationParam, setPageView, setRunParam]);
+    void setPageParams(automationsCreateQuery());
+  }, [setPageParams]);
 
   const setSetupMode = React.useCallback(
     (mode: SetupMode | null) => {
@@ -722,11 +814,14 @@ export function useAutomationPageState() {
     loadRuns,
     handleCreate,
     handleUpdate,
+    runNow,
     handleDefinitionAction,
     handleToggleEnabled,
     handleCancelRun,
     handleArtifactFetch,
     handleContinueInTerminal,
+    handleContinueInChat,
+    handleOpenRunSurface,
     handleSaveMemory,
     setSelectedRunGuid,
     clearRunSelection,

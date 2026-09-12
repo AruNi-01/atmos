@@ -27,6 +27,11 @@ import type { DragEndEvent, DragStartEvent } from "@workspace/ui";
 import { functionSettingsApi } from "@/api/ws-api";
 import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
+import {
+  parseStandaloneScope,
+  standaloneJobHref,
+} from "@/features/automations/lib/automation-run-landing";
+import { isStandaloneSidebarJob } from "@/features/automations/lib/standalone-sidebar";
 import { useQueryState } from "nuqs";
 import { leftSidebarParams } from "@/shared/lib/nuqs/searchParams";
 import type {
@@ -376,7 +381,13 @@ export function WorkspaceKanbanView({
     const buckets = new Map<string, KanbanEntry[]>();
     projects.forEach((project) => {
       project.workspaces.forEach((workspace) => {
-        if (!filters.showAutomationWorkspaces && workspace.createSource === "automation") return;
+        if (
+          !filters.showAutomationWorkspaces &&
+          workspace.createSource === "automation" &&
+          !isStandaloneSidebarJob(project.id, workspace.id)
+        ) {
+          return;
+        }
         if (filters.projectIds.length > 0 && !filters.projectIds.includes(project.id)) return;
         if (filters.statuses.length > 0 && !filters.statuses.includes(workspace.workflowStatus)) return;
         if (filters.priorities.length > 0 && !filters.priorities.includes(workspace.priority)) return;
@@ -503,7 +514,8 @@ export function WorkspaceKanbanView({
   }, []);
 
   const handleEnterWorkspace = React.useCallback((_projectId: string, workspaceId: string) => {
-    router.push(`/workspace?id=${workspaceId}`);
+    const jobGuid = parseStandaloneScope(workspaceId);
+    router.push(jobGuid ? standaloneJobHref(jobGuid) : `/workspace?id=${workspaceId}`);
   }, [router]);
 
   React.useEffect(() => {

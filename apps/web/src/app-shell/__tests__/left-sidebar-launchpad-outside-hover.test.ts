@@ -104,5 +104,20 @@ describe("left sidebar outside launchpad hover", () => {
     expect(launchpad).toContain("LAUNCHPAD_SHIFT_TRANSITION");
     expect(launchpad).toContain("suppressHover");
   });
+
+  it("reveals a dashed hide zone while dragging and commits hide on drop", () => {
+    expect(launchpad).toContain("LaunchpadHideDroppable");
+    expect(launchpad).toContain("LAUNCHPAD_DROP_HIDE");
+    expect(launchpad).toContain("applyLaunchpadHide");
+    expect(launchpad).toContain("isLaunchpadHideTarget");
+    expect(launchpad).toContain("data-launchpad-hide-zone");
+    expect(launchpad).toContain("border-dashed");
+    expect(launchpad).toContain("Trash2");
+    expect(launchpad).toContain("launchpad.hideDrop");
+    expect(launchpad).toContain("duration-200");
+    expect(launchpad).toContain("translate-y-1");
+    expect(launchpad).toContain("pointer-events-none");
+    expect(launchpad).toContain("border-destructive");
+  });
 });
 

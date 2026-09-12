@@ -1732,6 +1732,7 @@
       },
       "launchpad": {
         "title": "Launchpad",
+        "hideDrop": "Move here to hide this feature",
         "items": {
           "workspaces": "Workspaces",
           "skills": "Skills",
@@ -2121,6 +2122,18 @@
         "create": "Name the job, pick an environment and trigger, then write the instruction.",
         "edit": "Update this automation’s setup, instruction, or memory."
       },
+      "executeAgent": {
+        "label": "Execute agent",
+        "headless": "Headless spawn",
+        "terminal": "Terminal agent",
+        "chat": "Agent chat"
+      },
+      "tryRun": "Try run",
+      "picker": {
+        "loading": "Loading agents",
+        "empty": "No agents available",
+        "ready": "Ready for non-interactive runs"
+      },
       "instructions": {
         "label": "Instructions"
       },
@@ -2164,7 +2177,8 @@
       "errors": {
         "githubFiltersRequired": "Configure at least one GitHub filter.",
         "invalidSchedule": "Invalid schedule.",
-        "saveFailed": "Failed to save automation."
+        "saveFailed": "Failed to save automation.",
+        "tryRunFailed": "Failed to start a try run."
       },
       "loading": "Loading automation...",
       "placeholder": {
@@ -2409,6 +2423,8 @@
         "disableFailed": "Disable failed",
         "cancelFailed": "Cancel failed",
         "continueInTerminalFailed": "Failed to continue in terminal",
+        "continueInChatFailed": "Failed to continue in chat",
+        "openSurfaceFailed": "Failed to open the run",
         "saveMemoryFailed": "Failed to save memory"
       },
       "toasts": {
@@ -2425,7 +2441,8 @@
         "openingStandaloneChat": "Opening standalone chat",
         "promptCopied": "Continuation prompt copied to clipboard.",
         "clipboardUnavailable": "Clipboard unavailable. Prompt saved at {promptPath}",
-        "openingTerminal": "Opening terminal"
+        "openingTerminal": "Opening terminal",
+        "openingChat": "Opening chat"
       }
     },
     "githubTriggerSetup": {
@@ -2483,7 +2500,11 @@
       "title": "Run detail",
       "actions": {
         "cancel": "Cancel",
-        "continue": "Continue"
+        "continue": "Continue",
+        "continueInTerminal": "Continue in terminal",
+        "continueInChat": "Continue in chat",
+        "openTerminal": "Open terminal",
+        "openChat": "Open chat"
       },
       "inline": {
         "exitCode": "Exit {code}"
@@ -2573,6 +2594,17 @@
         "update": "Save"
       }
     },
+    "sidebar": {
+      "standaloneGroup": "Automations Standalone"
+    },
+    "chip": {
+      "label": "Automation"
+    },
+    "stalePrompt": {
+      "title": "{name} has been running for more than 1 hour",
+      "body": "Open the live terminal or chat tab to steer the agent. Dismissing this prompt does not change the run status.",
+      "dismiss": "Dismiss"
+    },
     "schedule": {
       "triggerOptions": {
         "manual": {
@@ -2641,13 +2673,11 @@
       "unknownError": "Unknown error"
     },
     "memory": {
-      "fileHint": "memory.md",
+      "expand": "Expand",
+      "collapse": "Collapse",
       "save": "Save",
       "saving": "Saving",
-      "saved": "Saved",
-      "editor": "Editor",
-      "preview": "Preview",
-      "emptyPreview": "Nothing to preview yet."
+      "saved": "Saved"
     }
   },
   "project": {
@@ -2927,6 +2957,10 @@
         "fastMode": "Fast Tier",
         "fastChip": "Fast",
         "context": "Context",
+        "favorites": "Favorites",
+        "addFavorite": "Add favorite",
+        "removeFavorite": "Remove favorite",
+        "noFavorites": "No favorites yet",
         "queue": "Queue",
         "steer": "Steer",
         "oneShotQueue": "Queue this once",
@@ -3143,6 +3177,17 @@
         "runningCount": "{count} running",
         "emptyOutput": "No output yet",
         "commandAria": "Show background command output"
+      },
+      "subagentTasks": {
+        "title": "Subagent Tasks",
+        "runningCount": "{count} running",
+        "progressCount": "{completed}/{total} completed",
+        "allDone": "All done",
+        "rowAria": "Show {label}",
+        "collapseAria": "Collapse subagent tasks",
+        "expandAria": "Expand subagent tasks",
+        "panelAria": "Subagent tasks",
+        "fallbackType": "Subagent"
       },
       "authDialog": {
         "title": "Agent authentication required",
@@ -4323,7 +4368,7 @@
         },
         "viewRunLogs": {
           "label": "View Run Logs",
-          "description": "Attach the latest Atmos Run log path for the agent"
+          "description": "Attach the last started Run log. If it is the wrong tab, name the correct one or the agent will ask."
         },
         "devicePreview": {
           "label": "Simulator Device Use",
@@ -10252,7 +10297,7 @@
       },
       "viewRunLogsCommand": {
         "label": "View Run Logs",
-        "description": "Attach the latest Atmos Run log path for the agent"
+        "description": "Attach the last started Run log. If it is the wrong tab, name the correct one or the agent will ask."
       },
       "devicePreviewCommand": {
         "label": "Simulator Device Use",

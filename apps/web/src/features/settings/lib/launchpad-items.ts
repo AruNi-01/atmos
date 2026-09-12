@@ -37,6 +37,7 @@ export const LAUNCHPAD_ITEM_IDS: LaunchpadItemId[] = [
 
 export const LAUNCHPAD_DROP_INSIDE = 'launchpad-drop-inside';
 export const LAUNCHPAD_DROP_OUTSIDE = 'launchpad-drop-outside';
+export const LAUNCHPAD_DROP_HIDE = 'launchpad-drop-hide';
 
 const LAUNCHPAD_ITEM_ID_SET = new Set<string>(LAUNCHPAD_ITEM_IDS);
 
@@ -144,6 +145,10 @@ export function reindexLaunchpadOrders(items: LaunchpadItems): LaunchpadItems {
   return next;
 }
 
+export function isLaunchpadHideTarget(overId: string | null | undefined): boolean {
+  return overId === LAUNCHPAD_DROP_HIDE;
+}
+
 function dropPlacementFromOverId(overId: string): LaunchpadPlacement | null {
   if (overId === LAUNCHPAD_DROP_INSIDE) return 'inside';
   if (overId === LAUNCHPAD_DROP_OUTSIDE) return 'outside';
@@ -169,6 +174,20 @@ function moveIndex<T>(list: T[], from: number, to: number): T[] {
   const [item] = next.splice(from, 1);
   next.splice(to, 0, item);
   return next;
+}
+
+/** Disable an enabled Launchpad item so it leaves the sidebar. Returns null when the drop is a no-op. */
+export function applyLaunchpadHide(
+  items: LaunchpadItems,
+  activeId: string,
+): LaunchpadItems | null {
+  if (!isLaunchpadItemId(activeId)) return null;
+  const active = items[activeId];
+  if (!active.enabled) return null;
+  return reindexLaunchpadOrders({
+    ...items,
+    [activeId]: { ...active, enabled: false },
+  });
 }
 
 /** Reorder or move an enabled Launchpad item. Returns null when the drop is a no-op. */

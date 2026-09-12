@@ -75,6 +75,7 @@ import {
   WorkspacePrioritySelect,
   WorkspaceStatusSelect,
 } from '@/app-shell/sidebar/workspace-metadata-controls';
+import { shouldShowOverviewGitWidgets } from '@/features/automations/lib/automation-run-landing';
 
 type OverviewPullRequest = {
   number: number;
@@ -241,6 +242,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 }) => {
   const locale = useLocale();
   const t = useTranslations('Workspace.components.overviewTab');
+  const hideGitChrome = !shouldShowOverviewGitWidgets(contextId);
   const relativeTimeLocale = locale.startsWith('zh') ? zhCN : enUS;
   const openFile = useEditorStore(s => s.openFile);
   const fileOpenContextId = editorContextId || contextId;
@@ -268,7 +270,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     saveNote,
   } = useWorkspaceContext(contextId);
 
-  const statusQuery = useGitStatusQuery(projectPath ?? null);
+  const statusQuery = useGitStatusQuery(hideGitChrome ? null : (projectPath ?? null));
   const githubOwner = statusQuery.data?.github_owner ?? null;
   const githubRepo = statusQuery.data?.github_repo ?? null;
   const currentBranch = statusQuery.data?.current_branch ?? null;
@@ -278,13 +280,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     owner: githubOwner || '',
     repo: githubRepo || '',
     branch: effectiveGitBranch,
-    enabled: active,
+    enabled: active && !hideGitChrome,
   });
   const { data: actionRuns, loading: actionsLoading, refresh: refreshActions } = useGithubActionsList({
     owner: githubOwner || '',
     repo: githubRepo || '',
     branch: effectiveGitBranch,
-    enabled: active,
+    enabled: active && !hideGitChrome,
   });
   const { latestRuns, stats } = useProcessedActions(actionRuns);
 
@@ -301,7 +303,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const [activeDragTask, setActiveDragTask] = useState<{ index: number; content: string; status: TaskStatus } | null>(null);
 
   const loadReviews = useCallback(async () => {
-    if (!projectPath || !contextId) return;
+    if (hideGitChrome || !projectPath || !contextId) return;
     const reviewPath = `${projectPath}/.atmos/reviews/${contextId}`;
     setReviewsLoading(true);
     try {
@@ -320,7 +322,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     } finally {
       setReviewsLoading(false);
     }
-  }, [projectPath, contextId]);
+  }, [hideGitChrome, projectPath, contextId]);
 
   const requirementPreview = useMemo(() => {
     if (!requirement) return null;
@@ -372,10 +374,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       loadTasks(effectivePath);
       loadNote(effectivePath);
     }
-    if (projectPath) {
+    if (projectPath && !hideGitChrome) {
       loadReviews();
     }
-  }, [effectivePath, projectPath, loadRequirement, loadTasks, loadNote, loadReviews]);
+  }, [effectivePath, hideGitChrome, projectPath, loadRequirement, loadTasks, loadNote, loadReviews]);
 
   const handleRefresh = useCallback(async () => {
     if (!effectivePath) return;
@@ -385,14 +387,14 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         loadRequirement(effectivePath),
         loadTasks(effectivePath),
         loadNote(effectivePath),
-        loadReviews(),
-        refreshPRs?.(),
-        refreshActions?.(),
+        ...(hideGitChrome
+          ? []
+          : [loadReviews(), refreshPRs?.(), refreshActions?.()]),
       ]);
     } finally {
       setIsRefreshing(false);
     }
-  }, [effectivePath, loadRequirement, loadTasks, loadNote, loadReviews, refreshPRs, refreshActions]);
+  }, [effectivePath, hideGitChrome, loadRequirement, loadTasks, loadNote, loadReviews, refreshPRs, refreshActions]);
 
   const handleStartRequirementEdit = useCallback(() => {
     if (!effectivePath) return;
@@ -512,10 +514,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <div className="flex flex-col">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="inline-flex items-center gap-3 text-[11px] text-muted-foreground min-w-0">
+                  {hideGitChrome ? null : (
                   <div className="inline-flex items-center gap-1.5 min-w-0 shrink-0">
                     <GitBranch className="size-3.5" />
                     <span className="font-medium">{effectiveGitBranch}</span>
                   </div>
+                  )}
                   <TooltipProvider delayDuration={300}>
                     <Tooltip>
                       <TooltipTrigger className="inline-flex items-center gap-1.5 min-w-0">
@@ -633,7 +637,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 </div>
               )}
 
-              {githubIssue && (
+              {!hideGitChrome && githubIssue && (
                 <div
                   onClick={() => window.open(githubIssue.url, '_blank', 'noopener,noreferrer')}
                   className="rounded-md border border-border bg-muted/20 p-3 hover:bg-muted/40 cursor-pointer"
@@ -667,6 +671,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 </div>
               )}
 
+              {hideGitChrome ? null : (
               <div className="space-y-2">
                 <h3 className="text-[11px] font-medium text-muted-foreground/70">{t('codeReviews.title')}</h3>
                 <div className="grid gap-2">
@@ -711,7 +716,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   )}
                 </div>
               </div>
+              )}
 
+              {hideGitChrome ? null : (
               <div className="space-y-2.5 pt-1">
                 <h3 className="text-[11px] font-medium text-muted-foreground/70">{t('pullRequests.title')}</h3>
                 <div className="grid gap-2">
@@ -798,7 +805,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   )}
                 </div>
               </div>
+              )}
 
+              {hideGitChrome ? null : (
               <div className="space-y-2.5 pt-1">
                 <div className="flex items-center justify-between pr-1">
                   <h3 className="text-[11px] font-medium text-muted-foreground/70">{t('actionsSection.title')}</h3>
@@ -879,6 +888,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   </div>
                 )}
               </div>
+              )}
 
             </CardContent>
           </Card>

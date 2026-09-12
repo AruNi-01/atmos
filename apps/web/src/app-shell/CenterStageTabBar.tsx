@@ -66,6 +66,8 @@ import {
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import type { CenterToolTabValue } from "@/app-shell/center-tool-tabs";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { AutomationTabMark } from "@/features/automations/components/AutomationTabMark";
+import { isStandaloneAutomationScope } from "@/features/automations/lib/automation-run-landing";
 import { SimulatorTabIcon } from "@/features/simulator/components/SimulatorTabIcon";
 import {
   EMPTY_AGENT_CHAT_TABS,
@@ -111,8 +113,11 @@ import { chatAttentionLookupIds } from "@/features/agent/lib/agent-status-ack";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import { useTerminalCenterTabPresentation } from "@/features/terminal/hooks/use-terminal-center-tab-presentation";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
-import { stableAgentPaneId } from "@/features/terminal/store/terminal-store-helpers";
-import { useShallow } from "zustand/react/shallow";
+import {
+  EMPTY_TERMINAL_TAB_PANES,
+  getScopeKey,
+  stableAgentPaneId,
+} from "@/features/terminal/store/terminal-store-helpers";
 import type { CenterTabContextMenuState, CenterTabDescriptor } from "@/app-shell/center-stage-tab-model";
 import {
   getCenterStripShortcutDigitForTab,
@@ -299,6 +304,7 @@ export function CenterStageTabBar({
         : agentChatTabs,
     [agentChatTabs, allowedTabIds],
   );
+  const hideGitChrome = isStandaloneAutomationScope(effectiveContextId);
   const newBrowserLabel = t("centerStageTabBar.newBrowser");
   const newTabMenuLabel = t("centerStageTabBar.newTabMenu");
   // Per-instance so split panes do not share one open popover.
@@ -827,6 +833,7 @@ export function CenterStageTabBar({
         <AgentChatCenterTab
           key={tab.id}
           chatId={chatId}
+          contextId={effectiveContextId}
           closeLabel={t("centerStageTabBar.closeTab", { tab: tab.label })}
           icon={
             providerId ? (
@@ -954,6 +961,7 @@ export function CenterStageTabBar({
             newSpaceConfirmLabel={t("centerStageTabBar.newSpaceConfirm")}
             newSpaceCancelLabel={t("centerStageTabBar.newSpaceCancel")}
             showPaneFullscreenButton={isMultiPane}
+            hideGitChrome={hideGitChrome}
           />
         </CenterStageStickyTabActions>
       }
@@ -1177,17 +1185,29 @@ function TerminalExtraTab({
   const tabLabel = displayTitle || toolbarAgent?.label || tab.title;
   const closeAriaLabel = t("centerStageTabBar.closeTab", { tab: tabLabel });
 
-  const stablePaneIds = useTerminalStore(
-    useShallow((s) => {
-      const panes = s.getPanes(effectiveContextId, tab.id);
-      return Object.values(panes)
+  const panesRecord = useTerminalStore(
+    (s) =>
+      s.workspacePanes[getScopeKey(effectiveContextId, tab.id)] ??
+      EMPTY_TERMINAL_TAB_PANES,
+  );
+  const markPanes = React.useMemo(
+    () =>
+      Object.values(panesRecord).map((pane) => ({
+        sessionId: pane.sessionId,
+        tmuxWindowName: pane.tmuxWindowName ?? null,
+      })),
+    [panesRecord],
+  );
+  const stablePaneIds = React.useMemo(
+    () =>
+      Object.values(panesRecord)
         .map((pane) =>
           pane.tmuxWindowName
             ? stableAgentPaneId(effectiveContextId, pane.tmuxWindowName)
             : null,
         )
-        .filter((id): id is string => Boolean(id));
-    }),
+        .filter((id): id is string => Boolean(id)),
+    [effectiveContextId, panesRecord],
   );
   const attentionReason = useAgentAttentionStore((s) => {
     let best: "permission_request" | "task_complete" | null = null;
@@ -1230,6 +1250,9 @@ function TerminalExtraTab({
               {displayTitle}
             </span>
           ) : null}
+          <AutomationTabMark
+            surface={{ kind: "terminal", panes: markPanes }}
+          />
           <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.id} />
           <CenterTabHeldShortcut digit={shortcutDigit} />
         </CenterStageTab>
@@ -1414,6 +1437,7 @@ function CenterStageNewTabMenu({
   plusMenuTabsLabel,
   plusMenuLayoutLabel,
   showPaneFullscreenButton,
+  hideGitChrome = false,
 }: {
   browserLabel: string;
   changesLabel: string;
@@ -1467,6 +1491,7 @@ function CenterStageNewTabMenu({
   plusMenuTabsLabel: string;
   plusMenuLayoutLabel: string;
   showPaneFullscreenButton?: boolean;
+  hideGitChrome?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const [plusTab, setPlusTab] = React.useState<"tabs" | "layout">("tabs");
@@ -1768,6 +1793,7 @@ function CenterStageNewTabMenu({
             <FolderTree className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{filesLabel}</span>
           </button>
+          {hideGitChrome ? null : (
           <button
             type="button"
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
@@ -1779,6 +1805,8 @@ function CenterStageNewTabMenu({
             <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{changesLabel}</span>
           </button>
+          )}
+          {hideGitChrome ? null : (
           <button
             type="button"
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
@@ -1790,6 +1818,7 @@ function CenterStageNewTabMenu({
             <FileDiff className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{reviewLabel}</span>
           </button>
+          )}
           <button
             type="button"
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
@@ -1801,6 +1830,7 @@ function CenterStageNewTabMenu({
             <Play className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{runLabel}</span>
           </button>
+          {hideGitChrome ? null : (
           <button
             type="button"
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
@@ -1812,6 +1842,7 @@ function CenterStageNewTabMenu({
             <Github className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{githubLabel}</span>
           </button>
+          )}
           <button
             type="button"
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
@@ -2093,9 +2124,11 @@ function CenterStageNewTabMenu({
 
 function AgentChatCenterTab({
   chatId,
+  contextId,
   ...props
 }: {
   chatId?: string;
+  contextId: string;
 } & React.ComponentProps<typeof SpecialTerminalTab>) {
   const attentionReason = useAgentAttentionStore((s) => {
     let best: "permission_request" | "task_complete" | null = null;
@@ -2107,7 +2140,18 @@ function AgentChatCenterTab({
     }
     return best;
   });
-  return <SpecialTerminalTab {...props} className={attentionTabClass(attentionReason)} />;
+  return (
+    <SpecialTerminalTab
+      {...props}
+      contextId={contextId}
+      className={attentionTabClass(attentionReason)}
+      mark={
+        chatId ? (
+          <AutomationTabMark surface={{ kind: "chat", chatId }} />
+        ) : null
+      }
+    />
+  );
 }
 
 function SpecialTerminalTab({
@@ -2119,11 +2163,13 @@ function SpecialTerminalTab({
   tooltipKind,
   value,
   trailing,
+  mark,
   className,
   onClose,
   onContextMenu,
 }: {
   closeLabel: string;
+  contextId?: string;
   icon: React.ReactNode;
   label: string;
   shortcutDigit?: number | null;
@@ -2131,6 +2177,7 @@ function SpecialTerminalTab({
   tooltipKind?: string;
   value: string;
   trailing?: React.ReactNode;
+  mark?: React.ReactNode;
   className?: string;
   onClose: () => void;
   onContextMenu?: (event: React.MouseEvent) => void;
@@ -2149,6 +2196,7 @@ function SpecialTerminalTab({
             {icon}
           </CenterStageTabIconSlot>
           <span className="max-w-[180px] truncate whitespace-nowrap">{label}</span>
+          {mark}
           {trailing}
           <CenterTabHeldShortcut digit={shortcutDigit} />
         </CenterStageTab>

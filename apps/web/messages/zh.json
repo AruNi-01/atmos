@@ -1732,6 +1732,7 @@
       },
       "launchpad": {
         "title": "Launchpad",
+        "hideDrop": "移动到这里关闭此功能",
         "items": {
           "workspaces": "工作区",
           "skills": "技能",
@@ -2121,11 +2122,23 @@
         "create": "填写名称、环境和触发器，然后写下指令。",
         "edit": "更新这个自动化的配置、指令或记忆。"
       },
+      "executeAgent": {
+        "label": "执行 Agent",
+        "headless": "无界面启动",
+        "terminal": "终端 Agent",
+        "chat": "Agent 对话"
+      },
+      "tryRun": "试运行",
+      "picker": {
+        "loading": "正在加载 Agent",
+        "empty": "暂无可用 Agent",
+        "ready": "可用于非交互运行"
+      },
       "instructions": {
         "label": "指令"
       },
       "memory": {
-        "label": "Memories",
+        "label": "记忆",
         "description": "这个任务的持久记忆。每次运行都会把本地记忆文件路径告诉 Agent，让它可以读取，并在结束后自行追加或改写。"
       },
       "agentOptions": {
@@ -2164,7 +2177,8 @@
       "errors": {
         "githubFiltersRequired": "至少配置一个 GitHub 过滤条件。",
         "invalidSchedule": "计划无效。",
-        "saveFailed": "保存自动化失败。"
+        "saveFailed": "保存自动化失败。",
+        "tryRunFailed": "试运行启动失败。"
       },
       "loading": "正在加载自动化...",
       "placeholder": {
@@ -2409,6 +2423,8 @@
         "disableFailed": "停用失败",
         "cancelFailed": "取消失败",
         "continueInTerminalFailed": "在终端中继续失败",
+        "continueInChatFailed": "在聊天中继续失败",
+        "openSurfaceFailed": "打开运行失败",
         "saveMemoryFailed": "保存记忆失败"
       },
       "toasts": {
@@ -2425,7 +2441,8 @@
         "openingStandaloneChat": "正在打开独立聊天",
         "promptCopied": "续写提示词已复制到剪贴板。",
         "clipboardUnavailable": "无法使用剪贴板。提示词已保存到 {promptPath}",
-        "openingTerminal": "正在打开终端"
+        "openingTerminal": "正在打开终端",
+        "openingChat": "正在打开聊天"
       }
     },
     "githubTriggerSetup": {
@@ -2483,7 +2500,11 @@
       "title": "运行详情",
       "actions": {
         "cancel": "取消",
-        "continue": "继续"
+        "continue": "继续",
+        "continueInTerminal": "在终端中继续",
+        "continueInChat": "在聊天中继续",
+        "openTerminal": "打开终端",
+        "openChat": "打开聊天"
       },
       "inline": {
         "exitCode": "退出码 {code}"
@@ -2524,10 +2545,10 @@
       "title": "自动化历史",
       "tabs": {
         "runs": "运行",
-        "memory": "Memories"
+        "memory": "记忆"
       },
       "memory": {
-        "title": "Memories",
+        "title": "记忆",
         "description": "这份文件保存在本机。每次运行时 Agent 都可以读取并编辑它。"
       },
       "badges": {
@@ -2572,6 +2593,17 @@
         "create": "创建",
         "update": "保存"
       }
+    },
+    "sidebar": {
+      "standaloneGroup": "独立自动化"
+    },
+    "chip": {
+      "label": "自动化"
+    },
+    "stalePrompt": {
+      "title": "{name} 已运行超过 1 小时",
+      "body": "请自行打开正在运行的终端或对话标签页来引导 Agent。关闭这条提示不会改变运行状态。",
+      "dismiss": "关闭"
     },
     "schedule": {
       "triggerOptions": {
@@ -2641,13 +2673,11 @@
       "unknownError": "未知错误"
     },
     "memory": {
-      "fileHint": "memory.md",
+      "expand": "放大",
+      "collapse": "缩小",
       "save": "保存",
       "saving": "保存中",
-      "saved": "已保存",
-      "editor": "编辑",
-      "preview": "预览",
-      "emptyPreview": "还没有可预览的内容。"
+      "saved": "已保存"
     }
   },
   "project": {
@@ -2927,6 +2957,10 @@
         "fastMode": "快速档位",
         "fastChip": "快速",
         "context": "上下文",
+        "favorites": "收藏",
+        "addFavorite": "加入收藏",
+        "removeFavorite": "取消收藏",
+        "noFavorites": "还没有收藏",
         "queue": "排队",
         "steer": "引导",
         "oneShotQueue": "这次排队",
@@ -3143,6 +3177,17 @@
         "runningCount": "{count} 个运行中",
         "emptyOutput": "暂无输出",
         "commandAria": "查看后台命令输出"
+      },
+      "subagentTasks": {
+        "title": "子代理任务",
+        "runningCount": "{count} 个运行中",
+        "progressCount": "已完成 {completed}/{total}",
+        "allDone": "全部完成",
+        "rowAria": "查看 {label}",
+        "collapseAria": "折叠子代理任务",
+        "expandAria": "展开子代理任务",
+        "panelAria": "子代理任务",
+        "fallbackType": "子代理"
       },
       "authDialog": {
         "title": "需要 Agent 认证",
@@ -4323,7 +4368,7 @@
         },
         "viewRunLogs": {
           "label": "View Run Logs",
-          "description": "将最新的 Atmos Run 日志路径附加给 Agent"
+          "description": "附加最近一次点 Run 的日志。如果 tab 不对，可以直接说明，或让 Agent 反问。"
         },
         "devicePreview": {
           "label": "Simulator Device Use",
@@ -10252,7 +10297,7 @@
       },
       "viewRunLogsCommand": {
         "label": "View Run Logs",
-        "description": "将最新的 Atmos Run 日志路径附加给 Agent"
+        "description": "附加最近一次点 Run 的日志。如果 tab 不对，可以直接说明，或让 Agent 反问。"
       },
       "devicePreviewCommand": {
         "label": "Simulator Device Use",

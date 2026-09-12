@@ -832,6 +832,35 @@ export function planCenterTabAttach(
   return { action: "reveal", paneId };
 }
 
+/**
+ * Put a tab on the focused pane strip without activating it.
+ * Used when a background run creates a Term / Chat tab: the user should see
+ * it appear, not be yanked off whatever they are looking at.
+ */
+export function offerTabOnFocusedPane(layout: CenterPaneLayout, tabId: string): CenterPaneLayout {
+  if (!tabId) return layout;
+  const focusedId = layout.focusedPaneId;
+  const focused = getPane(layout, focusedId);
+  if (!focused || isEmptyPane(focused)) return layout;
+  if (focused.tabIds.includes(tabId)) return layout;
+
+  const shareable = isShareableCenterTabId(tabId);
+  const ownedElsewhere = layout.panes.some(
+    (p) => p.id !== focusedId && p.tabIds.includes(tabId),
+  );
+  if (!shareable && ownedElsewhere) return layout;
+
+  const tabIds =
+    tabId === OVERVIEW_TAB_ID
+      ? addPinnedOverview(focused.tabIds)
+      : [...focused.tabIds, tabId];
+  const panes = layout.panes.map((p) =>
+    p.id === focusedId ? { ...p, tabIds } : p,
+  );
+  const next = withCanonicalTabStrip({ ...layout, panes });
+  return centerPaneLayoutsEqual(layout, next) ? layout : next;
+}
+
 /** Open or activate a tab on the focused pane without taking it off siblings. */
 export function openTabOnFocusedPane(layout: CenterPaneLayout, tabId: string): CenterPaneLayout {
   const focusedId = layout.focusedPaneId;

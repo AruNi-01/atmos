@@ -3,8 +3,10 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   emptyPaneGridItemCount,
+  emptyPaneLastItemSpansFullRow,
   planEmptyPaneLauncher,
 } from "@/app-shell/center-pane/center-pane-empty-layout";
+import { buildDefaultEmptyPaneActions } from "@/app-shell/center-pane/CenterPaneEmptyState";
 
 const emptyState = readFileSync(
   join(import.meta.dir, "../center-pane/CenterPaneEmptyState.tsx"),
@@ -93,11 +95,32 @@ describe("empty pane launcher layout", () => {
       "gridTemplateColumns: `repeat(${plan.columns}, minmax(0, 1fr))`",
     );
     expect(emptyState).not.toContain('"grid grid-cols-2 gap-2"');
-    expect(emptyState).not.toContain('gridColumn: "1 / -1"');
     expect(emptyState).toContain("data-center-pane-empty-columns={plan.columns}");
   });
 
-  it("uses rounded borders and puts close in the last-row gap when odd", () => {
+  it("spans the last tile across the row when the count is odd", () => {
+    expect(emptyPaneLastItemSpansFullRow(9, 2)).toBe(true);
+    expect(emptyPaneLastItemSpansFullRow(7, 2)).toBe(true);
+    expect(emptyPaneLastItemSpansFullRow(1, 2)).toBe(true);
+    expect(emptyPaneLastItemSpansFullRow(8, 2)).toBe(false);
+    expect(emptyPaneLastItemSpansFullRow(10, 2)).toBe(false);
+    expect(emptyPaneLastItemSpansFullRow(9, 1)).toBe(false);
+    expect(emptyPaneLastItemSpansFullRow(0, 2)).toBe(false);
+    expect(emptyPaneGridItemCount(9, false)).toBe(9);
+    expect(emptyPaneLastItemSpansFullRow(emptyPaneGridItemCount(9, false), 2)).toBe(
+      true,
+    );
+    expect(emptyPaneLastItemSpansFullRow(emptyPaneGridItemCount(9, true), 2)).toBe(
+      false,
+    );
+    expect(emptyPaneLastItemSpansFullRow(emptyPaneGridItemCount(6, true), 2)).toBe(
+      true,
+    );
+    expect(emptyState).toContain("emptyPaneLastItemSpansFullRow");
+    expect(emptyState).toContain("[&>*:last-child]:col-span-full");
+  });
+
+  it("uses rounded borders on compact tiles", () => {
     expect(emptyState).toContain("CENTER_STAGE_RADIUS_CLASS");
     expect(emptyState).toContain("border border-border");
     expect(emptyState).toContain("hover:bg-accent");
@@ -119,5 +142,40 @@ describe("empty pane launcher layout", () => {
     expect(emptyState.indexOf('id: "overview"')).toBeLessThan(
       emptyState.indexOf('id: "terminal"'),
     );
+  });
+
+  it("omits git widgets for standalone automation empty panes", () => {
+    const labels = {
+      terminal: "Terminal",
+      files: "Files",
+      changes: "Changes",
+      review: "Review",
+      run: "Run",
+      github: "GitHub",
+      simulator: "Simulator",
+    };
+    const noop = () => {};
+    const hidden = buildDefaultEmptyPaneActions({
+      labels,
+      modKey: "⌘",
+      hideGitChrome: true,
+      onCreateTerminal: noop,
+      onCreateToolTab: noop,
+      onCreateSimulator: noop,
+    }).map((action) => action.id);
+    expect(hidden).not.toContain("changes");
+    expect(hidden).not.toContain("review");
+    expect(hidden).not.toContain("github");
+    expect(hidden).toContain("files");
+    expect(hidden).toContain("run");
+
+    const shown = buildDefaultEmptyPaneActions({
+      labels,
+      modKey: "⌘",
+      onCreateTerminal: noop,
+      onCreateToolTab: noop,
+      onCreateSimulator: noop,
+    }).map((action) => action.id);
+    expect(shown).toEqual(expect.arrayContaining(["changes", "review", "github"]));
   });
 });

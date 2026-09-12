@@ -139,7 +139,7 @@ export function useAutomationSetupLeaveGuard({
   }, [setupSnapshot]);
 
   const handleSaveAndLeave = React.useCallback(
-    async (save: () => Promise<boolean>) => {
+    async (save: () => Promise<unknown>) => {
       const pending = pendingLeaveRef.current;
       const saved = await save();
       if (!saved) {

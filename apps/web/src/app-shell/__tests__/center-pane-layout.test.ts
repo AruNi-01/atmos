@@ -14,6 +14,7 @@ import {
   MAX_CENTER_PANES,
   normalizeCenterPaneLayout,
   openTabOnFocusedPane,
+  offerTabOnFocusedPane,
   OVERVIEW_TAB_ID,
   reconcileOpenTabs,
   removeTabFromLayout,
@@ -123,6 +124,16 @@ describe("center-pane-layout", () => {
     expect(getPane(opened, layout.focusedPaneId)!.tabIds).toContain("files");
     expect(getPane(opened, layout.focusedPaneId)!.activeTabId).toBe("files");
     expect(getPane(opened, DEFAULT_PANE_ID)!.tabIds).toContain("files");
+  });
+
+  it("offers a tab onto the strip without activating it", () => {
+    const layout = createDefaultLayout(["files"], "files");
+    const offered = offerTabOnFocusedPane(layout, "terminal");
+    expect(getPane(offered, DEFAULT_PANE_ID)!.tabIds).toEqual(["files", "terminal"]);
+    expect(getPane(offered, DEFAULT_PANE_ID)!.activeTabId).toBe("files");
+    expect(offerTabOnFocusedPane(createEmptyCenterLayout(), "terminal")).toEqual(
+      createEmptyCenterLayout(),
+    );
   });
 
   it("does not clone a live terminal session onto another pane", () => {

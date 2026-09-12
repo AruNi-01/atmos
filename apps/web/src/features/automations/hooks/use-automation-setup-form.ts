@@ -4,11 +4,20 @@ import * as React from "react";
 
 import type {
   AutomationAgentCapability,
+  AutomationChatAgentConfig,
   AutomationDetail,
+  AutomationExecuteMode,
   AutomationScheduleInput,
   AutomationSchedulePreviewResponse,
   AutomationTargetKind,
 } from "@/features/automations/types";
+import {
+  isChatAgentSelected,
+  resolveSetupAgentId,
+  shouldAutofillChatAgent,
+  shouldAutofillTerminalAgent,
+} from "@/features/automations/lib/automation-setup-agents";
+import { parseExecuteMode } from "@/features/automations/lib/automation-run-landing";
 import {
   parseRunConfigJson,
   type TerminalAgentRunConfigInput,
@@ -34,12 +43,13 @@ type UseAutomationSetupFormArgs = {
   initialAutomation: AutomationDetail | null;
   agents: AutomationAgentCapability[];
   projects: Project[];
+  chatProviderIds?: readonly string[];
+  chatCatalogReady?: boolean;
   schedulePreview: (
     schedule: AutomationScheduleInput,
     timezone: string,
     count?: number,
   ) => Promise<AutomationSchedulePreviewResponse>;
-  clearAttachments: () => void;
 };
 
 export function useAutomationSetupForm({
@@ -47,15 +57,38 @@ export function useAutomationSetupForm({
   initialAutomation,
   agents,
   projects,
+  chatProviderIds = [],
+  chatCatalogReady = false,
   schedulePreview,
-  clearAttachments,
 }: UseAutomationSetupFormArgs) {
   const previewRequestIdRef = React.useRef(0);
   const [timezone, setTimezone] = React.useState(resolveTimezone);
   const [displayName, setDisplayName] = React.useState("");
   const [instructions, setInstructions] = React.useState("");
   const [memory, setMemory] = React.useState("");
-  const [agentId, setAgentId] = React.useState("");
+  const [terminalAgentId, setTerminalAgentId] = React.useState("");
+  const [chatAgentId, setChatAgentId] = React.useState("");
+  const [chatModel, setChatModel] = React.useState("");
+  const [chatThinking, setChatThinking] = React.useState("");
+  const [chatFast, setChatFast] = React.useState("");
+  const [chatContext, setChatContext] = React.useState("");
+  const [executeMode, setExecuteMode] =
+    React.useState<AutomationExecuteMode>("headless");
+  const agentId = resolveSetupAgentId({
+    executeMode,
+    terminalAgentId,
+    chatAgentId,
+  });
+  const setAgentId = React.useCallback(
+    (nextAgentId: string) => {
+      if (executeMode === "chat") {
+        setChatAgentId(nextAgentId);
+        return;
+      }
+      setTerminalAgentId(nextAgentId);
+    },
+    [executeMode],
+  );
   const [targetKind, setTargetKind] =
     React.useState<AutomationTargetKind>("standalone");
   const [projectGuid, setProjectGuid] = React.useState("");
@@ -104,11 +137,25 @@ export function useAutomationSetupForm({
 
   React.useEffect(() => {
     if (mode === "edit" && initialAutomation) {
-      clearAttachments();
       setDisplayName(initialAutomation.display_name);
       setInstructions(initialAutomation.instructions);
       setMemory(initialAutomation.memory ?? "");
-      setAgentId(initialAutomation.agent_id);
+      const nextMode = parseExecuteMode(initialAutomation.execute_mode);
+      const nextChatConfig = parseChatAgentConfig(
+        initialAutomation.agent_config_json,
+      );
+      setExecuteMode(nextMode);
+      if (nextMode === "chat") {
+        setChatAgentId(
+          nextChatConfig?.provider_id || initialAutomation.agent_id,
+        );
+        setChatModel(nextChatConfig?.model?.trim() || "");
+        setChatThinking(nextChatConfig?.thinking?.trim() || "");
+        setChatFast(nextChatConfig?.fast?.trim() || "");
+        setChatContext(nextChatConfig?.context?.trim() || "");
+      } else {
+        setTerminalAgentId(initialAutomation.agent_id);
+      }
       setTargetKind(initialAutomation.target_kind);
       setProjectGuid(initialAutomation.project_guid ?? "");
       setWorkspaceGuid(initialAutomation.workspace_guid ?? "");
@@ -133,13 +180,31 @@ export function useAutomationSetupForm({
     } else if (mode === "create") {
       setReady(true);
     }
-  }, [clearAttachments, initialAutomation, mode]);
+  }, [initialAutomation, mode]);
 
   React.useEffect(() => {
-    if (!agentId && supportedAgents.length > 0) {
-      setAgentId(supportedAgents[0]?.agent_id ?? "");
+    if (
+      shouldAutofillTerminalAgent({
+        executeMode,
+        terminalAgentId,
+        hasSupportedTerminalAgents: supportedAgents.length > 0,
+      })
+    ) {
+      setTerminalAgentId(supportedAgents[0]?.agent_id ?? "");
     }
-  }, [agentId, supportedAgents]);
+  }, [executeMode, supportedAgents, terminalAgentId]);
+
+  React.useEffect(() => {
+    if (
+      shouldAutofillChatAgent({
+        executeMode,
+        chatAgentId,
+        hasChatAgents: chatProviderIds.length > 0,
+      })
+    ) {
+      setChatAgentId(chatProviderIds[0] ?? "");
+    }
+  }, [chatAgentId, chatProviderIds, executeMode]);
 
   React.useEffect(() => {
     if (
@@ -245,7 +310,13 @@ export function useAutomationSetupForm({
   const formValid =
     displayName.trim().length > 0 &&
     instructions.trim().length > 0 &&
-    !!selectedAgent?.automation_supported &&
+    (executeMode === "chat"
+      ? isChatAgentSelected({
+          chatAgentId,
+          chatProviderIds,
+          catalogReady: chatCatalogReady,
+        })
+      : agentId.trim().length > 0 && !!selectedAgent?.automation_supported) &&
     targetValid &&
     triggerValid;
   const requestSchedule =
@@ -290,6 +361,11 @@ export function useAutomationSetupForm({
     instructions,
     memory,
     agentId,
+    chatModel,
+    chatThinking,
+    chatFast,
+    chatContext,
+    executeMode,
     targetKind,
     projectGuid,
     workspaceGuid,
@@ -325,6 +401,11 @@ export function useAutomationSetupForm({
     clearSubmitError,
     setDisplayName,
     setAgentId,
+    setChatModel,
+    setChatThinking,
+    setChatFast,
+    setChatContext,
+    setExecuteMode,
     setTargetKind,
     setProjectGuid,
     setWorkspaceGuid,
@@ -384,6 +465,28 @@ function formatTriggerControlLabel({
         ? `cron ${cronExpr.trim()} ${timezone}`
         : `cron schedule ${timezone}`;
   }
+}
+
+function parseChatAgentConfig(raw: string | null | undefined): AutomationChatAgentConfig | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<AutomationChatAgentConfig>;
+    if (parsed.kind === "chat" && parsed.provider_id) {
+      return {
+        kind: "chat",
+        provider_id: parsed.provider_id,
+        model: parsed.model,
+        thinking: parsed.thinking,
+        mode: parsed.mode,
+        permission_mode: parsed.permission_mode,
+        fast: parsed.fast,
+        context: parsed.context,
+      };
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 function twoDigit(value: number) {

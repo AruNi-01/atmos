@@ -45,6 +45,8 @@ export function AutomationPageShell({
   onCancelRun,
   onFetchArtifact,
   onContinueInTerminal,
+  onContinueInChat,
+  onOpenRunSurface,
 }: {
   automations: AutomationSummary[];
   agents: AutomationAgentCapability[];
@@ -78,6 +80,8 @@ export function AutomationPageShell({
   onCancelRun: (run: AutomationRunSummary) => Promise<void>;
   onFetchArtifact: (run: AutomationRunSummary, kind: AutomationArtifactKind) => Promise<void>;
   onContinueInTerminal: (run: AutomationRunSummary) => Promise<void>;
+  onContinueInChat: (run: AutomationRunSummary) => Promise<void>;
+  onOpenRunSurface: (run: AutomationRunSummary) => Promise<void>;
 }) {
   const supportedAgentCount = agents.filter((agent) => agent.automation_supported).length;
   const newAutomationDisabled = loading || supportedAgentCount === 0;
@@ -124,6 +128,8 @@ export function AutomationPageShell({
         onCancelRun={onCancelRun}
         onFetchArtifact={onFetchArtifact}
         onContinueInTerminal={onContinueInTerminal}
+        onContinueInChat={onContinueInChat}
+        onOpenRunSurface={onOpenRunSurface}
       />
     </div>
   );

@@ -170,7 +170,9 @@ describe("close returns to the tab that opened the closed tab", () => {
       join(import.meta.dir, "../center-stage-activate.ts"),
       "utf8",
     );
-    expect(activate).toContain("recordCenterTabActivation(contextId, tab)");
-    expect(activate).toContain("attachCenterTab(contextId, tab");
+    expect(activate).toContain("recordCenterTabActivation(contextId, resolvedTab)");
+    expect(activate).toContain("ensureFixedTerminalTab");
+    expect(activate).toContain("ensureAutomationTerminalTab");
+    expect(activate).toContain("attachCenterTab(contextId, resolvedTab");
   });
 });

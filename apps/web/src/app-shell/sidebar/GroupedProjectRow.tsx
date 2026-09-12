@@ -3,12 +3,14 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocale, useTranslations } from "next-intl";
+import { Timer } from "lucide-react";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@workspace/ui";
 import { formatRelativeTime } from "@atmos/shared";
 import type { Group, Project } from "@/shared/types/domain";
 import { findGroupIdForMember } from "@/app-shell/sidebar/user-groups";
 import { ProjectAgentStatusMark } from "@/features/agent/components/WorkspaceAgentStatusMark";
+import { STANDALONE_GROUP_ID } from "@/features/automations/lib/standalone-sidebar";
 import { ProjectLogoMark } from "@/features/project/components/ProjectLogoMark";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
 import { SidebarHeldShortcutBadge } from "@/app-shell/HeldShortcutBadge";
@@ -141,6 +143,7 @@ export function GroupedProjectRow({
   const projectShortcutKey = `project:${project.id}`;
   const shortcutDigit = useSidebarShortcutDigit(projectShortcutKey);
   const { logoUrl, hasLogoLoadError, onLogoError } = useProjectLogoUrl(project.logoPath);
+  const isStandaloneGroup = project.id === STANDALONE_GROUP_ID;
   const initialLetter = project.name.charAt(0).toUpperCase();
   const lastActiveSource = getProjectRecencySource(project);
   const timeAgo = lastActiveSource ? formatRelativeTime(lastActiveSource, locale) : t("notSet");
@@ -277,7 +280,9 @@ export function GroupedProjectRow({
               borderLeft: project.borderColor ? `2px solid ${project.borderColor}` : undefined,
             }}
           >
-            {logoUrl && !hasLogoLoadError ? (
+            {isStandaloneGroup ? (
+              <Timer className="size-3" />
+            ) : logoUrl && !hasLogoLoadError ? (
               <ProjectLogoMark src={logoUrl} onError={onLogoError} />
             ) : (
               <span>{initialLetter}</span>

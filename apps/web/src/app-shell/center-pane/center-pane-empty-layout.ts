@@ -111,12 +111,23 @@ function gridRows(itemCount: number, columns: number): number {
   return Math.ceil(itemCount / columns);
 }
 
-/** Close is another grid tile, so an odd action count fills the last-row gap. */
+/** Close is another grid tile when the empty pane can be dismissed. */
 export function emptyPaneGridItemCount(
   actionCount: number,
   hasClose: boolean,
 ): number {
   return Math.max(0, actionCount) + (hasClose ? 1 : 0);
+}
+
+/**
+ * A leftover last-row cell looks like a hole. Span the last tile across the
+ * row when exactly one item would sit alone (odd count in a two-column grid).
+ */
+export function emptyPaneLastItemSpansFullRow(
+  itemCount: number,
+  columns: number,
+): boolean {
+  return columns > 1 && itemCount > 0 && itemCount % columns === 1;
 }
 
 /** At most two columns; one column when the pane is too narrow. */

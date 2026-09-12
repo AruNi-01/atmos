@@ -518,6 +518,9 @@ export function useCenterStageUiPrefs(): CenterStageUiPrefs {
 
 export function setCenterStageLastTab(contextId: string, tab: string): void {
   const instanceId = useConnectionStore.getState().activeInstanceId;
+  const prev = useUiPrefStore.getState().readSlice(instanceId, 'centerStage', DEFAULT_CENTER_STAGE)
+    .lastTabByContext?.[contextId];
+  if (prev === tab) return;
   useUiPrefStore.getState().patchSlice(
     instanceId,
     'centerStage',

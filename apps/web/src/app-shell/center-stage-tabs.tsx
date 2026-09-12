@@ -20,7 +20,6 @@ import {
   type DragEndEvent,
 } from "@workspace/ui";
 import { Inbox, List } from "lucide-react";
-import { useShallow } from "zustand/react/shallow";
 import { AgentAttentionIndicator } from "@/features/agent/components/AgentAttentionIndicator";
 import { AgentStatusIndicator } from "@/features/agent/components/AgentStatusIndicator";
 import {
@@ -39,7 +38,11 @@ import {
   TERMINAL_TAB_VALUE_PREFIX,
   useTerminalStore,
 } from "@/features/terminal/store/use-terminal-store";
-import { stableAgentPaneId } from "@/features/terminal/store/terminal-store-helpers";
+import {
+  EMPTY_TERMINAL_TAB_PANES,
+  getScopeKey,
+  stableAgentPaneId,
+} from "@/features/terminal/store/terminal-store-helpers";
 import { cn } from "@/shared/lib/utils";
 
 /** Cap each group column so long labels truncate instead of stretching the popover. */
@@ -192,13 +195,17 @@ function TerminalTabAgentIndicator({ stablePaneIds }: { stablePaneIds: string[] 
 
 // Outer component keeps terminal and agent store subscriptions in separate render scopes.
 export function TerminalTabAgentIndicatorWithPanes({ contextId, tabId }: { contextId: string; tabId: string }) {
-  const stablePaneIds = useTerminalStore(
-    useShallow((s) => {
-      const panes = s.getPanes(contextId, tabId);
-      return Object.values(panes)
-        .map((p) => (p.tmuxWindowName ? stableAgentPaneId(contextId, p.tmuxWindowName) : null))
-        .filter((id): id is string => id !== null);
-    })
+  const panesRecord = useTerminalStore(
+    (s) => s.workspacePanes[getScopeKey(contextId, tabId)] ?? EMPTY_TERMINAL_TAB_PANES,
+  );
+  const stablePaneIds = React.useMemo(
+    () =>
+      Object.values(panesRecord)
+        .map((p) =>
+          p.tmuxWindowName ? stableAgentPaneId(contextId, p.tmuxWindowName) : null,
+        )
+        .filter((id): id is string => id !== null),
+    [contextId, panesRecord],
   );
   return <TerminalTabAgentIndicator stablePaneIds={stablePaneIds} />;
 }

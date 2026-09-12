@@ -5,23 +5,35 @@ import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import {
   Button,
-  ScrollArea,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
   cn,
 } from "@workspace/ui";
 import {
-  Eye,
-  FileText,
   Loader2,
+  Maximize2,
+  Minimize2,
   Save,
 } from "lucide-react";
 
-import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 import { MarkdownToc } from "@/shared/components/markdown/MarkdownToc";
+import { automationMdLivePath } from "@/features/automations/lib/automation-md-live-path";
+import {
+  AUTOMATION_EDITOR_ZOOM_MS,
+} from "@/features/automations/lib/automation-editor-zoom";
+import {
+  useAutomationEditorExpand,
+} from "@/features/automations/components/automation-editor-expand";
+import {
+  getMdLiveEditor,
+  waitForMdLiveEditor,
+} from "@/features/md-live/lib/md-live-editor-registry";
 
-const CodeMirrorEditor = dynamic(
+const MarkdownLiveEditor = dynamic(
   () =>
-    import("@/features/editor/components/BaseCodeMirrorEditor").then(
-      (mod) => mod.BaseCodeMirrorEditor,
+    import("@/features/md-live/components/MarkdownLiveEditor").then(
+      (mod) => mod.MarkdownLiveEditor,
     ),
   {
     ssr: false,
@@ -37,8 +49,12 @@ export function AutomationMemoryEditor({
   value,
   onChange,
   path,
+  filePath,
   compact = false,
-  defaultPreview = true,
+  chrome = true,
+  expandable,
+  expandId,
+  placeholder,
   disabled = false,
   saving = false,
   saved = false,
@@ -48,8 +64,12 @@ export function AutomationMemoryEditor({
   value: string;
   onChange: (value: string) => void;
   path?: string | null;
+  filePath?: string;
   compact?: boolean;
-  defaultPreview?: boolean;
+  chrome?: boolean;
+  expandable?: boolean;
+  expandId?: string;
+  placeholder?: string;
   disabled?: boolean;
   saving?: boolean;
   saved?: boolean;
@@ -57,31 +77,103 @@ export function AutomationMemoryEditor({
   className?: string;
 }) {
   const t = useTranslations("automation.memory");
-  const [isPreview, setIsPreview] = React.useState(defaultPreview);
-  const previewRootId = compact
-    ? "automation-memory-preview-compact"
-    : "automation-memory-preview";
+  const editorPath = filePath ?? automationMdLivePath("memory", { diskPath: path });
+  const previewRootId = `automation-md-live-${editorPath.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+  const canExpand = expandable ?? compact;
+  const zoomId = expandId ?? editorPath;
+  const zoom = useAutomationEditorExpand(zoomId, canExpand);
+  const filling = zoom.expanded && !zoom.collapsing;
+  const showSaveChrome = Boolean(chrome && onSave && (saving || !saved));
+  const hadPresentedRef = React.useRef(false);
+
+  React.useLayoutEffect(() => {
+    if (!zoom.clip) return;
+    if (!zoom.expanded && !hadPresentedRef.current) return;
+    if (zoom.expanded) hadPresentedRef.current = true;
+    let cancelled = false;
+    const focus = () => {
+      if (cancelled) return;
+      const api = getMdLiveEditor(editorPath);
+      if (api) {
+        api.focus({ caret: "preserve" });
+        return;
+      }
+      void waitForMdLiveEditor(editorPath).then((next) => {
+        if (cancelled || !next) return;
+        next.focus({ caret: "preserve" });
+      });
+    };
+    const raf = window.requestAnimationFrame(focus);
+    const rest = window.setTimeout(focus, AUTOMATION_EDITOR_ZOOM_MS + 32);
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(raf);
+      window.clearTimeout(rest);
+    };
+  }, [editorPath, zoom.clip, zoom.collapsing, zoom.expanded]);
 
   return (
     <div
+      ref={zoom.placeholderRef}
       className={cn(
-        "flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-background",
-        compact ? "h-[240px]" : "h-full",
+        "relative",
+        compact ? "h-[280px]" : "h-full",
         className,
       )}
     >
-      <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border bg-muted/30 px-3">
-        <div className="min-w-0">
-          {path ? (
-            <p className="truncate font-mono text-[11px] text-muted-foreground" title={path}>
-              {path}
-            </p>
-          ) : (
-            <p className="truncate text-[11px] text-muted-foreground">{t("fileHint")}</p>
-          )}
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {onSave && (saving || !saved) ? (
+      {(!canExpand || zoom.clip)
+        ? zoom.render(
+      <div
+        ref={zoom.boxRef}
+        data-automation-editor-expanded={zoom.expanded ? "" : undefined}
+        className={cn(
+          "flex min-h-0 flex-col overflow-hidden bg-background border",
+          canExpand
+            ? cn(
+                "absolute",
+                zoom.expanded ? "z-50" : "z-30",
+                zoom.covered && "pointer-events-none invisible",
+              )
+            : "relative h-full",
+          filling
+            ? "rounded-[inherit] border-transparent shadow-none"
+            : "rounded-lg border-border",
+        )}
+        aria-hidden={zoom.covered || undefined}
+      >
+        {canExpand ? (
+          <div className="absolute right-1.5 top-1.5 z-20">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  aria-label={zoom.expanded ? t("collapse") : t("expand")}
+                  aria-expanded={zoom.expanded}
+                  onMouseDown={(event) => {
+                    if (event.button !== 0) return;
+                    event.preventDefault();
+                  }}
+                  onClick={zoom.toggle}
+                  disabled={disabled}
+                >
+                  {zoom.expanded ? (
+                    <Minimize2 className="size-3.5" />
+                  ) : (
+                    <Maximize2 className="size-3.5" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {zoom.expanded ? t("collapse") : t("expand")}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        ) : null}
+        {showSaveChrome ? (
+          <div className="flex h-9 shrink-0 items-center justify-end gap-1 border-b border-border bg-muted/30 px-3">
             <Button
               type="button"
               variant="ghost"
@@ -97,48 +189,40 @@ export function AutomationMemoryEditor({
               )}
               {saving ? t("saving") : t("save")}
             </Button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => setIsPreview((current) => !current)}
-            className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+          </div>
+        ) : null}
+        <div className="relative min-h-0 flex-1 overflow-hidden">
+          <div
+            id={previewRootId}
+            className={cn(
+              "h-full overflow-y-auto overscroll-contain",
+              canExpand && !zoom.expanded && "pr-8",
+            )}
           >
-            {isPreview ? <FileText className="size-3.5" /> : <Eye className="size-3.5" />}
-            {isPreview ? t("editor") : t("preview")}
-          </button>
+            <MarkdownLiveEditor
+              key={editorPath}
+              filePath={editorPath}
+              value={value}
+              onChange={(next) => {
+                if (!disabled) onChange(next);
+              }}
+              onSave={onSave}
+              placeholder={placeholder}
+              readOnly={disabled}
+              autoFocus={false}
+              embedded
+              className={zoom.expanded ? "md-live--page-column" : undefined}
+              enableAi={false}
+              enableMedia={false}
+            />
+          </div>
+          {!compact ? (
+            <MarkdownToc markdown={value} scrollContainerId={previewRootId} />
+          ) : null}
         </div>
-      </div>
-      <div className="relative min-h-0 flex-1 overflow-hidden">
-        {isPreview ? (
-          value.trim() ? (
-            <>
-              <ScrollArea className="h-full">
-                <div id={previewRootId} className={cn("px-6 py-5", compact && "px-4 py-3")}>
-                  <MarkdownRenderer>{value}</MarkdownRenderer>
-                </div>
-              </ScrollArea>
-              {!compact ? (
-                <MarkdownToc markdown={value} scrollContainerId={previewRootId} />
-              ) : null}
-            </>
-          ) : (
-            <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-              {t("emptyPreview")}
-            </div>
-          )
-        ) : (
-          <CodeMirrorEditor
-            language="markdown"
-            value={value}
-            onChange={(next) => {
-              if (!disabled) onChange(next);
-            }}
-            isReadOnly={disabled}
-            lineWrap
-            onSave={onSave}
-          />
-        )}
-      </div>
+      </div>,
+        )
+        : null}
     </div>
   );
 }

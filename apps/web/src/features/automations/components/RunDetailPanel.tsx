@@ -2,13 +2,23 @@
 
 import * as React from "react";
 import { useTranslations } from "next-intl";
-import { Button, Collapsible, CollapsibleContent, CollapsibleTrigger, cn } from "@workspace/ui";
+import {
+  Button,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  cn,
+} from "@workspace/ui";
 import {
   Tabs,
   TabsList,
   TabsTrigger,
 } from "@workspace/ui/components/motion/tabs";
-import { ChevronDown, FileText, LoaderCircle, Square, Terminal } from "lucide-react";
+import { ChevronDown, FileText, LoaderCircle, MessageSquare, Square, Terminal } from "lucide-react";
 
 import {
   ARTIFACT_OPTIONS,
@@ -21,6 +31,7 @@ import {
   formatShortId,
   parseGithubRunSource,
 } from "@/features/automations/lib/automation-format";
+import { runFollowUpKind } from "@/features/automations/lib/automation-run-landing";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 import type {
   AutomationAgentCapability,
@@ -39,6 +50,8 @@ export function RunDetailPanel({
   onCancelRun,
   onFetchArtifact,
   onContinueInTerminal,
+  onContinueInChat,
+  onOpenRunSurface,
   headerClassName,
 }: {
   run: AutomationRunSummary | null;
@@ -49,6 +62,8 @@ export function RunDetailPanel({
   onCancelRun: (run: AutomationRunSummary) => Promise<void>;
   onFetchArtifact: (run: AutomationRunSummary, kind: AutomationArtifactKind) => Promise<void>;
   onContinueInTerminal: (run: AutomationRunSummary) => Promise<void>;
+  onContinueInChat: (run: AutomationRunSummary) => Promise<void>;
+  onOpenRunSurface: (run: AutomationRunSummary) => Promise<void>;
   headerClassName?: string;
 }) {
   const t = useTranslations("automation.runDetailPanel");
@@ -125,35 +140,14 @@ export function RunDetailPanel({
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {run.status === "running" ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void onCancelRun(run)}
-                disabled={busyAction === `cancel:${run.guid}`}
-              >
-                {busyAction === `cancel:${run.guid}` ? (
-                  <LoaderCircle className="size-4 animate-spin" />
-                ) : (
-                  <Square className="size-4" />
-                )}
-                {t("actions.cancel")}
-              </Button>
-            ) : null}
-            {run.status !== "running" ? (
-              <Button
-                size="sm"
-                onClick={() => void onContinueInTerminal(run)}
-                disabled={busyAction === `continue:${run.guid}`}
-              >
-                {busyAction === `continue:${run.guid}` ? (
-                  <LoaderCircle className="size-4 animate-spin" />
-                ) : (
-                  <Terminal className="size-4" />
-                )}
-                {t("actions.continue")}
-              </Button>
-            ) : null}
+            <RunFollowUpActions
+              run={run}
+              busyAction={busyAction}
+              onCancelRun={onCancelRun}
+              onContinueInTerminal={onContinueInTerminal}
+              onContinueInChat={onContinueInChat}
+              onOpenRunSurface={onOpenRunSurface}
+            />
           </div>
         </div>
       </div>
@@ -336,6 +330,108 @@ function ArtifactContent({
         {formatted || (running ? t("artifact.waitingForOutput") : t("artifact.noContent"))}
       </MarkdownRenderer>
     </div>
+  );
+}
+
+function RunFollowUpActions({
+  run,
+  busyAction,
+  onCancelRun,
+  onContinueInTerminal,
+  onContinueInChat,
+  onOpenRunSurface,
+}: {
+  run: AutomationRunSummary;
+  busyAction: string | null;
+  onCancelRun: (run: AutomationRunSummary) => Promise<void>;
+  onContinueInTerminal: (run: AutomationRunSummary) => Promise<void>;
+  onContinueInChat: (run: AutomationRunSummary) => Promise<void>;
+  onOpenRunSurface: (run: AutomationRunSummary) => Promise<void>;
+}) {
+  const t = useTranslations("automation.runDetailPanel");
+  const followUp = runFollowUpKind(run);
+  const running = run.status === "running";
+  const cancelBusy = busyAction === `cancel:${run.guid}`;
+  const continueBusy =
+    busyAction === `continue-terminal:${run.guid}` ||
+    busyAction === `continue-chat:${run.guid}`;
+  const openBusy = busyAction === `open:${run.guid}`;
+
+  return (
+    <>
+      {running ? (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void onCancelRun(run)}
+          disabled={cancelBusy}
+        >
+          {cancelBusy ? (
+            <LoaderCircle className="size-4 animate-spin" />
+          ) : (
+            <Square className="size-4" />
+          )}
+          {t("actions.cancel")}
+        </Button>
+      ) : null}
+      {followUp === "continue-menu" && !running ? (
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" disabled={continueBusy}>
+              {continueBusy ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : null}
+              {t("actions.continue")}
+              <ChevronDown className="size-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="z-[90] w-52">
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => void onContinueInTerminal(run)}
+            >
+              <Terminal className="size-4" />
+              {t("actions.continueInTerminal")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => void onContinueInChat(run)}
+            >
+              <MessageSquare className="size-4" />
+              {t("actions.continueInChat")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
+      {followUp === "open-terminal" ? (
+        <Button
+          size="sm"
+          onClick={() => void onOpenRunSurface(run)}
+          disabled={openBusy}
+        >
+          {openBusy ? (
+            <LoaderCircle className="size-4 animate-spin" />
+          ) : (
+            <Terminal className="size-4" />
+          )}
+          {t("actions.openTerminal")}
+        </Button>
+      ) : null}
+      {followUp === "open-chat" ? (
+        <Button
+          size="sm"
+          onClick={() => void onOpenRunSurface(run)}
+          disabled={openBusy}
+        >
+          {openBusy ? (
+            <LoaderCircle className="size-4 animate-spin" />
+          ) : (
+            <MessageSquare className="size-4" />
+          )}
+          {t("actions.openChat")}
+        </Button>
+      ) : null}
+    </>
   );
 }
 

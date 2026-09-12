@@ -69,6 +69,8 @@ export function AutomationHistoryPage({
   onCancelRun,
   onFetchArtifact,
   onContinueInTerminal,
+  onContinueInChat,
+  onOpenRunSurface,
   onSaveMemory,
 }: {
   automation: AutomationSummary | null;
@@ -92,6 +94,8 @@ export function AutomationHistoryPage({
   onCancelRun: (run: AutomationRunSummary) => Promise<void>;
   onFetchArtifact: (run: AutomationRunSummary, kind: AutomationArtifactKind) => Promise<void>;
   onContinueInTerminal: (run: AutomationRunSummary) => Promise<void>;
+  onContinueInChat: (run: AutomationRunSummary) => Promise<void>;
+  onOpenRunSurface: (run: AutomationRunSummary) => Promise<void>;
   onSaveMemory: (automationGuid: string, memory: string) => Promise<void>;
 }) {
   const t = useTranslations("automation.historyPage");
@@ -257,6 +261,8 @@ export function AutomationHistoryPage({
                 onCancelRun={onCancelRun}
                 onFetchArtifact={onFetchArtifact}
                 onContinueInTerminal={onContinueInTerminal}
+                onContinueInChat={onContinueInChat}
+                onOpenRunSurface={onOpenRunSurface}
               />
             ) : (
               <div className="flex h-full min-h-0 items-center justify-center text-center">

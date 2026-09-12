@@ -333,8 +333,17 @@ export type ParsedContextHref = {
 export function parseWorkspaceContextHref(path: string): ParsedContextHref {
   const url = new URL(path, "http://atmos.local");
   const segment = url.pathname.replace(/\/+$/, "").split("/").filter(Boolean)[0] ?? "";
-  const view = segment === "workspace" || segment === "project" ? segment : null;
-  const contextId = view ? url.searchParams.get("id") : null;
+  const view =
+    segment === "workspace" || segment === "project" || segment === "automation"
+      ? segment === "automation"
+        ? "workspace"
+        : segment
+      : null;
+  const rawId = view ? url.searchParams.get("id") : null;
+  const contextId =
+    segment === "automation" && rawId && !rawId.startsWith("automation:")
+      ? `automation:${rawId}`
+      : rawId;
   const hasTabParam = url.searchParams.has("tab");
   const tabParam = hasTabParam ? url.searchParams.get("tab") : null;
   return {

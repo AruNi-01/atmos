@@ -349,6 +349,28 @@ describe("center stage tab hover", () => {
     expect(specialPill).not.toContain("CenterStageTabKindChip");
   });
 
+  it("keeps terminal tab pane snapshots referentially stable", () => {
+    const extraTab = tabBar.slice(
+      tabBar.indexOf("function TerminalExtraTab"),
+      tabBar.indexOf("const PLUS_MENU_TAB_EASE"),
+    );
+    expect(extraTab).toContain("EMPTY_TERMINAL_TAB_PANES");
+    expect(extraTab).toContain("React.useMemo");
+    expect(extraTab).not.toContain("useShallow");
+    expect(extraTab).not.toContain("s.getPanes(");
+
+    const indicator = readFileSync(
+      join(import.meta.dir, "../center-stage-tabs.tsx"),
+      "utf8",
+    );
+    const withPanes = indicator.slice(
+      indicator.indexOf("export function TerminalTabAgentIndicatorWithPanes"),
+      indicator.indexOf("export function AgentChatTabStatusIndicator"),
+    );
+    expect(withPanes).toContain("EMPTY_TERMINAL_TAB_PANES");
+    expect(withPanes).not.toContain("useShallow");
+  });
+
   it("animates plus-menu popover height when switching tabs", () => {
     const menuBlock = tabBar.slice(
       tabBar.indexOf("function PlusMenuTabPanels"),

@@ -48,6 +48,7 @@ import {
 } from "@/app-shell/sidebar/workspace-grouping";
 import { getProjectWorkflowStatus } from "@/app-shell/sidebar/workspace-status";
 import { parseWorkspacePriority } from "@/app-shell/sidebar/workspace-metadata-controls";
+import { isStandaloneSidebarJob } from "@/features/automations/lib/standalone-sidebar";
 
 export type WorkspaceKanbanFilters = {
   statuses: WorkspaceWorkflowStatus[];
@@ -93,7 +94,13 @@ export function filterWorkspaceKanbanEntries<T extends {
   };
 }>(items: T[], filters: WorkspaceKanbanFilters, groups: Group[] = []): T[] {
   return items.filter((item) => {
-    if (!filters.showAutomationWorkspaces && item.workspace.createSource === "automation") return false;
+    if (
+      !filters.showAutomationWorkspaces &&
+      item.workspace.createSource === "automation" &&
+      !isStandaloneSidebarJob(item.projectId, item.workspace.id)
+    ) {
+      return false;
+    }
     if (filters.projectIds.length > 0 && !filters.projectIds.includes(item.projectId)) return false;
     if (filters.statuses.length > 0 && !filters.statuses.includes(item.workspace.workflowStatus)) return false;
     if (filters.priorities.length > 0 && !filters.priorities.includes(item.workspace.priority)) return false;

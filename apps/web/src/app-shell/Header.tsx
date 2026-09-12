@@ -57,6 +57,7 @@ import { getBranchSyncIndicatorState, getSessionUrgency } from './header-parts';
 import { HeaderActionControls } from './header-action-controls';
 import { CenterSpaceSwitcher } from "@/app-shell/center-space/CenterSpaceSwitcher";
 import { HeaderGitContext } from './header-git-context';
+import { isStandaloneAutomationScope } from '@/features/automations/lib/automation-run-landing';
 import { useHeaderFullscreen } from './use-header-fullscreen';
 import { useHeaderHotkeys } from './use-header-hotkeys';
 import { settingsHref } from '@/features/settings/lib/open-settings';
@@ -79,6 +80,7 @@ const Header: React.FC = () => {
   const t = useTranslations("header");
   const showHeaderQuickOpen = useLayoutSettingsStore((s) => s.showHeaderQuickOpen);
   const showHeaderGitToolbar = useLayoutSettingsStore((s) => s.showHeaderGitToolbar);
+  const hideStandaloneGitChrome = isStandaloneAutomationScope(currentWorkspaceId ?? "");
   const showHeaderRemoteAccess = useLayoutSettingsStore((s) => s.showHeaderRemoteAccess);
   const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
   useEffect(() => {
@@ -139,7 +141,7 @@ const Header: React.FC = () => {
 
   // Available branches — session snapshot + Query (no per-switch local refetch flash)
   const branchesQuery = useGitBranchesQuery(
-    showHeaderGitToolbar && !isSettingUp ? headerRepoPath : null,
+    showHeaderGitToolbar && !isSettingUp && !hideStandaloneGitChrome ? headerRepoPath : null,
   );
   const availableBranches = useMemo(() => {
     const remote = branchesQuery.data?.remote ?? [];
@@ -508,7 +510,7 @@ const Header: React.FC = () => {
         <HeaderWindowDragFiller enabled={isDesktopDragEnabled} />
 
         <div className="relative z-10 desktop-no-drag flex min-w-0 items-center gap-5">
-          {showHeaderGitToolbar && (
+          {showHeaderGitToolbar && !hideStandaloneGitChrome && (
             <HeaderGitContext
               branchSyncState={branchSyncState}
               currentBranch={currentBranch}

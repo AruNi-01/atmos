@@ -15,6 +15,20 @@ export type {
   GithubTriggerFilters,
 } from "@/api/ws/automation-dtos";
 
+export type AutomationExecuteMode = "headless" | "terminal" | "chat";
+export type AutomationSurfaceKind = "none" | "terminal" | "chat";
+
+export type AutomationChatAgentConfig = {
+  kind: "chat";
+  provider_id: string;
+  model?: string | null;
+  thinking?: string | null;
+  mode?: string | null;
+  permission_mode?: string | null;
+  fast?: string | null;
+  context?: string | null;
+};
+
 export type AutomationRunStatus =
   | "running"
   | "completed"
@@ -68,6 +82,7 @@ export interface AutomationSummary {
   last_run_guid: string | null;
   last_status: AutomationRunStatus | null;
   run_count: number;
+  execute_mode?: AutomationExecuteMode | string;
 }
 
 export interface AutomationListResponse {
@@ -116,7 +131,8 @@ export interface AutomationCreateRequest {
   instructions: string;
   memory?: string;
   agent_id: string;
-  agent_config?: TerminalAgentRunConfigInput | null;
+  agent_config?: TerminalAgentRunConfigInput | AutomationChatAgentConfig | null;
+  execute_mode?: AutomationExecuteMode;
   target: AutomationTargetInput;
   schedule: AutomationScheduleInput | null;
   trigger?: AutomationTriggerInput | null;
@@ -129,7 +145,8 @@ export interface AutomationUpdateRequest {
   instructions?: string;
   memory?: string;
   agent_id?: string;
-  agent_config?: TerminalAgentRunConfigInput | null;
+  agent_config?: TerminalAgentRunConfigInput | AutomationChatAgentConfig | null;
+  execute_mode?: AutomationExecuteMode;
   target?: AutomationTargetInput;
   schedule?: AutomationScheduleInput | null;
   trigger?: AutomationTriggerInput | null;
@@ -166,6 +183,12 @@ export interface AutomationRunSummary {
   started_at: string;
   completed_at: string | null;
   exit_code: number | null;
+  execute_mode?: AutomationExecuteMode | string;
+  surface_kind?: AutomationSurfaceKind | string | null;
+  surface_session_id?: string | null;
+  surface_scope_id?: string | null;
+  stale_prompted_at?: string | null;
+  stale_prompt_dismissed?: boolean;
 }
 
 export interface AutomationRunListResponse {
@@ -214,6 +237,15 @@ export interface AutomationRunUpdatedEvent {
   run_guid: string;
   status: AutomationRunStatus;
   run: AutomationRunSummary;
+}
+
+export interface AutomationStalePromptEvent {
+  automation_guid: string;
+  run_guid: string;
+  display_name: string;
+  execute_mode: string;
+  surface_scope_id?: string | null;
+  surface_session_id?: string | null;
 }
 
 export interface AutomationRunOutputEvent {

@@ -71,12 +71,14 @@ export const CENTER_STAGE_CARD_CLASS =
   "desktop-no-drag relative h-full min-h-0 rounded-xl bg-background ring-1 ring-border/40";
 /** Inner clip so pane content follows the card radius without eating the ring. */
 export const CENTER_STAGE_CARD_CLIP_CLASS =
-  "h-full min-h-0 overflow-hidden rounded-[inherit]";
+  "relative h-full min-h-0 overflow-hidden rounded-[inherit]";
 
 /** Column above the center-stage footer — drawer insets and stage fullscreen fill this. */
 export const CENTER_STAGE_BODY_ATTR = "data-center-stage-body";
 /** Visual floating card inside the center-stage shell. */
 export const CENTER_STAGE_CARD_ATTR = "data-center-stage-card";
+/** Inner clip node of the floating card — expand/fullscreen fills this, not the gutter. */
+export const CENTER_STAGE_CARD_CLIP_ATTR = "data-center-stage-card-clip";
 /** Root row under the header: left sidebar + center + footer. */
 export const APP_SHELL_PANEL_LAYOUT_ATTR = "data-app-shell-panel-layout";
 /** Center column (stage + footer). Fullscreen must not pin to this — it includes the footer. */

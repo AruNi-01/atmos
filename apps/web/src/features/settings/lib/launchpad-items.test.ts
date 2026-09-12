@@ -1,7 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import {
+  applyLaunchpadHide,
   applyLaunchpadReorder,
   createDefaultLaunchpadItems,
+  isLaunchpadHideTarget,
+  LAUNCHPAD_DROP_HIDE,
   LAUNCHPAD_DROP_INSIDE,
   LAUNCHPAD_DROP_OUTSIDE,
   launchpadPreviewPlacement,
@@ -115,5 +118,26 @@ describe("launchpad item placement helpers", () => {
     expect(launchpadPreviewPlacement("workspaces", items, "outside")).toBe("inside");
     expect(launchpadPreviewPlacement("skills", items, "inside")).toBe("outside");
     expect(launchpadPreviewPlacement("not-an-item", items, "inside")).toBe("inside");
+    expect(launchpadPreviewPlacement(LAUNCHPAD_DROP_HIDE, items, "outside")).toBe("outside");
+  });
+
+  it("hides an enabled item and leaves reorder-on-hide as a no-op", () => {
+    const items = createDefaultLaunchpadItems();
+    const hidden = applyLaunchpadHide(items, "skills");
+    expect(hidden).not.toBeNull();
+    expect(hidden!.skills).toEqual({
+      enabled: false,
+      placement: "outside",
+      order: 1,
+    });
+    expect(selectLaunchpadItemsByPlacement(hidden!, "outside")).not.toContain("skills");
+    expect(selectLaunchpadItemsByPlacement(hidden!, "outside")[0]).toBe("automations");
+    expect(hidden!.automations.order).toBe(0);
+
+    expect(applyLaunchpadHide(items, "terminals")).toBeNull();
+    expect(applyLaunchpadHide(items, "not-an-item")).toBeNull();
+    expect(applyLaunchpadReorder(items, "skills", LAUNCHPAD_DROP_HIDE)).toBeNull();
+    expect(isLaunchpadHideTarget(LAUNCHPAD_DROP_HIDE)).toBe(true);
+    expect(isLaunchpadHideTarget(LAUNCHPAD_DROP_OUTSIDE)).toBe(false);
   });
 });
