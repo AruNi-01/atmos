@@ -17,7 +17,7 @@ const promptInput = readFileSync(join(import.meta.dir, "./prompt-input.tsx"), "u
 describe("empty model list reload", () => {
   it("asks the host to reload when the model picker opens with no models", () => {
     expect(promptInput).toContain("onEmptyModelsOpen");
-    expect(promptInput).toContain("if (next && models.length === 0)");
+    expect(promptInput).toContain("if (next && models.length === 0 && !favoritesOpen)");
   });
 
   it("offers a Load button only when the catalog is empty, not when search filters models out", () => {
@@ -27,14 +27,15 @@ describe("empty model list reload", () => {
     const menuStart = promptInput.indexOf("function PromptAgentConfigMenu");
     const menuEnd = promptInput.indexOf("function ConfigFlyoutList");
     const menu = promptInput.slice(menuStart, menuEnd);
-    const catalogEmpty = menu.indexOf(") : models.length === 0 ? (");
+    const catalogEmpty = menu.indexOf(") : listedModels.length === 0 ? (");
     const searchEmpty = menu.indexOf(") : filteredModels.length === 0 ? (");
     const loadLabel = menu.indexOf("{labels.loadModels}");
     expect(catalogEmpty).toBeGreaterThan(0);
     expect(searchEmpty).toBeGreaterThan(catalogEmpty);
     expect(loadLabel).toBeGreaterThan(catalogEmpty);
     expect(loadLabel).toBeLessThan(searchEmpty);
-    expect(menu).toContain("{models.length > 0 ? (");
+    expect(menu).toContain("{listedModels.length > 0 ? (");
+    expect(menu).toContain("favoritesOpen ? labels.noFavorites : labels.noResults");
   });
 
   it("places an icon-only reload control beside the model search field", () => {
@@ -288,6 +289,21 @@ describe("S2 thinking control visibility", () => {
 });
 
 describe("PromptAgentConfigMenu", () => {
+  it("can render the agent config menu without the prompt shell", () => {
+    expect(promptInput).toContain("configOnly");
+    expect(promptInput).toContain("side={menuSide}");
+  });
+
+  it("can embed the agent/model panel without a trigger button", () => {
+    expect(promptInput).toContain("menuInline");
+    const menuStart = promptInput.indexOf("function PromptAgentConfigMenu");
+    const menuEnd = promptInput.indexOf("function ConfigFlyoutList");
+    const menu = promptInput.slice(menuStart, menuEnd);
+    expect(menu).toContain("if (menuInline)");
+    expect(menu).toContain("return panel");
+    expect(menu.indexOf("const panel =")).toBeLessThan(menu.indexOf("<MorphPopoverTrigger>"));
+  });
+
   it("puts agent tabs and models in one popover without hover flyouts", () => {
     expect(promptInput).toContain("function PromptAgentConfigMenu");
     expect(promptInput).toContain("function ThinkingSliderPanel");
@@ -303,13 +319,26 @@ describe("PromptAgentConfigMenu", () => {
     expect(promptInput).not.toContain("border-t border-border/60");
   });
 
+  it("turns the model-row dot into a favorite star on hover", () => {
+    expect(promptInput).toContain("favoriteModels");
+    expect(promptInput).toContain("favoritesOpen");
+    expect(promptInput).toContain("onToggleFavorite");
+    expect(promptInput).toContain("function ModelFavoriteMark");
+    expect(promptInput).toContain("group/model");
+    expect(promptInput).toContain("fill-favorite text-favorite");
+    expect(promptInput).toContain("labels.noFavorites");
+  });
+
   it("opens effort and fast controls from one selected-model chip", () => {
     expect(promptInput).toContain("showEffortControls");
     expect(promptInput).toContain("contextLabel: contextSuffix");
     expect(promptInput).toContain("fastLabel: labels.fastChip");
     expect(promptInput).toContain("function ThinkingSliderPanel");
     expect(promptInput).toContain('aria-label={labels.fastMode}');
-    expect(promptInput).toContain("onClick={() => onModelChange(option.value)}");
+    expect(promptInput).toContain("onClick={() => onModelChange(option.value, option)}");
+    expect(promptInput).toContain("function ModelFavoriteMark");
+    expect(promptInput).toContain("group/model");
+    expect(promptInput).toContain("option.favorited");
   });
 
   it("puts a Context submenu at the top of the effort popover", () => {

@@ -1,5 +1,7 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { Window } from "happy-dom";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -59,6 +61,14 @@ afterEach(async () => {
 });
 
 describe("PromptComposer large paste chips", () => {
+  it("keeps chips inside the 20px agent editor line box", () => {
+    const source = readFileSync(join(import.meta.dir, "../PromptComposer.tsx"), "utf8");
+    expect(source).toContain("COMPOSER_CHIP_LINE_PX = 18");
+    expect(source).toContain("applyComposerChipLineMetrics");
+    expect(source).toContain("align-top");
+    expect(source).toContain("h-[18px]");
+  });
+
   it("records plain-text paste through the native undo transaction", async () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -114,7 +124,10 @@ describe("PromptComposer large paste chips", () => {
     const chip = editor.querySelector("[data-kind='paste']");
     expect(chip).not.toBeNull();
     expect(chip?.className).toContain("rounded-full");
-    expect(chip?.className).toContain("h-5");
+    expect(chip?.className).toContain("h-[18px]");
+    expect(chip?.className).toContain("align-top");
+    expect((chip as HTMLElement).style.height).toBe("18px");
+    expect((chip as HTMLElement).style.verticalAlign).toBe("top");
     expect(chip?.textContent).toContain("12");
     expect(editor.querySelectorAll("br").length).toBe(0);
     expect(latestText.trim()).toMatch(/^\[#paste:[a-zA-Z0-9_-]+\]$/);

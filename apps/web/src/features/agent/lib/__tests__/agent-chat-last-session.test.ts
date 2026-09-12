@@ -198,6 +198,7 @@ describe("agent chat last session", () => {
     expect(source).not.toContain("created.meta");
     expect(source).toContain("isRestoringTranscript: isResumingHistory");
     expect(source).toContain("resumeTranscript");
+    expect(source).toContain("hydrateFavoriteModelsFromPrefs");
     expect(source).toContain("last_new_chat_configs");
     expect(source).toContain("lastNewChatConfigForAgent");
     expect(source).toContain("permission_mode: selected.permissionMode");

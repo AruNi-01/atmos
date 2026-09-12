@@ -36,6 +36,7 @@ describe("agent composer atmos slash commands", () => {
     expect(source).toContain("skillDisableSessionOpen");
     expect(source).toContain("gateDesktopUseFeature");
     expect(source).toContain("resolveViewRunLogsPromptText");
+    expect(source).toContain("getPreferredRunLogWindow");
     expect(source).not.toContain('id: "side"');
     expect(source).not.toContain('id: "spawn"');
   });

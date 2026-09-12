@@ -11,6 +11,7 @@ import {
   isTokenAuthMethodId,
   mergeInstalledAgents,
   nativeSiblingForAgent,
+  acpManagerCardShowsEnableSwitch,
   sortAcpRegistryAgents,
   tokenAuthEnvName,
 } from "@/features/agent/lib/custom-agent-registry";
@@ -193,6 +194,14 @@ describe("native chat picker merge", () => {
     expect(merged.map((agent) => agent.id)).toEqual(["codex", "codex-acp", "claude-acp"]);
   });
 
+  it("omits a disabled downloaded ACP from the chat picker", () => {
+    const merged = mergeInstalledAgents(
+      [{ ...registry("cursor", "Cursor"), enabled: false }],
+      [],
+    );
+    expect(merged.map((agent) => agent.id)).toEqual([]);
+  });
+
   it("omits CLI-backed ACP with a native sibling until it is enabled", () => {
     const merged = mergeInstalledAgents(
       [{ ...registry("grok-build", "Grok"), enabled: false }],
@@ -246,6 +255,11 @@ describe("native/ACP kinship", () => {
     const natives = [native({ id: "grok", name: "Grok", enabled: false })];
     expect(nativeSiblingForAgent("grok-build", natives)?.id).toBe("grok");
     expect(nativeSiblingForAgent("cursor", natives)).toBeNull();
+  });
+
+  it("shows the ACP enable switch only after install", () => {
+    expect(acpManagerCardShowsEnableSwitch({ installed: true })).toBe(true);
+    expect(acpManagerCardShowsEnableSwitch({ installed: false })).toBe(false);
   });
 });
 

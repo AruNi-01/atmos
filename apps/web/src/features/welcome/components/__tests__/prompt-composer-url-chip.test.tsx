@@ -87,7 +87,10 @@ describe("PromptComposer URL chips", () => {
     const chip = editor.querySelector("[data-kind='url']");
     expect(chip).not.toBeNull();
     expect(chip?.className).toContain("rounded-full");
-    expect(chip?.className).toContain("h-5");
+    expect(chip?.className).toContain("h-[18px]");
+    expect(chip?.className).toContain("align-top");
+    expect((chip as HTMLElement).style.height).toBe("18px");
+    expect((chip as HTMLElement).style.verticalAlign).toBe("top");
     expect(chip?.textContent).toContain("payloadcms.com");
     expect(latestText.trim()).toMatch(/^\[#url:/);
     expect(expandUrlTokens(latestText.trim())).toBe(url);

@@ -91,6 +91,7 @@ import {
   dedupeAgentMessages,
   foldMessagesFromEvent,
 } from "@/features/agent/lib/agent-chat-events";
+import { currentTurnSubagentTasks } from "@/features/agent/lib/subagent-tasks";
 import { routeBusySubmit, resolveFollowupPolicy } from "@/features/agent/lib/followup-policy";
 import { isLiveAgentRuntimeStatus } from "@/features/agent/lib/agent-composer-placeholder";
 import {
@@ -115,6 +116,7 @@ import {
   rememberLastRegistryId,
   seedNewChatComposer,
 } from "@/features/agent/store/agent-composer-local-cache";
+import { hydrateFavoriteModelsFromPrefs } from "@/features/agent/hooks/use-agent-chat-favorites";
 import {
   agentChatHistoryListRequest,
   composerConfigOptions,
@@ -460,6 +462,10 @@ export function useAgentChatSession({
     () => runningBackgroundTools(messages),
     [messages],
   );
+  const subagentTasks = useMemo(
+    () => currentTurnSubagentTasks(messages),
+    [messages],
+  );
   const agentActivity = useMemo(
     () => deriveAgentActivity(messages, busy),
     [busy, messages],
@@ -697,6 +703,7 @@ export function useAgentChatSession({
       lastNewChatConfigsRef.current = merged;
       rememberLastNewChatConfigs(merged);
       setLastNewChatConfigs(merged);
+      hydrateFavoriteModelsFromPrefs(prefs);
       const installed = installedAgentsRef.current;
       const installedIds = installed.map((agent) => agent.id);
       const lastRegistryId = pickInstalledRegistryId(
@@ -2101,7 +2108,7 @@ export function useAgentChatSession({
     thinkingId,
   ]);
 
-  const setProviderId = useCallback((next: string) => {
+  const setProviderId = useCallback((next: string, opts?: { model?: string }) => {
     if (agentLocked) return;
     fastByModelRef.current = {};
     setProviderIdState(next);
@@ -2120,7 +2127,8 @@ export function useAgentChatSession({
       lastNewChatConfigForAgent(lastNewChatConfigsRef.current, next)
         ?? installedAgents.find((agent) => agent.id === next)?.default_config,
     );
-    setModelId(preferred.modelId);
+    const nextModel = opts?.model?.trim() || preferred.modelId;
+    setModelId(nextModel);
     setThinkingId(preferred.thinkingId);
     setModeId(preferred.modeId);
     setPermissionModeId(preferred.permissionModeId);
@@ -2129,7 +2137,7 @@ export function useAgentChatSession({
     persistPreferredRegistry(next);
     rememberComposerChromeDraft(instanceKey, {
       providerId: next,
-      model: preferred.modelId,
+      model: nextModel,
       thinking: preferred.thinkingId,
       mode: preferred.modeId,
       permissionMode: preferred.permissionModeId,
@@ -2139,7 +2147,7 @@ export function useAgentChatSession({
     if (activeIdRef.current) {
       void persistConfig({
         provider_id: next,
-        ...(preferred.modelId ? { model: preferred.modelId } : {}),
+        ...(nextModel ? { model: nextModel } : {}),
         ...(preferred.thinkingId ? { thinking: preferred.thinkingId } : {}),
         ...(preferred.modeId ? { mode: preferred.modeId } : {}),
         ...(preferred.permissionModeId ? { permission_mode: preferred.permissionModeId } : {}),
@@ -2316,6 +2324,7 @@ export function useAgentChatSession({
     setMessages,
     currentPlan,
     backgroundTools,
+    subagentTasks,
     pendingPermission,
     pendingPermissionMarkdown: pendingPermission?.content_markdown ?? null,
     pendingSessionOp,

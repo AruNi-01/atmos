@@ -4,51 +4,21 @@ import React, { useCallback, useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useTranslations } from "next-intl";
 import {
-  AgentsPromptInput,
   PromptInputAddAttachmentsButton,
   PromptInputProvider,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
   cn,
   usePromptInputAttachments,
   usePromptInputController,
-  type PromptModel,
 } from "@workspace/ui";
-import {
-  CenterStageScrollableTabs,
-  CenterStageTab,
-  CenterStageTabList,
-} from "@/app-shell/center-stage-shared-tabs";
-import {
-  Astroid,
-  BotMessageSquare,
-  Code2,
-  Hammer,
-  Hand,
-  Layers,
-  ListTodo,
-  MessageCircleQuestionMark,
-  MessageSquare,
-  NotebookPen,
-  PencilSparkles,
-  Shield,
-  ShieldAlert,
-} from "lucide-react";
 import {
   PromptComposer,
   type ComposerHandle,
 } from "@/features/welcome/components/PromptComposer";
-import { AgentIcon } from "./AgentIcon";
 import { useDialogStore, type QueuedAgentPrompt } from "@/app-shell/state/use-dialog-store";
+import { ChatAgentConfigInput } from "./ChatAgentConfigInput";
 import type { AgentPlan, AgentConfigOption } from "@/features/agent/lib/agent-chat-types";
 import type { RegistryAgent } from "@/api/ws-api";
 import type { AgentChatMode } from "@/features/agent/types/index";
-import {
-  chatAgentFamily,
-  chatAgentKind,
-  contestedChatAgentFamilies,
-} from "@/features/agent/lib/custom-agent-registry";
 import {
   registerActiveAgentComposer,
   touchActiveAgentComposer,
@@ -63,14 +33,13 @@ import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import { PlanBlockView } from "./PlanBlockView";
 import { BackgroundCommandsDock } from "./BackgroundCommandsDock";
 import { MessageQueueDock } from "./MessageQueueDock";
+import { SubagentTasksPanel } from "./SubagentTasksDock";
+import type { CurrentTurnSubagentTasks } from "@/features/agent/lib/subagent-tasks";
 import { useAgentComposerPopovers } from "../hooks/use-agent-composer-popovers";
 import type { AgentChatSlashCommand } from "../hooks/use-agent-chat-session";
 import {
   configKindMatches,
-  displayedComposerConfigValue,
   isThinkingConfigId,
-  permissionModeMessageKey,
-  thinkingLevelMessageKey,
 } from "../lib/agent-chat-thread";
 import { AgentChatWorkingDirectoryPicker } from "./AgentChatWorkingDirectoryPicker";
 import { AgentComposerAttachments } from "./AgentComposerAttachments";
@@ -124,113 +93,6 @@ function AttachmentFileInput() {
       }}
     />
   );
-}
-
-function toPromptModels(
-  option: AgentConfigOption | null,
-  localize?: (value: string, name?: string) => string,
-  extras?: { fastEnabled?: boolean },
-): PromptModel[] {
-  if (!option) return [];
-  return option.options.map((entry) => ({
-    value: entry.value,
-    label: localize ? localize(entry.value, entry.name) : (entry.name || entry.value),
-    group: entry.group,
-    multiplier: extras?.fastEnabled && entry.fastMultiplier
-      ? entry.fastMultiplier
-      : entry.multiplier,
-  }));
-}
-
-function compactModeId(value: string): string {
-  return value.trim().toLowerCase().replace(/[-_]/g, "");
-}
-
-function isFastOnValue(value: string): boolean {
-  const token = value.trim().toLowerCase();
-  return token === "true" || token === "on" || token === "1" || token === "yes";
-}
-
-function resolveFastToggleValue(
-  option: AgentConfigOption | null,
-  enabled: boolean,
-): string | null {
-  if (!option || option.options.length === 0) return null;
-  const on = option.options.find((item) => isFastOnValue(item.value));
-  const off = option.options.find((item) => !isFastOnValue(item.value));
-  if (enabled) return on?.value ?? option.options[1]?.value ?? option.options[0]?.value ?? null;
-  return off?.value ?? option.options[0]?.value ?? null;
-}
-
-function modeIcon(value: string) {
-  switch (compactModeId(value)) {
-    case "plan":
-      return <ListTodo className="size-3.5 shrink-0" />;
-    case "spec":
-      return <NotebookPen className="size-3.5 shrink-0" />;
-    case "auto":
-    case "default":
-    case "normal":
-      return <MessageSquare className="size-3.5 shrink-0" />;
-    case "build":
-      return <Hammer className="size-3.5 shrink-0" />;
-    case "code":
-      return <Code2 className="size-3.5 shrink-0" />;
-    case "ask":
-      return <MessageCircleQuestionMark className="size-3.5 shrink-0" />;
-    case "agent":
-      return <BotMessageSquare className="size-3.5 shrink-0" />;
-    default:
-      return <Layers className="size-3.5 shrink-0" />;
-  }
-}
-
-function toModePromptModels(option: AgentConfigOption | null): PromptModel[] {
-  return toPromptModels(option).map((entry) => ({
-    ...entry,
-    icon: modeIcon(entry.value),
-  }));
-}
-
-/** Prefer currentValue when listed; otherwise the default / first option. */
-function resolvedConfigOptionValue(
-  option: AgentConfigOption | null,
-  kind: "mode" | "permission_mode" | "thinking" | "fast" | "context",
-): string {
-  if (!option) return "";
-  return displayedComposerConfigValue([option], kind, option.currentValue || "");
-}
-
-function permissionModeIcon(key: string | null) {
-  switch (key) {
-    case "yolo":
-      return <ShieldAlert className="size-3.5 shrink-0" />;
-    case "acceptEdits":
-      return <PencilSparkles className="size-3.5 shrink-0" />;
-    case "auto":
-      return <Astroid className="size-3.5 shrink-0" />;
-    case "askAlways":
-      return <Hand className="size-3.5 shrink-0" />;
-    default:
-      return <Shield className="size-3.5 shrink-0" />;
-  }
-}
-
-function toPermissionPromptModels(
-  option: AgentConfigOption | null,
-  localize: (kind: "permissionModes" | "permissionModeDescriptions", key: string) => string,
-): PromptModel[] {
-  if (!option) return [];
-  return option.options.map((entry) => {
-    const key = permissionModeMessageKey(entry.value);
-    return {
-      value: entry.value,
-      label: key ? localize("permissionModes", key) : (entry.name || entry.value),
-      description: key ? localize("permissionModeDescriptions", key) : undefined,
-      icon: permissionModeIcon(key),
-      tone: key === "yolo" ? "warning" : undefined,
-    };
-  });
 }
 
 async function filesForSubmit(
@@ -361,7 +223,7 @@ function ComposerPromptInput({
   modesLocked: boolean;
   registryId: string | null;
   agentLocked: boolean;
-  onProviderChange?: (providerId: string) => void;
+  onProviderChange?: (providerId: string, opts?: { model?: string }) => void;
   setConfigOption: (id: string, value: string) => void;
   showStop: boolean;
   sendCancel: () => void;
@@ -399,39 +261,7 @@ function ComposerPromptInput({
   const stashRef = useRef<{ text: string; files: File[] } | null>(null);
   const attachmentsRef = useRef(attachments);
   attachmentsRef.current = attachments;
-  const contestedFamilies = contestedChatAgentFamilies(installedAgents);
-  const agentOptions: PromptModel[] = installedAgents.map((agent) => {
-    const family = chatAgentFamily(agent.id);
-    const kind = chatAgentKind(agent);
-    const showKindChip = Boolean(family && kind && contestedFamilies.has(family));
-    return {
-      value: agent.id,
-      label: agent.name,
-      icon: (
-        <AgentIcon
-          registryId={agent.id}
-          name={agent.name}
-          size={20}
-          isCustom={agent.install_method === "custom"}
-          registryIcon={agent.icon}
-        />
-      ),
-      trailing: showKindChip ? (
-        <span
-          className={cn(
-            "rounded-full border px-1.5 py-0.5 text-[10px] font-medium leading-none",
-            kind === "native"
-              ? "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-400"
-              : "border-border/70 bg-muted/60 text-muted-foreground",
-          )}
-        >
-          {kind === "native" ? t("agentKind.native") : t("agentKind.acp")}
-        </span>
-      ) : undefined,
-    };
-  });
   const composerLocked = isResumingHistory && !isConnected;
-  const agentsLocked = agentLocked || !onProviderChange;
   const canSubmit = Boolean(
     expandAgentComposerText(localDraft) || attachments.files.length,
   ) && !composerLocked && !showStop;
@@ -489,7 +319,7 @@ function ComposerPromptInput({
   return (
     <>
       <AttachmentFileInput />
-      <AgentsPromptInput
+      <ChatAgentConfigInput
         value={localDraft}
         onValueChange={setLocalDraft}
         disabled={composerLocked}
@@ -499,6 +329,33 @@ function ComposerPromptInput({
         maxRows={8}
         formRef={formRef}
         placeholder={placeholder}
+        installedAgents={installedAgents}
+        registryId={registryId}
+        agentLocked={agentLocked}
+        onProviderChange={onProviderChange}
+        modelOption={modelOption}
+        modelsLocked={modelsLocked}
+        modelsLoading={isConnecting || isResumingHistory || catalogModelsLoading}
+        modelsReloading={catalogModelsReloading}
+        onEmptyModelsOpen={onEmptyModelsOpen}
+        onLoadModels={onLoadModels}
+        modeOption={modeOption}
+        modesLocked={modesLocked}
+        permissionOption={permissionOption}
+        thinkingOption={thinkingOption}
+        fastOption={fastOption}
+        contextOption={contextOption}
+        onConfigChange={(kind, value) => {
+          const option = {
+            model: modelOption,
+            mode: modeOption,
+            permission_mode: permissionOption,
+            thinking: thinkingOption,
+            fast: fastOption,
+            context: contextOption,
+          }[kind];
+          if (option) setConfigOption(option.id, value);
+        }}
         editor={
           <PromptComposer
             ref={composerRef}
@@ -529,120 +386,6 @@ function ComposerPromptInput({
             onSubmit={() => formRef.current?.requestSubmit()}
           />
         }
-        agents={agentOptions}
-        agent={registryId || installedAgents[0]?.id || ""}
-        agentLocked={agentLocked || !onProviderChange}
-        onAgentChange={onProviderChange}
-        agentTablist={
-          agentOptions.length === 0 ? null : (
-            <CenterStageTabList
-              orientation="vertical"
-              className={cn(
-                "h-full min-h-0 px-0 py-0",
-                agentsLocked && "opacity-40",
-              )}
-              value={registryId || agentOptions[0]?.value || ""}
-              onValueChange={agentsLocked ? undefined : onProviderChange}
-            >
-              <CenterStageScrollableTabs
-                orientation="vertical"
-                className="max-h-[min(22rem,calc(100dvh-8rem))]"
-              >
-                {agentOptions.map((option) => {
-                  const label = typeof option.label === "string" ? option.label : option.value;
-                  return (
-                    <Tooltip key={option.value}>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex">
-                          <CenterStageTab
-                            value={option.value}
-                            disabled={option.disabled || agentsLocked}
-                            aria-label={label}
-                            title={agentsLocked ? t("composer.agentLocked") : label}
-                            className="size-9 px-0"
-                          >
-                            {option.icon}
-                          </CenterStageTab>
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" className="z-[10000]">
-                        {agentsLocked ? (
-                          t("composer.agentLocked")
-                        ) : (
-                          <span className="flex items-center gap-1.5">
-                            {label}
-                            {option.trailing}
-                          </span>
-                        )}
-                      </TooltipContent>
-                    </Tooltip>
-                  );
-                })}
-              </CenterStageScrollableTabs>
-            </CenterStageTabList>
-          )
-        }
-        models={toPromptModels(modelOption, undefined, {
-          fastEnabled: isFastOnValue(resolvedConfigOptionValue(fastOption, "fast")),
-        })}
-        model={modelOption?.currentValue || ""}
-        onModelChange={(value) => modelOption && setConfigOption(modelOption.id, value)}
-        modelsLocked={modelsLocked}
-        modelsLoading={isConnecting || isResumingHistory || catalogModelsLoading}
-        modelsReloading={catalogModelsReloading}
-        onEmptyModelsOpen={onEmptyModelsOpen}
-        onLoadModels={onLoadModels}
-        modes={toModePromptModels(modeOption)}
-        mode={resolvedConfigOptionValue(modeOption, "mode")}
-        onModeChange={(value) => modeOption && setConfigOption(modeOption.id, value)}
-        modesLocked={modesLocked}
-        permissionModes={toPermissionPromptModels(
-          permissionOption,
-          (kind, key) => t(`chatPanel.pickers.${kind}.${key}`),
-        )}
-        permissionMode={resolvedConfigOptionValue(permissionOption, "permission_mode")}
-        onPermissionModeChange={(value) =>
-          permissionOption && setConfigOption(permissionOption.id, value)
-        }
-        thinkingLevels={toPromptModels(thinkingOption, (value, name) => {
-          const key = thinkingLevelMessageKey(value);
-          return key ? t(`chatPanel.pickers.thinkingLevels.${key}`) : (name || value);
-        })}
-        thinking={resolvedConfigOptionValue(thinkingOption, "thinking")}
-        onThinkingChange={(value) => thinkingOption && setConfigOption(thinkingOption.id, value)}
-        fastAvailable={Boolean(fastOption && fastOption.options.length > 0)}
-        fastEnabled={isFastOnValue(resolvedConfigOptionValue(fastOption, "fast"))}
-        onFastChange={(enabled) => {
-          if (!fastOption) return;
-          const next = resolveFastToggleValue(fastOption, enabled);
-          if (next) setConfigOption(fastOption.id, next);
-        }}
-        contextLevels={toPromptModels(contextOption)}
-        context={resolvedConfigOptionValue(contextOption, "context")}
-        onContextChange={(value) => contextOption && setConfigOption(contextOption.id, value)}
-        labels={{
-          chooseModel: t("composer.chooseModel"),
-          chooseAgent: t("composer.selectAgent"),
-          chooseMode: t("composer.chooseMode"),
-          choosePermission: t("composer.choosePermission"),
-          model: t("composer.model"),
-          modelLocked: t("composer.modelLocked"),
-          agentLocked: t("composer.agentLocked"),
-          modeLocked: t("composer.modeLocked"),
-          permissionLocked: t("composer.permissionLocked"),
-          search: t("configOptionDropdown.searchPlaceholder"),
-          searchModels: t("composer.searchModels"),
-          searchAgents: t("composer.searchAgents"),
-          back: t("composer.backToAgents"),
-          noResults: t("configOptionDropdown.noResults"),
-          loadingModels: t("composer.loadingModels"),
-          loadModels: t("composer.loadModels"),
-          reloadModels: t("composer.reloadModels"),
-          thinkingEffort: t("composer.thinkingEffort"),
-          fastMode: t("composer.fastMode"),
-          fastChip: t("composer.fastChip"),
-          context: t("composer.context"),
-        }}
         leadingAction={
           <div className="flex min-w-0 items-center gap-1">
             <PromptInputAddAttachmentsButton className="rounded-2xl bg-transparent shadow-none hover:bg-muted/60 data-pressed:bg-muted/60 dark:bg-transparent dark:hover:bg-muted/60" />
@@ -729,6 +472,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   currentPlan,
   isResumedSession,
   backgroundTools = [],
+  subagentTasks = { items: [], tools: [] },
   queuedPrompts,
   onRemoveQueuedPrompt,
   onUpdateQueuedPrompt,
@@ -775,6 +519,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   currentPlan: AgentPlan | null;
   isResumedSession: boolean;
   backgroundTools?: AgentToolCallPart[];
+  subagentTasks?: CurrentTurnSubagentTasks;
   queuedPrompts: QueuedAgentPrompt[];
   onRemoveQueuedPrompt: (id: string) => void;
   onUpdateQueuedPrompt: (id: string, prompt: string) => void | Promise<void>;
@@ -784,7 +529,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     options?: { oneShot?: "queue" | "steer" },
   ) => Promise<void>;
   agentLocked?: boolean;
-  onProviderChange?: (providerId: string) => void;
+  onProviderChange?: (providerId: string, opts?: { model?: string }) => void;
   canUseCurrentMode: boolean;
   isConnected: boolean;
   chatMode: AgentChatMode;
@@ -841,16 +586,21 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   const composerRef = useRef<ComposerHandle | null>(null);
   const [editingQueueId, setEditingQueueId] = useState<string | null>(null);
   const [contextUsageOpen, setContextUsageOpen] = useState(false);
+  const [selectedSubagentId, setSelectedSubagentId] = useState<string | null>(null);
   const editingItem = editingQueueId
     ? queuedPrompts.find((item) => item.id === editingQueueId) ?? null
     : null;
   const showStop = Boolean(agentActivity.busy && !localDraft.trim() && !editingItem);
   const contextStats = contextWindowStats(sessionUsage);
   const showContextUsageCard = contextUsageOpen && contextStats != null;
+  const hasSubagentTasks = subagentTasks.items.length > 0;
+  const hasBackgroundTools = backgroundTools.length > 0;
+  const hasQueuedPrompts = queuedPrompts.length > 0;
+  const showSubagentTasksCard = hasSubagentTasks;
   const hasUpperComposerCards =
     Boolean(currentPlan)
-    || backgroundTools.length > 0
-    || queuedPrompts.length > 0;
+    || hasBackgroundTools
+    || hasQueuedPrompts;
   const reduceOverlayMotion = Boolean(useReducedMotion());
 
   useEffect(() => {
@@ -863,6 +613,12 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     if (contextStats != null || !contextUsageOpen) return;
     setContextUsageOpen(false);
   }, [contextStats, contextUsageOpen]);
+
+  useEffect(() => {
+    if (!selectedSubagentId) return;
+    if (subagentTasks.items.some((part) => part.tool_call_id === selectedSubagentId)) return;
+    setSelectedSubagentId(null);
+  }, [selectedSubagentId, subagentTasks.items]);
 
   useEffect(() => {
     return () => onAboveComposerOverlaysNodeChange?.(null);
@@ -1044,6 +800,33 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
                   />
                 </motion.div>
               ) : null}
+              {showSubagentTasksCard ? (
+                <motion.div
+                  key="agent-subagent-tasks"
+                  className="pointer-events-auto w-full"
+                  initial={false}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{
+                    opacity: 0,
+                    y: 10,
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    transition: reduceOverlayMotion
+                      ? { duration: 0 }
+                      : { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+                  }}
+                >
+                  <SubagentTasksPanel
+                    tools={subagentTasks.items}
+                    allTools={subagentTasks.tools}
+                    cwd={projectPath}
+                    selectedId={selectedSubagentId}
+                    onSelect={setSelectedSubagentId}
+                  />
+                </motion.div>
+              ) : null}
             </AnimatePresence>
             {aboveInputOverlay}
           </div>
@@ -1055,7 +838,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
           >
             {currentPlan ? (
               <div className={
-                backgroundTools.length > 0 || queuedPrompts.length > 0
+                hasBackgroundTools || hasQueuedPrompts
                   ? "border-b border-foreground/10"
                   : ""
               }>
@@ -1066,8 +849,8 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
                 />
               </div>
             ) : null}
-            {backgroundTools.length > 0 ? (
-              <div className={queuedPrompts.length > 0 ? "border-b border-foreground/10" : ""}>
+            {hasBackgroundTools ? (
+              <div className={hasQueuedPrompts ? "border-b border-foreground/10" : ""}>
                 <BackgroundCommandsDock tools={backgroundTools} />
               </div>
             ) : null}

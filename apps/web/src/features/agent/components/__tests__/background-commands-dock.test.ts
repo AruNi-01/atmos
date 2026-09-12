@@ -23,7 +23,7 @@ describe("background commands dock", () => {
     expect(dockAt).toBeGreaterThan(overlayClose);
     expect(queueAt).toBeGreaterThan(dockAt);
     expect(promptAt).toBeGreaterThan(queueAt);
-    expect(composer).toContain("backgroundTools.length > 0");
+    expect(composer).toContain("hasBackgroundTools");
     expect(composer).toContain("hasUpperComposerCards");
   });
 

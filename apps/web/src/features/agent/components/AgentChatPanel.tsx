@@ -421,6 +421,7 @@ export function AgentChatPanel({
     setMessages,
     currentPlan,
     backgroundTools,
+    subagentTasks,
     pendingPermission,
     pendingPermissionMarkdown,
     pendingSessionOp,
@@ -1073,6 +1074,7 @@ export function AgentChatPanel({
             currentPlan={currentPlan}
             isResumedSession={isResumedSession}
             backgroundTools={backgroundTools}
+            subagentTasks={subagentTasks}
             queuedPrompts={queuedPrompts}
             onRemoveQueuedPrompt={removeQueuedAgentChatPrompt}
             onUpdateQueuedPrompt={(id, prompt) => updateQueuedAgentChatPrompt(id, { prompt })}

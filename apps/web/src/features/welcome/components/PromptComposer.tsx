@@ -166,10 +166,36 @@ const BACKSPACE_CHIP_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})\\u00A0?$`);
 const DELETE_CHIP_REGEX = new RegExp(`^(${CHIP_TOKEN_PATTERN})\\u00A0?`);
 const CHIP_TRAILING_SPACER = "\u00A0";
 const COMPOSER_CHIP_BASE =
-  "inline-flex max-w-full select-none items-center gap-1 box-border rounded-full border px-1.5 text-[12px] leading-none font-medium align-middle mx-[1px]";
-/** Keep chips inside the editor line box (text-sm/leading-5 = 20px) so paste doesn't grow the input. */
-const COMPOSER_CHIP_CLASS = `${COMPOSER_CHIP_BASE} h-5`;
+  "inline-flex max-w-full select-none items-center gap-1 box-border rounded-full border px-1.5 text-[12px] leading-none font-medium align-top overflow-hidden mx-[1px]";
+/**
+ * Agent/session editors use `text-sm leading-5` (20px). A 20px chip with
+ * `align-middle` still inflates that line box. Keep chips 18px and top-aligned
+ * so inserting one does not change the input height.
+ */
+const COMPOSER_CHIP_LINE_PX = 18;
+const COMPOSER_CHIP_CLASS = `${COMPOSER_CHIP_BASE} h-[18px]`;
 const TRAILING_CHIP_SPACER_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})([ \\u00A0]+)$`);
+
+function applyComposerChipLineMetrics(span: HTMLSpanElement, wrap = false) {
+  span.style.boxSizing = "border-box";
+  span.style.verticalAlign = "top";
+  span.style.lineHeight = `${COMPOSER_CHIP_LINE_PX}px`;
+  if (wrap) {
+    span.style.overflow = "visible";
+    span.style.height = "";
+    span.style.maxHeight = "";
+    span.style.top = "";
+    span.style.minHeight = `${COMPOSER_CHIP_LINE_PX}px`;
+    return;
+  }
+  span.style.overflow = "hidden";
+  span.style.minHeight = "";
+  span.style.height = `${COMPOSER_CHIP_LINE_PX}px`;
+  span.style.maxHeight = `${COMPOSER_CHIP_LINE_PX}px`;
+  // Optically center the 18px chip in the 20px editor line without growing it.
+  span.style.position = "relative";
+  span.style.top = "1px";
+}
 
 let cachedPromptComposerLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -197,7 +223,8 @@ function buildMaskIcon(url: string): HTMLSpanElement {
   const icon = document.createElement("span");
   icon.setAttribute("aria-hidden", "true");
   icon.style.cssText = [
-    "display:inline-block",
+    "display:block",
+    "flex-shrink:0",
     "width:12px",
     "height:12px",
     "background-color:currentColor",
@@ -224,6 +251,7 @@ function buildMessageCirclePlusIcon(): SVGSVGElement {
   svg.setAttribute("stroke-width", "2");
   svg.setAttribute("stroke-linecap", "round");
   svg.setAttribute("stroke-linejoin", "round");
+  svg.style.display = "block";
   svg.style.flexShrink = "0";
 
   for (const d of [
@@ -250,6 +278,7 @@ function buildMessageCircleMoreIcon(): SVGSVGElement {
   svg.setAttribute("stroke-width", "2");
   svg.setAttribute("stroke-linecap", "round");
   svg.setAttribute("stroke-linejoin", "round");
+  svg.style.display = "block";
   svg.style.flexShrink = "0";
 
   for (const d of [
@@ -277,6 +306,7 @@ function buildMessagesSquareIcon(): SVGSVGElement {
   svg.setAttribute("stroke-width", "2");
   svg.setAttribute("stroke-linecap", "round");
   svg.setAttribute("stroke-linejoin", "round");
+  svg.style.display = "block";
   svg.style.flexShrink = "0";
 
   for (const d of [
@@ -303,6 +333,7 @@ function buildBrowserUseChipIcon(): SVGSVGElement {
   svg.setAttribute("stroke-width", "2");
   svg.setAttribute("stroke-linecap", "round");
   svg.setAttribute("stroke-linejoin", "round");
+  svg.style.display = "block";
   svg.style.flexShrink = "0";
 
   for (const d of [
@@ -345,6 +376,7 @@ function buildDesktopUseChipIcon(): SVGSVGElement {
   svg.setAttribute("stroke-width", "2");
   svg.setAttribute("stroke-linecap", "round");
   svg.setAttribute("stroke-linejoin", "round");
+  svg.style.display = "block";
   svg.style.flexShrink = "0";
 
   for (const d of ["M13 3H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3", "M8 21h8", "M12 17v4"]) {
@@ -381,6 +413,7 @@ function buildStrokeIcon(paths: string[]): SVGSVGElement {
   svg.setAttribute("stroke-width", "2");
   svg.setAttribute("stroke-linecap", "round");
   svg.setAttribute("stroke-linejoin", "round");
+  svg.style.display = "block";
   svg.style.flexShrink = "0";
   for (const d of paths) {
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -495,10 +528,8 @@ function buildChipNode(token: string): HTMLSpanElement {
   const span = document.createElement("span");
   span.setAttribute("data-token", token);
   span.setAttribute("contenteditable", "false");
-  // Vertically tight: no padding, line-height matches the editor's caret so the
-  // chip sits flush with the surrounding text without the bordered box towering
-  // above/below the caret line.
   span.className = COMPOSER_CHIP_CLASS;
+  applyComposerChipLineMetrics(span);
 
   if (token.startsWith("@issue#")) {
     span.dataset.kind = "issue";
@@ -524,7 +555,7 @@ function buildChipNode(token: string): HTMLSpanElement {
     const isDir = relativePath.endsWith("/");
     span.dataset.tooltip = relativePath;
     span.className += " border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400";
-    const iconProps = getFileIconProps({ name: filename, isDir, className: "size-3" });
+    const iconProps = getFileIconProps({ name: filename, isDir, className: "block size-3 shrink-0" });
     const icon = document.createElement("img");
     icon.src = iconProps.src;
     icon.alt = iconProps.alt ?? "";
@@ -591,7 +622,8 @@ function buildChipNode(token: string): HTMLSpanElement {
   } else if (parseSkillDisableProtocolToken(token)) {
     span.dataset.kind = "skill-disable";
     span.dataset.tooltip = promptComposerT("skillDisable.chipTooltip");
-    span.className = `${COMPOSER_CHIP_BASE} h-auto min-h-5 max-w-full flex-wrap border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300`;
+    span.className = `${COMPOSER_CHIP_BASE} h-auto min-h-[18px] max-w-full flex-wrap border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300`;
+    applyComposerChipLineMetrics(span, true);
     span.appendChild(buildMaskIcon("/icons/puzzle.svg"));
     const label = document.createElement("span");
     label.dataset.sdLabel = "true";
@@ -669,7 +701,7 @@ function buildChipNode(token: string): HTMLSpanElement {
     icon.src = googleFaviconUrl(url);
     icon.alt = "";
     icon.referrerPolicy = "no-referrer";
-    icon.className = "size-3 shrink-0 rounded-full";
+    icon.className = "block size-3 shrink-0 rounded-full";
     span.appendChild(icon);
     const label = document.createElement("span");
     label.dataset.urlChipLabel = "";
@@ -1905,7 +1937,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           onMouseOver={handleEditorMouseOver}
           onMouseOut={handleEditorMouseOut}
           className={cn(
-            "min-h-[88px] max-h-[148px] w-full overflow-y-auto whitespace-pre-wrap break-words rounded-t-xl rounded-b-none border border-transparent bg-transparent py-2 pl-0 pr-2 text-base leading-6 text-foreground outline-none",
+            "min-h-[88px] max-h-[148px] w-full overflow-y-auto whitespace-pre-wrap break-words rounded-t-xl rounded-b-none border border-transparent bg-transparent py-2 pl-0 pr-2 text-base leading-6 text-foreground outline-none [&_[data-token]]:align-top",
             editorClassName,
           )}
           spellCheck={false}

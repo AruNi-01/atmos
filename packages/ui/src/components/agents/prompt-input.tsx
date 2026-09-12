@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Search,
   Square,
+  Star,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -68,6 +69,11 @@ export interface PromptModel {
   trailing?: ReactNode;
   disabled?: boolean;
   tone?: "warning";
+  /** Host agent id when the same model id can appear under more than one agent. */
+  agent?: string;
+  favorited?: boolean;
+  /** Override row selection when `value` is not unique across agents. */
+  selected?: boolean;
 }
 
 export interface PromptAction {
@@ -105,6 +111,9 @@ export interface PromptInputLabels {
   /** Short Fast chip word, e.g. `Low · Fast`. */
   fastChip?: string;
   context?: string;
+  addFavorite?: string;
+  removeFavorite?: string;
+  noFavorites?: string;
 }
 
 export type PromptInputRadius = "2xl" | "3xl";
@@ -119,7 +128,11 @@ export interface PromptInputProps extends Omit<
   models?: PromptModel[];
   model?: string;
   defaultModel?: string;
-  onModelChange?: (model: string) => void;
+  onModelChange?: (model: string, option?: PromptModel) => void;
+  /** Favorites list shown when the host rail is on the Favorites tab. */
+  favoriteModels?: PromptModel[];
+  favoritesOpen?: boolean;
+  onToggleFavorite?: (model: string, option: PromptModel) => void;
   modelsLoading?: boolean;
   /** True while a user-initiated catalog reload is in flight. */
   modelsReloading?: boolean;
@@ -170,6 +183,12 @@ export interface PromptInputProps extends Omit<
   radius?: PromptInputRadius;
   /** Optional left rail for the agent/model picker (e.g. vertical CenterStage tabs). */
   agentTablist?: ReactNode;
+  /** Render only the agent/model config chrome, without the prompt shell. */
+  configOnly?: boolean;
+  /** Which side the agent/model popover opens toward. Default `top`. */
+  menuSide?: "top" | "bottom";
+  /** Embed the agent/model panel in-place instead of a trigger popover. */
+  menuInline?: boolean;
 }
 
 const PROMPT_SHELL_RADIUS: Record<PromptInputRadius, string> = {
@@ -206,6 +225,9 @@ const DEFAULT_LABELS: Required<PromptInputLabels> = {
   fastMode: "Fast Tier",
   fastChip: "Fast",
   context: "Context",
+  addFavorite: "Add favorite",
+  removeFavorite: "Remove favorite",
+  noFavorites: "No favorites yet",
 };
 
 export function PromptInput({
@@ -216,6 +238,9 @@ export function PromptInput({
   model,
   defaultModel,
   onModelChange,
+  favoriteModels = [],
+  favoritesOpen = false,
+  onToggleFavorite,
   modelsLoading = false,
   modelsReloading = false,
   modelsLocked = false,
@@ -259,6 +284,9 @@ export function PromptInput({
   className,
   radius = "2xl",
   agentTablist,
+  configOnly = false,
+  menuSide = "top",
+  menuInline = false,
   disabled,
   placeholder = "Ask the agent to do something…",
   "aria-label": ariaLabel = "Prompt",
@@ -316,9 +344,9 @@ export function PromptInput({
     onValueChange?.(next);
   };
 
-  const setModel = (next: string) => {
+  const setModel = (next: string, option?: PromptModel) => {
     if (model === undefined) setInternalModel(next);
-    onModelChange?.(next);
+    onModelChange?.(next, option);
   };
 
   const submit = (event?: FormEvent) => {
@@ -343,6 +371,86 @@ export function PromptInput({
     event.preventDefault();
     submit();
   };
+
+  const agentConfigMenu =
+    agents.length || models.length || thinkingLevels.length > 0 || fastAvailable || contextLevels.length > 1 || modelsLoading ? (
+      <PromptAgentConfigMenu
+        agents={agents}
+        agent={agent}
+        agentLocked={agentLocked}
+        onAgentChange={onAgentChange}
+        models={models}
+        model={currentModelValue}
+        onModelChange={setModel}
+        favoriteModels={favoriteModels}
+        favoritesOpen={favoritesOpen}
+        onToggleFavorite={onToggleFavorite}
+        modelsLocked={modelsLocked}
+        modelsLoading={modelsLoading}
+        modelsReloading={modelsReloading}
+        onEmptyModelsOpen={onEmptyModelsOpen}
+        onLoadModels={onLoadModels}
+        currentAgent={currentAgent}
+        currentModel={currentModel}
+        thinkingLevels={thinkingLevels}
+        thinking={thinking}
+        onThinkingChange={onThinkingChange}
+        fastAvailable={fastAvailable}
+        fastEnabled={fastEnabled}
+        onFastChange={onFastChange}
+        contextLevels={contextLevels}
+        context={context}
+        onContextChange={onContextChange}
+        disabled={disabled || loading}
+        labels={labels}
+        className="min-w-0"
+        controlRadius={controlRadius}
+        agentTablist={agentTablist}
+        menuSide={menuSide}
+        menuInline={menuInline}
+      />
+    ) : null;
+
+  if (configOnly) {
+    return (
+      <div
+        className={cn(
+          menuInline
+            ? "min-w-0 w-full"
+            : "flex min-h-8 min-w-0 flex-wrap items-center gap-1",
+          className,
+        )}
+      >
+        {modes.length ? (
+          <PromptOptionSelect
+            options={modes}
+            value={mode ?? ""}
+            onChange={onModeChange}
+            disabled={disabled || loading || modesLocked}
+            lockedHint={modesLocked ? labels.modeLocked : undefined}
+            placeholder={labels.chooseMode}
+            searchPlaceholder={labels.search}
+            emptyLabel={labels.noResults}
+            controlRadius={controlRadius}
+          />
+        ) : null}
+        {permissionModes.length ? (
+          <PromptOptionSelect
+            options={permissionModes}
+            value={permissionMode ?? ""}
+            onChange={onPermissionModeChange}
+            disabled={disabled || loading || permissionModesLocked}
+            lockedHint={permissionModesLocked ? labels.permissionLocked : undefined}
+            placeholder={labels.choosePermission}
+            searchPlaceholder={labels.search}
+            emptyLabel={labels.noResults}
+            controlRadius={controlRadius}
+          />
+        ) : null}
+        {agentConfigMenu}
+      </div>
+    );
+  }
 
   return (
     <form
@@ -470,38 +578,7 @@ export function PromptInput({
           />
         ) : null}
         <div className="ml-auto flex min-w-0 items-center gap-1">
-          {agents.length || models.length || thinkingLevels.length > 0 || fastAvailable || contextLevels.length > 1 || modelsLoading ? (
-            <PromptAgentConfigMenu
-              agents={agents}
-              agent={agent}
-              agentLocked={agentLocked}
-              onAgentChange={onAgentChange}
-              models={models}
-              model={currentModelValue}
-              onModelChange={setModel}
-              modelsLocked={modelsLocked}
-              modelsLoading={modelsLoading}
-              modelsReloading={modelsReloading}
-              onEmptyModelsOpen={onEmptyModelsOpen}
-              onLoadModels={onLoadModels}
-              currentAgent={currentAgent}
-              currentModel={currentModel}
-              thinkingLevels={thinkingLevels}
-              thinking={thinking}
-              onThinkingChange={onThinkingChange}
-              fastAvailable={fastAvailable}
-              fastEnabled={fastEnabled}
-              onFastChange={onFastChange}
-              contextLevels={contextLevels}
-              context={context}
-              onContextChange={onContextChange}
-              disabled={disabled || loading}
-              labels={labels}
-              className="min-w-0"
-              controlRadius={controlRadius}
-              agentTablist={agentTablist}
-            />
-          ) : null}
+          {agentConfigMenu}
           {footerTrailing}
         </div>
 
@@ -639,6 +716,9 @@ function PromptAgentConfigMenu({
   models,
   model,
   onModelChange,
+  favoriteModels = [],
+  favoritesOpen = false,
+  onToggleFavorite,
   modelsLocked,
   modelsLoading,
   modelsReloading,
@@ -660,6 +740,8 @@ function PromptAgentConfigMenu({
   className,
   controlRadius,
   agentTablist,
+  menuSide = "top",
+  menuInline = false,
 }: {
   agents: PromptModel[];
   agent?: string;
@@ -667,7 +749,10 @@ function PromptAgentConfigMenu({
   onAgentChange?: (agent: string) => void;
   models: PromptModel[];
   model?: string;
-  onModelChange: (model: string) => void;
+  onModelChange: (model: string, option?: PromptModel) => void;
+  favoriteModels?: PromptModel[];
+  favoritesOpen?: boolean;
+  onToggleFavorite?: (model: string, option: PromptModel) => void;
   modelsLocked?: boolean;
   modelsLoading?: boolean;
   modelsReloading?: boolean;
@@ -689,6 +774,8 @@ function PromptAgentConfigMenu({
   className?: string;
   controlRadius: string;
   agentTablist?: ReactNode;
+  menuSide?: "top" | "bottom";
+  menuInline?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const skipAgentList = agents.length === 0;
@@ -719,11 +806,12 @@ function PromptAgentConfigMenu({
     thinkingLabel,
     agentLabel: optionName(currentAgent) || labels.chooseAgent,
   });
+  const listedModels = favoritesOpen ? favoriteModels : models;
   const filteredModels = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return models;
-    return models.filter((option) => optionSearchText(option).toLowerCase().includes(q));
-  }, [models, search]);
+    if (!q) return listedModels;
+    return listedModels.filter((option) => optionSearchText(option).toLowerCase().includes(q));
+  }, [listedModels, search]);
   const groupedModels = useMemo(
     () => groupedPromptModelRows(filteredModels),
     [filteredModels],
@@ -732,54 +820,22 @@ function PromptAgentConfigMenu({
 
   useEffect(() => {
     setSearch("");
-  }, [agent]);
+  }, [agent, favoritesOpen]);
   useEffect(() => {
     setEffortOpen(false);
     setContextOpen(false);
   }, [agent, model]);
 
-  return (
-    <MorphPopover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        setSearch("");
-        setEffortOpen(false);
-        setContextOpen(false);
-        if (next && models.length === 0) {
-          onEmptyModelsOpen?.();
-        }
-      }}
-      className={className}
-    >
-      <MorphPopoverTrigger>
-        <button
-          type="button"
-          disabled={disabled}
-          title={triggerText}
+  const panel = (
+        <div
           className={cn(
-            "inline-flex h-8 max-w-[22rem] items-center gap-1.5 border-0 bg-transparent px-2 py-0 text-xs text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2",
-            open && "bg-muted text-foreground",
-            controlRadius,
+            "flex max-h-[min(24rem,calc(100dvh-1rem))] overflow-hidden",
+            menuInline
+              ? "w-full rounded-lg border border-border bg-muted/30"
+              : "rounded-2xl border border-border bg-popover shadow-[0_10px_18px_rgba(0,0,0,0.14)]",
+            menuInline && className,
           )}
         >
-          {(currentAgent?.icon ?? currentModel?.icon) ? (
-            <span className="grid size-4 shrink-0 place-items-center overflow-hidden text-muted-foreground [&_img]:size-3.5 [&_svg]:size-3.5">
-              {currentAgent?.icon ?? currentModel?.icon}
-            </span>
-          ) : null}
-          <span className="min-w-0 truncate">{triggerText}</span>
-        </button>
-      </MorphPopoverTrigger>
-      <MorphPopoverContent
-        side="top"
-        align="end"
-        sideOffset={8}
-        radius={16}
-        clip={false}
-        className="overflow-visible border-0 bg-transparent p-0"
-      >
-        <div className="flex max-h-[min(24rem,calc(100dvh-1rem))] overflow-hidden rounded-2xl border border-border bg-popover shadow-[0_10px_18px_rgba(0,0,0,0.14)]">
           {agentTablist !== undefined ? (
             agentTablist ? (
               <div className="flex min-h-0 shrink-0 items-stretch self-stretch p-1.5 pr-1">
@@ -848,8 +904,13 @@ function PromptAgentConfigMenu({
               </MotionTabs>
             </div>
           )}
-          <div className="flex min-h-0 w-[16.5rem] min-w-0 flex-1 flex-col">
-            {models.length > 0 ? (
+          <div
+            className={cn(
+              "flex min-h-0 min-w-0 flex-1 flex-col",
+              menuInline ? "w-auto" : "w-[16.5rem]",
+            )}
+          >
+            {listedModels.length > 0 ? (
               <div className="flex min-w-0 items-center gap-1 px-2 pt-1.5 pb-1">
                 <div className="min-w-0 flex-1">
                   <SelectSearch
@@ -859,7 +920,7 @@ function PromptAgentConfigMenu({
                     padded={false}
                   />
                 </div>
-                {onLoadModels ? (
+                {onLoadModels && !favoritesOpen ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -886,10 +947,10 @@ function PromptAgentConfigMenu({
             <div
               className={cn(
                 "min-h-0 flex-1 overflow-y-auto p-1.5",
-                models.length > 0 && "pt-0",
+                listedModels.length > 0 && "pt-0",
               )}
             >
-              {Boolean(modelsLoading) && models.length === 0 ? (
+              {Boolean(modelsLoading) && listedModels.length === 0 && !favoritesOpen ? (
                 <div
                   className="flex items-center gap-2 px-2.5 py-3 text-xs text-muted-foreground"
                   aria-busy="true"
@@ -898,12 +959,12 @@ function PromptAgentConfigMenu({
                   <LoaderCircle className="size-3.5 shrink-0 animate-spin" />
                   <span>{labels.loadingModels}</span>
                 </div>
-              ) : models.length === 0 ? (
+              ) : listedModels.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 px-2.5 py-3">
                   <div className="text-center text-xs text-muted-foreground">
-                    {labels.noResults}
+                    {favoritesOpen ? labels.noFavorites : labels.noResults}
                   </div>
-                  {onLoadModels ? (
+                  {onLoadModels && !favoritesOpen ? (
                     <button
                       type="button"
                       disabled={disabled}
@@ -931,14 +992,14 @@ function PromptAgentConfigMenu({
                     );
                   }
                   const option = row.option;
-                  const isSelected = option.value === model;
+                  const isSelected = option.selected ?? option.value === model;
                   const warning = isSelected && option.tone === "warning";
                   const fullLabel = modelLabelWithContext(optionName(option), isSelected ? contextSuffix : "");
                   return (
                     <div
-                      key={option.value}
+                      key={promptModelRowKey(option)}
                       className={cn(
-                        "flex w-full items-center gap-1 rounded-lg",
+                        "group/model flex w-full items-center gap-1 rounded-lg",
                         warning
                           ? "bg-muted text-warning"
                           : isSelected
@@ -951,7 +1012,7 @@ function PromptAgentConfigMenu({
                           <button
                             type="button"
                             disabled={option.disabled || modelsLocked}
-                            onClick={() => onModelChange(option.value)}
+                            onClick={() => onModelChange(option.value, option)}
                             className={cn(
                               "flex min-w-0 flex-1 gap-2 py-2 text-left text-sm outline-none",
                               (option.group ?? "").trim() ? "pl-4 pr-2.5" : "px-2.5",
@@ -1101,14 +1162,12 @@ function PromptAgentConfigMenu({
                           </MorphPopoverContent>
                         </MorphPopover>
                       ) : null}
-                      <span
-                        aria-hidden
-                        className={cn(
-                          "mr-2 size-3.5 shrink-0 rounded-full border",
-                          isSelected
-                            ? "border-foreground bg-foreground"
-                            : "border-muted-foreground/35",
-                        )}
+                      <ModelFavoriteMark
+                        option={option}
+                        selected={isSelected}
+                        addLabel={labels.addFavorite}
+                        removeLabel={labels.removeFavorite}
+                        onToggle={onToggleFavorite}
                       />
                     </div>
                   );
@@ -1117,6 +1176,54 @@ function PromptAgentConfigMenu({
             </div>
           </div>
         </div>
+  );
+
+  if (menuInline) {
+    return panel;
+  }
+
+  return (
+    <MorphPopover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        setSearch("");
+        setEffortOpen(false);
+        setContextOpen(false);
+        if (next && models.length === 0 && !favoritesOpen) {
+          onEmptyModelsOpen?.();
+        }
+      }}
+      className={className}
+    >
+      <MorphPopoverTrigger>
+        <button
+          type="button"
+          disabled={disabled}
+          title={triggerText}
+          className={cn(
+            "inline-flex h-8 max-w-[22rem] items-center gap-1.5 border-0 bg-transparent px-2 py-0 text-xs text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2",
+            open && "bg-muted text-foreground",
+            controlRadius,
+          )}
+        >
+          {(currentAgent?.icon ?? currentModel?.icon) ? (
+            <span className="grid size-4 shrink-0 place-items-center overflow-hidden text-muted-foreground [&_img]:size-3.5 [&_svg]:size-3.5">
+              {currentAgent?.icon ?? currentModel?.icon}
+            </span>
+          ) : null}
+          <span className="min-w-0 truncate">{triggerText}</span>
+        </button>
+      </MorphPopoverTrigger>
+      <MorphPopoverContent
+        side={menuSide}
+        align="end"
+        sideOffset={8}
+        radius={16}
+        clip={false}
+        className="overflow-visible border-0 bg-transparent p-0"
+      >
+        {panel}
       </MorphPopoverContent>
     </MorphPopover>
   );
@@ -1406,6 +1513,72 @@ function OptionRow({ option }: { option: PromptModel }) {
         ) : null}
       </span>
     </span>
+  );
+}
+
+function promptModelRowKey(option: PromptModel): string {
+  return option.agent ? `${option.agent}\u001f${option.value}` : option.value;
+}
+
+function ModelFavoriteMark({
+  option,
+  selected,
+  addLabel,
+  removeLabel,
+  onToggle,
+}: {
+  option: PromptModel;
+  selected: boolean;
+  addLabel: string;
+  removeLabel: string;
+  onToggle?: (model: string, option: PromptModel) => void;
+}) {
+  if (!onToggle) {
+    return (
+      <span
+        aria-hidden
+        className={cn(
+          "mr-2 size-3.5 shrink-0 rounded-full border",
+          selected
+            ? "border-foreground bg-foreground"
+            : "border-muted-foreground/35",
+        )}
+      />
+    );
+  }
+  return (
+    <button
+      type="button"
+      aria-label={option.favorited ? removeLabel : addLabel}
+      aria-pressed={Boolean(option.favorited)}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onToggle(option.value, option);
+      }}
+      className="relative mr-1 grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:text-favorite focus-visible:ring-2"
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "pointer-events-none size-3.5 rounded-full border transition-opacity",
+          selected
+            ? "border-foreground bg-foreground"
+            : "border-muted-foreground/35",
+          option.favorited || "group-hover/model:opacity-0 group-focus-within/model:opacity-0",
+          option.favorited && "opacity-0",
+        )}
+      />
+      <Star
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute size-3.5 transition-opacity",
+          option.favorited
+            ? "fill-favorite text-favorite opacity-100"
+            : "opacity-0 group-hover/model:opacity-100 group-focus-within/model:opacity-100",
+        )}
+      />
+    </button>
   );
 }
 

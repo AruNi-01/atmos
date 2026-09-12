@@ -42,6 +42,8 @@ describe("composer config defer-until-send", () => {
     const body = session.slice(start, end);
     expect(body).toContain("void persistConfig({");
     expect(body).toContain("provider_id: next");
+    expect(body).toContain("opts?: { model?: string }");
+    expect(body).toContain("const nextModel = opts?.model?.trim() || preferred.modelId");
   });
 
   it("keeps landing composer chrome when hydrating an empty chat", () => {
@@ -71,5 +73,6 @@ describe("composer config defer-until-send", () => {
     expect(session).not.toContain("setLoadingAgents(true)");
     expect(session).not.toContain("agentApi.listRegistry()");
     expect(session).toContain("agentChatApi.prefsGet()");
+    expect(session).toContain("hydrateFavoriteModelsFromPrefs");
   });
 });

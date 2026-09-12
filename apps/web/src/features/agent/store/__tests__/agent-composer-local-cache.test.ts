@@ -8,6 +8,7 @@ import {
   readComposerLocalCache,
   rememberComposerChromeDraft,
   rememberComposerOptions,
+  rememberFavoriteModels,
   rememberLastNewChatConfigs,
   rememberLastRegistryId,
   seedNewChatComposer,
@@ -172,6 +173,16 @@ describe("composer local cache", () => {
       "agent",
       "plan",
       "ask",
+    ]);
+  });
+
+  it("persists favorited agent+model pairs for paint-ahead", () => {
+    rememberFavoriteModels([
+      { agentId: "claude", model: "opus", label: "Opus" },
+    ]);
+    __resetComposerLocalCacheForTests();
+    expect(readComposerLocalCache().favoriteModels).toEqual([
+      { agentId: "claude", model: "opus", label: "Opus" },
     ]);
   });
 

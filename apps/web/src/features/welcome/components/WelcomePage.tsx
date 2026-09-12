@@ -54,6 +54,7 @@ import {
   resolveViewRunLogsPromptText,
   VIEW_RUN_LOGS_SLASH_COMMAND_ID,
 } from "@/features/browser/lib/run-log-context";
+import { getPreferredRunLogWindow } from "@/features/browser/lib/run-log-active-window";
 import {
   buildDevicePreviewSlashCommand,
   DEVICE_PREVIEW_SLASH_COMMAND_ID,
@@ -667,7 +668,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         if (!popover) return;
         setSlashPopover(null);
         void resolveViewRunLogsPromptText(selectedProjectPath, (root) =>
-          runLogApi.resolveLatest(root),
+          runLogApi.resolveLatest(root, getPreferredRunLogWindow(root)),
         ).then((promptText) => {
           composerRef.current?.applyAiContextAtRange(
             popover.slashOffset,

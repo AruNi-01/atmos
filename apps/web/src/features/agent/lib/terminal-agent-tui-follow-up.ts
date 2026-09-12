@@ -84,7 +84,20 @@ export function agentNeedsTuiFollowUp(agentId: string, prompt: string): boolean 
   return TUI_FOLLOW_UP_AGENTS.has(agentId) && prompt.trim().length > 0;
 }
 
+export function looksLikeDirectoryTrustPrompt(output: string): boolean {
+  const lower = output.toLowerCase();
+  return (
+    lower.includes("do you trust this directory") ||
+    lower.includes("do you trust the files in this folder") ||
+    lower.includes("do you trust this folder") ||
+    lower.includes("workspace trust")
+  );
+}
+
 export function isAgentTuiReady(agentId: string, output: string): boolean {
+  if (looksLikeDirectoryTrustPrompt(output)) {
+    return false;
+  }
   const config = TUI_FOLLOW_UP_AGENTS.get(agentId);
   if (!config) {
     return false;

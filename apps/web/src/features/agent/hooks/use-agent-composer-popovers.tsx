@@ -48,6 +48,7 @@ import {
   resolveViewRunLogsPromptText,
   VIEW_RUN_LOGS_SLASH_COMMAND_ID,
 } from "@/features/browser/lib/run-log-context";
+import { getPreferredRunLogWindow } from "@/features/browser/lib/run-log-active-window";
 import { runLogApi } from "@/features/browser/lib/run-log-api";
 import {
   buildDevicePreviewSlashCommand,
@@ -329,7 +330,7 @@ export function useAgentComposerPopovers({
         setSlashPopover(null);
         setSlashPopoverView("menu");
         void resolveViewRunLogsPromptText(projectPath, (root) =>
-          runLogApi.resolveLatest(root),
+          runLogApi.resolveLatest(root, getPreferredRunLogWindow(root)),
         ).then((promptText) => {
           composerRef.current?.applyAiContextAtRange(
             popover.slashOffset,

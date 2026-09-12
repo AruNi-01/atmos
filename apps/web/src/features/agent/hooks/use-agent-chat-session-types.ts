@@ -18,6 +18,7 @@ import type { AgentChatMode } from "@/features/agent/types/index";
 import type { Project } from "@/shared/types/domain";
 import type { AgentActivity, PendingPermission, PendingSessionOp } from "../lib/chat-helpers";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
+import type { CurrentTurnSubagentTasks } from "@/features/agent/lib/subagent-tasks";
 import type { CurrentView } from "@/shared/hooks/use-context-params";
 import type { CatalogAuthStartResult } from "@/features/agent/lib/catalog-auth";
 
@@ -75,6 +76,7 @@ export interface UseAgentChatSessionReturn {
   setMessages: React.Dispatch<React.SetStateAction<AgentMessage[]>>;
   currentPlan: AgentPlan | null;
   backgroundTools: AgentToolCallPart[];
+  subagentTasks: CurrentTurnSubagentTasks;
   pendingPermission: PendingPermission | null;
   pendingPermissionMarkdown: string | null;
   pendingSessionOp: PendingSessionOp | null;

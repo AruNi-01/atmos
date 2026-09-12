@@ -204,6 +204,13 @@ export function registryAgentEnabled(agent: {
   return agent.enabled !== false;
 }
 
+/** Agent Manager ACP card: picker switch only after install / Using installed CLI. */
+export function acpManagerCardShowsEnableSwitch(agent: {
+  installed?: boolean;
+}): boolean {
+  return Boolean(agent.installed);
+}
+
 /**
  * Chat picker list: enabled Native hosts + installed ACP/custom.
  *

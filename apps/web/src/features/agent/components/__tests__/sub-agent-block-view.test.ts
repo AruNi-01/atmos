@@ -7,6 +7,7 @@ test("subagent tools use the standard collapsed tool row", () => {
   const toolView = readFileSync(join(import.meta.dir, "../ToolView.tsx"), "utf8");
 
   expect(source).toContain("<AgentToolCard");
+  expect(source).toContain("<SubAgentBlockBody");
   expect(source).toContain("defaultOpen = false");
   expect(source).toContain("defaultOpen={defaultOpen}");
   expect(source).toContain('getToolKindIcon("subagent")');

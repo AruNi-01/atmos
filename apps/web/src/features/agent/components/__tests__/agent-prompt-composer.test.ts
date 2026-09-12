@@ -2,12 +2,25 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const composer = readFileSync(
+const composerFile = readFileSync(
   join(import.meta.dir, "../AgentPromptComposer.tsx"),
   "utf8",
 );
+const configInput = readFileSync(
+  join(import.meta.dir, "../ChatAgentConfigInput.tsx"),
+  "utf8",
+);
+const composer = `${composerFile}\n${configInput}`;
 
 describe("agent prompt composer", () => {
+  it("shares ChatAgentConfigInput with automation instead of forking the picker chrome", () => {
+    expect(composerFile).toContain("<ChatAgentConfigInput");
+    expect(composerFile).not.toContain("AgentsPromptInput");
+    expect(composerFile).not.toContain("menuInline");
+    expect(configInput).toContain("AgentsPromptInput");
+    expect(configInput).toContain("AGENT_CHAT_FAVORITES_TAB");
+  });
+
   it("APP-069 S9 has no standing Fork or Rewind composer buttons", () => {
     expect(composer).not.toMatch(/["']Fork["']/);
     expect(composer).not.toMatch(/["']Rewind["']/);
@@ -65,6 +78,16 @@ describe("agent prompt composer", () => {
     expect(composer).toContain("agentTablist=");
     expect(composer).toContain('orientation="vertical"');
     expect(composer).toContain("CenterStageTabList");
+    expect(composer).toContain("AGENT_CHAT_FAVORITES_TAB");
+    expect(composer).toContain("favoriteModels={favoritePromptModels}");
+    expect(composer).toContain("favoritesOpen={favoritesOpen}");
+    expect(composer).toContain("onToggleFavorite=");
+    expect(composer).toContain("useAgentChatFavorites");
+    expect(composer).toContain("toggleFavorite({ agentId, model, label })");
+    expect(composer).not.toContain("useAgentUiPrefs");
+    expect(composer).not.toContain("patchAgentPrefs");
+    expect(composer).not.toContain("agentPrefs.favoriteModels");
+    expect(composer).toContain('t("composer.favorites")');
     expect(composer).toContain("size-9 px-0");
     expect(composer).toContain("size={20}");
     expect(composer).toContain("agentOptions.length === 0 ? null");
@@ -90,6 +113,8 @@ describe("agent prompt composer", () => {
     expect(composer).not.toContain("onFlySend");
     expect(composer).toContain("data-agent-composer-upper-cards");
     expect(composer).toContain("<BackgroundCommandsDock tools={backgroundTools} />");
+    expect(composer).toContain("<SubagentTasksPanel");
+    expect(composer).toContain("showSubagentTasksCard");
     expect(composer).toContain('data-agent-chat-above-composer-overlays=""');
     expect(composer).toContain(
       '"pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full flex-col gap-2 has-[.pointer-events-auto]:pb-2"',
@@ -145,7 +170,7 @@ describe("agent prompt composer", () => {
 
   it("uses a three-line editor on new chat and a one-line editor after the session exists", () => {
     expect(composer).toContain("minRows={landing ? 2 : 1}");
-    expect(composer).toContain('"min-h-16 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"');
+    expect(composer).toContain('"min-h-10 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"');
     expect(composer).toContain('"min-h-5 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"');
     expect(composer).not.toContain("data-agent-composer-landing");
   });

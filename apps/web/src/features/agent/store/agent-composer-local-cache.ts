@@ -20,6 +20,11 @@ import {
   resolveRestoredAgentChat,
 } from "@/features/agent/lib/agent-chat-last-session";
 import { readDefaultAgentRegistryId } from "@/features/agent/lib/chat-helpers";
+import {
+  favoriteModelsEqual,
+  parseFavoriteModels,
+  type AgentFavoriteModel,
+} from "@/features/agent/lib/agent-chat-favorites";
 
 export const COMPOSER_LOCAL_CACHE_KEY = "atmos-agent-composer-cache";
 
@@ -38,6 +43,7 @@ export type ComposerLocalCache = {
   lastNewChatConfigs: Record<string, Record<string, string>>;
   optionsByAgent: Record<string, AgentOptionsSnapshot>;
   chromeByInstance: Record<string, ComposerChromeDraft>;
+  favoriteModels: AgentFavoriteModel[];
 };
 
 export type ComposerChromeSeed = {
@@ -55,7 +61,15 @@ const EMPTY_CACHE: ComposerLocalCache = {
   lastNewChatConfigs: {},
   optionsByAgent: {},
   chromeByInstance: {},
+  favoriteModels: [],
 };
+
+const EMPTY_FAVORITE_MODELS: AgentFavoriteModel[] = [];
+const favoriteModelListeners = new Set<() => void>();
+
+function notifyFavoriteModels() {
+  for (const listener of favoriteModelListeners) listener();
+}
 
 let memory: ComposerLocalCache | null = null;
 
@@ -160,6 +174,7 @@ function parseCache(value: unknown): ComposerLocalCache {
     lastNewChatConfigs: parseConfigs(value.lastNewChatConfigs),
     optionsByAgent: parseOptionsByAgent(value.optionsByAgent),
     chromeByInstance: parseChromeByInstance(value.chromeByInstance),
+    favoriteModels: parseFavoriteModels(value.favoriteModels),
   };
 }
 
@@ -175,7 +190,7 @@ function persistMemory() {
 export function readComposerLocalCache(): ComposerLocalCache {
   if (memory) return memory;
   if (typeof window === "undefined") {
-    memory = { ...EMPTY_CACHE, lastNewChatConfigs: {}, optionsByAgent: {}, chromeByInstance: {} };
+    memory = { ...EMPTY_CACHE };
     return memory;
   }
   try {
@@ -194,6 +209,7 @@ function mutateCache(patch: Partial<ComposerLocalCache>) {
     lastNewChatConfigs: patch.lastNewChatConfigs ?? current.lastNewChatConfigs,
     optionsByAgent: patch.optionsByAgent ?? current.optionsByAgent,
     chromeByInstance: patch.chromeByInstance ?? current.chromeByInstance,
+    favoriteModels: patch.favoriteModels ?? current.favoriteModels,
   };
   persistMemory();
 }
@@ -208,6 +224,29 @@ export function rememberLastNewChatConfigs(
   configs: Record<string, Record<string, string>>,
 ) {
   mutateCache({ lastNewChatConfigs: parseConfigs(configs) });
+}
+
+export function rememberFavoriteModels(favorites: readonly AgentFavoriteModel[]) {
+  const next = parseFavoriteModels(favorites);
+  const current = readComposerLocalCache().favoriteModels;
+  if (favoriteModelsEqual(current, next)) return;
+  mutateCache({ favoriteModels: next });
+  notifyFavoriteModels();
+}
+
+export function getFavoriteModelsSnapshot(): AgentFavoriteModel[] {
+  return readComposerLocalCache().favoriteModels;
+}
+
+export function getFavoriteModelsServerSnapshot(): AgentFavoriteModel[] {
+  return EMPTY_FAVORITE_MODELS;
+}
+
+export function subscribeFavoriteModels(onStoreChange: () => void): () => void {
+  favoriteModelListeners.add(onStoreChange);
+  return () => {
+    favoriteModelListeners.delete(onStoreChange);
+  };
 }
 
 export function rememberComposerChromeDraft(

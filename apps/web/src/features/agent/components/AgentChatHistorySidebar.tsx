@@ -3,18 +3,13 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@workspace/ui";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@workspace/ui/components/ui/dropdown-menu";
-import { Bot, Check, ChevronDown, Folder, FolderOpen, Loader2, Plus } from "lucide-react";
+import { Bot, ChevronDown, Folder, FolderOpen, Loader2, Plus } from "lucide-react";
 import type { RegistryAgent } from "@/api/ws-api";
 import type { Project } from "@/shared/types/domain";
 import type { AgentChatHistoryRow } from "@/features/agent/lib/agent-chat-thread";
 import { isAgentScratchCwd } from "@/features/agent/lib/agent-chat-working-directory";
 import { AgentIcon } from "./AgentIcon";
+import { ChatAgentPicker } from "./ChatAgentPicker";
 
 interface AgentChatHistorySidebarProps {
   className?: string;
@@ -231,7 +226,6 @@ export function AgentChatHistorySidebar({
     [historySessions, projects, t],
   );
   const [collapsedGroups, setCollapsedGroups] = React.useState<Record<string, boolean>>({});
-  const [agentPickerOpen, setAgentPickerOpen] = React.useState(false);
   const [selectedRegistryId, setSelectedRegistryId] = React.useState("");
   const newSessionControlRef = React.useRef<HTMLDivElement | null>(null);
   const agentLabelMeasureRef = React.useRef<HTMLSpanElement | null>(null);
@@ -317,11 +311,15 @@ export function AgentChatHistorySidebar({
               <span className="truncate">{t("historySidebar.newSession")}</span>
             </button>
 
-            <DropdownMenu
-              open={agentPickerOpen}
-              onOpenChange={setAgentPickerOpen}
-            >
-              <DropdownMenuTrigger asChild>
+            <ChatAgentPicker
+              agents={installedAgents}
+              value={effectiveSelectedRegistryId}
+              align="end"
+              onChange={(agentId) => {
+                setSelectedRegistryId(agentId);
+                onPreferredRegistryChange?.(agentId);
+              }}
+              trigger={
                 <button
                   type="button"
                   className="group/agent-selector relative flex h-full min-w-0 max-w-[50%] shrink-0 items-center px-2 text-left text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
@@ -359,42 +357,8 @@ export function AgentChatHistorySidebar({
                     <ChevronDown className="ml-1 size-3 shrink-0" />
                   </span>
                 </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64 p-1">
-                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                  {t("historySidebar.agentForNewSession")}
-                </div>
-                <div className="max-h-64 overflow-y-auto">
-                  {installedAgents.map((agent) => {
-                    const selected = selectedAgent?.id === agent.id;
-                    return (
-                      <DropdownMenuItem
-                        key={agent.id}
-                        className="cursor-pointer"
-                        onSelect={() => {
-                          setSelectedRegistryId(agent.id);
-                          onPreferredRegistryChange?.(agent.id);
-                          setAgentPickerOpen(false);
-                        }}
-                      >
-                        <AgentIcon
-                          registryId={agent.id}
-                          name={agent.name}
-                          size={16}
-                          isCustom={agent.install_method === "custom"}
-                          registryIcon={agent.icon}
-                        />
-                        <span className="min-w-0 flex-1 truncate">{agent.name}</span>
-                        {selected ? <Check className="size-3.5 shrink-0 text-primary" /> : null}
-                      </DropdownMenuItem>
-                    );
-                  })}
-                  {installedAgents.length === 0 ? (
-                    <div className="px-2 py-3 text-xs text-muted-foreground">{t("historySidebar.noInstalledAgent")}</div>
-                  ) : null}
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              }
+            />
           </div>
         </div>
       </div>

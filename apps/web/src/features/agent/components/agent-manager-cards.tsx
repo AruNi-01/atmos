@@ -14,7 +14,12 @@ import {
 } from "lucide-react";
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { AgentIcon } from "./AgentIcon";
-import { customAgentDisplayName, isSecretEnvKey } from "@/features/agent/lib/custom-agent-registry";
+import {
+  acpManagerCardShowsEnableSwitch,
+  customAgentDisplayName,
+  isSecretEnvKey,
+  registryAgentEnabled,
+} from "@/features/agent/lib/custom-agent-registry";
 import { motion } from "motion/react";
 
 export function needsUpdate(
@@ -72,8 +77,14 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
   const t = useTranslations("Agent.components");
   const isInstalling = installingRegistryIds.has(item.id);
   const preferNativeHint = Boolean(nativeSibling);
-  const showEnableSwitch = Boolean(nativeSibling) && Boolean(onEnabledChange);
-  const enabled = item.installed && item.enabled !== false;
+  const showEnableSwitch =
+    Boolean(onEnabledChange) && acpManagerCardShowsEnableSwitch(item);
+  const enabled = registryAgentEnabled(item);
+  const canRemove = item.installed && item.can_remove !== false;
+  const canUpgrade =
+    canRemove &&
+    Boolean(item.installed_version) &&
+    needsUpdate(item.installed_version!, item.version);
 
   return (
     <motion.div
@@ -88,6 +99,7 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
         item.installed
           ? "bg-transparent border-border/60"
           : "bg-background border-border/60",
+        item.installed && !enabled && "opacity-80",
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -101,9 +113,28 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
             />
           </div>
           <div className="min-w-0">
-            <h3 className="truncate text-sm font-semibold text-foreground tracking-tight">
-              {item.name}
-            </h3>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <h3 className="min-w-0 truncate text-sm font-semibold text-foreground tracking-tight">
+                {item.name}
+              </h3>
+              {item.repository ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    window.open(
+                      item.repository!,
+                      "_blank",
+                      "noopener,noreferrer",
+                    )
+                  }
+                  className="inline-flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/60 hover:text-foreground cursor-pointer"
+                  title={t("managerCards.repositoryTitle")}
+                  aria-label={t("managerCards.repositoryAria", { name: item.name })}
+                >
+                  <Github className="size-3.5" />
+                </button>
+              ) : null}
+            </div>
             <div className="mt-0.5 flex items-center gap-2">
               <p className="text-xs text-muted-foreground/70 tabular-nums">
                 v{item.version}
@@ -163,112 +194,89 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
         <div className="h-px bg-border/40 mt-4" />
         <div className="flex items-center justify-between gap-3 pt-3">
           <div className="flex items-center gap-2">
-            {item.repository ? (
-              <button
+            {canRemove ? (
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() =>
-                  window.open(
-                    item.repository!,
-                    "_blank",
-                    "noopener,noreferrer",
-                  )
+                  onRemoveRequest({ registryId: item.id, name: item.name })
                 }
-                className="inline-flex size-8 items-center justify-center rounded-lg border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/50 cursor-pointer"
-                title={t("managerCards.repositoryTitle")}
-                aria-label={t("managerCards.repositoryAria", { name: item.name })}
+                disabled={removingRegistryId === item.id}
+                className="h-8 rounded-lg px-4 text-xs bg-muted/50 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 border-transparent"
               >
-                <Github className="size-4" />
-              </button>
-            ) : (
-              <div className="size-8" />
-            )}
+                {removingRegistryId === item.id ? (
+                  <>
+                    <Loader2 className="mr-1 size-3 animate-spin" />
+                    {t("managerCards.actions.removing")}
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="mr-1 size-3.5" />
+                    {t("common.remove")}
+                  </>
+                )}
+              </Button>
+            ) : null}
+            {canUpgrade ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void onInstall(item.id, true)}
+                disabled={isInstalling}
+                className="h-8 rounded-lg px-3 text-xs bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 hover:border-blue-500/50"
+              >
+                {isInstalling ? (
+                  <>
+                    <Loader2 className="mr-1 size-3 animate-spin" />
+                    {t("managerCards.actions.updating")}
+                  </>
+                ) : (
+                  <>
+                    <CircleFadingArrowUp className="mr-1 size-3" />
+                    {t("managerCards.actions.upgrade")}
+                  </>
+                )}
+              </Button>
+            ) : null}
           </div>
 
-          {showEnableSwitch ? (
-            <div className="mr-auto flex min-w-0 items-center gap-2">
-              <Switch
-                checked={enabled}
-                disabled={enablingPending || isInstalling}
-                onCheckedChange={(checked) => onEnabledChange?.(item, !!checked)}
-                aria-label={t("managerCards.actions.enable")}
-              />
-              {isInstalling ? (
-                <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-                  <Loader2 className="size-3 shrink-0 animate-spin" />
-                  <span className="truncate">{t("managerCards.actions.installing")}</span>
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-
-          {!showEnableSwitch && !item.installed ? (
-            <Button
-              size="sm"
-              onClick={() => void onInstall(item.id)}
-              disabled={isInstalling}
-              className="h-8 rounded-lg px-4"
-            >
-              {isInstalling ? (
-                <>
-                  <Loader2 className="mr-1 size-3 animate-spin" />
-                  {t("managerCards.actions.installing")}
-                </>
-              ) : (
-                <>
-                  <ArrowDownToLine className="mr-1 size-3.5" />
-                  {t("managerCards.actions.install")}
-                </>
-              )}
-            </Button>
-          ) : item.installed ? (
-            <div className="flex items-center gap-2">
-              {item.can_remove !== false &&
-                item.installed_version &&
-                needsUpdate(item.installed_version, item.version) && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void onInstall(item.id, true)}
-                    disabled={isInstalling}
-                    className="h-8 rounded-lg px-3 text-xs bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 hover:border-blue-500/50"
-                  >
-                    {isInstalling ? (
-                      <>
-                        <Loader2 className="mr-1 size-3 animate-spin" />
-                        {t("managerCards.actions.updating")}
-                      </>
-                    ) : (
-                      <>
-                        <CircleFadingArrowUp className="mr-1 size-3" />
-                        {t("managerCards.actions.upgrade")}
-                      </>
-                    )}
-                  </Button>
+          <div className="flex min-w-0 items-center justify-end gap-2">
+            {showEnableSwitch ? (
+              <>
+                {isInstalling ? (
+                  <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                    <Loader2 className="size-3 shrink-0 animate-spin" />
+                    <span className="truncate">{t("managerCards.actions.installing")}</span>
+                  </span>
+                ) : null}
+                <Switch
+                  checked={enabled}
+                  disabled={enablingPending || isInstalling}
+                  onCheckedChange={(checked) => onEnabledChange?.(item, !!checked)}
+                  aria-label={t("managerCards.actions.enable")}
+                />
+              </>
+            ) : !item.installed ? (
+              <Button
+                size="sm"
+                onClick={() => void onInstall(item.id)}
+                disabled={isInstalling}
+                className="h-8 rounded-lg px-4"
+              >
+                {isInstalling ? (
+                  <>
+                    <Loader2 className="mr-1 size-3 animate-spin" />
+                    {t("managerCards.actions.installing")}
+                  </>
+                ) : (
+                  <>
+                    <ArrowDownToLine className="mr-1 size-3.5" />
+                    {t("managerCards.actions.install")}
+                  </>
                 )}
-              {item.can_remove !== false ? (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() =>
-                    onRemoveRequest({ registryId: item.id, name: item.name })
-                  }
-                  disabled={removingRegistryId === item.id}
-                  className="h-8 rounded-lg px-4 text-xs bg-muted/50 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 border-transparent"
-                >
-                  {removingRegistryId === item.id ? (
-                    <>
-                      <Loader2 className="mr-1 size-3 animate-spin" />
-                      {t("managerCards.actions.removing")}
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="mr-1 size-3.5" />
-                      {t("common.remove")}
-                    </>
-                  )}
-                </Button>
-              ) : null}
-            </div>
-          ) : null}
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
     </motion.div>
@@ -355,53 +363,55 @@ export const CustomAgentCard = React.memo<CustomAgentCardProps>(
 
         <div className="mt-auto">
           <div className="h-px bg-border/40 mt-4" />
-          <div className="flex items-center justify-end gap-2 pt-3">
+          <div className="flex items-center justify-between gap-3 pt-3">
+            <div className="flex items-center gap-2">
+              {(!agent.builtin || agent.has_overlay) ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onRemoveRequest({ name: agent.name })}
+                  disabled={removingCustomName === agent.name}
+                  className="h-8 rounded-lg px-4 text-xs bg-muted/50 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 border-transparent"
+                >
+                  {removingCustomName === agent.name ? (
+                    <>
+                      <Loader2 className="mr-1 size-3 animate-spin" />
+                      {t("managerCards.actions.removing")}
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="mr-1 size-3.5" />
+                      {t("common.remove")}
+                    </>
+                  )}
+                </Button>
+              ) : null}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onEdit(agent)}
+                disabled={removingCustomName === agent.name}
+                className="h-8 rounded-lg px-4 text-xs border-border/60 bg-background opacity-0 pointer-events-none translate-x-1 group-hover:opacity-100 group-hover:pointer-events-auto group-hover:translate-x-0 focus-visible:opacity-100 focus-visible:pointer-events-auto focus-visible:translate-x-0 hover:bg-muted/50 transition-[opacity,transform]"
+              >
+                <Pencil className="mr-1 size-3.5" />
+                {t("common.edit")}
+              </Button>
+            </div>
             {agent.builtin && onEnabledChange ? (
-              <div className="mr-auto flex min-w-0 items-center gap-2">
-                <Switch
-                  checked={agent.enabled === true}
-                  disabled={enablingPending || removingCustomName === agent.name}
-                  onCheckedChange={(checked) => onEnabledChange(agent, !!checked)}
-                  aria-label={t("managerCards.actions.enable")}
-                />
+              <div className="flex min-w-0 items-center justify-end gap-2">
                 {preloading ? (
                   <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
                     <Loader2 className="size-3 shrink-0 animate-spin" />
                     <span className="truncate">{t("managerCards.actions.preloading")}</span>
                   </span>
                 ) : null}
+                <Switch
+                  checked={agent.enabled === true}
+                  disabled={enablingPending || removingCustomName === agent.name}
+                  onCheckedChange={(checked) => onEnabledChange(agent, !!checked)}
+                  aria-label={t("managerCards.actions.enable")}
+                />
               </div>
-            ) : null}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onEdit(agent)}
-              disabled={removingCustomName === agent.name}
-              className="h-8 rounded-lg px-4 text-xs border-border/60 bg-background opacity-0 pointer-events-none translate-x-1 group-hover:opacity-100 group-hover:pointer-events-auto group-hover:translate-x-0 focus-visible:opacity-100 focus-visible:pointer-events-auto focus-visible:translate-x-0 hover:bg-muted/50 transition-[opacity,transform]"
-            >
-              <Pencil className="mr-1 size-3.5" />
-              {t("common.edit")}
-            </Button>
-            {(!agent.builtin || agent.has_overlay) ? (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => onRemoveRequest({ name: agent.name })}
-              disabled={removingCustomName === agent.name}
-              className="h-8 rounded-lg px-4 text-xs bg-muted/50 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 border-transparent"
-            >
-              {removingCustomName === agent.name ? (
-                <>
-                  <Loader2 className="mr-1 size-3 animate-spin" />
-                  {t("managerCards.actions.removing")}
-                </>
-              ) : (
-                <>
-                  <Trash2 className="mr-1 size-3.5" />
-                  {t("common.remove")}
-                </>
-              )}
-            </Button>
             ) : null}
           </div>
         </div>
@@ -495,14 +505,12 @@ export const NativeAgentCard = React.memo<NativeAgentCardProps>(
         <div className="mt-auto">
           <div className="h-px bg-border/40 mt-4" />
           <div className="flex items-center justify-end gap-2 pt-3">
-            <div className="mr-auto flex min-w-0 items-center gap-2">
-              <Switch
-                checked={agent.enabled}
-                disabled={enablingPending}
-                onCheckedChange={(checked) => onEnabledChange(agent, !!checked)}
-                aria-label={t("managerCards.actions.enable")}
-              />
-            </div>
+            <Switch
+              checked={agent.enabled}
+              disabled={enablingPending}
+              onCheckedChange={(checked) => onEnabledChange(agent, !!checked)}
+              aria-label={t("managerCards.actions.enable")}
+            />
           </div>
         </div>
       </motion.div>

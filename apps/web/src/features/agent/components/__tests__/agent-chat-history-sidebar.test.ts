@@ -20,6 +20,11 @@ const panel = readFileSync(
 );
 
 describe("agent chat standalone history sidebar", () => {
+  it("reuses ChatAgentPicker for the new-session agent popover", () => {
+    expect(sidebar).toContain("ChatAgentPicker");
+    expect(sidebar).not.toContain("DropdownMenuItem");
+  });
+
   it("renders each session with its agent icon instead of a bubble", () => {
     expect(sidebar).toContain("installedAgentById.get(session.provider_id)");
     expect(sidebar).toContain("registryId={session.provider_id}");
