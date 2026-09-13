@@ -4,6 +4,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Crosshair, Eye, EyeOff, Folder, LoaderCircle, RotateCcw } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
+import { ScrollArea } from "@workspace/ui";
 import { FileTree } from "@/features/files/components/FileTree";
 import { useFileTreeStore } from "@/features/files/store/use-file-tree-store";
 import { useFileTreeQuery } from "@/features/files/hooks/use-file-tree-query";
@@ -160,10 +161,8 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
           </div>
         </div>
       )}
-      <div
-        className="flex-1 overflow-y-auto no-scrollbar min-h-0 pt-1.5"
-        data-file-tree-scroll=""
-      >
+      <div className="min-h-0 flex-1" data-file-tree-scroll="">
+        <ScrollArea scrollFade className="h-full" viewportClassName="pt-1.5">
         <FileTree
           // Remount when root or eye-toggle changes so headless-tree does not keep
           // a truthy empty children cache (`[]`) from the previous visibility mode.
@@ -180,6 +179,7 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
           contextMenuAnchor={contextMenuAnchor}
           onOpenFile={onOpenFile}
         />
+        </ScrollArea>
       </div>
     </div>
   );

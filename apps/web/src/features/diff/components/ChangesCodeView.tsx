@@ -61,6 +61,7 @@ import {
   CODE_VIEW_HOST_CLASS,
   getAtmosDiffThemeType,
 } from '@/features/diff/lib/diff-view-constants';
+import { useScrollFadeRef } from '@/features/diff/lib/use-scroll-fade-element';
 import {
   findDiffItemIdForViewport,
   renderDiffHeaderPrefix,
@@ -172,6 +173,7 @@ export function ChangesCodeView({
     'expanded',
   );
   const codeViewRef = useRef<CodeViewHandle<DiffListAnnotationMeta>>(null);
+  const setCodeViewHost = useScrollFadeRef<HTMLDivElement>();
   const lastHandledNavRef = useRef<string | null>(null);
   const itemIdsRef = useRef<string[]>([]);
   const pendingAppendRef = useRef<CodeViewItem<DiffListAnnotationMeta>[]>([]);
@@ -831,6 +833,7 @@ export function ChangesCodeView({
           <CodeView
             key={`${groupPath}:${viewerKey}`}
             ref={handleViewerRef}
+            containerRef={setCodeViewHost}
             initialItems={initialItems}
             options={codeViewOptions}
             onItemEditChange={canEditWorktree ? handleItemEditChange : undefined}

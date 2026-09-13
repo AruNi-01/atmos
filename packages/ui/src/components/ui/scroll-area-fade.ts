@@ -60,33 +60,46 @@ export function measureStickyFadeInsets(
   return insets;
 }
 
+export function stickyFadeItemFromElement(
+  element: HTMLElement,
+): StickyFadeItem | null {
+  const style = getComputedStyle(element);
+  if (style.display === "none" || style.visibility === "hidden") return null;
+  const rect = element.getBoundingClientRect();
+  if (rect.width < 1 || rect.height < 1) return null;
+  return {
+    top: rect.top,
+    bottom: rect.bottom,
+    left: rect.left,
+    right: rect.right,
+    stickyTop:
+      parseStickyOffset(style.top) ?? (style.position === "sticky" ? 0 : null),
+    stickyBottom: parseStickyOffset(style.bottom),
+    stickyLeft: parseStickyOffset(style.left),
+    stickyRight: parseStickyOffset(style.right),
+  };
+}
+
 export function readStickyFadeItems(viewport: HTMLElement): StickyFadeItem[] {
   const items: StickyFadeItem[] = [];
   for (const element of viewport.querySelectorAll<HTMLElement>(".sticky")) {
     const owner = element.closest("[data-slot='scroll-area-viewport']");
     if (owner !== viewport) continue;
-    const style = getComputedStyle(element);
-    if (style.position !== "sticky") continue;
-    if (style.display === "none" || style.visibility === "hidden") continue;
-    const rect = element.getBoundingClientRect();
-    if (rect.width < 1 || rect.height < 1) continue;
-    items.push({
-      top: rect.top,
-      bottom: rect.bottom,
-      left: rect.left,
-      right: rect.right,
-      stickyTop: parseStickyOffset(style.top),
-      stickyBottom: parseStickyOffset(style.bottom),
-      stickyLeft: parseStickyOffset(style.left),
-      stickyRight: parseStickyOffset(style.right),
-    });
+    const item = stickyFadeItemFromElement(element);
+    if (item) items.push(item);
   }
   return items;
 }
 
-export function applyStickyFadeInsets(viewport: HTMLElement) {
+export function applyStickyFadeInsets(
+  viewport: HTMLElement,
+  extraItems?: readonly StickyFadeItem[],
+) {
   const view = viewport.getBoundingClientRect();
-  const insets = measureStickyFadeInsets(view, readStickyFadeItems(viewport));
+  const items = extraItems?.length
+    ? [...readStickyFadeItems(viewport), ...extraItems]
+    : readStickyFadeItems(viewport);
+  const insets = measureStickyFadeInsets(view, items);
   viewport.style.setProperty("--fade-inset-top", `${insets.top}px`);
   viewport.style.setProperty("--fade-inset-bottom", `${insets.bottom}px`);
   viewport.style.setProperty("--fade-inset-left", `${insets.left}px`);

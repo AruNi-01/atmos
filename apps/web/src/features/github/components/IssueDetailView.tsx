@@ -11,6 +11,7 @@ import {
   Textarea,
   TabsSubtle,
   TabsSubtleItem,
+  ScrollArea,
   useDrawerCloseReserve,
 } from "@workspace/ui";
 import { GithubUserHoverCard } from "@/features/github/components/GithubUserHoverCard";
@@ -233,8 +234,8 @@ export function IssueDetailView({
         <>
         <div className="flex min-h-0 flex-1 gap-3 text-sm">
           <div className="min-w-0 flex-1 overflow-hidden">
-            <div className="h-full overflow-y-auto pr-1 pb-16">
-              <div className="sticky top-0 z-20 bg-background pb-3 pt-1">
+            <ScrollArea scrollFade className="h-full" viewportClassName="pr-1 pb-16">
+              <div className="min-w-0 pt-1 pb-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <CircleDot
@@ -268,7 +269,8 @@ export function IssueDetailView({
                     ) : null}
                   </div>
                 </div>
-                <div className="mt-4 border-t border-border/40 pt-3">
+              </div>
+                <div className="sticky top-0 z-20 border-t border-border/40 bg-background pb-3 pt-3">
                   <TabsSubtle
                     activeLabel
                     idPrefix={`issue-${issue.number}`}
@@ -291,7 +293,6 @@ export function IssueDetailView({
                     />
                   </TabsSubtle>
                 </div>
-              </div>
 
               <div
                 className={cn("pt-4", activeTab !== "description" && "hidden")}
@@ -389,7 +390,7 @@ export function IssueDetailView({
                   <IssueDiscussionComposer issue={issue} t={t} />
                 </div>
               ) : null}
-            </div>
+            </ScrollArea>
           </div>
 
           <IssueMetadataSidebar
@@ -799,10 +800,11 @@ function IssueMetadataSidebar({
   return (
     <div
       className={cn(
-        "hidden shrink-0 flex-col overflow-y-auto overflow-x-hidden transition-[max-width,opacity] duration-200 ease-out lg:flex",
+        "hidden shrink-0 flex-col overflow-hidden transition-[max-width,opacity] duration-200 ease-out lg:flex",
         collapsed ? "max-w-0 opacity-0" : "max-w-[240px] opacity-100",
       )}
     >
+      <ScrollArea scrollFade className="h-full min-h-0">
       <div className="flex w-[240px] flex-col gap-5 px-2 pt-1 text-xs">
         <SidebarSection
           title={t("sidebar.assignees")}
@@ -861,6 +863,7 @@ function IssueMetadataSidebar({
           t={t}
         />
       </div>
+      </ScrollArea>
     </div>
   );
 }

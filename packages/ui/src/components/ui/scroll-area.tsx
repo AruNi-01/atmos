@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, type Ref } from "react";
+import { useLayoutEffect, useRef, type ComponentPropsWithoutRef, type Ref } from "react";
 import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area";
 
 import { cn } from "../../lib/utils";
@@ -22,12 +22,14 @@ function ScrollArea({
   scrollbarGutter = false,
   viewportClassName,
   viewportRef,
+  viewportProps,
   ...props
 }: ScrollAreaPrimitive.Root.Props & {
   scrollFade?: boolean;
   scrollbarGutter?: boolean;
   viewportClassName?: string;
   viewportRef?: Ref<HTMLDivElement>;
+  viewportProps?: Omit<ComponentPropsWithoutRef<"div">, "className" | "children">;
 }) {
   const fadeViewportRef = useRef<HTMLDivElement | null>(null);
 
@@ -66,6 +68,7 @@ function ScrollArea({
       {...props}
     >
       <ScrollAreaPrimitive.Viewport
+        {...viewportProps}
         ref={(node) => {
           fadeViewportRef.current = node;
           assignRef(viewportRef, node);
@@ -134,3 +137,8 @@ function ScrollBar({
 }
 
 export { ScrollArea, ScrollBar };
+export {
+  applyStickyFadeInsets,
+  stickyFadeItemFromElement,
+} from "./scroll-area-fade";
+export type { StickyFadeItem } from "./scroll-area-fade";

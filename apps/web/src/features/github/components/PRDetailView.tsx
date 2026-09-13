@@ -9,6 +9,7 @@ import {
   AvatarFallback,
   Skeleton,
   TooltipProvider,
+  ScrollArea,
   cn,
   useDrawerCloseReserve,
 } from '@workspace/ui';
@@ -119,12 +120,26 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
   const [openReviewAgentFixSourceId, setOpenReviewAgentFixSourceId] = React.useState<string | null>(null);
   const {
     handleFilesCodeViewTopBoundaryWheel,
-    handleMainScroll,
-    handleMainWheelCapture,
     mainScrollRef,
-    prContextRef,
     resetPrContext,
-  } = usePrContextHeader(activeMainTab);
+  } = usePrContextHeader();
+  const titleRef = React.useRef<HTMLDivElement | null>(null);
+  const handleFilesTabWheelCapture = React.useCallback(
+    (event: React.WheelEvent<HTMLDivElement>) => {
+      if (activeMainTab !== "files" || event.deltaY <= 8) return;
+      const scrollRoot = mainScrollRef.current;
+      const titleHeight = titleRef.current?.offsetHeight ?? 0;
+      if (!scrollRoot || titleHeight <= 0) return;
+      if (scrollRoot.scrollTop >= titleHeight) return;
+      scrollRoot.scrollTop = Math.min(
+        titleHeight,
+        scrollRoot.scrollTop + event.deltaY,
+      );
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    [activeMainTab, mainScrollRef],
+  );
   const buildThreadAgentFixSource = React.useCallback(
     (thread: ReviewCommentThread): AgentFixPromptSource | undefined => {
       if (!pr || !prNumber) return undefined;
@@ -445,24 +460,23 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
           </header>
 
           {loading ? (
-            <div className="pt-2 px-0.5 overflow-y-auto flex-1">
+            <ScrollArea scrollFade className="min-h-0 flex-1" viewportClassName="px-0.5 pt-2">
               <PRDetailSkeleton />
-            </div>
+            </ScrollArea>
           ) : pr ? (
             <div className="flex gap-3 text-sm flex-1 min-h-0">
               {/* Left: main content */}
               <div className="flex-1 min-w-0 overflow-hidden">
-                <div
-                  ref={mainScrollRef}
-                  className="h-full overflow-y-auto pr-1 pb-16"
-                  onScroll={handleMainScroll}
-                  onWheelCapture={handleMainWheelCapture}
+                <ScrollArea
+                  scrollFade
+                  className="h-full"
+                  viewportRef={mainScrollRef}
+                  viewportClassName="pr-1 pb-16"
+                  viewportProps={{
+                    onWheelCapture: handleFilesTabWheelCapture,
+                  }}
                 >
-                  <div
-                    ref={prContextRef}
-                    className="sticky top-0 z-20 transform-gpu bg-background pb-3 pt-1 transition-transform duration-200 ease-out will-change-transform"
-                  >
-                    <div className="flex min-w-0 flex-col gap-2.5">
+                  <div ref={titleRef} className="min-w-0 pt-1 pb-4">
                       {/* PR title + meta */}
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -515,8 +529,9 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                           </button>
                         </div>
                       </div>
+                  </div>
 
-                      <div className="mt-4 border-t border-border/40 pt-3">
+                      <div className="sticky top-0 z-20 border-t border-border/40 bg-background pb-3 pt-3">
                         <TabsSubtle
                           activeLabel
                           idPrefix={`pr-${pr.number}`}
@@ -570,8 +585,6 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                           />
                         </TabsSubtle>
                       </div>
-                    </div>
-                  </div>
 
                 {/* Description tab */}
                 <div className={cn("pt-4 flex flex-col gap-4", activeMainTab !== 'description' && "hidden")}>
@@ -956,7 +969,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                     />
                   </div>
                 )}
-                </div>
+                </ScrollArea>
               </div>
 
               <PRMetadataSidebar

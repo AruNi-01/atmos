@@ -3,7 +3,7 @@
 import React, { useMemo, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@workspace/ui';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, ScrollArea } from '@workspace/ui';
 import { cn } from '@/shared/lib/utils';
 import type { GitCommit } from '@/features/github/hooks/use-github';
 import { fromUnixTime } from 'date-fns';
@@ -63,7 +63,7 @@ export function CommitsPanel({
   return (
     <TooltipProvider delayDuration={300}>
       <div className="flex flex-col h-full w-full">
-        <div className="flex-1 overflow-y-auto no-scrollbar">
+        <ScrollArea scrollFade className="min-h-0 flex-1">
           <CommitList commits={items} loading={loading} owner={owner} repo={repo} onCommitClick={handleCommitClick} />
 
           {(page > 0 || hasMore) && (
@@ -112,7 +112,7 @@ export function CommitsPanel({
               <div className="flex-1" />
             </div>
           )}
-        </div>
+        </ScrollArea>
       </div>
     </TooltipProvider>
   );

@@ -5,6 +5,7 @@ import {
   expandFileTreeRevealAncestors,
   fileTreeScrollBehavior,
   findFileTreeScrollParent,
+  resolveFileTreeScrollElement,
   scrollFileTreeRowIntoView,
   waitForFileTreeRowLayout,
   type FileTreeRevealItem,
@@ -269,6 +270,40 @@ describe("scrollFileTreeRowIntoView", () => {
     expect(calls).toEqual([{ top, behavior: "smooth" }]);
     expect(scroller.scrollTop).toBe(top);
     expect(findFileTreeScrollParent(row)).toBe(scroller as unknown as HTMLElement);
+  });
+
+  test("scrolls the ScrollArea viewport when the marker is on the root", () => {
+    const { scroller, calls } = createScroller();
+    const viewport = Object.assign(scroller, {
+      getAttribute: (name: string) =>
+        name === "data-slot" ? "scroll-area-viewport" : null,
+    });
+    const root = {
+      getAttribute: () => null,
+      querySelector: (selector: string) =>
+        selector.includes("scroll-area-viewport") ? viewport : null,
+    } as unknown as HTMLElement;
+    const row = {
+      closest: (selector: string) =>
+        selector === "[data-file-tree-scroll]" ? root : null,
+      getBoundingClientRect: () =>
+        ({
+          top: 400,
+          bottom: 424,
+          height: 24,
+          left: 0,
+          right: 100,
+          width: 100,
+          x: 0,
+          y: 400,
+          toJSON: () => ({}),
+        }) as DOMRect,
+    } as unknown as HTMLElement;
+
+    expect(resolveFileTreeScrollElement(root)).toBe(viewport);
+    scrollFileTreeRowIntoView(row);
+    expect(calls).toHaveLength(1);
+    expect(findFileTreeScrollParent(row)).toBe(viewport as unknown as HTMLElement);
   });
 
   test("uses instant scroll when reduced motion is requested", () => {

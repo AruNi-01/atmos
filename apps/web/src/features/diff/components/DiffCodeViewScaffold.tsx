@@ -112,8 +112,10 @@ export function DiffCodeViewScaffold({
                 </div>
               ) : (
                 <ScrollArea
-                  className="h-full border-r border-border/40 py-1"
+                  scrollFade
+                  className="h-full border-r border-border/40"
                   style={{ width: treeWidth }}
+                  viewportClassName="py-1"
                 >
                   <DiffFileTree
                     items={items}

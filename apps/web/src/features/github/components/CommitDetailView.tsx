@@ -13,6 +13,7 @@ import {
   AvatarFallback,
   cn,
   drawerCloseReserveClass,
+  ScrollArea,
   useDrawerCloseReserve,
 } from "@workspace/ui";
 import { useGithubCommitDetail } from "@/features/github/hooks/use-github";
@@ -52,12 +53,26 @@ export function CommitDetailView({
 
   const {
     handleFilesCodeViewTopBoundaryWheel,
-    handleMainScroll,
-    handleMainWheelCapture,
     mainScrollRef,
-    prContextRef,
     resetPrContext,
-  } = usePrContextHeader("files");
+  } = usePrContextHeader();
+  const titleRef = React.useRef<HTMLDivElement | null>(null);
+  const handleFilesTabWheelCapture = React.useCallback(
+    (event: React.WheelEvent<HTMLDivElement>) => {
+      if (event.deltaY <= 8) return;
+      const scrollRoot = mainScrollRef.current;
+      const titleHeight = titleRef.current?.offsetHeight ?? 0;
+      if (!scrollRoot || titleHeight <= 0) return;
+      if (scrollRoot.scrollTop >= titleHeight) return;
+      scrollRoot.scrollTop = Math.min(
+        titleHeight,
+        scrollRoot.scrollTop + event.deltaY,
+      );
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    [mainScrollRef],
+  );
 
   React.useEffect(() => {
     resetPrContext();
@@ -113,100 +128,98 @@ export function CommitDetailView({
 
   return (
     <div className="flex h-full w-full flex-col">
-      {/* Fixed header */}
-      <div
-        className={cn(
-          "flex min-w-0 shrink-0 items-center gap-2 border-b border-border py-2.5 pl-4",
-          reserveClose ? drawerCloseReserveClass : "pr-4",
-        )}
+      <ScrollArea
+        scrollFade
+        className="min-h-0 flex-1"
+        viewportRef={mainScrollRef}
+        viewportProps={{
+          onWheelCapture: handleFilesTabWheelCapture,
+        }}
       >
-        <GitCommit className="size-4 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate text-sm font-semibold">
-          {messageParts.headline}
-        </span>
-        <div className="flex shrink-0 items-center gap-0.5">
-          <button
-            type="button"
-            onClick={handleCopyHash}
-            className="flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground hover:bg-muted"
-          >
-            {copied ? <Check className="size-3 text-green-500" /> : <Copy className="size-3" />}
-            {sha.substring(0, 7)}
-          </button>
-          <a
-            href={githubUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            <Github className="size-3.5" />
-          </a>
-        </div>
-      </div>
-
-      {/* Scrollable content area */}
-      <div
-        ref={mainScrollRef}
-        className="flex-1 min-h-0 overflow-y-auto"
-        onScroll={handleMainScroll}
-        onWheelCapture={handleMainWheelCapture}
-      >
-        {/* Collapsible context header — metadata + commit message (left-aligned) */}
         <div
-          ref={prContextRef}
-          className="sticky top-0 z-20 transform-gpu bg-background px-4 py-3 transition-transform duration-200 ease-out will-change-transform"
+          ref={titleRef}
+          className={cn(reserveClose && drawerCloseReserveClass)}
         >
-          <div className="flex items-start gap-3">
-            <Avatar className="size-8 border border-border/50 shrink-0">
-              {author?.avatar_url && (
-                <AvatarImage src={author.avatar_url} alt={authorName} />
-              )}
-              <AvatarFallback className="text-[10px]">
-                {authorName.substring(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="font-medium text-foreground/90">
-                  {author?.login ?? commit?.author?.name ?? authorName}
-                </span>
-                {commitDate && (
-                  <>
-                    <span className="text-muted-foreground">·</span>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(commitDate, { addSuffix: true, locale: dateLocale })}
-                    </span>
-                  </>
-                )}
-              </div>
-              <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                <span className="font-mono">{sha.substring(0, 7)}</span>
-                <span className="text-muted-foreground/60">
-                  {owner}/{repo}
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="text-emerald-600">{totalAdditions}+</span>
-                  <span className="text-red-600">{totalDeletions}-</span>
-                  <span className="text-muted-foreground/60">
-                    {t("filesChanged", { count: files.length })}
-                  </span>
-                </span>
-              </div>
+          <div className="flex min-w-0 items-center gap-2 py-2.5 pl-4 pr-4">
+            <GitCommit className="size-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+              {messageParts.headline}
+            </span>
+            <div className="flex shrink-0 items-center gap-0.5">
+              <button
+                type="button"
+                onClick={handleCopyHash}
+                className="flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground hover:bg-muted"
+              >
+                {copied ? <Check className="size-3 text-green-500" /> : <Copy className="size-3" />}
+                {sha.substring(0, 7)}
+              </button>
+              <a
+                href={githubUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <Github className="size-3.5" />
+              </a>
             </div>
           </div>
 
-          {messageParts.body && (
-            <div className="mt-3">
-              <MarkdownRenderer className="prose prose-sm max-w-none text-sm dark:prose-invert prose-p:my-1.5 prose-headings:my-2 prose-li:my-0.5">
-                {messageParts.body}
-              </MarkdownRenderer>
+          <div className="px-4 py-3">
+            <div className="flex items-start gap-3">
+              <Avatar className="size-8 border border-border/50 shrink-0">
+                {author?.avatar_url && (
+                  <AvatarImage src={author.avatar_url} alt={authorName} />
+                )}
+                <AvatarFallback className="text-[10px]">
+                  {authorName.substring(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="font-medium text-foreground/90">
+                    {author?.login ?? commit?.author?.name ?? authorName}
+                  </span>
+                  {commitDate && (
+                    <>
+                      <span className="text-muted-foreground">·</span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(commitDate, { addSuffix: true, locale: dateLocale })}
+                      </span>
+                    </>
+                  )}
+                </div>
+                <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                  <span className="font-mono">{sha.substring(0, 7)}</span>
+                  <span className="text-muted-foreground/60">
+                    {owner}/{repo}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="text-emerald-600">{totalAdditions}+</span>
+                    <span className="text-red-600">{totalDeletions}-</span>
+                    <span className="text-muted-foreground/60">
+                      {t("filesChanged", { count: files.length })}
+                    </span>
+                  </span>
+                </div>
+              </div>
             </div>
-          )}
+
+            {messageParts.body && (
+              <div className="mt-3">
+                <MarkdownRenderer className="prose prose-sm max-w-none text-sm dark:prose-invert prose-p:my-1.5 prose-headings:my-2 prose-li:my-0.5">
+                  {messageParts.body}
+                </MarkdownRenderer>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Diff — fills remaining space */}
         <div
-          className={cn("min-h-[520px] overflow-hidden px-4 pb-4 pt-2")}
+          className={cn(
+            "sticky top-0 z-10 min-h-[520px] overflow-hidden bg-background px-4 pb-4 pt-2",
+            reserveClose && drawerCloseReserveClass,
+          )}
           style={{ height: "100%" }}
         >
           <PRFilesTab
@@ -219,7 +232,7 @@ export function CommitDetailView({
             onCodeViewTopBoundaryWheel={handleFilesCodeViewTopBoundaryWheel}
           />
         </div>
-      </div>
+      </ScrollArea>
     </div>
   );
 }

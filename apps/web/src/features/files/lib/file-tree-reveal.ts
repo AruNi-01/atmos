@@ -103,11 +103,30 @@ export async function expandFileTreeRevealAncestors(params: {
   return { item: getTree().getItemInstance(targetPath), expandedAny };
 }
 
+/** Prefer the ScrollArea viewport when the marker sits on the root. */
+export function resolveFileTreeScrollElement(
+  node: Element | null,
+): HTMLElement | null {
+  if (!node) return null;
+  const element = node as HTMLElement;
+  if (
+    typeof element.getAttribute === "function" &&
+    element.getAttribute("data-slot") === "scroll-area-viewport"
+  ) {
+    return element;
+  }
+  const viewport =
+    typeof (node as ParentNode).querySelector === "function"
+      ? (node as ParentNode).querySelector("[data-slot='scroll-area-viewport']")
+      : null;
+  return (viewport as HTMLElement | null) ?? element;
+}
+
 export function findFileTreeScrollParent(
   element: HTMLElement,
 ): HTMLElement | null {
   const marked = element.closest(`[${FILE_TREE_SCROLL_ATTR}]`);
-  if (marked) return marked as HTMLElement;
+  if (marked) return resolveFileTreeScrollElement(marked);
 
   let node: HTMLElement | null = element.parentElement;
   while (node && node !== document.body) {

@@ -118,7 +118,7 @@ export function GithubHubPanel({
               </Select>
             </div>
             <div className="mx-3 h-px shrink-0 bg-border" role="separator" aria-hidden />
-            <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-0 no-scrollbar">
+            <div className="min-h-0 flex-1 overflow-hidden">
               <PRPanel
                 ref={prPanelRef}
                 owner={githubOwner}
@@ -165,7 +165,7 @@ export function GithubHubPanel({
 
       {githubSubTab === "actions" ? (
         githubOwner && githubRepo && currentBranch ? (
-          <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-0 no-scrollbar">
+          <div className="min-h-0 flex-1 overflow-hidden">
             <ActionsPanel
               key={actionsRefreshKey}
               owner={githubOwner}

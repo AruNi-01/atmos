@@ -24,6 +24,7 @@ import {
 import { useDiffWorkerPoolReady } from '@/features/diff/components/DiffWorkerPoolProvider';
 import { DiffCodeViewSettingsMenu } from '@/features/diff/components/DiffCodeViewSettingsMenu';
 import { ATMOS_DIFF_THEME, buildSharedDiffViewOptions, CODE_VIEW_HOST_CLASS, getAtmosDiffThemeType } from '@/features/diff/lib/diff-view-constants';
+import { useScrollFadeRef } from '@/features/diff/lib/use-scroll-fade-element';
 import { useDiffSettingsStore } from '@/features/settings/store/diff-settings-store';
 import {
   findDiffItemIdAtScrollTop,
@@ -257,6 +258,7 @@ export function PRFilesTab({
   );
   const pathByFileNameRef = useRef<Map<string, string>>(new Map());
   const codeViewRef = useRef<CodeViewHandle<PrAnnotationMeta | undefined>>(null);
+  const setCodeViewHost = useScrollFadeRef<HTMLDivElement>();
   const codeViewScrollTopRef = useRef(0);
   const itemIdsRef = useRef<string[]>([]);
   const scrollActiveIdRef = useRef<string | null>(null);
@@ -665,6 +667,7 @@ export function PRFilesTab({
             <CodeView
               key={codeViewMountKey}
               ref={handleViewerRef}
+              containerRef={setCodeViewHost}
               initialItems={codeViewItems}
               options={codeViewOptions}
               renderAnnotation={renderAnnotation}

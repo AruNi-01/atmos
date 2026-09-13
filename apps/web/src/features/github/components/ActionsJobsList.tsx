@@ -1,6 +1,6 @@
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Skeleton } from "@workspace/ui";
+import { ScrollArea, Skeleton } from "@workspace/ui";
 import {
   Box,
   CheckCircle2,
@@ -619,13 +619,17 @@ function StepLogPanel({
           </button>
         )}
       </div>
-      <div
-        ref={scrollRef}
+      <ScrollArea
+        scrollFade
         data-actions-nested-scroll=""
-        className="max-h-72 overflow-auto overscroll-contain rounded-md border border-red-500/20 bg-zinc-950 text-zinc-100 dark:bg-black/40"
-        onWheel={(event) => {
-          // Keep wheel interaction local so the outer summary page does not scroll/chain.
-          event.stopPropagation();
+        className="h-auto max-h-72 w-full rounded-md border border-red-500/20 bg-zinc-950 text-zinc-100 dark:bg-black/40"
+        viewportRef={scrollRef}
+        viewportClassName="max-h-72 overscroll-contain"
+        viewportProps={{
+          onWheel: (event) => {
+            // Keep wheel interaction local so the outer summary page does not scroll/chain.
+            event.stopPropagation();
+          },
         }}
       >
         {isLoading ? (
@@ -682,7 +686,7 @@ function StepLogPanel({
         ) : (
           <div className="px-3 py-4 text-[11px] text-zinc-400">{t("logs.empty")}</div>
         )}
-      </div>
+      </ScrollArea>
     </div>
   );
 }

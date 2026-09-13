@@ -40,4 +40,12 @@ describe("DiffCodeViewScaffold file tree gate", () => {
     expect(prFiles).toContain("<DiffCodeViewScaffold");
     expect(prFiles).not.toContain("showFileTree=");
   });
+
+  test("fades the in-pane file tree and the stacked CodeView host", () => {
+    expect(scaffold).toContain("scrollFade");
+    expect(changes).toContain("containerRef={setCodeViewHost}");
+    expect(changes).toContain("useScrollFadeRef");
+    expect(review).toContain("containerRef={setCodeViewHost}");
+    expect(prFiles).toContain("containerRef={setCodeViewHost}");
+  });
 });

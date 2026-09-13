@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { FileDiff, Virtualizer } from '@pierre/diffs/react';
 import type {
   DiffLineAnnotation,
@@ -36,6 +36,7 @@ import {
   buildDiffViewerSelectionInfo,
   getDiffScrollRoot,
 } from '@/features/diff/lib/diff-viewer-selection';
+import { attachScrollFade } from '@/features/diff/lib/use-scroll-fade-element';
 import {
   ATMOS_DIFF_THEME,
   buildSharedDiffViewOptions,
@@ -137,6 +138,13 @@ export const DiffViewer = ({
   const [tipPaused, setTipPaused] = useState(false);
   const [fileCollapsed, setFileCollapsed] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (!workingDiff || fileCollapsed) return;
+    const root = getDiffScrollRoot(containerRef.current);
+    if (!root) return;
+    return attachScrollFade(root);
+  }, [fileCollapsed, workingDiff]);
   const clearNavigationTarget = useEditorStore((state) => state.clearNavigationTarget);
   const navigationTarget = useEditorStore((state) =>
     activeContextId && originalPath

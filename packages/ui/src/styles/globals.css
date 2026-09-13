@@ -355,11 +355,15 @@
  * beats Base UI's layered native-scrollbar hide, so ScrollArea viewports must
  * hide the platform thumb here. Custom bars are overflow + hover/scroll only.
  */
-[data-slot="scroll-area-viewport"] {
+[data-slot="scroll-area-viewport"],
+[data-scroll-fade].diff-code-view-host,
+[data-scroll-fade].diff-virtualizer-scroll {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-[data-slot="scroll-area-viewport"]::-webkit-scrollbar {
+[data-slot="scroll-area-viewport"]::-webkit-scrollbar,
+[data-scroll-fade].diff-code-view-host::-webkit-scrollbar,
+[data-scroll-fade].diff-virtualizer-scroll::-webkit-scrollbar {
   display: none;
 }
 
@@ -367,7 +371,9 @@
  * ScrollArea fade. Edge fades follow overflow; --fade-inset-* (set in JS)
  * keeps stuck sticky chrome unmasked so the fade sits on the list below.
  */
-[data-slot="scroll-area-viewport"][data-scroll-fade] {
+[data-slot="scroll-area-viewport"][data-scroll-fade],
+[data-scroll-fade].diff-code-view-host,
+[data-scroll-fade].diff-virtualizer-scroll {
   --fade-size: 1.5rem;
   --fade-inset-top: 0px;
   --fade-inset-bottom: 0px;

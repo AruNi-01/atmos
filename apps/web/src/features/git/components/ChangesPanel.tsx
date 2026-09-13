@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Check, Button } from "@workspace/ui";
+import { Check, Button, ScrollArea } from "@workspace/ui";
 import { FileDiff, FolderOpen, GitBranch } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useGitStore } from "@/features/git/store/use-git-store";
@@ -335,15 +335,19 @@ export function ChangesPanel({
         />
       </div>
 
-      <div
-        className={cn(
-          "min-h-0 flex-1 overflow-y-auto p-2 no-scrollbar",
-          !hasDisplayedChanges &&
-            !isEmptyStateLoading &&
-            "flex items-center justify-center",
-        )}
-      >
-        <div>
+      <div className="min-h-0 flex-1">
+        <ScrollArea
+          scrollFade
+          className="h-full"
+          viewportClassName="p-2"
+        >
+        <div
+          className={cn(
+            !hasDisplayedChanges &&
+              !isEmptyStateLoading &&
+              "flex min-h-full items-center justify-center",
+          )}
+        >
           {!hasDisplayedChanges && !isEmptyStateLoading ? (
             <div
               className={cn(
@@ -487,6 +491,7 @@ export function ChangesPanel({
             </>
           )}
         </div>
+        </ScrollArea>
       </div>
 
       <CommitActionsContainer

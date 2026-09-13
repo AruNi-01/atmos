@@ -32,6 +32,7 @@ import {
   fileTreeBranchRevealDelayMs,
   fileTreeScrollBehavior,
   resolveFileTreeRowElement,
+  resolveFileTreeScrollElement,
   scrollFileTreeRowIntoView,
   waitForFileTreeRowLayout,
 } from '../lib/file-tree-reveal';
@@ -625,7 +626,9 @@ export const FileTree: React.FC<FileTreeProps> = ({
               highlightTimeoutRef.current = null;
             }, 1800);
           }
-          const scroller = treeRef.current.getElement()?.closest(`[${FILE_TREE_SCROLL_ATTR}]`);
+          const scroller = resolveFileTreeScrollElement(
+            treeRef.current.getElement()?.closest(`[${FILE_TREE_SCROLL_ATTR}]`),
+          );
           if (scroller instanceof HTMLElement) {
             scroller.scrollTo({ top: 0, behavior: fileTreeScrollBehavior() });
           }

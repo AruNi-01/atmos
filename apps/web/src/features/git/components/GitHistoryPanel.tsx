@@ -30,6 +30,7 @@ import {
   InputGroup,
   InputGroupButton,
   InputGroupInput,
+  ScrollArea,
 } from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
 import type { GitHistoryCommit } from "@/api/ws-api-types";
@@ -363,7 +364,11 @@ export function GitHistoryPanel({
         </Button>
       </div>
 
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+      <ScrollArea
+        scrollFade
+        className="min-h-0 min-w-0 flex-1"
+        viewportRef={scrollRef}
+      >
         <div className="relative" style={{ width: tableWidth, minWidth: tableWidth }}>
           <div className="sticky top-0 z-30 h-0">
             {HISTORY_RESIZE_COLUMNS.map((id) => (
@@ -432,7 +437,7 @@ export function GitHistoryPanel({
             })}
           </div>
         </div>
-      </div>
+      </ScrollArea>
       <TaskGithubDrawerHost controllerRef={drawerControllerRef} />
     </div>
   );
