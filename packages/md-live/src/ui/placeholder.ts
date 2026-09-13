@@ -192,18 +192,27 @@ function createPlaceholderLayer(
       const hostBox = host.getBoundingClientRect();
       const type = placeholderTypeStyle(info.key);
       let x = coords.left - hostBox.left + host.scrollLeft;
+      let fontSize = type.fontSize;
+      let fontWeight = type.fontWeight;
+      let fontFamily = "inherit";
+      let letterSpacing = "normal";
       if (info.nodeDOM) {
-        const paddingLeft = parsePx(getComputedStyle(info.nodeDOM).paddingLeft);
+        const cs = getComputedStyle(info.nodeDOM);
+        const paddingLeft = parsePx(cs.paddingLeft);
         x = info.nodeDOM.getBoundingClientRect().left + paddingLeft - hostBox.left + host.scrollLeft;
+        fontSize = cs.fontSize || fontSize;
+        fontWeight = cs.fontWeight || fontWeight;
+        fontFamily = cs.fontFamily || fontFamily;
+        letterSpacing = cs.letterSpacing || letterSpacing;
       }
       return {
         x,
         y: coords.top - hostBox.top + host.scrollTop,
         h: Math.max(coords.bottom - coords.top, 1),
-        fontSize: type.fontSize,
-        fontWeight: type.fontWeight,
-        fontFamily: "inherit",
-        letterSpacing: "normal",
+        fontSize,
+        fontWeight,
+        fontFamily,
+        letterSpacing,
         key: info.key,
         text: mdLiveLabel(info.key, getCopy()),
       };

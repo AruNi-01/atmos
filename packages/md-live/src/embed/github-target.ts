@@ -1,4 +1,4 @@
-import type { MdLiveEmbedSpec } from "./types";
+import type { MdLiveEmbedLayout, MdLiveEmbedSpec } from "./types";
 
 export type MdLiveGithubTarget = {
   kind: "issue" | "pr";
@@ -32,6 +32,72 @@ function embedKindToGithub(kind: string): "issue" | "pr" | null {
   if (kind === "github-issue") return "issue";
   if (kind === "github-pr" || kind === "github-pull") return "pr";
   return null;
+}
+
+export function githubKindToEmbedKind(kind: "issue" | "pr"): "github-issue" | "github-pr" {
+  return kind === "pr" ? "github-pr" : "github-issue";
+}
+
+function githubTargetOf(
+  kind: "issue" | "pr",
+  owner: string,
+  repo: string,
+  number: number,
+): MdLiveGithubTarget {
+  return {
+    kind,
+    owner,
+    repo,
+    number,
+    url: `https://github.com/${owner}/${repo}/${kind === "pr" ? "pull" : "issues"}/${number}`,
+  };
+}
+
+const SHORTHAND_RE = /^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)#(\d+)$/;
+const HASH_RE = /^#(\d+)$/;
+
+/** URL, `owner/repo#123`, or `#123` with a fallback owner/repo. */
+export function parseGithubRefInput(
+  text: string,
+  expected?: "issue" | "pr" | null,
+  fallback?: { owner: string; repo: string } | null,
+): MdLiveGithubTarget | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  const fromUrl = parseGithubResourceUrl(trimmed);
+  if (fromUrl) {
+    if (expected && fromUrl.kind !== expected) return null;
+    return fromUrl;
+  }
+  if (!expected) return null;
+  const short = trimmed.match(SHORTHAND_RE);
+  if (short?.[1] && short[2] && short[3]) {
+    return githubTargetOf(expected, short[1], short[2], Number(short[3]));
+  }
+  const hash = trimmed.match(HASH_RE);
+  if (hash?.[1] && fallback?.owner && fallback.repo) {
+    return githubTargetOf(expected, fallback.owner, fallback.repo, Number(hash[1]));
+  }
+  return null;
+}
+
+export function githubTargetToEmbedSpec(
+  target: MdLiveGithubTarget,
+  options?: { title?: string; layout?: MdLiveEmbedLayout },
+): MdLiveEmbedSpec {
+  const layout = options?.layout ?? "card";
+  const title = (options?.title ?? "").trim() || `GitHub #${target.number}`;
+  return {
+    kind: githubKindToEmbedKind(target.kind),
+    layout,
+    title,
+    attrs: {
+      owner: target.owner,
+      repo: target.repo,
+      n: String(target.number),
+      url: target.url,
+    },
+  };
 }
 
 export function parseMdLiveGithubTarget(spec: MdLiveEmbedSpec): MdLiveGithubTarget | null {

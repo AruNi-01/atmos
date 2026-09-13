@@ -45,7 +45,7 @@ export function openMdLiveEmbed(spec: MdLiveEmbedSpec): void {
     const full = path.startsWith("/")
       ? path
       : root
-        ? `${root.replace(/\/+$/, "")}/${path}`
+        ? `${root.replace(/\/+$/, "")}/${path.replace(/^\.\//, "")}`
         : path;
     void useEditorStore.getState().openFile(full);
     return;

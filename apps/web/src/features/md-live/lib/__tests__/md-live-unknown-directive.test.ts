@@ -9,10 +9,13 @@ import {
 } from "@milkdown/kit/core";
 import { commonmark } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
+import { TextSelection } from "@milkdown/kit/prose/state";
 import {
   applyMdLiveRemarkConfig,
   formatMdLiveSerializedMarkdown,
+  insertMarkdown,
 } from "@atmos/md-live/ui";
+import { markdownFromEmbedSpec, embedSpecFromPath } from "../../embeds/insert";
 import {
   mdLiveEmbedBlock,
   mdLiveEmbedInline,
@@ -164,5 +167,26 @@ describe("md-live unknown directive parse", () => {
       }
     }
     expect(failures).toEqual([]);
+  });
+
+  test("inline file embed insert stays in the same paragraph", async () => {
+    const { editor } = await createEmbedEditor("See ");
+    editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      view.dispatch(view.state.tr.setSelection(TextSelection.atEnd(view.state.doc)));
+      insertMarkdown(ctx, markdownFromEmbedSpec(embedSpecFromPath("pages", "folder")));
+    });
+    const counts = editor.action((ctx) => {
+      let paragraphs = 0;
+      let inlines = 0;
+      ctx.get(editorViewCtx).state.doc.descendants((node) => {
+        if (node.type.name === "paragraph") paragraphs += 1;
+        if (node.type.name === "mdLiveEmbedInline") inlines += 1;
+      });
+      return { paragraphs, inlines };
+    });
+    expect(counts.paragraphs).toBe(1);
+    expect(counts.inlines).toBe(1);
+    await editor.destroy();
   });
 });

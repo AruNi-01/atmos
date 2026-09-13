@@ -109,11 +109,17 @@
   margin-top: 0.5rem;
   margin-bottom: 0.5rem;
   min-height: 1.75em;
+  line-height: 1.75;
 }
 
-.md-live .editor p:has(> .ProseMirror-trailingBreak:only-child) {
-  margin-top: 0.15rem;
-  margin-bottom: 0.15rem;
+/* Empty blocks only have a trailing <br>; make that line as tall as a filled text line. */
+.md-live .editor :is(p, h1, h2, h3, h4, h5, h6) > .ProseMirror-trailingBreak:only-child {
+  display: inline-block;
+  width: 0;
+  height: 1.75em;
+  height: 1lh;
+  overflow: hidden;
+  vertical-align: top;
 }
 
 .md-live .editor p:has(> .ProseMirror-trailingBreak:only-child) + :is(h1, h2, h3, h4, h5, h6) {
@@ -209,6 +215,58 @@
 .md-live-task-body {
   min-width: 0;
   flex: 1;
+}
+
+.md-live .editor .md-live-embed-inline {
+  position: relative;
+  display: inline-block !important;
+  box-sizing: content-box;
+  height: 1.75em;
+  max-height: 1.75em;
+  min-height: 0;
+  overflow: visible;
+  line-height: 1.75;
+  vertical-align: baseline;
+}
+
+.md-live-embed-inline .md-live-embed-chip-sizer {
+  visibility: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  box-sizing: border-box;
+  height: 1.75em;
+  max-width: 16rem;
+  padding-inline: 0.375rem;
+  border: 1px solid transparent;
+  font-size: 0.75rem;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.md-live-embed-inline .md-live-embed-chip {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  z-index: 1;
+  box-sizing: border-box;
+  height: 2em;
+  min-height: 0;
+  padding-block: 0;
+  padding-inline: 0.375rem;
+  line-height: 1;
+  white-space: nowrap;
+  transform: translateY(-50%);
+}
+
+.md-live-embed-inline .md-live-embed-chip-sizer img,
+.md-live-embed-inline .md-live-embed-chip-sizer svg,
+.md-live-embed-inline .md-live-embed-chip img,
+.md-live-embed-inline .md-live-embed-chip svg {
+  display: block;
+  width: 0.875em;
+  height: 0.875em;
 }
 
 .md-live-media {

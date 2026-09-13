@@ -1,7 +1,13 @@
 import { MD_LIVE_HEADING_LEVELS } from "./types";
-import type { MdLiveSlashPick } from "./types";
+import type { MdLiveEmbedInsertKind, MdLiveSlashPick } from "./types";
 
-export type MdLiveSlashGroupId = "heading" | "basic" | "advanced" | "media" | "others";
+export type MdLiveSlashGroupId =
+  | "heading"
+  | "basic"
+  | "advanced"
+  | "media"
+  | "reference"
+  | "others";
 
 export type MdLiveSlashItem = {
   id: string;
@@ -10,6 +16,7 @@ export type MdLiveSlashItem = {
   group: MdLiveSlashGroupId;
   pick?: MdLiveSlashPick;
   open?: "emoji" | "image" | "video" | "audio" | "file";
+  embed?: MdLiveEmbedInsertKind;
 };
 
 export const MD_LIVE_SLASH_GROUPS: { id: MdLiveSlashGroupId; label: string }[] = [
@@ -17,6 +24,7 @@ export const MD_LIVE_SLASH_GROUPS: { id: MdLiveSlashGroupId; label: string }[] =
   { id: "basic", label: "slashGroupBasic" },
   { id: "advanced", label: "slashGroupAdvanced" },
   { id: "media", label: "slashGroupMedia" },
+  { id: "reference", label: "slashGroupReference" },
   { id: "others", label: "slashGroupOthers" },
 ];
 
@@ -41,5 +49,26 @@ export const MD_LIVE_SLASH_ITEMS: MdLiveSlashItem[] = [
   { id: "video", label: "slashVideo", keywords: "video movie media upload mp4", group: "media", open: "video" },
   { id: "audio", label: "slashAudio", keywords: "audio music sound media upload mp3", group: "media", open: "audio" },
   { id: "file", label: "slashFile", keywords: "file attach media upload pdf", group: "media", open: "file" },
+  {
+    id: "github-issue",
+    label: "slashGithubIssue",
+    keywords: "github issue ticket bug",
+    group: "reference",
+    embed: "github-issue",
+  },
+  {
+    id: "github-pr",
+    label: "slashGithubPr",
+    keywords: "github pull request pr",
+    group: "reference",
+    embed: "github-pr",
+  },
+  {
+    id: "path",
+    label: "slashEmbedPath",
+    keywords: "project file folder directory path worktree files",
+    group: "reference",
+    embed: "path",
+  },
   { id: "emoji", label: "slashEmoji", keywords: "emoji smiley face", group: "others", open: "emoji" },
 ];

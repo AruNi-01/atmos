@@ -16,7 +16,10 @@ export {
 } from "./embed/unknown-directive";
 export {
   parseGithubResourceUrl,
+  parseGithubRefInput,
   parseMdLiveGithubTarget,
+  githubKindToEmbedKind,
+  githubTargetToEmbedSpec,
   type MdLiveGithubTarget,
 } from "./embed/github-target";
 export type { AgentRequest, MdLiveExecutionTarget } from "./request/types";

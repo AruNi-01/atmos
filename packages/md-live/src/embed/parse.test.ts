@@ -29,6 +29,12 @@ describe("embed directives", () => {
     expect(parseEmbedDirectiveText(formatEmbedDirective(card))).toEqual(card);
     expect(formatEmbedDirective(inline).startsWith(":md-live[")).toBe(true);
     expect(formatEmbedDirective(card).startsWith("::md-live[")).toBe(true);
+    expect(
+      formatEmbedDirective({
+        ...card,
+        title: "Fix [pty] read",
+      }),
+    ).toContain("[Fix pty read]");
   });
 
   test("parses quoted, unquoted, and escaped attribute values", () => {

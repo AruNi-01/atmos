@@ -25,8 +25,18 @@ import {
 import { copyMdLivePrompt } from "../lib/md-live-adapters";
 import { mdLiveCopy } from "../lib/md-live-copy";
 
-function SlashMenuWithoutMedia(props: MdLiveSlashMenuProps) {
-  return <MdLiveSlashMenu {...props} hiddenGroups={["media"]} />;
+function HostSlashMenu({
+  enableMedia,
+  workspaceRoot,
+  ...props
+}: MdLiveSlashMenuProps & { enableMedia: boolean; workspaceRoot: string | null }) {
+  return (
+    <MdLiveSlashMenu
+      {...props}
+      workspaceRoot={workspaceRoot}
+      hiddenGroups={enableMedia ? undefined : ["media"]}
+    />
+  );
 }
 
 export function MarkdownLiveEditor({
@@ -75,9 +85,12 @@ export function MarkdownLiveEditor({
     },
     [placeholder],
   );
-  const slashMenu: ComponentType<MdLiveSlashMenuProps> = enableMedia
-    ? MdLiveSlashMenu
-    : SlashMenuWithoutMedia;
+  const slashMenu = useMemo<ComponentType<MdLiveSlashMenuProps>>(
+    () => (props) => (
+      <HostSlashMenu {...props} enableMedia={enableMedia} workspaceRoot={workspaceRoot} />
+    ),
+    [enableMedia, workspaceRoot],
+  );
 
   useEffect(() => {
     getMdLiveEditor(filePath)?.setToggleDefaultOpen(mdToggleDefaultOpen);

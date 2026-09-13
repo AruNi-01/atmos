@@ -31,6 +31,8 @@ export type MdLiveAiActionKind = "ask" | "rewrite" | "summarize";
 
 export type MdLiveMediaOpenKind = "image" | "video" | "audio" | "file";
 
+export type MdLiveEmbedInsertKind = "github-issue" | "github-pr" | "path";
+
 export type MdLiveSlashPick =
   | { kind: "block"; action: MdLiveBlockAction }
   | { kind: "markdown"; markdown: string }
@@ -61,7 +63,9 @@ export type MdLiveSlashMenuProps = {
   query: string;
   onPick: (pick: MdLiveSlashPick) => void;
   copy?: MdLiveCopyFn;
-  hiddenGroups?: Array<"heading" | "basic" | "advanced" | "media" | "others">;
+  hiddenGroups?: Array<"heading" | "basic" | "advanced" | "media" | "reference" | "others">;
+  /** Keep `/` and delete the query after it (enter a nested slash menu). */
+  onKeepSlash?: () => void;
 };
 
 export type MdLiveSelectionToolbarProps = {

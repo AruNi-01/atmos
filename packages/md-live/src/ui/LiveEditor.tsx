@@ -44,6 +44,7 @@ import {
   insertText,
   pushStreamChunk,
   deleteSlashQuery,
+  keepSlashTrigger,
   focusEditorCaret,
   runBlockAction,
   startStream,
@@ -221,7 +222,12 @@ export function MdLiveEditor({
       const Menu = slashMenuRef.current;
       slashRoot ??= createRoot(slashHost);
       slashRoot.render(
-        <Menu query={query} onPick={handleSlashPick} copy={copyRef.current} />,
+        <Menu
+          query={query}
+          onPick={handleSlashPick}
+          copy={copyRef.current}
+          onKeepSlash={() => run((ctx) => keepSlashTrigger(ctx))}
+        />,
       );
     };
 

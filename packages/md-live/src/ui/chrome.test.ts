@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "bun:test";
 import { MD_LIVE_HEADING_LEVELS } from "./types";
+import { MD_LIVE_COPY_EN } from "./copy";
 import { MD_LIVE_SLASH_GROUPS, MD_LIVE_SLASH_ITEMS } from "./slash-catalog";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -14,6 +15,7 @@ describe("md-live ui chrome", () => {
       "basic",
       "advanced",
       "media",
+      "reference",
       "others",
     ]);
     expect(MD_LIVE_HEADING_LEVELS).toEqual([1, 2, 3, 4]);
@@ -28,6 +30,12 @@ describe("md-live ui chrome", () => {
     expect(MD_LIVE_SLASH_ITEMS.some((item) => item.id === "audio")).toBe(true);
     expect(MD_LIVE_SLASH_ITEMS.some((item) => item.id === "inline-code")).toBe(true);
     expect(MD_LIVE_SLASH_ITEMS.some((item) => item.id === "toggle")).toBe(true);
+    expect(MD_LIVE_COPY_EN.slashGithubIssue).toBe("GitHub Issue");
+    expect(MD_LIVE_COPY_EN.slashGithubPr).toBe("GitHub PR");
+    expect(MD_LIVE_SLASH_ITEMS.some((item) => item.id === "github-issue")).toBe(true);
+    expect(MD_LIVE_SLASH_ITEMS.some((item) => item.id === "github-pr")).toBe(true);
+    expect(MD_LIVE_SLASH_ITEMS.some((item) => item.id === "path")).toBe(true);
+    expect(MD_LIVE_SLASH_ITEMS.some((item) => item.id === "github")).toBe(false);
   });
 
   test("emoji picker uses emoji-mart data", () => {
@@ -71,6 +79,10 @@ describe("md-live ui chrome", () => {
     expect(css).toContain(".md-live.md-live--embedded .milkdown");
     expect(css).toContain(".md-live.md-live--embedded.md-live--page-column .milkdown");
     expect(css).toContain("width: 66%");
+    expect(css).toContain(".md-live-embed-inline");
+    expect(css).toContain(".md-live-embed-chip");
+    expect(css).toContain("md-live-embed-chip-sizer");
+    expect(css).toContain("height: 1.75em");
     expect(editor).toContain("mdLiveTogglePlugins");
     expect(editor).toContain("mdLiveUnknownMdastPlugins");
     expect(editor).toContain("mdLivePlaceholderPlugin");
@@ -103,6 +115,9 @@ describe("md-live ui chrome", () => {
     expect(editor).toContain("mdLiveInlineCodeDelete");
     expect(editor).toContain("handleKeyDown(view, event)");
     const actions = readFileSync(join(here, "actions.ts"), "utf8");
+    expect(actions).toContain("sliceFromMarkdownDoc");
+    expect(actions).toContain("keepSlashTrigger");
+    expect(editor).toContain("onKeepSlash");
     expect(actions).not.toContain("`code`");
     expect(actions).toContain("mdLiveInsertEmptyInlineCode");
     expect(actions).toContain('caret: MdLiveFocusCaret = "start"');
@@ -140,6 +155,8 @@ describe("md-live ui chrome", () => {
     expect(placeholder).not.toContain("void layer.offsetWidth");
     expect(placeholder).toContain("getComputedStyle(info.nodeDOM)");
     expect(placeholder).toContain("paddingLeft");
+    expect(css).toContain(".ProseMirror-trailingBreak:only-child");
+    expect(css).toContain("height: 1lh");
     expect(placeholder).toContain('case "slashHeading5"');
     expect(placeholder).toContain('case "slashHeading6"');
     expect(placeholder).toContain("mdLiveMarkdownHeadingLevelOf");
@@ -181,6 +198,10 @@ describe("md-live ui chrome", () => {
     expect(css).toContain("min-height: 100%");
     expect(css).toContain("ProseMirror-trailingBreak");
     expect(css).toContain("min-height: 1.75em");
+    expect(css).toContain("line-height: 1.75");
+    expect(css).toContain("margin-top: 0.5rem");
+    expect(css).toContain("margin-bottom: 0.5rem");
+    expect(css).not.toContain("margin-top: 0.15rem");
     expect(css).toContain("border-left: 2px solid var(--border)");
     expect(css).toContain("quotes: none");
     expect(css).toContain("blockquote p:first-of-type::before");

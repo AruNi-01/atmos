@@ -39,11 +39,57 @@ describe("md-live structural gates", () => {
     expect(source).toContain('@atmos/md-live/ui');
     expect(source).toContain("MdLiveEditor");
     expect(source).toContain("mdLiveEmbedBlock");
+    expect(slash).toContain("MdLiveEmbedPicker");
+    expect(slash).toContain("github-issue");
+    expect(slash).toContain("github-pr");
+    expect(slash).toContain("embed={mode}");
+    expect(slash).toContain("AnimatePresence");
+    expect(slash).toContain("rounded-2xl");
+    expect(slash).toContain("scrollFade");
+    const picker = readFileSync(
+      join(import.meta.dir, "../../embeds/picker.tsx"),
+      "utf8",
+    );
+    expect(picker).toContain("scrollFade");
+    expect(picker).toContain("h-8");
+    expect(slash).toContain("onKeepSlash");
+    expect(slash).toContain("scrollActiveListItemIntoView");
+    const registry = readFileSync(
+      join(import.meta.dir, "../../embeds/registry.ts"),
+      "utf8",
+    );
+    expect(registry).toContain("resolveMdLiveEmbed");
+    expect(registry).toContain("github-issue");
+    expect(registry).toContain("github-pr");
+    expect(registry).toContain("kind: \"file\"");
+    expect(registry).toContain("kind: \"folder\"");
+    const chrome = readFileSync(
+      join(import.meta.dir, "../../embeds/chrome.tsx"),
+      "utf8",
+    );
+    expect(chrome).not.toContain("inset-y-2 left-0");
+    expect(chrome).toContain("flex min-w-0 items-center gap-1.5");
+    const pathEmbed = readFileSync(
+      join(import.meta.dir, "../../embeds/path-embed.tsx"),
+      "utf8",
+    );
+    expect(pathEmbed).toContain("MdLivePathIcon");
+    const pathIcon = readFileSync(
+      join(import.meta.dir, "../../embeds/path-icon.tsx"),
+      "utf8",
+    );
+    expect(pathIcon).toContain("getFileIconProps");
     const embedNodes = readFileSync(
       join(import.meta.dir, "../md-live-embed-nodes.ts"),
       "utf8",
     );
     expect(embedNodes).toContain("remarkUnknownMdast");
+    const plugin = readFileSync(
+      join(import.meta.dir, "../md-live-embed-plugin.tsx"),
+      "utf8",
+    );
+    expect(plugin).toContain("resolveMdLiveEmbed");
+    expect(plugin).toContain("selectNode");
     expect(embedNodes).toContain("restoreUnknownTextDirective");
     expect(embedNodes).toContain("restoreUnknownReference");
     expect(embedNodes).toContain("linkReference");

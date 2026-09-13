@@ -5,6 +5,7 @@ import {
   parserCtx,
   serializerCtx,
 } from "@milkdown/kit/core";
+import type { Node } from "@milkdown/kit/prose/model";
 import { Slice } from "@milkdown/kit/prose/model";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import {
@@ -67,13 +68,35 @@ export function deleteSlashQuery(ctx: Ctx): void {
   view.dispatch(view.state.tr.delete(from, to));
 }
 
+/** Keep the `/` trigger and clear only the query after it. */
+export function keepSlashTrigger(ctx: Ctx): void {
+  const view = ctx.get(editorViewCtx);
+  const { $from } = view.state.selection;
+  const text = $from.parent.textBetween(0, $from.parentOffset);
+  const idx = text.lastIndexOf("/");
+  if (idx < 0) return;
+  const from = $from.start() + idx + 1;
+  const to = $from.pos;
+  if (to <= from) return;
+  view.dispatch(view.state.tr.delete(from, to));
+}
+
+/** A single paragraph inserts inline into the current textblock instead of wrapping a new line. */
+export function sliceFromMarkdownDoc(parsed: Node): Slice {
+  const first = parsed.firstChild;
+  if (parsed.childCount === 1 && first?.type.name === "paragraph") {
+    return new Slice(parsed.content, 1, 1);
+  }
+  return new Slice(parsed.content, 0, 0);
+}
+
 export function insertMarkdown(ctx: Ctx, markdown: string, replaceSlash = false): void {
   if (replaceSlash) deleteSlashQuery(ctx);
   const view = ctx.get(editorViewCtx);
   const parsed = ctx.get(parserCtx)(markdown);
   if (!parsed) return;
   const { from, to } = view.state.selection;
-  view.dispatch(view.state.tr.replaceRange(from, to, new Slice(parsed.content, 0, 0)));
+  view.dispatch(view.state.tr.replaceRange(from, to, sliceFromMarkdownDoc(parsed)));
 }
 
 export function insertText(ctx: Ctx, text: string, replaceSlash = false): void {
