@@ -19,6 +19,7 @@ import { AssistantTurnFileChanges } from "./AssistantTurnFileChanges";
 import { MessageTurnUsageBadge } from "./UsageBadges";
 import { AgentComposerAttachmentList } from "./AgentComposerAttachments";
 import { UserMessageBody } from "./UserMessageBody";
+import "./user-message-meta.css";
 
 export const AgentChatMessageView = React.memo(function AgentChatMessageView({
   message,
@@ -73,8 +74,8 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
       className="w-full min-w-0"
     >
       {message.role === "user" ? (
-        <div className="group relative w-full">
-          <Message from="user" className="gap-1">
+        <div className="group relative w-full" data-user-message-chrome="">
+          <Message from="user" className="gap-0">
             <MessageContent rounded="2xl">
               {files.length > 0 ? (
                 <AgentComposerAttachmentList
@@ -86,23 +87,27 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
               {userText ? <UserMessageBody text={userText} /> : null}
             </MessageContent>
             {userTime || userText.trim() ? (
-              <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                {userTime ? (
-                  <time
-                    dateTime={message.created_at}
-                    className="whitespace-nowrap text-[11px] text-muted-foreground"
-                  >
-                    {userTime}
-                  </time>
-                ) : null}
-                {userText.trim() ? (
-                  <MessageCopyButton
-                    text={userText}
-                    ariaLabel={t("copy.userAria")}
-                    title={t("copy.message")}
-                    className="inline-flex size-6 items-center justify-center rounded-md p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
-                  />
-                ) : null}
+              <div data-user-message-meta="" className="user-message-meta">
+                <div className="user-message-meta-clip">
+                  <div className="user-message-meta-row">
+                    {userTime ? (
+                      <time
+                        dateTime={message.created_at}
+                        className="user-message-meta-item whitespace-nowrap text-[11px] text-muted-foreground"
+                      >
+                        {userTime}
+                      </time>
+                    ) : null}
+                    {userText.trim() ? (
+                      <MessageCopyButton
+                        text={userText}
+                        ariaLabel={t("copy.userAria")}
+                        title={t("copy.message")}
+                        className="user-message-meta-item inline-flex size-6 items-center justify-center rounded-md p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      />
+                    ) : null}
+                  </div>
+                </div>
               </div>
             ) : null}
           </Message>
