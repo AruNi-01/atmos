@@ -339,7 +339,7 @@ function CreatingJobPopover({
           sideOffset={8}
           className="w-auto max-w-[calc(100vw-24px)] overflow-visible border-0 bg-transparent p-0 shadow-none"
         >
-          <div className="min-w-0 overflow-hidden rounded-md border border-border/70 bg-popover/96 shadow-md">
+          <div className="min-w-0 overflow-hidden rounded-xl border border-border/70 bg-popover/96 shadow-md">
             <SetupDetailPanel
               item={item}
               title={title}

@@ -82,6 +82,9 @@ rounded:
   md: 8px
   lg: 10px
   xl: 14px
+  2xl: 18px
+  overlay: 14px
+  modal: 18px
   full: 9999px
 mobile:
   colors:
