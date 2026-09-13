@@ -39,6 +39,14 @@ describe("md-live structural gates", () => {
     expect(source).toContain('@atmos/md-live/ui');
     expect(source).toContain("MdLiveEditor");
     expect(source).toContain("mdLiveEmbedBlock");
+    const embedNodes = readFileSync(
+      join(import.meta.dir, "../md-live-embed-nodes.ts"),
+      "utf8",
+    );
+    expect(embedNodes).toContain("remarkUnknownMdast");
+    expect(embedNodes).toContain("restoreUnknownTextDirective");
+    expect(embedNodes).toContain("restoreUnknownReference");
+    expect(embedNodes).toContain("linkReference");
     expect(source).toContain("slashMenu={slashMenu}");
     expect(source).toContain("selectionToolbar={MdLiveSelectionToolbar}");
     expect(source).toContain("onOpenMedia");

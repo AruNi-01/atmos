@@ -16,6 +16,7 @@ import {
   formatMdLiveSerializedMarkdown,
   mdLiveTaskListPlugins,
   mdLiveTogglePlugins,
+  mdLiveUnknownMdastPlugins,
 } from "@atmos/md-live/ui";
 
 const SOURCE = `# Hi
@@ -70,6 +71,7 @@ async function createLiveSerializer(source: string, committed: string[]) {
     })
     .use(commonmark)
     .use(gfm)
+    .use(mdLiveUnknownMdastPlugins)
     .use(mdLiveTaskListPlugins)
     .use(mdLiveTogglePlugins)
     .use(listener);

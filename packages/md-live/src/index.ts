@@ -7,6 +7,14 @@ export {
 } from "./embed/parse";
 export { formatEmbedDirective, formatEmbedForAgent } from "./embed/format";
 export {
+  remarkUnknownDirectives,
+  remarkUnknownMdast,
+  formatUnknownDirectiveSource,
+  formatDirectiveAttributes,
+  isMdLiveDirectiveName,
+  type DirectiveMdast,
+} from "./embed/unknown-directive";
+export {
   parseGithubResourceUrl,
   parseMdLiveGithubTarget,
   type MdLiveGithubTarget,

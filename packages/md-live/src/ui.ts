@@ -32,6 +32,7 @@ export {
   formatMdLiveSerializedMarkdown,
 } from "./ui/markdown-stringify";
 export { mdLiveTaskListPlugins } from "./ui/task-list";
+export { mdLiveUnknownMdastPlugins, mdLiveUnknownMdastRemark } from "./ui/unknown-mdast";
 export {
   mdLiveTogglePlugins,
   insertMdLiveToggle,

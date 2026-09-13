@@ -67,6 +67,7 @@ import { mdLivePlaceholderPlugin } from "./placeholder";
 import { mdLiveInlineCodeDelete, mdLiveInlineCodePlugin } from "./inline-code";
 import { mdLiveDeleteTableSelection, mdLiveTableDeletePlugin, mdLiveTableViewPlugin } from "./table";
 import { mdLiveTaskListPlugins } from "./task-list";
+import { mdLiveUnknownMdastPlugins } from "./unknown-mdast";
 import {
   applyMdLiveToggleDefaultOpen,
   mdLiveToggleDefaultOpenCtx,
@@ -392,6 +393,7 @@ export function MdLiveEditor({
       .use(pluginsOf(mdLiveHeadingIdPlugin))
       .use(listener)
       .use(pluginsOf(history))
+      .use(pluginsOf(mdLiveUnknownMdastPlugins))
       .use(pluginsOf(mdLiveTaskListPlugins))
       .use(pluginsOf(mdLiveTogglePlugins))
       .use(pluginsOf(mdLivePlaceholderPlugin(() => copyRef.current)))

@@ -72,6 +72,7 @@ describe("md-live ui chrome", () => {
     expect(css).toContain(".md-live.md-live--embedded.md-live--page-column .milkdown");
     expect(css).toContain("width: 66%");
     expect(editor).toContain("mdLiveTogglePlugins");
+    expect(editor).toContain("mdLiveUnknownMdastPlugins");
     expect(editor).toContain("mdLivePlaceholderPlugin");
     expect(editor).toContain("mdLiveBlockBackspacePlugin");
     expect(editor).toContain("mdLiveTableDeletePlugin");
