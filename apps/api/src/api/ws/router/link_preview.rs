@@ -1,6 +1,10 @@
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::sync::Arc;
+use std::sync::OnceLock;
 use std::time::Duration;
 
+use futures_util::StreamExt;
+use reqwest::dns::{Addrs, Name, Resolve, Resolving};
 use reqwest::redirect::Policy;
 use reqwest::Url;
 use serde_json::Value;
@@ -10,9 +14,9 @@ use core_service::{Result, ServiceError};
 
 use super::{parse_request, LinkPreviewPayload, LinkPreviewRequest, WsMessageService};
 
-const FETCH_TIMEOUT: Duration = Duration::from_secs(8);
-const CONNECT_TIMEOUT: Duration = Duration::from_secs(4);
-const MAX_HTML_BYTES: usize = 512 * 1024;
+const FETCH_TIMEOUT: Duration = Duration::from_secs(5);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
+const MAX_HTML_BYTES: usize = 64 * 1024;
 const MAX_REDIRECTS: usize = 5;
 const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
@@ -30,7 +34,6 @@ async fn fetch_link_preview(raw: &str) -> Result<LinkPreviewPayload> {
     let client = preview_http_client()?;
     let mut response = None;
     for _ in 0..=MAX_REDIRECTS {
-        assert_public_host(&url).await?;
         let next = client
             .get(url.clone())
             .header(
@@ -89,28 +92,96 @@ async fn fetch_link_preview(raw: &str) -> Result<LinkPreviewPayload> {
         });
     }
 
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|e| ServiceError::Validation(format!("Failed to read link preview: {e}")))?;
-    let html = if bytes.len() > MAX_HTML_BYTES {
-        String::from_utf8_lossy(&bytes[..MAX_HTML_BYTES]).into_owned()
-    } else {
-        String::from_utf8_lossy(&bytes).into_owned()
-    };
-
+    let html = read_preview_html(response).await?;
     Ok(parse_link_preview_html(&html, &final_url))
 }
 
-fn preview_http_client() -> Result<reqwest::Client> {
-    reqwest::Client::builder()
+async fn read_preview_html(response: reqwest::Response) -> Result<String> {
+    let mut collected = Vec::with_capacity(16 * 1024);
+    let mut stream = response.bytes_stream();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk
+            .map_err(|e| ServiceError::Validation(format!("Failed to read link preview: {e}")))?;
+        collected.extend_from_slice(&chunk);
+        if collected.len() >= MAX_HTML_BYTES || html_has_closed_head(&collected) {
+            break;
+        }
+    }
+    if collected.len() > MAX_HTML_BYTES {
+        collected.truncate(MAX_HTML_BYTES);
+    }
+    Ok(String::from_utf8_lossy(&collected).into_owned())
+}
+
+fn html_has_closed_head(bytes: &[u8]) -> bool {
+    const NEEDLE: &[u8] = b"</head>";
+    if bytes.len() < NEEDLE.len() {
+        return false;
+    }
+    bytes
+        .windows(NEEDLE.len())
+        .any(|window| window.eq_ignore_ascii_case(NEEDLE))
+}
+
+fn preview_http_client() -> Result<&'static reqwest::Client> {
+    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+    if let Some(client) = CLIENT.get() {
+        return Ok(client);
+    }
+    let client = reqwest::Client::builder()
         .timeout(FETCH_TIMEOUT)
         .connect_timeout(CONNECT_TIMEOUT)
         .redirect(Policy::none())
         .cookie_store(true)
         .user_agent(USER_AGENT)
+        .dns_resolver(Arc::new(PreviewDns))
         .build()
-        .map_err(|e| ServiceError::Processing(format!("Failed to build preview client: {e}")))
+        .map_err(|e| ServiceError::Processing(format!("Failed to build preview client: {e}")))?;
+    Ok(CLIENT.get_or_init(|| client))
+}
+
+struct PreviewDns;
+
+impl Resolve for PreviewDns {
+    fn resolve(&self, name: Name) -> Resolving {
+        let host = name.as_str().to_string();
+        Box::pin(async move { preview_resolve_host(&host).await })
+    }
+}
+
+async fn preview_resolve_host(
+    host: &str,
+) -> std::result::Result<Addrs, Box<dyn std::error::Error + Send + Sync>> {
+    let host = normalize_host(host);
+    if host_is_blocked(&host) {
+        return Err("Preview URL host is not allowed".into());
+    }
+    let addrs = lookup_host((host.as_str(), 443)).await?;
+    let chosen = pick_preview_addrs(addrs.map(|addr| addr.ip()));
+    if chosen.is_empty() {
+        return Err("Preview URL host is not allowed".into());
+    }
+    Ok(Box::new(chosen.into_iter().map(|ip| SocketAddr::new(ip, 0))) as Addrs)
+}
+
+fn pick_preview_addrs(ips: impl IntoIterator<Item = IpAddr>) -> Vec<IpAddr> {
+    let mut v4 = Vec::new();
+    let mut v6 = Vec::new();
+    for ip in ips {
+        if resolved_ip_is_unsafe(ip) {
+            continue;
+        }
+        if ip.is_ipv4() {
+            v4.push(ip);
+        } else {
+            v6.push(ip);
+        }
+    }
+    if !v4.is_empty() {
+        v4
+    } else {
+        v6
+    }
 }
 
 fn resolve_redirect_url(current: &Url, location: &str) -> Result<Url> {
@@ -140,31 +211,17 @@ fn parse_public_http_url(raw: &str) -> Result<Url> {
     Ok(url)
 }
 
-async fn assert_public_host(url: &Url) -> Result<()> {
-    let host = url
-        .host_str()
-        .ok_or_else(|| ServiceError::Validation("Preview URL is missing a host".to_string()))?;
-    if host_is_blocked(host) {
-        return Err(ServiceError::Validation(
-            "Preview URL host is not allowed".to_string(),
-        ));
+fn normalize_host(host: &str) -> String {
+    let host = host.trim_end_matches('.').to_ascii_lowercase();
+    if host.starts_with('[') && host.ends_with(']') && host.len() >= 2 {
+        host[1..host.len() - 1].to_string()
+    } else {
+        host
     }
-    let port = url.port_or_known_default().unwrap_or(80);
-    let addrs = lookup_host((host, port))
-        .await
-        .map_err(|e| ServiceError::Validation(format!("Failed to resolve preview host: {e}")))?;
-    for addr in addrs {
-        if ip_is_unsafe(addr.ip()) {
-            return Err(ServiceError::Validation(
-                "Preview URL host is not allowed".to_string(),
-            ));
-        }
-    }
-    Ok(())
 }
 
 fn host_is_blocked(host: &str) -> bool {
-    let host = host.trim_end_matches('.').to_ascii_lowercase();
+    let host = normalize_host(host);
     if host.is_empty()
         || host == "localhost"
         || host.ends_with(".localhost")
@@ -181,13 +238,32 @@ fn host_is_blocked(host: &str) -> bool {
 }
 
 fn ip_is_unsafe(ip: IpAddr) -> bool {
+    ip_is_blocked(ip, false)
+}
+
+/// Clash / Surge / sing-box fake-ip DNS maps public hostnames onto
+/// RFC 2544 (`198.18.0.0/15`) and IPv6 ULA addresses. Those ranges stay
+/// blocked as URL literals, but must be allowed as *resolved* addresses
+/// so link preview can run on a machine using a local TUN proxy.
+fn resolved_ip_is_unsafe(ip: IpAddr) -> bool {
+    ip_is_blocked(ip, true)
+}
+
+fn ip_is_blocked(ip: IpAddr, allow_proxy_fake_ip: bool) -> bool {
     match ip {
-        IpAddr::V4(v4) => ipv4_is_unsafe(v4),
-        IpAddr::V6(v6) => ipv6_is_unsafe(v6),
+        IpAddr::V4(v4) => ipv4_is_blocked(v4, allow_proxy_fake_ip),
+        IpAddr::V6(v6) => ipv6_is_blocked(v6, allow_proxy_fake_ip),
     }
 }
 
 fn ipv4_is_unsafe(ip: Ipv4Addr) -> bool {
+    ipv4_is_blocked(ip, false)
+}
+
+fn ipv4_is_blocked(ip: Ipv4Addr, allow_proxy_fake_ip: bool) -> bool {
+    if allow_proxy_fake_ip && is_benchmarking(ip) {
+        return false;
+    }
     ip.is_unspecified()
         || ip.is_loopback()
         || ip.is_private()
@@ -199,15 +275,18 @@ fn ipv4_is_unsafe(ip: Ipv4Addr) -> bool {
         || is_benchmarking(ip)
 }
 
-fn ipv6_is_unsafe(ip: Ipv6Addr) -> bool {
-    if ip.is_unspecified() || ip.is_loopback() || ip.is_multicast() || ip.is_unique_local() {
+fn ipv6_is_blocked(ip: Ipv6Addr, allow_proxy_fake_ip: bool) -> bool {
+    if ip.is_unspecified() || ip.is_loopback() || ip.is_multicast() {
         return true;
     }
     if ip.is_unicast_link_local() {
         return true;
     }
+    if ip.is_unique_local() {
+        return !allow_proxy_fake_ip;
+    }
     if let Some(v4) = ip.to_ipv4_mapped() {
-        return ipv4_is_unsafe(v4);
+        return ipv4_is_blocked(v4, allow_proxy_fake_ip);
     }
     false
 }
@@ -447,6 +526,26 @@ mod tests {
     }
 
     #[test]
+    fn closed_head_is_enough_to_stop_reading() {
+        assert!(html_has_closed_head(
+            b"<html><head><meta property=\"og:image\" content=\"x\"></head><body>"
+        ));
+        assert!(!html_has_closed_head(b"<html><head><title>still open"));
+    }
+
+    #[test]
+    fn preview_dns_prefers_ipv4_and_skips_unsafe() {
+        let fake_v4 = IpAddr::V4(Ipv4Addr::new(198, 18, 0, 21));
+        let fake_v6: IpAddr = "fdfe:dcba:9876::16".parse().unwrap();
+        let loopback = IpAddr::V4(Ipv4Addr::LOCALHOST);
+        assert_eq!(
+            pick_preview_addrs([fake_v6, fake_v4, loopback]),
+            vec![fake_v4]
+        );
+        assert!(pick_preview_addrs([loopback]).is_empty());
+    }
+
+    #[test]
     fn decodes_entities_in_title() {
         let html = r#"<title>Foo &amp; Bar&#39;s</title>"#;
         let preview = parse_link_preview_html(html, &base());
@@ -457,6 +556,7 @@ mod tests {
     fn blocks_localhost_and_private_literals() {
         assert!(parse_public_http_url("http://localhost/docs").is_err());
         assert!(parse_public_http_url("https://127.0.0.1/").is_err());
+        assert!(parse_public_http_url("http://[::1]/").is_err());
         assert!(parse_public_http_url("https://10.0.0.8/og").is_err());
         assert!(parse_public_http_url("ftp://example.com").is_err());
         assert!(parse_public_http_url("https://payloadcms.com/docs").is_ok());
@@ -467,6 +567,25 @@ mod tests {
         assert!(ipv4_is_unsafe(Ipv4Addr::new(100, 64, 1, 1)));
         assert!(ipv4_is_unsafe(Ipv4Addr::new(169, 254, 1, 1)));
         assert!(!ipv4_is_unsafe(Ipv4Addr::new(1, 1, 1, 1)));
+    }
+
+    #[test]
+    fn proxy_fake_ip_is_allowed_only_as_resolved_address() {
+        let fake_v4 = Ipv4Addr::new(198, 18, 0, 21);
+        let fake_v6: Ipv6Addr = "fdfe:dcba:9876::16".parse().unwrap();
+        assert!(ip_is_unsafe(IpAddr::V4(fake_v4)));
+        assert!(!resolved_ip_is_unsafe(IpAddr::V4(fake_v4)));
+        assert!(ip_is_unsafe(IpAddr::V6(fake_v6)));
+        assert!(!resolved_ip_is_unsafe(IpAddr::V6(fake_v6)));
+        assert!(resolved_ip_is_unsafe(IpAddr::V4(Ipv4Addr::LOCALHOST)));
+        assert!(resolved_ip_is_unsafe(IpAddr::V4(Ipv4Addr::new(
+            10, 0, 0, 1
+        ))));
+        assert!(resolved_ip_is_unsafe(IpAddr::V6(Ipv6Addr::LOCALHOST)));
+        assert!(parse_public_http_url("https://198.18.0.21/").is_err());
+        assert!(parse_public_http_url("http://[fdfe:dcba:9876::16]/").is_err());
+        assert!(parse_public_http_url("http://[::1]/").is_err());
+        assert!(parse_public_http_url("https://github.com/docs").is_ok());
     }
 
     #[test]
