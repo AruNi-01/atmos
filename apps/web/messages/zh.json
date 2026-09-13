@@ -520,6 +520,7 @@
       "typeToSearch": "至少输入一个字符",
       "fallback": {
         "tasks": "全部任务",
+        "notes": "笔记",
         "commit": "提交与推送",
         "usage": "使用情况"
       },
@@ -528,9 +529,12 @@
         "theme": "主题",
         "project": "项目",
         "modal": "弹窗",
-        "todo": "待办",
+        "todo": "清单",
+        "note": "笔记",
         "commit": "提交",
         "usage": "用量",
+        "command": "命令",
+        "surface": "工作区视图",
         "newWorkspace": "新建工作区",
         "quickOpen": "快速打开",
         "files": "文件",
@@ -1111,6 +1115,10 @@
         "dark": "深色主题",
         "system": "系统主题"
       },
+      "languages": {
+        "en": "英语",
+        "zh": "中文"
+      },
       "addProject": "添加项目",
       "modalChat": {
         "title": "打开 ACP Chat",
@@ -1121,8 +1129,8 @@
         "description": "配置 LLM Provider 的 API Key 和模型"
       },
       "aiQuota": {
-        "title": "AI 配额使用",
-        "description": "查看 Provider 配额和刷新状态"
+        "title": "AI 配额用量",
+        "description": "查看各 Provider 剩余配额并刷新状态"
       },
       "canvas": {
         "title": "打开 Canvas",
@@ -1135,9 +1143,61 @@
         "itemTitle": "设置：{label}"
       },
       "workspaceTodos": {
-        "title": "工作区 TODO",
-        "descriptionWithLabel": "{label} - 查看任务",
-        "description": "查看当前任务"
+        "title": "工作区清单",
+        "descriptionWithLabel": "{label} — 本地清单，不是看板",
+        "description": "当前工作区的本地清单，不是看板"
+      },
+      "workspaceNotes": {
+        "title": "工作区笔记",
+        "descriptionWithLabel": "{label} — 编辑工作区笔记",
+        "description": "编辑工作区笔记"
+      },
+      "sidebar": {
+        "show": "显示左侧边栏",
+        "hide": "隐藏左侧边栏",
+        "description": "切换左侧边栏"
+      },
+      "refresh": {
+        "title": "刷新",
+        "description": "重新加载当前页面"
+      },
+      "wiki": {
+        "title": "打开 Wiki",
+        "description": "打开项目 Wiki 标签"
+      },
+      "browser": {
+        "title": "新建浏览器标签",
+        "description": "打开应用内浏览器标签"
+      },
+      "simulator": {
+        "title": "打开模拟器",
+        "description": "打开 iOS / Android 模拟器标签"
+      },
+      "gitHistory": {
+        "title": "打开提交图",
+        "description": "打开 Git 提交图标签"
+      },
+      "surfaces": {
+        "changes": {
+          "title": "打开更改",
+          "description": "打开 Git 更改标签"
+        },
+        "review": {
+          "title": "打开审查",
+          "description": "打开审查标签"
+        },
+        "run": {
+          "title": "打开运行",
+          "description": "打开运行标签"
+        },
+        "github": {
+          "title": "打开 GitHub",
+          "description": "打开 GitHub 中心标签"
+        },
+        "files": {
+          "title": "打开文件",
+          "description": "打开文件标签"
+        }
       },
       "commitPush": {
         "title": "提交并推送",
@@ -1163,24 +1223,24 @@
       },
       "launchpad": {
         "workspaces": {
-          "title": "Launchpad：工作区",
-          "description": "打开工作区"
+          "title": "工作区管理",
+          "description": "打开工作区管理页"
         },
         "skills": {
-          "title": "Launchpad：技能",
-          "description": "打开技能"
+          "title": "技能",
+          "description": "打开技能目录"
         },
         "terminals": {
-          "title": "Launchpad：终端",
-          "description": "打开终端"
+          "title": "终端",
+          "description": "打开终端页"
         },
         "agents": {
-          "title": "Launchpad：Agent",
-          "description": "打开 Agent"
+          "title": "Agent",
+          "description": "打开 Agent 页"
         },
         "automations": {
-          "title": "Launchpad：自动化",
-          "description": "打开自动化"
+          "title": "自动化",
+          "description": "打开自动化页"
         },
         "diskAnalyzer": {
           "title": "磁盘分析器",
@@ -1188,16 +1248,16 @@
         },
         "tokenUsage": {
           "title": "Token 用量",
-          "description": "查看模型 Token 使用和活动"
+          "description": "打开 Token 用量页，查看模型活动和费用"
         },
         "ptDesign": {
-          "title": "Launchpad：Prototype Design",
+          "title": "原型设计",
           "description": "打开独立的原型设计画板"
         }
       },
       "tasks": {
-        "title": "打开任务视图",
-        "description": "打开工作区与 GitHub Issue/PR 的任务视图"
+        "title": "打开任务看板",
+        "description": "打开工作区与 GitHub Issue/PR 的看板"
       }
     },
     "workspaceCreationOverlay": {
@@ -8874,9 +8934,13 @@
       "close": "关闭"
     },
     "imagePreviewOverlay": {
+      "menu": "图片操作",
       "copyImage": "复制图片",
+      "saveImage": "保存图片",
       "copyFailedTitle": "复制失败",
-      "clipboardUnavailable": "无法将图片复制到剪贴板。"
+      "saveFailedTitle": "保存失败",
+      "clipboardUnavailable": "无法将图片复制到剪贴板。",
+      "saveUnavailable": "无法将图片保存到这台电脑。"
     },
     "markdownRenderer": {
       "mermaid": {

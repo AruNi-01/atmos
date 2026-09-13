@@ -4,7 +4,6 @@
 
 import React, { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { useTheme } from "next-themes";
 import {
   Bot,
   BrainCircuit,
@@ -24,7 +23,20 @@ export type SearchTab = "app" | "files" | "code";
 
 export interface AppSearchItem {
   id: string;
-  type: "workspace" | "theme" | "project" | "new-workspace" | "quick-open" | "launchpad" | "modal" | "todo" | "commit" | "usage";
+  type:
+    | "workspace"
+    | "theme"
+    | "project"
+    | "new-workspace"
+    | "quick-open"
+    | "launchpad"
+    | "surface"
+    | "modal"
+    | "todo"
+    | "note"
+    | "commit"
+    | "usage"
+    | "command";
   title: string;
   description?: string;
   keywords: string[];
@@ -45,34 +57,8 @@ export interface AppSearchItem {
   branch?: string | null;
 }
 
-const AppIcon = ({ name, className, themed }: { name: string; className?: string; themed?: boolean }) => {
-  const { resolvedTheme } = useTheme();
-  const themeSuffix = themed ? `_${resolvedTheme === "dark" ? "dark" : "light"}` : "";
-  const iconPath = useMemo(() => `/quick_open_app/${name}${themeSuffix}.svg`, [name, themeSuffix]);
-  return <img src={iconPath} alt="" className={className} />;
-};
-
-export const APP_MAP: Record<string, { icon: React.ReactNode; label: string }> = {
-  Finder: { icon: <AppIcon name="finder" className="size-4" />, label: "Finder" },
-  Terminal: { icon: <AppIcon name="terminal" className="size-4" />, label: "Terminal" },
-  Cursor: { icon: <AppIcon name="Cursor" className="size-4" themed />, label: "Cursor" },
-  Zed: { icon: <AppIcon name="zed" className="size-4" themed />, label: "Zed" },
-  "Sublime Text": { icon: <AppIcon name="sublime-text" className="size-4" />, label: "Sublime Text" },
-  Xcode: { icon: <AppIcon name="xcode" className="size-4" />, label: "Xcode" },
-  iTerm: { icon: <AppIcon name="iterm2" className="size-4" themed />, label: "iTerm" },
-  Warp: { icon: <AppIcon name="warp" className="size-4" />, label: "Warp" },
-  Ghostty: { icon: <AppIcon name="ghostty" className="size-4" />, label: "Ghostty" },
-  "VS Code": { icon: <AppIcon name="vscode" className="size-4" />, label: "VS Code" },
-  "VS Code Insiders": { icon: <AppIcon name="vscode-insiders" className="size-4" />, label: "VS Code Insiders" },
-  "IntelliJ IDEA": { icon: <AppIcon name="intellij-idea" className="size-4" />, label: "IntelliJ IDEA" },
-  WebStorm: { icon: <AppIcon name="webstorm" className="size-4" />, label: "WebStorm" },
-  PyCharm: { icon: <AppIcon name="pycharm" className="size-4" />, label: "PyCharm" },
-  GoLand: { icon: <AppIcon name="goland" className="size-4" />, label: "GoLand" },
-  CLion: { icon: <AppIcon name="clion" className="size-4" />, label: "CLion" },
-  Rider: { icon: <AppIcon name="rider" className="size-4" />, label: "Rider" },
-  RustRover: { icon: <AppIcon name="rustrover" className="size-4" />, label: "RustRover" },
-  Antigravity: { icon: <AppIcon name="antigravity" className="size-4" />, label: "Antigravity" },
-};
+const SEARCH_ITEM_STATE_CLASS =
+  "rounded-xl hover:bg-foreground/8 hover:text-accent-foreground data-[selected=true]:bg-foreground/8 data-[selected=true]:text-accent-foreground";
 
 interface SearchItemProps {
   icon?: React.ReactNode;
@@ -161,13 +147,10 @@ export function SearchItem({
       onSelect={onSelect}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={cn(
-        "group hover:bg-accent hover:text-accent-foreground",
-        className,
-      )}
+      className={cn("group", SEARCH_ITEM_STATE_CLASS, className)}
     >
       <div className="flex flex-1 items-center gap-3 overflow-hidden">
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:bg-background group-hover:text-primary group-data-[selected=true]:bg-background group-data-[selected=true]:text-primary">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:bg-muted group-hover:text-muted-foreground group-data-[selected=true]:bg-muted group-data-[selected=true]:text-muted-foreground">
           {githubPr ? (
             <WorkspacePrStatusIcon
               githubPr={githubPr}
@@ -175,7 +158,7 @@ export function SearchItem({
               interested={isHovered}
               showBranchFallback
               className="size-4"
-              fallbackClassName="text-muted-foreground group-data-[selected=true]:text-primary"
+              fallbackClassName="text-muted-foreground"
             />
           ) : (
             fallbackIcon
@@ -225,10 +208,10 @@ export function CodeSearchResultItem({ match, onHover, onSelect }: CodeSearchRes
       onSelect={onSelect}
       onMouseEnter={() => onHover(value)}
       onMouseLeave={() => onHover(null)}
-      className="group flex-col items-start gap-2.5 py-3 hover:bg-accent hover:text-accent-foreground"
+      className={cn("group flex-col items-start gap-2.5 py-3", SEARCH_ITEM_STATE_CLASS)}
     >
       <div className="flex w-full items-center gap-3">
-        <div className="flex size-7 shrink-0 items-center justify-center rounded bg-muted text-muted-foreground group-hover:bg-background group-hover:text-primary group-data-[selected=true]:bg-background group-data-[selected=true]:text-primary">
+        <div className="flex size-7 shrink-0 items-center justify-center rounded bg-muted text-muted-foreground group-hover:bg-muted group-hover:text-muted-foreground group-data-[selected=true]:bg-muted group-data-[selected=true]:text-muted-foreground">
           <img {...iconProps} alt="" className="size-3.5" />
         </div>
         <div className="flex min-w-0 flex-1 flex-col">

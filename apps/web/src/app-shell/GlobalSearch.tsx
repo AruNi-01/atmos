@@ -23,10 +23,12 @@ import {
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { fsApi, type SearchMatch, type FileTreeNode } from '@/api/ws-api';
 import { useFileTreeQuery } from '@/features/files/hooks/use-file-tree-query';
-import { llmProvidersModalParams, leftSidebarParams, centerStageParams } from '@/shared/lib/nuqs/searchParams';
+import { llmProvidersModalParams, centerStageParams } from '@/shared/lib/nuqs/searchParams';
 import { useWorkspaceContext } from '@/features/workspace/hooks/use-workspace-context';
 import { useSidebarLayout } from '@/app-shell/SidebarLayoutContext';
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
+import { useWorkbenchLocale } from '@/providers/app/workbench-intl-provider';
+import { useCenterPaintContextId } from '@/app-shell/center-space/use-center-paint-context-id';
 import {
   type AppSearchItem,
   type SearchTab,
@@ -35,6 +37,7 @@ import { buildGlobalSearchItems } from '@/app-shell/global-search-app-items';
 import {
   CommitSubView,
   GlobalSearchMainView,
+  NoteSubView,
   TodoSubView,
   UsageSubView,
   type GroupedAppItems,
@@ -129,6 +132,7 @@ export function GlobalSearch() {
   const [, setAgentChatOpen] = useAgentChatUrl();
   const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl, currentView } = useContextParams();
   const { setTheme } = useTheme();
+  const { setLocale } = useWorkbenchLocale();
 
   const isGlobalSearchOpen = useDialogStore(s => s.isGlobalSearchOpen);
   const { onCloseAutoFocusPrevent } = useFocusRestore(isGlobalSearchOpen);
@@ -146,14 +150,12 @@ export function GlobalSearch() {
 
   // URL-param driven modals
   const [, setLlmProvidersOpen] = useQueryState("llmProvidersModal", llmProvidersModalParams.llmProvidersModal);
-  const [, setLeftSidebarTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
   const [, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
 
-  const { isLeftCollapsed, setIsLeftCollapsed } = useSidebarLayout();
+  const { isLeftCollapsed, toggleLeftSidebar } = useSidebarLayout();
+  const centerContextId = useCenterPaintContextId();
 
-  const launchpadTerminalsEnabled = useExperimentSettingsStore((s) => s.launchpadTerminalsEnabled);
-  const launchpadAgentsEnabled = useExperimentSettingsStore((s) => s.launchpadAgentsEnabled);
-  const automationsEnabled = useExperimentSettingsStore((s) => s.automationsEnabled);
+  const centerWikiTabEnabled = useExperimentSettingsStore((s) => s.centerWikiTabEnabled);
   const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
 
   useEffect(() => {
@@ -230,6 +232,10 @@ export function GlobalSearch() {
     updateTaskStatus: todoUpdateTaskStatus,
     updateTaskContent: todoUpdateTaskContent,
     deleteTask: todoDeleteTask,
+    note: workspaceNote,
+    noteLoading: workspaceNoteLoading,
+    loadNote: loadWorkspaceNote,
+    saveNote: saveWorkspaceNote,
   } = useWorkspaceContext(contextId);
 
   // Load tasks when entering TODO sub-view
@@ -238,6 +244,12 @@ export function GlobalSearch() {
       todoLoadTasks(currentEffectivePath);
     }
   }, [subView, currentEffectivePath, todoLoadTasks]);
+
+  useEffect(() => {
+    if (subView === 'note' && currentEffectivePath) {
+      void loadWorkspaceNote(currentEffectivePath);
+    }
+  }, [subView, currentEffectivePath, loadWorkspaceNote]);
 
   // Keyboard shortcut to open search
   useHotkeys('mod+k', () => setGlobalSearchOpen(!isGlobalSearchOpen), {
@@ -383,6 +395,7 @@ export function GlobalSearch() {
       projects,
       router,
       setTheme,
+      setLocale,
       setGlobalSearchOpen,
       setCreateProjectOpen,
       setSelectedProjectId,
@@ -390,18 +403,16 @@ export function GlobalSearch() {
       quickAddWorkspace,
       isFullScreen,
       toggleFullScreen,
+      toggleLeftSidebar,
+      isLeftCollapsed,
       currentProject,
       currentWorkspace,
       currentWorkspaceId,
       currentEffectivePath,
-      launchpadTerminalsEnabled,
-      launchpadAgentsEnabled,
-      automationsEnabled,
-      isLeftCollapsed,
+      centerContextId,
+      centerWikiTabEnabled,
       setLlmProvidersOpen,
-      setLeftSidebarTab,
       setCanvasOpen,
-      setIsLeftCollapsed,
       setSubView,
       startCreating,
       bindWorkspace,
@@ -411,7 +422,7 @@ export function GlobalSearch() {
         void setAgentChatOpen(true);
       },
     });
-  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, toggleFullScreen, currentProject, setLlmProvidersOpen, setLeftSidebarTab, setCanvasOpen, isLeftCollapsed, setIsLeftCollapsed, currentWorkspaceId, currentWorkspace, launchpadTerminalsEnabled, launchpadAgentsEnabled, automationsEnabled, currentEffectivePath, startCreating, bindWorkspace, failCreating, createOriginKey, setAgentChatOpen]);
+  }, [projects, router, setTheme, setLocale, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, toggleFullScreen, toggleLeftSidebar, isLeftCollapsed, currentProject, currentWorkspace, currentWorkspaceId, currentEffectivePath, centerContextId, centerWikiTabEnabled, setLlmProvidersOpen, setCanvasOpen, startCreating, bindWorkspace, failCreating, createOriginKey, setAgentChatOpen]);
 
   // Filter app items with deterministic matching. Single-word keyword hits must be exact
   // to keep broad keyword phrases from pulling unrelated results into the command palette.
@@ -459,10 +470,13 @@ export function GlobalSearch() {
       'new-workspace': [],
       'quick-open': [],
       launchpad: [],
+      surface: [],
       modal: [],
       todo: [],
+      note: [],
       commit: [],
       usage: [],
+      command: [],
     };
 
     filteredAppItems.forEach(item => {
@@ -536,6 +550,16 @@ export function GlobalSearch() {
           updateTaskStatus={todoUpdateTaskStatus}
           updateTaskContent={todoUpdateTaskContent}
           deleteTask={todoDeleteTask}
+          onBack={() => setSubView(null)}
+        />
+      ) : subView === 'note' ? (
+        <NoteSubView
+          currentProject={currentProject}
+          currentWorkspace={currentWorkspace}
+          currentEffectivePath={currentEffectivePath}
+          note={workspaceNote}
+          noteLoading={workspaceNoteLoading}
+          saveNote={saveWorkspaceNote}
           onBack={() => setSubView(null)}
         />
       ) : subView === 'usage' ? (

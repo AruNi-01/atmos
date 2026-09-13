@@ -11,15 +11,18 @@ import {
   CommandInputWithoutBorder,
   CommandList,
   CornerDownLeft,
+  ScrollArea,
   File,
   GitCommit,
   Gauge,
   Layers,
+  StickyNote,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@workspace/ui";
+import { NotePanel } from "@/features/workspace/components/NotePanel";
 import {
   Tabs,
   TabsList,
@@ -39,7 +42,7 @@ import {
 } from "@/app-shell/global-search-parts";
 import { useTranslations } from "next-intl";
 
-type SubView = "todo" | "commit" | "usage";
+type SubView = "todo" | "commit" | "usage" | "note";
 
 interface SearchProjectSummary {
   id: string;
@@ -164,6 +167,45 @@ export function TodoSubView({
   );
 }
 
+interface NoteSubViewProps {
+  currentProject?: SearchProjectSummary;
+  currentWorkspace?: SearchWorkspaceSummary;
+  currentEffectivePath?: string | null;
+  note: string | null;
+  noteLoading: boolean;
+  saveNote: (path: string, content: string, expectedContent?: string) => Promise<boolean>;
+  onBack: () => void;
+}
+
+export function NoteSubView({
+  currentProject,
+  currentWorkspace,
+  currentEffectivePath,
+  note,
+  noteLoading,
+  saveNote,
+  onBack,
+}: NoteSubViewProps) {
+  const t = useTranslations("appShell");
+  return (
+    <GlobalSearchSubViewFrame
+      icon={<StickyNote className="size-4 shrink-0 text-muted-foreground" />}
+      title={currentWorkspace?.name || currentProject?.name || t("globalSearch.fallback.notes")}
+      onBack={onBack}
+    >
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <NotePanel
+          note={note}
+          noteLoading={noteLoading}
+          effectivePath={currentEffectivePath}
+          saveNote={saveNote}
+          className="h-full rounded-none border-0"
+        />
+      </div>
+    </GlobalSearchSubViewFrame>
+  );
+}
+
 interface CommitSubViewProps {
   currentProject?: SearchProjectSummary;
   currentWorkspace?: SearchWorkspaceSummary;
@@ -271,10 +313,13 @@ function AppSearchResults({
     { key: "theme", heading: t("globalSearch.groups.theme") },
     { key: "project", heading: t("globalSearch.groups.project") },
     { key: "launchpad", heading: t("globalSearch.groups.launchpad"), showDescription: true },
+    { key: "surface", heading: t("globalSearch.groups.surface"), showDescription: true },
     { key: "modal", heading: t("globalSearch.groups.modal"), showDescription: true },
-    { key: "todo", heading: t("globalSearch.groups.todo") },
+    { key: "todo", heading: t("globalSearch.groups.todo"), showDescription: true },
+    { key: "note", heading: t("globalSearch.groups.note"), showDescription: true },
     { key: "commit", heading: t("globalSearch.groups.commit"), showDescription: true },
     { key: "usage", heading: t("globalSearch.groups.usage"), showDescription: true },
+    { key: "command", heading: t("globalSearch.groups.command"), showDescription: true },
     { key: "new-workspace", heading: t("globalSearch.groups.newWorkspace"), showDescription: true },
     { key: "quick-open", heading: t("globalSearch.groups.quickOpen"), showDescription: true },
   ];
@@ -450,65 +495,71 @@ export function GlobalSearchMainView({
         hoveredValue={hoveredValue}
         selectedValue={selectedValue}
       />
-      <div className="flex shrink-0 items-center px-3.5 py-2">
-        <Tabs
-          value={globalSearchTab}
-          onValueChange={(value) => setGlobalSearchTab(value as SearchTab)}
-          variant="pill"
-        >
-          <TabsList className="h-10 gap-1 p-1">
-            <TabsTrigger value="app" tabIndex={-1} className="h-8 gap-2 px-4 text-sm">
-              <Layers className="size-4 shrink-0" />
-              {t("globalSearch.tabs.app")}
-            </TabsTrigger>
-            <TabsTrigger value="files" tabIndex={-1} className="h-8 gap-2 px-4 text-sm">
-              <File className="size-4 shrink-0" />
-              {t("globalSearch.tabs.files")}
-            </TabsTrigger>
-            <TabsTrigger value="code" tabIndex={-1} className="h-8 gap-2 px-4 text-sm">
-              <Code className="size-4 shrink-0" />
-              {t("globalSearch.tabs.code")}
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+      <div className="shrink-0 pt-1">
+        <CommandInputWithoutBorder
+          ref={inputRef}
+          placeholder={t("globalSearch.placeholder")}
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+        />
       </div>
-
-      <CommandInputWithoutBorder
-        ref={inputRef}
-        placeholder={t("globalSearch.placeholder")}
-        value={searchQuery}
-        onValueChange={setSearchQuery}
-      />
-
-      <CommandList className="h-full max-h-none flex-1 rounded-t-[20px] bg-muted/50 pt-1 shadow-inner/5 dark:bg-black/60">
-        {globalSearchTab === "app" ? (
-          <AppSearchResults
-            filteredAppItems={filteredAppItems}
-            groupedAppItems={groupedAppItems}
-            searchQuery={searchQuery}
-          />
-        ) : null}
-        {globalSearchTab === "files" ? (
-          <FileSearchResults
-            currentEffectivePath={currentEffectivePath}
-            currentProject={currentProject}
-            filteredFiles={filteredFiles}
-            isLoadingFiles={isLoadingFiles}
-            onFileSelect={onFileSelect}
-          />
-        ) : null}
-        {globalSearchTab === "code" ? (
-          <CodeSearchResults
-            codeSearchResults={codeSearchResults}
-            codeSearchTruncated={codeSearchTruncated}
-            currentProject={currentProject}
-            isSearchingCode={isSearchingCode}
-            searchQuery={searchQuery}
-            setHoveredValue={setHoveredValue}
-            onCodeResultSelect={onCodeResultSelect}
-          />
-        ) : null}
-      </CommandList>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[20px] bg-muted/50 shadow-inner/5 dark:bg-black/60">
+        <div className="flex shrink-0 items-center px-3.5 py-1.5">
+          <Tabs
+            value={globalSearchTab}
+            onValueChange={(value) => setGlobalSearchTab(value as SearchTab)}
+            variant="pill"
+          >
+            <TabsList className="h-8 gap-1 bg-transparent p-0.5">
+              <TabsTrigger value="app" tabIndex={-1} className="h-7 gap-1.5 px-3 text-sm">
+                <Layers className="size-3.5 shrink-0" />
+                {t("globalSearch.tabs.app")}
+              </TabsTrigger>
+              <TabsTrigger value="files" tabIndex={-1} className="h-7 gap-1.5 px-3 text-sm">
+                <File className="size-3.5 shrink-0" />
+                {t("globalSearch.tabs.files")}
+              </TabsTrigger>
+              <TabsTrigger value="code" tabIndex={-1} className="h-7 gap-1.5 px-3 text-sm">
+                <Code className="size-3.5 shrink-0" />
+                {t("globalSearch.tabs.code")}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+        <div className="min-h-0 flex-1">
+          <ScrollArea scrollFade>
+            <CommandList className="max-h-none overflow-visible">
+              {globalSearchTab === "app" ? (
+                <AppSearchResults
+                  filteredAppItems={filteredAppItems}
+                  groupedAppItems={groupedAppItems}
+                  searchQuery={searchQuery}
+                />
+              ) : null}
+              {globalSearchTab === "files" ? (
+                <FileSearchResults
+                  currentEffectivePath={currentEffectivePath}
+                  currentProject={currentProject}
+                  filteredFiles={filteredFiles}
+                  isLoadingFiles={isLoadingFiles}
+                  onFileSelect={onFileSelect}
+                />
+              ) : null}
+              {globalSearchTab === "code" ? (
+                <CodeSearchResults
+                  codeSearchResults={codeSearchResults}
+                  codeSearchTruncated={codeSearchTruncated}
+                  currentProject={currentProject}
+                  isSearchingCode={isSearchingCode}
+                  searchQuery={searchQuery}
+                  setHoveredValue={setHoveredValue}
+                  onCodeResultSelect={onCodeResultSelect}
+                />
+              ) : null}
+            </CommandList>
+          </ScrollArea>
+        </div>
+      </div>
       <GlobalSearchFooter />
     </>
   );

@@ -520,6 +520,7 @@
       "typeToSearch": "Type at least one character",
       "fallback": {
         "tasks": "All Tasks",
+        "notes": "Notes",
         "commit": "Commit & Push",
         "usage": "Usage"
       },
@@ -528,9 +529,12 @@
         "theme": "Theme",
         "project": "Project",
         "modal": "Modal",
-        "todo": "Todo",
+        "todo": "Checklist",
+        "note": "Notes",
         "commit": "Commit",
         "usage": "Usage",
+        "command": "Commands",
+        "surface": "Workspace view",
         "newWorkspace": "New Workspace",
         "quickOpen": "Quick Open",
         "files": "Files",
@@ -1111,6 +1115,10 @@
         "dark": "Dark Theme",
         "system": "System Theme"
       },
+      "languages": {
+        "en": "English",
+        "zh": "Chinese"
+      },
       "addProject": "Add Project",
       "modalChat": {
         "title": "Open ACP Chat",
@@ -1122,7 +1130,7 @@
       },
       "aiQuota": {
         "title": "AI Quota Usage",
-        "description": "Inspect provider quotas and refresh status"
+        "description": "Check remaining provider quota and refresh status"
       },
       "canvas": {
         "title": "Open Canvas",
@@ -1135,9 +1143,61 @@
         "itemTitle": "Settings: {label}"
       },
       "workspaceTodos": {
-        "title": "Workspace TODOs",
-        "descriptionWithLabel": "{label} - View tasks",
-        "description": "View current tasks"
+        "title": "Workspace checklist",
+        "descriptionWithLabel": "{label} — local checklist, not the kanban board",
+        "description": "Local checklist for this workspace, not the kanban board"
+      },
+      "workspaceNotes": {
+        "title": "Workspace notes",
+        "descriptionWithLabel": "{label} — edit the workspace note",
+        "description": "Edit the workspace note"
+      },
+      "sidebar": {
+        "show": "Show left sidebar",
+        "hide": "Hide left sidebar",
+        "description": "Toggle the left sidebar"
+      },
+      "refresh": {
+        "title": "Refresh",
+        "description": "Reload the current page"
+      },
+      "wiki": {
+        "title": "Open Wiki",
+        "description": "Open the project wiki tab"
+      },
+      "browser": {
+        "title": "New browser tab",
+        "description": "Open an in-app browser tab"
+      },
+      "simulator": {
+        "title": "Open Simulator",
+        "description": "Open the iOS and Android simulator tab"
+      },
+      "gitHistory": {
+        "title": "Open Graph History",
+        "description": "Open the git graph history tab"
+      },
+      "surfaces": {
+        "changes": {
+          "title": "Open Changes",
+          "description": "Open the git changes tab"
+        },
+        "review": {
+          "title": "Open Review",
+          "description": "Open the review tab"
+        },
+        "run": {
+          "title": "Open Run",
+          "description": "Open the run tab"
+        },
+        "github": {
+          "title": "Open GitHub",
+          "description": "Open the GitHub hub tab"
+        },
+        "files": {
+          "title": "Open Files",
+          "description": "Open the files tab"
+        }
       },
       "commitPush": {
         "title": "Commit & Push",
@@ -1163,24 +1223,24 @@
       },
       "launchpad": {
         "workspaces": {
-          "title": "Launchpad: Workspaces",
-          "description": "Open workspaces"
+          "title": "Workspaces",
+          "description": "Open the workspaces admin page"
         },
         "skills": {
-          "title": "Launchpad: Skills",
-          "description": "Open skills"
+          "title": "Skills",
+          "description": "Open the skills catalog"
         },
         "terminals": {
-          "title": "Launchpad: Terminals",
-          "description": "Open terminals"
+          "title": "Terminals",
+          "description": "Open the terminals page"
         },
         "agents": {
-          "title": "Launchpad: Agents",
-          "description": "Open agents"
+          "title": "Agents",
+          "description": "Open the agents page"
         },
         "automations": {
-          "title": "Launchpad: Automations",
-          "description": "Open automations"
+          "title": "Automations",
+          "description": "Open the automations page"
         },
         "diskAnalyzer": {
           "title": "Disk Analyzer",
@@ -1188,16 +1248,16 @@
         },
         "tokenUsage": {
           "title": "Token Usage",
-          "description": "Review model token usage and activity"
+          "description": "Open the token usage page for model activity and cost"
         },
         "ptDesign": {
-          "title": "Launchpad: Prototype Design",
+          "title": "Prototype Design",
           "description": "Open the standalone prototype design board"
         }
       },
       "tasks": {
         "title": "Open Task View",
-        "description": "Open the task board for workspaces and GitHub issues/PRs"
+        "description": "Open the kanban board for workspaces and GitHub issues/PRs"
       }
     },
     "workspaceCreationOverlay": {
@@ -8874,9 +8934,13 @@
       "close": "Close"
     },
     "imagePreviewOverlay": {
+      "menu": "Image actions",
       "copyImage": "Copy image",
+      "saveImage": "Save image",
       "copyFailedTitle": "Copy failed",
-      "clipboardUnavailable": "Could not copy the image to the clipboard."
+      "saveFailedTitle": "Save failed",
+      "clipboardUnavailable": "Could not copy the image to the clipboard.",
+      "saveUnavailable": "Could not save the image to this computer."
     },
     "markdownRenderer": {
       "mermaid": {
