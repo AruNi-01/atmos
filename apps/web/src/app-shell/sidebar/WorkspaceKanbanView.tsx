@@ -557,12 +557,12 @@ export function WorkspaceKanbanView({
   );
 
   const toolbarActions = showToolbarActions ? (
-    <div className="flex h-7 items-center justify-end gap-1.5">
+    <div className="flex h-7 items-center justify-end gap-0.5">
       <div ref={searchContainerRef} className="relative h-7 w-56">
         <div
           className={cn(
-            "absolute right-0 top-0 h-7 overflow-hidden rounded-md border border-border bg-background transition-[width] duration-200 ease-out",
-            isSearchOpen ? "w-56" : "w-7",
+            "absolute right-0 top-0 flex h-7 items-center overflow-hidden rounded-md transition-[width] duration-200 ease-out",
+            isSearchOpen ? "w-56 border border-border bg-background" : "w-7",
           )}
         >
           <Input
@@ -575,9 +575,11 @@ export function WorkspaceKanbanView({
             )}
             autoFocus={isSearchOpen}
           />
-          <button
+          <Button
             type="button"
-            className="absolute inset-y-0 right-0 inline-flex size-7 items-center justify-center text-muted-foreground hover:text-foreground"
+            size="icon-xs"
+            variant="ghost"
+            className="absolute inset-y-0 right-0 size-7 text-muted-foreground hover:text-foreground sm:size-7"
             onClick={() => {
               if (isSearchOpen && !searchQuery.trim()) {
                 setIsSearchOpen(false);
@@ -585,15 +587,17 @@ export function WorkspaceKanbanView({
               }
               setIsSearchOpen(true);
             }}
+            aria-label={t("search.placeholder")}
+            title={t("search.placeholder")}
           >
             <Search className="size-3.5" />
-          </button>
+          </Button>
         </div>
       </div>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           {/* Match Task source tabs + trailing actions (h-7). icon-xs defaults to sm:size-6. */}
-          <Button size="icon-xs" variant="outline" className="size-7 sm:size-7">
+          <Button size="icon-xs" variant="ghost" className="size-7 text-muted-foreground hover:text-foreground sm:size-7">
             <Settings2 className="size-3.5" />
           </Button>
         </DropdownMenuTrigger>
