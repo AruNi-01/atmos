@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ScrollArea,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -41,7 +42,8 @@ export function AutomationAgentPicker({
   }
 
   return (
-    <div className="grid max-h-[178px] gap-2 overflow-auto pr-1">
+    <ScrollArea className="max-h-[178px]" scrollFade>
+      <div className="grid gap-2 pr-1">
       {agents.map((agent) => {
         const selected = agent.agent_id === selectedAgentId;
         return (
@@ -81,6 +83,7 @@ export function AutomationAgentPicker({
           </Tooltip>
         );
       })}
-    </div>
+      </div>
+    </ScrollArea>
   );
 }

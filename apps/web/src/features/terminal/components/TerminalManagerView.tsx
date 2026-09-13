@@ -169,7 +169,7 @@ export const TerminalManagerView: React.FC = () => {
             </Button>
           </div>
         ) : data ? (
-          <ScrollArea className="flex-1 scrollbar-on-hover">
+          <ScrollArea className="flex-1" scrollFade>
             <div className="p-8 pt-4 space-y-8 max-w-5xl mx-auto w-full">
               {/* Health Status Bar */}
               <div className="flex items-center gap-4 p-4 rounded-lg border border-border bg-background flex-wrap">

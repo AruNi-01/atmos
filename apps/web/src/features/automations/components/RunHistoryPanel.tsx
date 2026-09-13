@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Button, cn } from "@workspace/ui";
+import { Button, cn, ScrollArea } from "@workspace/ui";
 import { Clock3, History, LoaderCircle, RefreshCw } from "lucide-react";
 
 import { StatusBadge } from "@/features/automations/components/automation-common";
@@ -40,7 +40,7 @@ export function RunHistoryPanel({
           {loading ? <LoaderCircle className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
         </Button>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto p-3">
+      <ScrollArea className="min-h-0 flex-1" scrollFade viewportClassName="p-3">
         {loading && runs.length === 0 ? (
           <div className="space-y-2">
             {Array.from({ length: 4 }).map((_, index) => (
@@ -67,7 +67,7 @@ export function RunHistoryPanel({
             ))}
           </div>
         )}
-      </div>
+      </ScrollArea>
     </div>
   );
 }

@@ -24,6 +24,7 @@ import {
   defaultDropAnimationSideEffects,
   restrictToVerticalAxis,
   restrictToWindowEdges,
+  ScrollArea,
   toastManager,
   useSortable,
   verticalListSortingStrategy,
@@ -52,7 +53,11 @@ import {
   selectAttentionFilterMode,
   useAgentAttentionStore,
 } from "@/features/agent/store/agent-attention-store";
-import { LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS } from "@/app-shell/sidebar-layout-constants";
+import {
+  LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+  LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS,
+} from "@/app-shell/sidebar-layout-constants";
+import { isStandaloneAutomationProject } from "@/features/automations/lib/standalone-sidebar";
 
 type DndSensors = DndContextProps["sensors"];
 
@@ -72,6 +77,7 @@ type ProjectItemSharedProps = Omit<
   | "disableRowClick"
   | "isActiveProject"
   | "workspaceSortingDisabled"
+  | "stickyHeader"
 > & {
   activeProjectId?: string | null;
 };
@@ -492,21 +498,23 @@ export function UserGroupTwoColumnLeftContent({
         </span>
         <CreateGroupPopoverButton variant="icon" onCreate={onCreateGroup} />
       </div>
-      <div className="scrollbar-on-hover flex-1 overflow-y-auto px-2 py-1.5">
-        {canReorder ? (
-          <DndContext
-            collisionDetection={closestCenter}
-            sensors={sensors}
-            onDragEnd={handleDragEnd}
-            modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
-          >
-            <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
-              {list}
-            </SortableContext>
-          </DndContext>
-        ) : (
-          list
-        )}
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <ScrollArea scrollFade viewportClassName="px-2 py-1.5">
+          {canReorder ? (
+            <DndContext
+              collisionDetection={closestCenter}
+              sensors={sensors}
+              onDragEnd={handleDragEnd}
+              modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
+            >
+              <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+                {list}
+              </SortableContext>
+            </DndContext>
+          ) : (
+            list
+          )}
+        </ScrollArea>
       </div>
     </div>
   );
@@ -559,12 +567,11 @@ export function UserGroupTwoColumnRightContent({
           onClick={onTogglePrimaryPanel}
         />
       </div>
-      <div
-        className={cn(
-          "scrollbar-on-hover flex-1 overflow-y-auto py-2 pl-3",
-          LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
-        )}
-      >
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <ScrollArea
+          scrollFade
+          viewportClassName={cn("py-2 pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}
+        >
         {!selectedView ? (
           <div className="px-3 py-6 text-sm text-muted-foreground">
             {chromeT("leftSidebarControls.selectGroupDescription")}
@@ -599,12 +606,15 @@ export function UserGroupTwoColumnRightContent({
                   {t("directWorkspaces")}
                 </div>
                 {selectedView.directWorkspaces.map((entry) =>
-                  renderWorkspaceContentRow(entry, { showProjectName: true }),
+                  renderWorkspaceContentRow(entry, {
+                    showProjectName: !isStandaloneAutomationProject(entry.projectId),
+                  }),
                 )}
               </div>
             ) : null}
           </div>
         )}
+        </ScrollArea>
       </div>
     </div>
   );
@@ -686,7 +696,12 @@ function SortableUserGroupOneColumnSection({
       ref={setNodeRef}
       style={{
         // DragOverlay follows the pointer; this node is the list placeholder.
-        transform: CSS.Translate.toString(transform),
+        // Skip a rest-state translate3d(0,0,0) so sticky group titles keep
+        // the list scrollport as their containing block.
+        transform:
+          transform && (transform.x !== 0 || transform.y !== 0)
+            ? CSS.Translate.toString(transform)
+            : undefined,
         transition: isDragging ? undefined : transition,
       }}
       className={cn(
@@ -695,6 +710,10 @@ function SortableUserGroupOneColumnSection({
         isDragging ? "relative z-20 opacity-20" : "opacity-100",
       )}
     >
+      <div
+        className={LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS}
+        data-sidebar-sticky-group-header=""
+      >
       <div
         className={cn(
           "group/header flex items-center gap-0.5 rounded-lg px-1 py-0.5 hover:bg-sidebar-accent",
@@ -756,6 +775,7 @@ function SortableUserGroupOneColumnSection({
           }}
         />
       </div>
+      </div>
 
       {/* ProjectItem child-list pattern: grid collapse + opacity hide while dragging. */}
       <div
@@ -780,35 +800,37 @@ function SortableUserGroupOneColumnSection({
                 : "opacity-100",
             )}
           >
-            {count === 0 ? (
-              <div className="px-3 py-2 text-[11px] text-muted-foreground">
-                {view.key === UNGROUPED_USER_GROUP_KEY
-                  ? t("emptyGroups")
-                  : t("empty")}
-              </div>
-            ) : (
-              <>
-                {view.projects.map((project) => (
-                  <ProjectItem
-                    key={project.id}
-                    project={project}
-                    isExpanded={expandedProjectIds.includes(project.id)}
-                    onToggle={() => onToggleProject(project.id)}
-                    isActiveProject={
-                      activeProjectId === project.id && !activeWorkspaceId
-                    }
-                    activeWorkspaceId={activeWorkspaceId}
-                    {...sharedProjectItemProps}
-                    // Nested workspaces must not register in the group DndContext.
-                    workspaceSortingDisabled
-                  />
-                ))}
-                {view.directWorkspaces.map((entry) =>
-                  renderWorkspaceContentRow(entry, { showProjectName: true }),
-                )}
-              </>
-            )}
-          </div>
+              {count === 0 ? (
+                <div className="px-3 py-2 text-[11px] text-muted-foreground">
+                  {view.key === UNGROUPED_USER_GROUP_KEY
+                    ? t("emptyGroups")
+                    : t("empty")}
+                </div>
+              ) : (
+                <>
+                  {view.projects.map((project) => (
+                    <ProjectItem
+                      key={project.id}
+                      project={project}
+                      isExpanded={expandedProjectIds.includes(project.id)}
+                      onToggle={() => onToggleProject(project.id)}
+                      isActiveProject={
+                        activeProjectId === project.id && !activeWorkspaceId
+                      }
+                      activeWorkspaceId={activeWorkspaceId}
+                      {...sharedProjectItemProps}
+                      // Nested workspaces must not register in the group DndContext.
+                      workspaceSortingDisabled
+                    />
+                  ))}
+                  {view.directWorkspaces.map((entry) =>
+                    renderWorkspaceContentRow(entry, {
+                      showProjectName: !isStandaloneAutomationProject(entry.projectId),
+                    }),
+                  )}
+                </>
+              )}
+            </div>
         </div>
       </div>
     </div>
@@ -894,7 +916,7 @@ export function UserGroupOneColumnContent({
   });
 
   return (
-    <div className="scrollbar-on-hover flex h-full flex-col overflow-y-auto no-scrollbar">
+    <ScrollArea scrollFade className="h-full">
       <div
         className={cn(
           "flex items-center justify-between py-1.5 pl-3",
@@ -958,7 +980,7 @@ export function UserGroupOneColumnContent({
           sections
         )}
       </div>
-    </div>
+    </ScrollArea>
   );
 }
 

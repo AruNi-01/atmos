@@ -42,6 +42,14 @@ export const LEFT_SIDEBAR_DIVIDER_GUTTER_PX = CENTER_STAGE_GUTTER_X_PX;
 export const LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS = "pr-1";
 export const LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS = "mr-1";
 
+/**
+ * One-column workspace group titles stick to the list scrollport while that
+ * group's rows scroll underneath, then release as the next group arrives.
+ * ScrollArea `scrollFade` measures these `.sticky` nodes and starts the mask
+ * on the rows below the stuck title.
+ */
+export const LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS = "sticky top-0 z-10 bg-sidebar";
+
 /** Shell behind the floating card — matches sidebar so gutters read as inset. */
 export const CENTER_STAGE_SHELL_CLASS =
   "relative flex h-full min-h-0 flex-col overflow-hidden bg-sidebar";

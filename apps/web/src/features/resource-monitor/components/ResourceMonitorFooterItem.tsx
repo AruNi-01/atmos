@@ -270,7 +270,7 @@ export function ResourceMonitorFooterItem() {
         <PopoverContent
           side="top"
           align="start"
-          className="w-[clamp(24rem,42vw,32rem)] max-w-[calc(100vw-1.5rem)] overflow-hidden p-0"
+          className="flex w-[clamp(24rem,42vw,32rem)] max-w-[calc(100vw-1.5rem)] flex-col overflow-x-hidden overflow-y-hidden p-0"
           onCloseAutoFocus={(event) => {
             preventResourceMonitorCloseAutoFocus(navigatingRef, event);
           }}

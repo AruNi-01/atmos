@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Button, cn } from "@workspace/ui";
+import { Button, cn, ScrollArea } from "@workspace/ui";
 import { ArrowRight, Loader2, Rocket } from "lucide-react";
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { format } from "date-fns";
@@ -120,7 +120,8 @@ export function TaskLinearTable({
           {bodyMessage ?? t("empty")}
         </div>
       ) : (
-      <ul className="m-0 min-h-0 min-w-0 flex-1 list-none overflow-y-auto overscroll-contain px-1 py-1">
+      <ScrollArea className="min-h-0 min-w-0 flex-1" scrollFade>
+      <ul className="m-0 min-w-0 list-none px-1 py-1">
         {issues.map((issue) => {
           const createdLabel = formatShortDate(issue.created_at, locale);
           const updatedLabel = formatShortDate(issue.updated_at, locale);
@@ -304,6 +305,7 @@ export function TaskLinearTable({
           );
         })}
       </ul>
+      </ScrollArea>
       )}
     </div>
   );

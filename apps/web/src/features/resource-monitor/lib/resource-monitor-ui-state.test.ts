@@ -200,6 +200,7 @@ describe("ResourceMonitorPopover structure", () => {
     expect(popoverSrc).toContain("desktopLoading");
     expect(popoverSrc).toContain("lastUpdatedAtMs");
     expect(popoverSrc).toContain("ScrollArea");
+    expect(popoverSrc).toContain("scrollFade");
     const chartSrc = readFileSync(
       join(import.meta.dir, "../components/ResourceMonitorHostChart.tsx"),
       "utf8",

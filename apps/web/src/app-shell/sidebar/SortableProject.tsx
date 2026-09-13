@@ -18,7 +18,12 @@ export const SortableProject: React.FC<SortableProjectProps> = (props) => {
   } = useSortable({ id: props.project.id });
 
   const style = {
-    transform: CSS.Translate.toString(transform),
+    // Rest-state translate3d(0,0,0) would become a sticky containing block
+    // and pin project titles to the card instead of the list scrollport.
+    transform:
+      transform && (transform.x !== 0 || transform.y !== 0)
+        ? CSS.Translate.toString(transform)
+        : undefined,
     transition,
   };
 
@@ -26,6 +31,7 @@ export const SortableProject: React.FC<SortableProjectProps> = (props) => {
     <div ref={setNodeRef} style={style}>
       <ProjectItem
         {...props}
+        stickyHeader={!props.hideWorkspaceList}
         isPlaceholder={isDragging}
         attributes={attributes}
         listeners={listeners}

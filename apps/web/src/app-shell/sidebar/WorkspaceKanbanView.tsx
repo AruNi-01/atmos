@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input,
+  ScrollArea,
   Select,
   SelectContent,
   SelectItem,
@@ -214,7 +215,6 @@ export function WorkspaceKanbanView({
     React.useState<WorkspaceWorkflowStatus>("in_progress");
   const skipPersistRef = React.useRef(false);
   const searchContainerRef = React.useRef<HTMLDivElement | null>(null);
-  const boardScrollRef = React.useRef<HTMLDivElement | null>(null);
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
   );
@@ -603,7 +603,7 @@ export function WorkspaceKanbanView({
               <span className="text-xs font-medium text-foreground">{t("settings.order")}</span>
               <div className="flex items-center gap-1.5">
                 <Select value={sortBy} onValueChange={(value) => setSortBy(value as KanbanSortBy)}>
-                  <SelectTrigger className="!h-5 w-[84px] gap-1 rounded-sm px-1.5 py-0 text-[10px] [&_svg]:size-3">
+                  <SelectTrigger className="!h-6 w-[84px] gap-1 rounded-sm px-1.5 py-0 text-[10px] [&_svg]:size-3">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -615,7 +615,7 @@ export function WorkspaceKanbanView({
                 <Button
                   size="icon-xs"
                   variant="outline"
-                  className="size-5 rounded-sm"
+                  className="size-6 sm:size-6 rounded-sm"
                   onClick={() => setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))}
                   aria-label={sortOrder === "desc" ? t("sort.switchToAscending") : t("sort.switchToDescending")}
                   title={sortOrder === "desc" ? t("sort.descending") : t("sort.ascending")}
@@ -669,7 +669,7 @@ export function WorkspaceKanbanView({
       : null;
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col bg-background">
+    <div className="flex h-full min-h-0 min-w-0 flex-col bg-background [color-scheme:light] dark:[color-scheme:dark]">
           {showTopChrome ? (
             <div className="flex h-10 shrink-0 items-center justify-between border-b px-6 py-1.5">
               <div className="flex min-w-0 items-center gap-1.5">
@@ -680,9 +680,10 @@ export function WorkspaceKanbanView({
           ) : (
             portaledToolbar
           )}
-          <div
-            ref={boardScrollRef}
-            className="scrollbar-on-hover min-h-0 min-w-0 flex-1 overflow-x-scroll overflow-y-hidden p-2"
+          <ScrollArea
+            scrollFade
+            className="min-h-0 min-w-0 flex-1"
+            viewportClassName="py-2"
           >
             {!isSettingsReady ? (
               <div className="flex h-full min-h-[260px] items-center justify-center text-sm text-muted-foreground">
@@ -695,7 +696,7 @@ export function WorkspaceKanbanView({
                 onDragEnd={handleDragEnd}
                 onDragCancel={handleDragCancel}
               >
-                <div className="grid h-full min-w-max grid-flow-col auto-cols-[348px] gap-2">
+                <div className="grid h-full min-w-max grid-flow-col auto-cols-[348px] gap-2 px-6">
                   {visibleColumns.map((column) => {
                     const items = grouped.get(column.key) ?? [];
                     const title = columnTitle(column);
@@ -731,10 +732,10 @@ export function WorkspaceKanbanView({
                         columnKey={column.key}
                         activeDragItem={activeDragItem}
                         dropDisabled={!dragAssignable}
-                        className="flex h-full flex-shrink-0 flex-col overflow-hidden rounded-md"
+                        className="flex h-full flex-shrink-0 flex-col overflow-hidden rounded-2xl"
                         style={{ backgroundColor: columnBackgroundTint(column.color) }}
                       >
-                        <header className={cn("sticky top-0 z-10 h-[44px] rounded-t-md px-3")}>
+                        <header className={cn("sticky top-0 z-10 h-[44px] rounded-t-2xl px-3")}>
                           <div className="flex h-full w-full items-center justify-between">
                             <div className="flex min-w-0 items-center gap-2">
                               {showColorSwatch ? (
@@ -770,7 +771,12 @@ export function WorkspaceKanbanView({
                             </div>
                           </div>
                         </header>
-                        <div className="scrollbar-on-hover relative min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
+                        <ScrollArea
+                          scrollFade
+                          className="relative min-h-0 flex-1"
+                          viewportClassName="p-2"
+                        >
+                          <div className="space-y-2">
                           {items.map(({ projectId, projectName, workspace }) => (
                             <DraggableWorkspaceCard
                               key={`${column.key}:${workspace.id}`}
@@ -797,12 +803,13 @@ export function WorkspaceKanbanView({
                               onDeleteWorkspace={onDeleteWorkspace}
                             />
                           ))}
-                        </div>
+                          </div>
+                        </ScrollArea>
                       </DroppableColumn>
                     );
                   })}
                   {hiddenColumnList.length > 0 ? (
-                    <section className="flex h-full flex-shrink-0 flex-col overflow-hidden rounded-md border border-dashed border-border/70 bg-muted/20">
+                    <section className="flex h-full flex-shrink-0 flex-col overflow-hidden rounded-2xl border border-dashed border-border/70 bg-muted/20">
                       <header className="sticky top-0 z-10 h-[44px] px-3">
                         <div className="flex h-full items-center">
                           <span className="text-sm font-medium text-muted-foreground">{t("column.hidden")}</span>
@@ -880,9 +887,9 @@ export function WorkspaceKanbanView({
                   : null}
               </DndContext>
             ) : (
-              <div className="grid h-full min-w-max grid-flow-col auto-cols-[348px] gap-2" />
+              <div className="grid h-full min-w-max grid-flow-col auto-cols-[348px] gap-2 px-6" />
             )}
-          </div>
+          </ScrollArea>
       <CreateWorkspaceDialog
         isOpen={isCreateWorkspaceOpen}
         onClose={() => setIsCreateWorkspaceOpen(false)}

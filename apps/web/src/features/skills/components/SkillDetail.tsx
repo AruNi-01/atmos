@@ -573,7 +573,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                       <div className="flex flex-col gap-2 overflow-hidden">
                         <div className="flex flex-col gap-1">
                           <h4 className="font-medium text-sm">{t('description.title')}</h4>
-                          <ScrollArea className="max-h-60 overflow-y-auto pr-2">
+                          <ScrollArea className="max-h-60" scrollFade viewportClassName="pr-2">
                             <p className="text-muted-foreground text-xs leading-relaxed">
                               {skill.description}
                             </p>
@@ -634,7 +634,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('files.title')}</span>
             <span className="text-[10px] text-muted-foreground">{skill.files?.length || 0}</span>
           </div>
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1" scrollFade>
             <div>
               {fileTree.map(node => (
                 <TreeItem

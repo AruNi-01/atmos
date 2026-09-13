@@ -8,6 +8,7 @@ import {
   PopoverTrigger,
   PopoverContent,
   Button,
+  ScrollArea,
 } from '@workspace/ui';
 import { cn } from "@/shared/lib/utils";
 import { agentStatusApi } from '@/api/rest-api';
@@ -411,7 +412,11 @@ export function AgentStatusPopoverContent({
   }
 
   return (
-      <div className={cn("p-2 overflow-y-auto", embedded ? "h-full" : "w-72 max-h-64")}>
+      <ScrollArea
+        scrollFade
+        className={cn(embedded ? "h-full" : "h-auto w-72 max-h-64")}
+        viewportClassName={cn("p-2", !embedded && "h-auto max-h-64")}
+      >
       <div className="flex items-center justify-between mb-2 px-1">
         <span className="text-[11px] font-semibold text-foreground">
           {t("footer.agentSessions", { count: rows.length })}
@@ -458,7 +463,7 @@ export function AgentStatusPopoverContent({
           );
         })}
       </div>
-    </div>
+    </ScrollArea>
   );
 }
 
@@ -751,7 +756,7 @@ const Footer: React.FC = () => {
               <PopoverContent
                 side="top"
                 align="end"
-                className="w-fit max-w-[calc(100vw-1.5rem)] p-0"
+                className="w-fit max-w-[calc(100vw-1.5rem)] overflow-x-hidden overflow-y-hidden p-0"
               >
                 <AgentStatusPopoverContent />
               </PopoverContent>

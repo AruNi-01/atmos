@@ -28,7 +28,10 @@ import {
 } from "@workspace/ui/components/motion/tabs";
 
 const QUOTA_MODE_TAB_CLASS =
-  "pointer-events-auto group h-7 shrink-0 gap-1.5 px-2 text-xs aria-selected:!text-foreground";
+  "pointer-events-auto h-7 shrink-0 px-2.5 text-xs";
+
+const USAGE_BAR_FILL_MOTION =
+  "origin-left will-change-transform transition-transform duration-300 ease-out motion-reduce:transition-none";
 
 import type { QuotaManualSetupResponse } from "@/api/ws-api";
 
@@ -80,6 +83,7 @@ export function UsageBar({
     0,
     Math.min(visibleSegments.length > 0 ? Math.max(total, segmentSum) : total, 100),
   );
+  const fillStyle = { transform: `scaleX(${groupWidth / 100})` };
 
   return (
     <div
@@ -90,7 +94,7 @@ export function UsageBar({
       className={cn("h-1.5 w-full shrink-0 overflow-hidden rounded-full bg-muted", className)}
     >
       {visibleSegments.length > 0 ? (
-        <div className="flex h-full gap-px" style={{ width: `${groupWidth}%` }}>
+        <div className={cn("flex h-full w-full gap-px", USAGE_BAR_FILL_MOTION)} style={fillStyle}>
           {visibleSegments.map((segment, index) => (
             <div
               key={segment.label}
@@ -105,8 +109,8 @@ export function UsageBar({
         </div>
       ) : (
         <div
-          className="h-full rounded-full bg-foreground transition-all duration-300"
-          style={{ width: `${groupWidth}%` }}
+          className={cn("h-full w-full rounded-full bg-foreground", USAGE_BAR_FILL_MOTION)}
+          style={fillStyle}
         />
       )}
     </div>
@@ -156,10 +160,7 @@ export function QuotaModeTabs({
   if (options.length < 2) return null;
   return (
     <MotionTabs value={value} onValueChange={onValueChange} variant="pill" className="w-fit">
-      <MotionTabsList
-        className="flex h-8 w-fit min-w-0 gap-0.5 bg-muted p-0.5"
-        indicatorClassName="bg-active"
-      >
+      <MotionTabsList className="h-8 w-fit gap-0.5 p-0.5">
         {options.map((option) => (
           <MotionTabsTrigger
             key={option.value}
@@ -201,15 +202,10 @@ export function QuotaMetricUsage({
     <div
       className={cn(
         "flex items-baseline justify-between gap-4",
-        compact ? "text-[11px]" : "text-sm",
+        compact ? "text-[11px]" : "text-xs",
       )}
     >
-      <div
-        className={cn(
-          "min-w-0 text-foreground",
-          compact ? "text-sm font-medium" : "text-[18px] font-semibold tracking-tight",
-        )}
-      >
+      <div className="min-w-0 text-xs font-medium text-foreground">
         {heading}
       </div>
       {hasBar ? (

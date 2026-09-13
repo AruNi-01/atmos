@@ -295,7 +295,7 @@ const parseAsStringList = parseAsArrayOf(parseAsString).withDefault([]);
 export const taskParams = {
   /** Atmos board vs GitHub issues/PRs. */
   taskSource: parseAsStringEnum<TaskSourceTab>(["atmos", "github", "linear"]).withDefault("atmos"),
-  /** Atmos kanban column grouping (also mirrored to function settings). */
+  /** Atmos board grouping (URL + `workspace_kanban_view`; not shared with the left sidebar). */
   taskGroupBy: parseAsStringEnum<TaskGroupingModeParam>([
     "project",
     "group",

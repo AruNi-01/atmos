@@ -8,9 +8,19 @@ import {
 
 export const STANDALONE_GROUP_ID = "automation:standalone";
 
+export function isStandaloneAutomationProject(id: string): boolean {
+  return id === STANDALONE_GROUP_ID;
+}
+
+export function omitStandaloneAutomationProjectEntries<T extends { projectId: string }>(
+  entries: T[],
+): T[] {
+  return entries.filter((entry) => !isStandaloneAutomationProject(entry.projectId));
+}
+
 /** Synthetic job rows stay visible when the sidebar hides automation worktrees. */
 export function isStandaloneSidebarJob(projectId: string, workspaceId: string): boolean {
-  return projectId === STANDALONE_GROUP_ID || parseStandaloneScope(workspaceId) !== null;
+  return isStandaloneAutomationProject(projectId) || parseStandaloneScope(workspaceId) !== null;
 }
 
 export function buildStandaloneAutomationProject(

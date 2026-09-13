@@ -225,7 +225,7 @@ export function ResourceMonitorPopover({
   return (
     <TooltipProvider delayDuration={250}>
       <div
-        className="flex max-h-[min(620px,calc(100vh-1.5rem))] min-h-0 min-w-0 flex-col overflow-hidden"
+        className="flex h-full min-h-0 min-w-0 max-h-[min(620px,calc(100vh-1.5rem))] flex-1 flex-col overflow-hidden"
         data-resource-monitor-state={state}
       >
         <header className="shrink-0 px-3 py-2">
@@ -235,7 +235,10 @@ export function ResourceMonitorPopover({
           </div>
         </header>
 
-        <ScrollArea className="min-h-0 w-full max-w-full flex-1 overflow-x-hidden">
+        <ScrollArea
+          scrollFade
+          className="min-h-0 w-full max-w-full flex-1 overflow-x-hidden"
+        >
           <div className="min-w-0 max-w-full overflow-x-hidden pb-1">
             <ResourceMonitorHostSection
               host={showSnapshot ? snapshot?.host : undefined}

@@ -18,7 +18,11 @@ import {
 import { BorderBeam, cn, DotmSquare12, TextShimmer } from "@workspace/ui";
 
 import { ImageCopyMenuHost } from "@/shared/components/image-copy-context-menu";
-import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
+import {
+  ImagePreviewOverlay,
+  imagePreviewOriginRectFromElement,
+  type ImagePreviewOriginRect,
+} from "@/shared/components/image-preview-overlay";
 import {
   AGENT_SURFACE_FEED_STALE_MS,
   type AgentSurfaceFeedBatch,
@@ -259,7 +263,9 @@ function HistoryRow({
   copy: AgentSurfaceIslandCopy;
 }) {
   const locale = useLocale();
-  const [previewOpen, setPreviewOpen] = React.useState(false);
+  const [preview, setPreview] = React.useState<{
+    originRect: ImagePreviewOriginRect | null;
+  } | null>(null);
   const shot = row.screenshot?.dataUrl ? row.screenshot : null;
   const label = formatRowLabel(row);
 
@@ -298,7 +304,9 @@ function HistoryRow({
             title={copy.openScreenshotPreview}
             onClick={(e) => {
               e.stopPropagation();
-              setPreviewOpen(true);
+              setPreview({
+                originRect: imagePreviewOriginRectFromElement(e.currentTarget),
+              });
             }}
             className={cn(
               "size-7 shrink-0 overflow-hidden rounded-md border border-border/60 bg-muted/40",
@@ -323,11 +331,12 @@ function HistoryRow({
       >
         {formatTime(row.time, locale)}
       </time>
-      {previewOpen && shot ? (
+      {preview && shot ? (
         <ImagePreviewOverlay
           src={shot.dataUrl}
           alt={copy.screenshotPreviewAlt}
-          onClose={() => setPreviewOpen(false)}
+          originRect={preview.originRect}
+          onClose={() => setPreview(null)}
         />
       ) : null}
     </li>

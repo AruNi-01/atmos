@@ -7,16 +7,17 @@ function read(relativePath: string) {
 }
 
 describe("header button hover", () => {
-  it("gives light chrome a gray well so the white center stage reads as a card", () => {
+  it("gives light chrome an off-white well so the white center stage reads as a card", () => {
     const tokens = read("../../../../../packages/ui/src/styles/globals.css");
     const root = tokens.slice(tokens.indexOf(":root {"), tokens.indexOf(".dark {"));
-    expect(root).toContain("--sidebar: oklch(0.94");
+    expect(root).toContain("--sidebar: #f3f3f3");
     expect(root).toContain("--background: oklch(1 0 0)");
-    expect(root).not.toContain("--sidebar: oklch(0.985");
+    expect(root).toContain("--hover: #e6e6e6");
+    expect(root).toContain("--active: #e6e6e6");
 
     const app = read("../../app/globals.css");
     expect(app).toContain("html.light {");
-    expect(app).toContain("background-color: oklch(0.94 0.003 286)");
+    expect(app).toContain("background-color: #f3f3f3");
   });
 
   it("gives header chips a solid light fill so they do not wash into the titlebar", () => {

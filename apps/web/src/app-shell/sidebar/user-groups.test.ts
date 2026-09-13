@@ -5,6 +5,7 @@ import {
   findGroupIdForMember,
   UNGROUPED_USER_GROUP_KEY,
 } from "./user-groups";
+import { STANDALONE_GROUP_ID } from "@/features/automations/lib/standalone-sidebar";
 
 function workspace(partial: Partial<Workspace> & Pick<Workspace, "id" | "projectId">): Workspace {
   return {
@@ -132,5 +133,97 @@ describe("buildUserGroupViews", () => {
       findGroupIdForMember(groups, "project", "p-grouped") ??
       UNGROUPED_USER_GROUP_KEY;
     expect(groupedKey).toBe("g1");
+  });
+
+  it("hides the virtual automation project and lists its jobs as ungrouped workspaces", () => {
+    const jobWs = workspace({
+      id: "automation:job-1",
+      projectId: STANDALONE_GROUP_ID,
+      name: "Daily health",
+      createSource: "automation",
+    });
+    const real = project({ id: "p-real", name: "Real", sidebarOrder: 0 });
+    const standalone = project({
+      id: STANDALONE_GROUP_ID,
+      name: "Automations Standalone",
+      sidebarOrder: 99,
+      workspaces: [jobWs],
+    });
+
+    const views = buildUserGroupViews([], [real, standalone], "Ungrouped");
+    expect(views).toHaveLength(1);
+    expect(views[0]?.projects.map((item) => item.id)).toEqual(["p-real"]);
+    expect(views[0]?.directWorkspaces.map((entry) => entry.workspace.id)).toEqual([
+      "automation:job-1",
+    ]);
+  });
+
+  it("does not show the virtual automation project inside a named group", () => {
+    const jobWs = workspace({
+      id: "automation:job-1",
+      projectId: STANDALONE_GROUP_ID,
+    });
+    const standalone = project({
+      id: STANDALONE_GROUP_ID,
+      name: "Automations Standalone",
+      workspaces: [jobWs],
+    });
+    const groups: Group[] = [
+      {
+        id: "g1",
+        name: "Client",
+        sidebarOrder: 0,
+        members: [
+          {
+            id: "m1",
+            memberType: "project",
+            memberId: STANDALONE_GROUP_ID,
+            sortOrder: 0,
+          },
+        ],
+      },
+    ];
+
+    const views = buildUserGroupViews(groups, [standalone], "Ungrouped");
+    expect(views[0]?.projects).toEqual([]);
+    expect(views[1]?.projects).toEqual([]);
+    expect(views[1]?.directWorkspaces.map((entry) => entry.workspace.id)).toEqual([
+      "automation:job-1",
+    ]);
+  });
+
+  it("keeps an explicitly grouped standalone job in that group", () => {
+    const jobWs = workspace({
+      id: "automation:job-1",
+      projectId: STANDALONE_GROUP_ID,
+    });
+    const standalone = project({
+      id: STANDALONE_GROUP_ID,
+      name: "Automations Standalone",
+      workspaces: [jobWs],
+    });
+    const groups: Group[] = [
+      {
+        id: "g1",
+        name: "Client",
+        sidebarOrder: 0,
+        members: [
+          {
+            id: "m1",
+            memberType: "workspace",
+            memberId: "automation:job-1",
+            sortOrder: 0,
+          },
+        ],
+      },
+    ];
+
+    const views = buildUserGroupViews(groups, [standalone], "Ungrouped");
+    expect(views[0]?.projects).toEqual([]);
+    expect(views[0]?.directWorkspaces.map((entry) => entry.workspace.id)).toEqual([
+      "automation:job-1",
+    ]);
+    expect(views[1]?.projects).toEqual([]);
+    expect(views[1]?.directWorkspaces).toEqual([]);
   });
 });

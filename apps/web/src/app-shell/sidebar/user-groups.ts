@@ -1,5 +1,6 @@
 import type { Group, Project, Workspace } from "@/shared/types/domain";
 import type { FlattenedWorkspaceEntry } from "@/app-shell/sidebar/workspace-grouping";
+import { isStandaloneAutomationProject } from "@/features/automations/lib/standalone-sidebar";
 
 export const UNGROUPED_USER_GROUP_KEY = "__ungrouped__";
 
@@ -31,6 +32,8 @@ function workspaceEntry(
  * - Projects with a project membership appear under that group (with all workspaces).
  * - Workspaces with a workspace membership appear as direct members (dual visibility).
  * - Projects without membership appear under Ungrouped.
+ * - The virtual standalone automation project is never a project row; its jobs
+ *   appear as ungrouped workspace rows unless they have their own membership.
  */
 export function buildUserGroupViews(
   groups: Group[],
@@ -51,6 +54,9 @@ export function buildUserGroupViews(
     }
   }
 
+  const isVisibleProject = (project: Project | undefined): project is Project =>
+    project != null && !isStandaloneAutomationProject(project.id);
+
   const views: UserGroupView[] = groups
     .slice()
     .sort((a, b) => a.sidebarOrder - b.sidebarOrder)
@@ -59,7 +65,7 @@ export function buildUserGroupViews(
         .filter((member) => member.memberType === "project")
         .sort((a, b) => a.sortOrder - b.sortOrder)
         .map((member) => projectsById.get(member.memberId))
-        .filter((project): project is Project => Boolean(project));
+        .filter(isVisibleProject);
 
       const directWorkspaces = group.members
         .filter((member) => member.memberType === "workspace")
@@ -86,16 +92,23 @@ export function buildUserGroupViews(
     });
 
   const ungroupedProjects = projects
-    .filter((project) => !projectGroupById.has(project.id))
+    .filter((project) => !projectGroupById.has(project.id) && !isStandaloneAutomationProject(project.id))
     .slice()
     .sort((a, b) => a.sidebarOrder - b.sidebarOrder);
+
+  const standalone = projects.find((project) => isStandaloneAutomationProject(project.id));
+  const ungroupedDirectWorkspaces = standalone
+    ? standalone.workspaces
+        .filter((workspace) => !workspace.isArchived && !workspaceGroupById.has(workspace.id))
+        .map((workspace) => workspaceEntry(standalone, workspace))
+    : [];
 
   views.push({
     key: UNGROUPED_USER_GROUP_KEY,
     label: ungroupedLabel,
     groupId: null,
     projects: ungroupedProjects,
-    directWorkspaces: [],
+    directWorkspaces: ungroupedDirectWorkspaces,
   });
 
   return views;

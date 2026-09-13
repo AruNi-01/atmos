@@ -521,7 +521,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
       sideOffset: 10,
       onCloseAutoFocus: onPopoverCloseAutoFocus,
       className:
-        "w-[min(92vw,560px)] rounded-[24px] border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.985),rgba(244,244,245,0.985))] p-0 shadow-[0_28px_80px_-36px_rgba(15,23,42,0.30)] dark:bg-[linear-gradient(180deg,rgba(30,30,30,0.98),rgba(15,15,15,0.99))]",
+        "w-[min(92vw,560px)] overflow-x-hidden overflow-y-hidden rounded-[24px] border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.985),rgba(244,244,245,0.985))] p-0 shadow-[0_28px_80px_-36px_rgba(15,23,42,0.30)] dark:bg-[linear-gradient(180deg,rgba(30,30,30,0.98),rgba(15,15,15,0.99))]",
     };
 
   const panel = (
@@ -538,9 +538,11 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
           )}>
             <div className="px-3 pb-2.5 pt-2.5">
               <div className="relative -mx-3 px-3">
-                <div
-                  ref={providerScrollRef}
-                  className="no-scrollbar w-full overflow-x-auto overflow-y-hidden scroll-smooth"
+                <ScrollArea
+                  scrollFade
+                  className="h-auto w-full"
+                  viewportClassName="h-auto"
+                  viewportRef={providerScrollRef}
                 >
                   <DndContext
                     sensors={sensors}
@@ -575,11 +577,9 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
                       </SortableContext>
                     </div>
                   </DndContext>
-                </div>
+                </ScrollArea>
                 {showProviderArrows ? (
                   <>
-                    <div className="pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-background/95 via-background/72 to-transparent dark:from-background/88 dark:via-background/58" />
-                    <div className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-background/95 via-background/72 to-transparent dark:from-background/88 dark:via-background/58" />
                     <button
                       type="button"
                       aria-label={t("scrollProvidersLeft")}
@@ -625,7 +625,11 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
               ) : null}
 
               <div className={cn(embedded && "min-h-0 flex-1 overflow-hidden")}>
-                <ScrollArea className={embedded ? "flex-1 min-h-0" : "h-[min(62vh,560px)]"} scrollbarGutter>
+                <ScrollArea
+                  className={embedded ? "flex-1 min-h-0" : "h-[min(62vh,560px)]"}
+                  scrollFade
+                  scrollbarGutter
+                >
                 <div className="px-0 py-3">
                   {(isLoading || usageQuery.isLoading) && !overview ? (
                     <div className="px-4">
@@ -867,7 +871,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
                       side="top"
                       align="end"
                       sideOffset={8}
-                      className="w-56 rounded-[16px] border-border/70 p-2"
+                      className="w-56 overflow-x-hidden overflow-y-hidden rounded-[16px] border-border/70 p-2"
                     >
                       <div className="flex items-start justify-between gap-3 px-2 pb-2 pt-1">
                         <div className="min-w-0">
@@ -883,7 +887,11 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
                         />
                       </div>
                         {carouselProviders.length > 0 ? (
-                          <div className="max-h-64 overflow-y-auto">
+                          <ScrollArea
+                            className="h-auto max-h-64"
+                            scrollFade
+                            viewportClassName="h-auto max-h-64"
+                          >
                             {carouselProviders.map((provider) => {
                               const checked = provider.footer_carousel_show;
                               const isSwitchingFooterCarousel = switchingFooterCarouselProviderId === provider.id;
@@ -913,7 +921,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
                               </button>
                             );
                           })}
-                        </div>
+                          </ScrollArea>
                         ) : (
                           <div className="px-2 py-3 text-[11px] text-foreground/75">
                             {t("footerCarousel.noSources")}

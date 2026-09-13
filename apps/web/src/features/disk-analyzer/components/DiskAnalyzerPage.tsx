@@ -15,6 +15,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  ScrollArea,
   Select,
   SelectContent,
   SelectItem,
@@ -756,7 +757,7 @@ export function DiskAnalyzerPage() {
                 )}
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-1.5 py-1.5">
+              <ScrollArea className="min-h-0 flex-1" scrollFade viewportClassName="px-1.5 py-1.5">
                 {analyzer.childList.length === 0 ? (
                   <p className="px-2 py-4 text-center text-xs text-muted-foreground">
                     {analyzer.isLevelLoading ? t("loadingLevel") : t("noChildren")}
@@ -976,7 +977,7 @@ export function DiskAnalyzerPage() {
                       })}
                     </div>
                 )}
-              </div>
+              </ScrollArea>
             </div>
             )}
             </Tabs>

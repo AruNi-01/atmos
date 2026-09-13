@@ -8,6 +8,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  ScrollArea,
 } from "@workspace/ui";
 
 import { useComputerQueryScope } from "@/api/query/query-scope";
@@ -95,8 +96,16 @@ export function LocalServicesFooterItem() {
           </span>
         </button>
       </PopoverTrigger>
-      <PopoverContent side="top" align="start" className="w-[420px] p-0">
-        <div className="max-h-[420px] overflow-y-auto p-3">
+      <PopoverContent
+        side="top"
+        align="start"
+        className="w-[420px] overflow-x-hidden overflow-y-hidden p-0"
+      >
+        <ScrollArea
+          className="h-auto w-full max-h-[min(420px,var(--radix-popover-content-available-height))]"
+          scrollFade
+          viewportClassName="h-auto max-h-[min(420px,var(--radix-popover-content-available-height))] p-3"
+        >
           {error ? (
             <div className="mb-3 rounded border border-destructive/30 bg-destructive/10 px-2 py-1 text-[10px] text-destructive">
               {error}
@@ -110,7 +119,7 @@ export function LocalServicesFooterItem() {
             onOpen={handleOpen}
             onRefresh={() => void forceRefresh()}
           />
-        </div>
+        </ScrollArea>
       </PopoverContent>
     </Popover>
   );

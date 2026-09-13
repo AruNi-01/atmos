@@ -221,7 +221,7 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
     <div className="flex flex-col h-full bg-background/50">
       {/* Content with ScrollArea */}
       <div className="flex-1 min-h-0 overflow-hidden">
-        <ScrollArea className="h-full scrollbar-on-hover">
+        <ScrollArea className="h-full" scrollFade>
           <div className="max-w-5xl mx-auto w-full px-8">
             {/* Header / Title - Scrolls away */}
             <div className="pt-12 pb-8">

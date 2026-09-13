@@ -36,6 +36,7 @@ import {
     parseWorkspaceAgentGroupKey,
     type WorkspaceAgentGroupKey,
 } from '@/features/agent/lib/workspace-agent-status';
+import { omitStandaloneAutomationProjectEntries } from '@/features/automations/lib/standalone-sidebar';
 
 interface UseLeftSidebarWorkspaceDerivedParams {
     currentProjectId: string | null;
@@ -112,7 +113,12 @@ export function useLeftSidebarWorkspaceDerived({
         [filteredFlattenedWorkspaces],
     );
     const filteredProjectEntries = useMemo(
-        () => filterProjectSidebarEntries(flattenProjects(projects), kanbanFilters, groups),
+        () =>
+            filterProjectSidebarEntries(
+                omitStandaloneAutomationProjectEntries(flattenProjects(projects)),
+                kanbanFilters,
+                groups,
+            ),
         [groups, kanbanFilters, projects],
     );
     const groupedWorkspaces = useMemo(() => {

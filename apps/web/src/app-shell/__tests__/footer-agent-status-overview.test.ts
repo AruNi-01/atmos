@@ -20,7 +20,9 @@ describe("footer agent status overview", () => {
   });
 
   test("keeps a compact popover, groups sessions by project/workspace, and appends the live terminal title", () => {
-    expect(footerSrc).toContain('className="w-fit max-w-[calc(100vw-1.5rem)] p-0"');
+    expect(footerSrc).toContain(
+      'className="w-fit max-w-[calc(100vw-1.5rem)] overflow-x-hidden overflow-y-hidden p-0"',
+    );
     expect(footerSrc).toContain("w-72 max-h-64");
     expect(footerSrc).not.toContain("w-[24rem]");
     expect(footerSrc).not.toContain("w-[28rem]");

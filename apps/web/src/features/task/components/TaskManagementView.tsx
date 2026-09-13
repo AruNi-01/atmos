@@ -28,6 +28,7 @@ import {
 import { functionSettingsApi } from "@/api/ws-api";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { isComputerQueryScopeCurrent } from "@/api/ws/request";
+import { parseWorkspaceKanbanGroupingMode } from "@/app-shell/workspace-view-settings";
 import { WorkspaceKanbanView } from "@/app-shell/sidebar/WorkspaceKanbanView";
 import type { WorkspaceKanbanFilters } from "@/app-shell/sidebar/WorkspaceKanbanFilterMenu";
 import type { SidebarGroupingMode } from "@/app-shell/sidebar/workspace-status";
@@ -139,6 +140,29 @@ export function TaskManagementView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot restore
   }, []);
 
+  // Restore last Tasks board grouping when the URL omits `taskGroupBy`.
+  // Do not read `workspace_sidebar.grouping_mode` — sidebar grouping is independent.
+  const restoredGroupingRef = useRef(false);
+  useLayoutEffect(() => {
+    if (restoredGroupingRef.current) return;
+    restoredGroupingRef.current = true;
+    try {
+      if (new URLSearchParams(window.location.search).has("taskGroupBy")) return;
+    } catch {
+      return;
+    }
+    void functionSettingsApi
+      .get()
+      .then((settings) => {
+        const mode = parseWorkspaceKanbanGroupingMode(settings);
+        if (!mode) return;
+        void setGroupingMode(mode);
+      })
+      .catch(() => {
+        /* keep URL / default grouping */
+      });
+  }, [setGroupingMode]);
+
   const filters = useMemo<WorkspaceKanbanFilters>(
     () => ({
       statuses: atmosFilterParams.taskStatuses.filter(
@@ -178,12 +202,12 @@ export function TaskManagementView() {
         connectionEpoch,
         relaySessionRevision,
       };
-      // Keep function-settings in sync so left-sidebar grouping stays aligned.
+      // Tasks board grouping only — never write `workspace_sidebar.grouping_mode`.
       void functionSettingsApi
-        .update("workspace_sidebar", "grouping_mode", mode, expectedScope)
+        .update("workspace_kanban_view", "grouping_mode", mode, expectedScope)
         .catch((error) => {
           if (!isComputerQueryScopeCurrent(expectedScope)) return;
-          console.error('Failed to persist workspace sidebar setting "grouping_mode":', error);
+          console.error('Failed to persist workspace kanban setting "grouping_mode":', error);
         });
     },
     [activeInstanceId, connectionEpoch, relaySessionRevision, setGroupingMode],

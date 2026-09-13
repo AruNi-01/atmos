@@ -61,7 +61,11 @@ import { ProjectLogoMark } from "@/features/project/components/ProjectLogoMark";
 import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import { pickLocalFile } from "@/shared/lib/desktop-directory-picker";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
-import { LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS, LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS } from "@/app-shell/sidebar-layout-constants";
+import {
+  LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS,
+  LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+  LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS,
+} from "@/app-shell/sidebar-layout-constants";
 import { SidebarHeldShortcutBadge } from "@/app-shell/HeldShortcutBadge";
 import { useSidebarShortcutDigit } from "@/app-shell/held-shortcut-prefix-store";
 import { SIDEBAR_SHORTCUT_TARGET_ATTR } from "@/app-shell/shortcut-prefix";
@@ -70,6 +74,11 @@ export interface ProjectItemProps {
   project: Project;
   isExpanded: boolean;
   hideWorkspaceList?: boolean;
+  /**
+   * Stick the project title to the one-column list scrollport while its
+   * workspaces scroll. Nested uses (By Group, two-column) leave this off.
+   */
+  stickyHeader?: boolean;
   disableRowClick?: boolean;
   /**
    * Disable nested workspace row sorting (e.g. By Group sidebar, where a parent
@@ -202,6 +211,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   project,
   isExpanded,
   hideWorkspaceList = false,
+  stickyHeader = false,
   disableRowClick = false,
   workspaceSortingDisabled = false,
   isDragging,
@@ -461,6 +471,68 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
     setShowLogoBrowser(false);
   }, [logoInput, onSetLogo, project.id, t]);
 
+  const workspaceList = (
+    <div
+      className={cn(
+        "mt-1 ml-8 space-y-0.5 transition-all duration-300",
+        LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+        isAnyProjectDragging ? "pointer-events-none opacity-0" : "opacity-100"
+      )}
+    >
+      <SortableContext
+        items={
+          workspaceSortingDisabled
+            ? []
+            : visibleUnpinnedWorkspaces.map((workspace) => workspace.id)
+        }
+        strategy={verticalListSortingStrategy}
+      >
+        {visibleUnpinnedWorkspaces.map((ws) => (
+          <WorkspaceItem
+            key={ws.id}
+            workspace={ws}
+            projectId={project.id}
+            projectName={project.name}
+            projectPath={project.mainFilePath}
+            isActive={activeWorkspaceId === ws.id}
+            sortingDisabled={workspaceSortingDisabled}
+            onPin={(wsId) => onPinWorkspace(project.id, wsId)}
+            onUnpin={(wsId) => onUnpinWorkspace(project.id, wsId)}
+            onArchive={(wsId) => onArchiveWorkspace(project.id, wsId)}
+            onDelete={(wsId) => onDeleteWorkspace(project.id, wsId)}
+            onUpdateName={(wsId, name) => onUpdateWorkspaceName(project.id, wsId, name)}
+            onUpdateWorkflowStatus={(wsId, workflowStatus) =>
+              onUpdateWorkspaceWorkflowStatus(project.id, wsId, workflowStatus)
+            }
+            onUpdatePriority={(wsId, priority) =>
+              onUpdateWorkspacePriority(project.id, wsId, priority)
+            }
+            availableLabels={availableLabels}
+            onCreateLabel={onCreateWorkspaceLabel}
+            onUpdateLabel={onUpdateWorkspaceLabel}
+            groups={groups}
+            onSetWorkspaceGroup={onSetWorkspaceGroup}
+            onCreateGroup={onCreateGroup}
+            onUpdateLabels={(wsId, labels) =>
+              onUpdateWorkspaceLabels(project.id, wsId, labels)
+            }
+            suppressInfoPopover={isProjectMenuOpen}
+          />
+        ))}
+      </SortableContext>
+      <WorkspaceListShowMoreLess
+        canShowMore={canShowMore}
+        canShowLess={canShowLess}
+        onShowMore={showMore}
+        onShowLess={showLess}
+        className="ml-4"
+      />
+      {project.workspaces.length === 0 && !attentionFilterMode && (
+        <div className="py-2 text-[12px] text-muted-foreground italic ml-4">{t("leftSidebarControls.noWorkspaces")}</div>
+      )}
+    </div>
+  );
+
   return (
     <div
       className={cn(
@@ -470,6 +542,10 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
       )}
       {...{ [SIDEBAR_SHORTCUT_TARGET_ATTR]: projectShortcutKey }}
     >
+      <div
+        className={cn(stickyHeader && LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS)}
+        {...(stickyHeader ? { "data-sidebar-sticky-group-header": "" } : {})}
+      >
       <div
         className={cn(
             "relative ml-2 flex items-center rounded-sm px-2 py-1.5 hover:bg-sidebar-accent",
@@ -708,7 +784,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                     <FileCode className="size-4" />
                     <span>{t("projectItem.workspaceScripts")}</span>
                   </DropdownMenuItem>
-                  {(onAddProjectToGroup || onRemoveProjectFromGroup || onCreateGroup) ? (
+                  {!isStandaloneGroup && (onAddProjectToGroup || onRemoveProjectFromGroup || onCreateGroup) ? (
                     <>
                       <DropdownMenuSeparator className="mx-2" />
                       <DropdownMenuSub>
@@ -783,6 +859,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
           </div>
         )}
       </div>
+      </div>
 
       <div
         className={cn(
@@ -803,65 +880,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
             style={project.borderColor ? getVerticalLineStyle(project.borderColor) : undefined}
           />
 
-          <div
-            className={cn(
-              "mt-1 ml-8 space-y-0.5 transition-all duration-300",
-              LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
-              isAnyProjectDragging ? "pointer-events-none opacity-0" : "opacity-100"
-            )}
-          >
-            <SortableContext
-              items={
-                workspaceSortingDisabled
-                  ? []
-                  : visibleUnpinnedWorkspaces.map((workspace) => workspace.id)
-              }
-              strategy={verticalListSortingStrategy}
-            >
-              {visibleUnpinnedWorkspaces.map((ws) => (
-                <WorkspaceItem
-                  key={ws.id}
-                  workspace={ws}
-                  projectId={project.id}
-                  projectName={project.name}
-                  projectPath={project.mainFilePath}
-                  isActive={activeWorkspaceId === ws.id}
-                  sortingDisabled={workspaceSortingDisabled}
-                  onPin={(wsId) => onPinWorkspace(project.id, wsId)}
-                  onUnpin={(wsId) => onUnpinWorkspace(project.id, wsId)}
-                  onArchive={(wsId) => onArchiveWorkspace(project.id, wsId)}
-                  onDelete={(wsId) => onDeleteWorkspace(project.id, wsId)}
-                  onUpdateName={(wsId, name) => onUpdateWorkspaceName(project.id, wsId, name)}
-                  onUpdateWorkflowStatus={(wsId, workflowStatus) =>
-                    onUpdateWorkspaceWorkflowStatus(project.id, wsId, workflowStatus)
-                  }
-                  onUpdatePriority={(wsId, priority) =>
-                    onUpdateWorkspacePriority(project.id, wsId, priority)
-                  }
-                  availableLabels={availableLabels}
-                  onCreateLabel={onCreateWorkspaceLabel}
-                  onUpdateLabel={onUpdateWorkspaceLabel}
-                  groups={groups}
-                  onSetWorkspaceGroup={onSetWorkspaceGroup}
-                  onCreateGroup={onCreateGroup}
-                  onUpdateLabels={(wsId, labels) =>
-                    onUpdateWorkspaceLabels(project.id, wsId, labels)
-                  }
-                  suppressInfoPopover={isProjectMenuOpen}
-                />
-              ))}
-            </SortableContext>
-            <WorkspaceListShowMoreLess
-              canShowMore={canShowMore}
-              canShowLess={canShowLess}
-              onShowMore={showMore}
-              onShowLess={showLess}
-              className="ml-4"
-            />
-            {project.workspaces.length === 0 && !attentionFilterMode && (
-              <div className="py-2 text-[12px] text-muted-foreground italic ml-4">{t("leftSidebarControls.noWorkspaces")}</div>
-            )}
-          </div>
+          {workspaceList}
         </div>
       </div>
       <Dialog

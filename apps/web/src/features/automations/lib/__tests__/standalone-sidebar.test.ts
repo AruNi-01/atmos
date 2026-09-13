@@ -2,8 +2,10 @@ import { describe, expect, it } from "bun:test";
 
 import {
   buildStandaloneAutomationProject,
+  isStandaloneAutomationProject,
   isStandaloneSidebarJob,
   mergeStandaloneAutomationProject,
+  omitStandaloneAutomationProjectEntries,
   STANDALONE_GROUP_ID,
 } from "../standalone-sidebar";
 import type { AutomationSummary } from "@/features/automations/types";
@@ -58,9 +60,17 @@ describe("standalone-sidebar", () => {
   });
 
   it("treats synthetic job rows as sidebar jobs, not hidden worktrees", () => {
+    expect(isStandaloneAutomationProject(STANDALONE_GROUP_ID)).toBe(true);
+    expect(isStandaloneAutomationProject("proj-1")).toBe(false);
     expect(isStandaloneSidebarJob(STANDALONE_GROUP_ID, "automation:job-1")).toBe(true);
     expect(isStandaloneSidebarJob("proj-1", "automation:job-1")).toBe(true);
     expect(isStandaloneSidebarJob("proj-1", "ws-1")).toBe(false);
+    expect(
+      omitStandaloneAutomationProjectEntries([
+        { projectId: STANDALONE_GROUP_ID },
+        { projectId: "proj-1" },
+      ]),
+    ).toEqual([{ projectId: "proj-1" }]);
   });
 
   it("appends the virtual group without duplicating", () => {

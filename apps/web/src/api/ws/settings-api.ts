@@ -52,9 +52,12 @@ export interface FunctionSettings {
   };
   workspace_kanban_view?: {
     state?: unknown;
+    /** Tasks board grouping — independent of `workspace_sidebar.grouping_mode`. */
+    grouping_mode?: "project" | "group" | "status" | "time" | "label" | "priority" | "agent";
     [key: string]: unknown;
   };
   workspace_sidebar?: {
+    /** Sidebar list grouping — independent of `workspace_kanban_view.grouping_mode`. */
     grouping_mode?: "project" | "group" | "status" | "time" | "label" | "priority" | "agent";
     label_group_order?: string[];
     /** Sidebar list filters — independent of `workspace_kanban_view` board filters. */

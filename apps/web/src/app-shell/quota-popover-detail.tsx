@@ -15,6 +15,7 @@ import {
   extraSections,
   extractPercent,
   extractResetText,
+  FACTORY_MANAGED_COMPUTERS_GROUP,
   FACTORY_USAGE_MODE_STANDARD,
   quotaMetricShowsBar,
   factoryManagedComputerMetrics,
@@ -23,7 +24,6 @@ import {
   firstRowValue,
   inferProviderRegion,
   metricGroupLabel,
-  metricRowKey,
   providerCreditsLabel,
   providerIdentity,
   quotaMetrics,
@@ -90,6 +90,12 @@ function QuotaMetricBlock({
       />
     </div>
   );
+}
+
+function factoryUsageRowKey(metric: { group?: string | null; label: string }): string {
+  return metric.group === FACTORY_MANAGED_COMPUTERS_GROUP
+    ? `${metric.group}:${metric.label}`
+    : `window:${metric.label}`;
 }
 
 function QuotaUsageModeTabs({
@@ -162,7 +168,7 @@ export function AggregateDetail({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
-          <div className="text-[18px] font-semibold tracking-tight text-foreground">{t("detail.allProviders")}</div>
+          <div className="text-sm font-semibold tracking-tight text-foreground">{t("detail.allProviders")}</div>
           <UsageSwitch
             checked={allSwitchEnabled}
             onCheckedChange={onToggleAllProviders}
@@ -259,7 +265,7 @@ function AggregateProviderRow({
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <div className="truncate text-left text-sm font-semibold text-foreground">
+              <div className="truncate text-left text-xs font-semibold text-foreground">
                 {provider.label}
               </div>
               <div
@@ -391,7 +397,7 @@ function DetectedProviderDetails({
     <>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="truncate text-sm text-foreground">{accountLabel}</div>
+          <div className="truncate text-xs text-foreground">{accountLabel}</div>
           {periodLabel ? (
             <div className="mt-0.5 truncate text-[11px] text-foreground/90">
               {periodLabel}
@@ -415,7 +421,7 @@ function DetectedProviderDetails({
         {visibleMetrics.length > 0 ? (
           visibleMetrics.map((metric) => (
             <QuotaMetricBlock
-              key={metricRowKey(metric)}
+              key={factoryUsageRowKey(metric)}
               provider={provider}
               metric={metric}
               compact
@@ -491,7 +497,7 @@ export function ProviderDetail({
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <div className="text-[18px] font-semibold tracking-tight text-foreground">{provider.label}</div>
+              <div className="text-sm font-semibold tracking-tight text-foreground">{provider.label}</div>
               <UsageSwitch
                 checked={provider.switch_enabled}
                 onCheckedChange={(checked) => onToggleProvider(provider.id, checked)}
@@ -500,7 +506,7 @@ export function ProviderDetail({
               />
             </div>
             {provider.id === "zed" && periodLabel ? (
-              <div className="mt-1 text-sm text-foreground/90">{periodLabel}</div>
+              <div className="mt-1 text-xs text-foreground/90">{periodLabel}</div>
             ) : null}
             <UsagePortalLink
               providerId={provider.id}
@@ -509,9 +515,9 @@ export function ProviderDetail({
             />
           </div>
           <div className="text-right">
-            <div className="text-sm text-foreground">{accountLabel}</div>
+            <div className="text-xs text-foreground">{accountLabel}</div>
             {planLabel ? (
-              <div className="mt-1 text-sm text-foreground/90">{planLabel}</div>
+              <div className="mt-1 text-xs text-foreground/90">{planLabel}</div>
             ) : null}
           </div>
         </div>
@@ -523,7 +529,7 @@ export function ProviderDetail({
 
       {visibleMetrics.map((metric, index) => (
         <QuotaMetricBlock
-          key={metricRowKey(metric)}
+          key={factoryUsageRowKey(metric)}
           provider={provider}
           metric={metric}
           bordered={modes.length < 2 || index > 0}
@@ -533,7 +539,7 @@ export function ProviderDetail({
       {showCredits ? (
         <section className="border-t border-border/70 pt-5">
           <div className="flex items-start justify-between gap-4">
-            <div className="text-[18px] font-semibold tracking-tight text-foreground">
+            <div className="text-sm font-semibold tracking-tight text-foreground">
               {t("detail.credits")}
             </div>
             <div className="pt-1 text-right text-sm text-foreground">
@@ -588,7 +594,7 @@ function ExtraDetailSections({
           className={compact ? "border-t border-border/60 pt-2.5" : "border-t border-border/70 pt-5"}
         >
           <div className="flex items-start justify-between gap-4">
-            <div className={compact ? "text-sm font-medium text-foreground" : "text-[18px] font-semibold tracking-tight text-foreground"}>
+            <div className={compact ? "text-xs font-medium text-foreground" : "text-sm font-semibold tracking-tight text-foreground"}>
               {section.title}
             </div>
             {sectionHeaderValue(provider, section) ? (

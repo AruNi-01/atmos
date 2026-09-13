@@ -241,9 +241,11 @@ describe("automation execute modes", () => {
     expect(tabBar).toContain('kind: "chat"');
     expect(projectItem).toContain("isStandaloneGroup");
     expect(projectItem).toContain("<Timer className=\"size-3.5\" />");
+    expect(projectItem).toContain("!isStandaloneGroup && (onAddProjectToGroup");
     expect(projectItem).not.toContain("AutomationChip");
     expect(groupedProjectRow).toContain("isStandaloneGroup");
     expect(groupedProjectRow).toContain("<Timer className=\"size-3\" />");
+    expect(groupedProjectRow).toContain("if (isStandaloneGroup) return");
     expect(workspaceContent).toContain("AutomationChip");
     expect(workspaceContent).toContain("<AutomationChip compact className=\"group-hover/ws:hidden\" />");
     const workspaceTitleRow = workspaceContent.slice(

@@ -19,6 +19,7 @@ import {
   defaultDropAnimationSideEffects,
   restrictToVerticalAxis,
   restrictToWindowEdges,
+  ScrollArea,
   useSortable,
   verticalListSortingStrategy,
   type DragEndEvent,
@@ -53,7 +54,10 @@ import {
   selectAttentionFilterMode,
   useAgentAttentionStore,
 } from "@/features/agent/store/agent-attention-store";
-import { LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS } from "@/app-shell/sidebar-layout-constants";
+import {
+  LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+  LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS,
+} from "@/app-shell/sidebar-layout-constants";
 export { LeftSidebarFooter } from "./left-sidebar-tab-footer-controls";
 
 type DndSensors = React.ComponentProps<typeof DndContext>["sensors"];
@@ -179,7 +183,7 @@ export function LeftSidebarSortableProjectList({
   onCreateGroup?: ProjectItemProps["onCreateGroup"];
 }) {
   return (
-    <div className={cn("scrollbar-on-hover h-full overflow-y-auto", className)}>
+    <ScrollArea scrollFade className="h-full" viewportClassName={className}>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -238,7 +242,7 @@ export function LeftSidebarSortableProjectList({
           />
         ) : null}
       </DndContext>
-    </div>
+    </ScrollArea>
   );
 }
 
@@ -447,15 +451,24 @@ function SortableWorkspaceGroupSection({
   // Attention filter: dim group chrome so latched workspaces stay the focus.
   const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
 
+  const sortableTranslate =
+    transform && (transform.x !== 0 || transform.y !== 0)
+      ? CSS.Translate.toString(transform)
+      : undefined;
+
   return (
     <section
       ref={setNodeRef}
       style={{
-        transform: CSS.Translate.toString(transform),
-        transition,
+        transform: sortableTranslate,
+        transition: sortableTranslate ? transition : undefined,
       }}
       className={cn("space-y-1.5", isDragging && "relative z-20 opacity-60")}
     >
+      <div
+        className={LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS}
+        data-sidebar-sticky-group-header=""
+      >
       <div
         className={cn(
           "group relative flex items-center rounded-lg hover:bg-sidebar-accent",
@@ -496,6 +509,7 @@ function SortableWorkspaceGroupSection({
             <GripVertical className="size-3.5" />
           </button>
         ) : null}
+      </div>
       </div>
       <div
         className={cn(
@@ -553,7 +567,7 @@ export function GroupedWorkspaceOneColumnContent({
     .map((group) => group.key);
 
   return (
-    <div className="scrollbar-on-hover h-full overflow-y-auto no-scrollbar">
+    <ScrollArea scrollFade className="h-full">
       <DndContext
         collisionDetection={closestCenter}
         sensors={sensors}
@@ -603,7 +617,7 @@ export function GroupedWorkspaceOneColumnContent({
           </div>
         </SortableContext>
       </DndContext>
-    </div>
+    </ScrollArea>
   );
 }
 
@@ -624,7 +638,7 @@ export function GroupedWorkspaceTwoColumnLeftContent({
     : groups;
 
   return (
-    <div className="scrollbar-on-hover h-full overflow-y-auto px-2 py-1.5">
+    <ScrollArea scrollFade className="h-full" viewportClassName="px-2 py-1.5">
       <div className="space-y-1">
         {visibleGroups.map((group) => {
           const isSelected = effectiveSelectedWorkspaceGroupKey === group.key;
@@ -652,7 +666,7 @@ export function GroupedWorkspaceTwoColumnLeftContent({
           );
         })}
       </div>
-    </div>
+    </ScrollArea>
   );
 }
 
@@ -713,35 +727,35 @@ export function GroupedWorkspaceTwoColumnRightContent({
           />
         </div>
       </div>
-      <div
-        className={cn(
-          "scrollbar-on-hover flex-1 overflow-y-auto py-2 pl-3",
-          LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
-        )}
-      >
-        {!selectedGroup ? (
-          <div className="px-3 py-6 text-sm text-muted-foreground">
-            {t("leftSidebarControls.selectGroupDescription")}
-          </div>
-        ) : (
-          <div className={cn("space-y-1", secondColumnKanban && "space-y-2")}>
-            {visibleItems.map((entry) =>
-              secondColumnKanban ? (
-                <div key={getSidebarEntryKey(entry)}>
-                  {renderWorkspaceKanbanCard(entry)}
-                </div>
-              ) : (
-                renderWorkspaceContentRow(entry, { showProjectName: true })
-              ),
-            )}
-            <WorkspaceListShowMoreLess
-              canShowMore={canShowMore}
-              canShowLess={canShowLess}
-              onShowMore={showMore}
-              onShowLess={showLess}
-            />
-          </div>
-        )}
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <ScrollArea
+          scrollFade
+          viewportClassName={cn("py-2 pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}
+        >
+          {!selectedGroup ? (
+            <div className="px-3 py-6 text-sm text-muted-foreground">
+              {t("leftSidebarControls.selectGroupDescription")}
+            </div>
+          ) : (
+            <div className={cn("space-y-1", secondColumnKanban && "space-y-2")}>
+              {visibleItems.map((entry) =>
+                secondColumnKanban ? (
+                  <div key={getSidebarEntryKey(entry)}>
+                    {renderWorkspaceKanbanCard(entry)}
+                  </div>
+                ) : (
+                  renderWorkspaceContentRow(entry, { showProjectName: true })
+                ),
+              )}
+              <WorkspaceListShowMoreLess
+                canShowMore={canShowMore}
+                canShowLess={canShowLess}
+                onShowMore={showMore}
+                onShowLess={showLess}
+              />
+            </div>
+          )}
+        </ScrollArea>
       </div>
     </div>
   );
@@ -946,12 +960,11 @@ export function ProjectWorkspaceTwoColumnRightContent({
           </div>
         </div>
       </div>
-      <div
-        className={cn(
-          "scrollbar-on-hover flex-1 overflow-y-auto py-2 pl-3",
-          LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
-        )}
-      >
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <ScrollArea
+          scrollFade
+          viewportClassName={cn("py-2 pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}
+        >
         {!selectedProject ? (
           <div className="px-3 py-6 text-sm text-muted-foreground">
             {t("leftSidebarControls.selectProjectDescription")}
@@ -1058,6 +1071,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
             )}
           </div>
         )}
+        </ScrollArea>
       </div>
     </div>
   );

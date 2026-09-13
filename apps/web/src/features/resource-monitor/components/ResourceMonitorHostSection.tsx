@@ -12,6 +12,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  ScrollArea,
   ServerGauge,
   Skeleton,
 } from "@workspace/ui";
@@ -85,29 +86,35 @@ function CpuDetailPanel({ host }: { host: ResourceHostMetrics }) {
       {host.cores.length === 0 ? (
         <p className="text-[11px] text-muted-foreground">{t("unavailable")}</p>
       ) : (
-        <div className="grid max-h-64 grid-cols-2 gap-x-3 gap-y-2 overflow-y-auto pr-1">
-          {host.cores.map((core) => (
-            <div
-              key={core.index}
-              className="space-y-1"
-              data-resource-monitor-core={String(core.index)}
-            >
-              <div className="flex items-baseline justify-between gap-1 text-[11px]">
-                <span className="text-muted-foreground">
-                  {t("coreIndex", { index: core.index })}
-                </span>
-                <span className="tabular-nums">
-                  {formatPercent(core.cpu_percent)}
-                </span>
+        <ScrollArea
+          className="h-auto max-h-64"
+          scrollFade
+          viewportClassName="h-auto max-h-64"
+        >
+          <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+            {host.cores.map((core) => (
+              <div
+                key={core.index}
+                className="space-y-1"
+                data-resource-monitor-core={String(core.index)}
+              >
+                <div className="flex items-baseline justify-between gap-1 text-[11px]">
+                  <span className="text-muted-foreground">
+                    {t("coreIndex", { index: core.index })}
+                  </span>
+                  <span className="tabular-nums">
+                    {formatPercent(core.cpu_percent)}
+                  </span>
+                </div>
+                <ResourceMonitorUsageBar
+                  value={core.cpu_percent}
+                  tone="pressure"
+                  label={t("coreIndex", { index: core.index })}
+                />
               </div>
-              <ResourceMonitorUsageBar
-                value={core.cpu_percent}
-                tone="pressure"
-                label={t("coreIndex", { index: core.index })}
-              />
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </ScrollArea>
       )}
     </div>
   );
@@ -212,7 +219,7 @@ function HostDetailPopover({
         data-resource-monitor-detail={kind}
         side="bottom"
         align="start"
-        className="w-[min(320px,calc(100vw-2rem))] p-3"
+        className="w-[min(320px,calc(100vw-2rem))] overflow-x-hidden overflow-y-hidden p-3"
         onOpenAutoFocus={() => undefined}
         onEscapeKeyDown={(event) => {
           event.preventDefault();

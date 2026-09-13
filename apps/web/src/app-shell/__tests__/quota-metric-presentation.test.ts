@@ -461,17 +461,23 @@ describe("quota popover factory chrome", () => {
     expect(detail).toContain("factoryWindowMetrics");
     expect(detail).toContain("factoryManagedComputerMetrics");
     expect(components).toContain('from "@workspace/ui/components/motion/tabs"');
+    expect(components).toContain('className="h-8 w-fit gap-0.5 p-0.5"');
+    expect(components).not.toContain("indicatorClassName=");
+    expect(components).not.toContain("bg-background shadow-sm");
+    expect(components).not.toContain("bg-active");
     expect(components).toContain("${label} · ${usedText}");
     expect(components).toContain("quotaMetricShowsBar(percent)");
     expect(components).toContain('role="progressbar"');
     expect(components).toContain('"h-1.5 w-full shrink-0 overflow-hidden rounded-full bg-muted"');
+    expect(components).toContain("scaleX");
+    expect(components).toContain("origin-left");
   });
 
   test("factory mode tabs sit above usage rows, not above the provider header", () => {
     const detail = readFileSync(join(import.meta.dir, "../quota-popover-detail.tsx"), "utf8");
     const providerDetail = detail.slice(detail.indexOf("export function ProviderDetail"));
     const headerLabel = providerDetail.indexOf(
-      'className="text-[18px] font-semibold tracking-tight text-foreground">{provider.label}',
+      'className="text-sm font-semibold tracking-tight text-foreground">{provider.label}',
     );
     const tabs = providerDetail.indexOf("<QuotaUsageModeTabs");
     const firstMetric = providerDetail.indexOf("{visibleMetrics.map");
@@ -481,7 +487,7 @@ describe("quota popover factory chrome", () => {
 
     const detectedDetails = detail.slice(detail.indexOf("function DetectedProviderDetails"));
     const detectedHeader = detectedDetails.indexOf(
-      'className="truncate text-sm text-foreground">{accountLabel}',
+      'className="truncate text-xs text-foreground">{accountLabel}',
     );
     const detectedTabs = detectedDetails.indexOf("<QuotaUsageModeTabs");
     const detectedMetrics = detectedDetails.indexOf("{visibleMetrics.length > 0");

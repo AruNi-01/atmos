@@ -5,6 +5,7 @@ import {
   Button,
   Input,
   PushPageStack,
+  ScrollArea,
   Tabs,
   usePushPageTransition,
 } from "@workspace/ui";
@@ -380,8 +381,9 @@ export const SkillsView: React.FC = () => {
               onValueChange={(value) => void setParams({ skillsTab: value as SkillsTab })}
               className="flex min-h-0 flex-1 flex-col overflow-hidden"
             >
-              <div className="flex-1 overflow-auto px-8 pb-8 pt-4">
-                <div className="mx-auto w-full max-w-5xl">
+              <ScrollArea className="min-h-0 flex-1" scrollFade>
+                <div className="px-8 pb-8 pt-4">
+                  <div className="mx-auto w-full max-w-5xl">
                   <SkillsInstalledTab
                     isLoading={isLoading}
                     skills={skills}
@@ -408,8 +410,9 @@ export const SkillsView: React.FC = () => {
                     query={query}
                     onClearSearch={() => void setParams({ q: "" })}
                   />
+                  </div>
                 </div>
-              </div>
+              </ScrollArea>
             </Tabs>
           </>
         }

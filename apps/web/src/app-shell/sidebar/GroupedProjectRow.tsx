@@ -183,6 +183,7 @@ export function GroupedProjectRow({
       ignoreNextClickRef.current = false;
       return;
     }
+    if (isStandaloneGroup) return;
     workspaceInfoHoverSession.dismiss();
     router.push(`/project?id=${project.id}`);
   };

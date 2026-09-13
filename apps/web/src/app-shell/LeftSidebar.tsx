@@ -368,6 +368,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 .then((settings) => {
                     if (settingsScopeVersionRef.current !== scopeVersion) return;
 
+                    // Sidebar grouping only — Tasks board uses `workspace_kanban_view.grouping_mode`.
                     const groupingModeSetting = settings.workspace_sidebar?.grouping_mode;
                     const nextGroupingMode = parseSidebarGroupingMode(groupingModeSetting);
                     persistedGroupingModeRef.current = nextGroupingMode;
@@ -768,6 +769,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     }, []);
 
     const handleAddProjectToGroup = useCallback(async (projectId: string, groupId: string) => {
+        if (projectId === STANDALONE_GROUP_ID) return;
         try {
             const project = projects.find((item) => item.id === projectId);
             if (!project) {
@@ -1321,7 +1323,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             activeProjectId={currentProjectId}
             activeWorkspaceId={currentWorkspaceId}
             availableLabels={workspaceLabels}
-            className="no-scrollbar"
             expandedProjectIds={expandedProjects}
             flattenedWorkspaces={flattenedWorkspaces}
             isAnyProjectDragging={isAnyProjectDragging}

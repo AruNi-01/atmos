@@ -208,7 +208,7 @@ export function KanbanWorkspaceCard({
       tabIndex={0}
       {...{ [SIDEBAR_SHORTCUT_TARGET_ATTR]: workspaceShortcutKey }}
       className={cn(
-        "relative w-full cursor-pointer rounded-md bg-background p-3 text-left shadow-xs outline-none",
+        "relative w-full cursor-pointer rounded-2xl bg-background p-3 text-left shadow-xs outline-none",
         "focus-visible:ring-1 focus-visible:ring-ring",
         workspace.isPinned
           ? "border border-border"
@@ -505,7 +505,7 @@ export function DraggableWorkspaceCard(props: React.ComponentProps<typeof Kanban
       }}
     >
       <div className={cn(
-        "rounded-md",
+        "rounded-2xl",
         isRecentlyDropped && "bg-primary/20 ring-2 ring-primary animate-pulse transition-all duration-500 ease-out",
       )}>
         <KanbanWorkspaceCard
@@ -537,7 +537,7 @@ export function KanbanDragPreview({
   availableLabels?: WorkspaceLabel[];
 }) {
   return (
-    <div className="w-full origin-[20%_20%] rotate-[2.6deg] rounded-md shadow-2xl ring-1 ring-border/40">
+    <div className="w-full origin-[20%_20%] rotate-[2.6deg] rounded-2xl shadow-2xl ring-1 ring-border/40">
       <KanbanWorkspaceCard
         workspace={item.preview.workspace}
         projectId={item.projectId}
