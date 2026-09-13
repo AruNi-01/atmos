@@ -203,10 +203,11 @@ export type ReasoningContentProps = ComponentProps<
 > & {
   children: string;
   components?: MessageResponseProps["components"];
+  linkSafety?: MessageResponseProps["linkSafety"];
 };
 
 export const ReasoningContent = memo(
-  ({ className, children, components, ...props }: ReasoningContentProps) => {
+  ({ className, children, components, linkSafety, ...props }: ReasoningContentProps) => {
     const { isStreaming } = useReasoning();
     return (
       <CollapsibleContent
@@ -226,6 +227,7 @@ export const ReasoningContent = memo(
               isAnimating={isStreaming}
               parseIncompleteMarkdown
               components={components}
+              linkSafety={linkSafety}
             >
               {children}
             </MessageResponse>

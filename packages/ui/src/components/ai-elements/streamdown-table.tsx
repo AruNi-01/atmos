@@ -1,14 +1,22 @@
 import type { ComponentPropsWithoutRef } from "react";
 import type { ExtraProps } from "streamdown";
 import { cn } from "../../lib/utils";
+import {
+  MARKDOWN_TABLE_CLASS,
+  MARKDOWN_TABLE_HEAD_CLASS,
+  MARKDOWN_TABLE_ROW_CLASS,
+  MARKDOWN_TABLE_TD_CLASS,
+  MARKDOWN_TABLE_TH_CLASS,
+  MARKDOWN_TABLE_WRAP_CLASS,
+} from "../../lib/markdown-table";
 
 type TableProps = ComponentPropsWithoutRef<"table"> & ExtraProps;
+type SectionProps = ComponentPropsWithoutRef<"thead"> & ExtraProps;
+type RowProps = ComponentPropsWithoutRef<"tr"> & ExtraProps;
 type HeaderCellProps = ComponentPropsWithoutRef<"th"> & ExtraProps;
 type DataCellProps = ComponentPropsWithoutRef<"td"> & ExtraProps;
 
-const cellWrapClassName = "min-w-0 align-top break-words whitespace-normal [overflow-wrap:anywhere]";
-
-/** GFM tables in agent text/thinking: fill the message width, wrap cells, no chrome. */
+/** GFM tables in agent text/thinking: same chrome as MarkdownRenderer / Live. */
 export function StreamdownPlainTable({
   children,
   className,
@@ -16,14 +24,37 @@ export function StreamdownPlainTable({
   ...props
 }: TableProps) {
   return (
-    <div className="my-4 w-full max-w-full overflow-hidden rounded-lg border border-border">
-      <table
-        className={cn("w-full table-fixed divide-y divide-border text-sm", className)}
-        {...props}
-      >
+    <div className={MARKDOWN_TABLE_WRAP_CLASS}>
+      <table className={cn(className, MARKDOWN_TABLE_CLASS)} {...props}>
         {children}
       </table>
     </div>
+  );
+}
+
+export function StreamdownPlainThead({
+  children,
+  className,
+  node: _node,
+  ...props
+}: SectionProps) {
+  return (
+    <thead className={cn(className, MARKDOWN_TABLE_HEAD_CLASS)} {...props}>
+      {children}
+    </thead>
+  );
+}
+
+export function StreamdownPlainTr({
+  children,
+  className,
+  node: _node,
+  ...props
+}: RowProps) {
+  return (
+    <tr className={cn(className, MARKDOWN_TABLE_ROW_CLASS)} {...props}>
+      {children}
+    </tr>
   );
 }
 
@@ -34,10 +65,7 @@ export function StreamdownPlainTh({
   ...props
 }: HeaderCellProps) {
   return (
-    <th
-      className={cn("px-4 py-2.5 text-left font-semibold text-sm", cellWrapClassName, className)}
-      {...props}
-    >
+    <th className={cn(className, MARKDOWN_TABLE_TH_CLASS)} {...props}>
       {children}
     </th>
   );
@@ -50,14 +78,26 @@ export function StreamdownPlainTd({
   ...props
 }: DataCellProps) {
   return (
-    <td className={cn("px-4 py-2.5 text-sm", cellWrapClassName, className)} {...props}>
+    <td className={cn(className, MARKDOWN_TABLE_TD_CLASS)} {...props}>
       {children}
     </td>
   );
 }
 
+export function StreamdownPlainTbody({
+  children,
+  className: _className,
+  node: _node,
+  ...props
+}: ComponentPropsWithoutRef<"tbody"> & ExtraProps) {
+  return <tbody {...props}>{children}</tbody>;
+}
+
 export const streamdownPlainTableComponents = {
   table: StreamdownPlainTable,
+  thead: StreamdownPlainThead,
+  tbody: StreamdownPlainTbody,
+  tr: StreamdownPlainTr,
   th: StreamdownPlainTh,
   td: StreamdownPlainTd,
 };

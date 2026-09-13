@@ -153,7 +153,7 @@ html {
 }
 
 html.light {
-  background-color: oklch(0.94 0.003 286);
+  background-color: #f3f3f3;
   color-scheme: light;
 }
 

@@ -92,15 +92,16 @@
   --popover-foreground: oklch(0.141 0.005 285.823);
   --primary: oklch(0.21 0.006 285.885);
   --primary-foreground: oklch(0.985 0 0);
-  /* Chrome vs stage: dark sidebar is L+0.069 over the well. Light inverts that
-     (gray chrome, white stage) so the center card actually reads. */
+  /* Chrome vs stage: dark sidebar is L+0.069 over the well. Light uses a
+     cool gray chrome (#f3f3f3) against a white stage so the center
+     card still reads. */
   --secondary: oklch(0.90 0.004 286);
   --secondary-foreground: oklch(0.21 0.006 285.885);
   --muted: oklch(0.90 0.004 286);
   --muted-foreground: oklch(0.552 0.016 285.938);
   /* Subtle elevated surface for active pills (TabsSubtle, etc.) */
-  --active: oklch(0.87 0.004 286);
-  --hover: oklch(0 0 0 / 6%);
+  --active: #e6e6e6;
+  --hover: #e6e6e6;
   /* Checkerboard under translucent colors (color picker alpha / tiles) */
   --checker-a: oklch(0.88 0 0);
   --checker-b: oklch(0.98 0 0);
@@ -122,7 +123,7 @@
   --shadow-6: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color), 0 12px 12px -6px var(--shadow-color), 0 24px 24px -12px var(--shadow-color);
   --shadow-7: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color), 0 12px 12px -6px var(--shadow-color), 0 24px 24px -12px var(--shadow-color), 0 48px 48px -24px var(--shadow-color);
   --shadow-8: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color), 0 12px 12px -6px var(--shadow-color), 0 24px 24px -12px var(--shadow-color), 0 48px 48px -24px var(--shadow-color), 0 96px 96px -48px var(--shadow-color);
-  --accent: oklch(0.90 0.004 286);
+  --accent: #e6e6e6;
   --accent-foreground: oklch(0.21 0.006 285.885);
   --destructive: oklch(0.577 0.245 27.325);
   --info: oklch(0.62 0.17 251);
@@ -138,16 +139,17 @@
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.94 0.003 286);
+  --sidebar: #f3f3f3;
   --sidebar-foreground: oklch(0.141 0.005 285.823);
   --sidebar-primary: oklch(0.21 0.006 285.885);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.90 0.004 286);
+  --sidebar-accent: #e6e6e6;
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0 0 0 / 10%);
   --sidebar-ring: oklch(0.705 0.015 286.067);
   /* Filled destructive controls need a light foreground on the red fill. */
   --destructive-foreground: oklch(0.985 0 0);
+  color-scheme: light;
 }
 
 .dark {
@@ -217,6 +219,7 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.552 0.016 285.938);
   --destructive-foreground: oklch(0.985 0 0);
+  color-scheme: dark;
 }
 
 @layer base {
@@ -347,6 +350,103 @@
   animation: canvas-agent-island-shimmer linear infinite;
 }
 
+/*
+ * App chrome uses `scrollbar-width: thin` globally. That unlayered/base rule
+ * beats Base UI's layered native-scrollbar hide, so ScrollArea viewports must
+ * hide the platform thumb here. Custom bars are overflow + hover/scroll only.
+ */
+[data-slot="scroll-area-viewport"] {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+[data-slot="scroll-area-viewport"]::-webkit-scrollbar {
+  display: none;
+}
+
+/*
+ * ScrollArea fade. Edge fades follow overflow; --fade-inset-* (set in JS)
+ * keeps stuck sticky chrome unmasked so the fade sits on the list below.
+ */
+[data-slot="scroll-area-viewport"][data-scroll-fade] {
+  --fade-size: 1.5rem;
+  --fade-inset-top: 0px;
+  --fade-inset-bottom: 0px;
+  --fade-inset-left: 0px;
+  --fade-inset-right: 0px;
+  --fade-top: min(var(--fade-size), var(--scroll-area-overflow-y-start, 0px));
+  --fade-bottom: min(var(--fade-size), var(--scroll-area-overflow-y-end, 0px));
+  --fade-left: min(var(--fade-size), var(--scroll-area-overflow-x-start, 0px));
+  --fade-right: min(var(--fade-size), var(--scroll-area-overflow-x-end, 0px));
+  -webkit-mask-image:
+    linear-gradient(
+      to bottom,
+      #000 0,
+      #000 var(--fade-inset-top),
+      #0000 var(--fade-inset-top),
+      #000 calc(var(--fade-inset-top) + var(--fade-top)),
+      #000 100%
+    ),
+    linear-gradient(
+      to top,
+      #000 0,
+      #000 var(--fade-inset-bottom),
+      #0000 var(--fade-inset-bottom),
+      #000 calc(var(--fade-inset-bottom) + var(--fade-bottom)),
+      #000 100%
+    ),
+    linear-gradient(
+      to right,
+      #000 0,
+      #000 var(--fade-inset-left),
+      #0000 var(--fade-inset-left),
+      #000 calc(var(--fade-inset-left) + var(--fade-left)),
+      #000 100%
+    ),
+    linear-gradient(
+      to left,
+      #000 0,
+      #000 var(--fade-inset-right),
+      #0000 var(--fade-inset-right),
+      #000 calc(var(--fade-inset-right) + var(--fade-right)),
+      #000 100%
+    );
+  mask-image:
+    linear-gradient(
+      to bottom,
+      #000 0,
+      #000 var(--fade-inset-top),
+      #0000 var(--fade-inset-top),
+      #000 calc(var(--fade-inset-top) + var(--fade-top)),
+      #000 100%
+    ),
+    linear-gradient(
+      to top,
+      #000 0,
+      #000 var(--fade-inset-bottom),
+      #0000 var(--fade-inset-bottom),
+      #000 calc(var(--fade-inset-bottom) + var(--fade-bottom)),
+      #000 100%
+    ),
+    linear-gradient(
+      to right,
+      #000 0,
+      #000 var(--fade-inset-left),
+      #0000 var(--fade-inset-left),
+      #000 calc(var(--fade-inset-left) + var(--fade-left)),
+      #000 100%
+    ),
+    linear-gradient(
+      to left,
+      #000 0,
+      #000 var(--fade-inset-right),
+      #0000 var(--fade-inset-right),
+      #000 calc(var(--fade-inset-right) + var(--fade-right)),
+      #000 100%
+    );
+  -webkit-mask-composite: source-in, source-in, source-in;
+  mask-composite: intersect;
+}
+
 /* Fluid Functionalism TabsSubtle: hide overflow scrollbar on tab strip */
 .scrollbar-hide {
   -ms-overflow-style: none;
@@ -354,6 +454,47 @@
 }
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* GFM tables in agent chat / MarkdownRenderer: same cell padding as live-md. */
+.atmos-markdown-table {
+  width: 100%;
+  max-width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.atmos-markdown-table th,
+.atmos-markdown-table td {
+  padding: 0.625rem 1rem;
+  border: 0;
+  border-bottom: 1px solid rgb(228 228 231);
+  text-align: left;
+  vertical-align: top;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.625;
+}
+
+.dark .atmos-markdown-table th,
+.dark .atmos-markdown-table td {
+  border-bottom-color: rgb(63 63 70 / 0.5);
+}
+
+.atmos-markdown-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.atmos-markdown-table code {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .canvas-agent-view-highlight-label {

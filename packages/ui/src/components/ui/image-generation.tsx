@@ -254,7 +254,7 @@ export function ImageGeneration({
   status = "generating",
   label,
   prompt,
-  resolution = "1024 × 1024",
+  resolution,
   aspectRatio = "1 / 1",
   size = "compact",
   interactive = true,
@@ -268,6 +268,7 @@ export function ImageGeneration({
   const reduce = useReducedMotion() ?? false;
   const active =
     status === "queued" || status === "generating" || status === "refining";
+  const hasMedia = Boolean(children);
   const mediaState = MEDIA_STATE[status];
   const resolvedStatusText = statusText ?? STATUS_TEXT[status];
   const resolvedLabel =
@@ -289,8 +290,11 @@ export function ImageGeneration({
         <div
           role="img"
           aria-label={resolvedLabel}
-          style={{ aspectRatio }}
-          className="relative isolate w-full overflow-hidden rounded-xl bg-muted"
+          style={hasMedia ? undefined : { aspectRatio }}
+          className={cn(
+            "relative isolate w-full overflow-hidden rounded-xl",
+            !hasMedia && "bg-muted",
+          )}
         >
           <motion.div
             aria-hidden={children ? undefined : true}
@@ -308,7 +312,9 @@ export function ImageGeneration({
               reduce ? { duration: 0 } : { duration: 0.4, ease: EASE_OUT }
             }
             className={cn(
-              "absolute inset-0 [&>*]:size-full [&>*]:object-cover [&_img]:size-full [&_img]:object-cover",
+              hasMedia
+                ? "[&_button]:block [&_button]:w-full [&_img]:block [&_img]:h-auto [&_img]:w-full"
+                : "absolute inset-0 [&>*]:size-full [&>*]:object-cover [&_img]:size-full [&_img]:object-cover",
               mediaClassName,
             )}
           >
