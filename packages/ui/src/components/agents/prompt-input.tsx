@@ -61,6 +61,8 @@ export interface PromptModel {
   label: ReactNode;
   /** Provider / source shown as a section header in the model list. */
   group?: string;
+  /** Optional icon shown before the group header (e.g. agent icon in favorites). */
+  groupIcon?: ReactNode;
   /** Credit multiplier shown after the model name (`2x`). */
   multiplier?: string;
   description?: ReactNode;
@@ -982,11 +984,19 @@ function PromptAgentConfigMenu({
               ) : (
                 groupedModels.map((row, index) => {
                   if (row.type === "header") {
+                    const following = groupedModels[index + 1];
+                    const groupIcon =
+                      following?.type === "option" ? following.option.groupIcon : undefined;
                     return (
                       <div
                         key={`group:${index}:${row.label}`}
-                        className="px-2.5 pt-2 pb-0.5 text-xs text-muted-foreground"
+                        className="flex items-center gap-1.5 px-2.5 pt-2 pb-0.5 text-xs text-muted-foreground"
                       >
+                        {groupIcon ? (
+                          <span className="inline-flex size-3.5 shrink-0 items-center justify-center [&_img]:size-3.5 [&_svg]:size-3.5">
+                            {groupIcon}
+                          </span>
+                        ) : null}
                         {row.label}
                       </div>
                     );

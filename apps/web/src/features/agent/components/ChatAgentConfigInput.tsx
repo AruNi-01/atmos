@@ -320,6 +320,15 @@ export function ChatAgentConfigInput({
       value: favorite.model,
       label: resolveFavoriteModelLabel(favorite, catalog),
       group: agent?.name || favorite.agentId,
+      groupIcon: (
+        <AgentIcon
+          registryId={favorite.agentId}
+          name={agent?.name || favorite.agentId}
+          size={14}
+          isCustom={agent?.install_method === "custom"}
+          registryIcon={agent?.icon}
+        />
+      ),
       agent: favorite.agentId,
       favorited: true,
       selected: favorite.agentId === registryId && favorite.model === currentModelValue,

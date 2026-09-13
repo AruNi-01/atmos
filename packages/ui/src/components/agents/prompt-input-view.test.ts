@@ -381,6 +381,11 @@ describe("PromptAgentConfigMenu", () => {
 
   it("shows group headers and a muted multiplier, not a / provider suffix", () => {
     expect(promptInput).toContain("group?: string");
+    expect(promptInput).toContain("groupIcon?: ReactNode");
+    expect(promptInput).toContain("following.option.groupIcon");
+    expect(promptInput).toContain(
+      "flex items-center gap-1.5 px-2.5 pt-2 pb-0.5 text-xs text-muted-foreground",
+    );
     expect(promptInput).toContain("multiplier?: string");
     expect(promptInput).toContain("groupedPromptModelRows");
     expect(promptInput).toContain("row.type === \"header\"");

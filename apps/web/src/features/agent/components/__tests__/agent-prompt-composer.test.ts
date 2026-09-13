@@ -80,6 +80,8 @@ describe("agent prompt composer", () => {
     expect(composer).toContain("CenterStageTabList");
     expect(composer).toContain("AGENT_CHAT_FAVORITES_TAB");
     expect(composer).toContain("favoriteModels={favoritePromptModels}");
+    expect(composer).toContain("groupIcon:");
+    expect(composer).toContain("size={14}");
     expect(composer).toContain("favoritesOpen={favoritesOpen}");
     expect(composer).toContain("onToggleFavorite=");
     expect(composer).toContain("useAgentChatFavorites");
