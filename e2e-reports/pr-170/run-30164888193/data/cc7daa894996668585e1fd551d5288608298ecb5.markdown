@@ -1,0 +1,478 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: specs/APP-043_workspace-surface-cache.e2e.ts >> APP-043 workspace surface cache >> @stateful keeps prior workspace frame warm/hidden when switching contexts
+- Location: tests/specs/APP-043_workspace-surface-cache.e2e.ts:39:3
+
+# Error details
+
+```
+Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: "3b2b1c4c-c532-4bfe-9bfa-da829daaa0d1"
+Received: "92a2fca6-285a-4d7f-839f-0e57e1f1002b"
+
+Call Log:
+- Timeout 30000ms exceeded while waiting on the predicate
+```
+
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Collapse left sidebar" [ref=e7]:
+          - img [ref=e8]
+        - generic [ref=e11]:
+          - button "Go back" [ref=e12]:
+            - img [ref=e13]
+          - button "Go forward" [ref=e15]:
+            - img [ref=e16]
+          - button "Refresh page" [ref=e18]:
+            - img [ref=e19]
+        - generic:
+          - generic [ref=e22]: /
+          - generic [ref=e23]: Atmos E2E
+        - generic [ref=e25]:
+          - button "Open O" [ref=e26]:
+            - generic: Open
+            - generic:
+              - generic: O
+          - button [ref=e28]:
+            - img [ref=e29]
+      - generic [ref=e31]:
+        - generic [ref=e32]:
+          - status "Unable to compare the remote branch with origin/main" [ref=e33]:
+            - img [ref=e35]
+          - button "atmos/zubat +1" [ref=e38] [cursor=pointer]:
+            - generic [ref=e39]: atmos/zubat
+            - generic [ref=e40]: "+1"
+            - img [ref=e41]
+        - img [ref=e43]
+        - button "origin/ main" [ref=e46] [cursor=pointer]:
+          - generic [ref=e47]: origin/
+          - generic [ref=e48]: main
+          - img [ref=e49]
+      - generic [ref=e51]:
+        - button "Search" [ref=e52] [cursor=pointer]:
+          - img [ref=e53]
+          - generic [ref=e56]: Search...
+          - generic:
+            - img
+            - generic: K
+        - button "Open workspace summary" [ref=e57]:
+          - img [ref=e58]
+        - generic [ref=e60]:
+          - button "Usage" [ref=e61]:
+            - img [ref=e62]
+          - button "Open actions menu" [ref=e65]:
+            - generic [ref=e66]: ···
+          - button "Collapse right sidebar" [ref=e68]:
+            - img [ref=e69]
+    - generic [ref=e73]:
+      - complementary [ref=e76]:
+        - generic [ref=e77]:
+          - generic [ref=e78] [cursor=pointer]:
+            - generic [ref=e79]:
+              - img [ref=e80]
+              - generic [ref=e84]: Management Center
+            - img [ref=e86]
+          - generic [ref=e88]:
+            - generic [ref=e90] [cursor=pointer]:
+              - img [ref=e92]
+              - generic [ref=e95]: Workspaces
+            - generic [ref=e97] [cursor=pointer]:
+              - img [ref=e99]
+              - generic [ref=e102]: Skills
+            - generic [ref=e104] [cursor=pointer]:
+              - img [ref=e106]
+              - generic [ref=e109]: Disk Analyzer
+            - generic [ref=e111] [cursor=pointer]:
+              - img [ref=e113]
+              - generic [ref=e117]: Canvas
+            - generic [ref=e119] [cursor=pointer]:
+              - img [ref=e121]
+              - generic [ref=e124]: Kanban
+            - generic [ref=e126] [cursor=pointer]:
+              - img [ref=e128]
+              - generic [ref=e130]: New Workspace
+        - tabpanel "Projects" [ref=e133]:
+          - generic [ref=e136]:
+            - generic [ref=e138]:
+              - generic [ref=e139]:
+                - button "A Atmos E2E" [ref=e140] [cursor=pointer]:
+                  - generic [ref=e141]:
+                    - generic [ref=e143]: A
+                    - generic [ref=e144]: Atmos E2E
+                - generic [ref=e146]:
+                  - button [ref=e147]:
+                    - img [ref=e148]
+                  - button [ref=e150]:
+                    - img [ref=e151]
+              - generic [ref=e158]:
+                - button "APP-043 Warm B ms0ke7qf" [ref=e160] [cursor=pointer]:
+                  - generic [ref=e161]:
+                    - img [ref=e163]
+                    - generic [ref=e168]: APP-043 Warm B ms0ke7qf
+                - button "zubat" [ref=e170] [cursor=pointer]:
+                  - generic [ref=e171]:
+                    - img [ref=e173]
+                    - generic [ref=e178]: zubat
+            - generic [ref=e180]:
+              - generic [ref=e181]:
+                - button "A Atmos E2E" [ref=e182] [cursor=pointer]:
+                  - generic [ref=e183]:
+                    - generic [ref=e185]: A
+                    - generic [ref=e186]: Atmos E2E
+                - generic [ref=e188]:
+                  - button [ref=e189]:
+                    - img [ref=e190]
+                  - button [ref=e192]:
+                    - img [ref=e193]
+              - button "gastly" [ref=e202] [cursor=pointer]:
+                - generic [ref=e203]:
+                  - img [ref=e205]
+                  - generic [ref=e210]: gastly
+            - status [ref=e211]
+        - generic [ref=e213]:
+          - button "Add Project" [ref=e215]:
+            - img [ref=e217]
+          - generic [ref=e219]:
+            - button [ref=e220]:
+              - img [ref=e222]
+            - button "Open Kanban" [ref=e223]:
+              - img [ref=e225]
+      - separator [ref=e227]
+      - main [ref=e229]:
+        - generic [ref=e230]:
+          - tablist [ref=e231]:
+            - tab [selected] [ref=e232] [cursor=pointer]:
+              - img [ref=e233]
+            - generic [ref=e239]:
+              - button "New tab" [ref=e240]:
+                - img [ref=e241]
+              - button "Open tab groups" [ref=e242] [cursor=pointer]:
+                - img
+          - generic [ref=e246]:
+            - generic [ref=e247]:
+              - generic [ref=e248]:
+                - img [ref=e250]
+                - generic [ref=e255]:
+                  - generic [ref=e257]:
+                    - generic [ref=e258]:
+                      - img [ref=e259]
+                      - generic [ref=e263]: atmos/zubat
+                    - button ".../workspaces/atmos-e2e/zubat" [ref=e264]:
+                      - img [ref=e265]
+                      - generic [ref=e267]: .../workspaces/atmos-e2e/zubat
+                  - heading "atmos-e2e/zubat" [level=1] [ref=e268]
+              - button "Refresh" [ref=e269] [cursor=pointer]:
+                - img
+                - generic [ref=e270]: Refresh
+            - generic [ref=e271]:
+              - generic [ref=e272]:
+                - generic [ref=e273]:
+                  - generic [ref=e274]:
+                    - img [ref=e275]
+                    - text: Tasks
+                  - generic [ref=e280]: 0/0
+                - generic [ref=e281]:
+                  - generic [ref=e282]:
+                    - textbox "What needs to be done? (Double-click task to edit)" [ref=e283]
+                    - button [disabled]:
+                      - img
+                  - generic [ref=e285]:
+                    - img [ref=e286]
+                    - generic [ref=e289]: No tasks added yet.
+                  - status [ref=e290]
+              - generic [ref=e291]:
+                - generic [ref=e293]:
+                  - img [ref=e294]
+                  - text: Details
+                - generic [ref=e296]:
+                  - generic [ref=e297]:
+                    - generic [ref=e298]:
+                      - generic [ref=e299]: Status
+                      - button "In Progress" [ref=e300] [cursor=pointer]:
+                        - img [ref=e301]
+                        - generic [ref=e304]: In Progress
+                    - generic [ref=e305]:
+                      - generic [ref=e306]: Priority
+                      - button "No priority" [ref=e307] [cursor=pointer]:
+                        - generic [ref=e312]: No priority
+                    - generic [ref=e313]:
+                      - generic [ref=e314]: Labels
+                      - button "Add labels" [ref=e315]:
+                        - img [ref=e316]
+                        - generic [ref=e320]: Add labels
+                  - generic [ref=e321]:
+                    - generic [ref=e322]:
+                      - img [ref=e323]
+                      - generic [ref=e326]: Created
+                    - generic [ref=e327]: Jul 25, 2026 • 16:09:15
+                  - generic [ref=e328]:
+                    - heading "Code reviews" [level=3] [ref=e329]
+                    - generic [ref=e331]:
+                      - img [ref=e332]
+                      - heading "No code reviews yet" [level=3] [ref=e336]
+                      - paragraph [ref=e337]: Reports will appear here after reviews.
+                  - generic [ref=e338]:
+                    - heading "Pull requests" [level=3] [ref=e339]
+                    - generic [ref=e341]:
+                      - img [ref=e342]
+                      - generic [ref=e346]: No open PRs found
+                  - generic [ref=e347]:
+                    - heading "Actions" [level=3] [ref=e349]
+                    - generic [ref=e352]: No workflow runs detected
+            - generic [ref=e353]:
+              - generic [ref=e354]:
+                - generic [ref=e355]:
+                  - generic [ref=e356]:
+                    - img [ref=e357]
+                    - text: Requirement specification
+                  - button "Edit" [ref=e360] [cursor=pointer]
+                - generic [ref=e362]:
+                  - img [ref=e363]
+                  - heading "No requirement yet" [level=3] [ref=e366]
+                  - paragraph [ref=e367]: Add a requirement document for this workspace.
+                  - button "Add Requirement" [ref=e368] [cursor=pointer]:
+                    - img
+                    - text: Add Requirement
+              - generic [ref=e370]:
+                - generic [ref=e371]:
+                  - generic [ref=e372]:
+                    - img [ref=e373]
+                    - text: Note
+                  - button "Edit" [ref=e376] [cursor=pointer]
+                - generic [ref=e378]:
+                  - img [ref=e379]
+                  - heading "No note yet" [level=3] [ref=e382]
+                  - paragraph [ref=e383]: Add notes for this workspace.
+                  - button "Add Note" [ref=e384] [cursor=pointer]:
+                    - img
+                    - text: Add Note
+      - separator [ref=e385]
+      - complementary [ref=e388]:
+        - generic [ref=e390]:
+          - tablist [ref=e391]:
+            - tab "Changes" [selected] [ref=e392] [cursor=pointer]:
+              - img [ref=e393]
+            - tab "Review" [ref=e397] [cursor=pointer]:
+              - img [ref=e398]
+            - tab "Browser" [ref=e400] [cursor=pointer]:
+              - img [ref=e401]
+            - tab "Run" [ref=e404] [cursor=pointer]:
+              - img [ref=e405]
+            - tab "Files" [ref=e407] [cursor=pointer]:
+              - img [ref=e408]
+            - tab "Pull Requests" [ref=e413] [cursor=pointer]:
+              - img [ref=e414]
+            - tab "Actions" [ref=e418] [cursor=pointer]:
+              - img [ref=e419]
+          - generic [ref=e423]:
+            - tablist [ref=e426]:
+              - tab "Files Diff Refresh changes Select changes scope Show changed files as tree" [selected] [ref=e427] [cursor=pointer]:
+                - generic [ref=e428]:
+                  - img [ref=e429]
+                  - generic [ref=e432]: Files Diff
+                - generic:
+                  - button "Refresh changes":
+                    - img
+                    - generic: Refresh
+                  - button "Select changes scope":
+                    - generic: Branch
+                    - img
+                  - button "Show changed files as tree":
+                    - img
+              - tab "Commits Refresh commits" [ref=e433] [cursor=pointer]:
+                - generic [ref=e434]:
+                  - img [ref=e435]
+                  - generic [ref=e437]: Commits
+                - generic:
+                  - button "Refresh commits":
+                    - img
+                    - generic: Refresh
+            - generic [ref=e442] [cursor=pointer]:
+              - generic [ref=e443]:
+                - 'img "File: bun.lock" [ref=e444]'
+                - generic [ref=e445]: bun.lock
+              - generic [ref=e447]:
+                - generic [ref=e448]:
+                  - generic [ref=e449]: "+3"
+                  - generic [ref=e450]: "-3"
+                - generic [ref=e451]: M
+            - generic [ref=e454]:
+              - generic [ref=e455]:
+                - textbox "Message (Cmd/Ctrl+Enter to commit)" [ref=e456]
+                - button [ref=e457] [cursor=pointer]:
+                  - img [ref=e458]
+              - generic [ref=e461]:
+                - button "Publish Branch" [ref=e462]:
+                  - generic [ref=e463]: Publish Branch
+                - button [ref=e464]:
+                  - img [ref=e465]
+    - contentinfo [ref=e467]:
+      - generic [ref=e468]:
+        - generic [ref=e471] [cursor=pointer]: NORMAL
+        - button "LOCAL 0" [ref=e473]:
+          - img [ref=e474]
+          - generic [ref=e477]: LOCAL 0
+      - button "Napping ~" [ref=e479] [cursor=pointer]:
+        - generic [ref=e480]:
+          - generic [ref=e481]:
+            - img [ref=e482]
+            - generic [ref=e485]: z
+            - generic [ref=e486]: z
+            - generic [ref=e487]: z
+          - generic [ref=e488]: Napping ~
+  - alert [ref=e489]: atmos/zubat · Atmos E2E – ATMOS
+  - generic:
+    - region "Notifications"
+  - generic:
+    - region "Notifications"
+  - generic:
+    - region "Notifications"
+```
+
+# Test source
+
+```ts
+  1   | import { expect, test } from "../../fixtures/test";
+  2   | import { apiPort } from "../../fixtures/app-server";
+  3   | import {
+  4   |   connectLocalComputer,
+  5   |   expectHealthyRoute,
+  6   |   gotoContextRoute,
+  7   |   stubComputerClientSettingsApi,
+  8   |   withSearchParams,
+  9   | } from "../smoke/support/app-smoke";
+  10  | 
+  11  | /**
+  12  |  * Soft client navigation — full page.goto resets Zustand warm cache (SPA memory).
+  13  |  */
+  14  | async function softOpenWorkspace(page: import("@playwright/test").Page, workspaceId: string) {
+  15  |   // Client-side only: full page.goto resets Zustand warm cache.
+  16  |   // local-web static export normalizes to `/workspace/?id=...` (trailing slash).
+  17  |   await expect
+  18  |     .poll(async () => page.evaluate(() => typeof window.__atmosNavigate === "function"), {
+  19  |       timeout: 30_000,
+  20  |     })
+  21  |     .toBe(true);
+  22  | 
+  23  |   await page.evaluate((id) => {
+  24  |     const href = `/workspace/?id=${encodeURIComponent(id)}&tab=terminal`;
+  25  |     window.__atmosNavigate!(href);
+  26  |   }, workspaceId);
+  27  | 
+  28  |   await expect
+  29  |     .poll(async () => new URL(page.url()).searchParams.get("id"), { timeout: 30_000 })
+> 30  |     .toBe(workspaceId);
+      |      ^ Error: expect(received).toBe(expected) // Object.is equality
+  31  | }
+  32  | 
+  33  | /**
+  34  |  * APP-043: warm multi-context center frames.
+  35  |  * Asserts data-workspace-frame warm/hidden continuity when switching workspaces
+  36  |  * via client navigation (not full reload).
+  37  |  */
+  38  | test.describe("APP-043 workspace surface cache", () => {
+  39  |   test("@stateful keeps prior workspace frame warm/hidden when switching contexts", async ({
+  40  |     page,
+  41  |   }) => {
+  42  |     test.setTimeout(180_000);
+  43  | 
+  44  |     await stubComputerClientSettingsApi(page);
+  45  |     await connectLocalComputer(page, { locale: "en" });
+  46  |     await expectHealthyRoute(page, "/", { locale: "en" });
+  47  | 
+  48  |     const pair = await page.evaluate(async (port) => {
+  49  |       async function wsRequest<T>(action: string, data: unknown): Promise<T> {
+  50  |         return await new Promise<T>((resolve, reject) => {
+  51  |           const requestId = crypto.randomUUID();
+  52  |           const socket = new WebSocket(`ws://127.0.0.1:${port}/ws?client_type=web`);
+  53  |           let settled = false;
+  54  |           const finish = (cb: (v: unknown) => void, value: unknown) => {
+  55  |             if (settled) return;
+  56  |             settled = true;
+  57  |             window.clearTimeout(timeoutId);
+  58  |             try {
+  59  |               socket.close();
+  60  |             } catch {
+  61  |               // ignore
+  62  |             }
+  63  |             cb(value);
+  64  |           };
+  65  |           const timeoutId = window.setTimeout(() => {
+  66  |             finish((v) => reject(v as Error), new Error(`timeout ${action}`));
+  67  |           }, 20_000);
+  68  | 
+  69  |           socket.addEventListener("open", () => {
+  70  |             socket.send(
+  71  |               JSON.stringify({
+  72  |                 type: "request",
+  73  |                 payload: { request_id: requestId, action, data },
+  74  |               }),
+  75  |             );
+  76  |           });
+  77  |           socket.addEventListener("message", (event) => {
+  78  |             const message = JSON.parse(String(event.data)) as {
+  79  |               type?: string;
+  80  |               payload?: {
+  81  |                 request_id?: string;
+  82  |                 success?: boolean;
+  83  |                 data?: T;
+  84  |                 message?: string;
+  85  |               };
+  86  |             };
+  87  |             if (message.payload?.request_id !== requestId) return;
+  88  |             if (message.type === "response" && message.payload?.success) {
+  89  |               finish((v) => resolve(v as T), message.payload.data as T);
+  90  |               return;
+  91  |             }
+  92  |             finish(
+  93  |               (v) => reject(v as Error),
+  94  |               new Error(message.payload?.message ?? `failed ${action}`),
+  95  |             );
+  96  |           });
+  97  |           socket.addEventListener("error", () => {
+  98  |             finish((v) => reject(v as Error), new Error(`ws error ${action}`));
+  99  |           });
+  100 |         });
+  101 |       }
+  102 | 
+  103 |       const projects = await wsRequest<Array<{ guid: string }>>("project_list", {});
+  104 |       const project = projects[0];
+  105 |       if (!project) throw new Error("no project for APP-043 e2e");
+  106 | 
+  107 |       let workspaces = await wsRequest<
+  108 |         Array<{ guid: string; is_archived?: boolean | null; display_name?: string | null }>
+  109 |       >("workspace_list", {
+  110 |         project_guid: project.guid,
+  111 |         include_issue_only: false,
+  112 |       });
+  113 | 
+  114 |       let first = workspaces.find((w) => !w.is_archived) ?? workspaces[0] ?? null;
+  115 |       if (!first) throw new Error("no workspace A");
+  116 | 
+  117 |       let second =
+  118 |         workspaces.find((w) => w.guid !== first!.guid && !w.is_archived) ?? null;
+  119 |       if (!second) {
+  120 |         const stamp = Date.now().toString(36);
+  121 |         const branch = `e2e/app043-warm-b-${stamp}`;
+  122 |         await wsRequest("workspace_create", {
+  123 |           project_guid: project.guid,
+  124 |           name: branch,
+  125 |           display_name: `APP-043 Warm B ${stamp}`,
+  126 |           branch,
+  127 |           base_branch: null,
+  128 |           sidebar_order: 1,
+  129 |           initial_requirement: null,
+  130 |           github_issue: null,
+```
