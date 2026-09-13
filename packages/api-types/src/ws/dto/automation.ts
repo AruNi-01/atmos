@@ -45,7 +45,7 @@ export type AutomationRunStatus =
 export type AutomationExecuteMode = "headless" | "terminal" | "chat";
 export type AutomationSurfaceKind = "none" | "terminal" | "chat";
 
-export type AutomationTargetKind = {
+export type AutomationTargetKind =
   | "project"
   | "workspace"
   | "new_workspace"
