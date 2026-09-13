@@ -1,3 +1,5 @@
+import { displayTextWithUrlTokens } from "@/shared/lib/link-preview";
+
 /**
  * Large plain-text paste → Composer chip protocol.
  *
@@ -9,7 +11,9 @@
  */
 
 export const PASTE_LINE_THRESHOLD = 10;
-export const USER_MESSAGE_COLLAPSE_LINES = 5;
+export const USER_MESSAGE_COLLAPSE_LINES = 3;
+/** Extra visual line used for the collapsed fade (line 4). */
+export const USER_MESSAGE_COLLAPSE_FADE_LINES = 1;
 export const PASTE_PREVIEW_HEAD_LINES = 3;
 export const PASTE_PREVIEW_TAIL_LINES = 3;
 export const PASTE_TOKEN_PREFIX = "[#paste:";
@@ -124,7 +128,8 @@ export function expandPasteTokens(text: string): string {
 
 export function displayTextForSentMessage(expandedText: string): string {
   hydrate();
-  return DISPLAYS.get(hashText(expandedText)) ?? expandedText;
+  const withUrls = displayTextWithUrlTokens(expandedText);
+  return DISPLAYS.get(hashText(withUrls)) ?? DISPLAYS.get(hashText(expandedText)) ?? withUrls;
 }
 
 export function sentMessageHasPasteChips(expandedText: string): boolean {

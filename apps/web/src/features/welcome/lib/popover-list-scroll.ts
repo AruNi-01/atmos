@@ -14,6 +14,11 @@ export function isPopoverConfirmKey(event: KeyboardEvent): boolean {
  *
  * Shared by composer `@` mentions and `/` slash menus (including Terminal AI input).
  */
+/** Prefer the ScrollArea viewport when the ref is on the popover shell. */
+export function resolvePopoverScrollContainer(container: HTMLElement): HTMLElement {
+  return container.querySelector<HTMLElement>("[data-slot='scroll-area-viewport']") ?? container;
+}
+
 export function scrollActiveListItemIntoView(
   container: HTMLElement,
   itemEls: Array<HTMLElement | null>,
@@ -22,6 +27,7 @@ export function scrollActiveListItemIntoView(
 ): void {
   const activeItem = itemEls[activeIndex];
   if (!activeItem) return;
+  container = resolvePopoverScrollContainer(container);
 
   const lastIndex = itemEls.length - 1;
   let lookAheadIndex = Math.min(activeIndex + paddingItems, lastIndex);

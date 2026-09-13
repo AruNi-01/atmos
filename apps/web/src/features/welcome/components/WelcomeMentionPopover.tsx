@@ -9,6 +9,7 @@ import {
   TooltipTrigger,
   cn,
   getFileIconProps,
+  ScrollArea,
 } from "@workspace/ui";
 import {
   CircleDot,
@@ -114,13 +115,19 @@ export function WelcomeMentionPopover({
       />
       <div
         ref={listRef}
-        className="fixed z-[2147483647] max-h-80 w-[min(90vw,460px)] space-y-0.5 overflow-y-auto rounded-md border border-border/70 bg-popover p-1 text-sm text-popover-foreground shadow-md"
+        className="fixed z-[2147483647] max-h-80 w-[min(90vw,460px)] overflow-hidden rounded-2xl border border-border/70 bg-popover text-sm text-popover-foreground shadow-md"
         style={{
           top: popover.top,
           bottom: popover.bottom,
           left: popover.left,
         }}
       >
+        <ScrollArea
+          scrollFade
+          className="h-auto max-h-80 w-full"
+          viewportClassName="h-auto max-h-80"
+        >
+          <div className="space-y-0.5 p-1">
         {githubCount > 0 ? (
           <>
             <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] text-muted-foreground">
@@ -259,6 +266,8 @@ export function WelcomeMentionPopover({
               : t("mentionPopover.noMatches")}
           </div>
         )}
+          </div>
+        </ScrollArea>
       </div>
     </>,
     document.body,

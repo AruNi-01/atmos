@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import {
   __resetComposerPasteForTests,
   PASTE_LINE_THRESHOLD,
+  USER_MESSAGE_COLLAPSE_FADE_LINES,
   USER_MESSAGE_COLLAPSE_LINES,
   buildPastePreview,
   collapsedUserMessageText,
@@ -66,8 +67,11 @@ describe("composer paste protocol", () => {
     expect(preview.tail).toEqual(["line 9", "line 10", "line 11"]);
   });
 
-  it("collapses non-chip user messages over five lines", () => {
+  it("collapses non-chip user messages over three lines", () => {
     const body = lines(8);
+    expect(USER_MESSAGE_COLLAPSE_LINES).toBe(3);
+    expect(USER_MESSAGE_COLLAPSE_FADE_LINES).toBe(1);
+    expect(userMessageNeedsCollapse(lines(3))).toBe(false);
     expect(userMessageNeedsCollapse(body)).toBe(true);
     expect(collapsedUserMessageText(body).split("\n")).toHaveLength(
       USER_MESSAGE_COLLAPSE_LINES,

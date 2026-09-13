@@ -30,6 +30,17 @@ describe("composer slash command icons", () => {
     expect(popover).toContain("commandsTitle");
     expect(popover).toContain("atmosCommandsTitle");
     expect(popover).toContain("slashPopover.atmosCommands");
+    expect(popover).toContain("<ScrollArea");
+    expect(popover).toContain("scrollFade");
+  });
+
+  it("uses ScrollArea fades for the @ mention list", () => {
+    const mention = readFileSync(
+      join(root, "apps/web/src/features/welcome/components/WelcomeMentionPopover.tsx"),
+      "utf8",
+    );
+    expect(mention).toContain("<ScrollArea");
+    expect(mention).toContain("scrollFade");
   });
 
   it("groups Atmos built-in commands below Agent commands", () => {

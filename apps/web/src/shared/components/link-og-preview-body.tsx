@@ -20,8 +20,10 @@ export function LinkOgPreviewBody({
   const title = (preview.title || hostnameFromUrl(url)).trim();
   const imageUrl = preview.image_url;
   const [imageFailed, setImageFailed] = useState(false);
+  const [imageReady, setImageReady] = useState(false);
   useEffect(() => {
     setImageFailed(false);
+    setImageReady(false);
   }, [imageUrl]);
 
   const showImage = Boolean(imageUrl) && !imageFailed;
@@ -29,14 +31,21 @@ export function LinkOgPreviewBody({
   return (
     <div className="flex flex-col">
       {showImage ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={imageUrl ?? undefined}
-          alt=""
-          referrerPolicy="no-referrer"
-          className="aspect-[1.91/1] w-full object-cover"
-          onError={() => setImageFailed(true)}
-        />
+        <div className="relative aspect-[1.91/1] w-full bg-muted">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={imageUrl ?? undefined}
+            alt=""
+            referrerPolicy="no-referrer"
+            className={
+              imageReady
+                ? "absolute inset-0 size-full object-cover"
+                : "absolute inset-0 size-full object-cover opacity-0"
+            }
+            onLoad={() => setImageReady(true)}
+            onError={() => setImageFailed(true)}
+          />
+        </div>
       ) : null}
       <div className="flex items-center gap-2 px-3 py-2">
         <div className="min-w-0 flex-1">

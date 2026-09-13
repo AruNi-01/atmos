@@ -1,23 +1,26 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { cn } from "@/shared/lib/utils";
 import { FollowHoverCard } from "@/shared/components/follow-hover-card";
-import { LinkOgPreviewBody } from "@/shared/components/link-og-preview-body";
-import { useLinkPreviewQuery } from "@/shared/hooks/use-link-preview-query";
+import { ComposerLinkOgPreview } from "@/shared/components/composer-link-og-preview";
 import {
-  googleFaviconUrl,
-  hostnameFromUrl,
+  HTTP_TEXT_LINK_CLASSNAME,
   LINK_OG_CARD_HEIGHT,
   LINK_OG_CARD_WIDTH,
+  URL_CHIP_CLASSNAME,
+  googleFaviconUrl,
+  hostnameFromUrl,
   localLinkPreviewFallback,
   normalizeHttpUrl,
+  type LinkPreviewPayload,
 } from "@/shared/lib/link-preview";
+import {
+  fetchLinkPreview,
+  peekLinkPreview,
+} from "@/shared/lib/link-preview-query";
 
-const chipClassName =
-  "inline-flex h-5 max-w-[min(100%,16rem)] cursor-pointer items-center gap-1 box-border rounded-full border border-border/70 bg-muted/60 px-1.5 align-middle text-[12px] font-medium leading-none text-foreground no-underline hover:bg-muted hover:text-foreground";
-
-export function LinkPreviewChip({
+export function HttpTextLink({
   href,
   children,
   className,
@@ -27,11 +30,6 @@ export function LinkPreviewChip({
   href?: string;
 } & Omit<React.ComponentPropsWithoutRef<"a">, "href">) {
   const url = normalizeHttpUrl(href);
-  const previewQuery = useLinkPreviewQuery({
-    url,
-    enabled: Boolean(url),
-  });
-
   if (!url) {
     return (
       <a href={href} className={className} onClick={onClick} {...rest}>
@@ -40,41 +38,117 @@ export function LinkPreviewChip({
     );
   }
 
-  const preview = previewQuery.data ?? localLinkPreviewFallback(url);
-  const title = (preview.title || hostnameFromUrl(url)).trim();
-  const favicon = preview.favicon_url || googleFaviconUrl(url);
+  return (
+    <a
+      {...rest}
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={url}
+      data-http-text-link=""
+      className={cn(className, HTTP_TEXT_LINK_CLASSNAME)}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick?.(event);
+      }}
+    >
+      {children ?? url}
+    </a>
+  );
+}
+
+export function ConversationHttpUrl({
+  href,
+  children,
+  startAsChip = true,
+}: {
+  href: string;
+  children?: React.ReactNode;
+  startAsChip?: boolean;
+}) {
+  const url = normalizeHttpUrl(href);
+  const [expanded, setExpanded] = useState(!startAsChip);
+  if (!url) return <>{children ?? href}</>;
 
   return (
     <FollowHoverCard
       cardWidth={LINK_OG_CARD_WIDTH}
       cardApproxHeight={LINK_OG_CARD_HEIGHT}
       contentClassName="overflow-hidden p-0"
-      stopTriggerPropagation={false}
-      content={
-        <LinkOgPreviewBody
-          url={url}
-          preview={preview}
-          isLoading={previewQuery.isFetching}
-        />
-      }
+      content={<ComposerLinkOgPreview url={url} />}
     >
-      <a
-        {...rest}
-        href={url}
-        onClick={onClick}
-        title={url}
-        data-link-preview-chip=""
-        className={cn(chipClassName, className)}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={favicon}
-          alt=""
-          referrerPolicy="no-referrer"
-          className="size-3 shrink-0 rounded-full"
-        />
-        <span className="min-w-0 truncate">{title}</span>
-      </a>
+      {expanded ? (
+        <HttpTextLink href={url}>{url}</HttpTextLink>
+      ) : (
+        <UrlChipTrigger url={url} onExpand={() => setExpanded(true)} />
+      )}
     </FollowHoverCard>
   );
+}
+
+function UrlChipTrigger({
+  url,
+  onExpand,
+}: {
+  url: string;
+  onExpand: () => void;
+}) {
+  const preview = useFetchedLinkPreview(url);
+  const title = (preview.title || hostnameFromUrl(url)).trim();
+  const favicon = preview.favicon_url || googleFaviconUrl(url);
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      data-url-chip=""
+      data-kind="url"
+      className={URL_CHIP_CLASSNAME}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onExpand();
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        event.stopPropagation();
+        onExpand();
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={favicon}
+        alt=""
+        referrerPolicy="no-referrer"
+        className="block size-3 shrink-0 rounded-full"
+      />
+      <span className="min-w-0 max-w-[12rem] truncate">{title}</span>
+    </span>
+  );
+}
+
+function useFetchedLinkPreview(url: string): LinkPreviewPayload {
+  const [preview, setPreview] = useState(
+    () => peekLinkPreview(url) ?? localLinkPreviewFallback(url),
+  );
+  useEffect(() => {
+    let cancelled = false;
+    const cached = peekLinkPreview(url);
+    if (cached) {
+      setPreview(cached);
+      return () => {
+        cancelled = true;
+      };
+    }
+    setPreview(localLinkPreviewFallback(url));
+    void fetchLinkPreview(url)
+      .then((data) => {
+        if (!cancelled && data) setPreview(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+  return preview;
 }

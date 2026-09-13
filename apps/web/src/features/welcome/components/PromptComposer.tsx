@@ -45,13 +45,19 @@ import {
   formatUrlToken,
   googleFaviconUrl,
   hostnameFromUrl,
+  COMPOSER_HTTP_TEXT_CLASSNAME,
   LINK_OG_CARD_HEIGHT,
   LINK_OG_CARD_WIDTH,
+  normalizeHttpUrl,
   parsePastedHttpUrl,
   parseUrlToken,
 } from "@/shared/lib/link-preview";
 import { FollowHoverCard } from "@/shared/components/follow-hover-card";
 import { ComposerLinkOgPreview } from "@/shared/components/composer-link-og-preview";
+import {
+  fetchLinkPreview,
+  peekLinkPreview,
+} from "@/shared/lib/link-preview-query";
 import {
   imageExtensionForFile,
   normalizeComposerImageFile,
@@ -695,7 +701,7 @@ function buildChipNode(token: string): HTMLSpanElement {
     span.dataset.kind = "url";
     span.dataset.tooltip = url;
     span.className +=
-      " cursor-default border-border/70 bg-muted/60 text-foreground";
+      " cursor-pointer border-border/70 bg-muted/60 text-foreground";
     const icon = document.createElement("img");
     icon.dataset.urlChipIcon = "";
     icon.src = googleFaviconUrl(url);
@@ -708,12 +714,26 @@ function buildChipNode(token: string): HTMLSpanElement {
     label.className = "min-w-0 max-w-[12rem] truncate";
     label.textContent = hostnameFromUrl(url);
     span.appendChild(label);
-    void import("@/shared/lib/link-preview-query")
-      .then(({ fetchLinkPreview }) => fetchLinkPreview(url))
-      .then((preview) => applyLinkPreviewToChip(span, preview))
-      .catch(() => {});
+    hydrateComposerUrlChip(span);
   }
   return span;
+}
+
+function hydrateComposerUrlChip(span: HTMLElement) {
+  const url = parseUrlToken(span.getAttribute("data-token") ?? "");
+  if (!url) return;
+  const cached = peekLinkPreview(url);
+  if (cached) {
+    applyLinkPreviewToChip(span, cached);
+    return;
+  }
+  void fetchLinkPreview(url)
+    .then((preview) => applyLinkPreviewToChip(span, preview))
+    .catch(() => {});
+}
+
+function hydrateComposerUrlChips(root: HTMLElement) {
+  root.querySelectorAll<HTMLElement>("[data-kind='url']").forEach(hydrateComposerUrlChip);
 }
 
 function serialize(root: HTMLElement): string {
@@ -752,16 +772,24 @@ function serializeRange(range: Range): string {
   return serialize(container);
 }
 
-function getCaretTextOffset(root: HTMLElement): number | null {
+function getRangeStartTextOffset(root: HTMLElement): number | null {
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0) return null;
   const range = sel.getRangeAt(0);
-  if (!range.collapsed || !root.contains(range.startContainer)) return null;
+  if (!root.contains(range.startContainer)) return null;
 
   const beforeRange = range.cloneRange();
   beforeRange.selectNodeContents(root);
   beforeRange.setEnd(range.startContainer, range.startOffset);
   return serializeRange(beforeRange).length;
+}
+
+function getCaretTextOffset(root: HTMLElement): number | null {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  const range = sel.getRangeAt(0);
+  if (!range.collapsed || !root.contains(range.startContainer)) return null;
+  return getRangeStartTextOffset(root);
 }
 
 function getChipBoundaryTextOffset(
@@ -1667,6 +1695,32 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         return;
       }
       if (
+        event.key === " " &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        !event.nativeEvent.isComposing &&
+        editorRef.current &&
+        breakComposerUrlLinkAtCaret(editorRef.current, " ")
+      ) {
+        event.preventDefault();
+        fireChange();
+        rememberCaretOffset();
+        return;
+      }
+      if (
+        event.key === "Enter" &&
+        event.shiftKey &&
+        !event.nativeEvent.isComposing &&
+        editorRef.current &&
+        breakComposerUrlLinkAtCaret(editorRef.current, "\n")
+      ) {
+        event.preventDefault();
+        fireChange();
+        rememberCaretOffset();
+        return;
+      }
+      if (
         (event.key === "Backspace" || event.key === "Delete") &&
         !event.metaKey &&
         !event.ctrlKey &&
@@ -1787,6 +1841,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           editorRef.current,
           `[#appshot:${appshotProtocol.timestamp}]`,
         );
+        rememberCaretOffset();
         fireChange();
         return;
       }
@@ -1795,6 +1850,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         event.preventDefault();
         const token = registerAiContextPrompt(aiContext.kind, aiContext.promptText);
         insertChipAtCaretWithUndo(editorRef.current, token);
+        rememberCaretOffset();
         fireChange();
         return;
       }
@@ -1803,30 +1859,32 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       const pastedUrl = parsePastedHttpUrl(text);
       if (pastedUrl) {
         insertChipAtCaretWithUndo(editorRef.current, formatUrlToken(pastedUrl));
-        fireChange();
         rememberCaretOffset();
+        fireChange();
         return;
       }
       if (shouldChipPlainPaste(text)) {
         const token = registerComposerPaste(text);
         insertChipAtCaretWithUndo(editorRef.current, token);
-        fireChange();
         rememberCaretOffset();
+        fireChange();
         return;
       }
       insertPlainTextAtCaretWithUndo(editorRef.current, text);
-      fireChange();
       rememberCaretOffset();
+      fireChange();
     };
 
     const handleEditorMouseOver = (event: React.MouseEvent<HTMLDivElement>) => {
       const target = event.target as HTMLElement | null;
-      const urlChip = target?.closest?.("[data-kind='url']") as HTMLElement | null;
-      if (urlChip && editorRef.current?.contains(urlChip)) {
-        const url = parseUrlToken(urlChip.getAttribute("data-token") ?? "");
+      const urlEl = target?.closest?.(
+        "[data-kind='url'], [data-kind='url-link']",
+      ) as HTMLElement | null;
+      if (urlEl && editorRef.current?.contains(urlEl)) {
+        const url = urlFromComposerUrlEl(urlEl);
         if (url) {
           setChipTooltip(null);
-          setUrlHover({ el: urlChip, url });
+          setUrlHover({ el: urlEl, url });
         }
         return;
       }
@@ -1867,8 +1925,10 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
     const handleEditorMouseOut = (event: React.MouseEvent<HTMLDivElement>) => {
       const related = event.relatedTarget as Node | null;
       const target = event.target as HTMLElement | null;
-      const urlChip = target?.closest?.("[data-kind='url']") as HTMLElement | null;
-      if (urlChip) return;
+      const urlEl = target?.closest?.(
+        "[data-kind='url'], [data-kind='url-link']",
+      ) as HTMLElement | null;
+      if (urlEl) return;
       const pasteChip = target?.closest?.("[data-kind='paste']") as HTMLElement | null;
       if (pasteChip) {
         if (related && pasteChip.contains(related)) return;
@@ -1888,22 +1948,37 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
 
     const handleEditorMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
       const target = event.target as HTMLElement | null;
-      const chip = target?.closest?.("[data-kind='paste']") as HTMLElement | null;
+      const chip = target?.closest?.(
+        "[data-kind='paste'], [data-kind='url']",
+      ) as HTMLElement | null;
       if (!chip || !editorRef.current?.contains(chip)) return;
       event.preventDefault();
     };
 
     const handleEditorClick = (event: React.MouseEvent<HTMLDivElement>) => {
       const target = event.target as HTMLElement | null;
-      const chip = target?.closest?.("[data-kind='paste']") as HTMLElement | null;
-      if (!chip || !editorRef.current?.contains(chip)) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const expanded = expandPasteChipInPlace(chip);
-      if (!expanded) return;
-      setChipTooltip(null);
-      fireChange();
-      rememberCaretOffset();
+      const pasteChip = target?.closest?.("[data-kind='paste']") as HTMLElement | null;
+      if (pasteChip && editorRef.current?.contains(pasteChip)) {
+        event.preventDefault();
+        event.stopPropagation();
+        const expanded = expandPasteChipInPlace(pasteChip);
+        if (!expanded) return;
+        setChipTooltip(null);
+        fireChange();
+        rememberCaretOffset();
+        return;
+      }
+      const urlChip = target?.closest?.("[data-kind='url']") as HTMLElement | null;
+      if (urlChip && editorRef.current?.contains(urlChip)) {
+        event.preventDefault();
+        event.stopPropagation();
+        setUrlHover(null);
+        setChipTooltip(null);
+        const expanded = expandUrlChipInPlace(urlChip);
+        if (!expanded) return;
+        fireChange();
+        rememberCaretOffset();
+      }
     };
 
     React.useEffect(() => () => clearSkillDisableDismiss(), [clearSkillDisableDismiss]);
@@ -2020,14 +2095,32 @@ function insertPlainTextAtCaretWithUndo(root: HTMLElement, text: string) {
 }
 
 function insertChipAtCaretWithUndo(root: HTMLElement, token: string) {
+  const startOffset = getRangeStartTextOffset(root);
   const container = document.createElement("div");
   container.append(
     buildChipNode(token),
     document.createTextNode(CHIP_TRAILING_SPACER),
   );
-  if (document.execCommand?.("insertHTML", false, container.innerHTML)) return;
-  insertNodeAtCaret(root, buildChipNode(token));
-  insertNodeAtCaret(root, document.createTextNode(CHIP_TRAILING_SPACER));
+  const insertedHtml = Boolean(
+    document.execCommand?.("insertHTML", false, container.innerHTML),
+  );
+  if (insertedHtml) {
+    // insertHTML re-parses markup, so bind OG hydration to the live chip.
+    hydrateComposerUrlChips(root);
+  } else {
+    insertNodeAtCaret(root, buildChipNode(token));
+    insertNodeAtCaret(root, document.createTextNode(CHIP_TRAILING_SPACER));
+  }
+  // Chrome leaves the caret before a contenteditable=false chip after
+  // insertHTML. Always place it after the chip + trailing spacer.
+  const insertedLength = token.length + CHIP_TRAILING_SPACER.length;
+  const nextOffset =
+    (startOffset ?? Math.max(0, serialize(root).length - insertedLength)) +
+    insertedLength;
+  setCaretAtTextOffset(
+    root,
+    Math.max(0, Math.min(nextOffset, serialize(root).length)),
+  );
 }
 
 function expandPasteChipInPlace(chip: HTMLElement): boolean {
@@ -2037,6 +2130,80 @@ function expandPasteChipInPlace(chip: HTMLElement): boolean {
   const textNode = document.createTextNode(payload.text);
   const spacer = chip.nextSibling;
   chip.replaceWith(textNode);
+  if (
+    spacer?.nodeType === Node.TEXT_NODE &&
+    (spacer.textContent === CHIP_TRAILING_SPACER || spacer.textContent === "\u00A0")
+  ) {
+    spacer.remove();
+  }
+  const range = document.createRange();
+  range.setStart(textNode, textNode.length);
+  range.collapse(true);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(range);
+  return true;
+}
+
+function breakComposerUrlLinkAtCaret(root: HTMLElement, insert: string): boolean {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || !sel.isCollapsed) return false;
+  const range = sel.getRangeAt(0);
+  if (!root.contains(range.startContainer)) return false;
+  const start =
+    range.startContainer.nodeType === Node.ELEMENT_NODE
+      ? (range.startContainer as Element)
+      : range.startContainer.parentElement;
+  const link = start?.closest?.("[data-kind='url-link']") as HTMLElement | null;
+  if (!link || !root.contains(link)) return false;
+
+  const full = link.textContent ?? "";
+  const beforeRange = range.cloneRange();
+  beforeRange.selectNodeContents(link);
+  beforeRange.setEnd(range.startContainer, range.startOffset);
+  const splitAt = beforeRange.toString().length;
+  const before = full.slice(0, splitAt);
+  const after = full.slice(splitAt);
+  const rest = document.createTextNode(`${insert}${after}`);
+  const url = normalizeHttpUrl(before);
+
+  if (url && before.length > 0) {
+    link.textContent = before;
+    link.dataset.url = url;
+    link.after(rest);
+  } else {
+    const plain = document.createTextNode(before);
+    link.replaceWith(plain);
+    plain.after(rest);
+  }
+
+  const caret = document.createRange();
+  caret.setStart(rest, insert.length);
+  caret.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(caret);
+  return true;
+}
+
+function urlFromComposerUrlEl(el: HTMLElement): string | null {
+  if (el.dataset.kind === "url") {
+    return parseUrlToken(el.getAttribute("data-token") ?? "");
+  }
+  return normalizeHttpUrl(el.textContent) ?? normalizeHttpUrl(el.dataset.url);
+}
+
+function expandUrlChipInPlace(chip: HTMLElement): boolean {
+  const url = parseUrlToken(chip.getAttribute("data-token") ?? "");
+  if (!url) return false;
+  const textNode = document.createTextNode(url);
+  const mark = document.createElement("span");
+  mark.dataset.kind = "url-link";
+  mark.dataset.httpTextLink = "";
+  mark.dataset.url = url;
+  mark.className = COMPOSER_HTTP_TEXT_CLASSNAME;
+  mark.appendChild(textNode);
+  const spacer = chip.nextSibling;
+  chip.replaceWith(mark);
   if (
     spacer?.nodeType === Node.TEXT_NODE &&
     (spacer.textContent === CHIP_TRAILING_SPACER || spacer.textContent === "\u00A0")

@@ -32,6 +32,14 @@ function fromWire(payload: WireLinkPreviewPayload): LinkPreviewPayload {
   };
 }
 
+export function prefetchOgImage(url: string | null | undefined): void {
+  if (!url || typeof window === "undefined") return;
+  const image = new Image();
+  image.referrerPolicy = "no-referrer";
+  image.decoding = "async";
+  image.src = url;
+}
+
 export async function fetchLinkPreview(url: string): Promise<LinkPreviewPayload> {
   const normalized = normalizeHttpUrl(url);
   if (!normalized) {
@@ -51,6 +59,8 @@ export async function fetchLinkPreview(url: string): Promise<LinkPreviewPayload>
       const preview = fromWire(payload);
       PREVIEW_CACHE.set(normalized, preview);
       PREVIEW_INFLIGHT.delete(normalized);
+      prefetchOgImage(preview.image_url);
+      prefetchOgImage(preview.favicon_url);
       return preview;
     })
     .catch((error: unknown) => {

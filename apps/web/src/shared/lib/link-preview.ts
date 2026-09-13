@@ -1,6 +1,17 @@
 export const LINK_OG_CARD_WIDTH = 400;
 export const LINK_OG_CARD_HEIGHT = 268;
 
+export const HTTP_TEXT_LINK_DECORATION_CLASSNAME =
+  "break-all text-foreground underline decoration-dashed decoration-foreground/40 underline-offset-4";
+
+export const HTTP_TEXT_LINK_CLASSNAME =
+  `cursor-pointer rounded-sm px-0.5 -mx-0.5 ${HTTP_TEXT_LINK_DECORATION_CLASSNAME} hover:bg-muted hover:decoration-foreground`;
+
+export const COMPOSER_HTTP_TEXT_CLASSNAME = `cursor-text ${HTTP_TEXT_LINK_DECORATION_CLASSNAME}`;
+
+export const URL_CHIP_CLASSNAME =
+  "inline-flex h-[18px] max-w-[min(100%,16rem)] cursor-pointer select-none items-center gap-1 box-border rounded-full border border-border/70 bg-muted/60 px-1.5 align-top text-[12px] font-medium leading-none text-foreground overflow-hidden mx-[1px]";
+
 export const URL_TOKEN_PREFIX = "[#url:";
 export const URL_TOKEN_SOURCE = String.raw`\[#url:[^\]]+\]`;
 export const URL_TOKEN_PATTERN = /\[#url:([^\]]+)\]/g;
@@ -87,17 +98,90 @@ export function parseUrlToken(token: string): string | null {
   }
 }
 
+const URL_DISPLAYS = new Map<string, string>();
+
+function hashDisplayText(value: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `${value.length.toString(36)}:${(hash >>> 0).toString(36)}`;
+}
+
 export function expandUrlTokens(text: string): string {
   URL_TOKEN_PATTERN.lastIndex = 0;
   if (!URL_TOKEN_PATTERN.test(text)) return text;
   URL_TOKEN_PATTERN.lastIndex = 0;
-  return text.replace(URL_TOKEN_PATTERN, (match, encoded: string) => {
+  const expanded = text.replace(URL_TOKEN_PATTERN, (match, encoded: string) => {
     try {
       return normalizeHttpUrl(decodeURIComponent(encoded)) ?? match;
     } catch {
       return match;
     }
   });
+  if (expanded !== text) {
+    URL_DISPLAYS.set(hashDisplayText(expanded), text);
+    const trimmed = expanded.trim();
+    if (trimmed !== expanded) {
+      URL_DISPLAYS.set(hashDisplayText(trimmed), text.trim());
+    }
+  }
+  return expanded;
+}
+
+export function displayTextWithUrlTokens(expandedText: string): string {
+  return URL_DISPLAYS.get(hashDisplayText(expandedText)) ?? expandedText;
+}
+
+export type UrlDisplaySegment =
+  | { type: "text"; value: string }
+  | { type: "url-chip"; url: string };
+
+export function splitTextWithUrlTokens(text: string): UrlDisplaySegment[] {
+  const segments: UrlDisplaySegment[] = [];
+  const pattern = new RegExp(URL_TOKEN_SOURCE, "g");
+  let last = 0;
+  for (const match of text.matchAll(pattern)) {
+    const token = match[0] ?? "";
+    const index = match.index ?? 0;
+    if (index > last) {
+      segments.push({ type: "text", value: text.slice(last, index) });
+    }
+    const url = parseUrlToken(token);
+    if (url) {
+      segments.push({ type: "url-chip", url });
+    } else {
+      segments.push({ type: "text", value: token });
+    }
+    last = index + token.length;
+  }
+  if (last < text.length) {
+    segments.push({ type: "text", value: text.slice(last) });
+  }
+  if (segments.length === 0 && text) {
+    segments.push({ type: "text", value: text });
+  }
+  return segments;
+}
+
+export function isCompletePreviewUrl(value: string | null | undefined): boolean {
+  if (!value || value === "streamdown:incomplete-link") return false;
+  const url = normalizeHttpUrl(value);
+  if (!url) return false;
+  try {
+    const host = new URL(url).hostname;
+    if (!host) return false;
+    if (host === "localhost" || host.endsWith(".localhost")) return true;
+    if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)) return true;
+    return host.includes(".");
+  } catch {
+    return false;
+  }
+}
+
+export function __resetUrlDisplaysForTests(): void {
+  URL_DISPLAYS.clear();
 }
 
 export function splitTextWithHttpUrls(text: string): TextOrUrlSegment[] {
@@ -129,7 +213,15 @@ export function applyLinkPreviewToChip(chip: HTMLElement, preview: LinkPreviewPa
   const icon = chip.querySelector("[data-url-chip-icon]") as HTMLImageElement | null;
   const label = chip.querySelector("[data-url-chip-label]") as HTMLElement | null;
   const favicon = preview.favicon_url || googleFaviconUrl(preview.url);
-  if (icon && icon.src !== favicon) icon.src = favicon;
+  if (icon && favicon && icon.src !== favicon) {
+    const current = icon.src;
+    const probe = new Image();
+    probe.referrerPolicy = "no-referrer";
+    probe.onload = () => {
+      if (icon.src === current || icon.src === favicon) icon.src = favicon;
+    };
+    probe.src = favicon;
+  }
   const title = (preview.title || hostnameFromUrl(preview.url)).trim();
   if (label && title && label.textContent !== title) label.textContent = title;
   chip.dataset.tooltip = preview.url;

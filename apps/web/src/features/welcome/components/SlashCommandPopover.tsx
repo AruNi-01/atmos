@@ -1,7 +1,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
-import { Switch, cn } from "@workspace/ui";
+import { ScrollArea, Switch, cn } from "@workspace/ui";
 import {
   ChevronLeft,
   EyeOff,
@@ -366,7 +366,13 @@ export function SlashCommandPopover({
   };
 
   const menuContent = (
-    <div ref={listRef} className="max-h-80 space-y-0.5 overflow-y-auto p-1">
+    <div ref={listRef}>
+    <ScrollArea
+      scrollFade
+      className="h-auto max-h-80 w-full"
+      viewportClassName="h-auto max-h-80"
+    >
+      <div className="space-y-0.5 p-1">
       {showCommands ? (
         <SlashCommandSection
           activeIndex={activeIndex}
@@ -637,6 +643,8 @@ export function SlashCommandPopover({
           </span>
         </div>
       ) : null}
+      </div>
+    </ScrollArea>
     </div>
   );
 
@@ -658,7 +666,13 @@ export function SlashCommandPopover({
           {disableT("title")}
         </p>
       </div>
-      <div ref={disableListScrollRef} className="min-h-0 flex-1 overflow-y-auto p-1.5">
+      <div ref={disableListScrollRef} className="min-h-0 flex-1">
+      <ScrollArea
+        scrollFade
+        className="h-full min-h-0 w-full"
+        viewportClassName="h-full min-h-0"
+      >
+        <div className="p-1.5">
         {disableSkills?.loading ? (
           <div className="flex items-center gap-2 px-2.5 py-3 text-xs text-muted-foreground">
             <Loader2 className="size-3.5 animate-spin" />
@@ -727,6 +741,8 @@ export function SlashCommandPopover({
         {disableSkills?.error ? (
           <p className="px-2.5 py-2 text-[11px] text-destructive">{disableSkills.error}</p>
         ) : null}
+        </div>
+      </ScrollArea>
       </div>
     </div>
   );
@@ -736,7 +752,7 @@ export function SlashCommandPopover({
       <div className="fixed inset-0 z-[2147483646]" onMouseDown={handleBackdrop} />
       <div
         className={cn(
-          "fixed z-[2147483647] overflow-hidden rounded-md border border-border/70 bg-popover text-sm text-popover-foreground shadow-md transition-[width] duration-250 ease-out",
+          "fixed z-[2147483647] overflow-hidden rounded-2xl border border-border/70 bg-popover text-sm text-popover-foreground shadow-md transition-[width] duration-250 ease-out",
           view === "disable_skills" ? "w-[min(92vw,380px)]" : "w-[min(90vw,460px)]",
         )}
         style={{
