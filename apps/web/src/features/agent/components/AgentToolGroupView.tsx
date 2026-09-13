@@ -122,9 +122,7 @@ export function AgentToolGroupView({
                 if (rendered == null) return null;
                 return { part, origIndex, rendered };
               })
-              .filter((row): row is { part: AgentPart; origIndex: number; rendered: ReactNode } =>
-                row != null
-              )
+              .filter((row): row is NonNullable<typeof row> => row != null)
               .map((row, index, rows) => {
                 const itemKey = row.part.type === "tool_call"
                   ? row.part.tool_call_id || `${row.part.name}-${index}`

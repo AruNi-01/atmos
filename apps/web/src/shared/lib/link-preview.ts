@@ -165,7 +165,7 @@ export function splitTextWithUrlTokens(text: string): UrlDisplaySegment[] {
   return segments;
 }
 
-export function isCompletePreviewUrl(value: string | null | undefined): boolean {
+export function isCompletePreviewUrl(value: string | null | undefined): value is string {
   if (!value || value === "streamdown:incomplete-link") return false;
   const url = normalizeHttpUrl(value);
   if (!url) return false;

@@ -18,7 +18,7 @@ export const MD_LIVE_EMBEDS: MdLiveEmbedDefinition[] = [
       id: "github",
       label: "slashGithub",
       keywords: "github issue pull request pr ticket",
-      embed: "github",
+      embed: "github-issue",
     },
     View: GithubMdLiveEmbed,
   },

@@ -139,7 +139,7 @@ export function chatAgentKind(agent: {
 
 /** Families that currently list both a Native and an ACP option. */
 export function contestedChatAgentFamilies(
-  agents: Array<{ id: string; install_method?: string | null }>,
+  agents: ReadonlyArray<{ id: string; install_method?: string | null }>,
 ): Set<NativeChatHostId> {
   const kindsByFamily = new Map<NativeChatHostId, Set<ChatAgentKind>>();
   for (const agent of agents) {

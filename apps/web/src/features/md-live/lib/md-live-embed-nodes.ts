@@ -1,4 +1,5 @@
 import type { Node } from "@milkdown/kit/prose/model";
+import type { MarkdownNode, ParserState } from "@milkdown/kit/transformer";
 import { $node, $remark } from "@milkdown/kit/utils";
 import remarkDirective from "remark-directive";
 import {
@@ -32,11 +33,11 @@ export function specFromNode(node: Node): MdLiveEmbedSpec {
 }
 
 function restoreUnknownTextDirective(
-  state: { addText: (text: string) => unknown; next: (nodes?: unknown) => unknown },
+  state: ParserState,
   node: {
     name?: string;
     attributes?: Record<string, string | null | undefined> | null;
-    children?: unknown[];
+    children?: MarkdownNode[];
   },
 ) {
   state.addText(`:${node.name ?? ""}`);
@@ -50,14 +51,14 @@ function restoreUnknownTextDirective(
 }
 
 function restoreUnknownReference(
-  state: { addText: (text: string) => unknown; next: (nodes?: unknown) => unknown },
+  state: ParserState,
   node: {
     type: string;
     alt?: string | null;
     label?: string | null;
     identifier?: string;
     referenceType?: string;
-    children?: unknown[];
+    children?: MarkdownNode[];
   },
 ) {
   const label = node.label || node.identifier || "";
@@ -76,18 +77,12 @@ function restoreUnknownReference(
 }
 
 function restoreUnknownBlockDirective(
-  state: {
-    addText: (text: string) => unknown;
-    next: (nodes?: unknown) => unknown;
-    openNode: (type: unknown) => unknown;
-    closeNode: () => unknown;
-    schema: { nodes: Record<string, unknown> };
-  },
+  state: ParserState,
   node: {
     type: string;
     name?: string;
     attributes?: Record<string, string | null | undefined> | null;
-    children?: unknown[];
+    children?: MarkdownNode[];
   },
 ) {
   const paragraph = state.schema.nodes.paragraph;

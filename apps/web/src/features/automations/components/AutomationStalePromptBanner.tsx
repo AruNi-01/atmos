@@ -73,7 +73,7 @@ export function AutomationStalePromptBanner({
       surface_session_id: run.surface_session_id,
     }));
 
-  const prompts = [...fromRuns];
+  const prompts: StalePromptEvent[] = [...fromRuns];
   for (const live of livePrompts) {
     if (!prompts.some((item) => item.run_guid === live.run_guid)) {
       prompts.push(live);

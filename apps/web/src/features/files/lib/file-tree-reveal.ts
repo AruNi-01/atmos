@@ -105,7 +105,7 @@ export async function expandFileTreeRevealAncestors(params: {
 
 /** Prefer the ScrollArea viewport when the marker sits on the root. */
 export function resolveFileTreeScrollElement(
-  node: Element | null,
+  node: Element | null | undefined,
 ): HTMLElement | null {
   if (!node) return null;
   const element = node as HTMLElement;
