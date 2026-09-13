@@ -7,6 +7,7 @@ import { agentManagerParams, type AgentManagerView as AgentManagerMode, type Age
 import {
   Button,
   Input,
+  ScrollArea,
   Tabs,
   TabsContent,
   Tooltip,
@@ -236,8 +237,9 @@ export const AgentManagerView: React.FC = () => {
         onValueChange={(v) => setAgentParams({ agentTab: v as AgentTab })}
         className="flex-1 flex flex-col overflow-hidden"
       >
-        <div className="flex-1 scrollbar-on-hover overflow-auto px-8 pt-4 pb-8">
-          <div className="max-w-5xl mx-auto w-full">
+        <ScrollArea className="min-h-0 flex-1" scrollFade>
+          <div className="px-8 pt-4 pb-8">
+            <div className="mx-auto w-full max-w-5xl">
             <TabsContent keepMounted value="native">
               {mgr.loading ? <AgentSkeletonGrid /> : (
                 <>
@@ -354,8 +356,9 @@ export const AgentManagerView: React.FC = () => {
                 </>
               )}
             </TabsContent>
+            </div>
           </div>
-        </div>
+        </ScrollArea>
       </Tabs>
           </motion.div>
         )}

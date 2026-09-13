@@ -140,6 +140,7 @@ describe("agent composer attachments", () => {
     expect(document.querySelector("[data-image-preview-overlay]")).toBeNull();
     expect(document.querySelector("[data-image-preview-context-menu]")).not.toBeNull();
     expect(document.querySelector("[data-image-preview-copy]")).not.toBeNull();
+    expect(document.querySelector("[data-image-preview-save]")).not.toBeNull();
   });
 
   it("removes an image without opening the preview overlay", async () => {

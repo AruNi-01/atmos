@@ -37,7 +37,7 @@ describe("agent chat modal frame", () => {
     expect(panel).toContain('className={cn("relative z-10 shrink-0", wideContentClassName)}');
     expect(panel).toContain('data-agent-chat-timeline-nav=""');
     expect(panel).toContain("relative w-5 shrink-0");
-    expect(panel).toContain("gap-3 p-4! pr-2!");
+    expect(panel).toContain("gap-3 px-3 py-4");
     expect(panel).toContain("userMessageIndices.length > 1");
     expect(panel).toContain("<AgentPromptComposer");
     expect(panel).not.toContain('(pendingPermission || pendingSessionOp) && "gap-2"');

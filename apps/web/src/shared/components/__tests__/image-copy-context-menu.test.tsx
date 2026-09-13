@@ -4,12 +4,22 @@ import { Window } from "happy-dom";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
+mock.module("@workspace/ui", () => ({
+  toastManager: {
+    add: () => undefined,
+  },
+}));
+
 mock.module("next-intl", () => ({
   useTranslations: () => (key: string) =>
     ({
+      menu: "Image actions",
       copyImage: "Copy image",
+      saveImage: "Save image",
       copyFailedTitle: "Copy failed",
+      saveFailedTitle: "Save failed",
       clipboardUnavailable: "Could not copy the image to the clipboard.",
+      saveUnavailable: "Could not save the image to this computer.",
     })[key] ?? key,
 }));
 
@@ -58,7 +68,9 @@ describe("ImageCopyMenuHost", () => {
     expect(menu).not.toBeNull();
     const copyItem = menu?.querySelector("[data-image-preview-copy]");
     expect(copyItem).not.toBeNull();
+    expect(menu?.querySelector("[data-image-preview-save]")).not.toBeNull();
     expect(menu?.textContent).toMatch(/Copy image|copyImage/);
+    expect(menu?.textContent).toMatch(/Save image|saveImage/);
     expect(onPreview).not.toHaveBeenCalled();
     expect(copyItem?.className).not.toContain("focus:bg-accent");
     expect(copyItem?.className).toContain("hover:bg-accent");

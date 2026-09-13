@@ -14,6 +14,19 @@ export const AGENT_CHAT_ASSISTANT_MERMAID_ROW_ESTIMATE = 480;
 /** StickToBottom scroll container class — virtualizer reads this, not the context. */
 export const AGENT_CHAT_SCROLL_CLASS = "agent-chat-scroll";
 
+/** Flush with the transcript scrollport so agent tokens cannot show above it. */
+export const AGENT_CHAT_STICKY_USER_TOP_PX = 0;
+
+/** Fade height under the pinned prompt; hidden when the next user prompt arrives. */
+export const AGENT_CHAT_STICKY_USER_FADE_PX = 32;
+
+export const AGENT_CHAT_STICKY_USER_ROW_CLASS =
+  "sticky left-0 z-20 w-full bg-background [box-shadow:-0.75rem_0_0_0_var(--background),0.75rem_0_0_0_var(--background)] after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-8 after:bg-gradient-to-b after:from-background after:to-transparent after:transition-opacity data-[sticky-user-fade=off]:after:opacity-0";
+
+/** Fade messages into the composer so the bottom edge is not a hard clip. */
+export const AGENT_CHAT_COMPOSER_FADE_CLASS =
+  "pointer-events-none absolute inset-x-0 bottom-0 z-10 h-14 bg-gradient-to-t from-background from-10% via-background/70 to-transparent";
+
 /** In-flow spacer under the last message when no above-composer overlays are open. */
 export const AGENT_CHAT_TRANSCRIPT_BASE_BOTTOM_PAD_PX = 40;
 
@@ -128,4 +141,13 @@ export function mergeMermaidKeepAliveRange(
   const extra = kept.filter((index) => !seen.has(index));
   const range = extra.length === 0 ? [...base] : [...base, ...extra].sort((a, b) => a - b);
   return { range, kept };
+}
+
+/** Keep a sticky user row mounted after it leaves the default virtual window. */
+export function mergeStickyUserRange(
+  base: readonly number[],
+  stickyIndex: number | null,
+): number[] {
+  if (stickyIndex == null || base.includes(stickyIndex)) return [...base];
+  return [...base, stickyIndex].sort((a, b) => a - b);
 }

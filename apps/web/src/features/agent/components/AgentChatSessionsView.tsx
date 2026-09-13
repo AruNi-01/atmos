@@ -10,6 +10,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  ScrollArea,
   Select,
   SelectContent,
   SelectItem,
@@ -524,7 +525,7 @@ export const AgentChatSessionsView: React.FC<AgentChatSessionsViewProps> = ({
                     </Button>
                   </div>
                 </div>
-                <div className="mt-1 max-h-72 overflow-y-auto pr-1">
+                <ScrollArea className="mt-1 max-h-72" scrollFade viewportClassName="pr-1">
                   {projectWorkspaceOptions.length === 0 ? (
                     <div className="px-2 py-6 text-center text-sm text-muted-foreground">
                       {t("workspacePopover.empty")}
@@ -545,7 +546,7 @@ export const AgentChatSessionsView: React.FC<AgentChatSessionsViewProps> = ({
                       </label>
                     ))
                   )}
-                </div>
+                </ScrollArea>
                 <div className="mt-2 flex items-center justify-between gap-3 border-t border-border/50 px-2 pt-2">
                   <span className="min-w-0 text-xs text-muted-foreground">
                     {t("workspacePopover.selectedCount", { count: draftWorkspaceIds.length })}
@@ -640,7 +641,7 @@ export const AgentChatSessionsView: React.FC<AgentChatSessionsViewProps> = ({
           renderToolbar(true)
         )}
 
-        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-on-hover">
+        <ScrollArea className="min-h-0 flex-1" scrollFade>
           <div className="px-8">
             <div className="mx-auto max-w-5xl pb-12">
               {loadError ? (
@@ -836,7 +837,7 @@ export const AgentChatSessionsView: React.FC<AgentChatSessionsViewProps> = ({
               )}
             </div>
           </div>
-        </div>
+        </ScrollArea>
       </div>
     </TooltipProvider>
   );

@@ -1,11 +1,15 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, type MouseEvent } from "react";
 import { useTranslations } from "next-intl";
 import { File as FileIcon, X } from "lucide-react";
 import { cn, usePromptInputAttachments } from "@workspace/ui";
 import { ImageCopyMenuHost } from "@/shared/components/image-copy-context-menu";
-import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
+import {
+  ImagePreviewOverlay,
+  imagePreviewOriginRectFromElement,
+  type ImagePreviewOriginRect,
+} from "@/shared/components/image-preview-overlay";
 import {
   composerAttachmentLabel,
   isImageComposerAttachment,
@@ -34,7 +38,11 @@ export function AgentComposerAttachmentList({
   className?: string;
 }) {
   const t = useTranslations("Agent.components.composer.attachments");
-  const [preview, setPreview] = useState<{ src: string; alt: string } | null>(null);
+  const [preview, setPreview] = useState<{
+    src: string;
+    alt: string;
+    originRect: ImagePreviewOriginRect | null;
+  } | null>(null);
 
   const handleRemove = useCallback(
     (file: ComposerAttachmentFile) => {
@@ -73,7 +81,13 @@ export function AgentComposerAttachmentList({
             label={label}
             previewLabel={t("preview", { filename: label })}
             removeLabel={onRemove ? t("removeNamed", { filename: label }) : undefined}
-            onPreview={() => setPreview({ src: file.url, alt: label })}
+            onPreview={(event) =>
+              setPreview({
+                src: file.url,
+                alt: label,
+                originRect: imagePreviewOriginRectFromElement(event.currentTarget),
+              })
+            }
             onRemove={onRemove ? () => handleRemove(file) : undefined}
           />
         ) : (
@@ -91,6 +105,7 @@ export function AgentComposerAttachmentList({
         <ImagePreviewOverlay
           src={preview.src}
           alt={preview.alt}
+          originRect={preview.originRect}
           onClose={() => setPreview(null)}
         />
       ) : null}
@@ -112,7 +127,7 @@ function ComposerImageTile({
   label: string;
   previewLabel: string;
   removeLabel?: string;
-  onPreview: () => void;
+  onPreview: (event: MouseEvent<HTMLButtonElement>) => void;
   onRemove?: () => void;
 }) {
   return (
@@ -132,8 +147,8 @@ function ComposerImageTile({
             "bg-muted/40 ring-1 ring-border/50",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             density === "compact"
-              ? "h-14 w-32 rounded-xl"
-              : "h-20 w-44 rounded-2xl",
+              ? "h-14 max-w-32 rounded-xl"
+              : "h-20 max-w-44 rounded-2xl",
           )}
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- composer previews use local object/data URLs. */}
@@ -141,7 +156,11 @@ function ComposerImageTile({
             src={file.url}
             alt={label}
             draggable={false}
-            className="size-full object-cover"
+            className={
+              density === "compact"
+                ? "block h-full w-auto max-w-32"
+                : "block h-full w-auto max-w-44"
+            }
           />
         </button>
       </ImageCopyMenuHost>

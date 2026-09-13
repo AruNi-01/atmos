@@ -23,6 +23,7 @@ import {
   type ContextWindowBarTone,
 } from "@/features/agent/lib/context-window-usage";
 import {
+  FACTORY_MANAGED_COMPUTERS_GROUP,
   FACTORY_USAGE_MODE_STANDARD,
   factoryManagedComputerMetrics,
   factoryUsageModes,
@@ -156,7 +157,14 @@ function AgentQuotaSection({
           });
           const usedText = view.percent != null ? `${Math.round(view.percent)}% ${tQuota("detail.usedSuffix")}` : view.valueText;
           return (
-            <div key={metricRowKey(metric)} className="space-y-1">
+            <div
+              key={
+                metric.group === FACTORY_MANAGED_COMPUTERS_GROUP
+                  ? metricRowKey(metric)
+                  : `window:${metric.label}`
+              }
+              className="space-y-1"
+            >
               <div className="flex items-baseline justify-between gap-3 text-xs">
                 <span className="font-medium text-foreground">
                   {quotaMetricHeading(view.label, usedText ?? "")}

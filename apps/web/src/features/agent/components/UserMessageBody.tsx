@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   HoverCard,
@@ -9,23 +9,26 @@ import {
 } from "@workspace/ui/components/ui/hover-card";
 import {
   buildPastePreview,
-  collapsedUserMessageText,
   displayTextForSentMessage,
   splitComposerDisplaySegments,
+  USER_MESSAGE_COLLAPSE_FADE_LINES,
+  USER_MESSAGE_COLLAPSE_LINES,
   userMessageNeedsCollapse,
   type ComposerDisplaySegment,
 } from "@/shared/lib/composer-paste";
-import { splitTextWithHttpUrls } from "@/shared/lib/link-preview";
-import { LinkPreviewChip } from "@/shared/components/link-preview-chip";
+import { displayTextWithUrlTokens } from "@/shared/lib/link-preview";
+import { UrlAwareText } from "@/shared/components/url-aware-text";
 
 export function UserMessageBody({ text }: { text: string }) {
   const display = displayTextForSentMessage(text);
   const segments = splitComposerDisplaySegments(display);
   const hasPasteChip = segments.some((segment) => segment.type === "paste");
   const needsLineCollapse = userMessageNeedsCollapse(text);
-  const canToggle = hasPasteChip || needsLineCollapse;
   const [expanded, setExpanded] = useState(false);
+  const [overflowsVisually, setOverflowsVisually] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const clipRef = useRef<HTMLDivElement>(null);
+  const canToggle = hasPasteChip || needsLineCollapse || overflowsVisually;
 
   useEffect(() => {
     if (!expanded || !canToggle) return;
@@ -39,8 +42,27 @@ export function UserMessageBody({ text }: { text: string }) {
 
   const collapsed = canToggle && !expanded;
   const showChips = hasPasteChip && collapsed;
-  const visibleText =
-    collapsed && needsLineCollapse ? collapsedUserMessageText(text) : text;
+  const clipText = !showChips && !expanded;
+  const withUrlTokens = displayTextWithUrlTokens(text);
+
+  useLayoutEffect(() => {
+    if (hasPasteChip) {
+      setOverflowsVisually(false);
+      return;
+    }
+    const el = clipRef.current;
+    if (!el) return;
+    const measure = () => {
+      const lineHeight = parseFloat(getComputedStyle(el).lineHeight);
+      const limit = (Number.isFinite(lineHeight) ? lineHeight : 21) * USER_MESSAGE_COLLAPSE_LINES;
+      setOverflowsVisually(el.scrollHeight > limit + 1);
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasPasteChip, text, expanded]);
 
   return (
     <div
@@ -65,9 +87,50 @@ export function UserMessageBody({ text }: { text: string }) {
       {showChips ? (
         <UserMessageSegments segments={segments} />
       ) : (
-        <UserMessageText text={visibleText} />
+        <div
+          ref={clipRef}
+          data-user-message-fade={collapsed && clipText ? "" : undefined}
+          className={
+            clipText
+              ? "relative min-w-0 overflow-hidden leading-[1.5]"
+              : "relative min-w-0 leading-[1.5]"
+          }
+          style={
+            clipText
+              ? { maxHeight: `${USER_MESSAGE_COLLAPSE_LINES + USER_MESSAGE_COLLAPSE_FADE_LINES}lh` }
+              : undefined
+          }
+        >
+          <div style={collapsed && clipText ? userMessageCollapseMaskStyle() : undefined}>
+            <UserMessageText text={withUrlTokens} />
+          </div>
+          {collapsed && clipText ? <UserMessageCollapseWash /> : null}
+        </div>
       )}
     </div>
+  );
+}
+
+function userMessageCollapseMaskStyle(): React.CSSProperties {
+  const solid = `${USER_MESSAGE_COLLAPSE_LINES}lh`;
+  const end = `${USER_MESSAGE_COLLAPSE_LINES + USER_MESSAGE_COLLAPSE_FADE_LINES}lh`;
+  const mask = `linear-gradient(to bottom, #000 0, #000 ${solid}, transparent ${end})`;
+  return {
+    WebkitMaskImage: mask,
+    maskImage: mask,
+    WebkitMaskSize: "100% 100%",
+    maskSize: "100% 100%",
+    WebkitMaskRepeat: "no-repeat",
+    maskRepeat: "no-repeat",
+  };
+}
+
+function UserMessageCollapseWash() {
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-x-0 bottom-0 h-[1lh] bg-gradient-to-b from-secondary/0 to-secondary"
+    />
   );
 }
 
@@ -79,22 +142,6 @@ function UserMessageText({ text }: { text: string }) {
     >
       <UrlAwareText text={text} />
     </div>
-  );
-}
-
-function UrlAwareText({ text }: { text: string }) {
-  return (
-    <>
-      {splitTextWithHttpUrls(text).map((segment, index) =>
-        segment.type === "url" ? (
-          <LinkPreviewChip key={`url-${index}`} href={segment.url}>
-            {segment.url}
-          </LinkPreviewChip>
-        ) : (
-          <React.Fragment key={`text-${index}`}>{segment.value}</React.Fragment>
-        ),
-      )}
-    </>
   );
 }
 

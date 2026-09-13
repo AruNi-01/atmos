@@ -7,18 +7,56 @@ import { createRoot, type Root } from "react-dom/client";
 mock.module("next-intl", () => ({
   useTranslations: () => (key: string) =>
     ({
+      menu: "Image actions",
       copyImage: "Copy image",
+      saveImage: "Save image",
       copyFailedTitle: "Copy failed",
+      saveFailedTitle: "Save failed",
       clipboardUnavailable: "Could not copy the image to the clipboard.",
+      saveUnavailable: "Could not save the image to this computer.",
     })[key] ?? key,
 }));
 
-const { ImagePreviewOverlay } = await import("../image-preview-overlay");
+mock.module("@workspace/ui", () => ({
+  toastManager: {
+    add: () => undefined,
+  },
+}));
+
+const {
+  ImagePreviewOverlay,
+  imagePreviewScaledRadius,
+  imagePreviewTargetRect,
+  imagePreviewZoomTransform,
+} = await import("../image-preview-overlay");
 
 const PNG_SRC =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
 let root: Root | null = null;
+
+describe("image preview zoom geometry", () => {
+  it("fits the enlarged image in the viewport and zooms from the origin center", () => {
+    const origin = {
+      left: 100,
+      top: 200,
+      width: 80,
+      height: 80,
+      radius: 12,
+      naturalWidth: 1024,
+      naturalHeight: 1024,
+    };
+    const target = imagePreviewTargetRect(origin, { width: 1000, height: 800 });
+    expect(target.width).toBeLessThanOrEqual(920);
+    expect(target.height).toBeLessThanOrEqual(736);
+    expect(target.width).toBeCloseTo(target.height);
+    const zoom = imagePreviewZoomTransform(origin, target);
+    expect(zoom.scale).toBeCloseTo(origin.width / target.width);
+    expect(zoom.x).toBeCloseTo(origin.left + origin.width / 2 - (target.left + target.width / 2));
+    expect(zoom.y).toBeCloseTo(origin.top + origin.height / 2 - (target.top + target.height / 2));
+    expect(imagePreviewScaledRadius(12, zoom.scale) * zoom.scale).toBeCloseTo(12);
+  });
+});
 
 describe("ImagePreviewOverlay context menu", () => {
   beforeEach(() => {
@@ -151,7 +189,7 @@ function renderOverlay(onClose: () => void) {
   root = createRoot(container);
   act(() => {
     root?.render(
-      <ImagePreviewOverlay alt="shot" src={PNG_SRC} onClose={onClose} />,
+      <ImagePreviewOverlay alt="shot" src={PNG_SRC} durationMs={0} onClose={onClose} />,
     );
   });
   return container;

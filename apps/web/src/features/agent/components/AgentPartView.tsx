@@ -18,8 +18,9 @@ import {
   thinkingDurationSeconds,
 } from "@/features/agent/lib/agent-chat-timing";
 import { isNestedSubagentChild } from "@/features/agent/lib/tool-group";
-import { agentMessageLinkSafety } from "./AgentMessageLinkSafetyModal";
 import { ToolView } from "./ToolView";
+
+const CONVERSATION_LINK_SAFETY = { enabled: false } as const;
 
 export function AgentPartView({
   part,
@@ -55,7 +56,7 @@ export function AgentPartView({
         caret={isLastTextBlock ? "block" : undefined}
         className="break-words"
         components={reviewComponents as never}
-        linkSafety={agentMessageLinkSafety}
+        linkSafety={CONVERSATION_LINK_SAFETY}
       >
         {part.text}
       </MessageResponse>
@@ -87,6 +88,7 @@ export function AgentPartView({
         <ReasoningContent
           className="break-words prose-sm dark:prose-invert max-w-full min-w-0"
           components={reviewComponents as never}
+          linkSafety={CONVERSATION_LINK_SAFETY}
         >
           {part.text}
         </ReasoningContent>

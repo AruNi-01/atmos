@@ -17,6 +17,8 @@ describe("AgentToolImageGen", () => {
     expect(card).toContain("ImageGeneration");
     expect(card).toContain("composerFileUrlFromPath");
     expect(card).toContain("aspect_ratio");
+    expect(card).not.toContain("resolution=");
+    expect(card).not.toContain("resolutionLabel");
   });
 
   test("auto-opens while generating, keeps a compact preview, and enlarges via overlay", () => {
@@ -29,6 +31,23 @@ describe("AgentToolImageGen", () => {
     expect(card).toContain("generating && !next");
     expect(card).toContain('size="compact"');
     expect(card).toContain("ImagePreviewOverlay");
+    expect(card).toContain("originRect");
+    expect(card).toContain("imagePreviewOriginRectFromElement");
     expect(card).toContain("open={open}");
+    expect(card).toContain("block w-full cursor-zoom-in");
+  });
+
+  test("completed previews hug the image instead of a muted aspect box", () => {
+    const source = readFileSync(
+      join(
+        import.meta.dir,
+        "../../../../../../../packages/ui/src/components/ui/image-generation.tsx",
+      ),
+      "utf8",
+    );
+    expect(source).toContain("const hasMedia = Boolean(children)");
+    expect(source).toContain('!hasMedia && "bg-muted"');
+    expect(source).toContain("[&_img]:h-auto [&_img]:w-full");
+    expect(source).not.toContain('resolution = "1024 × 1024"');
   });
 });

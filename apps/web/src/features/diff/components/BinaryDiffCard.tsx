@@ -10,7 +10,11 @@ import {
 } from "@/features/diff/lib/diff-content-kind";
 import { resolveBlobUrl } from "@/features/diff/lib/resolve-blob-url";
 import { ImageCopyMenuHost } from "@/shared/components/image-copy-context-menu";
-import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
+import {
+  ImagePreviewOverlay,
+  imagePreviewOriginRectFromElement,
+  type ImagePreviewOriginRect,
+} from "@/shared/components/image-preview-overlay";
 import { cn } from "@/shared/lib/utils";
 import { getFileIconProps } from "@workspace/ui";
 
@@ -64,7 +68,7 @@ function SideImage({
   sizeLabel: string | null;
   url: string | null;
   emptyLabel: string;
-  onPreview?: (src: string, alt: string) => void;
+  onPreview?: (src: string, alt: string, origin: HTMLElement) => void;
 }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -80,7 +84,7 @@ function SideImage({
         <ImageCopyMenuHost src={url}>
           <button
             type="button"
-            onClick={() => onPreview?.(url, label)}
+            onClick={(event) => onPreview?.(url, label, event.currentTarget)}
             className="flex min-h-[120px] w-full cursor-zoom-in items-center justify-center overflow-hidden rounded-md border border-border/50 bg-[image:repeating-conic-gradient(#80808018_0%_25%,transparent_0%_50%)] bg-[length:16px_16px] p-2 hover:border-border focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             aria-label={label}
           >
@@ -114,9 +118,11 @@ export function BinaryDiffCard({
   const [oldUrl, setOldUrl] = useState<string | null>(null);
   const [newUrl, setNewUrl] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
-  const [preview, setPreview] = useState<{ src: string; alt: string } | null>(
-    null,
-  );
+  const [preview, setPreview] = useState<{
+    src: string;
+    alt: string;
+    originRect: ImagePreviewOriginRect | null;
+  } | null>(null);
 
   const baseName = diff.file_path.split("/").pop() || diff.file_path;
   const iconProps = getFileIconProps({
@@ -224,7 +230,13 @@ export function BinaryDiffCard({
                 sizeLabel={oldSizeLabel}
                 url={oldUrl}
                 emptyLabel={t("previewUnavailable")}
-                onPreview={(src, alt) => setPreview({ src, alt })}
+                onPreview={(src, alt, origin) =>
+                  setPreview({
+                    src,
+                    alt,
+                    originRect: imagePreviewOriginRectFromElement(origin),
+                  })
+                }
               />
             ) : null}
             {showCurrent ? (
@@ -233,7 +245,13 @@ export function BinaryDiffCard({
                 sizeLabel={newSizeLabel}
                 url={newUrl}
                 emptyLabel={t("previewUnavailable")}
-                onPreview={(src, alt) => setPreview({ src, alt })}
+                onPreview={(src, alt, origin) =>
+                  setPreview({
+                    src,
+                    alt,
+                    originRect: imagePreviewOriginRectFromElement(origin),
+                  })
+                }
               />
             ) : null}
           </div>
@@ -277,6 +295,7 @@ export function BinaryDiffCard({
         <ImagePreviewOverlay
           src={preview.src}
           alt={preview.alt}
+          originRect={preview.originRect}
           onClose={() => setPreview(null)}
         />
       ) : null}

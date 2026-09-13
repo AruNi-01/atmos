@@ -8,6 +8,10 @@
  * Do not read useStickToBottomContext here: that context identity changes on
  * every scroll tick (isAtBottom / state) and would re-render the list.
  * The scroll element is StickToBottom's `.agent-chat-scroll` node.
+ *
+ * Sticky user prompts use the original virtual row (`position: sticky`).
+ * Cloning the prompt into an overlay remounts collapse state and flashes the
+ * previous bubble when scrolling quickly.
  */
 
 import React, {
@@ -25,9 +29,19 @@ import {
   countMessagesBelowViewport,
   type MessagesBelowCountStore,
 } from "@/features/agent/lib/agent-chat-below-count";
-import { resolveActiveUserMessageIndex, userMessageRectsFromMeasurements } from "@/features/agent/lib/agent-chat-message-nav";
+import {
+  nextUserMessageIndex,
+  resolveActiveUserMessageIndex,
+  resolveStickyUserMessageIndex,
+  shouldHideStickyUserFade,
+  stickyUserMessagePushPx,
+  userMessageRectsFromMeasurements,
+} from "@/features/agent/lib/agent-chat-message-nav";
 import {
   AGENT_CHAT_MERMAID_KEEPALIVE,
+  AGENT_CHAT_STICKY_USER_FADE_PX,
+  AGENT_CHAT_STICKY_USER_ROW_CLASS,
+  AGENT_CHAT_STICKY_USER_TOP_PX,
   AGENT_CHAT_TRANSCRIPT_GAP,
   AGENT_CHAT_TRANSCRIPT_OVERSCAN,
   agentMessageHasMermaid,
@@ -36,6 +50,7 @@ import {
   findAgentChatScrollElement,
   measureTranscriptScrollMargin,
   mergeMermaidKeepAliveRange,
+  mergeStickyUserRange,
 } from "@/features/agent/lib/agent-chat-transcript-window";
 import { AgentChatMessageView } from "./AgentChatMessageView";
 
@@ -65,7 +80,11 @@ export function AgentChatTranscriptList({
 }) {
   const listRef = useRef<HTMLDivElement | null>(null);
   const mermaidKeepRef = useRef<number[]>([]);
+  const stickyNodeRef = useRef<HTMLDivElement | null>(null);
+  const stickyUserIndexRef = useRef<number | null>(null);
+  const measurementsRef = useRef<Array<{ start: number; size: number } | undefined>>([]);
   const [scrollMargin, setScrollMargin] = useState(0);
+  const [stickyUserIndex, setStickyUserIndex] = useState<number | null>(null);
   const roles = messages.map((message) => message.role);
   const mermaidFlags = useMemo(() => messages.map(agentMessageHasMermaid), [messages]);
 
@@ -80,7 +99,16 @@ export function AgentChatTranscriptList({
 
   const rangeExtractor = useCallback(
     (range: Parameters<typeof defaultRangeExtractor>[0]) => {
-      const base = defaultRangeExtractor(range);
+      const scroll = getScrollElement();
+      const sticky = scroll
+        ? resolveStickyUserMessageIndex(
+            userMessageIndices,
+            measurementsRef.current,
+            scroll.scrollTop,
+          )
+        : stickyUserIndexRef.current;
+      stickyUserIndexRef.current = sticky;
+      const base = mergeStickyUserRange(defaultRangeExtractor(range), sticky);
       const merged = mergeMermaidKeepAliveRange(
         base,
         mermaidFlags,
@@ -91,7 +119,7 @@ export function AgentChatTranscriptList({
       mermaidKeepRef.current = merged.kept;
       return merged.range;
     },
-    [mermaidFlags],
+    [getScrollElement, mermaidFlags, userMessageIndices],
   );
 
   const virtualizer = useVirtualizer({
@@ -116,9 +144,54 @@ export function AgentChatTranscriptList({
     useFlushSync: false,
   });
 
+  measurementsRef.current = virtualizer.measurementsCache;
   const virtualItems = virtualizer.getVirtualItems();
   const syncActiveRef = useRef<() => void>(() => undefined);
   const didAnchorToEndRef = useRef(false);
+
+  const applyStickyPush = useCallback(
+    (stickyIndex: number, scroll: HTMLElement) => {
+      const node = stickyNodeRef.current;
+      if (!node || Number(node.dataset.index) !== stickyIndex) return;
+      const incomingIndex = nextUserMessageIndex(userMessageIndices, stickyIndex);
+      if (incomingIndex == null) {
+        node.style.top = `${AGENT_CHAT_STICKY_USER_TOP_PX}px`;
+        node.dataset.stickyUserFade = "";
+        return;
+      }
+      const incomingRow = listRef.current?.querySelector(`[data-index="${incomingIndex}"]`);
+      const incomingTop =
+        incomingRow instanceof HTMLElement
+          ? incomingRow.getBoundingClientRect().top - scroll.getBoundingClientRect().top
+          : (virtualizer.measurementsCache[incomingIndex]?.start ?? 0) - scroll.scrollTop;
+      const offsetTop = incomingTop - AGENT_CHAT_STICKY_USER_TOP_PX;
+      const push = stickyUserMessagePushPx(offsetTop, node.offsetHeight);
+      node.style.top = `${AGENT_CHAT_STICKY_USER_TOP_PX + push}px`;
+      node.dataset.stickyUserFade = shouldHideStickyUserFade(
+        offsetTop,
+        node.offsetHeight,
+        AGENT_CHAT_STICKY_USER_FADE_PX,
+      )
+        ? "off"
+        : "";
+    },
+    [userMessageIndices, virtualizer],
+  );
+
+  const updateStickyUser = useCallback(() => {
+    const scroll = getScrollElement();
+    if (!scroll) return;
+    const next = resolveStickyUserMessageIndex(
+      userMessageIndices,
+      virtualizer.measurementsCache,
+      scroll.scrollTop,
+    );
+    if (next !== stickyUserIndexRef.current) {
+      stickyUserIndexRef.current = next;
+      setStickyUserIndex(next);
+    }
+    if (next != null) applyStickyPush(next, scroll);
+  }, [applyStickyPush, getScrollElement, userMessageIndices, virtualizer]);
 
   useLayoutEffect(() => {
     if (didAnchorToEndRef.current || messages.length === 0) return;
@@ -164,6 +237,7 @@ export function AgentChatTranscriptList({
 
   useLayoutEffect(() => {
     syncActiveRef.current = () => {
+      updateStickyUser();
       const scroll = getScrollElement();
       if (belowCountStore && scroll) {
         belowCountStore.set(
@@ -202,7 +276,8 @@ export function AgentChatTranscriptList({
     if (!scroll) return;
 
     let frame: number | null = null;
-    const scheduleSync = () => {
+    const onScroll = () => {
+      updateStickyUser();
       if (frame != null) return;
       frame = window.requestAnimationFrame(() => {
         frame = null;
@@ -210,12 +285,12 @@ export function AgentChatTranscriptList({
       });
     };
 
-    scroll.addEventListener("scroll", scheduleSync, { passive: true });
+    scroll.addEventListener("scroll", onScroll, { passive: true });
     return () => {
-      scroll.removeEventListener("scroll", scheduleSync);
+      scroll.removeEventListener("scroll", onScroll);
       if (frame != null) window.cancelAnimationFrame(frame);
     };
-  }, [getScrollElement]);
+  }, [getScrollElement, updateStickyUser]);
 
   const lastIndex = messages.length - 1;
 
@@ -230,15 +305,29 @@ export function AgentChatTranscriptList({
         const message = messages[item.index];
         if (!message) return null;
         const showActivityFooter = activityStatus != null && item.index === lastIndex;
+        const isStickyUser = message.role === "user" && item.index === stickyUserIndex;
         return (
           <div
             key={item.key}
             data-index={item.index}
-            ref={virtualizer.measureElement}
-            className="absolute top-0 left-0 w-full"
-            style={{
-              transform: `translateY(${item.start - virtualizer.options.scrollMargin}px)`,
+            data-agent-chat-sticky-user={isStickyUser ? "" : undefined}
+            ref={(node) => {
+              virtualizer.measureElement(node);
+              if (isStickyUser) stickyNodeRef.current = node;
+              else if (stickyNodeRef.current === node) stickyNodeRef.current = null;
             }}
+            className={
+              isStickyUser
+                ? `left-0 w-full ${AGENT_CHAT_STICKY_USER_ROW_CLASS}`
+                : "absolute top-0 left-0 w-full"
+            }
+            style={
+              isStickyUser
+                ? { top: AGENT_CHAT_STICKY_USER_TOP_PX }
+                : {
+                    transform: `translateY(${item.start - virtualizer.options.scrollMargin}px)`,
+                  }
+            }
           >
             <AgentChatMessageView
               message={message}

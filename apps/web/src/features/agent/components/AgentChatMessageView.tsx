@@ -73,7 +73,7 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
       className="w-full min-w-0"
     >
       {message.role === "user" ? (
-        <div className="group relative">
+        <div className="group relative w-full">
           <Message from="user" className="gap-1">
             <MessageContent rounded="2xl">
               {files.length > 0 ? (
@@ -108,7 +108,7 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
           </Message>
         </div>
       ) : (
-        <>
+        <div className="mx-auto w-[calc(100%-1rem)]">
           <Message from="assistant">
             <MessageContent>
               <AssistantMessageView message={message} />
@@ -138,7 +138,7 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
             parts={message.parts}
             visible={shouldShowAssistantTurnEndedChrome(message, assistantText)}
           />
-        </>
+        </div>
       )}
     </div>
   );

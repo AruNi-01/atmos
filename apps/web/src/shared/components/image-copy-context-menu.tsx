@@ -3,9 +3,9 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
-import { Copy } from "lucide-react";
+import { Copy, Download } from "lucide-react";
 import { toastManager } from "@workspace/ui";
-import { copyImageSrcToClipboard } from "@/shared/utils/copy-image";
+import { copyImageSrcToClipboard, saveImageSrcToDisk } from "@/shared/utils/copy-image";
 
 export type ImageCopyMenuPosition = {
   x: number;
@@ -13,7 +13,7 @@ export type ImageCopyMenuPosition = {
 };
 
 const CONTEXT_MENU_WIDTH = 180;
-const CONTEXT_MENU_HEIGHT = 40;
+const CONTEXT_MENU_HEIGHT = 76;
 const CONTEXT_MENU_PAD = 8;
 
 export function imageCopyMenuPosition(
@@ -114,13 +114,28 @@ export function ImageCopyContextMenu({
     });
   };
 
+  const handleSaveImage = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void (async () => {
+      const result = await saveImageSrcToDisk(src, undefined, imgRef?.current);
+      onClose();
+      if (result === "saved" || result === "cancelled") return;
+      toastManager.add({
+        title: t("saveFailedTitle"),
+        description: t("saveUnavailable"),
+        type: "error",
+      });
+    })();
+  };
+
   if (typeof document === "undefined") return null;
 
   return createPortal(
     <div
       role="menu"
       data-image-preview-context-menu=""
-      aria-label={t("copyImage")}
+      aria-label={t("menu")}
       className="fixed z-[2147483647] min-w-36 cursor-default overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95"
       style={{ left: position.x, top: position.y }}
       onClick={(event) => event.stopPropagation()}
@@ -141,6 +156,16 @@ export function ImageCopyContextMenu({
       >
         <Copy className="size-3.5 text-muted-foreground" />
         {t("copyImage")}
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        data-image-preview-save=""
+        className="relative flex w-full cursor-pointer items-center gap-1.5 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-1 focus-visible:ring-ring"
+        onClick={handleSaveImage}
+      >
+        <Download className="size-3.5 text-muted-foreground" />
+        {t("saveImage")}
       </button>
     </div>,
     document.body,

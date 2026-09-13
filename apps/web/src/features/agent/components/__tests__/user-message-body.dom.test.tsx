@@ -34,6 +34,21 @@ mock.module("@workspace/ui/components/ui/hover-card", () => ({
   ),
 }));
 
+mock.module("@/shared/components/follow-hover-card", () => ({
+  FollowHoverCard: ({ children }: { children: React.ReactNode }) => children,
+}));
+
+mock.module("@/shared/components/composer-link-og-preview", () => ({
+  ComposerLinkOgPreview: () => null,
+}));
+
+mock.module("@/shared/lib/link-preview-query", () => ({
+  fetchLinkPreview: async () => {
+    throw new Error("offline");
+  },
+  peekLinkPreview: () => null,
+}));
+
 const { UserMessageBody } = await import("../UserMessageBody");
 
 let root: Root | null = null;
@@ -104,14 +119,16 @@ describe("UserMessageBody", () => {
 
     const message = container.querySelector("[data-user-message-body]");
     expect(message?.hasAttribute("data-user-message-collapsed")).toBe(true);
-    expect(container.textContent).toContain("msg 5");
-    expect(container.textContent).not.toContain("msg 6");
+    expect(container.querySelector("[data-user-message-fade]")).not.toBeNull();
+    expect(container.textContent).toContain("msg 3");
+    expect(container.textContent).toContain("msg 8");
 
     await act(async () => {
       message?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(container.querySelector("[data-user-message-collapsed]")).toBeNull();
+    expect(container.querySelector("[data-user-message-fade]")).toBeNull();
     expect(container.textContent).toContain("msg 8");
 
     await act(async () => {
@@ -119,7 +136,69 @@ describe("UserMessageBody", () => {
     });
 
     expect(container.querySelector("[data-user-message-collapsed]")).not.toBeNull();
-    expect(container.textContent).not.toContain("msg 6");
+    expect(container.querySelector("[data-user-message-fade]")).not.toBeNull();
+  });
+
+  it("does not collapse messages that already fit in three lines", async () => {
+    const body = lines(3);
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(<UserMessageBody text={body} />);
+    });
+
+    expect(container.querySelector("[data-user-message-collapsed]")).toBeNull();
+    expect(container.querySelector("[data-user-message-fade]")).toBeNull();
+    expect(container.textContent).toContain("msg 3");
+  });
+
+  it("keeps typed user URLs as links instead of chips", async () => {
+    const url = "https://payloadcms.com/docs/components";
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(<UserMessageBody text={`see ${url}`} />);
+    });
+
+    expect(container.querySelector("[data-url-chip]")).toBeNull();
+    const link = container.querySelector<HTMLAnchorElement>("[data-http-text-link]");
+    expect(link).not.toBeNull();
+    expect(link?.getAttribute("href")).toBe(url);
+    expect(link?.textContent).toBe(url);
+  });
+
+  it("renders pasted URL tokens as chips that expand to dashed links", async () => {
+    const { expandUrlTokens, formatUrlToken } = await import("@/shared/lib/link-preview");
+    const url = "https://payloadcms.com/docs/components";
+    const expanded = expandUrlTokens(`see ${formatUrlToken(url)}`);
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(<UserMessageBody text={expanded} />);
+    });
+
+    const chip = container.querySelector<HTMLElement>("[data-url-chip]");
+    expect(chip).not.toBeNull();
+    expect(chip?.textContent).toContain("payloadcms.com");
+    expect(container.querySelector("[data-http-text-link]")).toBeNull();
+
+    await act(async () => {
+      chip?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    });
+
+    const link = container.querySelector<HTMLAnchorElement>("[data-http-text-link]");
+    expect(container.querySelector("[data-url-chip]")).toBeNull();
+    expect(link).not.toBeNull();
+    expect(link?.getAttribute("href")).toBe(url);
+    expect(link?.getAttribute("target")).toBe("_blank");
+    expect(link?.textContent).toBe(url);
+    expect(link?.className).toContain("decoration-dashed");
   });
 });
 

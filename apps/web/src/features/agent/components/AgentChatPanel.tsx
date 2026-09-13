@@ -42,6 +42,7 @@ import { ackAgentChatAttention } from "../lib/agent-status-ack";
 import { isAgentNewChatLanding } from "../lib/agent-composer-placeholder";
 import { useReducedMotion } from "motion/react";
 import {
+  AGENT_CHAT_COMPOSER_FADE_CLASS,
   AGENT_CHAT_OVERLAY_PAD_SHRINK_MS,
   AGENT_CHAT_SCROLL_CLASS,
   findAgentChatScrollElement,
@@ -980,7 +981,7 @@ export function AgentChatPanel({
       <div
         ref={transcriptRef}
         className={cn(
-          "min-h-0 overflow-hidden",
+          "relative min-h-0 overflow-hidden",
           isNewChatLanding ? "hidden" : "flex-1",
         )}
       >
@@ -995,7 +996,7 @@ export function AgentChatPanel({
         >
           <ConversationContent
             data-canvas-selectable-text="true"
-            className={cn("gap-3 p-4! pr-2!", wideContentClassName)}
+            className={cn("gap-3 px-3 py-4", wideContentClassName)}
             scrollClassName={AGENT_CHAT_SCROLL_CLASS}
           >
             {((loadingAgents && !isConnected && !isConnecting) || isConnecting || isResumingHistory) && (
@@ -1058,6 +1059,13 @@ export function AgentChatPanel({
           />
           </Conversation>
         </AgentChatCwdProvider>
+        {messages.length > 0 ? (
+          <div
+            data-agent-chat-composer-fade=""
+            aria-hidden="true"
+            className={AGENT_CHAT_COMPOSER_FADE_CLASS}
+          />
+        ) : null}
       </div>
 
       <div className="relative flex min-h-0 w-full shrink-0 flex-col">

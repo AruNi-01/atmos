@@ -97,6 +97,149 @@ async function pngBlobFromImageSrc(
  * `clipboard.write` is started in the same turn as the caller so Safari still
  * treats it as a user-gesture; the PNG bytes resolve through ClipboardItem.
  */
+export function filenameFromImageSrc(src: string, fallback = "image.png"): string {
+  const dataType = src.match(/^data:image\/([a-zA-Z0-9+.-]+)/i);
+  if (dataType) {
+    const subtype = dataType[1]?.toLowerCase() ?? "png";
+    const ext = subtype === "jpeg" ? "jpg" : subtype.replace("+xml", "");
+    return `image.${ext || "png"}`;
+  }
+  try {
+    const url = new URL(src, "https://atmos.invalid");
+    const last = url.pathname.split("/").filter(Boolean).pop();
+    if (last && /\.(avif|bmp|gif|jpe?g|png|svg|webp)$/i.test(last)) {
+      return decodeURIComponent(last);
+    }
+  } catch {
+    // Keep the fallback name.
+  }
+  return fallback;
+}
+
+export type SaveImageResult = "saved" | "cancelled" | "failed";
+
+type SaveWritable = {
+  write: (data: Blob) => Promise<void>;
+  close: () => Promise<void>;
+};
+
+type SaveFileHandle = {
+  createWritable: () => Promise<SaveWritable>;
+};
+
+type WindowWithSavePickers = Window & {
+  showSaveFilePicker?: (options?: {
+    suggestedName?: string;
+    types?: Array<{ description?: string; accept: Record<string, string[]> }>;
+  }) => Promise<SaveFileHandle>;
+};
+
+function isPickerAbort(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+function imageAcceptForFilename(name: string): Record<string, string[]> {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "png";
+  const mime =
+    ext === "jpg" || ext === "jpeg"
+      ? "image/jpeg"
+      : ext === "webp"
+        ? "image/webp"
+        : ext === "gif"
+          ? "image/gif"
+          : ext === "svg"
+            ? "image/svg+xml"
+            : "image/png";
+  const suffix = ext === "jpeg" ? ".jpg" : `.${ext}`;
+  return { [mime]: [suffix] };
+}
+
+async function writeBlobToHandle(handle: SaveFileHandle, blob: Blob): Promise<void> {
+  const writable = await handle.createWritable();
+  await writable.write(blob);
+  await writable.close();
+}
+
+async function pickImageSaveDestination(
+  filename: string,
+): Promise<
+  | { status: "ready"; write: (blob: Blob) => Promise<void> }
+  | { status: "cancelled" }
+  | { status: "unavailable" }
+> {
+  if (typeof window === "undefined") return { status: "unavailable" };
+  const win = window as WindowWithSavePickers;
+
+  if (typeof win.showSaveFilePicker === "function") {
+    try {
+      const file = await win.showSaveFilePicker({
+        suggestedName: filename,
+        types: [
+          {
+            description: "Image",
+            accept: imageAcceptForFilename(filename),
+          },
+        ],
+      });
+      return {
+        status: "ready",
+        write: (blob) => writeBlobToHandle(file, blob),
+      };
+    } catch (error) {
+      if (isPickerAbort(error)) return { status: "cancelled" };
+    }
+  }
+
+  return { status: "unavailable" };
+}
+
+async function blobForSave(
+  src: string,
+  img?: HTMLImageElement | null,
+): Promise<Blob> {
+  try {
+    return await blobFromImageSrc(src);
+  } catch {
+    if (!img || img.naturalWidth < 1) throw new Error("Image unavailable");
+    return canvasToPng(img, img.naturalWidth, img.naturalHeight);
+  }
+}
+
+function downloadBlob(blob: Blob, filename: string): boolean {
+  if (typeof document === "undefined") return false;
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
+  return true;
+}
+
+export async function saveImageSrcToDisk(
+  src: string,
+  filename?: string,
+  img?: HTMLImageElement | null,
+): Promise<SaveImageResult> {
+  if (!src) return "failed";
+  const name = filename ?? filenameFromImageSrc(src);
+  const destination = await pickImageSaveDestination(name);
+  if (destination.status === "cancelled") return "cancelled";
+  try {
+    const blob = await blobForSave(src, img);
+    if (destination.status === "ready") {
+      await destination.write(blob);
+      return "saved";
+    }
+    return downloadBlob(blob, name) ? "saved" : "failed";
+  } catch {
+    return "failed";
+  }
+}
+
 export async function copyImageSrcToClipboard(
   src: string,
   img?: HTMLImageElement | null,

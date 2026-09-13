@@ -5,8 +5,11 @@ import {
   AGENT_CHAT_ASSISTANT_MERMAID_ROW_ESTIMATE,
   AGENT_CHAT_ASSISTANT_ROW_ESTIMATE,
   AGENT_CHAT_MERMAID_KEEPALIVE,
+  AGENT_CHAT_COMPOSER_FADE_CLASS,
   AGENT_CHAT_OVERLAY_PAD_SHRINK_MS,
   AGENT_CHAT_SCROLL_CLASS,
+  AGENT_CHAT_STICKY_USER_ROW_CLASS,
+  AGENT_CHAT_STICKY_USER_TOP_PX,
   AGENT_CHAT_TRANSCRIPT_BASE_BOTTOM_PAD_PX,
   AGENT_CHAT_TRANSCRIPT_GAP,
   AGENT_CHAT_TRANSCRIPT_OVERSCAN,
@@ -17,6 +20,7 @@ import {
   estimateTranscriptTotalSize,
   measureTranscriptScrollMargin,
   mergeMermaidKeepAliveRange,
+  mergeStickyUserRange,
   transcriptBottomPadPx,
   transcriptBottomPadStyle,
 } from "@/features/agent/lib/agent-chat-transcript-window";
@@ -131,6 +135,16 @@ describe("transcript virtual list wiring", () => {
     expect(list).toContain("showActivityFooter");
     expect(list).toContain("belowCountStore");
     expect(list).toContain("countMessagesBelowViewport");
+    expect(list).toContain("resolveStickyUserMessageIndex");
+    expect(list).toContain("mergeStickyUserRange");
+    expect(list).toContain("data-agent-chat-sticky-user");
+    expect(list).toContain("stickyUserMessagePushPx");
+    expect(list).toContain("AGENT_CHAT_STICKY_USER_ROW_CLASS");
+    expect(list).not.toContain("createPortal");
+    expect(list).not.toContain("invisible pointer-events-none");
+    expect(panel).toContain("relative min-h-0 overflow-hidden");
+    expect(panel).toContain("data-agent-chat-composer-fade");
+    expect(panel).toContain("AGENT_CHAT_COMPOSER_FADE_CLASS");
     expect(list).not.toContain("useStickToBottomContext()");
     expect(list).not.toContain('from "use-stick-to-bottom"');
     expect(panel).toContain("activityStatus=");
@@ -166,6 +180,33 @@ describe("agentMessageHasMermaid", () => {
         parts: [{ type: "text", text: "no diagram here" }],
       }),
     ).toBe(false);
+  });
+});
+
+describe("mergeStickyUserRange", () => {
+  it("keeps the sticky user row in the virtual window", () => {
+    expect(mergeStickyUserRange([3, 4, 5], 0)).toEqual([0, 3, 4, 5]);
+    expect(mergeStickyUserRange([0, 1, 2], 0)).toEqual([0, 1, 2]);
+    expect(mergeStickyUserRange([1, 2], null)).toEqual([1, 2]);
+  });
+});
+
+describe("composer fade", () => {
+  it("fades transcript tokens into the composer without a hard clip", () => {
+    expect(AGENT_CHAT_COMPOSER_FADE_CLASS).toContain("absolute inset-x-0 bottom-0");
+    expect(AGENT_CHAT_COMPOSER_FADE_CLASS).toContain("from-background");
+    expect(AGENT_CHAT_COMPOSER_FADE_CLASS).not.toContain("backdrop-blur");
+  });
+});
+
+describe("sticky user row class", () => {
+  it("pins the original user row flush to the top with a fade over scrolling tokens", () => {
+    expect(AGENT_CHAT_STICKY_USER_ROW_CLASS).toContain("sticky");
+    expect(AGENT_CHAT_STICKY_USER_ROW_CLASS).toContain("bg-background");
+    expect(AGENT_CHAT_STICKY_USER_ROW_CLASS).toContain("after:bg-gradient-to-b");
+    expect(AGENT_CHAT_STICKY_USER_ROW_CLASS).toContain("data-[sticky-user-fade=off]:after:opacity-0");
+    expect(AGENT_CHAT_STICKY_USER_ROW_CLASS).not.toContain("-mx-3");
+    expect(AGENT_CHAT_STICKY_USER_TOP_PX).toBe(0);
   });
 });
 

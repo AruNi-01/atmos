@@ -46,6 +46,8 @@ describe("assistant process collapse chrome", () => {
     expect(messageView).not.toContain("AttachmentRemove");
     expect(messageView).toContain('reveal="timestamp"');
     expect(messageView).not.toContain('className="ml-auto"');
+    expect(messageView).toContain('className="group relative w-full"');
+    expect(messageView).toContain('className="mx-auto w-[calc(100%-1rem)]"');
     expect(messageView).toContain("<MessageTurnUsageBadge");
     const usageAt = messageView.indexOf("<MessageTurnUsageBadge");
     const timeAt = messageView.indexOf('reveal="timestamp"');

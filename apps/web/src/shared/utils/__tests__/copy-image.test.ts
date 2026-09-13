@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
-import { copyImageSrcToClipboard } from "../copy-image";
+import {
+  copyImageSrcToClipboard,
+  filenameFromImageSrc,
+  saveImageSrcToDisk,
+} from "../copy-image";
 
 const PNG_BYTES = Uint8Array.from([
   137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0,
@@ -99,6 +103,156 @@ describe("copyImageSrcToClipboard", () => {
 
     expect(await copyImageSrcToClipboard("https://example.test/missing.png")).toBe(
       false,
+    );
+  });
+});
+
+describe("filenameFromImageSrc", () => {
+  it("keeps a file name from the URL path and maps data URLs to an extension", () => {
+    expect(filenameFromImageSrc("https://example.test/photos/beach.webp?x=1")).toBe(
+      "beach.webp",
+    );
+    expect(filenameFromImageSrc("data:image/jpeg;base64,aaa")).toBe("image.jpg");
+  });
+});
+
+describe("saveImageSrcToDisk", () => {
+  const restores: Array<() => void> = [];
+
+  afterEach(() => {
+    while (restores.length > 0) restores.pop()?.();
+    mock.restore();
+  });
+
+  it("downloads a fetched image blob", async () => {
+    const png = new Blob([PNG_BYTES], { type: "image/png" });
+    const originalFetch = globalThis.fetch;
+    restores.push(() => {
+      globalThis.fetch = originalFetch;
+    });
+    globalThis.fetch = mock(() =>
+      Promise.resolve(new Response(png, { status: 200 })),
+    ) as unknown as typeof fetch;
+
+    const clicks: string[] = [];
+    const objectUrls: string[] = [];
+    const fakeLink = {
+      href: "",
+      download: "",
+      rel: "",
+      click: () => {
+        clicks.push(fakeLink.download);
+      },
+      remove: () => undefined,
+    };
+    const previousDocument = (globalThis as { document?: unknown }).document;
+    const UrlCtor = globalThis.URL;
+    const originalCreateObjectURL = UrlCtor?.createObjectURL;
+    const originalRevokeObjectURL = UrlCtor?.revokeObjectURL;
+    restores.push(() => {
+      if (previousDocument === undefined) {
+        Reflect.deleteProperty(globalThis, "document");
+      } else {
+        (globalThis as { document: unknown }).document = previousDocument;
+      }
+      if (UrlCtor && originalCreateObjectURL) {
+        UrlCtor.createObjectURL = originalCreateObjectURL;
+      }
+      if (UrlCtor && originalRevokeObjectURL) {
+        UrlCtor.revokeObjectURL = originalRevokeObjectURL;
+      }
+    });
+    (globalThis as { document: unknown }).document = {
+      createElement: (tag: string) => {
+        expect(tag).toBe("a");
+        return fakeLink;
+      },
+      body: {
+        appendChild: () => undefined,
+        removeChild: () => undefined,
+      },
+    };
+    if (!UrlCtor) {
+      (globalThis as { URL: unknown }).URL = {
+        createObjectURL: (blob: Blob) => {
+          const url = `blob:save-${blob.size}`;
+          objectUrls.push(url);
+          return url;
+        },
+        revokeObjectURL: () => undefined,
+      };
+    } else {
+      UrlCtor.createObjectURL = (blob: Blob) => {
+        const url = `blob:save-${blob.size}`;
+        objectUrls.push(url);
+        return url;
+      };
+      UrlCtor.revokeObjectURL = () => undefined;
+    }
+
+    expect(await saveImageSrcToDisk("https://example.test/shot.png", "shot.png")).toBe(
+      "saved",
+    );
+    expect(clicks).toEqual(["shot.png"]);
+    expect(objectUrls).toHaveLength(1);
+    expect(fakeLink.href).toBe(objectUrls[0]);
+  });
+
+  it("writes through the system save-file picker", async () => {
+    const png = new Blob([PNG_BYTES], { type: "image/png" });
+    const originalFetch = globalThis.fetch;
+    restores.push(() => {
+      globalThis.fetch = originalFetch;
+    });
+    globalThis.fetch = mock(() =>
+      Promise.resolve(new Response(png, { status: 200 })),
+    ) as unknown as typeof fetch;
+
+    const written: Blob[] = [];
+    const previousWindow = (globalThis as { window?: unknown }).window;
+    restores.push(() => {
+      if (previousWindow === undefined) {
+        Reflect.deleteProperty(globalThis, "window");
+      } else {
+        (globalThis as { window: unknown }).window = previousWindow;
+      }
+    });
+    (globalThis as { window: unknown }).window = {
+      showSaveFilePicker: async () => ({
+        createWritable: async () => ({
+          write: async (blob: Blob) => {
+            written.push(blob);
+          },
+          close: async () => undefined,
+        }),
+      }),
+    };
+
+    expect(await saveImageSrcToDisk("https://example.test/shot.png", "shot.png")).toBe(
+      "saved",
+    );
+    expect(written).toHaveLength(1);
+  });
+
+  it("does not treat a cancelled save picker as a failure", async () => {
+    const previousWindow = (globalThis as { window?: unknown }).window;
+    restores.push(() => {
+      if (previousWindow === undefined) {
+        Reflect.deleteProperty(globalThis, "window");
+      } else {
+        (globalThis as { window: unknown }).window = previousWindow;
+      }
+    });
+    (globalThis as { window: unknown }).window = {
+      showSaveFilePicker: async () => {
+        const error = new Error("The user aborted a request.");
+        error.name = "AbortError";
+        throw error;
+      },
+    };
+
+    expect(await saveImageSrcToDisk("https://example.test/shot.png", "shot.png")).toBe(
+      "cancelled",
     );
   });
 });

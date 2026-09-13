@@ -12,7 +12,11 @@ import { isActiveToolStatus } from "@/features/agent/lib/agent-tool-kind";
 import { composerFileUrlFromPath } from "@/features/agent/lib/agent-composer-attachment";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
 import { ImageCopyMenuHost } from "@/shared/components/image-copy-context-menu";
-import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
+import {
+  ImagePreviewOverlay,
+  imagePreviewOriginRectFromElement,
+  type ImagePreviewOriginRect,
+} from "@/shared/components/image-preview-overlay";
 import { AgentToolCard, AgentToolFileChip, type AgentToolSurface } from "./AgentToolCard";
 
 type ImageRef = {
@@ -28,14 +32,6 @@ function aspectCss(ratio?: string | null): string | undefined {
   const match = trimmed.match(/^(\d+)\s*[:/x×]\s*(\d+)$/i);
   if (match) return `${match[1]} / ${match[2]}`;
   return trimmed.includes("/") ? trimmed : undefined;
-}
-
-function resolutionLabel(size?: string | null, aspect?: string | null): string | undefined {
-  if (size?.trim()) return size.trim();
-  if (aspect?.trim() && aspect.trim() !== "auto") {
-    return aspect.trim().replace(/[:/]/g, " × ");
-  }
-  return undefined;
 }
 
 function statusFromPart(part: AgentToolCallPart): ImageGenerationStatus {
@@ -91,12 +87,15 @@ export function AgentToolImageGen({
     token?: string | null;
   } | null>(null);
   const [open, setOpen] = useState(() => defaultOpen || isActiveToolStatus(part.status));
-  const [preview, setPreview] = useState<{ src: string; alt: string } | null>(null);
+  const [preview, setPreview] = useState<{
+    src: string;
+    alt: string;
+    originRect: ImagePreviewOriginRect | null;
+  } | null>(null);
   const prompt =
     part.params?.type === "image_gen" ? part.params.prompt.trim() : "";
   const aspect =
     part.params?.type === "image_gen" ? part.params.aspect_ratio : null;
-  const size = part.params?.type === "image_gen" ? part.params.size : null;
   const status = statusFromPart(part);
   const images = imagesFromPart(part);
   const needsFileApi = images.some((image) => {
@@ -158,7 +157,6 @@ export function AgentToolImageGen({
             <ImageGeneration
               status={status}
               prompt={prompt || undefined}
-              resolution={resolutionLabel(size, aspect)}
               aspectRatio={aspectCss(aspect) ?? "1 / 1"}
               size="compact"
               className="[&>div]:mx-0"
@@ -172,7 +170,6 @@ export function AgentToolImageGen({
                   key={`${image.path ?? image.url ?? "img"}-${index}`}
                   status={status === "complete" || src ? "complete" : status}
                   prompt={prompt || undefined}
-                  resolution={resolutionLabel(size, aspect)}
                   aspectRatio={aspectCss(aspect) ?? "1 / 1"}
                   size="compact"
                   className="[&>div]:mx-0"
@@ -182,9 +179,15 @@ export function AgentToolImageGen({
                     <ImageCopyMenuHost src={src}>
                       <button
                         type="button"
-                        className="cursor-zoom-in"
+                        className="block w-full cursor-zoom-in"
                         aria-label={t("imagePreview")}
-                        onClick={() => setPreview({ src, alt: previewAlt })}
+                        onClick={(event) =>
+                          setPreview({
+                            src,
+                            alt: previewAlt,
+                            originRect: imagePreviewOriginRectFromElement(event.currentTarget),
+                          })
+                        }
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element -- tool result URLs / data / workspace file proxy */}
                         <img src={src} alt={previewAlt} draggable={false} />
@@ -201,6 +204,7 @@ export function AgentToolImageGen({
         <ImagePreviewOverlay
           src={preview.src}
           alt={preview.alt}
+          originRect={preview.originRect}
           onClose={() => setPreview(null)}
         />
       ) : null}

@@ -9,7 +9,11 @@ import {
   languageFromPath,
 } from "@/features/agent/lib/tool-results/parse-tool-result";
 import { ImageCopyMenuHost } from "@/shared/components/image-copy-context-menu";
-import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
+import {
+  ImagePreviewOverlay,
+  imagePreviewOriginRectFromElement,
+  type ImagePreviewOriginRect,
+} from "@/shared/components/image-preview-overlay";
 import { isBrowserPreviewableImageMediaType } from "@/shared/lib/composer-image";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
 import { useAgentChatCwd, useAgentChatPathRoots } from "../agent-chat-cwd-context";
@@ -50,7 +54,11 @@ export function AgentToolPathPreviewBody({
   const roots = useAgentChatPathRoots();
   const absolute = resolveAgentChatPreviewPath(path, cwd, roots);
   const alt = (absolute || path).split(/[\\/]/).filter(Boolean).pop() || path;
-  const [preview, setPreview] = useState<{ src: string; alt: string } | null>(null);
+  const [preview, setPreview] = useState<{
+    src: string;
+    alt: string;
+    originRect: ImagePreviewOriginRect | null;
+  } | null>(null);
   const [state, setState] = useState<
     | { kind: "loading" }
     | { kind: "text"; text: string; language: string }
@@ -127,7 +135,13 @@ export function AgentToolPathPreviewBody({
             type="button"
             className="block cursor-zoom-in leading-none"
             aria-label={t("imagePreview")}
-            onClick={() => setPreview({ src: state.url, alt })}
+            onClick={(event) =>
+              setPreview({
+                src: state.url,
+                alt,
+                originRect: imagePreviewOriginRectFromElement(event.currentTarget),
+              })
+            }
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- absolute path preview via system file proxy */}
             <img
@@ -143,6 +157,7 @@ export function AgentToolPathPreviewBody({
           <ImagePreviewOverlay
             src={preview.src}
             alt={preview.alt}
+            originRect={preview.originRect}
             onClose={() => setPreview(null)}
           />
         ) : null}

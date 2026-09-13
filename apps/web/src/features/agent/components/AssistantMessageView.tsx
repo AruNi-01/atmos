@@ -29,8 +29,9 @@ import {
   classifyAgentChatHref,
   resolveAgentChatWorkspaceFile,
 } from "@/features/agent/lib/agent-chat-file-links";
-import { isHttpUrl } from "@/shared/lib/link-preview";
-import { LinkPreviewChip } from "@/shared/components/link-preview-chip";
+import { isCompletePreviewUrl } from "@/shared/lib/link-preview";
+import { ConversationHttpUrl } from "@/shared/components/link-preview-chip";
+import { withLinkifiedMarkdownComponents } from "@/shared/components/url-aware-text";
 import {
   isDetailExpandedTool,
   segmentAssistantParts,
@@ -86,19 +87,18 @@ function useReviewLinkComponents() {
       return <MarkdownCodeBlock className={className} {...rest}>{children}</MarkdownCodeBlock>;
     };
 
-    const FileLink = (props: React.ComponentPropsWithoutRef<"a">) => {
-      const { href, children, onClick, ...rest } = props;
+    const FileLink = (props: React.ComponentPropsWithoutRef<"a"> & { node?: unknown }) => {
+      const { href, children, onClick, node: _node, ...rest } = props;
       const classified = classifyAgentChatHref(href, cwd, roots);
       if (classified.kind === "plain") {
         return <span>{children}</span>;
       }
       if (classified.kind !== "workspace") {
-        if (isHttpUrl(href)) {
-          return (
-            <LinkPreviewChip href={href} onClick={onClick} {...rest}>
-              {children}
-            </LinkPreviewChip>
-          );
+        if (isCompletePreviewUrl(href)) {
+          return <ConversationHttpUrl href={href}>{children}</ConversationHttpUrl>;
+        }
+        if (!href || href === "streamdown:incomplete-link") {
+          return <span>{children}</span>;
         }
         return (
           <a href={href} onClick={onClick} {...rest}>
@@ -113,7 +113,7 @@ function useReviewLinkComponents() {
       );
     };
 
-    return { code: ReviewCode, a: FileLink };
+    return withLinkifiedMarkdownComponents({ code: ReviewCode, a: FileLink });
   }, [cwd, openWorkspacePath, roots]);
 }
 

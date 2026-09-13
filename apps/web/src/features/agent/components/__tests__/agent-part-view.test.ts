@@ -9,13 +9,19 @@ describe("agent part markdown rendering", () => {
     expect(view).toContain("MessageResponse");
     expect(view).toContain("ReasoningContent");
     expect(view).toContain("components={reviewComponents as never}");
+    expect(view).toContain("linkSafety={CONVERSATION_LINK_SAFETY}");
     const thinkingAt = view.indexOf('part.type === "thinking"');
     const thinkingComponentsAt = view.indexOf(
       "components={reviewComponents as never}",
       thinkingAt,
     );
+    const thinkingLinkSafetyAt = view.indexOf(
+      "linkSafety={CONVERSATION_LINK_SAFETY}",
+      thinkingAt,
+    );
     expect(thinkingAt).toBeGreaterThan(-1);
     expect(thinkingComponentsAt).toBeGreaterThan(thinkingAt);
+    expect(thinkingLinkSafetyAt).toBeGreaterThan(thinkingAt);
   });
 
   it("renders failed-turn errors as a sentence-case alert card, not markdown", () => {
