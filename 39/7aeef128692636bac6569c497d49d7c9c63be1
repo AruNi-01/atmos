@@ -1,0 +1,139 @@
+apps/web/src/app-shell/__tests__/center-stage-chrome.test.ts
+  s_e2261845bca10b::t_335f6af20f137a 213
+  s_e2261845bca10b::t_1de43b09c7097c 197
+  s_e2261845bca10b::t_be2a9430ef3ce2 227
+  s_e2261845bca10b::t_8e228eb3fd3db2 258
+  s_e2261845bca10b::t_cc49e46919dedc 192,194-195,200-202,212,214-216
+  s_e2261845bca10b::t_42cb6db343994e 233
+  s_e2261845bca10b::t_aa7a402b1b96f8 196
+  s_e2261845bca10b::t_f4b124f30220a9 204-206
+  s_e2261845bca10b::t_382edf75f4c162 199
+  s_e2261845bca10b::t_a8f93779966be7 198
+  s_e2261845bca10b::t_9f3aa91b78ab70 224-226,229-232,234-235,241-242,246-250,254-257,261-263
+  s_e2261845bca10b::t_bc6ccfe2ea294e 243
+  s_e2261845bca10b::t_b73d578fe1842c 228,236-240,244-245,252-253,259-260
+  s_e2261845bca10b::t_60cfe9d3e8f75f 251
+  s_e2261845bca10b::t_f333f5a0fd70a1 207
+  s_e2261845bca10b::t_16f849091ad64e 203
+apps/web/src/app-shell/left-sidebar-controls.tsx
+  s_e2261845bca10b::t_f8f874ab5a985d 285,288-291,293,295
+  s_e2261845bca10b::t_2ddf27e42b440b 280,283
+  s_e2261845bca10b::t_18ef1a4fb2e83f 294
+  s_e2261845bca10b::t_fbf543cbb5acfb 292
+  s_e2261845bca10b::t_8e3c1d0dc8ea7c 31
+  s_e2261845bca10b::t_adec514f25125b 1150-1153
+apps/web/src/app-shell/__tests__/center-explorer-layout.test.ts
+  s_7f235dd8b32fdd::t_3678967bce9cd3 123-169
+  s_96231bdf0d3399::t_b91ded982ee6f4 203
+  s_e2261845bca10b::t_05f9694c72f6c0 364-365
+  s_e2261845bca10b::t_6126fc71aff050 363,370
+  s_96231bdf0d3399::t_750c39ece048df 7,68-72,222-226,371-373,375,387-391,499-500,506
+apps/web/src/app-shell/resize-click-fold.ts
+  s_e2261845bca10b::t_8ac934c9e21233 1-15
+apps/web/src/app-shell/resize-follow-mark.ts
+  s_e2261845bca10b::t_41dd01df9e7935 17
+  s_e2261845bca10b::t_dc199aadbeeef7 1-10,18-19,35-73,85-90,92-93,95,97,99-106,108-109,111-119
+  s_e2261845bca10b::t_143dc87fa157eb 11-16,20-34,74-84,91,94,96,98,107,110
+apps/web/src/app-shell/PanelLayout.tsx
+  s_e2261845bca10b::t_09fae9f4e05f84 32-33
+  s_e2261845bca10b::t_713385ac930942 21
+  s_e2261845bca10b::t_888ac9ee6f0b09 284-290
+  s_e2261845bca10b::t_d321b37bc85452 339
+  s_e2261845bca10b::t_c87e83cff947b0 344-348
+  s_e2261845bca10b::t_8b989c59fe90a7 316,327
+  s_e2261845bca10b::t_b5e4d5a6a8bc3a 23,27
+  s_e2261845bca10b::t_de2db9915eddf2 283
+  s_e2261845bca10b::t_7185ade8c3288e 315,326,343
+apps/web/src/app-shell/CenterExplorerSidecar.tsx
+  s_e2261845bca10b::t_54680fe198a5f7 259-261
+  s_96231bdf0d3399::t_38517d40700655 132-140,203-205,208
+  s_e2261845bca10b::t_260163be9298a9 185,190-196,210-219,221,242-253
+  s_e2261845bca10b::t_a0f35a515850db 5
+  s_e2261845bca10b::t_ec57a842b75df9 6
+  s_e2261845bca10b::t_a352d4582bf5a8 182
+  s_e2261845bca10b::t_354cd7ada4e70b 162-165
+  s_96231bdf0d3399::t_b91ded982ee6f4 207
+  s_96231bdf0d3399::t_b6c522c2b9f2f5 264-266,268
+apps/web/src/app-shell/use-resize-click-fold.ts
+  s_e2261845bca10b::t_25e1087dd288e4 1-2,4-8,14,16-22,30-33,37-39,43,53
+  s_e2261845bca10b::t_05a7df35c88b2d 3,9-13,15,23-29,34-36,40-42,44-52
+apps/web/src/app-shell/center-pane/CenterPaneGrid.tsx
+  s_e2261845bca10b::t_48bb51631f1494 54
+  s_e2261845bca10b::t_47792ec2e474c2 520
+  s_e2261845bca10b::t_2f2810a69f8c00 469,481
+  s_e2261845bca10b::t_e3827c6583e0f8 20,22
+  s_e2261845bca10b::t_6a20bed97e5dc1 517-519,521
+  s_e2261845bca10b::t_0e4da3e039cb20 452
+  s_e2261845bca10b::t_c687f5ad4aa17f 497
+  s_e2261845bca10b::t_d77e50b57e76a2 21
+  s_e2261845bca10b::t_ecf6b668e27c0f 59-60
+apps/web/src/app-shell/center-explorer-layout.ts
+  s_96231bdf0d3399::t_82de721c7ab028 175
+  s_96231bdf0d3399::t_43aaa5139dd6d3 73-75,81-83,171-174,176-179,187,229-252,356,372,375-376
+apps/web/src/app-shell/__tests__/resize-follow-mark.test.ts
+  s_e2261845bca10b::t_0f072b9351df14 60,64
+  s_e2261845bca10b::t_78250c8d5566de 1-6,8,11-59,61-63,65-69,72-73,75,80,82-83,85-86,88-89,91,108-109
+  s_e2261845bca10b::t_f719cff6cb5a95 70-71
+  s_e2261845bca10b::t_7e27e519cc4f63 7,9-10,74,76-79,81,84,87,90,92-107
+apps/web/src/app-shell/__tests__/resize-click-fold.test.ts
+  s_e2261845bca10b::t_3d1c5b0825f486 1-39
+apps/web/src/app-shell/ResizeFollowMark.tsx
+  s_e2261845bca10b::t_32d10fdac5f988 1-7,9-11,13-14,16-24,27-29,34-37,39-51,53-89,91-98,101-115
+  s_e2261845bca10b::t_dee58f206d8f9e 99
+  s_e2261845bca10b::t_4d52b31ec76368 25,30-31,52
+  s_e2261845bca10b::t_7a3da153a13b84 15
+  s_e2261845bca10b::t_18140c1ed2ced2 26,32-33,38
+  s_e2261845bca10b::t_f09bb6a8538058 90
+  s_e2261845bca10b::t_3bb7f5fefa436d 8,12
+  s_e2261845bca10b::t_67d8e363ad67ae 100
+apps/web/src/app-shell/CenterStage.tsx
+  s_7f235dd8b32fdd::t_f23e29c866d4fa 3272-3273,3279,3294-3304
+apps/web/src/app-shell/UpdateNotification.tsx
+  s_7f235dd8b32fdd::t_8a2b364fce829c 46
+apps/web/src/app-shell/center-pane/CenterPaneEmptyState.tsx
+  s_7f235dd8b32fdd::t_46ec6593b00458 7,10,12,36-37,43,290-291,297,306-307,343-362,401-406
+apps/web/src/app-shell/center-stage-tabs.tsx
+  s_7f235dd8b32fdd::t_1bcadabc459535 430
+apps/web/src/app-shell/workspace-center-frame.tsx
+  s_75d93442b090ed::t_ac55283525245b 75,513-514,516-521,525-530,1169,1221-1289
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "397aeef128692636bac6569c497d49d7c9c63be1",
+  "prompts": {},
+  "sessions": {
+    "s_75d93442b090ed": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a4c122e90edf56a1e",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_7f235dd8b32fdd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "17d1d179-f3e8-47eb-ba1d-921a80001bc4",
+        "model": "grok-4.6"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_96231bdf0d3399": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "830a2d09-de13-4c39-a6f4-a8b70e1f99c6",
+        "model": "grok-4.6"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_e2261845bca10b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5160aa63-8f48-4691-be86-c3653a0843cc",
+        "model": "grok-4.6"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
