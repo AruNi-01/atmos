@@ -42,6 +42,8 @@
   --border-radius-md: 0.5rem;
   --border-radius-lg: 0.625rem;
   --shadow-island: 0 0 0 1px var(--border, rgba(0, 0, 0, 0.1));
+  --pt-island-pad: var(--space-factor, 0.25rem);
+  --pt-island-size: calc(var(--lg-button-size, 2.25rem) + 2 * var(--pt-island-pad));
   font-family: inherit;
   background: var(--background, #ffffff);
 }
@@ -129,12 +131,13 @@
 }
 
 .excalidraw .App-toolbar.Island {
-  --padding: 0;
+  --padding: 1;
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  height: var(--lg-button-size, 2.25rem);
-  padding: 0 2px;
+  height: auto;
+  min-height: var(--pt-island-size);
+  padding: var(--pt-island-pad);
 }
 
 .excalidraw .App-menu_top {
@@ -158,13 +161,13 @@
 .excalidraw .pt-design-mode-toggle {
   position: absolute;
   top: 0;
-  left: 0;
+  left: calc(var(--pt-island-size) + 8px);
   z-index: 6;
   display: inline-flex;
   align-items: center;
-  gap: 0;
-  height: var(--lg-button-size, 2.25rem);
-  padding: 0 2px 0 var(--lg-button-size, 2.25rem);
+  gap: var(--pt-island-pad);
+  height: var(--pt-island-size);
+  padding: var(--pt-island-pad);
   box-sizing: border-box;
   border-radius: var(--border-radius-lg, 0.625rem);
   background: var(--island-bg-color, var(--card));
@@ -175,11 +178,12 @@
 .excalidraw .App-menu_top .main-menu-trigger.dropdown-menu-button {
   position: relative;
   z-index: 7;
-  width: var(--lg-button-size, 2.25rem);
-  height: var(--lg-button-size, 2.25rem);
-  background: transparent !important;
+  width: var(--pt-island-size);
+  height: var(--pt-island-size);
+  border-radius: var(--border-radius-lg, 0.625rem);
+  background: var(--island-bg-color, var(--card)) !important;
   border: none !important;
-  box-shadow: none !important;
+  box-shadow: var(--shadow-island) !important;
 }
 
 .pt-design-mode-toggle__btn {
@@ -210,7 +214,7 @@
 /* Floating drawer: inset rounded sheet instead of a flush right-angle panel. */
 .excalidraw .sidebar,
 .excalidraw .sidebar--docked {
-  top: 56px;
+  top: calc(var(--editor-container-padding, 1rem) + var(--pt-island-size) + 8px);
   right: 8px;
   bottom: 8px;
   width: min(360px, calc(100% - 16px));
@@ -481,13 +485,15 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
   background: var(--muted, var(--color-surface-high));
 }
 
-.pt-design-share-trigger,
-.pt-design-island-trigger {
+.excalidraw .pt-design-share-trigger,
+.excalidraw .pt-design-island-trigger {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 36px;
+  box-sizing: border-box;
+  width: auto;
+  height: var(--pt-island-size);
   padding: 0;
   border: none;
   border-radius: 8px;
@@ -510,22 +516,22 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
   transform: scale(0.96) !important;
 }
 
-.pt-design-share-trigger,
-.pt-design-island-trigger[data-icon-only="true"] {
-  width: 36px;
+.excalidraw .pt-design-share-trigger,
+.excalidraw .pt-design-island-trigger[data-icon-only="true"] {
+  width: var(--pt-island-size);
 }
 
-.pt-design-island-trigger[data-icon-only="false"] {
+.excalidraw .pt-design-island-trigger[data-icon-only="false"] {
   gap: 6px;
   padding: 0 10px;
   font-size: 13px;
   font-weight: 500;
 }
 
-.pt-design-share-trigger:hover,
-.pt-design-share-trigger[data-active="true"],
-.pt-design-island-trigger:hover,
-.pt-design-island-trigger[data-active="true"] {
+.excalidraw .pt-design-share-trigger:hover,
+.excalidraw .pt-design-share-trigger[data-active="true"],
+.excalidraw .pt-design-island-trigger:hover,
+.excalidraw .pt-design-island-trigger[data-active="true"] {
   background: var(--muted, var(--color-surface-high));
 }
 
@@ -997,15 +1003,15 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
   left: var(--editor-container-padding, 1rem);
   bottom: auto;
   z-index: 7;
-  width: var(--lg-button-size, 2.25rem);
-  height: var(--lg-button-size, 2.25rem);
+  width: var(--pt-island-size);
+  height: var(--pt-island-size);
   border-radius: var(--border-radius-lg, 0.625rem);
-  background: transparent !important;
-  box-shadow: none !important;
+  background: var(--island-bg-color, var(--card)) !important;
+  box-shadow: var(--shadow-island) !important;
 }
 
 .excalidraw.excalidraw--mobile .App-toolbar-content .dropdown-menu--mobile {
-  top: calc(var(--editor-container-padding, 1rem) + var(--lg-button-size, 2.25rem) + 0.5rem);
+  top: calc(var(--editor-container-padding, 1rem) + var(--pt-island-size) + 0.5rem);
   left: var(--editor-container-padding, 1rem);
   right: auto;
   bottom: auto;
@@ -1023,7 +1029,9 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
 
 .excalidraw.excalidraw--mobile .pt-design-mode-toggle {
   top: var(--editor-container-padding, 1rem);
-  left: var(--editor-container-padding, 1rem);
+  left: calc(
+    var(--editor-container-padding, 1rem) + var(--pt-island-size) + 8px
+  );
 }
 
 .excalidraw.excalidraw--mobile .App-toolbar-container {
@@ -1058,7 +1066,7 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
 }
 
 .excalidraw.excalidraw--mobile .mobile-misc-tools-container {
-  top: calc(var(--lg-button-size, 2.25rem) + 8px);
+  top: calc(var(--pt-island-size) + 8px);
   right: 0;
   border-right: 1px solid var(--sidebar-border-color);
   border-radius: var(--border-radius-lg, 0.625rem);
