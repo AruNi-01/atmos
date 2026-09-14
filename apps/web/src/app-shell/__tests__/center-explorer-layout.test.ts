@@ -4,6 +4,7 @@ import {
   changesExplorerFoldScopeId,
   clampCenterExplorerWidth,
   collectChangesExplorerFoldScopeIds,
+  collectExplorerSidecarHostPaneIds,
   collectUniqueHostPaneIds,
   explorerSidecarStyle,
   isCenterExplorerSinglePaneLayout,
@@ -64,6 +65,11 @@ describe("center explorer layout", () => {
     expect(isFileExplorerSurfaceTab("terminal", set)).toBe(false);
     expect(isFileExplorerSurfaceTab("changes", set)).toBe(false);
     expect(isFileExplorerSurfaceTab("overview", set)).toBe(false);
+    expect(isFileExplorerSurfaceTab("agent-chat:chat-1", set)).toBe(false);
+    expect(isFileExplorerSurfaceTab("agent-chat:draft:abc", set)).toBe(false);
+    // Unknown chrome ids must not inherit Files chrome (denylist fallback leak).
+    expect(isFileExplorerSurfaceTab("pt-design", set)).toBe(false);
+    expect(isFileExplorerSurfaceTab("not-a-file-tab", set)).toBe(false);
   });
 
   test("classifies changes and diff-group tabs as changes explorer surfaces", () => {
@@ -114,6 +120,53 @@ describe("center explorer layout", () => {
     expect(hosts).toEqual(["pane-a"]);
   });
 
+  test("mounts explorer sidecars only on panes whose active tab is the surface", () => {
+    const isFiles = (tabId: string | null | undefined) =>
+      tabId === "files" || Boolean(tabId?.startsWith("/repo/"));
+    expect(
+      collectExplorerSidecarHostPaneIds({
+        paneActiveTabById: {
+          "pane-a": "agent-chat:chat-1",
+          "pane-b": "files",
+        },
+        frameActiveTab: "agent-chat:chat-1",
+        isSurfaceTab: isFiles,
+      }),
+    ).toEqual(["pane-b"]);
+    expect(
+      collectExplorerSidecarHostPaneIds({
+        paneActiveTabById: { "pane-main": "agent-chat:chat-1" },
+        frameActiveTab: "files",
+        isSurfaceTab: isFiles,
+      }),
+    ).toEqual([]);
+    expect(
+      collectExplorerSidecarHostPaneIds({
+        paneActiveTabById: null,
+        frameActiveTab: "agent-chat:chat-1",
+        isSurfaceTab: isFiles,
+      }),
+    ).toEqual([]);
+    expect(
+      collectExplorerSidecarHostPaneIds({
+        paneActiveTabById: null,
+        frameActiveTab: "files",
+        isSurfaceTab: isFiles,
+      }),
+    ).toEqual([undefined]);
+    expect(
+      collectExplorerSidecarHostPaneIds({
+        paneActiveTabById: {
+          "pane-a": "files",
+          "pane-b": "/repo/a.ts",
+        },
+        frameActiveTab: "files",
+        isSurfaceTab: isFiles,
+        singlePane: true,
+      }),
+    ).toEqual(["pane-a"]);
+  });
+
   test("sets a CSS inset variable instead of shrinking the panel geometry", () => {
     expect(applyExplorerInsetToPanelStyle(undefined, 0)).toBeUndefined();
     expect(applyExplorerInsetToPanelStyle(undefined, 260)).toEqual({
@@ -147,7 +200,7 @@ describe("center explorer layout", () => {
     expect(style.borderBottomRightRadius).toBe("12px");
   });
 
-  test("right-anchors when mosaic box is missing or too small to dock", () => {
+  test("right-anchors when mosaic box is missing; docks to a narrow slot", () => {
     const missing = explorerSidecarStyle({
       singlePane: false,
       box: null,
@@ -166,8 +219,11 @@ describe("center explorer layout", () => {
       takingSpace: true,
       radius: "12px",
     });
-    expect(tiny.right).toBe(0);
-    expect(tiny.left).toBe("auto");
+    // Dock to the pane slot even when narrower than the sidecar — never
+    // frame-right-anchor onto a sibling tab.
+    expect(tiny.left).toBe(0);
+    expect(tiny.width).toBe(100);
+    expect(tiny.right).toBeUndefined();
   });
 
   test("starts the single-pane sidecar below chrome", () => {
@@ -304,13 +360,19 @@ describe("center explorer layout", () => {
     expect(sidecar).toContain('data-center-explorer-resizing={liveResize ? "" : undefined}');
     expect(sidecar).toContain('data-center-explorer-collapsing={collapseAnimating ? "" : undefined}');
     expect(sidecar).toContain("data-center-explorer-resize");
+    expect(sidecar).toContain("ResizeFollowMark");
+    expect(sidecar).toContain("isResizeClickGesture");
+    expect(sidecar).toContain("dragStarted");
     expect(sidecar).toContain("surfaceActive");
     expect(sidecar).toContain("collapsed");
     // Frame + fill; z-10 above full-bleed light surfaces.
     expect(sidecar).toContain('takingSpace && "border border-r-0 border-border/40 bg-background"');
-    expect(sidecar).toContain('"absolute z-10 flex min-h-0 overflow-hidden"');
+    expect(sidecar).toContain('"absolute z-10 flex min-h-0 overflow-visible"');
     expect(sidecar).toContain(
-      'className="flex h-full min-h-0 shrink-0 flex-col bg-background pl-[0.5px]"',
+      'className="flex h-full min-h-0 min-w-0 w-full flex-col overflow-hidden rounded-[inherit] bg-background pl-[0.5px]"',
+    );
+    expect(sidecar).toContain(
+      "takingSpace || isResizing || collapseAnimating ? children : null",
     );
     const frame = readFileSync(
       join(import.meta.dir, "../workspace-center-frame.tsx"),
@@ -322,8 +384,11 @@ describe("center explorer layout", () => {
     expect(frame).toContain("isCenterExplorerSinglePaneLayout");
     expect(frame).toContain("stabilizeExplorerHostPaneIds");
     expect(frame).toContain("singlePane: explorerSinglePane");
-    expect(frame).toContain("collectChangesExplorerFoldScopeIds");
-    expect(frame).toContain("changesExplorerFoldScopeIds");
+    expect(frame).toContain("collectExplorerSidecarHostPaneIds");
+    expect(frame).not.toContain("collectUniqueHostPaneIds(fileExplorerTabIds");
+    expect(frame).not.toContain("collectChangesExplorerFoldScopeIds");
+    expect(frame).not.toContain("changesExplorerFoldScopeIds");
+    expect(frame).toContain("if (!showing) return null");
     expect(frame).toContain('surfaceActive={surfaceActive}');
     expect(frame).toContain("collapsed={explorerLayout.filesCollapsed}");
     expect(frame).toContain("explorerLayoutActions.changesForScope(foldScopeId)");
@@ -431,13 +496,14 @@ describe("center explorer layout", () => {
     expect(
       isCenterExplorerSinglePaneLayout({
         multiActiveTabIds: ["/repo/a.ts", "/repo/b.ts"],
-        // Zero-size leftover must not force mosaic positioning.
+        // Two live pane tabs stay mosaic even if one box is still unmeasured,
+        // otherwise a Files sidecar right-anchors onto the sibling tab.
         paneSlotBoxes: {
           "pane-a": { top: 0, left: 0, width: 800, height: 600 },
           "pane-b": { top: 0, left: 0, width: 0, height: 0 },
         },
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       isCenterExplorerSinglePaneLayout({
         multiActiveTabIds: null,

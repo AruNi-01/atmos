@@ -2984,7 +2984,10 @@
         "promptTitle": "Prompt",
         "loadingDiff": "Loading diff...",
         "terminalLabel": "Terminal {terminalId}",
-        "resultTitle": "Result"
+        "resultTitle": "Result",
+        "ranTitle": "Ran subagent {name}",
+        "overlayAria": "Subagent conversation",
+        "closeAria": "Close subagent"
       },
       "composer": {
         "placeholder": {
@@ -3558,7 +3561,9 @@
         "navigation": "Message navigation",
         "assistantResponding": "Assistant is responding...",
         "assistantPending": "Assistant response pending.",
-        "jumpToMessage": "Jump to message {messageNumber}: {userText}"
+        "jumpToMessage": "Jump to message {messageNumber}: {userText}",
+        "previousMessage": "Previous message",
+        "nextMessage": "Next message"
       },
       "toolOrSkill": {
         "file": "file",
@@ -7521,7 +7526,9 @@
         "working": "Working",
         "streaming": "Streaming",
         "creatingSession": "Creating session",
-        "resumingSession": "Resuming session"
+        "resumingSession": "Resuming session",
+        "waitingForBackgroundAgent": "Waiting for 1 background agent to finish",
+        "waitingForBackgroundAgents": "Waiting for {count} background agents to finish"
       },
       "download": {
         "defaultChatName": "chat"
@@ -8932,7 +8939,11 @@
     },
     "imagePreviewOverlay": {
       "menu": "Image actions",
+      "zoomOut": "Zoom out",
+      "zoomIn": "Zoom in",
       "copyImage": "Copy image",
+      "downloadImage": "Download",
+      "close": "Close",
       "saveImage": "Save image",
       "copyFailedTitle": "Copy failed",
       "saveFailedTitle": "Save failed",

@@ -577,7 +577,7 @@ html[data-center-stage-plus-menu-open] iframe {
   min-height: 36px;
   padding: 6px;
   border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   background:
     linear-gradient(
       180deg,

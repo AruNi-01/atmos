@@ -2,6 +2,7 @@ import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import { isGenericToolLabel } from "@/features/agent/lib/agent-tool-kind";
 import { sumToolGroupDiffStats } from "@/features/agent/lib/tool-results/diff-stats";
 import {
+  firstCommandLineTitle,
   hostFromUrl,
   stripPathEchoFromToolHeading,
   toolTitleLooksLikePath,
@@ -31,7 +32,7 @@ export function pathFromToolPart(part: AgentToolCallPart): string | null {
 }
 
 function truncateCommand(command: string): string {
-  const trimmed = command.trim().replace(/\s+/g, " ");
+  const trimmed = firstCommandLineTitle(command).replace(/\s+/g, " ");
   if (trimmed.length <= COMMAND_MAX) return trimmed;
   return `${trimmed.slice(0, COMMAND_MAX - 1)}…`;
 }

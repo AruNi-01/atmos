@@ -413,6 +413,7 @@ fn fold_thinking(
                 AgentEvent::ThinkingDelta {
                     message_id,
                     delta: text,
+                    parent_tool_call_id: None,
                 },
             );
         }
@@ -423,6 +424,7 @@ fn fold_thinking(
         AgentEvent::ThinkingDelta {
             message_id,
             delta: text,
+            parent_tool_call_id: None,
         },
     )
 }
@@ -450,6 +452,7 @@ fn map_assistant_stream(
                 AgentEvent::AssistantMessageDelta {
                     message_id,
                     delta: delta.delta,
+                    parent_tool_call_id: None,
                 },
             );
         }
@@ -463,6 +466,7 @@ fn map_assistant_stream(
         AgentEvent::AssistantMessageDelta {
             message_id,
             delta: delta.delta,
+            parent_tool_call_id: None,
         },
     )
 }

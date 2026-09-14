@@ -2,6 +2,8 @@
 
 import React from "react";
 import { cn } from "@/shared/lib/utils";
+import { ResizeFollowMark } from "@/app-shell/ResizeFollowMark";
+import { isResizeClickGesture } from "@/app-shell/resize-click-fold";
 import {
   CENTER_EXPLORER_COLLAPSE_TRANSITION_CLASS,
   CENTER_EXPLORER_COLLAPSE_TRANSITION_MS,
@@ -127,6 +129,15 @@ export function CenterExplorerSidecar({
     };
   }, [setFrameCollapsing, setFrameResizing]);
 
+  const stopResizeListenersRef = React.useRef<(() => void) | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      stopResizeListenersRef.current?.();
+      stopResizeListenersRef.current = null;
+    };
+  }, []);
+
   const beginLiveResize = React.useCallback(() => {
     setLiveResize(true);
     setFrameResizing(true);
@@ -148,9 +159,10 @@ export function CenterExplorerSidecar({
       aria-hidden={!takingSpace}
       inert={!takingSpace ? true : undefined}
       className={cn(
-        // Clip fill to TL/BL radii (overflow-hidden). z-10 beats full-bleed
-        // light surfaces (`z-[1]`) so the explorer list is never covered.
-        "absolute z-10 flex min-h-0 overflow-hidden",
+        // Clip the list, not this frame — the resize mark must paint on the
+        // approach side, including over the file surface to the left.
+        // z-10 beats full-bleed light surfaces (`z-[1]`) so the list is never covered.
+        "absolute z-10 flex min-h-0 overflow-visible",
         // Continuous frame on top + left + bottom (no right; flush to stage edge).
         // Soft hairline — match DiffCodeViewScaffold explorer dividers.
         // TL/BL radii come from `style` / CENTER_STAGE_RADIUS_CSS.
@@ -167,26 +179,46 @@ export function CenterExplorerSidecar({
           role="separator"
           aria-orientation="vertical"
           data-center-explorer-resize=""
-          className="absolute inset-y-0 left-0 z-10 w-3 -translate-x-1/2 cursor-col-resize"
+          className="absolute inset-y-0 left-0 z-10 w-3 -translate-x-1/2 cursor-col-resize overflow-visible touch-none"
           onMouseDown={(event) => {
             event.preventDefault();
-            const startX = event.clientX;
+            const start = { x: event.clientX, y: event.clientY };
             const startWidth = innerWidth;
             // Local flag so the same pointer-down can collapse and reopen
             // without waiting on parent `takingSpace` to round-trip.
             let collapsedDuringDrag = !takingSpace;
-            setIsResizing(true);
-            beginLiveResize();
+            let dragStarted = false;
+            const startDragChrome = () => {
+              if (dragStarted) return;
+              dragStarted = true;
+              setIsResizing(true);
+              beginLiveResize();
+            };
             const endResize = () => {
               setIsResizing(false);
               setLiveResize(false);
               setFrameResizing(false);
               window.removeEventListener("mousemove", onMove);
               window.removeEventListener("mouseup", onUp);
+              if (stopResizeListenersRef.current === endResize) {
+                stopResizeListenersRef.current = null;
+              }
             };
+            stopResizeListenersRef.current?.();
+            stopResizeListenersRef.current = endResize;
             const onMove = (moveEvent: MouseEvent) => {
+              if (
+                !dragStarted &&
+                isResizeClickGesture(start, {
+                  x: moveEvent.clientX,
+                  y: moveEvent.clientY,
+                })
+              ) {
+                return;
+              }
+              startDragChrome();
               const outcome = resolveCenterExplorerResize(
-                startWidth - (moveEvent.clientX - startX),
+                startWidth - (moveEvent.clientX - start.x),
                 { collapsed: collapsedDuringDrag },
               );
               if (outcome.action === "collapse") {
@@ -207,20 +239,33 @@ export function CenterExplorerSidecar({
               beginLiveResize();
               onWidthChange(outcome.width);
             };
-            const onUp = () => {
+            const onUp = (upEvent: MouseEvent) => {
+              if (
+                !dragStarted &&
+                isResizeClickGesture(start, {
+                  x: upEvent.clientX,
+                  y: upEvent.clientY,
+                })
+              ) {
+                endResize();
+                onCollapse();
+                return;
+              }
               endResize();
             };
             window.addEventListener("mousemove", onMove);
             window.addEventListener("mouseup", onUp);
           }}
-        />
+        >
+          <ResizeFollowMark axis="vertical" dragging={isResizing} />
+        </div>
       ) : null}
       <div
-        // ~0.5px inset so the left hairline does not sit flush on row content.
-        className="flex h-full min-h-0 shrink-0 flex-col bg-background pl-[0.5px]"
-        style={{ width: innerWidth }}
+        // Fill the frame width so a collapsed/off-surface rail cannot paint the
+        // 260px tree into a sibling tab (outer is overflow-visible for the mark).
+        className="flex h-full min-h-0 min-w-0 w-full flex-col overflow-hidden rounded-[inherit] bg-background pl-[0.5px]"
       >
-        {children}
+        {takingSpace || isResizing || collapseAnimating ? children : null}
       </div>
     </div>
   );

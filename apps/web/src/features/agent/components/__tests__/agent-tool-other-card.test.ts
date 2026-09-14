@@ -21,15 +21,12 @@ describe("S9 generic other tool card", () => {
     expect(card).not.toContain("native");
   });
 
-  it("keeps subagent details behind the standard tool disclosure", () => {
+  it("renders subagent as a collapsed overlay trigger", () => {
     expect(view).toContain("<SubAgentBlockView");
-    expect(view).toContain("childTools={directChildTools}");
-    expect(view).toContain("allTools={childTools}");
-    expect(subagent).toContain("<AgentToolCard");
-    expect(subagent).toContain("defaultOpen={defaultOpen}");
-    expect(subagent).toContain('icon={getToolKindIcon("subagent")}');
-    expect(subagent).toContain("childTools.map");
-    expect(subagent).not.toContain('useState(true)');
+    expect(view).not.toContain("childTools={directChildTools}");
+    expect(subagent).not.toContain("<AgentToolCard");
+    expect(subagent).not.toContain("defaultOpen");
+    expect(subagent).toContain('getToolKindIcon("subagent")');
   });
 
   it("keeps the kind verb in the title and uses the file chip as accessory", () => {

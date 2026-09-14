@@ -732,10 +732,6 @@ function hydrateComposerUrlChip(span: HTMLElement) {
     .catch(() => {});
 }
 
-function hydrateComposerUrlChips(root: HTMLElement) {
-  root.querySelectorAll<HTMLElement>("[data-kind='url']").forEach(hydrateComposerUrlChip);
-}
-
 function serialize(root: HTMLElement): string {
   let out = "";
   const walk = (node: Node) => {
@@ -1213,6 +1209,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       disabled = false,
     } = props;
     const editorRef = React.useRef<HTMLDivElement | null>(null);
+    const pasteDepthRef = React.useRef(0);
     const skillDisableDismissTimerRef = React.useRef<number | null>(null);
     const skillDisableDismissStateRef = React.useRef<{
       chip: HTMLElement;
@@ -1820,6 +1817,21 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
     };
 
     const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
+      // Chrome can re-enter paste while we insert a chip. Drop the nested
+      // event so one clipboard payload cannot become two chips.
+      if (pasteDepthRef.current > 0) {
+        event.preventDefault();
+        return;
+      }
+      pasteDepthRef.current += 1;
+      try {
+        pasteIntoEditor(event);
+      } finally {
+        pasteDepthRef.current -= 1;
+      }
+    };
+
+    const pasteIntoEditor = (event: React.ClipboardEvent<HTMLDivElement>) => {
       const images = pickClipboardImageFiles(event.clipboardData.items);
       if (images.length > 0) {
         event.preventDefault();
@@ -1832,12 +1844,24 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         })();
         return;
       }
+      const htmlTokens = tokensFromClipboardHtml(
+        event.clipboardData.getData("text/html"),
+      );
+      if (htmlTokens.length > 0 && editorRef.current) {
+        event.preventDefault();
+        for (const token of htmlTokens) {
+          insertChipAtCaret(editorRef.current, token);
+        }
+        rememberCaretOffset();
+        fireChange();
+        return;
+      }
       // Plain text paste — strip rich formatting
       const text = event.clipboardData.getData("text/plain");
       const appshotProtocol = parseAppshotProtocol(text);
       if (appshotProtocol && editorRef.current) {
         event.preventDefault();
-        insertChipAtCaretWithUndo(
+        insertChipAtCaret(
           editorRef.current,
           `[#appshot:${appshotProtocol.timestamp}]`,
         );
@@ -1849,7 +1873,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       if (aiContext && editorRef.current) {
         event.preventDefault();
         const token = registerAiContextPrompt(aiContext.kind, aiContext.promptText);
-        insertChipAtCaretWithUndo(editorRef.current, token);
+        insertChipAtCaret(editorRef.current, token);
         rememberCaretOffset();
         fireChange();
         return;
@@ -1858,14 +1882,14 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       if (!text || !editorRef.current) return;
       const pastedUrl = parsePastedHttpUrl(text);
       if (pastedUrl) {
-        insertChipAtCaretWithUndo(editorRef.current, formatUrlToken(pastedUrl));
+        insertChipAtCaret(editorRef.current, formatUrlToken(pastedUrl));
         rememberCaretOffset();
         fireChange();
         return;
       }
       if (shouldChipPlainPaste(text)) {
         const token = registerComposerPaste(text);
-        insertChipAtCaretWithUndo(editorRef.current, token);
+        insertChipAtCaret(editorRef.current, token);
         rememberCaretOffset();
         fireChange();
         return;
@@ -2094,25 +2118,35 @@ function insertPlainTextAtCaretWithUndo(root: HTMLElement, text: string) {
   insertPlainTextAtCaret(root, normalized);
 }
 
-function insertChipAtCaretWithUndo(root: HTMLElement, token: string) {
-  const startOffset = getRangeStartTextOffset(root);
-  const container = document.createElement("div");
-  container.append(
-    buildChipNode(token),
-    document.createTextNode(CHIP_TRAILING_SPACER),
-  );
-  const insertedHtml = Boolean(
-    document.execCommand?.("insertHTML", false, container.innerHTML),
-  );
-  if (insertedHtml) {
-    // insertHTML re-parses markup, so bind OG hydration to the live chip.
-    hydrateComposerUrlChips(root);
-  } else {
-    insertNodeAtCaret(root, buildChipNode(token));
-    insertNodeAtCaret(root, document.createTextNode(CHIP_TRAILING_SPACER));
+function isComposerChipToken(token: string): boolean {
+  return new RegExp(`^(?:${CHIP_TOKEN_PATTERN})$`).test(token);
+}
+
+function tokensFromClipboardHtml(html: string): string[] {
+  if (!html || !html.includes("data-token")) return [];
+  try {
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    const tokens: string[] = [];
+    const seen = new Set<string>();
+    template.content.querySelectorAll("[data-token]").forEach((el) => {
+      const token = el.getAttribute("data-token") ?? "";
+      if (!token || seen.has(token) || !isComposerChipToken(token)) return;
+      seen.add(token);
+      tokens.push(token);
+    });
+    return tokens;
+  } catch {
+    return [];
   }
-  // Chrome leaves the caret before a contenteditable=false chip after
-  // insertHTML. Always place it after the chip + trailing spacer.
+}
+
+function insertChipAtCaret(root: HTMLElement, token: string) {
+  const startOffset = getRangeStartTextOffset(root);
+  // Do not use execCommand('insertHTML') here. Chrome duplicates
+  // contenteditable=false chips when insertHTML runs inside a paste handler.
+  insertNodeAtCaret(root, buildChipNode(token));
+  insertNodeAtCaret(root, document.createTextNode(CHIP_TRAILING_SPACER));
   const insertedLength = token.length + CHIP_TRAILING_SPACER.length;
   const nextOffset =
     (startOffset ?? Math.max(0, serialize(root).length - insertedLength)) +

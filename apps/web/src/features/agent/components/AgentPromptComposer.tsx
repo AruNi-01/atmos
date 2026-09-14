@@ -34,6 +34,7 @@ import { PlanBlockView } from "./PlanBlockView";
 import { BackgroundCommandsDock } from "./BackgroundCommandsDock";
 import { MessageQueueDock } from "./MessageQueueDock";
 import { SubagentTasksPanel } from "./SubagentTasksDock";
+import { useSubagentOverlay } from "./subagent-overlay-context";
 import type { CurrentTurnSubagentTasks } from "@/features/agent/lib/subagent-tasks";
 import { useAgentComposerPopovers } from "../hooks/use-agent-composer-popovers";
 import type { AgentChatSlashCommand } from "../hooks/use-agent-chat-session";
@@ -513,6 +514,8 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   workingDirectoryPicker = null,
   landing = false,
   sessionUsage = null,
+  messages = [],
+  subagentOverlay = null,
   aboveInputOverlay = null,
   onAboveComposerOverlaysNodeChange,
 }: {
@@ -567,6 +570,8 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   } | null;
   landing?: boolean;
   sessionUsage?: AgentSessionUsage | null;
+  messages?: AgentMessage[];
+  subagentOverlay?: React.ReactNode;
   /** Approve / session-op cards — floated in the same lane as context usage. */
   aboveInputOverlay?: React.ReactNode;
   onAboveComposerOverlaysNodeChange?: (node: HTMLDivElement | null) => void;
@@ -586,7 +591,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   const composerRef = useRef<ComposerHandle | null>(null);
   const [editingQueueId, setEditingQueueId] = useState<string | null>(null);
   const [contextUsageOpen, setContextUsageOpen] = useState(false);
-  const [selectedSubagentId, setSelectedSubagentId] = useState<string | null>(null);
+  const { close: closeSubagentOverlay } = useSubagentOverlay();
   const editingItem = editingQueueId
     ? queuedPrompts.find((item) => item.id === editingQueueId) ?? null
     : null;
@@ -613,12 +618,6 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     if (contextStats != null || !contextUsageOpen) return;
     setContextUsageOpen(false);
   }, [contextStats, contextUsageOpen]);
-
-  useEffect(() => {
-    if (!selectedSubagentId) return;
-    if (subagentTasks.items.some((part) => part.tool_call_id === selectedSubagentId)) return;
-    setSelectedSubagentId(null);
-  }, [selectedSubagentId, subagentTasks.items]);
 
   useEffect(() => {
     return () => onAboveComposerOverlaysNodeChange?.(null);
@@ -754,7 +753,13 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
         }
       }}
       onKeyDownCapture={(event) => {
-        if (event.key !== "Escape" || !editingQueueId) return;
+        if (event.key !== "Escape") return;
+        if (subagentOverlay) {
+          event.preventDefault();
+          closeSubagentOverlay();
+          return;
+        }
+        if (!editingQueueId) return;
         setEditingQueueId(null);
       }}
     >
@@ -775,10 +780,21 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
             )}
           >
             <AnimatePresence initial={false}>
+              {subagentOverlay ? (
+                <div
+                  data-agent-subagent-overlay=""
+                  className="pointer-events-auto relative z-30 h-[70cqh] max-h-[70cqh] min-h-0 w-full"
+                >
+                  {subagentOverlay}
+                </div>
+              ) : null}
               {showContextUsageCard ? (
                 <motion.div
                   key="agent-context-usage"
-                  className="pointer-events-auto w-full"
+                  className={cn(
+                    "pointer-events-auto w-full",
+                    subagentOverlay && "hidden",
+                  )}
                   initial={false}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{
@@ -803,7 +819,10 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
               {showSubagentTasksCard ? (
                 <motion.div
                   key="agent-subagent-tasks"
-                  className="pointer-events-auto w-full"
+                  className={cn(
+                    "pointer-events-auto w-full",
+                    subagentOverlay && "hidden",
+                  )}
                   initial={false}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{
@@ -820,15 +839,14 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
                 >
                   <SubagentTasksPanel
                     tools={subagentTasks.items}
-                    allTools={subagentTasks.tools}
-                    cwd={projectPath}
-                    selectedId={selectedSubagentId}
-                    onSelect={setSelectedSubagentId}
+                    messages={messages}
                   />
                 </motion.div>
               ) : null}
             </AnimatePresence>
-            {aboveInputOverlay}
+            {aboveInputOverlay ? (
+              <div className={cn(subagentOverlay && "hidden")}>{aboveInputOverlay}</div>
+            ) : null}
           </div>
         </div>
         {hasUpperComposerCards ? (

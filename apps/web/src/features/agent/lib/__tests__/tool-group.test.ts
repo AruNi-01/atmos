@@ -105,6 +105,33 @@ describe("segmentAssistantParts", () => {
     )).toEqual(["tool_call", "tool_call"]);
   });
 
+  it("hides vendor wait-poll tools from transcript cards", () => {
+    const parts: AgentPart[] = [
+      tool({
+        tool_call_id: "parent",
+        kind: "subagent",
+        name: "Task",
+        status: "running",
+      }),
+      tool({
+        tool_call_id: "wait",
+        kind: "other",
+        name: "TaskOutput",
+        status: "running",
+      }),
+      tool({
+        tool_call_id: "read",
+        kind: "read",
+        name: "Read",
+      }),
+    ];
+    expect(segmentAssistantParts(parts, "standard").map((segment) =>
+      segment.type === "part" && segment.part.type === "tool_call"
+        ? segment.part.tool_call_id
+        : segment.type,
+    )).toEqual(["parent", "read"]);
+  });
+
   it("keeps every process row after extracting answer text", () => {
     const parts: AgentPart[] = [
       { type: "thinking", text: "hmm" },
@@ -268,6 +295,22 @@ describe("segmentAssistantParts", () => {
       segmentAssistantParts(parts, "compact")
         .flatMap((segment) => segment.type === "part" ? [segment.part] : segment.parts),
     ))).toEqual([{ kind: "subagent", count: 1 }]);
+  });
+
+  it("omits nested tools and text even when the parent row is in a later message", () => {
+    const parts: AgentPart[] = [
+      tool({
+        tool_call_id: "child-read",
+        kind: "read",
+        parent_tool_call_id: "parent",
+      }),
+      { type: "thinking", text: "nested think", parent_tool_call_id: "parent" },
+      { type: "text", text: "nested prose", parent_tool_call_id: "parent" },
+      { type: "text", text: "parent reply" },
+    ];
+    expect(segmentAssistantParts(parts, "standard").map((segment) =>
+      segment.type === "part" ? segment.part : segment.parts,
+    )).toEqual([parts[3]]);
   });
 
   it("detailed keeps every tool on its own row", () => {

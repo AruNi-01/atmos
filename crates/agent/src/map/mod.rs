@@ -14,14 +14,14 @@ pub use classify::{
     plan_from_tool_input, plan_from_tool_input_or_stub, thinking_text, ClassifiedTool,
 };
 pub use context_usage::{
-    acp_context_usage, claude_context_usage, codex_context_usage, context_tokens_from_acp_meta,
-    grok_context_usage, grok_model_context_windows_from_catalog, opencode_context_usage,
-    pi_context_usage_from_message, pi_context_usage_from_stats,
+    acp_context_usage, claude_context_occupancy, claude_context_usage, codex_context_usage,
+    context_tokens_from_acp_meta, grok_context_usage, grok_model_context_windows_from_catalog,
+    opencode_context_usage, pi_context_usage_from_message, pi_context_usage_from_stats,
 };
 pub use extract::{
     extract_aspect_ratio, extract_background, extract_command, extract_cwd, extract_description,
     extract_generated_images, extract_image_prompt, extract_image_size, extract_links,
     extract_path, extract_query, extract_reference_paths, extract_search_hits, extract_skill,
-    extract_subagent, extract_task_id, extract_url, is_human_tool_description,
-    sanitize_execute_output,
+    extract_subagent, extract_subagent_prompt, extract_task_id, extract_url, human_execute_title,
+    is_human_tool_description, sanitize_execute_output,
 };

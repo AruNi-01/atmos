@@ -288,6 +288,7 @@ export function ChatAgentConfigInput({
       ) : undefined,
     };
   });
+  const currentAgentId = registryId || agentOptions[0]?.value || "";
   const catalogModels: PromptModel[] = toPromptModels(modelOption, undefined, {
     fastEnabled: isFastOnValue(resolvedConfigOptionValue(fastOption, "fast")),
   }).map((option) => ({
@@ -412,26 +413,28 @@ export function ChatAgentConfigInput({
                 aria-hidden
                 className="mx-auto my-1 h-px w-5 bg-border/80"
               />
-              <div className={cn("flex flex-col items-center", agentsLocked && "opacity-40")}>
+              <div className="flex flex-col items-center">
                 {agentOptions.map((option) => {
                   const label = typeof option.label === "string" ? option.label : option.value;
+                  const isCurrentAgent = option.value === currentAgentId;
+                  const tabLocked = Boolean(option.disabled || (agentsLocked && !isCurrentAgent));
                   return (
                     <Tooltip key={option.value}>
                       <TooltipTrigger asChild>
                         <span className="inline-flex">
                           <CenterStageTab
                             value={option.value}
-                            disabled={option.disabled || agentsLocked}
+                            disabled={tabLocked}
                             aria-label={label}
-                            title={agentsLocked ? t("composer.agentLocked") : label}
-                            className="size-9 px-0"
+                            title={tabLocked ? t("composer.agentLocked") : label}
+                            className={cn("size-9 px-0", tabLocked && "opacity-40")}
                           >
                             {option.icon}
                           </CenterStageTab>
                         </span>
                       </TooltipTrigger>
                       <TooltipContent side={menuInline ? "right" : "left"} className="z-[10000]">
-                        {agentsLocked ? (
+                        {tabLocked ? (
                           t("composer.agentLocked")
                         ) : (
                           <span className="flex items-center gap-1.5">

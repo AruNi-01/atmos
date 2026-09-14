@@ -300,6 +300,8 @@ fn host_event_to_status(event: &AgentEvent) -> Option<(AgentOccupancy, Occupancy
             AgentOccupancy::PermissionRequest,
             OccupancyUpdateKind::Permission,
         )),
+        // Chat applies this as soon as the user clicks Allow. Terminal never
+        // sees a click, so it stays on PermissionRequest until the next tool.
         AgentEvent::PermissionResolved { .. } => {
             Some((AgentOccupancy::Running, OccupancyUpdateKind::Progress))
         }
@@ -1563,6 +1565,11 @@ mod tests {
         assert!(
             service.get_all_attention().is_empty(),
             "chat PermissionResolved must clear the header bell latch"
+        );
+        assert_eq!(
+            service.get_all_sessions()[0].state,
+            AgentOccupancy::Running,
+            "chat click-to-allow must leave Need permission without waiting for the next tool"
         );
     }
 

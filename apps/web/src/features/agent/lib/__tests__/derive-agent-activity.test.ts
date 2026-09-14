@@ -351,4 +351,178 @@ describe("deriveAgentActivity", () => {
       }], { streaming: false }),
     ])).toEqual([]);
   });
+
+  it("does not invent wait copy from a running subagent or nested child tools", () => {
+    const activity = deriveAgentActivity([
+      assistant([
+        {
+          type: "tool_call",
+          tool_call_id: "parent",
+          name: "Task",
+          kind: "subagent",
+          status: "running",
+          params: {
+            type: "subagent",
+            description: "Explore activity indicator spacing",
+            agent_type: "explore",
+          },
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "child-read",
+          name: "Read",
+          kind: "read",
+          status: "running",
+          parent_tool_call_id: "parent",
+          params: { type: "read", path: "a.ts" },
+        },
+      ], { streaming: true }),
+    ], true);
+    expect(activity).toMatchObject({ busy: true, kind: "working", label: "Tool" });
+    expect(JSON.stringify(activity)).not.toContain("Waiting");
+    expect(JSON.stringify(activity)).not.toContain("a.ts");
+  });
+
+  it("maps an active vendor wait-poll tool", () => {
+    const activity = deriveAgentActivity([
+      assistant([
+        {
+          type: "tool_call",
+          tool_call_id: "parent",
+          name: "Task",
+          kind: "subagent",
+          status: "running",
+          params: {
+            type: "subagent",
+            description: "Explore activity indicator spacing",
+            agent_type: "explore",
+          },
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "child-read",
+          name: "Read",
+          kind: "read",
+          status: "completed",
+          parent_tool_call_id: "parent",
+          params: { type: "read", path: "a.ts" },
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "wait",
+          name: "TaskOutput",
+          kind: "other",
+          status: "running",
+          params: { type: "other", value: null },
+        },
+      ], { streaming: true }),
+    ], true);
+    expect(activity).toMatchObject({
+      busy: true,
+      kind: "working",
+      label: "Waiting for 1 background agent to finish",
+    });
+  });
+
+  it("lets a later main-agent tool win over a wait poll", () => {
+    const activity = deriveAgentActivity([
+      assistant([
+        {
+          type: "tool_call",
+          tool_call_id: "parent",
+          name: "Task",
+          kind: "subagent",
+          status: "running",
+          params: { type: "subagent", description: "Explore files", agent_type: "explore" },
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "wait",
+          name: "TaskOutput",
+          kind: "other",
+          status: "running",
+          params: { type: "other", value: null },
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "read",
+          name: "Read",
+          kind: "read",
+          status: "running",
+          params: { type: "read", path: "a.ts" },
+        },
+      ], { streaming: true }),
+    ], true);
+    expect(activity).toMatchObject({ busy: true, kind: "working", label: "Read a.ts" });
+  });
+
+  it("counts active wait-poll tools, not subagent cards", () => {
+    const activity = deriveAgentActivity([
+      assistant([
+        {
+          type: "tool_call",
+          tool_call_id: "one",
+          name: "Task",
+          kind: "subagent",
+          status: "running",
+          params: { type: "subagent", description: "Explore files", agent_type: "explore" },
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "two",
+          name: "Agent",
+          kind: "subagent",
+          status: "running",
+          params: { type: "subagent", description: "Write summary", agent_type: "generalPurpose" },
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "wait-1",
+          name: "TaskOutput",
+          kind: "other",
+          status: "running",
+          params: { type: "other", value: null },
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "wait-2",
+          name: "AgentOutput",
+          kind: "other",
+          status: "running",
+          title: "get_command_or_subagent_output",
+          params: { type: "other", value: null },
+        },
+      ], { streaming: true }),
+    ], true);
+    expect(activity).toMatchObject({
+      busy: true,
+      kind: "working",
+      label: "Waiting for 2 background agents to finish",
+    });
+  });
+
+  it("drops completed wait-poll tools from the streaming fallback", () => {
+    const activity = deriveAgentActivity([
+      assistant([
+        {
+          type: "tool_call",
+          tool_call_id: "parent",
+          name: "Task",
+          kind: "subagent",
+          status: "running",
+          params: { type: "subagent", description: "Explore files", agent_type: "explore" },
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "wait",
+          name: "TaskOutput",
+          kind: "other",
+          status: "completed",
+          params: { type: "other", value: null },
+        },
+      ], { streaming: true }),
+    ], true);
+    expect(activity).toMatchObject({ busy: true, kind: "working", label: "Tool" });
+    expect(JSON.stringify(activity)).not.toContain("Waiting");
+  });
 });

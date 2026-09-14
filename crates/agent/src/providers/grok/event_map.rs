@@ -126,6 +126,23 @@ pub(crate) fn map_event(
                     wrap(turn_id, AgentEvent::PlanUpdated { plan }),
                 )),
                 ToolMapOut::Hide => None,
+                ToolMapOut::CompleteWait { wait, parent } => {
+                    let wait_kind = tool_status_kind(wait.status);
+                    let parent_kind = match parent.status {
+                        crate::contract::AgentToolStatus::Completed => ToolEventKind::Completed,
+                        crate::contract::AgentToolStatus::Failed => ToolEventKind::Failed,
+                        _ => ToolEventKind::Updated,
+                    };
+                    let first = complete_before_thinking(
+                        state,
+                        turn_id.clone(),
+                        wrap(turn_id.clone(), tool_event(wait, wait_kind)),
+                    );
+                    state
+                        .pending
+                        .push_back(wrap(turn_id, tool_event(parent, parent_kind)));
+                    Some(first)
+                }
                 ToolMapOut::Tool(tool) => {
                     let kind = tool_status_kind(tool.status);
                     Some(complete_before_thinking(
@@ -347,6 +364,7 @@ fn fold_thinking(
                 AgentEvent::ThinkingDelta {
                     message_id,
                     delta: text,
+                    parent_tool_call_id: None,
                 },
             );
         }
@@ -357,6 +375,7 @@ fn fold_thinking(
         AgentEvent::ThinkingDelta {
             message_id,
             delta: text,
+            parent_tool_call_id: None,
         },
     )
 }
@@ -384,6 +403,7 @@ fn map_assistant_stream(
                 AgentEvent::AssistantMessageDelta {
                     message_id,
                     delta: delta.delta,
+                    parent_tool_call_id: None,
                 },
             );
         }
@@ -397,6 +417,7 @@ fn map_assistant_stream(
         AgentEvent::AssistantMessageDelta {
             message_id,
             delta: delta.delta,
+            parent_tool_call_id: None,
         },
     )
 }

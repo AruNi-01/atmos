@@ -167,6 +167,7 @@ function createEditorTheme(isDark: boolean): Extension {
       '.cm-tooltip': {
         border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`,
         backgroundColor: isDark ? '#09090b' : '#ffffff',
+        borderRadius: 'var(--radius-xl)',
       },
       '.cm-panels': {
         position: 'absolute',
@@ -192,7 +193,7 @@ function createEditorTheme(isDark: boolean): Extension {
         display: 'grid',
         gap: '10px',
         padding: '12px',
-        borderRadius: '8px',
+        borderRadius: 'var(--radius-xl)',
         border: `1px solid ${isDark ? 'rgba(113, 113, 122, 0.34)' : 'rgba(212, 212, 216, 0.96)'}`,
         background: isDark
           ? 'linear-gradient(180deg, rgba(24, 24, 27, 0.56), rgba(9, 9, 11, 0.64))'

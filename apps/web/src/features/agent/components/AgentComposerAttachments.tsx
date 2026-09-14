@@ -81,13 +81,14 @@ export function AgentComposerAttachmentList({
             label={label}
             previewLabel={t("preview", { filename: label })}
             removeLabel={onRemove ? t("removeNamed", { filename: label }) : undefined}
-            onPreview={(event) =>
+            onPreview={(event) => {
+              event.stopPropagation();
               setPreview({
                 src: file.url,
                 alt: label,
                 originRect: imagePreviewOriginRectFromElement(event.currentTarget),
-              })
-            }
+              });
+            }}
             onRemove={onRemove ? () => handleRemove(file) : undefined}
           />
         ) : (
@@ -143,11 +144,11 @@ function ComposerImageTile({
           title={previewLabel}
           onClick={onPreview}
           className={cn(
-            "block cursor-zoom-in overflow-hidden",
+            "block cursor-zoom-in overflow-hidden transition-[height,max-width] duration-200",
             "bg-muted/40 ring-1 ring-border/50",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             density === "compact"
-              ? "h-14 max-w-32 rounded-xl"
+              ? "h-12 max-w-[6.6rem] rounded-xl"
               : "h-20 max-w-44 rounded-2xl",
           )}
         >
@@ -158,7 +159,7 @@ function ComposerImageTile({
             draggable={false}
             className={
               density === "compact"
-                ? "block h-full w-auto max-w-32"
+                ? "block h-full w-auto max-w-[6.6rem]"
                 : "block h-full w-auto max-w-44"
             }
           />

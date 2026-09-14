@@ -64,7 +64,7 @@ describe("agent permission card", () => {
     expect(card).not.toContain("/allow|accept|approve|once/i.test(option.option_id)");
   });
 
-  it("plan exit View plan toggles panes; expands to 80cqh only while viewing plan", () => {
+  it("plan exit View plan toggles panes; expands to 70cqh only while viewing plan", () => {
     expect(card).toContain('label: t("keepPlanning")');
     expect(card).toContain('t("viewPlan")');
     expect(card).toContain('t("viewTodos")');
@@ -79,8 +79,8 @@ describe("agent permission card", () => {
     expect(card).toContain("hasTodos || showPlanPreview");
     expect(card).toContain("setViewingPlan((open) => !open)");
     expect(card).toContain('viewingPlan ? t("viewTodos") : t("viewPlan")');
-    expect(card).toContain("max-h-[80cqh]");
-    expect(card).toContain('"80cqh"');
+    expect(card).toContain("max-h-[70cqh]");
+    expect(card).toContain('"70cqh"');
     expect(card).toContain("structuredPlanSteps");
     expect(card).toContain("includeChecklistSteps");
     expect(card).toContain("planStepsFromPermissionTodos");
@@ -104,8 +104,8 @@ describe("agent permission card", () => {
 
   it("plan exit todos view stays at 50cqh; plan preview expands without permanently covering composer", () => {
     expect(card).toContain("max-h-[50cqh]");
-    expect(card).toContain("max-h-[80cqh]");
-    expect(card).toContain('isPlanExit && showPlanPreview ? "max-h-[80cqh]" : "max-h-[50cqh]"');
+    expect(card).toContain("max-h-[70cqh]");
+    expect(card).toContain('isPlanExit && showPlanPreview ? "max-h-[70cqh]" : "max-h-[50cqh]"');
     expect(card).not.toContain("28cqh");
     expect(card).not.toContain("max-h-[min(70vh,36rem)]");
     expect(card).not.toContain("min-h-[16rem]");

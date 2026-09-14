@@ -139,6 +139,41 @@ describe("UserMessageBody", () => {
     expect(container.querySelector("[data-user-message-fade]")).not.toBeNull();
   });
 
+  it("keeps short image messages collapsed until clicked, then restores leading size", async () => {
+    const seen: boolean[] = [];
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <UserMessageBody
+          text="ok"
+          forceCollapsible
+          leading={(collapsed) => {
+            seen.push(collapsed);
+            return <div data-leading-collapsed={collapsed ? "" : undefined} />;
+          }}
+        />,
+      );
+    });
+
+    expect(container.querySelector("[data-user-message-collapsed]")).not.toBeNull();
+    expect(container.querySelector("[data-leading-collapsed]")).not.toBeNull();
+    expect(container.querySelector("[data-user-message-fade]")).toBeNull();
+
+    await act(async () => {
+      container
+        .querySelector("[data-user-message-body]")
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(container.querySelector("[data-user-message-collapsed]")).toBeNull();
+    expect(container.querySelector("[data-leading-collapsed]")).toBeNull();
+    expect(seen).toContain(true);
+    expect(seen).toContain(false);
+  });
+
   it("does not collapse messages that already fit in three lines", async () => {
     const body = lines(3);
     const container = document.createElement("div");

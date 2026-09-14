@@ -136,7 +136,7 @@ export function ImageCopyContextMenu({
       role="menu"
       data-image-preview-context-menu=""
       aria-label={t("menu")}
-      className="fixed z-[2147483647] min-w-36 cursor-default overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95"
+      className="fixed z-[2147483647] min-w-36 cursor-default overflow-hidden rounded-xl border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95"
       style={{ left: position.x, top: position.y }}
       onClick={(event) => event.stopPropagation()}
       onContextMenu={(event) => {

@@ -216,7 +216,7 @@ export function AgentToolFileChip({
 
 export type AgentToolSurface = "card" | "plain";
 
-export type AgentToolBody = "panel" | "plain" | "hug";
+export type AgentToolBody = "panel" | "plain";
 
 function AgentTreeFade({
   enabled,
@@ -349,14 +349,7 @@ export function AgentToolCard({
       </div>
       <CollapsibleContent className="data-[state=open]:overflow-visible">
         {hasBody ? (
-          body === "hug" ? (
-            <div
-              data-tool-body="hug"
-              className="mt-1 inline-flex max-w-full rounded-md bg-muted/50 p-2"
-            >
-              {children}
-            </div>
-          ) : body === "panel" ? (
+          body === "panel" ? (
             <div data-tool-body="panel" className="mt-1 overflow-hidden rounded-md bg-muted/50">
               {children}
             </div>

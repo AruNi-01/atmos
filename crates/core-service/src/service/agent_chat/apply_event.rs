@@ -21,7 +21,7 @@ use crate::error::Result;
 
 use super::store::AgentChatStore;
 use super::types::{
-    advertised_option_for_kind, apply_assistant_text_part, apply_context_usage,
+    advertised_option_for_kind, apply_assistant_text_part_nested, apply_context_usage,
     config_kind_matches, config_values_equal, elapsed_ms, keep_pending_session_selection,
     map_advertised_select_value, merge_session_usage, order_assistant_parts, parse_session_usage,
     parse_turn_usage, pending_context_change, pending_fast_change, pending_permission_mode_change,
@@ -35,6 +35,21 @@ use super::types::{
 
 pub(super) const ASSISTANT_SNAPSHOT_INTERVAL: Duration = Duration::from_millis(100);
 pub(super) const RECENT_EVENT_CAP: usize = 2048;
+const STREAM_KEY_SEP: char = '\u{1e}';
+
+fn text_stream_key(message_id: &str, parent_tool_call_id: Option<&str>) -> String {
+    match parent_tool_call_id
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+    {
+        Some(parent) => format!("{message_id}{STREAM_KEY_SEP}{parent}"),
+        None => message_id.to_string(),
+    }
+}
+
+fn text_stream_message_id(key: &str) -> &str {
+    key.split(STREAM_KEY_SEP).next().unwrap_or(key)
+}
 
 pub(super) struct RuntimeState {
     pub(super) current_turn_id: Option<String>,
@@ -43,8 +58,9 @@ pub(super) struct RuntimeState {
     pub(super) last_turn_id: Option<String>,
     pub(super) pending_permission: Option<PendingPermission>,
     pub(super) pending_session_op: Option<PendingSessionOp>,
-    pub(super) assistant_text: HashMap<String, (String, String)>,
-    pub(super) thinking_text: HashMap<String, (String, String)>,
+    /// Keyed by `message_id` or `message_id\\u{1e}parent_tool_call_id` for nested streams.
+    pub(super) assistant_text: HashMap<String, (String, String, Option<String>)>,
+    pub(super) thinking_text: HashMap<String, (String, String, Option<String>)>,
     pub(super) last_snapshot: Instant,
     pub(super) last_activity: Instant,
     pub(super) turn_started_at: Option<chrono::DateTime<Utc>>,
@@ -199,29 +215,33 @@ pub(super) async fn apply_event(
                 emit(AgentChatPayload::AvailableCommandsUpdated { commands: injected })?;
             }
         }
-        AgentEvent::AssistantMessageDelta { message_id, delta } => {
+        AgentEvent::AssistantMessageDelta {
+            message_id,
+            delta,
+            parent_tool_call_id,
+        } => {
             flush_open_thinking(store, state, chat_id, &emit_host).await?;
             {
                 let snapshot = {
                     let mut state = state.lock().await;
                     state.close_thinking();
                     let turn_id = state.persist_turn_id(adapter_turn_id.as_deref());
+                    let key = text_stream_key(message_id.as_str(), parent_tool_call_id.as_deref());
                     {
-                        let entry = state
-                            .assistant_text
-                            .entry(message_id.clone())
-                            .or_insert_with(|| (turn_id, String::new()));
+                        let entry = state.assistant_text.entry(key.clone()).or_insert_with(|| {
+                            (turn_id, String::new(), parent_tool_call_id.clone())
+                        });
                         entry.1.push_str(&delta);
                     }
                     if state.last_snapshot.elapsed() >= ASSISTANT_SNAPSHOT_INTERVAL {
-                        let snapshot = state.assistant_text.get(&message_id).cloned();
+                        let snapshot = state.assistant_text.get(&key).cloned();
                         state.last_snapshot = Instant::now();
                         snapshot
                     } else {
                         None
                     }
                 };
-                if let Some((turn_id, text)) = snapshot {
+                if let Some((turn_id, text, parent)) = snapshot {
                     store.append_record(
                         chat_id,
                         &TranscriptEnvelope::new(
@@ -229,15 +249,22 @@ pub(super) async fn apply_event(
                             TranscriptEvent::AssistantSnapshot {
                                 message_id: message_id.clone(),
                                 text,
+                                parent_tool_call_id: parent,
                             },
                         ),
                     )?;
                 }
             }
-            emit(AgentChatPayload::AssistantMessageDelta { message_id, delta })?;
+            emit(AgentChatPayload::AssistantMessageDelta {
+                message_id,
+                delta,
+                parent_tool_call_id,
+            })?;
         }
         AgentEvent::AssistantMessageCompleted { message_id } => {
-            if let Some((turn_id, text)) = state.lock().await.assistant_text.remove(&message_id) {
+            if let Some((turn_id, text, parent)) =
+                state.lock().await.assistant_text.remove(&message_id)
+            {
                 store.append_record(
                     chat_id,
                     &TranscriptEnvelope::with_id(
@@ -246,43 +273,54 @@ pub(super) async fn apply_event(
                         TranscriptEvent::AssistantSnapshot {
                             message_id: message_id.clone(),
                             text,
+                            parent_tool_call_id: parent,
                         },
                     ),
                 )?;
             }
             emit(AgentChatPayload::AssistantMessageCompleted { message_id })?;
         }
-        AgentEvent::ThinkingDelta { message_id, delta } => {
+        AgentEvent::ThinkingDelta {
+            message_id,
+            delta,
+            parent_tool_call_id,
+        } => {
             {
                 let mut state = state.lock().await;
                 state.mark_thinking(previous_activity);
                 let turn_id = state.persist_turn_id(adapter_turn_id.as_deref());
+                let key = text_stream_key(message_id.as_str(), parent_tool_call_id.as_deref());
                 state
                     .thinking_text
-                    .entry(message_id.clone())
-                    .or_insert_with(|| (turn_id, String::new()))
+                    .entry(key)
+                    .or_insert_with(|| (turn_id, String::new(), parent_tool_call_id.clone()))
                     .1
                     .push_str(&delta);
             }
-            emit(AgentChatPayload::ThinkingDelta { message_id, delta })?;
+            emit(AgentChatPayload::ThinkingDelta {
+                message_id,
+                delta,
+                parent_tool_call_id,
+            })?;
         }
         AgentEvent::ThinkingCompleted { message_id } => {
             let snapshot = {
                 let mut state = state.lock().await;
-                let (turn_id, text) = match state.thinking_text.remove(&message_id) {
+                let (turn_id, text, parent) = match state.thinking_text.remove(&message_id) {
                     Some(entry) => entry,
                     None => (
                         state.persist_turn_id(adapter_turn_id.as_deref()),
                         String::new(),
+                        None,
                     ),
                 };
                 let started_at = state.thinking_started_at;
                 state.close_thinking();
                 let duration_ms = state.take_last_thinking_segment_ms();
-                Some((turn_id, text, started_at, duration_ms))
+                Some((turn_id, text, parent, started_at, duration_ms))
             };
-            let thinking_ms = snapshot.as_ref().and_then(|item| item.3);
-            if let Some((turn_id, text, started_at, duration_ms)) = snapshot {
+            let thinking_ms = snapshot.as_ref().and_then(|item| item.4);
+            if let Some((turn_id, text, parent, started_at, duration_ms)) = snapshot {
                 if !text.is_empty() || duration_ms.is_some() {
                     store.append_record(
                         chat_id,
@@ -294,6 +332,7 @@ pub(super) async fn apply_event(
                                 text,
                                 started_at,
                                 duration_ms,
+                                parent_tool_call_id: parent,
                             },
                         ),
                     )?;
@@ -1282,12 +1321,19 @@ async fn flush_open_thinking(
         let entries: Vec<_> = state.thinking_text.drain().collect();
         entries
             .into_iter()
-            .map(|(message_id, (turn_id, text))| {
-                (message_id, turn_id, text, started_at, duration_ms)
+            .map(|(key, (turn_id, text, parent))| {
+                (
+                    text_stream_message_id(&key).to_string(),
+                    turn_id,
+                    text,
+                    parent,
+                    started_at,
+                    duration_ms,
+                )
             })
             .collect::<Vec<_>>()
     };
-    for (message_id, turn_id, text, started_at, duration_ms) in snapshots {
+    for (message_id, turn_id, text, parent, started_at, duration_ms) in snapshots {
         if !text.is_empty() || duration_ms.is_some() {
             store.append_record(
                 chat_id,
@@ -1298,6 +1344,7 @@ async fn flush_open_thinking(
                         text,
                         started_at,
                         duration_ms,
+                        parent_tool_call_id: parent,
                     },
                 ),
             )?;
@@ -1338,18 +1385,26 @@ pub(super) async fn finish_turn(
         let usage = state.turn_usage.take();
         let completed_at = Utc::now();
         let mut assistant = HashMap::new();
-        state.assistant_text.retain(|id, (snap_turn, text)| {
-            if snap_turn == &turn_id {
-                assistant.insert(id.clone(), (snap_turn.clone(), text.clone()));
-                false
-            } else {
-                true
-            }
-        });
+        state
+            .assistant_text
+            .retain(|id, (snap_turn, text, parent)| {
+                if snap_turn == &turn_id {
+                    assistant.insert(
+                        id.clone(),
+                        (snap_turn.clone(), text.clone(), parent.clone()),
+                    );
+                    false
+                } else {
+                    true
+                }
+            });
         let mut thinking = HashMap::new();
-        state.thinking_text.retain(|id, (snap_turn, text)| {
+        state.thinking_text.retain(|id, (snap_turn, text, parent)| {
             if snap_turn == &turn_id {
-                thinking.insert(id.clone(), (snap_turn.clone(), text.clone()));
+                thinking.insert(
+                    id.clone(),
+                    (snap_turn.clone(), text.clone(), parent.clone()),
+                );
                 false
             } else {
                 true
@@ -1365,25 +1420,30 @@ pub(super) async fn finish_turn(
             completed_at,
         )
     };
-    for (message_id, (snap_turn, text)) in assistant {
+    for (key, (snap_turn, text, parent)) in assistant {
         store.append_record(
             chat_id,
             &TranscriptEnvelope::new(
                 snap_turn,
-                TranscriptEvent::AssistantSnapshot { message_id, text },
+                TranscriptEvent::AssistantSnapshot {
+                    message_id: text_stream_message_id(&key).to_string(),
+                    text,
+                    parent_tool_call_id: parent,
+                },
             ),
         )?;
     }
-    for (message_id, (snap_turn, text)) in thinking {
+    for (key, (snap_turn, text, parent)) in thinking {
         store.append_record(
             chat_id,
             &TranscriptEnvelope::new(
                 snap_turn,
                 TranscriptEvent::ThinkingSnapshot {
-                    message_id,
+                    message_id: text_stream_message_id(&key).to_string(),
                     text,
                     started_at: None,
                     duration_ms: (last_thinking_segment_ms > 0).then_some(last_thinking_segment_ms),
+                    parent_tool_call_id: parent,
                 },
             ),
         )?;
@@ -1415,26 +1475,38 @@ pub(super) async fn finish_turn(
 }
 
 enum LiveOverlay {
-    Text(String),
-    Thinking(String),
+    Text {
+        text: String,
+        parent_tool_call_id: Option<String>,
+    },
+    Thinking {
+        text: String,
+        parent_tool_call_id: Option<String>,
+    },
 }
 
 /// Splice in-memory assistant/thinking text that has not been flushed to jsonl
 /// onto a disk snapshot. Same `message_id` updates in place; a live id that is
 /// not on disk lands on the current-turn assistant instead of a second row.
 pub(super) fn overlay_live_state(snapshot: &mut AgentChatSnapshot, state: &RuntimeState) {
-    for (message_id, (_turn, text)) in &state.thinking_text {
+    for (key, (_turn, text, parent)) in &state.thinking_text {
         overlay_live_part(
             &mut snapshot.messages,
-            message_id,
-            LiveOverlay::Thinking(text.clone()),
+            text_stream_message_id(key),
+            LiveOverlay::Thinking {
+                text: text.clone(),
+                parent_tool_call_id: parent.clone(),
+            },
         );
     }
-    for (message_id, (_turn, text)) in &state.assistant_text {
+    for (key, (_turn, text, parent)) in &state.assistant_text {
         overlay_live_part(
             &mut snapshot.messages,
-            message_id,
-            LiveOverlay::Text(text.clone()),
+            text_stream_message_id(key),
+            LiveOverlay::Text {
+                text: text.clone(),
+                parent_tool_call_id: parent.clone(),
+            },
         );
     }
     overlay_live_timing(snapshot, state, Utc::now());
@@ -1531,11 +1603,21 @@ fn overlay_live_part(messages: &mut Vec<FoldedMessage>, message_id: &str, part: 
         return;
     }
     let parts = match &part {
-        LiveOverlay::Text(text) => vec![MessagePart::Text { text: text.clone() }],
-        LiveOverlay::Thinking(text) => vec![MessagePart::Thinking {
+        LiveOverlay::Text {
+            text,
+            parent_tool_call_id,
+        } => vec![MessagePart::Text {
+            text: text.clone(),
+            parent_tool_call_id: parent_tool_call_id.clone(),
+        }],
+        LiveOverlay::Thinking {
+            text,
+            parent_tool_call_id,
+        } => vec![MessagePart::Thinking {
             text: text.clone(),
             tool_call_id: None,
             duration_ms: None,
+            parent_tool_call_id: parent_tool_call_id.clone(),
         }],
     };
     messages.push(FoldedMessage {
@@ -1551,16 +1633,24 @@ fn overlay_live_part(messages: &mut Vec<FoldedMessage>, message_id: &str, part: 
 
 fn apply_overlay_part(message: &mut FoldedMessage, message_id: &str, part: LiveOverlay) {
     match part {
-        LiveOverlay::Text(text) => {
-            apply_assistant_text_part(message, message_id, text);
+        LiveOverlay::Text {
+            text,
+            parent_tool_call_id,
+        } => {
+            apply_assistant_text_part_nested(message, message_id, text, parent_tool_call_id);
         }
-        LiveOverlay::Thinking(text) => {
+        LiveOverlay::Thinking {
+            text,
+            parent_tool_call_id,
+        } => {
+            let parent = parent_tool_call_id.clone();
             let open = message.parts.iter_mut().rev().find_map(|item| match item {
                 MessagePart::Thinking {
                     tool_call_id: None,
                     duration_ms,
+                    parent_tool_call_id: existing_parent,
                     text: existing,
-                } if duration_ms.is_none() => Some(existing),
+                } if duration_ms.is_none() && existing_parent == &parent => Some(existing),
                 _ => None,
             });
             if let Some(existing) = open {
@@ -1570,6 +1660,7 @@ fn apply_overlay_part(message: &mut FoldedMessage, message_id: &str, part: LiveO
                     text,
                     tool_call_id: None,
                     duration_ms: None,
+                    parent_tool_call_id,
                 });
             }
         }
@@ -2337,6 +2428,7 @@ mod tests {
                     text: "hmm".into(),
                     tool_call_id: None,
                     duration_ms: None,
+                    parent_tool_call_id: None,
                 }],
                 created_at: Utc::now(),
                 streaming: true,
@@ -2373,7 +2465,7 @@ mod tests {
         state.thinking_ms = 4_000;
         state
             .thinking_text
-            .insert("a1".into(), ("t1".into(), "hmm live".into()));
+            .insert("a1".into(), ("t1".into(), "hmm live".into(), None));
         let mut snapshot = snapshot_with_assistant();
         overlay_live_state(&mut snapshot, &state);
         assert_eq!(snapshot.running_turn_started_at, Some(started));
@@ -2406,17 +2498,19 @@ mod tests {
                 text: "first".into(),
                 tool_call_id: None,
                 duration_ms: Some(5_000),
+                parent_tool_call_id: None,
             },
             MessagePart::Thinking {
                 text: "second".into(),
                 tool_call_id: None,
                 duration_ms: None,
+                parent_tool_call_id: None,
             },
         ];
         let mut state = runtime();
         state
             .thinking_text
-            .insert("a1".into(), ("t1".into(), "second live".into()));
+            .insert("a1".into(), ("t1".into(), "second live".into(), None));
         overlay_live_state(&mut snapshot, &state);
         match &snapshot.messages[0].parts[..] {
             [MessagePart::Thinking {
@@ -2442,20 +2536,22 @@ mod tests {
         snapshot.messages[0].parts = vec![
             MessagePart::Text {
                 text: "looking".into(),
+                parent_tool_call_id: None,
             },
             MessagePart::Thinking {
                 text: "hmm".into(),
                 tool_call_id: None,
                 duration_ms: Some(1_000),
+                parent_tool_call_id: None,
             },
         ];
         let mut state = runtime();
         state
             .assistant_text
-            .insert("a2".into(), ("t1".into(), "final".into()));
+            .insert("a2".into(), ("t1".into(), "final".into(), None));
         overlay_live_state(&mut snapshot, &state);
         match &snapshot.messages[0].parts[..] {
-            [MessagePart::Text { text: mid }, MessagePart::Thinking { .. }, MessagePart::Text { text: answer }] =>
+            [MessagePart::Text { text: mid, .. }, MessagePart::Thinking { .. }, MessagePart::Text { text: answer, .. }] =>
             {
                 assert_eq!(mid, "looking");
                 assert_eq!(answer, "final");

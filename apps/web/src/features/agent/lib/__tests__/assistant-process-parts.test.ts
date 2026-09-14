@@ -56,6 +56,24 @@ describe("assistant process collapse", () => {
     expect(tailParts.map((item) => item.part)).toEqual([{ type: "text", text: "final" }]);
   });
 
+  it("does not treat nested subagent text as the parent answer", () => {
+    const parts: AgentPart[] = [
+      {
+        type: "tool_call",
+        tool_call_id: "parent",
+        name: "Task",
+        kind: "subagent",
+        status: "completed",
+        params: { type: "subagent", description: "Inspect tests" },
+      },
+      { type: "text", text: "nested hello", parent_tool_call_id: "parent" },
+      { type: "text", text: "final" },
+    ];
+    const { processParts, tailParts } = splitAssistantProcessParts(parts);
+    expect(tailParts.map((item) => item.part)).toEqual([{ type: "text", text: "final" }]);
+    expect(processParts.map((item) => item.part.type)).toEqual(["tool_call", "text"]);
+  });
+
   it("does not promote leading commentary to the answer when the turn ends on tools", () => {
     const parts: AgentPart[] = [
       { type: "text", text: "looking" },

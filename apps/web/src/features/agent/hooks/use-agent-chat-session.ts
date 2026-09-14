@@ -463,8 +463,8 @@ export function useAgentChatSession({
     [messages],
   );
   const subagentTasks = useMemo(
-    () => currentTurnSubagentTasks(messages),
-    [messages],
+    () => currentTurnSubagentTasks(messages, { followUpPending: queue.length > 0 }),
+    [messages, queue.length],
   );
   const agentActivity = useMemo(
     () => deriveAgentActivity(messages, busy),

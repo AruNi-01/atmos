@@ -426,8 +426,8 @@ export function MorphingSearch({
 	const collapsedContentClip = `inset(0px ${Math.max(
 		0,
 		panelWidth - anchorRect.width,
-	)}px ${resultsHeight}px 0px round 12px)`;
-	const expandedContentClip = "inset(0px 0px 0px 0px round 12px)";
+	)}px ${resultsHeight}px 0px round 14px)`;
+	const expandedContentClip = "inset(0px 0px 0px 0px round 14px)";
 
 	// Neither grouping layer carries a box: they only hold `inert`/`aria-hidden`,
 	// the z-index and the presence key, and every child below is `fixed` and

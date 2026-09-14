@@ -212,8 +212,8 @@ describe("agent composer attachments", () => {
     const image = container.querySelector('[data-agent-composer-attachment="image"]');
     const file = container.querySelector('[data-agent-composer-attachment="file"]');
     expect(root?.getAttribute("data-density")).toBe("compact");
-    expect(image?.querySelector("button")?.className).toContain("h-14");
-    expect(image?.querySelector("button")?.className).toContain("w-32");
+    expect(image?.querySelector("button")?.className).toContain("h-12");
+    expect(image?.querySelector("button")?.className).toContain("max-w-[6.6rem]");
     expect(image?.querySelectorAll("button")).toHaveLength(1);
     expect(file?.querySelector("button")).toBeNull();
     expect(file?.className).toContain("h-7");

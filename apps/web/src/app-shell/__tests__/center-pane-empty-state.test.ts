@@ -12,6 +12,10 @@ const emptyState = readFileSync(
   join(import.meta.dir, "../center-pane/CenterPaneEmptyState.tsx"),
   "utf8",
 );
+const centerStage = readFileSync(
+  join(import.meta.dir, "../CenterStage.tsx"),
+  "utf8",
+);
 
 describe("empty pane launcher layout", () => {
   it("uses a two-column grid when the pane is wide enough for a pair", () => {
@@ -144,6 +148,58 @@ describe("empty pane launcher layout", () => {
     );
   });
 
+  it("mirrors plus-menu tab surfaces in the empty-pane launcher", () => {
+    const labels = {
+      terminal: "Terminal",
+      agentChat: "Chat",
+      markdown: "Markdown",
+      browser: "Browser",
+      files: "Files",
+      changes: "Changes",
+      review: "Review",
+      run: "Run",
+      github: "GitHub",
+      ptDesign: "Prototype Design",
+      simulator: "Simulator",
+    };
+    const noop = () => {};
+    const ids = buildDefaultEmptyPaneActions({
+      labels,
+      modKey: "⌘",
+      includeOverview: true,
+      overviewLabel: "Overview",
+      onCreateTerminal: noop,
+      onCreateAgentChat: noop,
+      onCreateMarkdownNote: noop,
+      onCreateBrowser: noop,
+      onCreateToolTab: noop,
+      onCreateSimulator: noop,
+      onOpenOverview: noop,
+    }).map((action) => action.id);
+    expect(ids).toEqual([
+      "overview",
+      "terminal",
+      "agent-chat",
+      "markdown",
+      "browser",
+      "files",
+      "changes",
+      "review",
+      "run",
+      "github",
+      "pt-design",
+      "simulator",
+    ]);
+
+    expect(centerStage).toContain('tabBarT("newMarkdown")');
+    expect(centerStage).toContain('tabBarT("newBrowser")');
+    expect(centerStage).toContain('tabBarT("newPtDesign")');
+    expect(centerStage).toContain("onCreateMarkdownNote");
+    expect(centerStage).toContain("openUntitledMarkdown");
+    expect(centerStage).toContain("onCreateBrowser");
+    expect(centerStage).toContain("handleCreateBrowserCenterTab");
+  });
+
   it("omits git widgets for standalone automation empty panes", () => {
     const labels = {
       terminal: "Terminal",
@@ -168,6 +224,7 @@ describe("empty pane launcher layout", () => {
     expect(hidden).not.toContain("github");
     expect(hidden).toContain("files");
     expect(hidden).toContain("run");
+    expect(hidden).toContain("pt-design");
 
     const shown = buildDefaultEmptyPaneActions({
       labels,

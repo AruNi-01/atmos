@@ -10,6 +10,7 @@ import type { ComposerHandle } from "../PromptComposer";
 import {
   __resetComposerPasteForTests,
   expandPasteTokens,
+  registerComposerPaste,
 } from "@/shared/lib/composer-paste";
 
 type TestIconProps = {
@@ -121,7 +122,9 @@ describe("PromptComposer large paste chips", () => {
       editor.dispatchEvent(pasteEvent(body));
     });
 
-    const chip = editor.querySelector("[data-kind='paste']");
+    const chips = editor.querySelectorAll("[data-kind='paste']");
+    expect(chips).toHaveLength(1);
+    const chip = chips[0];
     expect(chip).not.toBeNull();
     expect(chip?.className).toContain("rounded-full");
     expect(chip?.className).toContain("h-[18px]");
@@ -198,18 +201,82 @@ describe("PromptComposer large paste chips", () => {
     expect(textNodes).toHaveLength(1);
     expect(textNodes[0]?.textContent).toBe(body);
   });
+
+  it("inserts one chip even if insertHTML would duplicate during paste", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    const body = manyLines(12);
+    const execCommand = mock((command: string, _showUI?: boolean, value?: string) => {
+      if (command !== "insertHTML" || typeof value !== "string") return false;
+      const editor = container.querySelector<HTMLElement>("[contenteditable='true']");
+      if (!editor) return false;
+      editor.insertAdjacentHTML("beforeend", value);
+      editor.insertAdjacentHTML("beforeend", value);
+      return true;
+    });
+    Object.defineProperty(document, "execCommand", {
+      configurable: true,
+      value: execCommand,
+    });
+
+    await act(async () => {
+      root?.render(<PromptComposer />);
+    });
+
+    const editor = container.querySelector<HTMLElement>("[contenteditable='true']");
+    if (!editor) throw new Error("PromptComposer editor not found");
+    placeCaretAtEnd(editor);
+
+    await act(async () => {
+      editor.dispatchEvent(pasteEvent(body));
+    });
+
+    expect(editor.querySelectorAll("[data-kind='paste']")).toHaveLength(1);
+    expect(execCommand.mock.calls.some((call) => call[0] === "insertHTML")).toBe(false);
+  });
+
+  it("pastes copied composer chip HTML as a single chip", async () => {
+    const composerRef = React.createRef<ComposerHandle>();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    const body = manyLines(16);
+    const token = registerComposerPaste(body);
+    const duplicatedHtml = `${chipHtml(token)}${chipHtml(token)}`;
+
+    await act(async () => {
+      root?.render(<PromptComposer ref={composerRef} />);
+    });
+
+    const editor = container.querySelector<HTMLElement>("[contenteditable='true']");
+    if (!editor) throw new Error("PromptComposer editor not found");
+    placeCaretAtEnd(editor);
+
+    await act(async () => {
+      editor.dispatchEvent(pasteEvent("Pasted: 16 lines", duplicatedHtml));
+    });
+
+    expect(editor.querySelectorAll("[data-kind='paste']")).toHaveLength(1);
+    expect(composerRef.current?.getText().trim()).toBe(token);
+  });
 });
 
-function pasteEvent(text: string): Event {
+function pasteEvent(text: string, html = ""): Event {
   const event = new Event("paste", { bubbles: true, cancelable: true });
   Object.defineProperty(event, "clipboardData", {
     configurable: true,
     value: {
-      getData: (type: string) => (type === "text/plain" ? text : ""),
+      getData: (type: string) =>
+        type === "text/html" ? html : type === "text/plain" ? text : "",
       items: [],
     },
   });
   return event;
+}
+
+function chipHtml(token: string): string {
+  return `<span data-token="${token}" data-kind="paste" contenteditable="false">Pasted: 16 lines</span>`;
 }
 
 function placeCaretAtEnd(element: HTMLElement): void {

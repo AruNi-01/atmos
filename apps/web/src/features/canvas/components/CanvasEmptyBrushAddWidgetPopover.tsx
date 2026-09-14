@@ -297,7 +297,7 @@ export function CanvasEmptyBrushAddWidgetPopover({
           aria-modal="true"
           aria-label={tEmpty("title")}
           className={cn(
-            "pointer-events-auto flex w-[min(32rem,calc(100vw-1.5rem))] max-h-[min(40rem,calc(100vh-1.5rem))] flex-col overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md outline-none",
+            "pointer-events-auto flex w-[min(32rem,calc(100vw-1.5rem))] max-h-[min(40rem,calc(100vh-1.5rem))] flex-col overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-md outline-none",
           )}
           onPointerDown={(event) => event.stopPropagation()}
         >

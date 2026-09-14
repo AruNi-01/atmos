@@ -795,6 +795,8 @@ pub fn pending_context_change(meta: &AgentChatMeta) -> Option<String> {
 pub enum MessagePart {
     Text {
         text: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        parent_tool_call_id: Option<String>,
     },
     Thinking {
         text: String,
@@ -802,6 +804,8 @@ pub enum MessagePart {
         tool_call_id: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         duration_ms: Option<u64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        parent_tool_call_id: Option<String>,
     },
     ToolCall {
         tool_call_id: String,
@@ -1049,7 +1053,14 @@ fn push_unique_message(messages: &mut Vec<FoldedMessage>, mut message: FoldedMes
 }
 
 fn is_answer_text_part(part: &MessagePart) -> bool {
-    matches!(part, MessagePart::Text { text } if !text.is_empty())
+    matches!(
+        part,
+        MessagePart::Text {
+            text,
+            parent_tool_call_id: None,
+            ..
+        } if !text.is_empty()
+    )
 }
 
 /// Session chrome first; trailing text after the last process part is the reply.
@@ -1095,37 +1106,61 @@ fn split_trailing_answer(mut parts: Vec<MessagePart>) -> (Vec<MessagePart>, Vec<
 
 /// Apply a snapshot/delta text block. Same `message_id` updates that block;
 /// a new id after tools/thinking starts a new text part instead of overwriting.
+/// Nested subagent prose (`parent_tool_call_id`) never merges with parent text.
 pub fn apply_assistant_text_part(message: &mut FoldedMessage, message_id: &str, text: String) {
-    let last_is_text = matches!(message.parts.last(), Some(MessagePart::Text { .. }));
+    apply_assistant_text_part_nested(message, message_id, text, None);
+}
+
+pub fn apply_assistant_text_part_nested(
+    message: &mut FoldedMessage,
+    message_id: &str,
+    text: String,
+    parent_tool_call_id: Option<String>,
+) {
+    let same_parent = |part: &MessagePart| match part {
+        MessagePart::Text {
+            parent_tool_call_id: existing,
+            ..
+        } => existing == &parent_tool_call_id,
+        _ => false,
+    };
+    let last_is_text = matches!(message.parts.last(), Some(MessagePart::Text { .. }))
+        && message.parts.last().is_some_and(same_parent);
     if last_is_text {
         let same_block = message.id == message_id
             || message.parts.last().is_some_and(|part| match part {
-                MessagePart::Text { text: existing } => {
+                MessagePart::Text { text: existing, .. } => {
                     text.starts_with(existing.as_str()) || existing.starts_with(text.as_str())
                 }
                 _ => false,
             });
         if same_block {
-            if let Some(MessagePart::Text { text: existing }) = message.parts.last_mut() {
+            if let Some(MessagePart::Text { text: existing, .. }) = message.parts.last_mut() {
                 *existing = text;
             }
             return;
         }
-        message.parts.push(MessagePart::Text { text });
+        message.parts.push(MessagePart::Text {
+            text,
+            parent_tool_call_id,
+        });
         return;
     }
     if message.id == message_id {
-        if let Some(MessagePart::Text { text: existing }) = message
+        if let Some(MessagePart::Text { text: existing, .. }) = message
             .parts
             .iter_mut()
             .rev()
-            .find(|part| matches!(part, MessagePart::Text { .. }))
+            .find(|part| matches!(part, MessagePart::Text { .. }) && same_parent(part))
         {
             *existing = text;
             return;
         }
     }
-    message.parts.push(MessagePart::Text { text });
+    message.parts.push(MessagePart::Text {
+        text,
+        parent_tool_call_id,
+    });
 }
 
 struct TurnTiming {
@@ -1370,6 +1405,8 @@ pub enum TranscriptEvent {
     AssistantSnapshot {
         message_id: String,
         text: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        parent_tool_call_id: Option<String>,
     },
     ThinkingSnapshot {
         message_id: String,
@@ -1378,6 +1415,8 @@ pub enum TranscriptEvent {
         started_at: Option<DateTime<Utc>>,
         #[serde(default)]
         duration_ms: Option<u64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        parent_tool_call_id: Option<String>,
     },
     ToolCall {
         tool: AgentTool,
@@ -1460,6 +1499,8 @@ pub enum AgentChatPayload {
     AssistantMessageDelta {
         message_id: String,
         delta: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        parent_tool_call_id: Option<String>,
     },
     AssistantMessageCompleted {
         message_id: String,
@@ -1467,6 +1508,8 @@ pub enum AgentChatPayload {
     ThinkingDelta {
         message_id: String,
         delta: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        parent_tool_call_id: Option<String>,
     },
     ThinkingCompleted {
         message_id: String,
@@ -1606,11 +1649,15 @@ pub struct CreateAgentChatRequest {
 
 #[cfg(test)]
 mod assistant_part_order_tests {
-    use super::{apply_assistant_text_part, order_assistant_parts, FoldedMessage, MessagePart};
+    use super::{
+        apply_assistant_text_part, apply_assistant_text_part_nested, order_assistant_parts,
+        FoldedMessage, MessagePart,
+    };
 
     fn text(value: &str) -> MessagePart {
         MessagePart::Text {
             text: value.to_string(),
+            parent_tool_call_id: None,
         }
     }
 
@@ -1619,6 +1666,7 @@ mod assistant_part_order_tests {
             text: value.to_string(),
             tool_call_id: None,
             duration_ms: None,
+            parent_tool_call_id: None,
         }
     }
 
@@ -1626,7 +1674,10 @@ mod assistant_part_order_tests {
     fn moves_leading_answer_after_process() {
         let ordered = order_assistant_parts(vec![text("final"), thinking("hmm")]);
         match &ordered[..] {
-            [MessagePart::Thinking { text: think, .. }, MessagePart::Text { text: answer }] => {
+            [MessagePart::Thinking { text: think, .. }, MessagePart::Text {
+                text: answer,
+                parent_tool_call_id: None,
+            }] => {
                 assert_eq!(think, "hmm");
                 assert_eq!(answer, "final");
             }
@@ -1638,8 +1689,13 @@ mod assistant_part_order_tests {
     fn keeps_interleaved_mid_text_before_trailing_answer() {
         let ordered = order_assistant_parts(vec![text("mid"), thinking("hmm"), text("final")]);
         match &ordered[..] {
-            [MessagePart::Text { text: mid }, MessagePart::Thinking { .. }, MessagePart::Text { text: answer }] =>
-            {
+            [MessagePart::Text {
+                text: mid,
+                parent_tool_call_id: None,
+            }, MessagePart::Thinking { .. }, MessagePart::Text {
+                text: answer,
+                parent_tool_call_id: None,
+            }] => {
                 assert_eq!(mid, "mid");
                 assert_eq!(answer, "final");
             }
@@ -1658,9 +1714,84 @@ mod assistant_part_order_tests {
         };
         apply_assistant_text_part(&mut message, "a2", "final".into());
         match &message.parts[..] {
-            [MessagePart::Text { text: mid }, MessagePart::Thinking { .. }, MessagePart::Text { text: answer }] =>
-            {
+            [MessagePart::Text {
+                text: mid,
+                parent_tool_call_id: None,
+            }, MessagePart::Thinking { .. }, MessagePart::Text {
+                text: answer,
+                parent_tool_call_id: None,
+            }] => {
                 assert_eq!(mid, "looking");
+                assert_eq!(answer, "final");
+            }
+            other => panic!("unexpected parts: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn nested_text_does_not_merge_with_parent_answer() {
+        let mut message = FoldedMessage {
+            id: "a1".into(),
+            role: "assistant".into(),
+            parts: vec![text("parent")],
+            created_at: chrono::Utc::now(),
+            ..Default::default()
+        };
+        apply_assistant_text_part_nested(&mut message, "a1", "child".into(), Some("sub-1".into()));
+        match &message.parts[..] {
+            [MessagePart::Text {
+                text: parent,
+                parent_tool_call_id: None,
+            }, MessagePart::Text {
+                text: child,
+                parent_tool_call_id: Some(parent_id),
+            }] => {
+                assert_eq!(parent, "parent");
+                assert_eq!(child, "child");
+                assert_eq!(parent_id, "sub-1");
+            }
+            other => panic!("unexpected parts: {other:?}"),
+        }
+        apply_assistant_text_part_nested(
+            &mut message,
+            "a1",
+            "child more".into(),
+            Some("sub-1".into()),
+        );
+        match &message.parts[..] {
+            [MessagePart::Text {
+                text: parent,
+                parent_tool_call_id: None,
+            }, MessagePart::Text {
+                text: child,
+                parent_tool_call_id: Some(_),
+            }] => {
+                assert_eq!(parent, "parent");
+                assert_eq!(child, "child more");
+            }
+            other => panic!("unexpected parts: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn nested_text_is_not_trailing_answer() {
+        let ordered = order_assistant_parts(vec![
+            MessagePart::Text {
+                text: "nested".into(),
+                parent_tool_call_id: Some("sub-1".into()),
+            },
+            thinking("hmm"),
+            text("final"),
+        ]);
+        match &ordered[..] {
+            [MessagePart::Text {
+                text: nested,
+                parent_tool_call_id: Some(_),
+            }, MessagePart::Thinking { .. }, MessagePart::Text {
+                text: answer,
+                parent_tool_call_id: None,
+            }] => {
+                assert_eq!(nested, "nested");
                 assert_eq!(answer, "final");
             }
             other => panic!("unexpected parts: {other:?}"),

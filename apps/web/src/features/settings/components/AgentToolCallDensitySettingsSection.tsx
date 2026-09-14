@@ -147,7 +147,7 @@ export function AgentToolCallDensitySettingsSection() {
                   <motion.div
                     layout
                     transition={transition}
-                    className="overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md"
+                    className="overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-md"
                   >
                     <AnimatePresence mode="wait" initial={false}>
                       <motion.div

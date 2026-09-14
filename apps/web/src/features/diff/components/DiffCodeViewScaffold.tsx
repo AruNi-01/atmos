@@ -7,6 +7,8 @@ import { PanelLeft } from "lucide-react";
 import { ScrollArea, Skeleton } from "@workspace/ui";
 import { AnimatePresence, motion } from "motion/react";
 import { CENTER_EXPLORER_BODY_INSET_CLASS } from "@/app-shell/center-explorer-layout";
+import { ResizeFollowMark } from "@/app-shell/ResizeFollowMark";
+import { isResizeClickGesture } from "@/app-shell/resize-click-fold";
 import { DiffFileTree, type DiffFileTreeItem } from "@/features/diff/components/DiffFileTree";
 import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
 import { cn } from "@/shared/lib/utils";
@@ -91,7 +93,7 @@ export function DiffCodeViewScaffold({
             >
               {loading ? (
                 <div
-                  className="flex h-full flex-col gap-1.5 overflow-hidden border-r border-border/40 p-2"
+                  className="flex h-full flex-col gap-1.5 overflow-hidden p-2"
                   style={{ width: treeWidth }}
                 >
                   {loadingTreeLabel ? (
@@ -113,7 +115,7 @@ export function DiffCodeViewScaffold({
               ) : (
                 <ScrollArea
                   scrollFade
-                  className="h-full border-r border-border/40"
+                  className="h-full"
                   style={{ width: treeWidth }}
                   viewportClassName="py-1"
                 >
@@ -132,18 +134,40 @@ export function DiffCodeViewScaffold({
 
         {fileTreeOpen ? (
           <div
-            className="relative w-px shrink-0 cursor-col-resize bg-border/40 before:absolute before:-inset-x-2 before:h-full before:hover:bg-primary/40"
+            className="relative w-3 -mx-1.5 shrink-0 cursor-col-resize self-stretch overflow-visible bg-transparent touch-none"
             onMouseDown={(event) => {
               event.preventDefault();
-              setIsResizing(true);
-              const startX = event.clientX;
+              const start = { x: event.clientX, y: event.clientY };
               const startWidth = treeWidth;
+              let dragStarted = false;
               const onMove = (moveEvent: MouseEvent) => {
+                if (
+                  !dragStarted &&
+                  isResizeClickGesture(start, {
+                    x: moveEvent.clientX,
+                    y: moveEvent.clientY,
+                  })
+                ) {
+                  return;
+                }
+                if (!dragStarted) {
+                  dragStarted = true;
+                  setIsResizing(true);
+                }
                 setTreeWidth(
-                  Math.max(140, Math.min(480, startWidth + moveEvent.clientX - startX)),
+                  Math.max(140, Math.min(480, startWidth + moveEvent.clientX - start.x)),
                 );
               };
-              const onUp = () => {
+              const onUp = (upEvent: MouseEvent) => {
+                if (
+                  !dragStarted &&
+                  isResizeClickGesture(start, {
+                    x: upEvent.clientX,
+                    y: upEvent.clientY,
+                  })
+                ) {
+                  setTreeVisible(false);
+                }
                 setIsResizing(false);
                 window.removeEventListener("mousemove", onMove);
                 window.removeEventListener("mouseup", onUp);
@@ -151,7 +175,9 @@ export function DiffCodeViewScaffold({
               window.addEventListener("mousemove", onMove);
               window.addEventListener("mouseup", onUp);
             }}
-          />
+          >
+            <ResizeFollowMark axis="vertical" dragging={isResizing} />
+          </div>
         ) : null}
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">

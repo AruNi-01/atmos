@@ -11,7 +11,7 @@ use crate::error::{Result, ServiceError};
 use crate::utils::path_boundary::{path_or_existing_parent_within_root, path_within_root};
 
 use super::types::{
-    apply_assistant_text_part, apply_rewind_view, chat_descriptor, flatten_messages,
+    apply_assistant_text_part_nested, apply_rewind_view, chat_descriptor, flatten_messages,
     AgentChatIndexEntry, AgentChatMeta, AgentChatOrigin, AgentChatSnapshot, CreateAgentChatRequest,
     FoldedMessage, FoldedTurn, MessagePart, QueueItem, RuntimeStatus, SessionHintTone,
     SessionLifecycleAction, SessionLifecycleStatus, TranscriptEnvelope, TranscriptEvent,
@@ -554,7 +554,10 @@ fn apply_record(turns: &mut Vec<FoldedTurn>, envelope: TranscriptEnvelope) {
             attachments,
         } => {
             let turn = upsert_turn(turns, &turn_id, created_at);
-            let mut parts = vec![MessagePart::Text { text }];
+            let mut parts = vec![MessagePart::Text {
+                text,
+                parent_tool_call_id: None,
+            }];
             for path in attachments {
                 parts.push(MessagePart::Attachment { path, name: None });
             }
@@ -581,10 +584,19 @@ fn apply_record(turns: &mut Vec<FoldedTurn>, envelope: TranscriptEnvelope) {
                 user.checkpoint_id = Some(checkpoint_id);
             }
         }
-        TranscriptEvent::AssistantSnapshot { message_id, text } => {
+        TranscriptEvent::AssistantSnapshot {
+            message_id,
+            text,
+            parent_tool_call_id,
+        } => {
             let turn = upsert_turn(turns, &turn_id, created_at);
             if let Some(index) = assistant_message_index(turn, &message_id) {
-                apply_assistant_text_part(&mut turn.messages[index], &message_id, text);
+                apply_assistant_text_part_nested(
+                    &mut turn.messages[index],
+                    &message_id,
+                    text,
+                    parent_tool_call_id,
+                );
             } else {
                 upsert_message(
                     turn,
@@ -592,7 +604,10 @@ fn apply_record(turns: &mut Vec<FoldedTurn>, envelope: TranscriptEnvelope) {
                         id: message_id,
                         role: "assistant".into(),
                         kind: agent::UserMessageKind::Normal,
-                        parts: vec![MessagePart::Text { text }],
+                        parts: vec![MessagePart::Text {
+                            text,
+                            parent_tool_call_id,
+                        }],
                         created_at,
                         streaming: false,
                         ..Default::default()
@@ -605,11 +620,17 @@ fn apply_record(turns: &mut Vec<FoldedTurn>, envelope: TranscriptEnvelope) {
             text,
             started_at,
             duration_ms,
+            parent_tool_call_id,
         } => {
             let turn = upsert_turn(turns, &turn_id, created_at);
             apply_thinking_timing(turn, started_at, duration_ms, created_at);
             if let Some(index) = assistant_message_index(turn, &message_id) {
-                apply_thinking_snapshot_part(&mut turn.messages[index], text, duration_ms);
+                apply_thinking_snapshot_part(
+                    &mut turn.messages[index],
+                    text,
+                    duration_ms,
+                    parent_tool_call_id,
+                );
             } else {
                 upsert_message(
                     turn,
@@ -621,6 +642,7 @@ fn apply_record(turns: &mut Vec<FoldedTurn>, envelope: TranscriptEnvelope) {
                             text,
                             tool_call_id: None,
                             duration_ms,
+                            parent_tool_call_id,
                         }],
                         created_at,
                         streaming: false,
@@ -782,14 +804,16 @@ fn apply_thinking_snapshot_part(
     message: &mut FoldedMessage,
     text: String,
     duration_ms: Option<u64>,
+    parent_tool_call_id: Option<String>,
 ) {
     if let Some(MessagePart::Thinking {
         tool_call_id: None,
+        parent_tool_call_id: existing_parent,
         duration_ms: existing_duration,
         text: existing,
     }) = message.parts.last_mut()
     {
-        if existing_duration.is_none() {
+        if existing_duration.is_none() && *existing_parent == parent_tool_call_id {
             *existing = text;
             *existing_duration = duration_ms;
             return;
@@ -799,6 +823,7 @@ fn apply_thinking_snapshot_part(
         text,
         tool_call_id: None,
         duration_ms,
+        parent_tool_call_id,
     });
 }
 
@@ -1494,6 +1519,7 @@ mod tests {
                     TranscriptEvent::AssistantSnapshot {
                         message_id: "m2".into(),
                         text: "world".into(),
+                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -1501,7 +1527,7 @@ mod tests {
         let snapshot = store.get_snapshot(&meta.id).unwrap();
         assert_eq!(snapshot.messages.len(), 2);
         match &snapshot.messages[1].parts[0] {
-            MessagePart::Text { text } => assert_eq!(text, "world"),
+            MessagePart::Text { text, .. } => assert_eq!(text, "world"),
             other => panic!("expected text part, got {other:?}"),
         }
     }
@@ -1542,6 +1568,7 @@ mod tests {
                     TranscriptEvent::AssistantSnapshot {
                         message_id: "tool-tool-1".to_string(),
                         text: "done".into(),
+                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -1557,7 +1584,7 @@ mod tests {
         assert!(
             parts
                 .iter()
-                .any(|part| matches!(part, MessagePart::Text { text } if text == "done")),
+                .any(|part| matches!(part, MessagePart::Text { text, .. } if text == "done")),
             "text part missing: {parts:?}"
         );
         let tool_index = parts.iter().position(|part| {
@@ -1565,7 +1592,7 @@ mod tests {
         });
         let text_index = parts
             .iter()
-            .position(|part| matches!(part, MessagePart::Text { text } if text == "done"));
+            .position(|part| matches!(part, MessagePart::Text { text, .. } if text == "done"));
         assert!(
             tool_index.is_some_and(|tool| text_index.is_some_and(|text| tool < text)),
             "process parts should stay above the final answer: {parts:?}"
@@ -1588,6 +1615,7 @@ mod tests {
                     TranscriptEvent::AssistantSnapshot {
                         message_id: "a1".into(),
                         text: "looking".into(),
+                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -1620,6 +1648,7 @@ mod tests {
                     TranscriptEvent::AssistantSnapshot {
                         message_id: "a2".into(),
                         text: "final".into(),
+                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -1630,7 +1659,7 @@ mod tests {
             .iter()
             .map(|part| match part {
                 MessagePart::ToolCall { .. } => "tool",
-                MessagePart::Text { text } => text.as_str(),
+                MessagePart::Text { text, .. } => text.as_str(),
                 _ => "other",
             })
             .collect();
@@ -1729,6 +1758,7 @@ mod tests {
                     TranscriptEvent::AssistantSnapshot {
                         message_id: "a1".into(),
                         text: "early".into(),
+                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -1763,6 +1793,7 @@ mod tests {
                         text: "hmm".into(),
                         started_at: None,
                         duration_ms: None,
+                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -1775,6 +1806,7 @@ mod tests {
                     TranscriptEvent::AssistantSnapshot {
                         message_id: "a1".into(),
                         text: "final answer".into(),
+                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -1786,7 +1818,7 @@ mod tests {
             .map(|part| match part {
                 MessagePart::Thinking { .. } => "thinking",
                 MessagePart::ToolCall { .. } => "tool",
-                MessagePart::Text { text } => text.as_str(),
+                MessagePart::Text { text, .. } => text.as_str(),
                 _ => "other",
             })
             .collect();
@@ -1825,6 +1857,7 @@ mod tests {
                         text: "hmm".into(),
                         started_at: None,
                         duration_ms: None,
+                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -1837,6 +1870,7 @@ mod tests {
                     TranscriptEvent::AssistantSnapshot {
                         message_id: "a1".into(),
                         text: "hello".into(),
+                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -1890,6 +1924,7 @@ mod tests {
                         text: "hmm".into(),
                         started_at: Some(started),
                         duration_ms: Some(12_000),
+                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -1942,6 +1977,7 @@ mod tests {
                         text: "first pass".into(),
                         started_at: Some(started),
                         duration_ms: Some(5_000),
+                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -1978,6 +2014,7 @@ mod tests {
                         text: "second pass".into(),
                         started_at: Some(started + chrono::Duration::seconds(12)),
                         duration_ms: Some(8_000),
+                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -2068,6 +2105,7 @@ mod tests {
                         text: "hmm".into(),
                         started_at: None,
                         duration_ms: None,
+                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -2418,6 +2456,7 @@ mod tests {
                     TranscriptEvent::AssistantSnapshot {
                         message_id: "a1".into(),
                         text: "working".into(),
+                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -2468,6 +2507,7 @@ mod tests {
                         TranscriptEvent::AssistantSnapshot {
                             message_id: "a-reused".into(),
                             text: text.into(),
+                            parent_tool_call_id: None,
                         },
                     ),
                 )

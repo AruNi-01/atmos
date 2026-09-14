@@ -203,6 +203,7 @@ fn map_message_end(
                     AgentEvent::ThinkingDelta {
                         message_id: id.clone(),
                         delta: thinking,
+                        parent_tool_call_id: None,
                     },
                 ),
             );
@@ -229,6 +230,7 @@ fn map_message_end(
                 AgentEvent::AssistantMessageDelta {
                     message_id: message_id.clone(),
                     delta: text,
+                    parent_tool_call_id: None,
                 },
             ),
         );
@@ -301,6 +303,7 @@ fn map_message_update(
                     AgentEvent::AssistantMessageDelta {
                         message_id,
                         delta: delta.to_string(),
+                        parent_tool_call_id: None,
                     },
                 ),
             ))
@@ -328,6 +331,7 @@ fn map_message_update(
                     AgentEvent::ThinkingDelta {
                         message_id,
                         delta: delta.to_string(),
+                        parent_tool_call_id: None,
                     },
                 ),
             ))
@@ -569,6 +573,7 @@ fn fold_thinking(
                 AgentEvent::ThinkingDelta {
                     message_id,
                     delta: text,
+                    parent_tool_call_id: None,
                 },
             );
         }
@@ -579,6 +584,7 @@ fn fold_thinking(
         AgentEvent::ThinkingDelta {
             message_id,
             delta: text,
+            parent_tool_call_id: None,
         },
     )
 }

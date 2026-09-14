@@ -903,7 +903,11 @@ fn assistant_delta(state: &mut EventMapState, message_id: String, delta: String)
         .entry(message_id.clone())
         .or_default()
         .push_str(&delta);
-    AgentEvent::AssistantMessageDelta { message_id, delta }
+    AgentEvent::AssistantMessageDelta {
+        message_id,
+        delta,
+        parent_tool_call_id: None,
+    }
 }
 
 fn push_thinking(state: &mut EventMapState, message_id: String, delta: String) -> AgentEvent {
@@ -917,7 +921,11 @@ fn push_thinking(state: &mut EventMapState, message_id: String, delta: String) -
 
 fn thinking_delta(state: &mut EventMapState, message_id: String, delta: String) -> AgentEvent {
     state.thinking_message_id = Some(message_id.clone());
-    AgentEvent::ThinkingDelta { message_id, delta }
+    AgentEvent::ThinkingDelta {
+        message_id,
+        delta,
+        parent_tool_call_id: None,
+    }
 }
 
 fn tool_event(tool: AgentTool, kind: ToolEventKind) -> AgentEvent {

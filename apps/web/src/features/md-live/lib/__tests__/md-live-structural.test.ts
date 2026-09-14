@@ -45,6 +45,7 @@ describe("md-live structural gates", () => {
     expect(slash).toContain("embed={mode}");
     expect(slash).toContain("AnimatePresence");
     expect(slash).toContain("rounded-2xl");
+    expect(toolbar).toContain("rounded-xl");
     expect(slash).toContain("scrollFade");
     const picker = readFileSync(
       join(import.meta.dir, "../../embeds/picker.tsx"),

@@ -95,7 +95,11 @@ describe("agent prompt composer", () => {
     expect(composer).toContain("agentOptions.length === 0 ? null");
     expect(composer).not.toContain("agentLocked || !onProviderChange || agentOptions.length === 0");
     expect(composer).toContain("const agentsLocked = agentLocked || !onProviderChange");
-    expect(composer).toContain('agentsLocked && "opacity-40"');
+    expect(composer).toContain("const currentAgentId = registryId || agentOptions[0]?.value || \"\"");
+    expect(composer).toContain("const isCurrentAgent = option.value === currentAgentId");
+    expect(composer).toContain("agentsLocked && !isCurrentAgent");
+    expect(composer).not.toContain("disabled={option.disabled || agentsLocked}");
+    expect(composer).toContain('tabLocked && "opacity-40"');
     expect(composer).toContain('fastChip: t("composer.fastChip")');
     expect(composer).toContain('context: t("composer.context")');
     expect(composer).toContain("contextLevels={toPromptModels(contextOption)}");

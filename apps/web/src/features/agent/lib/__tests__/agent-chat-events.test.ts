@@ -249,6 +249,41 @@ describe("agent chat fold stays on AgentMessage", () => {
     expect(textFromParts(next[1]!.parts)).toBe("hello");
   });
 
+  it("does not merge nested subagent text into the parent reply", () => {
+    const user = chatEvent("chat-1", 1, {
+      type: "user_message",
+      turn_id: "t1",
+      message_id: "u1",
+      text: "hi",
+    });
+    const parentDelta = chatEvent("chat-1", 2, {
+      type: "assistant_message_delta",
+      message_id: "a1",
+      delta: "parent ",
+    });
+    const nested = chatEvent("chat-1", 3, {
+      type: "assistant_message_delta",
+      message_id: "a1",
+      delta: "nested",
+      parent_tool_call_id: "sub-1",
+    });
+    const moreParent = chatEvent("chat-1", 4, {
+      type: "assistant_message_delta",
+      message_id: "a1",
+      delta: "reply",
+    });
+    let messages = foldMessagesFromEvent([], user, "chat-1");
+    messages = foldMessagesFromEvent(messages, parentDelta, "chat-1");
+    messages = foldMessagesFromEvent(messages, nested, "chat-1");
+    messages = foldMessagesFromEvent(messages, moreParent, "chat-1");
+    expect(messages[1]?.parts).toEqual([
+      { type: "text", text: "parent " },
+      { type: "text", text: "nested", parent_tool_call_id: "sub-1" },
+      { type: "text", text: "reply" },
+    ]);
+    expect(textFromParts(messages[1]!.parts)).toBe("parent \nreply");
+  });
+
   it("does not attach a later turn's thinking to a previous assistant", () => {
     const firstUser = chatEvent("chat-1", 1, {
       type: "user_message",

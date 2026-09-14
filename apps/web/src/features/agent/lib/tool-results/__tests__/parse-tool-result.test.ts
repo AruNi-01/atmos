@@ -8,7 +8,9 @@ import {
   isImageToolPath,
   languageFromPath,
   pathRelativeToCwd,
+  firstCommandLineTitle,
   preferredCollapsedToolTitle,
+  scriptMutationPathsFromCommand,
   presentAgentTool,
   prettyJson,
   relativeDisplayPath,
@@ -263,7 +265,52 @@ describe("S16 presentAgentTool", () => {
       name: "Tool",
       title: "Execute `cd apps/web && bunx tsc --noEmit`",
       params: { type: "execute", command: "cd apps/web && bunx tsc --noEmit", background: false },
-    }), "Run Script")).toBe("Run Script");
+    }), "Run Script")).toBe("cd apps/web && bunx tsc --noEmit");
+    expect(preferredCollapsedToolTitle(tool({
+      kind: "execute",
+      name: "commandExecution",
+      params: { type: "execute", command: "ls -la", background: false },
+    }), "Execute")).toBe("ls -la");
+  });
+
+  it("uses the first command line when Codex has no description", () => {
+    const command = [
+      `/bin/zsh -lc "python3 << 'PY'`,
+      "from pathlib import Path",
+      'p = Path("apps/web/src/features/agent/components/tool-results/AgentToolCard.tsx")',
+      "s = p.read_text()",
+      "s = s.replace(old, new)",
+      "p.write_text(s)",
+      'print("updated AgentToolCard")',
+      'PY"',
+    ].join("\n");
+    expect(firstCommandLineTitle(command)).toBe(`/bin/zsh -lc "python3 << 'PY'...`);
+    expect(preferredCollapsedToolTitle(tool({
+      kind: "execute",
+      name: "commandExecution",
+      params: { type: "execute", command, background: false },
+    }), "Execute")).toBe(`/bin/zsh -lc "python3 << 'PY'...`);
+    expect(preferredCollapsedToolTitle(tool({
+      kind: "execute",
+      name: "commandExecution",
+      params: { type: "execute", command: "", background: false },
+    }), "Execute")).toBe("Execute");
+  });
+
+  it("labels files a python rewrite touches even without a hunk", () => {
+    const command = [
+      `/bin/zsh -lc "python3 << 'PY'`,
+      "from pathlib import Path",
+      'p = Path("apps/web/src/features/agent/components/tool-results/AgentToolCard.tsx")',
+      "s = p.read_text()",
+      "s = s.replace(old, new)",
+      "p.write_text(s)",
+      'PY"',
+    ].join("\n");
+    expect(scriptMutationPathsFromCommand(command)).toEqual([
+      "apps/web/src/features/agent/components/tool-results/AgentToolCard.tsx",
+    ]);
+    expect(scriptMutationPathsFromCommand("cargo test -p agent")).toEqual([]);
   });
 
   it("APP-069 S2 does not treat web_search as search_hits", () => {

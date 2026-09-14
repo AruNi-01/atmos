@@ -1,12 +1,19 @@
 import { describe, expect, it } from "bun:test";
 import {
   nextUserMessageIndex,
+  previousUserMessageIndex,
   resolveActiveUserMessageIndex,
   resolveStickyOverlayIndex,
   resolveStickyUserMessageIndex,
   shouldHideStickyUserFade,
   shouldPinStickyUserMessage,
+  stepUserMessageIndex,
   stickyUserMessagePushPx,
+  stickyUserPinLayout,
+  stickyUserTranslateY,
+  TIMELINE_RAIL_ITEM_SIZE_MAX,
+  TIMELINE_RAIL_ITEM_SIZE_MIN,
+  timelineRailItemSize,
   userMessageRectsFromMeasurements,
 } from "../agent-chat-message-nav";
 
@@ -124,6 +131,91 @@ describe("nextUserMessageIndex", () => {
   });
 });
 
+describe("previousUserMessageIndex", () => {
+  it("returns the preceding user prompt or null at the start", () => {
+    expect(previousUserMessageIndex([0, 2, 4], 2)).toBe(0);
+    expect(previousUserMessageIndex([0, 2, 4], 0)).toBeNull();
+    expect(previousUserMessageIndex([0, 2, 4], 1)).toBeNull();
+  });
+});
+
+describe("stepUserMessageIndex", () => {
+  it("steps from the active user prompt", () => {
+    expect(stepUserMessageIndex([0, 2, 4], 2, "previous")).toBe(0);
+    expect(stepUserMessageIndex([0, 2, 4], 2, "next")).toBe(4);
+  });
+
+  it("disables the ends", () => {
+    expect(stepUserMessageIndex([0, 2, 4], 0, "previous")).toBeNull();
+    expect(stepUserMessageIndex([0, 2, 4], 4, "next")).toBeNull();
+  });
+
+  it("treats an unsynced current as the last prompt", () => {
+    expect(stepUserMessageIndex([0, 2, 4], -1, "previous")).toBe(2);
+    expect(stepUserMessageIndex([0, 2, 4], -1, "next")).toBeNull();
+  });
+
+  it("returns null when there are no user prompts", () => {
+    expect(stepUserMessageIndex([], -1, "previous")).toBeNull();
+    expect(stepUserMessageIndex([], 0, "next")).toBeNull();
+  });
+});
+
+describe("timelineRailItemSize", () => {
+  it("keeps the default stride until the rail would exceed half the column", () => {
+    expect(timelineRailItemSize(10, 800)).toBe(TIMELINE_RAIL_ITEM_SIZE_MAX);
+    expect(timelineRailItemSize(28, 800)).toBe(TIMELINE_RAIL_ITEM_SIZE_MAX);
+    expect(28 * TIMELINE_RAIL_ITEM_SIZE_MAX).toBeLessThanOrEqual(400);
+  });
+
+  it("starts compressing only slightly once the uncompressed rail would pass 50%", () => {
+    const size = timelineRailItemSize(29, 800);
+    expect(size).toBeLessThan(TIMELINE_RAIL_ITEM_SIZE_MAX);
+    expect(size).toBeGreaterThan(13);
+    expect(size * 29).toBeGreaterThan(400);
+    expect(size * 29).toBeLessThanOrEqual(720);
+  });
+
+  it("shrinks spacing gradually as count grows instead of jumping to 0.5px", () => {
+    const a = timelineRailItemSize(40, 800);
+    const b = timelineRailItemSize(80, 800);
+    const c = timelineRailItemSize(200, 800);
+    expect(a).toBeGreaterThan(b);
+    expect(b).toBeGreaterThan(c);
+    expect(a).toBeGreaterThan(12);
+    expect(b).toBeGreaterThan(8);
+    expect(c).toBeGreaterThan(2);
+    expect(c).toBeGreaterThan(TIMELINE_RAIL_ITEM_SIZE_MIN);
+  });
+
+  it("reaches 0.5px only when that spacing would fill 90%", () => {
+    expect(timelineRailItemSize(200, 800)).toBeGreaterThan(2);
+    expect(timelineRailItemSize(1440, 800)).toBeCloseTo(TIMELINE_RAIL_ITEM_SIZE_MIN);
+  });
+
+  it("does not let the rail grow past 90%", () => {
+    for (const count of [40, 80, 200, 800, 2000]) {
+      expect(timelineRailItemSize(count, 800) * count).toBeLessThanOrEqual(720 + 1e-6);
+    }
+  });
+
+  it("keeps the rail at 90% if 0.5px spacing would overflow", () => {
+    const size = timelineRailItemSize(4000, 800);
+    expect(size * 4000).toBeCloseTo(720);
+    expect(size).toBeLessThan(TIMELINE_RAIL_ITEM_SIZE_MIN);
+  });
+
+  it("reserves step-button chrome out of the 90% budget", () => {
+    const size = timelineRailItemSize(4000, 400, 72);
+    expect(size * 4000).toBeCloseTo(400 - 72);
+  });
+
+  it("returns the default stride when the column has not been measured", () => {
+    expect(timelineRailItemSize(80, 0)).toBe(TIMELINE_RAIL_ITEM_SIZE_MAX);
+    expect(timelineRailItemSize(0, 800)).toBe(TIMELINE_RAIL_ITEM_SIZE_MAX);
+  });
+});
+
 describe("shouldHideStickyUserFade", () => {
   it("hides the fade before the next user prompt enters it", () => {
     expect(shouldHideStickyUserFade(200, 80, 32)).toBe(false);
@@ -135,10 +227,52 @@ describe("shouldHideStickyUserFade", () => {
 describe("stickyUserMessagePushPx", () => {
   it("stays put while the next prompt is still below the sticky header", () => {
     expect(stickyUserMessagePushPx(120, 80)).toBe(0);
+    expect(stickyUserMessagePushPx(92, 80, 12)).toBe(0);
   });
 
   it("pushes the sticky header up as the next prompt arrives", () => {
     expect(stickyUserMessagePushPx(50, 80)).toBe(-30);
+  });
+
+  it("starts pushing a gap earlier so the two user bubbles do not kiss", () => {
+    expect(stickyUserMessagePushPx(80, 80, 12)).toBe(-12);
+    expect(stickyUserMessagePushPx(50, 80, 12)).toBe(-42);
+  });
+});
+
+describe("stickyUserTranslateY", () => {
+  it("pins at the scrollport while the next prompt is still below", () => {
+    expect(stickyUserTranslateY(200, 16, 80, 520, 12)).toBe(184);
+    expect(stickyUserTranslateY(200, 16, 80, null, 12)).toBe(184);
+  });
+
+  it("pushes by the overlap once the next prompt reaches the pinned height", () => {
+    expect(stickyUserTranslateY(450, 16, 80, 520, 12)).toBe(412);
+  });
+
+  it("tracks the natural row offset for adjacent user prompts during the push", () => {
+    const start = 16;
+    const size = 80;
+    const gap = 12;
+    const scrollMargin = 16;
+    const nextStart = start + size + gap;
+    const natural = start - scrollMargin;
+    for (const scrollTop of [16, 40, 70, 100, 108]) {
+      expect(stickyUserTranslateY(scrollTop, scrollMargin, size, nextStart, gap)).toBe(natural);
+    }
+  });
+});
+
+describe("stickyUserPinLayout", () => {
+  it("hides the fade once the next prompt would enter it", () => {
+    expect(stickyUserPinLayout(200, 16, 80, 520, 12, 0, 32)).toEqual({
+      translateY: 184,
+      hideFade: false,
+    });
+    expect(stickyUserPinLayout(450, 16, 80, 520, 12, 0, 32)).toEqual({
+      translateY: 412,
+      hideFade: true,
+    });
   });
 });
 

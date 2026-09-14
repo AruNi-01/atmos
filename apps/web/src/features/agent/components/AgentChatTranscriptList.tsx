@@ -9,9 +9,9 @@
  * every scroll tick (isAtBottom / state) and would re-render the list.
  * The scroll element is StickToBottom's `.agent-chat-scroll` node.
  *
- * Sticky user prompts use the original virtual row (`position: sticky`).
- * Cloning the prompt into an overlay remounts collapse state and flashes the
- * previous bubble when scrolling quickly.
+ * Pinned user prompts stay on the original virtual row (`absolute` + `translateY`).
+ * Do not switch that row onto a CSS sticky containing block: it leaves the
+ * virtualizer slot and fights React layout against scroll-driven push.
  */
 
 import React, {
@@ -33,8 +33,7 @@ import {
   nextUserMessageIndex,
   resolveActiveUserMessageIndex,
   resolveStickyUserMessageIndex,
-  shouldHideStickyUserFade,
-  stickyUserMessagePushPx,
+  stickyUserPinLayout,
   userMessageRectsFromMeasurements,
 } from "@/features/agent/lib/agent-chat-message-nav";
 import {
@@ -107,7 +106,6 @@ export function AgentChatTranscriptList({
             scroll.scrollTop,
           )
         : stickyUserIndexRef.current;
-      stickyUserIndexRef.current = sticky;
       const base = mergeStickyUserRange(defaultRangeExtractor(range), sticky);
       const merged = mergeMermaidKeepAliveRange(
         base,
@@ -149,31 +147,26 @@ export function AgentChatTranscriptList({
   const syncActiveRef = useRef<() => void>(() => undefined);
   const didAnchorToEndRef = useRef(false);
 
-  const applyStickyPush = useCallback(
+  const applyStickyPin = useCallback(
     (stickyIndex: number, scroll: HTMLElement) => {
       const node = stickyNodeRef.current;
       if (!node || Number(node.dataset.index) !== stickyIndex) return;
+      const measurement = measurementsRef.current[stickyIndex];
+      if (!measurement) return;
       const incomingIndex = nextUserMessageIndex(userMessageIndices, stickyIndex);
-      if (incomingIndex == null) {
-        node.style.top = `${AGENT_CHAT_STICKY_USER_TOP_PX}px`;
-        node.dataset.stickyUserFade = "";
-        return;
-      }
-      const incomingRow = listRef.current?.querySelector(`[data-index="${incomingIndex}"]`);
-      const incomingTop =
-        incomingRow instanceof HTMLElement
-          ? incomingRow.getBoundingClientRect().top - scroll.getBoundingClientRect().top
-          : (virtualizer.measurementsCache[incomingIndex]?.start ?? 0) - scroll.scrollTop;
-      const offsetTop = incomingTop - AGENT_CHAT_STICKY_USER_TOP_PX;
-      const push = stickyUserMessagePushPx(offsetTop, node.offsetHeight);
-      node.style.top = `${AGENT_CHAT_STICKY_USER_TOP_PX + push}px`;
-      node.dataset.stickyUserFade = shouldHideStickyUserFade(
-        offsetTop,
-        node.offsetHeight,
+      const nextStart =
+        incomingIndex == null ? null : measurementsRef.current[incomingIndex]?.start;
+      const pin = stickyUserPinLayout(
+        scroll.scrollTop,
+        virtualizer.options.scrollMargin,
+        measurement.size,
+        nextStart,
+        AGENT_CHAT_TRANSCRIPT_GAP,
+        AGENT_CHAT_STICKY_USER_TOP_PX,
         AGENT_CHAT_STICKY_USER_FADE_PX,
-      )
-        ? "off"
-        : "";
+      );
+      node.style.transform = `translateY(${pin.translateY}px)`;
+      node.dataset.stickyUserFade = pin.hideFade ? "off" : "";
     },
     [userMessageIndices, virtualizer],
   );
@@ -190,8 +183,8 @@ export function AgentChatTranscriptList({
       stickyUserIndexRef.current = next;
       setStickyUserIndex(next);
     }
-    if (next != null) applyStickyPush(next, scroll);
-  }, [applyStickyPush, getScrollElement, userMessageIndices, virtualizer]);
+    if (next != null) applyStickyPin(next, scroll);
+  }, [applyStickyPin, getScrollElement, userMessageIndices, virtualizer]);
 
   useLayoutEffect(() => {
     if (didAnchorToEndRef.current || messages.length === 0) return;
@@ -293,6 +286,8 @@ export function AgentChatTranscriptList({
   }, [getScrollElement, updateStickyUser]);
 
   const lastIndex = messages.length - 1;
+  const listScrollMargin = virtualizer.options.scrollMargin;
+  const scrollTop = getScrollElement()?.scrollTop ?? 0;
 
   return (
     <div
@@ -306,11 +301,32 @@ export function AgentChatTranscriptList({
         if (!message) return null;
         const showActivityFooter = activityStatus != null && item.index === lastIndex;
         const isStickyUser = message.role === "user" && item.index === stickyUserIndex;
+        const incomingIndex = isStickyUser
+          ? nextUserMessageIndex(userMessageIndices, item.index)
+          : null;
+        const nextStart =
+          incomingIndex == null
+            ? null
+            : virtualizer.measurementsCache[incomingIndex]?.start;
+        const pin = isStickyUser
+          ? stickyUserPinLayout(
+              scrollTop,
+              listScrollMargin,
+              item.size,
+              nextStart,
+              AGENT_CHAT_TRANSCRIPT_GAP,
+              AGENT_CHAT_STICKY_USER_TOP_PX,
+              AGENT_CHAT_STICKY_USER_FADE_PX,
+            )
+          : null;
+        const translateY = pin?.translateY ?? item.start - listScrollMargin;
+        const hideStickyFade = pin?.hideFade === true;
         return (
           <div
             key={item.key}
             data-index={item.index}
             data-agent-chat-sticky-user={isStickyUser ? "" : undefined}
+            data-sticky-user-fade={hideStickyFade ? "off" : undefined}
             ref={(node) => {
               virtualizer.measureElement(node);
               if (isStickyUser) stickyNodeRef.current = node;
@@ -318,23 +334,24 @@ export function AgentChatTranscriptList({
             }}
             className={
               isStickyUser
-                ? `left-0 w-full ${AGENT_CHAT_STICKY_USER_ROW_CLASS}`
+                ? `absolute top-0 left-0 w-full ${AGENT_CHAT_STICKY_USER_ROW_CLASS}`
                 : "absolute top-0 left-0 w-full"
             }
-            style={
-              isStickyUser
-                ? { top: AGENT_CHAT_STICKY_USER_TOP_PX }
-                : {
-                    transform: `translateY(${item.start - virtualizer.options.scrollMargin}px)`,
-                  }
-            }
+            style={{
+              transform: `translateY(${translateY}px)`,
+            }}
           >
             <AgentChatMessageView
               message={message}
               index={item.index}
             />
             {showActivityFooter ? (
-              <div data-agent-chat-activity-status="">{activityStatus}</div>
+              <div
+                data-agent-chat-activity-status=""
+                className="mx-auto mt-2 w-[calc(100%-1rem)]"
+              >
+                {activityStatus}
+              </div>
             ) : null}
           </div>
         );
