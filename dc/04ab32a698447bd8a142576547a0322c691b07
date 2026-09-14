@@ -1,0 +1,103 @@
+apps/web/src/features/md-live/lib/__tests__/md-live-structural.test.ts
+  s_7f235dd8b32fdd::t_df7ba0af2743da 48
+apps/web/src/features/terminal/components/TerminalSplitView.tsx
+  s_e2261845bca10b::t_c27c1dfdde3c0a 529
+  s_e2261845bca10b::t_b87081a1c42685 592-594
+  s_e2261845bca10b::t_ab3b7edd120f61 574
+  s_e2261845bca10b::t_c657b8963a8418 546,558
+  s_e2261845bca10b::t_362e8c408987d0 40
+apps/web/src/features/skills/components/SkillDetail.tsx
+  s_e2261845bca10b::t_1785569262e595 288,291-294
+  s_e2261845bca10b::t_8b1ef2687d6b52 296
+  s_e2261845bca10b::t_46cd66b9492226 50
+  s_e2261845bca10b::t_77b147ffaa7440 300,302-304
+apps/web/src/features/wiki/components/WikiViewer.tsx
+  s_e2261845bca10b::t_26c3f4967c54ff 98-104
+  s_e2261845bca10b::t_9158a0cc7ddb1c 216,218-220,223
+  s_e2261845bca10b::t_a6e2f30d53c965 21
+  s_e2261845bca10b::t_98842d92e982d4 213
+apps/web/src/features/diff/components/DiffCodeViewScaffold.tsx
+  s_e2261845bca10b::t_fb82e5ae566618 11
+  s_e2261845bca10b::t_16c9c2d26bd30b 178-180
+  s_e2261845bca10b::t_c3d0a6bc1b8a1b 140,142,144-156,158,161-170
+  s_e2261845bca10b::t_f3051b71ba7eeb 96
+  s_e2261845bca10b::t_c111c6d4e94522 10
+  s_e2261845bca10b::t_837d492a6cf380 137
+  s_e2261845bca10b::t_84e96f655438cc 118
+apps/web/src/features/editor/components/BaseCodeMirrorEditor.tsx
+  s_7f235dd8b32fdd::t_9e14d35ffc5c62 170,196
+apps/web/src/features/appshot/components/AppshotCapturePreview.tsx
+  s_7f235dd8b32fdd::t_3ee7318e4a4377 283
+apps/web/src/features/canvas/components/CanvasEmptyBrushAddWidgetPopover.tsx
+  s_7f235dd8b32fdd::t_bf4030f071bce3 300
+apps/web/src/features/editor/components/MarkdownFindPanel.tsx
+  s_7f235dd8b32fdd::t_cc00cbac88c370 297
+apps/web/src/features/md-live/components/MdLiveSelectionToolbar.tsx
+  s_7f235dd8b32fdd::t_fa56b16e2bae10 146
+apps/web/src/features/selection/components/SelectionPopover.tsx
+  s_7f235dd8b32fdd::t_8760d36d112cab 318
+apps/web/src/features/settings/components/AgentToolCallDensitySettingsSection.tsx
+  s_7f235dd8b32fdd::t_7abab2672bef2b 150
+apps/web/src/features/terminal/components/TerminalAgentInputOverlay.tsx
+  s_7f235dd8b32fdd::t_0e20a0c8bd2bad 1485
+apps/web/src/features/terminal/components/TerminalSelectionToolbar.tsx
+  s_7f235dd8b32fdd::t_eb08f683c09790 104
+apps/web/src/features/terminal/components/TerminalSideChatModal.tsx
+  s_7f235dd8b32fdd::t_033765bd5579c3 269
+apps/web/src/features/terminal/components/terminal-grid.css
+  s_7f235dd8b32fdd::t_0f2df83a72927e 580
+apps/web/src/features/welcome/components/PromptComposer.tsx
+  s_e6fc26c7b9917c::t_24db083b029c48 1212,1820-1834,1847-1858,1864,1876,1885,1892,2121-2140,2142-2149
+apps/web/src/shared/components/__tests__/image-preview-overlay.test.tsx
+  s_34bab59ccce4c7::t_f9a3ea61547b27 11-12,14-15,25-26,30-37,66,199-237
+apps/web/src/shared/components/image-copy-context-menu.tsx
+  s_7f235dd8b32fdd::t_84d3ed779645a5 139
+apps/web/src/shared/components/image-preview-overlay.tsx
+  s_34bab59ccce4c7::t_fbd24307b41cc6 5-7,12,15-19,83,92,99-100,103,130-133,141,150,194-206,208-209,227-249,262,277,285-286,288,291-294,306,308-376,390-421
+apps/web/src/shared/components/markdown/MarkdownToc.tsx
+  s_7f235dd8b32fdd::t_3e0e787cdb6a74 199
+packages/md-live/src/ui/live-editor.css
+  s_7f235dd8b32fdd::t_55ac38fb6402b9 640,806
+packages/ui/src/components/motion/morphing-search.tsx
+  s_7f235dd8b32fdd::t_28497b5c75e7a6 429-430
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "dc04ab32a698447bd8a142576547a0322c691b07",
+  "prompts": {},
+  "sessions": {
+    "s_34bab59ccce4c7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09fef-b259-7e83-b7ec-68abaff7e766",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_7f235dd8b32fdd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "17d1d179-f3e8-47eb-ba1d-921a80001bc4",
+        "model": "grok-4.6"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_e2261845bca10b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5160aa63-8f48-4691-be86-c3653a0843cc",
+        "model": "grok-4.6"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_e6fc26c7b9917c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09ffa-c803-7e12-b1bc-11d66974f6d2",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
