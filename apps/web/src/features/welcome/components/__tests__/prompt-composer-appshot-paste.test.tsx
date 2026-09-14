@@ -75,6 +75,7 @@ describe("PromptComposer Appshot paste handling", () => {
       );
     });
 
+    expect(editor.querySelectorAll("[data-kind='appshot']")).toHaveLength(1);
     expect(editor.textContent).toContain(`Appshot · ${timestamp}`);
     expect(editor.querySelector("[data-kind='appshot'] [aria-hidden='true']")).not.toBeNull();
     expect(latestText.trim()).toBe(`[#appshot:${timestamp}]`);

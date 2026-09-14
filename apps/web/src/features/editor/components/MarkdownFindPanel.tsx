@@ -294,7 +294,7 @@ export function MarkdownFindPanel({
         : null}
       <div
         data-markdown-find-panel=""
-        className="pointer-events-auto absolute top-2 right-2 z-30 w-[min(26rem,calc(100%-1rem))] rounded-lg border border-border/80 bg-background/80 p-3 shadow-lg backdrop-blur-md"
+        className="pointer-events-auto absolute top-2 right-2 z-30 w-[min(26rem,calc(100%-1rem))] rounded-xl border border-border/80 bg-background/80 p-3 shadow-lg backdrop-blur-md"
       >
         <div className="mb-2.5 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-1.5">

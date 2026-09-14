@@ -8,7 +8,11 @@ mock.module("next-intl", () => ({
   useTranslations: () => (key: string) =>
     ({
       menu: "Image actions",
+      zoomOut: "Zoom out",
+      zoomIn: "Zoom in",
       copyImage: "Copy image",
+      downloadImage: "Download",
+      close: "Close",
       saveImage: "Save image",
       copyFailedTitle: "Copy failed",
       saveFailedTitle: "Save failed",
@@ -18,9 +22,19 @@ mock.module("next-intl", () => ({
 }));
 
 mock.module("@workspace/ui", () => ({
+  cn: (...values: Array<string | false | null | undefined>) =>
+    values.filter(Boolean).join(" "),
   toastManager: {
     add: () => undefined,
   },
+  usePromptInputAttachments: () => ({
+    files: [],
+    add: () => undefined,
+    remove: () => undefined,
+    clear: () => undefined,
+    openFileDialog: () => undefined,
+    fileInputRef: { current: null },
+  }),
 }));
 
 const {
@@ -49,6 +63,7 @@ describe("image preview zoom geometry", () => {
     const target = imagePreviewTargetRect(origin, { width: 1000, height: 800 });
     expect(target.width).toBeLessThanOrEqual(920);
     expect(target.height).toBeLessThanOrEqual(736);
+    expect(target.top).toBeGreaterThanOrEqual(40);
     expect(target.width).toBeCloseTo(target.height);
     const zoom = imagePreviewZoomTransform(origin, target);
     expect(zoom.scale).toBeCloseTo(origin.width / target.width);
@@ -177,6 +192,45 @@ describe("ImagePreviewOverlay context menu", () => {
     const overlay = document.querySelector("[data-image-preview-overlay]");
     await act(async () => {
       overlay?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders an outside pill toolbar with zoom, copy, download, and close", async () => {
+    renderOverlay(() => undefined);
+
+    const toolbar = document.querySelector("[data-image-preview-toolbar]");
+    expect(toolbar).not.toBeNull();
+    expect(toolbar?.className).toContain("absolute");
+    expect(toolbar?.querySelector('[data-image-preview-toolbar-action="zoom-out"]')).not.toBeNull();
+    expect(toolbar?.querySelector('[data-image-preview-toolbar-action="zoom-in"]')).not.toBeNull();
+    expect(toolbar?.querySelector('[data-image-preview-toolbar-action="copy"]')).not.toBeNull();
+    expect(toolbar?.querySelector('[data-image-preview-toolbar-action="download"]')).not.toBeNull();
+    expect(toolbar?.querySelector('[data-image-preview-toolbar-action="close"]')).not.toBeNull();
+    expect(toolbar?.querySelectorAll("button")).toHaveLength(5);
+  });
+
+  it("does not close when clicking the image frame", async () => {
+    const onClose = mock(() => undefined);
+    renderOverlay(onClose);
+
+    const frame = document.querySelector("[data-image-preview-frame]");
+    await act(async () => {
+      frame?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(document.querySelector("[data-image-preview-overlay]")).not.toBeNull();
+  });
+
+  it("closes from the toolbar close button", async () => {
+    const onClose = mock(() => undefined);
+    renderOverlay(onClose);
+
+    const close = document.querySelector('[data-image-preview-toolbar-action="close"]');
+    await act(async () => {
+      close?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
     });
 
     expect(onClose).toHaveBeenCalledTimes(1);

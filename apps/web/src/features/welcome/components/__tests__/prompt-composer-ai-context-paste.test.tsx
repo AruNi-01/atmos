@@ -87,7 +87,9 @@ describe("PromptComposer AI context paste", () => {
       );
     });
 
-    const chip = editor.querySelector("[data-kind='ai-context:code-selection']");
+    const chips = editor.querySelectorAll("[data-kind='ai-context:code-selection']");
+    expect(chips).toHaveLength(1);
+    const chip = chips[0];
     expect(chip).not.toBeNull();
     expect(chip?.textContent).toContain("app.ts");
     expect(chip?.querySelector("svg")).not.toBeNull();

@@ -143,7 +143,7 @@ export function MdLiveSelectionToolbar({
 
   return (
     <TooltipProvider delayDuration={400}>
-    <div data-md-live-toolbar="true" className="flex items-center gap-0.5 rounded-md border bg-popover p-1 shadow-md">
+    <div data-md-live-toolbar="true" className="flex items-center gap-0.5 rounded-xl border bg-popover p-1 shadow-md">
       {blockItems.length > 0 ? (
         <OverlayMenu
           label={

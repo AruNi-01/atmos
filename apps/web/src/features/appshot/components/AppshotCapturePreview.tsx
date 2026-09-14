@@ -280,7 +280,7 @@ export function AppshotCapturePreview() {
     <div
       key={preview.preview_id}
       className={cn(
-        "appshot-capture-card-enter fixed right-4 top-12 z-[2147483647] w-80 rounded-md border border-border bg-popover p-3 text-popover-foreground shadow-md desktop-no-drag",
+        "appshot-capture-card-enter fixed right-4 top-12 z-[2147483647] w-80 rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-md desktop-no-drag",
       )}
       style={{
         "--appshot-enter-x": `${entranceOffset.x}px`,

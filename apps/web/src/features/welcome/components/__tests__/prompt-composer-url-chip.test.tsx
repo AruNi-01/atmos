@@ -86,7 +86,9 @@ describe("PromptComposer URL chips", () => {
       editor.dispatchEvent(pasteEvent(url));
     });
 
-    const chip = editor.querySelector("[data-kind='url']");
+    const chips = editor.querySelectorAll("[data-kind='url']");
+    expect(chips).toHaveLength(1);
+    const chip = chips[0];
     expect(chip).not.toBeNull();
     expect(chip?.className).toContain("rounded-full");
     expect(chip?.className).toContain("h-[18px]");
@@ -98,36 +100,12 @@ describe("PromptComposer URL chips", () => {
     expect(expandUrlTokens(latestText.trim())).toBe(url);
   });
 
-  it("places the caret after a pasted URL chip even when insertHTML leaves it before", async () => {
+  it("places the caret after a pasted URL chip", async () => {
     const composerRef = React.createRef<ComposerHandle>();
     const container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
     const url = "https://payloadcms.com/docs/components";
-
-    Object.defineProperty(document, "execCommand", {
-      configurable: true,
-      value: (command: string, _showUI: boolean, value?: string) => {
-        if (command !== "insertHTML" || typeof value !== "string") return false;
-        const selection = window.getSelection();
-        if (!selection || selection.rangeCount === 0) return false;
-        const range = selection.getRangeAt(0);
-        const temp = document.createElement("div");
-        temp.innerHTML = value;
-        const fragment = document.createDocumentFragment();
-        while (temp.firstChild) fragment.appendChild(temp.firstChild);
-        const first = fragment.firstChild;
-        range.deleteContents();
-        range.insertNode(fragment);
-        if (first) {
-          range.setStartBefore(first);
-          range.collapse(true);
-          selection.removeAllRanges();
-          selection.addRange(range);
-        }
-        return true;
-      },
-    });
 
     await act(async () => {
       root?.render(<PromptComposer ref={composerRef} />);

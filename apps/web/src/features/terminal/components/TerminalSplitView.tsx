@@ -37,6 +37,7 @@ import {
 } from "@/features/terminal/lib/terminal-pane-drag-preview";
 import { HOST_RESIZE_DRAG_ATTR } from "@/features/terminal/lib/host-resize-pin";
 import { useLiveSplitLayout } from "@/features/terminal/lib/use-live-split-layout";
+import { ResizeFollowMark } from "@/app-shell/ResizeFollowMark";
 import { TerminalPaneDragHandleProvider } from "./terminal-pane-dnd";
 
 type TerminalSplitViewProps = {
@@ -525,6 +526,7 @@ function SplitHandle({
   onResizeEnd: () => void;
 }) {
   const isRow = split.direction === "row";
+  const [resizing, setResizing] = React.useState(false);
   const startResize = React.useCallback(
     (event: React.PointerEvent) => {
       event.preventDefault();
@@ -541,6 +543,7 @@ function SplitHandle({
         ? rootRect.left + split.parent.left * rootRect.width
         : rootRect.top + split.parent.top * rootRect.height;
       handle.setAttribute("data-resizing", "");
+      setResizing(true);
       onResizeStart();
 
       const onMove = (ev: PointerEvent) => {
@@ -552,6 +555,7 @@ function SplitHandle({
       };
       const onUp = () => {
         handle.removeAttribute("data-resizing");
+        setResizing(false);
         onResizeEnd();
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
@@ -567,7 +571,7 @@ function SplitHandle({
       role="separator"
       aria-orientation={isRow ? "vertical" : "horizontal"}
       className={cn(
-        "group absolute z-10 touch-none bg-transparent",
+        "absolute z-10 overflow-visible touch-none bg-transparent",
         isRow ? "w-2 -ml-1 cursor-col-resize" : "h-2 -mt-1 cursor-row-resize",
       )}
       style={
@@ -585,15 +589,9 @@ function SplitHandle({
       }
       onPointerDown={startResize}
     >
-      <span
-        aria-hidden
-        className={cn(
-          "pointer-events-none absolute bg-transparent",
-          "group-hover:bg-border/50 group-data-[resizing]:bg-border/50",
-          isRow
-            ? "inset-y-0 left-1/2 w-px -translate-x-1/2"
-            : "inset-x-0 top-1/2 h-px -translate-y-1/2",
-        )}
+      <ResizeFollowMark
+        axis={isRow ? "vertical" : "horizontal"}
+        dragging={resizing}
       />
     </div>
   );

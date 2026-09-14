@@ -1482,7 +1482,7 @@ function SideChatAgentPicker({
 
   return (
     <div
-      className="pointer-events-auto fixed bottom-20 left-1/2 z-[2147483647] w-[min(92vw,320px)] -translate-x-1/2 rounded-md border border-border/70 bg-popover p-1 text-sm text-popover-foreground shadow-lg"
+      className="pointer-events-auto fixed bottom-20 left-1/2 z-[2147483647] w-[min(92vw,320px)] -translate-x-1/2 rounded-xl border border-border/70 bg-popover p-1 text-sm text-popover-foreground shadow-lg"
       onMouseDown={(event) => {
         onInteraction?.(event);
         event.stopPropagation();

@@ -196,7 +196,7 @@ export const MarkdownToc: React.FC<MarkdownTocProps> = ({
       {/* Expanded: floating card */}
       <div
         className={cn(
-          "absolute top-0 w-52 overflow-hidden rounded-lg border border-border bg-background/95 shadow-md backdrop-blur-sm transition-all duration-200 ease-in-out",
+          "absolute top-0 w-52 overflow-hidden rounded-xl border border-border bg-background/95 shadow-md backdrop-blur-sm transition-all duration-200 ease-in-out",
           isLeft ? "left-0" : "right-0",
           isHovered
             ? "translate-x-0 scale-100 opacity-100"

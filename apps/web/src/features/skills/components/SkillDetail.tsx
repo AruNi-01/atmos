@@ -47,6 +47,7 @@ import { detectCodeLanguage } from '@/shared/lib/code-language';
 import { getAgentStatus, sortAgents } from '../lib/constants';
 import { SkillAgentBadge } from './SkillAgentBadge';
 import { QuickOpen } from '@/app-shell/QuickOpen';
+import { ResizeFollowMark } from '@/app-shell/ResizeFollowMark';
 import { SkillActionsMenu } from './SkillActionsMenu';
 
 const CodeMirrorEditor = dynamic(
@@ -284,19 +285,23 @@ function ResizeHandle({
   className,
 }: ResizeHandleProps) {
   const t = useTranslations('skills.detail');
+  const [dragging, setDragging] = useState(false);
   return (
     <PanelResizeHandle
-      onDragging={onDragging}
+      onDragging={(nextDragging) => {
+        setDragging(nextDragging);
+        onDragging(nextDragging);
+      }}
       className={cn(
-        "relative flex w-px items-center justify-center bg-border hover:bg-border/80 group touch-none z-10",
-        "before:absolute before:inset-y-0 before:-left-1 before:-right-1 before:z-10", // Expand hit area
+        "relative z-10 flex w-3 -mx-1.5 items-center justify-center overflow-visible bg-transparent group touch-none",
         className
       )}
     >
-      {/* Visual Line (1px inherited from w-px parent) */}
-
-      {/* Collapse Hint Button */}
+      <ResizeFollowMark axis="vertical" dragging={dragging} onFold={onCollapse} />
       <button
+        onPointerDown={(e) => {
+          e.stopPropagation();
+        }}
         onClick={(e) => {
           e.stopPropagation();
           onCollapse();
