@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { parsePtx } from "../../protocol";
+import type { PtNode } from "../../protocol";
+import { PT_COMPONENT_MODULES } from "../../components/registry";
 import { OverlayHost, overlayArtistInset, overlayFitStyle } from "./OverlayHost";
 import { canvasOriginInBoard, findCanvasOriginNode } from "./canvas-origin";
 
@@ -22,6 +24,10 @@ function walk(root: string, files: string[] = []): string[] {
 
 const APP_STATE = { scrollX: 0, scrollY: 0, zoom: { value: 1 } };
 
+function hasButtonNode(node: PtNode): boolean {
+  return node.type === "button" || (node.children ?? []).some(hasButtonNode);
+}
+
 describe("OverlayHost", () => {
   test("Interact markup contains a real button for a page-level button node", () => {
     const document = parsePtx(
@@ -37,6 +43,8 @@ describe("OverlayHost", () => {
     );
     expect(html).toContain("<button");
     expect(html).toContain("data-pt-overlay-id=\"run\"");
+    expect(html).toContain("data-pt-node-type=\"button\"");
+    expect(html).toContain("data-pt-type=\"button\"");
     expect(html).toContain("pointer-events:auto");
   });
 
@@ -92,6 +100,53 @@ describe("OverlayHost", () => {
     expect(interact).toContain("pointer-events:auto");
     expect(interact).not.toContain("pointer-events:none !important");
     expect(interact).not.toContain("inert");
+  });
+
+  test("nested button keeps its own artist host so pressing it does not scale the card", () => {
+    const document = parsePtx(
+      `<page id="p"><form id="signup" label="Form" x="0" y="0" width="360" height="140"><button id="go" label="Submit" x="16" y="72" width="328" height="40"/></form></page>`,
+    );
+    const html = renderToStaticMarkup(
+      createElement(OverlayHost, {
+        document,
+        mode: "interact",
+        appState: APP_STATE,
+        onCommit: () => {},
+      }),
+    );
+    expect(html).toContain('data-pt-overlay-id="signup"');
+    expect(html).toContain('data-pt-node-type="form"');
+    expect(html).toContain('data-pt-type="button"');
+    expect(html).toContain('data-pt-id="go"');
+    expect(html).toContain("data-pt-artist=\"\"");
+    expect(html).not.toContain('data-pt-overlay-id="go"');
+    expect(html.indexOf('data-pt-type="button"')).toBeLessThan(html.lastIndexOf("data-pt-artist"));
+  });
+
+  test("interact press markup does not attach to non-button catalog nodes", () => {
+    const css = readFileSync(new URL("./sketch-ui.css", import.meta.url), "utf8");
+    const pressLines = css.split("\n").filter((line) => line.includes("scale(0.96)") || line.includes("data-pt-pressed"));
+    expect(pressLines.length).toBeGreaterThan(0);
+    for (const line of pressLines) {
+      if (!line.includes("data-pt-type")) continue;
+      expect(line).toContain('[data-pt-type="button"]');
+      expect(line).not.toMatch(/\[data-pt-type="(?!button")[^"]+"\]/);
+    }
+    const leaked: string[] = [];
+    for (const mod of PT_COMPONENT_MODULES) {
+      const node = mod.defaultNode(`n-${mod.type}`);
+      if (hasButtonNode(node)) continue;
+      const html = renderToStaticMarkup(
+        createElement(OverlayHost, {
+          document: { version: "ptx/1", pages: [{ id: "p", nodes: [node] }] },
+          mode: "interact",
+          appState: APP_STATE,
+          onCommit: () => {},
+        }),
+      );
+      if (html.includes('data-pt-type="button"')) leaked.push(mod.type);
+    }
+    expect(leaked).toEqual([]);
   });
 
   test("overlay fit scales defaultBBox into the live handle box", () => {
@@ -177,6 +232,21 @@ describe("overlay canvas origin", () => {
     expect(src).toContain("ArtistInkHost");
     expect(src).toContain("pt-design-board");
     expect(src).not.toContain("createPortal");
+    const css = readFileSync(new URL("./sketch-ui.css", import.meta.url), "utf8");
+    expect(css).toContain('[data-pt-mode="interact"]');
+    expect(css).toContain('[data-pt-type="button"][data-pt-pressed]');
+    expect(css).toContain(":has(:active)");
+    expect(css).toContain("scale(0.96)");
+    expect(css).not.toContain("[data-pt-overlay-id][data-pt-pressed] [data-pt-artist]");
+    expect(src).toContain("pressableButtonRoot");
+    expect(src).toContain("armInteractPress");
+    expect(src).toContain("data-pt-node-type");
+    const ink = readFileSync(new URL("./artist-ink.tsx", import.meta.url), "utf8");
+    expect(ink).toContain('data-pt-artist=""');
+    expect(ink).toContain("el.dataset.ptArtist");
+    const press = readFileSync(new URL("./interact-press.ts", import.meta.url), "utf8");
+    expect(press).toContain('INTERACT_PRESS_NODE_TYPE = "button"');
+    expect(press).toContain('getAttribute("data-pt-type") !== INTERACT_PRESS_NODE_TYPE');
   });
 });
 

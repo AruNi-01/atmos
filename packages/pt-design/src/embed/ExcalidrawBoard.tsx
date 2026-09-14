@@ -697,7 +697,6 @@ export default function ExcalidrawBoard({
         onPointerUpdate={onPointerUpdate}
         renderTopRightUI={(isMobile, appState) => (
           <div className="pt-design-top-right">
-            {topLeftChrome}
             <div className="pt-design-top-right__actions">
               {onShare ? (
                 <ShareTrigger
@@ -785,6 +784,7 @@ export default function ExcalidrawBoard({
           </Sidebar>
         ) : null}
       </Excalidraw>
+      {topLeftChrome}
       {sharePanel?.open ? (
         <div
           style={{

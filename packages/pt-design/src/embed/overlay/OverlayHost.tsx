@@ -5,6 +5,7 @@ import type { PtDocument, PtNode } from "../../protocol";
 import type { PtRendererProps } from "../../components/types";
 import { ArtistInkHost } from "./artist-ink";
 import { canvasOriginInBoard, findCanvasOriginNode, type OriginBox } from "./canvas-origin";
+import { armInteractPress, pressableButtonRoot } from "./interact-press";
 import "./sketch-ui.css";
 
 export type OverlayAppState = {
@@ -156,6 +157,14 @@ export function OverlayHost({
       data-pt-overlay-origin="canvas"
       data-pt-mode={mode}
       style={overlayRootStyle(origin)}
+      onPointerDownCapture={
+        mode === "interact"
+          ? (event) => {
+              const root = pressableButtonRoot(event);
+              if (root) armInteractPress(root);
+            }
+          : undefined
+      }
     >
       {mode === "edit" ? <style>{EDIT_OVERLAY_POINTER_CSS}</style> : null}
       {nodes.map((node) => {
@@ -170,6 +179,7 @@ export function OverlayHost({
           <div
             key={node.id}
             data-pt-overlay-id={node.id}
+            data-pt-node-type={node.type}
             inert={mode === "edit" ? true : undefined}
             style={layerStyle(node, appState, mode)}
           >

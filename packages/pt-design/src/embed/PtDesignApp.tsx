@@ -20,6 +20,14 @@ import { chromeTokens, resolveBoardTheme } from "./chrome";
 import { agentInvokeUrl, normalizeAgentApiBase } from "./agent-prompt";
 import { createLiveBoard, type LiveBoard } from "./live-board";
 import { OverlayHost } from "./overlay";
+import { SelectionPropsRail } from "./SelectionPropsRail";
+import {
+  applySelectionNodePatch,
+  selectedNodeIdFromBoardSelection,
+  selectionPropGroups,
+  selectionPropPatch,
+  type SelectionPropGroup,
+} from "./selection-props";
 import { ModeToggle, Palette, type DesignMode } from "../editor";
 import { catalogPlaceAt, PLACE_VIEWPORT_CHROME, sceneViewportRect } from "../editor/place-clear";
 import {
@@ -181,6 +189,9 @@ export function PtDesignApp({
     if (typeof localStorage === "undefined") return null;
     return localStorage.getItem(`${storageKey}:file`);
   });
+  const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
+  const selectedNodeIdRef = React.useRef<string | null>(null);
+  selectedNodeIdRef.current = selectedNodeId;
   const boardTheme = resolveBoardTheme(theme);
   const chrome = chromeTokens(boardTheme);
   const shareLabels = resolveShareCopy(shareCopy);
@@ -302,6 +313,18 @@ export function PtDesignApp({
       const board = liveBoardRef.current;
       const api = apiRef.current;
       if (!board) return;
+      const selectedIds = Object.entries(appState.selectedElementIds)
+        .filter(([, on]) => on)
+        .map(([id]) => id);
+      const nodeId = selectedNodeIdFromBoardSelection({
+        elements: asHandles(elements),
+        selectedIds,
+        previousNodeId: selectedNodeIdRef.current,
+      });
+      if (selectedNodeIdRef.current !== nodeId) {
+        selectedNodeIdRef.current = nodeId;
+        setSelectedNodeId(nodeId);
+      }
       const { echo, document } = board.onHostChange();
       if (!keepOverlayThroughEmptyLoad(overlayDocRef.current, document, loadingRef.current)) {
         syncOverlay(document, {
@@ -376,6 +399,29 @@ export function PtDesignApp({
     },
     [onAction],
   );
+
+  const applySelectionPatch = React.useCallback((group: SelectionPropGroup, optionId: string) => {
+    const board = liveBoardRef.current;
+    const nodeId = selectedNodeIdRef.current;
+    if (!board || !nodeId) return;
+    const patch = selectionPropPatch(group, optionId);
+    if (!patch) return;
+    const current = board.extract();
+    const page = current.pages[0];
+    if (!page) return;
+    board.applyDocument(
+      {
+        version: current.version,
+        pages: [
+          {
+            id: page.id,
+            nodes: page.nodes.map((item) => (item.id === nodeId ? applySelectionNodePatch(item, patch) : item)),
+          },
+        ],
+      },
+      "IMMEDIATELY",
+    );
+  }, []);
 
   React.useEffect(() => {
     if (!agentBridge) return;
@@ -569,6 +615,12 @@ export function PtDesignApp({
       : []),
   ];
 
+  const selectedNode =
+    mode === "edit" && selectedNodeId
+      ? overlayDoc.pages[0]?.nodes.find((item) => item.id === selectedNodeId)
+      : undefined;
+  const selectionGroups = selectedNode ? selectionPropGroups(selectedNode) : [];
+
   const overlay = React.useMemo(
     () => (
       <>
@@ -579,6 +631,14 @@ export function PtDesignApp({
           onCommit={onOverlayCommit}
           onAction={onOverlayAction}
         />
+        {selectionGroups.length > 0 && selectedNodeId ? (
+          <SelectionPropsRail
+            nodeId={selectedNodeId}
+            chrome={chrome}
+            groups={selectionGroups}
+            onSelect={applySelectionPatch}
+          />
+        ) : null}
         {library && libraryMode ? (
           <LibraryOverlay
             theme={boardTheme}
@@ -603,6 +663,10 @@ export function PtDesignApp({
       overlayState,
       onOverlayCommit,
       onOverlayAction,
+      selectionGroups,
+      selectedNodeId,
+      chrome,
+      applySelectionPatch,
       library,
       libraryMode,
       boardTheme,

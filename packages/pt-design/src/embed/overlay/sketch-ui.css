@@ -53,3 +53,24 @@
   background-color: transparent !important;
   border-color: transparent !important;
 }
+
+[data-pt-overlay][data-pt-mode="interact"] [data-pt-type="button"] [data-pt-artist] {
+  transform-origin: center center;
+  transition: transform 90ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-pt-overlay][data-pt-mode="interact"] [data-pt-type="button"][data-pt-pressed] [data-pt-artist],
+[data-pt-overlay][data-pt-mode="interact"] [data-pt-type="button"]:has(:active) [data-pt-artist] {
+  transform: scale(0.96);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-pt-overlay][data-pt-mode="interact"] [data-pt-type="button"] [data-pt-artist] {
+    transition: none;
+  }
+
+  [data-pt-overlay][data-pt-mode="interact"] [data-pt-type="button"][data-pt-pressed] [data-pt-artist],
+  [data-pt-overlay][data-pt-mode="interact"] [data-pt-type="button"]:has(:active) [data-pt-artist] {
+    transform: none;
+  }
+}

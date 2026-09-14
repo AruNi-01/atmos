@@ -42,6 +42,9 @@ describe("ModeToggle", () => {
     expect(html).not.toContain("INTERACT");
     expect(html).not.toContain("uppercase");
     expect(html).not.toContain("text-transform");
+    const src = readFileSync(join(dir, "ModeToggle.tsx"), "utf8");
+    expect(src).toContain("onPointerDown");
+    expect(src).toContain("stopPropagation");
   });
 
   test("ModeToggle uses host labels when provided", () => {

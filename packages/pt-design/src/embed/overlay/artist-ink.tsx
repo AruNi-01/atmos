@@ -440,6 +440,7 @@ function collectMarks(host: HTMLElement): { marks: InkMark[]; inked: Array<{ el:
   const walk = (el: Element) => {
     if (!(el instanceof HTMLElement)) return;
     if (el.dataset.ptArtistSvg !== undefined) return;
+    if (el !== host && el.dataset.ptArtist !== undefined) return;
     if (el !== host) {
       if (el.tagName === "TABLE") {
         const cells = [...el.querySelectorAll("th, td")].flatMap((cell) =>
@@ -551,7 +552,10 @@ export function ArtistInkHost({
   }, [seed]);
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%", minWidth: 0, minHeight: 0 }}>
+    <div
+      data-pt-artist=""
+      style={{ position: "relative", width: "100%", height: "100%", minWidth: 0, minHeight: 0 }}
+    >
       <svg
         ref={svgRef}
         data-pt-artist-svg=""

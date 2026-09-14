@@ -438,6 +438,8 @@ describe("ptx-only persist/load → overlay ids", () => {
     expect(src).toContain("catalogPlaceAt");
     expect(src).toContain("sceneViewportRect");
     expect(src).toContain("PLACE_VIEWPORT_CHROME");
+    expect(src).toContain("SelectionPropsRail");
+    expect(src).toContain("selectedNodeIdFromBoardSelection");
     expect(src).not.toContain("72 / zoom");
     expect(src).not.toContain("96 / zoom");
   });

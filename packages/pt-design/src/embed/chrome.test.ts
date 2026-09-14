@@ -77,9 +77,9 @@ describe("excalidraw Atmos chrome", () => {
     expect(css).toContain("height: var(--lg-button-size, 2.25rem)");
     expect(css).toContain(".pt-design-mode-toggle");
     expect(css).toContain(".App-menu_top .main-menu-trigger");
-    expect(css).toContain("left: calc(var(--pt-island-size) + 8px)");
-    expect(css).toContain("gap: var(--pt-island-pad)");
-    expect(css).toContain("padding: var(--pt-island-pad);");
+    expect(css).toContain("left: calc(var(--editor-container-padding, 1rem) + var(--pt-island-size) + 8px)");
+    expect(css).toContain("gap: var(--pt-island-pad, 0.25rem)");
+    expect(css).toContain("padding: var(--pt-island-pad, 0.25rem)");
     expect(css).not.toContain("padding: 0 2px 0 var(--lg-button-size, 2.25rem)");
     expect(css).not.toContain("--padding: 0");
     expect(css).toContain("background: var(--island-bg-color, var(--card)) !important");
@@ -131,10 +131,17 @@ describe("excalidraw Atmos chrome", () => {
     expect(css).toContain(".App-toolbar-content .dropdown-menu--mobile");
     expect(css).toContain("width: max-content");
     expect(css).toContain(".pt-design-top-right");
+    expect(css).toContain(".excalidraw.excalidraw--mobile .pt-design-top-right");
+    expect(css).toContain("[data-testid=\"pt-design-board\"] > .pt-design-mode-toggle");
+    expect(css).toContain("left: calc(var(--editor-container-padding, 1rem) + var(--pt-island-size) + 8px)");
+    expect(css).toContain(".pt-design-mode-toggle__btn:active");
+    expect(css).toContain("margin-left: 0 !important");
+    expect(css).not.toContain("display: contents");
     expect(css).not.toContain("@media (pointer: fine)");
     expect(board).toContain("pt-design-top-right");
     expect(board).toContain("pt-design-top-right__actions");
-    expect(board).toContain("topLeftChrome");
+    expect(board).toContain("{topLeftChrome}");
+    expect(board).not.toMatch(/renderTopRightUI[\s\S]{0,240}\{topLeftChrome\}/);
     expect(board).toContain("iconOnly={isMobile}");
     expect(css).not.toContain("background-color: var(--select-highlight-color)");
     expect(css).toContain(".context-menu-item__shortcut > kbd");
@@ -162,7 +169,7 @@ describe("excalidraw Atmos chrome", () => {
     expect(board).toContain("DefaultSidebar");
     expect(board).toContain("pt-design-library-trigger");
     expect(board).toContain("iconOnly");
-    expect(app).not.toContain("SelectionPropsRail");
+    expect(app).toContain("SelectionPropsRail");
     expect(app).not.toContain("translateX(-50%)");
     const collabHook = readFileSync(new URL("./use-collab.ts", import.meta.url), "utf8");
     expect(collabHook).toContain('captureUpdate: "NEVER"');
@@ -171,6 +178,13 @@ describe("excalidraw Atmos chrome", () => {
     expect(css).toContain(".pt-design-prop-options");
     expect(css).toContain(".pt-design-prop-option");
     expect(css).toContain("flex-direction: column");
+    expect(css).toContain('[data-placement="bottom"]');
+    expect(css).toContain("flex-direction: column-reverse");
+    expect(css).toContain("align-items: flex-end");
+    const rail = readFileSync(new URL("./SelectionPropsRail.tsx", import.meta.url), "utf8");
+    expect(rail).toContain('data-placement={placement}');
+    expect(rail).toContain("mobileColorTool");
+    expect(rail).toContain("railAnchorFromLayout");
   });
 });
 

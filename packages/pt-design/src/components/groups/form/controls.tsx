@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactElement } from "react";
 import type { PtComponentModule, PtRendererProps } from "./contract";
+import { ArtistInkHost } from "../../../embed/overlay/artist-ink";
 import { CalendarGrid } from "./calendar-ui";
 import { FIELD, ptNode } from "./node";
 import { clickRun, ControlRoot, fireAgentActions, propText } from "./runtime";
@@ -30,18 +31,20 @@ function ButtonRenderer({ node, mode, onAction }: PtRendererProps): ReactElement
   const variant = propText(node, "variant", "default");
   return (
     <ControlRoot node={node} mode={mode}>
-      <button
-        type="button"
-        style={{
-          ...FIELD,
-          ...buttonChrome(variant),
-          cursor: "pointer",
-          fontWeight: 500,
-        }}
-        onClick={() => fireAgentActions(node, "click", onAction)}
-      >
-        {propText(node, "label", "Button")}
-      </button>
+      <ArtistInkHost seed={node.id}>
+        <button
+          type="button"
+          style={{
+            ...FIELD,
+            ...buttonChrome(variant),
+            cursor: "pointer",
+            fontWeight: 500,
+          }}
+          onClick={() => fireAgentActions(node, "click", onAction)}
+        >
+          {propText(node, "label", "Button")}
+        </button>
+      </ArtistInkHost>
     </ControlRoot>
   );
 }

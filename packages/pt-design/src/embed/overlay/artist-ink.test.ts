@@ -167,5 +167,6 @@ describe("overlay wires Artist ink", () => {
     const ink = readFileSync(new URL("./artist-ink.tsx", import.meta.url), "utf8");
     expect(ink).toContain("addEventListener(\"change\"");
     expect(ink).toContain("attributeFilter");
+    expect(ink).toContain("el.dataset.ptArtist");
   });
 });

@@ -8,6 +8,8 @@ import { parsePtx, serializePtx } from "../../../protocol";
 import { FORM_MODULES } from "./index";
 import type { PtComponentModule } from "./contract";
 
+const dir = dirname(fileURLToPath(import.meta.url));
+
 const REQUIRED_TYPES = [
   "button",
   "button-group",
@@ -141,6 +143,10 @@ describe("Interact markup", () => {
     const html = markup(button, "edit");
     expect(html).toMatch(/\binert\b/);
     expect(html).toContain("pointer-events:none");
+    expect(html).toContain("data-pt-artist");
+    const src = readFileSync(join(dir, "controls.tsx"), "utf8");
+    expect(src).toContain("ArtistInkHost");
+    expect(src.match(/<ArtistInkHost/g)?.length).toBe(1);
   });
 });
 

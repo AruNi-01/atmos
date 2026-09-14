@@ -18,6 +18,8 @@ export function ModeToggle({ mode, onModeChange, labels }: ModeToggleProps): Rea
       className="pt-design-mode-toggle"
       role="group"
       aria-label="Mode"
+      onPointerDown={(event) => event.stopPropagation()}
+      onMouseDown={(event) => event.stopPropagation()}
     >
       <button
         type="button"
