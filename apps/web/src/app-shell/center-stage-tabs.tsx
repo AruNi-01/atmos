@@ -427,7 +427,7 @@ export function CenterStageTabGroupPopover({
                 <section
                   key={group.key}
                   className={cn(
-                    "flex max-h-[396px] min-h-0 w-max shrink-0 flex-col overflow-hidden rounded-md border border-border/45 bg-muted/45 backdrop-blur-md dark:bg-background/72",
+                    "flex max-h-[396px] min-h-0 w-max shrink-0 flex-col overflow-hidden rounded-xl border border-border/45 bg-muted/45 backdrop-blur-md dark:bg-background/72",
                     TAB_GROUP_COLUMN_MAX_WIDTH_CLASS,
                   )}
                 >

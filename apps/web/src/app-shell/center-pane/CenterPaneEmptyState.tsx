@@ -4,9 +4,12 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import {
   FileDiff,
+  FileText,
   FolderTree,
   GitBranch,
+  Globe,
   LayoutDashboard,
+  PencilRuler,
   Play,
   Smartphone,
   SquareTerminal as TerminalIcon,
@@ -30,11 +33,14 @@ import {
 export type CenterPaneEmptyActionId =
   | "terminal"
   | "agent-chat"
+  | "markdown"
+  | "browser"
   | "files"
   | "changes"
   | "review"
   | "run"
   | "github"
+  | "pt-design"
   | "simulator"
   | "overview";
 
@@ -281,11 +287,14 @@ export function buildDefaultEmptyPaneActions(input: {
   labels: {
     terminal: string;
     agentChat?: string;
+    markdown?: string;
+    browser?: string;
     files: string;
     changes: string;
     review: string;
     run: string;
     github: string;
+    ptDesign?: string;
     simulator: string;
   };
   /** Platform mod key glyph, e.g. ⌘ or Ctrl */
@@ -294,6 +303,8 @@ export function buildDefaultEmptyPaneActions(input: {
   overviewLabel?: string;
   onCreateTerminal: () => void;
   onCreateAgentChat?: () => void;
+  onCreateMarkdownNote?: () => void;
+  onCreateBrowser?: () => void;
   onCreateToolTab: (tab: CenterToolTabValue) => void;
   onCreateSimulator: () => void;
   onOpenOverview?: () => void;
@@ -326,6 +337,26 @@ export function buildDefaultEmptyPaneActions(input: {
             label: labels.agentChat ?? "Chat",
             icon: <MessagesSquare />,
             onSelect: input.onCreateAgentChat,
+          },
+        ]
+      : []),
+    ...(input.onCreateMarkdownNote
+      ? [
+          {
+            id: "markdown" as const,
+            label: labels.markdown ?? "Markdown",
+            icon: <FileText />,
+            onSelect: input.onCreateMarkdownNote,
+          },
+        ]
+      : []),
+    ...(input.onCreateBrowser
+      ? [
+          {
+            id: "browser" as const,
+            label: labels.browser ?? "Browser",
+            icon: <Globe />,
+            onSelect: input.onCreateBrowser,
           },
         ]
       : []),
@@ -367,6 +398,12 @@ export function buildDefaultEmptyPaneActions(input: {
             onSelect: () => input.onCreateToolTab("github"),
           },
         ]),
+    {
+      id: "pt-design",
+      label: labels.ptDesign ?? "Prototype Design",
+      icon: <PencilRuler />,
+      onSelect: () => input.onCreateToolTab("pt-design"),
+    },
     {
       id: "simulator",
       label: labels.simulator,

@@ -17,9 +17,6 @@ import {
   LEFT_SIDEBAR_DIVIDER_GUTTER_PX,
   CENTER_STAGE_RADIUS_CLASS,
   CENTER_STAGE_RADIUS_CSS,
-  RESIZE_HAIRLINE_CORNER_INSET_CSS,
-  ROOT_RESIZE_HAIRLINE_BOTTOM_CSS,
-  ROOT_RESIZE_HAIRLINE_TOP_CSS,
   SIDEBAR_PEEK_CONTENT_PT_CLASS,
   SIDEBAR_PEEK_INSET_BOTTOM_PX,
   SIDEBAR_PEEK_INSET_TOP_PX,
@@ -192,31 +189,76 @@ describe("center-stage chrome", () => {
     expect(projectItem).toContain("LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS");
   });
 
-  test("resize hairlines stop short of rounded-xl corners and the footer", () => {
-    expect(RESIZE_HAIRLINE_CORNER_INSET_CSS).toBe(CENTER_STAGE_RADIUS_CSS);
-    expect(ROOT_RESIZE_HAIRLINE_TOP_CSS).toContain(`${CENTER_STAGE_GUTTER_Y_PX}px`);
-    expect(ROOT_RESIZE_HAIRLINE_TOP_CSS).toContain(CENTER_STAGE_RADIUS_CSS);
-    expect(ROOT_RESIZE_HAIRLINE_BOTTOM_CSS).toContain(`${APP_FOOTER_HEIGHT_PX}px`);
-    expect(ROOT_RESIZE_HAIRLINE_BOTTOM_CSS).toContain(`${CENTER_STAGE_GUTTER_Y_PX}px`);
-    expect(ROOT_RESIZE_HAIRLINE_BOTTOM_CSS).toContain(CENTER_STAGE_RADIUS_CSS);
-
+  test("resize handles use a pointer-following mark instead of a hover hairline", () => {
     const layout = read("../PanelLayout.tsx");
-    expect(layout).toContain('data-resize-hairline="root"');
-    expect(layout).toContain("ROOT_RESIZE_HAIRLINE_TOP_CSS");
-    expect(layout).toContain("ROOT_RESIZE_HAIRLINE_BOTTOM_CSS");
-    expect(layout).not.toContain("hover:bg-border/50 group touch-none");
+    expect(layout).toContain("ResizeFollowMark");
+    expect(layout).toContain('axis="vertical"');
+    expect(layout).toContain("w-3 -mx-1.5");
+    expect(layout).toContain("resizeFollowSeamAt(CENTER_STAGE_GUTTER_X_PX)");
+    expect(layout).toContain("onFold={onFold}");
+    expect(layout).not.toContain("flex w-px items-center");
+    expect(layout).not.toContain("data-resize-hairline");
+    expect(layout).not.toContain("group-hover:bg-border/50");
+    expect(layout).not.toContain("ROOT_RESIZE_HAIRLINE");
+
+    const mark = read("../ResizeFollowMark.tsx");
+    expect(mark).toContain("origin-top-left");
+    expect(mark).toContain("seam = RESIZE_FOLLOW_SEAM_AT_ORIGIN");
+    expect(mark).toContain("useResizeClickFold(markRef, onFold, axis)");
 
     const grid = read("../center-pane/CenterPaneGrid.tsx");
     expect(grid).not.toContain("flex-col overflow-hidden bg-background ring-1");
     expect(grid).toContain("flex-col bg-background ring-1");
-    expect(grid).toContain('data-resize-hairline={orientation}');
-    expect(grid).toContain("RESIZE_HAIRLINE_CORNER_INSET_CSS");
-    expect(grid).toContain("group-hover:bg-border/50");
+    expect(grid).toContain("ResizeFollowMark");
+    expect(grid).toContain("resizeFollowSeamFromGap(CENTER_PANE_LEAF_GAP_PX)");
+    expect(grid).not.toContain("data-resize-hairline");
+    expect(grid).not.toContain("RESIZE_HAIRLINE_CORNER_INSET_CSS");
+    expect(grid).not.toContain("group-hover:bg-border/50");
     expect(grid).toContain("center-pane-dock-preview");
     expect(grid).toContain("center-pane-drag-ghost");
     expect(grid).toContain("onTreeChange");
     expect(grid).toContain("useLiveSplitLayout");
     expect(grid).toContain("commitLiveResize");
+  });
+
+  test("remaining vertical pane handles use the follow mark instead of a hairline", () => {
+    const sidebar = read("../left-sidebar-controls.tsx");
+    expect(sidebar).toContain("ResizeFollowMark");
+    expect(sidebar).toContain("w-3 -mx-1.5");
+    expect(sidebar).toContain("onFold={onFold}");
+    expect(sidebar).not.toContain("hover:bg-sidebar-border/50");
+
+    const history = read("../../features/agent/components/AgentChatHistorySidebarFrame.tsx");
+    expect(history).toContain("ResizeFollowMark");
+    expect(history).toContain("w-3 -mx-1.5 shrink-0");
+    expect(history).not.toContain("h-full w-px bg-border/80");
+
+    const historyLayout = read("../../features/agent/hooks/use-agent-chat-history-sidebar-layout.ts");
+    expect(historyLayout).toContain("isResizeClickGesture");
+    expect(historyLayout).toContain("setHistorySidebarCollapsed(true)");
+    expect(historyLayout).toContain("dragStarted");
+
+    const diff = read("../../features/diff/components/DiffCodeViewScaffold.tsx");
+    expect(diff).toContain("ResizeFollowMark");
+    expect(diff).toContain("relative w-3 -mx-1.5 shrink-0 cursor-col-resize");
+    expect(diff).toContain("isResizeClickGesture");
+    expect(diff).toContain("setTreeVisible(false)");
+    expect(diff).not.toContain("before:hover:bg-primary/40");
+    expect(diff).not.toContain("bg-border/40 before:absolute");
+
+    const skills = read("../../features/skills/components/SkillDetail.tsx");
+    expect(skills).toContain("ResizeFollowMark");
+    expect(skills).toContain("w-3 -mx-1.5");
+    expect(skills).toContain("onFold={onCollapse}");
+    expect(skills).toContain("onPointerDown={(e) => {\n          e.stopPropagation();");
+    expect(skills).not.toContain("bg-border hover:bg-border/80");
+
+    const wiki = read("../../features/wiki/components/WikiViewer.tsx");
+    expect(wiki).toContain("ResizeFollowMark");
+    expect(wiki).toContain("w-3 -mx-1.5");
+    expect(wiki).toContain("onFold={foldSidebar}");
+    expect(wiki).toContain("onPointerDown={(e) => {\n              e.stopPropagation();");
+    expect(wiki).not.toContain("bg-border hover:bg-border/80");
   });
 
   test("collapsed sidebar peek stays in the center band, not header or footer", () => {

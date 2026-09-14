@@ -70,7 +70,8 @@ describe("PT Design Atmos host wiring", () => {
     const en = readFileSync(join(import.meta.dir, "../../../messages/en.json"), "utf8");
     const zh = readFileSync(join(import.meta.dir, "../../../messages/zh.json"), "utf8");
     expect(en).toContain("\"ptDesign\": \"Prototype Design\"");
-    expect(zh).toContain("\"ptDesign\": \"Prototype Design\"");
+    expect(zh).toContain("\"ptDesign\": \"原型设计\"");
+    expect(zh).not.toContain("\"ptDesign\": \"Prototype Design\"");
     expect(en).not.toMatch(/"ptDesign": "PT Design"/);
     expect(zh).not.toMatch(/"ptDesign": "PT Design"/);
   });

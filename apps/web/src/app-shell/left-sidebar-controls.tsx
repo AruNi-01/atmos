@@ -28,6 +28,7 @@ import {
 } from "@workspace/ui";
 import { ChevronRight, GripVertical, PanelLeft } from "lucide-react";
 import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
+import { ResizeFollowMark } from "@/app-shell/ResizeFollowMark";
 import type { Project, Workspace, WorkspaceLabel } from "@/shared/types/domain";
 import { ProjectItem, type ProjectItemProps } from "@/app-shell/sidebar/ProjectItem";
 import { SortableProject } from "@/app-shell/sidebar/SortableProject";
@@ -276,19 +277,22 @@ export function TwoColumnSidebarToggleButton({
 
 export function SidebarColumnResizeHandle({
   onDragging,
+  onFold,
 }: {
   onDragging?: (dragging: boolean) => void;
+  onFold?: () => void;
 }) {
+  const [dragging, setDragging] = React.useState(false);
   return (
     <PanelResizeHandle
-      onDragging={onDragging}
-      className={cn(
-        // Invisible by default so the sidebar has no hard divider; show a thin
-        // hover affordance so resize remains discoverable.
-        "relative flex h-full self-stretch w-px items-center justify-center bg-transparent hover:bg-sidebar-border/50 group touch-none",
-        "before:absolute before:inset-y-0 before:left-1/2 before:w-1 before:-translate-x-1/2",
-      )}
-    />
+      onDragging={(nextDragging) => {
+        setDragging(nextDragging);
+        onDragging?.(nextDragging);
+      }}
+      className="relative flex h-full w-3 -mx-1.5 self-stretch items-center justify-center overflow-visible bg-transparent touch-none"
+    >
+      <ResizeFollowMark axis="vertical" dragging={dragging} onFold={onFold} />
+    </PanelResizeHandle>
   );
 }
 
@@ -1143,7 +1147,10 @@ export function TwoColumnSidebarContent({
             </div>
           </Panel>
           {!isPrimaryCollapsed ? (
-            <SidebarColumnResizeHandle onDragging={onDividerDragging} />
+            <SidebarColumnResizeHandle
+              onDragging={onDividerDragging}
+              onFold={() => primaryPanelRef.current?.collapse()}
+            />
           ) : null}
           <Panel
             id={secondaryPanelId}

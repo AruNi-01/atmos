@@ -70,12 +70,17 @@ export function resolveExplorerSlotBox(
  * Overlay hosting always passes `multiActiveTabIds` — even for one pane.
  * Right-anchor the sidecar whenever this is not a true multi-pane mosaic so
  * slot remasure (editor mode switches) cannot CSS-transition `left`.
- * Only count usable slot boxes (ignore zero-size leftovers).
+ * Only count usable slot boxes (ignore zero-size leftovers). Two live pane
+ * tabs stay mosaic even if one box is still unmeasured — otherwise a Files
+ * sidecar right-anchors onto Agent Chat / the sibling pane.
  */
 export function isCenterExplorerSinglePaneLayout(input: {
   multiActiveTabIds?: readonly string[] | null;
   paneSlotBoxes?: Readonly<Record<string, CenterExplorerSlotBox>> | null;
 }): boolean {
+  if (input.multiActiveTabIds && input.multiActiveTabIds.length > 1) {
+    return false;
+  }
   const usableBoxes = input.paneSlotBoxes
     ? Object.values(input.paneSlotBoxes).filter(isUsableExplorerSlotBox)
     : [];
@@ -163,6 +168,15 @@ function isNonFileExplorerCenterTab(tabId: string): boolean {
   return false;
 }
 
+/**
+ * Newly opened editor paths can land as the active tab before `openFiles`
+ * catches up. Only path-like ids count — never Agent Chat or other chrome.
+ */
+function isPendingFileExplorerEditorTab(tabId: string): boolean {
+  if (isNonFileExplorerCenterTab(tabId)) return false;
+  return tabId.startsWith("untitled:") || tabId.includes("/");
+}
+
 export function isFileExplorerSurfaceTab(
   tabId: string | null | undefined,
   regularFilePathSet: ReadonlySet<string>,
@@ -170,8 +184,7 @@ export function isFileExplorerSurfaceTab(
   if (!tabId) return false;
   if (tabId === FILES_TAB_VALUE) return true;
   if (regularFilePathSet.has(tabId)) return true;
-  // File → file (or first open): active tab already switched, openFiles may lag.
-  return !isNonFileExplorerCenterTab(tabId);
+  return isPendingFileExplorerEditorTab(tabId);
 }
 
 export function isChangesExplorerSurfaceTab(
@@ -211,6 +224,30 @@ export function collectChangesExplorerFoldScopeIds(input: {
     if (isDiffGroupEditorPath(path)) push(path);
   }
   return ids;
+}
+
+/**
+ * Sidecar hosts are panes whose *active* tab is the explorer surface.
+ * Do not mount from strip membership (Files still in the tab bar while Agent
+ * Chat is showing) — that left a width-0 overlay hanging on every tab.
+ */
+export function collectExplorerSidecarHostPaneIds(input: {
+  paneActiveTabById?: Readonly<Record<string, string>> | null;
+  frameActiveTab: string | null | undefined;
+  isSurfaceTab: (tabId: string | null | undefined) => boolean;
+  singlePane?: boolean;
+}): Array<string | undefined> {
+  const map = input.paneActiveTabById;
+  if (map && Object.keys(map).length > 0) {
+    const hosts: string[] = [];
+    for (const [paneId, tabId] of Object.entries(map)) {
+      if (!paneId || !input.isSurfaceTab(tabId)) continue;
+      hosts.push(paneId);
+    }
+    if (input.singlePane) return hosts.length > 0 ? [hosts[0]!] : [];
+    return hosts;
+  }
+  return input.isSurfaceTab(input.frameActiveTab) ? [undefined] : [];
 }
 
 export function collectUniqueHostPaneIds(
@@ -316,10 +353,7 @@ export function explorerSidecarStyle(input: {
   // Prefer right-anchor unless we have a true mosaic slot large enough to dock.
   // Zero/stale boxes previously produced left < 0 or height 0 → "invisible" sidecar.
   const useMosaic =
-    !input.singlePane &&
-    slot != null &&
-    slot.width > displayWidth &&
-    (height ?? 0) > 0;
+    !input.singlePane && slot != null && (height ?? 0) > 0;
   if (!useMosaic) {
     return {
       top,
@@ -335,10 +369,11 @@ export function explorerSidecarStyle(input: {
       borderBottomRightRadius: input.radius,
     };
   }
+  const dockedWidth = Math.min(displayWidth, slot!.width);
   return {
     top,
-    left: slot!.left + slot!.width - displayWidth,
-    width: displayWidth,
+    left: slot!.left + slot!.width - dockedWidth,
+    width: dockedWidth,
     height,
     zIndex: 10,
     borderTopLeftRadius: leftRadius,

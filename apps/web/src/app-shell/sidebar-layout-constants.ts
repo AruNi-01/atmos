@@ -61,16 +61,6 @@ export const CENTER_STAGE_SHELL_CLASS =
 export const CENTER_STAGE_RADIUS_CLASS = "rounded-xl";
 export const CENTER_STAGE_RADIUS_CSS = "var(--radius-xl)";
 
-/** Inset a hover resize hairline so it does not run through rounded-xl corners. */
-export const RESIZE_HAIRLINE_CORNER_INSET_CSS = CENTER_STAGE_RADIUS_CSS;
-
-/**
- * Root sidebar↔center hairline. The handle spans the full column (card +
- * footer); the painted line stays on the floating card face only.
- */
-export const ROOT_RESIZE_HAIRLINE_TOP_CSS = `calc(${CENTER_STAGE_GUTTER_Y_PX}px + ${CENTER_STAGE_RADIUS_CSS})`;
-export const ROOT_RESIZE_HAIRLINE_BOTTOM_CSS = `calc(${APP_FOOTER_HEIGHT_PX}px + ${CENTER_STAGE_GUTTER_Y_PX}px + ${CENTER_STAGE_RADIUS_CSS})`;
-
 /**
  * Floating card chrome. Keep overflow-hidden off this node — clipping the
  * ring against the radius double-paints the left edge in light mode.

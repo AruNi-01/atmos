@@ -3269,11 +3269,14 @@ const CenterStage: React.FC = () => {
                   labels: {
                     terminal: tabBarT("newTerminalTab"),
                     agentChat: tabBarT("newAgentChat"),
+                    markdown: tabBarT("newMarkdown"),
+                    browser: tabBarT("newBrowser"),
                     files: tabBarT("newFiles"),
                     changes: tabBarT("newChanges"),
                     review: tabBarT("newReview"),
                     run: tabBarT("newRun"),
                     github: tabBarT("newGithub"),
+                    ptDesign: tabBarT("newPtDesign"),
                     simulator: tabBarT("newSimulator"),
                   },
                   modKey:
@@ -3288,6 +3291,17 @@ const CenterStage: React.FC = () => {
                     openInThisPane(handleCreateTerminalCenterTab),
                   onCreateAgentChat: () =>
                     openInThisPane(handleCreateAgentChatCenterTab),
+                  onCreateMarkdownNote: () =>
+                    openInThisPane(() => {
+                      const contextId = liveCenterContextId ?? effectiveContextId;
+                      if (!contextId) return;
+                      const path = useEditorStore
+                        .getState()
+                        .openUntitledMarkdown(contextId);
+                      if (path) handleCenterStageTabChange(path);
+                    }),
+                  onCreateBrowser: () =>
+                    openInThisPane(handleCreateBrowserCenterTab),
                   onCreateToolTab: (tab) =>
                     openInThisPane(() => handleCreateToolCenterTab(tab)),
                   onCreateSimulator: () =>
