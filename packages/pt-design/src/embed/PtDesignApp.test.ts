@@ -432,4 +432,13 @@ describe("ptx-only persist/load → overlay ids", () => {
     expect(board.extract().pages[0]?.nodes.map((n) => n.id)).toEqual(["model", "prompt", "run"]);
     expect(cleared.count).toBe(1);
   });
+
+  test("palette insert uses clear placement instead of stacking at a fixed origin", () => {
+    const src = readFileSync(new URL("./PtDesignApp.tsx", import.meta.url), "utf8");
+    expect(src).toContain("catalogPlaceAt");
+    expect(src).toContain("sceneViewportRect");
+    expect(src).toContain("PLACE_VIEWPORT_CHROME");
+    expect(src).not.toContain("72 / zoom");
+    expect(src).not.toContain("96 / zoom");
+  });
 });

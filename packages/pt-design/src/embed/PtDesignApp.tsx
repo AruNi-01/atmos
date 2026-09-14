@@ -21,6 +21,7 @@ import { agentInvokeUrl, normalizeAgentApiBase } from "./agent-prompt";
 import { createLiveBoard, type LiveBoard } from "./live-board";
 import { OverlayHost } from "./overlay";
 import { ModeToggle, Palette, type DesignMode } from "../editor";
+import { catalogPlaceAt, PLACE_VIEWPORT_CHROME, sceneViewportRect } from "../editor/place-clear";
 import {
   excalidrawElementsToScene,
   keepOverlayThroughEmptyLoad,
@@ -347,12 +348,15 @@ export function PtDesignApp({
     const id = createId("pt");
     const node = defaultNodeFor(type, id);
     if (variant) node.props = { ...node.props, variant };
-    const app = api.getAppState();
-    const zoom = app.zoom.value || 1;
-    node.x = -app.scrollX + 72 / zoom;
-    node.y = -app.scrollY + 96 / zoom;
     const current = board.extract();
     const page = current.pages[0] ?? { id: "page", nodes: [] };
+    const at = catalogPlaceAt(
+      page.nodes,
+      { w: node.width, h: node.height },
+      sceneViewportRect(api.getAppState(), PLACE_VIEWPORT_CHROME),
+    );
+    node.x = at.x;
+    node.y = at.y;
     board.applyDocument(
       {
         version: current.version,
