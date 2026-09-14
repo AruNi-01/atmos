@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
+  cn,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -115,21 +116,27 @@ export function AssistantTurnFileChanges({
           {t("changed", { count: changes.length })}
         </p>
       </div>
-      <ul className="flex flex-col">
-        {preview.map(renderChange)}
-      </ul>
       {hidden > 0 ? (
         <Collapsible open={expanded} onOpenChange={setExpanded}>
-          <CollapsibleContent className="motion-reduce:data-[state=closed]:animate-none motion-reduce:data-[state=open]:animate-none">
-            <ul className="flex max-h-44 flex-col overflow-y-auto">
-              {extra.map(renderChange)}
+          <div className={cn(expanded && "max-h-44 overflow-y-auto")}>
+            <ul className="flex flex-col">
+              {preview.map(renderChange)}
             </ul>
-          </CollapsibleContent>
+            <CollapsibleContent className="motion-reduce:data-[state=closed]:animate-none motion-reduce:data-[state=open]:animate-none">
+              <ul className="flex flex-col">
+                {extra.map(renderChange)}
+              </ul>
+            </CollapsibleContent>
+          </div>
           <CollapsibleTrigger className="mt-0.5 py-1 text-left text-sm text-muted-foreground hover:text-foreground">
             {expanded ? t("showLess") : t("showMore", { count: hidden })}
           </CollapsibleTrigger>
         </Collapsible>
-      ) : null}
+      ) : (
+        <ul className="flex flex-col">
+          {preview.map(renderChange)}
+        </ul>
+      )}
     </div>
   );
 }

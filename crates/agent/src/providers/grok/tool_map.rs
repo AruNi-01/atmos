@@ -14,8 +14,8 @@ use crate::map::{
     extract_aspect_ratio, extract_background, extract_command, extract_cwd, extract_description,
     extract_generated_images, extract_image_prompt, extract_image_size, extract_links,
     extract_path, extract_query, extract_reference_paths, extract_search_hits, extract_skill,
-    extract_subagent, extract_task_id, extract_url, is_human_tool_description,
-    sanitize_execute_output,
+    extract_subagent, extract_subagent_prompt, extract_task_id, extract_url, human_execute_title,
+    is_human_tool_description, sanitize_execute_output,
 };
 
 #[derive(Debug, Clone)]
@@ -32,6 +32,10 @@ pub(crate) enum ToolMapOut {
     Replace {
         tool_call_id: String,
         tool: AgentTool,
+    },
+    CompleteWait {
+        wait: AgentTool,
+        parent: AgentTool,
     },
 }
 
@@ -261,19 +265,34 @@ fn map_grok_task_output(
         return ToolMapOut::Hide;
     };
     let kill = is_kill_command(update);
-    if kill {
-        if !matches!(
+    let incoming_status = if kill {
+        if matches!(
             original.status,
             AgentToolStatus::Completed | AgentToolStatus::Failed
         ) {
-            original.status = grok_task_status(output).unwrap_or(AgentToolStatus::Failed);
-            if original.status == AgentToolStatus::Running {
-                original.status = AgentToolStatus::Failed;
+            original.status
+        } else {
+            let status = grok_task_status(output).unwrap_or(AgentToolStatus::Failed);
+            if status == AgentToolStatus::Running {
+                AgentToolStatus::Failed
+            } else {
+                status
             }
         }
     } else {
-        original.status = grok_task_status(output).unwrap_or_else(|| map_status(&update.status));
+        grok_task_status(output).unwrap_or_else(|| map_status(&update.status))
+    };
+
+    if !kill
+        && original.kind == AgentToolKind::Subagent
+        && incoming_status == AgentToolStatus::Running
+    {
+        let wait = subagent_wait_tool(update);
+        grok_tasks.insert(update.tool_call_id.clone(), wait.clone());
+        return ToolMapOut::Tool(wait);
     }
+
+    original.status = incoming_status;
     if !kill || original.result.is_none() {
         original.result = Some(match original.kind {
             AgentToolKind::Subagent => AgentToolResult::Text {
@@ -303,6 +322,22 @@ fn map_grok_task_output(
     }
     grok_tasks.insert(task_id, original.clone());
     grok_tasks.insert(original.tool_call_id.clone(), original.clone());
+    if !kill && original.kind == AgentToolKind::Subagent {
+        if let Some(mut wait) = grok_tasks
+            .get(&update.tool_call_id)
+            .cloned()
+            .filter(|tool| {
+                tool.kind == AgentToolKind::Other && tool.tool_call_id != original.tool_call_id
+            })
+        {
+            wait.status = original.status;
+            grok_tasks.insert(wait.tool_call_id.clone(), wait.clone());
+            return ToolMapOut::CompleteWait {
+                wait,
+                parent: original,
+            };
+        }
+    }
     ToolMapOut::Replace {
         tool_call_id: original.tool_call_id.clone(),
         tool: original,
@@ -385,11 +420,8 @@ fn tool_display_title(
     payload: Option<&Value>,
 ) -> Option<String> {
     if kind == AgentToolKind::Execute {
-        if let Some(description) = payload.and_then(extract_description) {
-            let command = payload.and_then(extract_command);
-            if is_human_tool_description(&description, command.as_deref()) {
-                return Some(description);
-            }
+        if let Some(title) = human_execute_title(payload.or(update.raw_input.as_ref())) {
+            return Some(title);
         }
     }
     let title = nonempty_title(update)?;
@@ -503,10 +535,12 @@ fn typed_params(
                     value.and_then(|value| first_string(value, &["subagent_type", "agent_type"])),
                 )
             });
+            let prompt = value.and_then(|value| extract_subagent_prompt(value, &description));
             Some(AgentToolParams::Subagent {
                 description,
                 agent_type,
                 task_id: task_id_of(output).or_else(|| task_id_of(value)),
+                prompt,
             })
         }
         AgentToolKind::McpList => Some(AgentToolParams::McpList {
@@ -922,6 +956,32 @@ fn edit_payload_string(value: &Value, keys: &[&str]) -> Option<String> {
     None
 }
 
+fn subagent_wait_tool(update: &ToolCallUpdate) -> AgentTool {
+    let title = nonempty_title(update).map(str::to_string);
+    let name = title
+        .clone()
+        .filter(|value| !is_generic_tool_label(value))
+        .unwrap_or_else(|| {
+            if is_generic_tool_label(&update.tool) {
+                "TaskOutput".into()
+            } else {
+                update.tool.clone()
+            }
+        });
+    AgentTool {
+        tool_call_id: update.tool_call_id.clone(),
+        parent_tool_call_id: None,
+        name,
+        title,
+        kind: AgentToolKind::Other,
+        status: AgentToolStatus::Running,
+        params: AgentToolParams::Other {
+            value: update.raw_input.clone().unwrap_or_else(empty_object),
+        },
+        result: None,
+    }
+}
+
 fn other_tool(update: &ToolCallUpdate) -> AgentTool {
     let status = map_status(&update.status);
     let result = match &update.status {
@@ -1166,14 +1226,27 @@ fn is_task_output(update: &ToolCallUpdate) -> bool {
     let title = nonempty_title(update).unwrap_or("");
     matches!(
         normalize(&update.tool).as_str(),
-        "taskoutput" | "task_output" | "get_command_or_subagent_output"
+        "taskoutput"
+            | "task_output"
+            | "agentoutput"
+            | "agent_output"
+            | "get_command_or_subagent_output"
     ) || matches!(
         normalize(title).as_str(),
-        "taskoutput" | "task_output" | "get_command_or_subagent_output"
+        "taskoutput"
+            | "task_output"
+            | "agentoutput"
+            | "agent_output"
+            | "get_command_or_subagent_output"
     ) || title.to_ascii_lowercase().starts_with("get task output")
         || envelope_type(update.raw_input.as_ref())
             .or_else(|| envelope_type(update.raw_output.as_ref()))
-            .is_some_and(|ty| ty == "taskoutput" || ty == "task_output")
+            .is_some_and(|ty| {
+                matches!(
+                    ty.as_str(),
+                    "taskoutput" | "task_output" | "agentoutput" | "agent_output"
+                )
+            })
 }
 
 fn is_kill_command(update: &ToolCallUpdate) -> bool {
@@ -2326,6 +2399,102 @@ mod tests {
             Some(AgentToolResult::Text { text }) if text.contains("full content") => {}
             other => panic!("expected subagent text result, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn grok_running_taskoutput_emits_wait_tool() {
+        let mut grok_tasks = HashMap::new();
+        let spawned = ToolCallUpdate {
+            tool_call_id: "tc_sub".into(),
+            parent_tool_call_id: None,
+            tool: "Tool".into(),
+            description: "spawn_subagent".into(),
+            acp_kind: None,
+            status: ToolCallStatus::Running,
+            raw_input: Some(serde_json::json!({
+                "description": "Read test-note.md content",
+                "subagent_type": "explore"
+            })),
+            content: Vec::new(),
+            locations: Vec::new(),
+            raw_output: Some(serde_json::json!({
+                "task_id": "child-1",
+                "status": "running"
+            })),
+            detail: None,
+        };
+        let ToolMapOut::Tool(sub) = map_tool_call(&spawned, &mut grok_tasks) else {
+            panic!("expected subagent");
+        };
+        assert_eq!(sub.kind, AgentToolKind::Subagent);
+
+        let poll = ToolCallUpdate {
+            tool_call_id: "tc_poll".into(),
+            parent_tool_call_id: None,
+            tool: "Tool".into(),
+            description: "get_command_or_subagent_output".into(),
+            acp_kind: None,
+            status: ToolCallStatus::Running,
+            raw_input: Some(serde_json::json!({
+                "variant": "TaskOutput",
+                "task_ids": ["child-1"],
+            })),
+            content: Vec::new(),
+            locations: Vec::new(),
+            raw_output: Some(serde_json::json!({
+                "type": "TaskOutput",
+                "Result": {
+                    "task_id": "child-1",
+                    "status": "running"
+                }
+            })),
+            detail: None,
+        };
+        let ToolMapOut::Tool(wait) = map_tool_call(&poll, &mut grok_tasks) else {
+            panic!("expected wait tool while the poll is running");
+        };
+        assert_eq!(wait.tool_call_id, "tc_poll");
+        assert_eq!(wait.kind, AgentToolKind::Other);
+        assert_eq!(wait.status, crate::contract::AgentToolStatus::Running);
+        assert_eq!(wait.name, "get_command_or_subagent_output");
+        assert!(wait.parent_tool_call_id.is_none());
+        assert_eq!(
+            grok_tasks.get("tc_sub").map(|tool| tool.kind),
+            Some(AgentToolKind::Subagent)
+        );
+
+        let done = ToolCallUpdate {
+            tool_call_id: "tc_poll".into(),
+            parent_tool_call_id: None,
+            tool: "Tool".into(),
+            description: "get_command_or_subagent_output".into(),
+            acp_kind: None,
+            status: ToolCallStatus::Completed,
+            raw_input: Some(serde_json::json!({
+                "variant": "TaskOutput",
+                "task_ids": ["child-1"],
+            })),
+            content: Vec::new(),
+            locations: Vec::new(),
+            raw_output: Some(serde_json::json!({
+                "type": "TaskOutput",
+                "Result": {
+                    "task_id": "child-1",
+                    "status": "completed",
+                    "output": "Here is the full content.\n"
+                }
+            })),
+            detail: None,
+        };
+        let ToolMapOut::CompleteWait { wait, parent } = map_tool_call(&done, &mut grok_tasks)
+        else {
+            panic!("expected wait complete + parent merge");
+        };
+        assert_eq!(wait.tool_call_id, "tc_poll");
+        assert_eq!(wait.status, crate::contract::AgentToolStatus::Completed);
+        assert_eq!(parent.tool_call_id, "tc_sub");
+        assert_eq!(parent.kind, AgentToolKind::Subagent);
+        assert_eq!(parent.status, crate::contract::AgentToolStatus::Completed);
     }
 
     #[test]

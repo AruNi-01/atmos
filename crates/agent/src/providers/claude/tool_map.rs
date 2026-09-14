@@ -10,8 +10,8 @@ use crate::contract::{
 use crate::map::{classify_tool, plan_from_tool_input_or_stub, ClassifiedTool};
 use crate::map::{
     extract_background, extract_command, extract_cwd, extract_links, extract_path, extract_query,
-    extract_search_hits, extract_skill, extract_subagent, extract_task_id, extract_url,
-    mcp_ref_from_name,
+    extract_search_hits, extract_skill, extract_subagent, extract_subagent_prompt, extract_task_id,
+    extract_url, human_execute_title, mcp_ref_from_name,
 };
 
 #[derive(Debug, Clone)]
@@ -30,6 +30,11 @@ pub(crate) enum ToolMapOut {
     Hide,
     Merge {
         tool: AgentTool,
+    },
+    /// Poll finished: complete the wait tool and merge onto the original subagent.
+    CompleteWait {
+        wait: AgentTool,
+        parent: AgentTool,
     },
     Tool(AgentTool),
 }
@@ -118,13 +123,19 @@ pub(crate) fn map_tool_use_nested(
                     tool,
                 };
             }
+            // Reconstruct Diff from Edit/Write/NotebookEdit input so the UI can
+            // render a patch and +N −M before (and after) the confirmation result.
+            let result = match kind {
+                AgentToolKind::Edit => diff_from_edit_input(input, ""),
+                _ => None,
+            };
             let tool = build_tool(
                 name,
                 tool_use_id,
                 kind,
                 input,
                 AgentToolStatus::Running,
-                None,
+                result,
                 parent_tool_call_id.clone(),
             );
             remember_task(&tool, tools);
@@ -153,6 +164,9 @@ pub(crate) fn map_tool_result(
         return ToolMapOut::Tool(unknown_completed(tool_use_id, content, is_error));
     }
     let mut tool = tools.get(tool_use_id).cloned().expect("checked");
+    if is_subagent_wait_tool(&tool) {
+        return complete_subagent_wait(tool, content, is_error, tools);
+    }
     if tool.kind == AgentToolKind::Subagent {
         let is_original_dispatch = tool.tool_call_id == tool_use_id;
         if is_original_dispatch && !is_error {
@@ -211,6 +225,8 @@ pub(crate) fn map_tool_result(
         AgentToolResult::Error {
             message: content_text(content),
         }
+    } else if tool.kind == AgentToolKind::Edit {
+        edit_result(&tool.params, content, tool.result.as_ref())
     } else {
         result_for_kind(tool.kind, &tool.params, content)
     });
@@ -249,7 +265,9 @@ fn classify_claude_name(name: &str, input: &Value) -> ClassifiedTool {
         // Scheduler / wait / peer / LSP symbol: visible Other (not Hide / not fake Read).
         "CronCreate" | "CronDelete" | "CronList" | "Sleep" | "Wait" | "Monitor" | "ListAgents"
         | "LSP" => ClassifiedTool::Call(AgentToolKind::Other),
-        "BashOutput" | "TaskOutput" => ClassifiedTool::Hide,
+        "BashOutput" | "TaskOutput" | "AgentOutput" | "GetCommandOrSubagentOutput" => {
+            ClassifiedTool::Hide
+        }
         "ListMcpResourcesTool" | "ListMcpResources" => ClassifiedTool::Call(AgentToolKind::McpList),
         "ReadMcpResourceTool" | "ReadMcpResource" => ClassifiedTool::Call(AgentToolKind::Read),
         other if other.starts_with("mcp__") => ClassifiedTool::Call(AgentToolKind::McpCall),
@@ -266,7 +284,10 @@ fn mode_from_claude_name(name: &str) -> Option<&'static str> {
 }
 
 fn is_poll_output_name(name: &str) -> bool {
-    matches!(name, "BashOutput" | "TaskOutput")
+    matches!(
+        name,
+        "BashOutput" | "TaskOutput" | "AgentOutput" | "GetCommandOrSubagentOutput"
+    )
 }
 
 fn is_folded_away_name(name: &str) -> bool {
@@ -335,12 +356,19 @@ fn build_tool(
     parent_tool_call_id: Option<String>,
 ) -> AgentTool {
     let mcp = mcp_ref_from_input(name, input).or_else(|| mcp_ref_from_name(name));
+    let title = mcp_title(name, mcp.as_ref()).or_else(|| {
+        if kind == AgentToolKind::Execute {
+            human_execute_title(Some(input))
+        } else {
+            None
+        }
+    });
     match typed_params(kind, name, input) {
         Some(params) => AgentTool {
             tool_call_id: tool_use_id.to_string(),
             parent_tool_call_id: parent_tool_call_id.clone(),
             name: name.to_string(),
-            title: mcp_title(name, mcp.as_ref()),
+            title: title.clone(),
             kind,
             status,
             params,
@@ -350,7 +378,7 @@ fn build_tool(
             tool_call_id: tool_use_id.to_string(),
             parent_tool_call_id,
             name: name.to_string(),
-            title: mcp_title(name, mcp.as_ref()),
+            title,
             kind: match kind {
                 AgentToolKind::McpList => AgentToolKind::McpList,
                 AgentToolKind::McpCall => AgentToolKind::McpCall,
@@ -461,10 +489,12 @@ fn typed_params(
             if description.is_empty() {
                 return None;
             }
+            let prompt = extract_subagent_prompt(input, &description);
             Some(AgentToolParams::Subagent {
                 description,
                 agent_type,
                 task_id: extract_task_id(input),
+                prompt,
             })
         }
         crate::contract::AgentToolKind::McpList => Some(AgentToolParams::McpList {
@@ -599,14 +629,98 @@ fn result_for_kind(
         crate::contract::AgentToolKind::Other => AgentToolResult::Other {
             value: content.clone(),
         },
+        crate::contract::AgentToolKind::Edit => edit_result(params, content, None),
         _ => AgentToolResult::Text {
             text: content_text(content),
         },
     }
 }
 
+/// Prefer reconstructable old/new from Edit/Write input over confirmation prose.
+fn edit_result(
+    params: &AgentToolParams,
+    content: &Value,
+    existing: Option<&AgentToolResult>,
+) -> AgentToolResult {
+    let path = match params {
+        AgentToolParams::Edit { path } => path.as_str(),
+        _ => "",
+    };
+    if let Some(diff) = diff_from_edit_input(content, path) {
+        return diff;
+    }
+    let text = content_text(content);
+    if looks_like_unified_diff(&text) {
+        return AgentToolResult::Text { text };
+    }
+    if let Some((additions, deletions)) = extract_diff_counts(content) {
+        return AgentToolResult::DiffStats {
+            path: path.to_string(),
+            additions,
+            deletions,
+        };
+    }
+    if let Some(diff @ AgentToolResult::Diff { .. }) = existing {
+        return diff.clone();
+    }
+    AgentToolResult::Text { text }
+}
+
+fn looks_like_unified_diff(text: &str) -> bool {
+    let trimmed = text.trim_start();
+    trimmed.starts_with("--- ")
+        || trimmed.starts_with("diff --git ")
+        || trimmed.starts_with("*** ")
+        || trimmed.starts_with("@@ ")
+}
+
+fn extract_diff_counts(value: &Value) -> Option<(u32, u32)> {
+    let additions = extract_i64(value, &["additions", "added", "insertions"])? as u32;
+    let deletions = extract_i64(value, &["deletions", "removed", "deleted"])? as u32;
+    Some((additions, deletions))
+}
+
+/// Keep trailing newlines — Edit/Write hunks are not display labels.
+fn edit_payload_string(value: &Value, keys: &[&str]) -> Option<String> {
+    let object = value.as_object()?;
+    for key in keys {
+        if let Some(Value::String(text)) = object.get(*key) {
+            return Some(text.to_string());
+        }
+    }
+    None
+}
+
+fn diff_from_edit_input(value: &Value, fallback_path: &str) -> Option<AgentToolResult> {
+    const NEW_KEYS: &[&str] = &[
+        "new_string",
+        "new_text",
+        "newText",
+        "contents",
+        "new_source",
+    ];
+    const OLD_KEYS: &[&str] = &["old_string", "old_text", "oldText", "old_source"];
+    // Do not treat result `content` as new file text — Claude confirmations live there.
+    let new_content = edit_payload_string(value, NEW_KEYS);
+    let old_content = edit_payload_string(value, OLD_KEYS);
+    let new_content = match (new_content, &old_content) {
+        (Some(text), _) => text,
+        (None, Some(_)) => String::new(),
+        (None, None) => return None,
+    };
+    if new_content.is_empty() && old_content.as_deref().unwrap_or("").is_empty() {
+        return None;
+    }
+    let path = extract_path(value).unwrap_or_else(|| fallback_path.to_string());
+    Some(AgentToolResult::Diff {
+        path,
+        old_content: Some(old_content.unwrap_or_default()),
+        new_content,
+    })
+}
+
 fn merge_hidden_output(
-    _name: &str,
+    name: &str,
     poll_id: &str,
     input: &Value,
     output: Option<&Value>,
@@ -616,39 +730,124 @@ fn merge_hidden_output(
     let Some(parent_id) = parent_id else {
         return ToolMapOut::Hide;
     };
-    let Some(mut parent) = tools.get(&parent_id).cloned() else {
+    let Some(parent) = tools.get(&parent_id).cloned() else {
         return ToolMapOut::Hide;
     };
     if output.is_some() {
         let payload = output.unwrap_or(input);
-        parent.result = Some(match parent.kind {
-            AgentToolKind::Subagent => AgentToolResult::Text {
-                text: content_text(payload),
-            },
-            _ => AgentToolResult::Execute {
-                output: content_text(payload),
-                exit_code: extract_exit_code(payload),
-            },
-        });
-        if let Some(status) = task_status(payload) {
-            parent.status = status;
-        }
-        match &mut parent.params {
-            AgentToolParams::Execute { task_id, .. }
-            | AgentToolParams::Subagent { task_id, .. } => {
-                if task_id.is_none() {
-                    *task_id = extract_task_id(payload).or_else(|| Some(parent_id.clone()));
-                }
-            }
-            _ => {}
-        }
-        remember_task(&parent, tools);
-        tools.insert(poll_id.to_string(), parent.clone());
-        ToolMapOut::Merge { tool: parent }
+        let merged = apply_poll_output(parent, payload, false, tools);
+        tools.insert(poll_id.to_string(), merged.clone());
+        ToolMapOut::Merge { tool: merged }
+    } else if parent.kind == AgentToolKind::Subagent {
+        let wait = subagent_wait_tool(name, poll_id, input);
+        tools.insert(poll_id.to_string(), wait.clone());
+        ToolMapOut::Tool(wait)
     } else {
         tools.insert(poll_id.to_string(), parent);
         ToolMapOut::Hide
     }
+}
+
+fn subagent_wait_tool(name: &str, poll_id: &str, input: &Value) -> AgentTool {
+    AgentTool {
+        tool_call_id: poll_id.to_string(),
+        parent_tool_call_id: None,
+        name: name.to_string(),
+        title: None,
+        kind: AgentToolKind::Other,
+        status: AgentToolStatus::Running,
+        params: AgentToolParams::Other {
+            value: input.clone(),
+        },
+        result: None,
+    }
+}
+
+fn is_subagent_wait_tool(tool: &AgentTool) -> bool {
+    is_poll_output_name(&tool.name) && tool.kind == AgentToolKind::Other
+}
+
+fn complete_subagent_wait(
+    mut wait: AgentTool,
+    content: &Value,
+    is_error: bool,
+    tools: &mut HashMap<String, AgentTool>,
+) -> ToolMapOut {
+    wait.status = if is_error {
+        AgentToolStatus::Failed
+    } else {
+        AgentToolStatus::Completed
+    };
+    wait.result = Some(if is_error {
+        AgentToolResult::Error {
+            message: content_text(content),
+        }
+    } else {
+        AgentToolResult::Text {
+            text: content_text(content),
+        }
+    });
+    let parent_id = extract_parent_id(content, Some(content)).or_else(|| match &wait.params {
+        AgentToolParams::Other { value } => extract_parent_id(value, None),
+        _ => None,
+    });
+    tools.insert(wait.tool_call_id.clone(), wait.clone());
+    if let Some(parent_id) = parent_id {
+        if let Some(parent) = tools.get(&parent_id).cloned() {
+            if parent.kind == AgentToolKind::Subagent {
+                let parent = apply_poll_output(parent, content, is_error, tools);
+                return ToolMapOut::CompleteWait { wait, parent };
+            }
+        }
+    }
+    ToolMapOut::Tool(wait)
+}
+
+fn apply_poll_output(
+    mut parent: AgentTool,
+    payload: &Value,
+    is_error: bool,
+    tools: &mut HashMap<String, AgentTool>,
+) -> AgentTool {
+    parent.result = Some(match parent.kind {
+        AgentToolKind::Subagent => {
+            if is_error {
+                AgentToolResult::Error {
+                    message: content_text(payload),
+                }
+            } else {
+                AgentToolResult::Text {
+                    text: content_text(payload),
+                }
+            }
+        }
+        _ => AgentToolResult::Execute {
+            output: content_text(payload),
+            exit_code: extract_exit_code(payload),
+        },
+    });
+    if let Some(status) = task_status(payload) {
+        parent.status = status;
+    } else if parent.kind == AgentToolKind::Subagent {
+        parent.status = if is_error {
+            AgentToolStatus::Failed
+        } else {
+            AgentToolStatus::Completed
+        };
+    }
+    if is_error {
+        parent.status = AgentToolStatus::Failed;
+    }
+    match &mut parent.params {
+        AgentToolParams::Execute { task_id, .. } | AgentToolParams::Subagent { task_id, .. } => {
+            if task_id.is_none() {
+                *task_id = extract_task_id(payload).or_else(|| Some(parent.tool_call_id.clone()));
+            }
+        }
+        _ => {}
+    }
+    remember_task(&parent, tools);
+    parent
 }
 
 fn extract_parent_id(input: &Value, output: Option<&Value>) -> Option<String> {
@@ -896,6 +1095,7 @@ mod tests {
                 ..
             } if command == "ls -la"
         ));
+        assert_eq!(bash.title, None);
 
         let read = match map_tool_use(
             "Read",
@@ -978,6 +1178,28 @@ mod tests {
             ),
             ToolMapOut::Merge { .. } | ToolMapOut::Hide
         ));
+    }
+
+    #[test]
+    fn bash_description_becomes_title() {
+        let mut tools = HashMap::new();
+        let bash = match map_tool_use(
+            "Bash",
+            "tu_bash",
+            &json!({
+                "command": "sleep 2 && echo done",
+                "description": "Sleep 2 seconds then print time"
+            }),
+            &mut tools,
+        ) {
+            ToolMapOut::Tool(tool) => tool,
+            other => panic!("expected tool, got {other:?}"),
+        };
+        assert_eq!(bash.kind, AgentToolKind::Execute);
+        assert_eq!(
+            bash.title.as_deref(),
+            Some("Sleep 2 seconds then print time")
+        );
     }
 
     #[test]
@@ -1070,6 +1292,116 @@ mod tests {
             tool.params,
             AgentToolParams::Edit { ref path } if path == "/tmp/demo.ipynb"
         ));
+        match tool.result {
+            Some(AgentToolResult::Diff {
+                path,
+                old_content,
+                new_content,
+            }) => {
+                assert_eq!(path, "/tmp/demo.ipynb");
+                assert_eq!(old_content.as_deref(), Some(""));
+                assert_eq!(new_content, "print(1)");
+            }
+            other => panic!("expected notebook diff, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn edit_old_new_string_becomes_diff() {
+        let mut tools = HashMap::new();
+        let tool = match map_tool_use(
+            "Edit",
+            "tu_edit",
+            &json!({
+                "file_path": "/tmp/app/TECH.md",
+                "old_string": "line a\n",
+                "new_string": "line b\n",
+            }),
+            &mut tools,
+        ) {
+            ToolMapOut::Tool(tool) => tool,
+            other => panic!("expected tool, got {other:?}"),
+        };
+        assert_eq!(tool.kind, AgentToolKind::Edit);
+        match tool.result {
+            Some(AgentToolResult::Diff {
+                path,
+                old_content,
+                new_content,
+            }) => {
+                assert_eq!(path, "/tmp/app/TECH.md");
+                assert_eq!(old_content.as_deref(), Some("line a\n"));
+                assert_eq!(new_content, "line b\n");
+            }
+            other => panic!("expected diff, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn write_contents_becomes_new_file_diff() {
+        let mut tools = HashMap::new();
+        let tool = match map_tool_use(
+            "Write",
+            "tu_write",
+            &json!({
+                "file_path": "/tmp/app/hello.ts",
+                "contents": "export const n = 1;\n"
+            }),
+            &mut tools,
+        ) {
+            ToolMapOut::Tool(tool) => tool,
+            other => panic!("expected tool, got {other:?}"),
+        };
+        assert_eq!(tool.kind, AgentToolKind::Edit);
+        match tool.result {
+            Some(AgentToolResult::Diff {
+                path,
+                old_content,
+                new_content,
+            }) => {
+                assert_eq!(path, "/tmp/app/hello.ts");
+                assert_eq!(old_content.as_deref(), Some(""));
+                assert_eq!(new_content, "export const n = 1;\n");
+            }
+            other => panic!("expected write diff, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn edit_result_confirmation_keeps_input_diff() {
+        let mut tools = HashMap::new();
+        let _ = map_tool_use(
+            "Edit",
+            "tu_edit",
+            &json!({
+                "file_path": "/tmp/app/a.ts",
+                "old_string": "foo\n",
+                "new_string": "bar\n",
+            }),
+            &mut tools,
+        );
+        let tool = match map_tool_result(
+            "tu_edit",
+            &json!("The file /tmp/app/a.ts has been updated successfully."),
+            false,
+            &mut tools,
+        ) {
+            ToolMapOut::Tool(tool) => tool,
+            other => panic!("{other:?}"),
+        };
+        assert_eq!(tool.status, AgentToolStatus::Completed);
+        match tool.result {
+            Some(AgentToolResult::Diff {
+                path,
+                old_content,
+                new_content,
+            }) => {
+                assert_eq!(path, "/tmp/app/a.ts");
+                assert_eq!(old_content.as_deref(), Some("foo\n"));
+                assert_eq!(new_content, "bar\n");
+            }
+            other => panic!("expected preserved diff, got {other:?}"),
+        }
     }
 
     #[test]
@@ -1127,6 +1459,41 @@ mod tests {
                 assert_eq!(server.as_deref(), Some("filesystem"));
             }
             other => panic!("expected mcp list params, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn task_keeps_prompt_separate_from_description() {
+        let mut tools = HashMap::new();
+        let tool = match map_tool_use(
+            "Task",
+            "tu_task_prompt",
+            &json!({
+                "description": "Inspect tests",
+                "prompt": "Read the test files and report coverage gaps.",
+                "subagent_type": "explore"
+            }),
+            &mut tools,
+        ) {
+            ToolMapOut::Tool(tool) => tool,
+            other => panic!("expected tool, got {other:?}"),
+        };
+        assert_eq!(tool.kind, AgentToolKind::Subagent);
+        match tool.params {
+            AgentToolParams::Subagent {
+                description,
+                agent_type,
+                prompt,
+                ..
+            } => {
+                assert_eq!(description, "Inspect tests");
+                assert_eq!(agent_type.as_deref(), Some("explore"));
+                assert_eq!(
+                    prompt.as_deref(),
+                    Some("Read the test files and report coverage gaps.")
+                );
+            }
+            other => panic!("expected subagent, got {other:?}"),
         }
     }
 
@@ -1330,15 +1697,20 @@ mod tests {
             false,
             &mut tools,
         );
-        assert!(matches!(
-            map_tool_use(
-                "TaskOutput",
-                "tu_poll",
-                &json!({"task_id":"child-1"}),
-                &mut tools,
-            ),
-            ToolMapOut::Hide
-        ));
+        let wait = match map_tool_use(
+            "TaskOutput",
+            "tu_poll",
+            &json!({"task_id":"child-1"}),
+            &mut tools,
+        ) {
+            ToolMapOut::Tool(tool) => tool,
+            other => panic!("expected wait tool, got {other:?}"),
+        };
+        assert_eq!(wait.tool_call_id, "tu_poll");
+        assert_eq!(wait.name, "TaskOutput");
+        assert_eq!(wait.kind, AgentToolKind::Other);
+        assert_eq!(wait.status, AgentToolStatus::Running);
+        assert!(wait.parent_tool_call_id.is_none());
 
         let completed = match map_tool_result(
             "tu_poll",
@@ -1350,8 +1722,12 @@ mod tests {
             false,
             &mut tools,
         ) {
-            ToolMapOut::Tool(tool) => tool,
-            other => panic!("expected completed task output, got {other:?}"),
+            ToolMapOut::CompleteWait { wait, parent } => {
+                assert_eq!(wait.tool_call_id, "tu_poll");
+                assert_eq!(wait.status, AgentToolStatus::Completed);
+                parent
+            }
+            other => panic!("expected completed wait + parent, got {other:?}"),
         };
         assert_eq!(completed.tool_call_id, "tu_task");
         assert_eq!(completed.status, AgentToolStatus::Completed);
@@ -1393,23 +1769,25 @@ mod tests {
             other => panic!("expected stored agent id, got {other:?}"),
         }
 
-        assert!(matches!(
-            map_tool_use(
-                "TaskOutput",
-                "tu_poll",
-                &json!({"task_id":"child1"}),
-                &mut tools,
-            ),
-            ToolMapOut::Hide
-        ));
+        let wait = match map_tool_use(
+            "TaskOutput",
+            "tu_poll",
+            &json!({"task_id":"child1"}),
+            &mut tools,
+        ) {
+            ToolMapOut::Tool(tool) => tool,
+            other => panic!("expected wait tool, got {other:?}"),
+        };
+        assert_eq!(wait.name, "TaskOutput");
+        assert_eq!(wait.status, AgentToolStatus::Running);
         let completed = match map_tool_result(
             "tu_poll",
             &json!([{ "type": "text", "text": "All tests pass." }]),
             false,
             &mut tools,
         ) {
-            ToolMapOut::Tool(tool) => tool,
-            other => panic!("expected completed task output, got {other:?}"),
+            ToolMapOut::CompleteWait { parent, .. } => parent,
+            other => panic!("expected completed wait + parent, got {other:?}"),
         };
         assert_eq!(completed.tool_call_id, "tu_task");
         assert_eq!(completed.status, AgentToolStatus::Completed);

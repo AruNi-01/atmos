@@ -66,8 +66,10 @@ describe("agent activity indicator", () => {
     );
     expect(list).toContain("activityStatus");
     expect(list).toContain("item.index === lastIndex");
+    expect(list).toContain('className="mx-auto mt-2 w-[calc(100%-1rem)]"');
     expect(panel).toContain("activityStatus=");
     expect(panel).toContain("<AgentActivityIndicator activity={agentActivity}");
+    expect(panel).toContain('className="mx-auto w-[calc(100%-1rem)]"');
     const contentAt = panel.indexOf("<ConversationContent");
     const contentEndAt = panel.indexOf("</ConversationContent>");
     const composerAt = panel.indexOf("<AgentPromptComposer");

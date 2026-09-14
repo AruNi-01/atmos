@@ -105,6 +105,9 @@ pub enum AgentToolParams {
         /// Provider task ID used to correlate later child output.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         task_id: Option<String>,
+        /// Full prompt sent to the child, when the vendor sends it separately from `description`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        prompt: Option<String>,
     },
     McpList {
         #[serde(default, skip_serializing_if = "Option::is_none")]

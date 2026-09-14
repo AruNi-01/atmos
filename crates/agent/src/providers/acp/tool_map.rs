@@ -12,7 +12,8 @@ use crate::map::{
     extract_aspect_ratio, extract_background, extract_command, extract_cwd, extract_description,
     extract_generated_images, extract_image_prompt, extract_image_size, extract_links,
     extract_path, extract_query, extract_reference_paths, extract_search_hits, extract_skill,
-    extract_subagent, extract_task_id, extract_url, sanitize_execute_output,
+    extract_subagent, extract_subagent_prompt, extract_task_id, extract_url, human_execute_title,
+    sanitize_execute_output,
 };
 
 use super::overlays::{self, OverlayState};
@@ -252,7 +253,7 @@ fn build_typed_tool(
         tool_call_id: update.tool_call_id.clone(),
         parent_tool_call_id: update.parent_tool_call_id.clone(),
         name,
-        title: cleaned_title(kind, update, &params),
+        title: cleaned_title(kind, update, &params, payload),
         kind,
         status,
         params,
@@ -264,7 +265,13 @@ fn cleaned_title(
     kind: AgentToolKind,
     update: &ToolCallUpdate,
     params: &AgentToolParams,
+    payload: Option<&Value>,
 ) -> Option<String> {
+    if kind == AgentToolKind::Execute {
+        if let Some(title) = human_execute_title(payload.or(update.raw_input.as_ref())) {
+            return Some(title);
+        }
+    }
     let title = nonempty_title(update)?;
     if is_generic_tool_label(title) {
         return None;
@@ -400,6 +407,7 @@ fn typed_params(
                     value.and_then(|value| first_string(value, &["subagent_type", "agent_type"])),
                 )
             });
+            let prompt = value.and_then(|value| extract_subagent_prompt(value, &description));
             AgentToolParams::Subagent {
                 description,
                 agent_type,
@@ -408,6 +416,7 @@ fn typed_params(
                     .as_ref()
                     .and_then(extract_task_id)
                     .or_else(|| value.and_then(extract_task_id)),
+                prompt,
             }
         }
         AgentToolKind::McpList => AgentToolParams::McpList {
@@ -1305,6 +1314,25 @@ mod tests {
             } => assert_eq!(command, "ls -la"),
             other => panic!("expected execute params, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn execute_prefers_input_description_over_generic_title() {
+        let mut call = update(
+            "Bash",
+            ToolCallStatus::Completed,
+            serde_json::json!({
+                "command": "sleep 2 && echo done",
+                "description": "Sleep 2 seconds then print time"
+            }),
+            Some(serde_json::json!({"output": "done\n", "exit_code": 0})),
+        );
+        call.description = "Bash".into();
+        let tool = mapped(call);
+        assert_eq!(
+            tool.title.as_deref(),
+            Some("Sleep 2 seconds then print time")
+        );
     }
 
     #[test]

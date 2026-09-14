@@ -75,6 +75,63 @@ export function previousUserMessageIndex(
 }
 
 /**
+ * Previous/next user prompt from the active one.
+ * An unknown current (not yet synced) is treated as the last prompt, matching
+ * the transcript's default scroll-to-end.
+ */
+export function stepUserMessageIndex(
+  userMessageIndices: readonly number[],
+  current: number,
+  direction: "previous" | "next",
+): number | null {
+  const at = userMessageIndices.indexOf(current);
+  const resolvedAt = at >= 0 ? at : userMessageIndices.length - 1;
+  if (resolvedAt < 0) return null;
+  const nextAt = direction === "next" ? resolvedAt + 1 : resolvedAt - 1;
+  return userMessageIndices[nextAt] ?? null;
+}
+
+export const TIMELINE_RAIL_ITEM_SIZE_MAX = 14;
+export const TIMELINE_RAIL_ITEM_SIZE_MIN = 0.5;
+export const TIMELINE_RAIL_COMPRESS_RATIO = 0.5;
+export const TIMELINE_RAIL_MAX_RATIO = 0.9;
+
+/**
+ * Tick stride for the message directory.
+ * Default spacing until the rail would pass 50% of the column. After that the
+ * stride eases from 14px toward 0.5px as count grows, while the rail itself
+ * may grow up to 90%. It does not jump to the 0.5px floor.
+ */
+export function timelineRailItemSize(
+  count: number,
+  containerHeight: number,
+  reservedPx = 0,
+): number {
+  const maxSize = TIMELINE_RAIL_ITEM_SIZE_MAX;
+  const minSize = TIMELINE_RAIL_ITEM_SIZE_MIN;
+  if (count <= 0) return maxSize;
+  if (!(containerHeight > 0)) return maxSize;
+
+  const maxHeight = Math.max(
+    minSize,
+    Math.min(
+      containerHeight * TIMELINE_RAIL_MAX_RATIO,
+      containerHeight - Math.max(0, reservedPx),
+    ),
+  );
+  const compressStart = Math.min(containerHeight * TIMELINE_RAIL_COMPRESS_RATIO, maxHeight);
+  if (count * maxSize <= compressStart) return maxSize;
+
+  const countStart = compressStart / maxSize;
+  const countEnd = maxHeight / minSize;
+  if (!(countEnd > countStart)) return Math.max(0, maxHeight / count);
+
+  const t = Math.min(1, (count - countStart) / (countEnd - countStart));
+  const interpolated = maxSize + t * (minSize - maxSize);
+  return Math.min(maxSize, Math.max(0, Math.min(interpolated, maxHeight / count)));
+}
+
+/**
  * Overlay clone only for a prompt whose original row has left the top.
  * The prompt currently sitting at the top stays in its original row.
  */
@@ -106,14 +163,68 @@ export function shouldHideStickyUserFade(
   return incomingTop < stickyHeight + fadePx;
 }
 
-/** Negative `top` so the next user prompt can push the sticky prompt out. */
+/**
+ * How far to shift a pinned user prompt so the next user prompt can push it out.
+ * Negative means up. `gap` matches the virtualizer row gap so the two bubbles
+ * do not kiss at the handover.
+ */
 export function stickyUserMessagePushPx(
   nextUserViewportTop: number,
   stickyHeight: number,
+  gap = 0,
 ): number {
   if (!Number.isFinite(nextUserViewportTop) || !Number.isFinite(stickyHeight)) return 0;
   if (stickyHeight <= 0) return 0;
-  return Math.min(0, nextUserViewportTop - stickyHeight);
+  const spacing = Number.isFinite(gap) ? Math.max(0, gap) : 0;
+  return Math.min(0, nextUserViewportTop - stickyHeight - spacing);
+}
+
+/**
+ * `translateY` for a pinned user row that stays in the virtualizer absolute layer.
+ * Pin sits at the scrollport (`scrollTop - scrollMargin + pinTop`); the next
+ * user prompt then adds {@link stickyUserMessagePushPx} so adjacent prompts
+ * fall back to their natural `start - scrollMargin` instead of fighting CSS sticky.
+ */
+export function stickyUserTranslateY(
+  scrollTop: number,
+  scrollMargin: number,
+  stickySize: number,
+  nextUserStart: number | null | undefined,
+  gap = 0,
+  pinTop = 0,
+): number {
+  if (!Number.isFinite(scrollTop) || !Number.isFinite(scrollMargin)) return 0;
+  const pin = scrollTop - scrollMargin + pinTop;
+  if (!Number.isFinite(stickySize) || stickySize <= 0) return pin;
+  if (nextUserStart == null || !Number.isFinite(nextUserStart)) return pin;
+  const nextViewportTop = nextUserStart - scrollTop - pinTop;
+  return pin + stickyUserMessagePushPx(nextViewportTop, stickySize, gap);
+}
+
+export function stickyUserPinLayout(
+  scrollTop: number,
+  scrollMargin: number,
+  stickySize: number,
+  nextUserStart: number | null | undefined,
+  gap = 0,
+  pinTop = 0,
+  fadePx = 0,
+): { translateY: number; hideFade: boolean } {
+  const nextViewportTop =
+    nextUserStart == null || !Number.isFinite(nextUserStart)
+      ? Number.POSITIVE_INFINITY
+      : nextUserStart - scrollTop - pinTop;
+  return {
+    translateY: stickyUserTranslateY(
+      scrollTop,
+      scrollMargin,
+      stickySize,
+      nextUserStart,
+      gap,
+      pinTop,
+    ),
+    hideFade: shouldHideStickyUserFade(nextViewportTop, stickySize, fadePx),
+  };
 }
 
 /** Last user prompt in view, or the last one already scrolled past if none remain in view. */

@@ -20,8 +20,9 @@ export const AGENT_CHAT_STICKY_USER_TOP_PX = 0;
 /** Fade height under the pinned prompt; hidden when the next user prompt arrives. */
 export const AGENT_CHAT_STICKY_USER_FADE_PX = 32;
 
+/** Pinned-user chrome only. Pin/push stays on `translateY`; do not use `position: sticky`. */
 export const AGENT_CHAT_STICKY_USER_ROW_CLASS =
-  "sticky left-0 z-20 w-full bg-background [box-shadow:-0.75rem_0_0_0_var(--background),0.75rem_0_0_0_var(--background)] after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-8 after:bg-gradient-to-b after:from-background after:to-transparent after:transition-opacity data-[sticky-user-fade=off]:after:opacity-0";
+  "z-20 bg-background [box-shadow:-0.75rem_0_0_0_var(--background),0.75rem_0_0_0_var(--background)] after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-8 after:bg-gradient-to-b after:from-background after:to-transparent after:transition-opacity data-[sticky-user-fade=off]:after:opacity-0";
 
 /** Fade messages into the composer so the bottom edge is not a hard clip. */
 export const AGENT_CHAT_COMPOSER_FADE_CLASS =

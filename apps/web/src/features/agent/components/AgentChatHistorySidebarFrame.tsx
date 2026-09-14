@@ -6,6 +6,7 @@ import { Button } from "@workspace/ui/components/ui/button";
 import { PanelLeft } from "lucide-react";
 
 import { useSidebarPeekVisibility } from "@/app-shell/use-sidebar-peek-visibility";
+import { ResizeFollowMark } from "@/app-shell/ResizeFollowMark";
 import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
 
 export function AgentChatHistorySidebarToggle({
@@ -99,13 +100,10 @@ export function AgentChatHistorySidebarFrame({
         <div
           role="separator"
           aria-orientation="vertical"
-          className={cn(
-            "group relative flex h-full w-px shrink-0 cursor-col-resize items-center justify-center bg-transparent touch-none",
-            "before:absolute before:inset-y-0 before:left-1/2 before:w-2 before:-translate-x-1/2",
-          )}
+          className="relative h-full w-3 -mx-1.5 shrink-0 cursor-col-resize overflow-visible bg-transparent touch-none"
           onMouseDown={onResizeStart}
         >
-          <div className="pointer-events-none h-full w-px bg-border/80 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
+          <ResizeFollowMark axis="vertical" dragging={isResizing} />
         </div>
       ) : null}
     </>

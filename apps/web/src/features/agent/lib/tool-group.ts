@@ -1,5 +1,8 @@
 import type { AgentPart, AgentToolKind } from "@atmos/api-types/ws/dto/agent-chat";
-import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
+import {
+  isSubagentWaitTool,
+  type AgentToolCallPart,
+} from "@/features/agent/lib/agent-tool-kind";
 import {
   isAssistantAnswerTextPart,
   isSoftAssistantProcessPart,
@@ -106,15 +109,15 @@ function isFoldableProcessPart(part: AgentPart): boolean {
   return isRenderedNonToolPart(part);
 }
 
-export function isNestedSubagentChild(part: AgentPart, parts: AgentPart[]): boolean {
-  if (part.type !== "tool_call" || !part.parent_tool_call_id) return false;
-  const parentId = part.parent_tool_call_id;
-  return parts.some(
-    (candidate) =>
-      candidate.type === "tool_call"
-      && candidate.tool_call_id === parentId
-      && candidate.kind === "subagent",
-  );
+function partParentToolCallId(part: AgentPart): string | null {
+  if (!("parent_tool_call_id" in part)) return null;
+  const parent = part.parent_tool_call_id?.trim();
+  return parent || null;
+}
+
+/** Any nested subagent child (tool, text, thinking), even if the parent row is later. */
+export function isNestedSubagentChild(part: AgentPart, _parts: AgentPart[] = []): boolean {
+  return Boolean(partParentToolCallId(part));
 }
 
 export function toolCallPartsFromGroup(parts: AgentPart[]): AgentToolCallPart[] {
@@ -150,6 +153,7 @@ export function segmentAssistantParts(
 
   parts.forEach((part, origIndex) => {
     if (isNestedSubagentChild(part, parts)) return;
+    if (part.type === "tool_call" && isSubagentWaitTool(part)) return;
     if (density === "compact") {
       if (isFoldableProcessPart(part)) {
         pending.push({ part, origIndex });

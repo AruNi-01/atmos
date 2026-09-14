@@ -3,10 +3,16 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { PreviewRail, type PreviewRailItem, cn } from "@workspace/ui";
-import { Bot, User } from "lucide-react";
+import { Button } from "@workspace/ui/components/ui/button";
+import { Bot, ChevronDown, ChevronUp, User } from "lucide-react";
 import type { RegistryAgent } from "@/api/ws-api";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import { assistantCopyText, textFromParts } from "@/features/agent/lib/agent-chat-events";
+import {
+  stepUserMessageIndex,
+  TIMELINE_RAIL_MAX_RATIO,
+  timelineRailItemSize,
+} from "@/features/agent/lib/agent-chat-message-nav";
 import { AgentIcon } from "./AgentIcon";
 
 interface AgentMessageTimelineNavProps {
@@ -26,14 +32,9 @@ interface MessageTimelineItem {
   isStreaming: boolean;
 }
 
-const RAIL_MAX_HEIGHT_PX = 400;
-const RAIL_ITEM_SIZE_MAX = 14;
-const RAIL_ITEM_SIZE_MIN = 10;
-
-function timelineItemSize(count: number): number {
-  if (count <= 0) return RAIL_ITEM_SIZE_MAX;
-  return Math.max(RAIL_ITEM_SIZE_MIN, Math.min(RAIL_ITEM_SIZE_MAX, Math.floor(RAIL_MAX_HEIGHT_PX / count)));
-}
+const TIMELINE_STEP_BUTTON_PX = 32;
+const TIMELINE_CLUSTER_GAP_PX = 4;
+const TIMELINE_RAIL_CHROME_PX = TIMELINE_STEP_BUTTON_PX * 2 + TIMELINE_CLUSTER_GAP_PX * 2;
 
 function normalizePreviewText(value: string): string {
   return value.replace(/\s+/g, " ").trim();
@@ -122,76 +123,163 @@ export function AgentMessageTimelineNav({
     return map;
   }, [items]);
 
-  if (items.length <= 1) return null;
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const [containerHeight, setContainerHeight] = React.useState(0);
+  const showRail = items.length > 1;
+
+  React.useLayoutEffect(() => {
+    const node = rootRef.current;
+    if (!node || !showRail) return;
+    const read = () => {
+      const next = Math.round(node.getBoundingClientRect().height);
+      setContainerHeight((current) => (current === next ? current : next));
+    };
+    read();
+    const observer = new ResizeObserver(read);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [showRail]);
+
+  if (!showRail) return null;
 
   const selectedNavIndex = items.findIndex((item) => item.messageIndex === activeMessageIndex);
   const activeItem = items[selectedNavIndex >= 0 ? selectedNavIndex : items.length - 1];
-  const itemSize = timelineItemSize(items.length);
+  const itemSize = timelineRailItemSize(items.length, containerHeight, TIMELINE_RAIL_CHROME_PX);
+  const railMaxHeight = containerHeight > 0
+    ? Math.min(
+        containerHeight * TIMELINE_RAIL_MAX_RATIO,
+        Math.max(0, containerHeight - TIMELINE_RAIL_CHROME_PX),
+      )
+    : undefined;
+  const previousIndex = stepUserMessageIndex(userMessageIndices, activeMessageIndex, "previous");
+  const nextIndex = stepUserMessageIndex(userMessageIndices, activeMessageIndex, "next");
 
   return (
-    <PreviewRail
-      items={railItems}
-      label={t("navigation")}
-      orientation="vertical"
-      activeId={activeItem ? String(activeItem.messageIndex) : undefined}
-      highlightActive
-      previewSide="before"
-      itemSize={itemSize}
-      onItemSelect={(item) => onSelectMessage(Number(item.id))}
-      className={cn(
-        "agent-message-timeline-nav pointer-events-none absolute inset-y-0 left-1 z-20 flex w-4 min-h-0 items-center overflow-visible",
-        "[&_[data-slot=preview-rail-tick]]:origin-left [&_[data-slot=preview-rail-tick]]:rounded-full [&_[data-slot=preview-rail-tick]]:!w-3.5",
-        "[&_[data-slot=preview-rail-item]]:!w-4 [&_[data-slot=preview-rail-item]]:justify-start",
-      )}
-      railClassName="pointer-events-auto w-4"
-      previewContainerClassName="inset-y-0 left-full right-auto ml-3 w-[min(22rem,calc(100vw-4rem))]"
-      previewClassName="w-full max-w-sm"
-      renderPreview={(item) => {
-        const row = previewById.get(item.id);
-        if (!row) return null;
-        const attachmentLabel = getAttachmentLabel(row.fileCount, t);
-        const assistantSummary = typeof item.description === "string"
-          ? item.description
-          : row.assistantSummary;
-        return (
-          <div
-            data-slot="preview-rail-card"
-            className="rounded-2xl border border-border/70 bg-popover/95 p-4 shadow-xl backdrop-blur"
-          >
-            <div className="min-w-0 space-y-2.5">
-              <div className="flex min-w-0 items-start gap-2">
-                <User className="mt-0.5 size-4 shrink-0 text-foreground/80" aria-hidden="true" />
-                <p className="line-clamp-2 min-w-0 text-[13px] font-semibold leading-5 text-popover-foreground">
-                  {item.label}
-                </p>
-              </div>
-              <div className="flex min-w-0 items-start gap-2">
-                <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center text-muted-foreground" aria-hidden="true">
-                  {activeAgent ? (
-                    <AgentIcon
-                      registryId={activeAgent.id}
-                      name={activeAgent.name}
-                      size={16}
-                      isCustom={activeAgent.install_method === "custom"}
-                      registryIcon={activeAgent.icon}
-                    />
-                  ) : (
-                    <Bot className="size-4" />
-                  )}
-                </span>
-                <p className="line-clamp-3 min-w-0 text-[12px] leading-5 text-muted-foreground">
-                  {assistantSummary}
-                </p>
-              </div>
-              {attachmentLabel ? (
-                <div className="pl-6 text-[11px] leading-4 text-muted-foreground/80">
-                  {attachmentLabel}
+    <div
+      ref={rootRef}
+      className="agent-message-timeline-nav pointer-events-none absolute inset-y-0 left-0 z-20 flex w-8 min-h-0 items-center justify-center overflow-visible"
+    >
+      <div className="pointer-events-auto flex min-h-0 flex-col items-center gap-1">
+        <TimelineStepButton
+          direction="previous"
+          label={t("previousMessage")}
+          disabled={previousIndex == null}
+          onClick={() => {
+            if (previousIndex == null) return;
+            onSelectMessage(previousIndex);
+          }}
+        />
+        <div
+          className="min-h-0 w-4 max-h-[90%]"
+          style={railMaxHeight != null ? { maxHeight: railMaxHeight } : undefined}
+        >
+          <PreviewRail
+          items={railItems}
+          label={t("navigation")}
+          orientation="vertical"
+          activeId={activeItem ? String(activeItem.messageIndex) : undefined}
+          highlightActive
+          previewSide="before"
+          itemSize={itemSize}
+          onItemSelect={(item) => onSelectMessage(Number(item.id))}
+          className={cn(
+            "relative flex h-fit w-4 min-h-0 items-center overflow-visible",
+            "[&_[data-slot=preview-rail-tick]]:origin-left [&_[data-slot=preview-rail-tick]]:rounded-full [&_[data-slot=preview-rail-tick]]:!w-3.5",
+            "[&_[data-slot=preview-rail-item]]:!w-4 [&_[data-slot=preview-rail-item]]:justify-start",
+          )}
+          railClassName="w-4"
+          previewContainerClassName="inset-y-0 left-full right-auto ml-3 w-[min(22rem,calc(100vw-4rem))]"
+          previewClassName="w-full max-w-sm"
+          renderPreview={(item) => {
+            const row = previewById.get(item.id);
+            if (!row) return null;
+            const attachmentLabel = getAttachmentLabel(row.fileCount, t);
+            const assistantSummary = typeof item.description === "string"
+              ? item.description
+              : row.assistantSummary;
+            return (
+              <div
+                data-slot="preview-rail-card"
+                className="rounded-2xl border border-border/70 bg-popover/95 p-4 shadow-xl backdrop-blur"
+              >
+                <div className="min-w-0 space-y-2.5">
+                  <div className="flex min-w-0 items-start gap-2">
+                    <User className="mt-0.5 size-4 shrink-0 text-foreground/80" aria-hidden="true" />
+                    <p className="line-clamp-2 min-w-0 text-[13px] font-semibold leading-5 text-popover-foreground">
+                      {item.label}
+                    </p>
+                  </div>
+                  <div className="flex min-w-0 items-start gap-2">
+                    <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center text-muted-foreground" aria-hidden="true">
+                      {activeAgent ? (
+                        <AgentIcon
+                          registryId={activeAgent.id}
+                          name={activeAgent.name}
+                          size={16}
+                          isCustom={activeAgent.install_method === "custom"}
+                          registryIcon={activeAgent.icon}
+                        />
+                      ) : (
+                        <Bot className="size-4" />
+                      )}
+                    </span>
+                    <p className="line-clamp-3 min-w-0 text-[12px] leading-5 text-muted-foreground">
+                      {assistantSummary}
+                    </p>
+                  </div>
+                  {attachmentLabel ? (
+                    <div className="pl-6 text-[11px] leading-4 text-muted-foreground/80">
+                      {attachmentLabel}
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
-          </div>
-        );
-      }}
-    />
+              </div>
+            );
+          }}
+          />
+        </div>
+        <TimelineStepButton
+          direction="next"
+          label={t("nextMessage")}
+          disabled={nextIndex == null}
+          onClick={() => {
+            if (nextIndex == null) return;
+            onSelectMessage(nextIndex);
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function TimelineStepButton({
+  direction,
+  label,
+  disabled,
+  onClick,
+}: {
+  direction: "previous" | "next";
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  const Icon = direction === "previous" ? ChevronUp : ChevronDown;
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      disabled={disabled}
+      aria-label={label}
+      data-agent-chat-timeline-step={direction}
+      onClick={onClick}
+      className="group/timeline-step size-8 rounded-full bg-muted/75 text-foreground shadow-sm ring-1 ring-border/50 before:rounded-full hover:bg-muted hover:text-foreground"
+    >
+      <Icon className="size-4" />
+      <span className="pointer-events-none absolute left-full z-50 ml-2 hidden h-8 items-center whitespace-nowrap rounded-full bg-popover/95 px-3 text-sm font-medium text-popover-foreground shadow-sm ring-1 ring-border/60 group-hover/timeline-step:flex group-focus-visible/timeline-step:flex">
+        {label}
+      </span>
+    </Button>
   );
 }

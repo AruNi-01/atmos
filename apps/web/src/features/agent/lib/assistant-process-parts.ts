@@ -1,7 +1,7 @@
 import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
 
 export function isAssistantAnswerTextPart(part: AgentPart): boolean {
-  return part.type === "text" && Boolean(part.text);
+  return part.type === "text" && Boolean(part.text) && !part.parent_tool_call_id;
 }
 
 /** Thinking / plan after a reply — not a new unit of tool work. */

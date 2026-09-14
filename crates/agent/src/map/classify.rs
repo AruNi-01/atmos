@@ -74,8 +74,11 @@ pub fn classify_tool(
         // never Hide. Providers emit ConfigChanged; the tool card is Other.
         return ClassifiedTool::Call(AgentToolKind::Other);
     }
-    if is_poll_output_label(&name) {
+    if is_hidden_poll_output_label(&name) {
         return ClassifiedTool::Hide;
+    }
+    if is_subagent_wait_poll_label(&name) {
+        return ClassifiedTool::Call(AgentToolKind::Other);
     }
     if name == "task" || name == "agent" || name == "subagent" || has_subagent_input(input) {
         return ClassifiedTool::Call(AgentToolKind::Subagent);
@@ -487,15 +490,20 @@ pub fn mcp_ref_from_name(name: &str) -> Option<crate::contract::AgentMcpRef> {
     None
 }
 
-fn is_poll_output_label(value: &str) -> bool {
+fn is_hidden_poll_output_label(value: &str) -> bool {
     matches!(
         value,
         "bashoutput"
             | "bash_output"
-            | "taskoutput"
-            | "task_output"
             | "get_command_or_subagent_output"
             | "kill_command_or_subagent"
+    )
+}
+
+fn is_subagent_wait_poll_label(value: &str) -> bool {
+    matches!(
+        value,
+        "taskoutput" | "task_output" | "agentoutput" | "agent_output"
     )
 }
 
@@ -937,7 +945,11 @@ mod tests {
         );
         assert_eq!(
             classify_tool("TaskOutput", None, None),
-            ClassifiedTool::Hide
+            ClassifiedTool::Call(AgentToolKind::Other)
+        );
+        assert_eq!(
+            classify_tool("AgentOutput", None, None),
+            ClassifiedTool::Call(AgentToolKind::Other)
         );
         assert_eq!(
             classify_tool(

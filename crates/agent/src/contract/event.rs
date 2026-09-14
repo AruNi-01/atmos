@@ -122,6 +122,9 @@ pub enum AgentEvent {
     AssistantMessageDelta {
         message_id: String,
         delta: String,
+        /// Nested subagent stream. Untagged deltas belong to the parent assistant.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        parent_tool_call_id: Option<String>,
     },
     AssistantMessageCompleted {
         message_id: String,
@@ -129,6 +132,8 @@ pub enum AgentEvent {
     ThinkingDelta {
         message_id: String,
         delta: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        parent_tool_call_id: Option<String>,
     },
     ThinkingCompleted {
         message_id: String,

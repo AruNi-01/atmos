@@ -12,6 +12,8 @@ describe("isGenericToolLabel", () => {
     expect(isGenericToolLabel("Run Script")).toBe(true);
     expect(isGenericToolLabel("write")).toBe(true);
     expect(isGenericToolLabel("fileChange")).toBe(true);
+    expect(isGenericToolLabel("commandExecution")).toBe(true);
+    expect(isGenericToolLabel("command_execution")).toBe(true);
     expect(isGenericToolLabel("ReadFile")).toBe(false);
   });
 });

@@ -67,7 +67,7 @@ function PermissionBellFull({ tool }: { tool?: string }) {
   const bellRef = useRef<AnimatedIconHandle>(null);
   useLoopingBell(bellRef);
   return (
-    <div className="flex items-center gap-1.5 whitespace-nowrap">
+    <div className="flex items-center gap-2.5 whitespace-nowrap">
       <span className="inline-flex items-center text-amber-400/70">
         <FilledBellIcon ref={bellRef} size={14} color="currentColor" strokeWidth={0} />
       </span>
@@ -119,7 +119,7 @@ function RunningFullSpinner({
 }) {
   const t = useTranslations("Agent.components.hookStatus");
   return (
-    <div className="flex items-center gap-1.5 whitespace-nowrap">
+    <div className="flex items-center gap-2.5 whitespace-nowrap">
       <AgentRunningGlyph styleId={styleId} density="full" />
       <TextShimmer as="span" className="text-[10px] whitespace-nowrap" duration={1.5}>
         {tool ? t("runningWithTool", { tool }) : t("agentRunning")}

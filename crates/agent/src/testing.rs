@@ -235,6 +235,7 @@ impl AgentRuntimeCommands for FakeSessionInner {
                     AgentEvent::AssistantMessageDelta {
                         message_id: assistant_id.clone(),
                         delta: "ok".into(),
+                        parent_tool_call_id: None,
                     },
                 ));
                 let _ = tx.send(AgentEventEnvelope::new(

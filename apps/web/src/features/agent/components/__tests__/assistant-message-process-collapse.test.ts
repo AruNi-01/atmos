@@ -41,7 +41,7 @@ describe("assistant process collapse chrome", () => {
     expect(view).not.toContain("ProcessDivider");
     expect(view).not.toContain("assistantTurn.process.show");
     expect(messageView).toContain("AgentComposerAttachmentList");
-    expect(messageView).toContain('density="compact"');
+    expect(messageView).toContain('density={collapsed ? "compact" : "composer"}');
     expect(messageView).toContain("composerFilesFromAttachmentParts");
     expect(messageView).not.toContain("AttachmentRemove");
     expect(messageView).toContain('reveal="timestamp"');

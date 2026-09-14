@@ -541,6 +541,7 @@ async fn send_after_stale_unknown_turn_does_not_fail_previous_turn() {
                 TranscriptEvent::AssistantSnapshot {
                     message_id: "ghost".into(),
                     text: "background wakeup".into(),
+                    parent_tool_call_id: None,
                 },
             ),
         )
@@ -2433,7 +2434,7 @@ fn assistant_texts(snapshot: &super::types::AgentChatSnapshot) -> String {
         .filter(|message| message.role == "assistant")
         .flat_map(|message| &message.parts)
         .filter_map(|part| match part {
-            MessagePart::Text { text } => Some(text.as_str()),
+            MessagePart::Text { text, .. } => Some(text.as_str()),
             _ => None,
         })
         .collect::<Vec<_>>()
@@ -2463,6 +2464,7 @@ async fn get_projects_live_turn_timing_from_server_clock() {
         .push_event(AgentEvent::ThinkingDelta {
             message_id: "a1".into(),
             delta: "hmm".into(),
+            parent_tool_call_id: None,
         })
         .await;
     tokio::time::sleep(Duration::from_millis(1100)).await;
@@ -2520,6 +2522,7 @@ async fn get_overlays_unpersisted_live_text_without_duplicate_ids() {
         .push_event(AgentEvent::AssistantMessageDelta {
             message_id: assistant_id.clone(),
             delta: "DISK".into(),
+            parent_tool_call_id: None,
         })
         .await;
     tokio::time::sleep(Duration::from_millis(20)).await;
@@ -2527,6 +2530,7 @@ async fn get_overlays_unpersisted_live_text_without_duplicate_ids() {
         .push_event(AgentEvent::AssistantMessageDelta {
             message_id: assistant_id,
             delta: "LIVE".into(),
+            parent_tool_call_id: None,
         })
         .await;
     tokio::time::sleep(Duration::from_millis(20)).await;
@@ -2585,7 +2589,7 @@ fn assistant_part_kinds(snapshot: &super::types::AgentChatSnapshot) -> Vec<Strin
                         Some("thinking".into())
                     }
                     MessagePart::ToolCall { .. } => Some("tool".into()),
-                    MessagePart::Text { text } if !text.is_empty() => Some("text".into()),
+                    MessagePart::Text { text, .. } if !text.is_empty() => Some("text".into()),
                     _ => None,
                 })
                 .collect()
@@ -2616,6 +2620,7 @@ async fn interleaved_thinking_and_tools_survive_disk_reload() {
         .push_event(AgentEvent::ThinkingDelta {
             message_id: "a1".into(),
             delta: "first".into(),
+            parent_tool_call_id: None,
         })
         .await;
     tokio::time::sleep(Duration::from_millis(20)).await;
@@ -2634,6 +2639,7 @@ async fn interleaved_thinking_and_tools_survive_disk_reload() {
         .push_event(AgentEvent::ThinkingDelta {
             message_id: "a1".into(),
             delta: "second".into(),
+            parent_tool_call_id: None,
         })
         .await;
     tokio::time::sleep(Duration::from_millis(20)).await;
@@ -2652,6 +2658,7 @@ async fn interleaved_thinking_and_tools_survive_disk_reload() {
         .push_event(AgentEvent::ThinkingDelta {
             message_id: "a1".into(),
             delta: "third".into(),
+            parent_tool_call_id: None,
         })
         .await;
     tokio::time::sleep(Duration::from_millis(20)).await;

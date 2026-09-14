@@ -77,14 +77,23 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
         <div className="group relative w-full" data-user-message-chrome="">
           <Message from="user" className="gap-0">
             <MessageContent rounded="2xl">
-              {files.length > 0 ? (
-                <AgentComposerAttachmentList
-                  files={files}
-                  density="compact"
-                  className="px-0 pt-0"
+              {files.length > 0 || userText ? (
+                <UserMessageBody
+                  text={userText}
+                  forceCollapsible={files.length > 0}
+                  leading={
+                    files.length > 0
+                      ? (collapsed) => (
+                          <AgentComposerAttachmentList
+                            files={files}
+                            density={collapsed ? "compact" : "composer"}
+                            className="px-0 pt-0"
+                          />
+                        )
+                      : undefined
+                  }
                 />
               ) : null}
-              {userText ? <UserMessageBody text={userText} /> : null}
             </MessageContent>
             {userTime || userText.trim() ? (
               <div data-user-message-meta="" className="user-message-meta">

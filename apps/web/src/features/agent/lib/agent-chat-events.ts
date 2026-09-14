@@ -143,14 +143,25 @@ function patchCurrentTurnAssistant(
   ];
 }
 
-function appendTextPart(parts: AgentPart[], type: "text" | "thinking", delta: string): AgentPart[] {
+function appendTextPart(
+  parts: AgentPart[],
+  type: "text" | "thinking",
+  delta: string,
+  parentToolCallId?: string | null,
+): AgentPart[] {
   const next = [...parts];
   const last = next[next.length - 1];
-  if (last && last.type === type) {
-    next[next.length - 1] = { ...last, type, text: `${last.text ?? ""}${delta}` };
+  const parent = parentToolCallId?.trim() || undefined;
+  const lastParent = last && "parent_tool_call_id" in last
+    ? last.parent_tool_call_id?.trim() || undefined
+    : undefined;
+  if (last && last.type === type && lastParent === parent) {
+    next[next.length - 1] = parent
+      ? { ...last, type, text: `${last.text ?? ""}${delta}`, parent_tool_call_id: parent }
+      : { ...last, type, text: `${last.text ?? ""}${delta}` };
     return next;
   }
-  next.push({ type, text: delta });
+  next.push(parent ? { type, text: delta, parent_tool_call_id: parent } : { type, text: delta });
   return next;
 }
 
@@ -339,7 +350,7 @@ function foldAgentChatEvent(
     const delta = payload.delta ?? "";
     return patchCurrentTurnAssistant(messages, payload.message_id, (message) => reopenAssistantStreaming(message, {
       role: "assistant",
-      parts: appendTextPart(message.parts, partType, delta),
+      parts: appendTextPart(message.parts, partType, delta, payload.parent_tool_call_id),
     }));
   }
 
@@ -543,7 +554,8 @@ function foldAgentChatEvent(
 
 export function textFromParts(parts: AgentPart[]): string {
   return parts
-    .filter((part): part is Extract<AgentPart, { type: "text" }> => part.type === "text")
+    .filter((part): part is Extract<AgentPart, { type: "text" }> =>
+      part.type === "text" && !part.parent_tool_call_id)
     .map((part) => part.text)
     .join("\n")
     .trim();
@@ -552,7 +564,9 @@ export function textFromParts(parts: AgentPart[]): string {
 export function assistantCopyText(message: AgentMessage): string {
   return message.parts
     .flatMap((part) => {
-      if (part.type === "text" && part.text.trim()) return [part.text.trim()];
+      if (part.type === "text" && part.text.trim() && !part.parent_tool_call_id) {
+        return [part.text.trim()];
+      }
       if (part.type === "error" && part.message.trim()) return [part.message.trim()];
       return [];
     })

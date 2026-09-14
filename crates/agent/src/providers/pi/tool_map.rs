@@ -10,7 +10,8 @@ use crate::map::{
 use crate::map::{
     extract_aspect_ratio, extract_command, extract_cwd, extract_generated_images,
     extract_image_prompt, extract_image_size, extract_links, extract_path, extract_query,
-    extract_reference_paths, extract_search_hits, extract_skill, extract_subagent, extract_url,
+    extract_reference_paths, extract_search_hits, extract_skill, extract_subagent,
+    extract_subagent_prompt, extract_url,
 };
 
 #[derive(Debug, Clone)]
@@ -197,10 +198,12 @@ fn typed_params(kind: AgentToolKind, args: &Value) -> Option<AgentToolParams> {
             if description.is_empty() {
                 return None;
             }
+            let prompt = extract_subagent_prompt(args, &description);
             Some(AgentToolParams::Subagent {
                 description,
                 agent_type,
                 task_id: None,
+                prompt,
             })
         }
         AgentToolKind::McpList => Some(AgentToolParams::McpList {

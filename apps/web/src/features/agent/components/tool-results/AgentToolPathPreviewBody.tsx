@@ -133,7 +133,7 @@ export function AgentToolPathPreviewBody({
         <ImageCopyMenuHost src={state.url}>
           <button
             type="button"
-            className="block cursor-zoom-in leading-none"
+            className="block max-w-52 cursor-zoom-in overflow-hidden rounded-xl leading-none"
             aria-label={t("imagePreview")}
             onClick={(event) =>
               setPreview({
@@ -148,7 +148,7 @@ export function AgentToolPathPreviewBody({
               src={state.url}
               alt={alt}
               draggable={false}
-              className="block max-h-32 max-w-56 object-contain"
+              className="block h-auto w-full"
               onError={() => setState({ kind: "missing" })}
             />
           </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   ActivityIndicator,
@@ -11,13 +11,14 @@ import {
 } from "@workspace/ui";
 import { ChevronDown, CircleCheck, XCircle } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
+import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import {
   formatSubagentTaskLine,
+  subagentChildActivity,
   subagentTaskStatus,
 } from "@/features/agent/lib/subagent-tasks";
-import { AgentChatCwdProvider } from "./agent-chat-cwd-context";
-import { SubAgentBlockBody } from "./SubAgentBlockView";
+import { useSubagentOverlay } from "./subagent-overlay-context";
 
 function SubagentTaskGlyph({
   status,
@@ -25,7 +26,7 @@ function SubagentTaskGlyph({
   status: ReturnType<typeof subagentTaskStatus>;
 }) {
   if (status === "running") {
-    return <ActivityIndicator style="S1" size={16} />;
+    return <ActivityIndicator style="S1" size={20} />;
   }
   if (status === "failed") {
     return <XCircle className="size-4 text-destructive" />;
@@ -35,18 +36,13 @@ function SubagentTaskGlyph({
 
 export function SubagentTasksPanel({
   tools,
-  allTools,
-  cwd,
-  selectedId,
-  onSelect,
+  messages,
 }: {
   tools: AgentToolCallPart[];
-  allTools: AgentToolCallPart[];
-  cwd?: string | null;
-  selectedId?: string | null;
-  onSelect: (id: string | null) => void;
+  messages: AgentMessage[];
 }) {
   const t = useTranslations("Agent.components.subagentTasks");
+  const { selectedId, open } = useSubagentOverlay();
   const [isOpen, setIsOpen] = useState(true);
   const completedCount = tools.filter((part) => subagentTaskStatus(part) === "completed").length;
   const runningCount = tools.filter((part) => subagentTaskStatus(part) === "running").length;
@@ -57,17 +53,6 @@ export function SubagentTasksPanel({
     : runningCount > 0
       ? t("runningCount", { count: runningCount })
       : t("progressCount", { completed: completedCount, total: totalCount });
-  const selected = tools.find((part) => part.tool_call_id === selectedId) ?? null;
-  const directChildTools = selected
-    ? allTools.filter((candidate) => candidate.parent_tool_call_id === selected.tool_call_id)
-    : [];
-
-  const toggleRow = useCallback(
-    (id: string) => {
-      onSelect(selectedId === id ? null : id);
-    },
-    [onSelect, selectedId],
-  );
 
   if (tools.length === 0) return null;
 
@@ -107,6 +92,7 @@ export function SubagentTasksPanel({
               const status = subagentTaskStatus(part);
               const line = formatSubagentTaskLine(part, t("fallbackType"));
               const active = selectedId === part.tool_call_id;
+              const activity = subagentChildActivity(messages, part.tool_call_id);
               return (
                 <li key={part.tool_call_id}>
                   <button
@@ -114,13 +100,13 @@ export function SubagentTasksPanel({
                     data-agent-subagent-task-row=""
                     aria-pressed={active}
                     aria-label={t("rowAria", { label: line })}
-                    onClick={() => toggleRow(part.tool_call_id)}
+                    onClick={() => open(part.tool_call_id)}
                     className={cn(
                       "flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-muted/60",
                       active && "bg-muted/60",
                     )}
                   >
-                    <span className="flex size-4 shrink-0 items-center justify-center">
+                    <span className="flex size-4 shrink-0 items-center justify-center overflow-visible">
                       <SubagentTaskGlyph status={status} />
                     </span>
                     {status === "running" ? (
@@ -143,23 +129,20 @@ export function SubagentTasksPanel({
                         {line}
                       </span>
                     )}
+                    {activity.busy ? (
+                      <TextShimmer
+                        as="span"
+                        duration={1.5}
+                        className="min-w-0 max-w-[40%] truncate text-xs text-muted-foreground"
+                      >
+                        {activity.label}
+                      </TextShimmer>
+                    ) : null}
                   </button>
                 </li>
               );
             })}
           </ul>
-          {selected ? (
-            <div className="mt-2 border-t border-border/70 pt-2">
-              <AgentChatCwdProvider cwd={cwd} projectOrWorkspacePath={cwd}>
-                <SubAgentBlockBody
-                  part={selected}
-                  defaultOpen
-                  childTools={directChildTools}
-                  allTools={allTools}
-                />
-              </AgentChatCwdProvider>
-            </div>
-          ) : null}
         </CollapsibleContent>
       </Collapsible>
     </div>

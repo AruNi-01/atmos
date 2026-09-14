@@ -273,7 +273,7 @@ export function AgentToolResultBlock({
   const { presentation, inputRows, showInput } = parsed;
   const status = part.status ?? undefined;
   const failed = status?.toLowerCase() === "failed" || presentation.kind === "error";
-  const hugImagePreview = presentation.kind === "empty"
+  const imagePreview = presentation.kind === "empty"
     && part.kind === "read"
     && Boolean(path)
     && isImageToolPath(path);
@@ -454,7 +454,7 @@ export function AgentToolResultBlock({
     <AgentToolCard
       variant="tool"
       surface={surface}
-      body={hugImagePreview ? "hug" : toolBodyForKind(presentation.kind)}
+      body={imagePreview ? "plain" : toolBodyForKind(presentation.kind)}
       tone={asSkill ? "skill" : failed ? "error" : "default"}
       icon={icon}
       title={title}
@@ -488,7 +488,7 @@ export function AgentToolResultBlock({
       {presentation.kind === "empty" && path && part.kind === "read" ? (
         <AgentToolPathPreviewBody path={path} status={status} />
       ) : null}
-      {presentation.kind === "empty" && !(path && part.kind === "read") ? (
+      {presentation.kind === "empty" && !(path && (part.kind === "read" || part.kind === "edit" || part.kind === "delete")) ? (
         <AgentToolEmptyBody status={status} />
       ) : null}
     </AgentToolCard>

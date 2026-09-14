@@ -1,6 +1,6 @@
 import React from "react";
 import type { ToolState } from "@workspace/ui";
-import { Brain, FileText, FolderInput, Globe, ImageIcon, Pencil, Plug, Search, Sparkles, Terminal, Trash2, Wrench } from "lucide-react";
+import { BotMessageSquare, Brain, FileText, FolderInput, Globe, ImageIcon, Pencil, Plug, Search, Sparkles, Terminal, Trash2, Wrench } from "lucide-react";
 import { createTranslator } from "next-intl";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
@@ -14,9 +14,11 @@ import type {
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import {
   isActiveToolStatus,
+  isSubagentWaitTool,
   type AgentToolCallPart,
 } from "@/features/agent/lib/agent-tool-kind";
 import { isLiveBackgroundToolCall } from "@/features/agent/lib/agent/background-command";
+import { isNestedSubagentChild } from "@/features/agent/lib/tool-group";
 import { formatAgentToolActivityLine } from "@/features/agent/lib/tool-results/tool-activity-line";
 
 export interface PendingPermission {
@@ -77,6 +79,8 @@ function chatHelpersT(
     | "activity.streaming"
     | "activity.creatingSession"
     | "activity.resumingSession"
+    | "activity.waitingForBackgroundAgent"
+    | "activity.waitingForBackgroundAgents"
     | "download.defaultChatName",
   fallback: string,
   values?: Record<string, string | number>,
@@ -128,7 +132,7 @@ export function getToolKindIcon(kind: AgentToolKind): React.ReactNode {
     case "skill":
       return React.createElement(Sparkles);
     case "subagent":
-      return React.createElement(Brain);
+      return React.createElement(BotMessageSquare);
     case "mcp_list":
     case "mcp_call":
       return React.createElement(Plug);
@@ -361,7 +365,39 @@ function toolKindHeadlineLabel(kind: AgentToolKind): string {
   }
 }
 
-function activityForToolPart(part: Extract<AgentPart, { type: "tool_call" }>): AgentActivity {
+function runningWaitToolCount(message: AgentMessage): number {
+  let count = 0;
+  for (const part of message.parts) {
+    if (part.type !== "tool_call") continue;
+    if (isNestedSubagentChild(part)) continue;
+    if (!isSubagentWaitTool(part)) continue;
+    if (toolStatusIsActive(part.status)) count += 1;
+  }
+  return count;
+}
+
+function waitingForBackgroundAgentsActivity(count: number): AgentActivity {
+  const n = Math.max(1, count);
+  const label = n === 1
+    ? chatHelpersT(
+      "activity.waitingForBackgroundAgent",
+      "Waiting for 1 background agent to finish",
+    )
+    : chatHelpersT(
+      "activity.waitingForBackgroundAgents",
+      "Waiting for {count} background agents to finish",
+      { count: n },
+    );
+  return { busy: true, label, kind: "working", trail: "none" };
+}
+
+function activityForToolPart(
+  part: Extract<AgentPart, { type: "tool_call" }>,
+  message: AgentMessage,
+): AgentActivity {
+  if (isSubagentWaitTool(part) && toolStatusIsActive(part.status)) {
+    return waitingForBackgroundAgentsActivity(runningWaitToolCount(message));
+  }
   return {
     busy: true,
     label: formatAgentToolActivityLine(part, toolKindHeadlineLabel(part.kind)),
@@ -425,21 +461,24 @@ export function deriveAgentActivity(messages: AgentMessage[], turnOpen: boolean)
 
   for (let i = last.parts.length - 1; i >= 0; i--) {
     const part = last.parts[i];
+    if (isNestedSubagentChild(part)) continue;
     if (
       part.type === "tool_call"
       && toolStatusIsActive(part.status)
       && !isLiveBackgroundToolCall(part)
     ) {
-      return activityForToolPart(part);
+      return activityForToolPart(part, last);
     }
   }
 
   if (last.streaming) {
     for (let i = last.parts.length - 1; i >= 0; i--) {
       const part = last.parts[i];
+      if (isNestedSubagentChild(part)) continue;
       if (part.type === "tool_call") {
         if (isLiveBackgroundToolCall(part)) continue;
-        return activityForToolPart(part);
+        if (isSubagentWaitTool(part) && !toolStatusIsActive(part.status)) continue;
+        return activityForToolPart(part, last);
       }
       if (part.type === "thinking") {
         return { busy: true, label: chatHelpersT("activity.thinking", "Thinking"), kind: "thinking" };

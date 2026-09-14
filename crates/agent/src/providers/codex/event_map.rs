@@ -226,6 +226,7 @@ fn map_agent_message_item(
                     AgentEvent::AssistantMessageDelta {
                         message_id,
                         delta: text.to_string(),
+                        parent_tool_call_id: None,
                     },
                 ),
             ))
@@ -248,6 +249,7 @@ fn map_agent_message_item(
                         AgentEvent::AssistantMessageDelta {
                             message_id,
                             delta: text.to_string(),
+                            parent_tool_call_id: None,
                         },
                     ),
                 ))
@@ -292,6 +294,7 @@ fn map_reasoning_item(
                     AgentEvent::ThinkingDelta {
                         message_id,
                         delta: text,
+                        parent_tool_call_id: None,
                     },
                 ),
             ))
@@ -329,7 +332,11 @@ fn map_assistant_delta(
         turn_id.clone(),
         wrap(
             turn_id,
-            AgentEvent::AssistantMessageDelta { message_id, delta },
+            AgentEvent::AssistantMessageDelta {
+                message_id,
+                delta,
+                parent_tool_call_id: None,
+            },
         ),
     ))
 }
@@ -353,7 +360,14 @@ fn map_thinking_delta(
     Some(complete_before_assistant(
         state,
         turn_id.clone(),
-        wrap(turn_id, AgentEvent::ThinkingDelta { message_id, delta }),
+        wrap(
+            turn_id,
+            AgentEvent::ThinkingDelta {
+                message_id,
+                delta,
+                parent_tool_call_id: None,
+            },
+        ),
     ))
 }
 
@@ -436,11 +450,13 @@ fn attach_subagent_activity(
             description,
             agent_type,
             task_id,
+            prompt,
         },
         AgentToolParams::Subagent {
             description: original_description,
             agent_type: original_agent_type,
             task_id: original_task_id,
+            prompt: original_prompt,
         },
     ) = (&mut tool.params, &original.params)
     {
@@ -452,6 +468,9 @@ fn attach_subagent_activity(
         }
         if task_id.is_none() {
             *task_id = original_task_id.clone();
+        }
+        if prompt.is_none() {
+            *prompt = original_prompt.clone();
         }
     }
     Some(tool)

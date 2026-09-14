@@ -1048,6 +1048,21 @@ impl AgentChatService {
                 },
             ),
         );
+        let _ = self.store.update_meta(chat_id, |meta| {
+            if !matches!(meta.runtime_status, RuntimeStatus::Closed) {
+                meta.runtime_status = RuntimeStatus::RunningTurn;
+            }
+        });
+        // Chat UI answered the prompt — leave Need permission immediately.
+        // Terminal occupancy still waits for the next hook/tool because we
+        // never observe the TUI keypress.
+        self.apply_status_host_event(
+            chat_id,
+            &AgentEvent::PermissionResolved {
+                request_id: request_id.to_string(),
+                option_id: option_id.to_string(),
+            },
+        );
         self.emit(
             chat_id,
             AgentChatPayload::PermissionResolved {
@@ -2160,7 +2175,7 @@ fn user_turn_label(message: &super::types::FoldedMessage) -> String {
         .parts
         .iter()
         .find_map(|part| match part {
-            MessagePart::Text { text } => Some(text.as_str()),
+            MessagePart::Text { text, .. } => Some(text.as_str()),
             _ => None,
         })
         .unwrap_or("")

@@ -320,6 +320,8 @@ export type AgentToolParams =
       agent_type?: string | null;
       /** Provider task ID used to attach later child output to this card. */
       task_id?: string | null;
+      /** Full prompt sent to the child, when distinct from `description`. */
+      prompt?: string | null;
     }
   | { type: "mcp_list"; server?: string | null }
   | { type: "mcp_call"; server?: string | null; tool?: string | null }
@@ -410,8 +412,14 @@ export type SessionConfigValueChange = {
 };
 
 export type AgentPart =
-  | { type: "text"; text: string }
-  | { type: "thinking"; text: string; tool_call_id?: string; duration_ms?: number | null }
+  | { type: "text"; text: string; parent_tool_call_id?: string | null }
+  | {
+      type: "thinking";
+      text: string;
+      tool_call_id?: string;
+      duration_ms?: number | null;
+      parent_tool_call_id?: string | null;
+    }
   | ({ type: "tool_call" } & AgentTool)
   | { type: "plan"; plan: unknown }
   | { type: "attachment"; path: string; name?: string | null }
@@ -505,9 +513,21 @@ export type AgentChatPayload =
       attachments?: string[];
       created_at?: string;
     }
-  | { type: "assistant_message_delta"; message_id: string; delta: string; turn_id?: string }
+  | {
+      type: "assistant_message_delta";
+      message_id: string;
+      delta: string;
+      turn_id?: string;
+      parent_tool_call_id?: string | null;
+    }
   | { type: "assistant_message_completed"; message_id: string }
-  | { type: "thinking_delta"; message_id: string; delta: string; turn_id?: string }
+  | {
+      type: "thinking_delta";
+      message_id: string;
+      delta: string;
+      turn_id?: string;
+      parent_tool_call_id?: string | null;
+    }
   | { type: "thinking_completed"; message_id: string; thinking_ms?: number | null }
   | {
       type: "tool_call_started" | "tool_call_updated" | "tool_call_completed";

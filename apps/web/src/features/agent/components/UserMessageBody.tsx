@@ -19,7 +19,15 @@ import {
 import { displayTextWithUrlTokens } from "@/shared/lib/link-preview";
 import { UrlAwareText } from "@/shared/components/url-aware-text";
 
-export function UserMessageBody({ text }: { text: string }) {
+export function UserMessageBody({
+  text,
+  leading,
+  forceCollapsible = false,
+}: {
+  text: string;
+  leading?: React.ReactNode | ((collapsed: boolean) => React.ReactNode);
+  forceCollapsible?: boolean;
+}) {
   const display = displayTextForSentMessage(text);
   const segments = splitComposerDisplaySegments(display);
   const hasPasteChip = segments.some((segment) => segment.type === "paste");
@@ -28,7 +36,7 @@ export function UserMessageBody({ text }: { text: string }) {
   const [overflowsVisually, setOverflowsVisually] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const clipRef = useRef<HTMLDivElement>(null);
-  const canToggle = hasPasteChip || needsLineCollapse || overflowsVisually;
+  const canToggle = hasPasteChip || needsLineCollapse || overflowsVisually || forceCollapsible;
 
   useEffect(() => {
     if (!expanded || !canToggle) return;
@@ -42,7 +50,7 @@ export function UserMessageBody({ text }: { text: string }) {
 
   const collapsed = canToggle && !expanded;
   const showChips = hasPasteChip && collapsed;
-  const clipText = !showChips && !expanded;
+  const clipText = (needsLineCollapse || overflowsVisually) && !showChips && !expanded;
   const withUrlTokens = displayTextWithUrlTokens(text);
 
   useLayoutEffect(() => {
@@ -69,8 +77,11 @@ export function UserMessageBody({ text }: { text: string }) {
       ref={rootRef}
       data-user-message-body=""
       data-user-message-collapsed={collapsed ? "" : undefined}
-      className={collapsed ? "cursor-pointer" : undefined}
-      role={collapsed ? "button" : undefined}
+      className={[
+        collapsed ? "cursor-pointer" : "",
+        leading ? "flex min-w-0 flex-col gap-2" : "",
+      ].filter(Boolean).join(" ") || undefined}
+      role={collapsed && !leading ? "button" : undefined}
       aria-expanded={canToggle ? expanded : undefined}
       tabIndex={collapsed ? 0 : undefined}
       onClick={() => {
@@ -84,29 +95,32 @@ export function UserMessageBody({ text }: { text: string }) {
         setExpanded(true);
       }}
     >
-      {showChips ? (
-        <UserMessageSegments segments={segments} />
-      ) : (
-        <div
-          ref={clipRef}
-          data-user-message-fade={collapsed && clipText ? "" : undefined}
-          className={
-            clipText
-              ? "relative min-w-0 overflow-hidden leading-[1.5]"
-              : "relative min-w-0 leading-[1.5]"
-          }
-          style={
-            clipText
-              ? { maxHeight: `${USER_MESSAGE_COLLAPSE_LINES + USER_MESSAGE_COLLAPSE_FADE_LINES}lh` }
-              : undefined
-          }
-        >
-          <div style={collapsed && clipText ? userMessageCollapseMaskStyle() : undefined}>
-            <UserMessageText text={withUrlTokens} />
+      {typeof leading === "function" ? leading(collapsed) : leading}
+      {text ? (
+        showChips ? (
+          <UserMessageSegments segments={segments} />
+        ) : (
+          <div
+            ref={clipRef}
+            data-user-message-fade={collapsed && clipText ? "" : undefined}
+            className={
+              clipText
+                ? "relative min-w-0 overflow-hidden leading-[1.5]"
+                : "relative min-w-0 leading-[1.5]"
+            }
+            style={
+              clipText
+                ? { maxHeight: `${USER_MESSAGE_COLLAPSE_LINES + USER_MESSAGE_COLLAPSE_FADE_LINES}lh` }
+                : undefined
+            }
+          >
+            <div style={collapsed && clipText ? userMessageCollapseMaskStyle() : undefined}>
+              <UserMessageText text={withUrlTokens} />
+            </div>
+            {collapsed && clipText ? <UserMessageCollapseWash /> : null}
           </div>
-          {collapsed && clipText ? <UserMessageCollapseWash /> : null}
-        </div>
-      )}
+        )
+      ) : null}
     </div>
   );
 }

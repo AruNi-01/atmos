@@ -23,6 +23,8 @@ import {
 import { planDocumentIntentFromMessages } from "../lib/plan-document-intent";
 import { AgentSessionOpCard } from "./AgentSessionOpCard";
 import { AgentPromptComposer } from "./AgentPromptComposer";
+import { SubagentConversationOverlay } from "./SubagentConversationOverlay";
+import { SubagentOverlayProvider } from "./subagent-overlay-context";
 import { useAgentChatSession } from "../hooks/use-agent-chat-session";
 import type { AgentChatSurfaceVariant, UseAgentChatSessionOptions } from "../hooks/use-agent-chat-session-types";
 import { AgentChatHeader } from "./AgentChatHeader";
@@ -40,6 +42,7 @@ import { AgentChatCwdProvider } from "./agent-chat-cwd-context";
 import { openAgentChatWindow } from "../lib/desktop-agent-chat-window";
 import { ackAgentChatAttention } from "../lib/agent-status-ack";
 import { isAgentNewChatLanding } from "../lib/agent-composer-placeholder";
+import { findSubagentToolCall } from "../lib/subagent-tasks";
 import { useReducedMotion } from "motion/react";
 import {
   AGENT_CHAT_COMPOSER_FADE_CLASS,
@@ -507,6 +510,18 @@ export function AgentChatPanel({
     sendCancel,
   } = session;
 
+  const [selectedSubagentId, setSelectedSubagentId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelectedSubagentId(null);
+  }, [liveChatId, chatId]);
+
+  useEffect(() => {
+    if (!selectedSubagentId) return;
+    if (findSubagentToolCall(messages, selectedSubagentId)) return;
+    setSelectedSubagentId(null);
+  }, [messages, selectedSubagentId]);
+
   const ackVisibleChatAttention = useCallback(() => {
     ackAgentChatAttention(liveChatId || chatId);
   }, [chatId, liveChatId]);
@@ -811,6 +826,7 @@ export function AgentChatPanel({
   }
 
   return (
+    <SubagentOverlayProvider selectedId={selectedSubagentId} onSelect={setSelectedSubagentId}>
     <div
       ref={panelRef}
       data-agent-chat-workspace={liveChatId || chatId || "draft"}
@@ -966,7 +982,7 @@ export function AgentChatPanel({
         {showTimelineNav ? (
           <div
             data-agent-chat-timeline-nav=""
-            className="relative w-5 shrink-0"
+            className="relative w-8 shrink-0"
           >
             <AgentMessageTimelineNav
               activeAgent={activeAgent}
@@ -1037,7 +1053,10 @@ export function AgentChatPanel({
                 }
               />
             ) : agentActivity.busy ? (
-              <div data-agent-chat-activity-status="">
+              <div
+                data-agent-chat-activity-status=""
+                className="mx-auto w-[calc(100%-1rem)]"
+              >
                 <AgentActivityIndicator activity={agentActivity} elapsedMs={elapsedMs} />
               </div>
             ) : null}
@@ -1135,6 +1154,18 @@ export function AgentChatPanel({
             }
             landing={isNewChatLanding}
             sessionUsage={sessionUsage}
+            messages={messages}
+            subagentOverlay={
+              selectedSubagentId ? (
+                <SubagentConversationOverlay
+                  messages={messages}
+                  toolCallId={selectedSubagentId}
+                  cwd={sessionCwd ?? localPath}
+                  elapsedMs={elapsedMs}
+                  onClose={() => setSelectedSubagentId(null)}
+                />
+              ) : null
+            }
             onAboveComposerOverlaysNodeChange={setAboveComposerOverlaysNode}
             aboveInputOverlay={
               pendingPermission || pendingSessionOp ? (
@@ -1144,7 +1175,7 @@ export function AgentChatPanel({
                 >
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 top-0 -z-10 bg-gradient-to-t from-background via-background/85 to-transparent" />
                   {pendingPermission ? (
-                    <div className="min-h-0 min-w-0 w-full max-h-[80cqh]">
+                    <div className="min-h-0 min-w-0 w-full max-h-[70cqh]">
                       <AgentPermissionCard
                         permission={pendingPermission}
                         markdown={pendingPermissionMarkdown}
@@ -1190,5 +1221,6 @@ export function AgentChatPanel({
       />
       </div>
     </div>
+    </SubagentOverlayProvider>
   );
 }

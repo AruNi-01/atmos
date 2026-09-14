@@ -102,6 +102,25 @@ describe("collectTurnFileChanges", () => {
       tool({ tool_call_id: "r1", kind: "read" }),
     ])).toEqual([]);
   });
+
+  it("still lists an edited file when the tool has a path but no hunk", () => {
+    expect(collectTurnFileChanges([
+      tool({
+        tool_call_id: "cmd",
+        kind: "execute",
+        params: { type: "execute", command: "python3 << PY", background: false },
+      }),
+      tool({
+        tool_call_id: "cmd:apps/web/src/a.tsx",
+        kind: "edit",
+        name: "fileChange",
+        title: "apps/web/src/a.tsx",
+        params: { type: "edit", path: "apps/web/src/a.tsx" },
+      }),
+    ])).toEqual([
+      { path: "apps/web/src/a.tsx", additions: 0, deletions: 0, selectRanges: [] },
+    ]);
+  });
 });
 
 describe("assistant turn file changes wiring", () => {
@@ -129,7 +148,7 @@ describe("assistant turn file changes wiring", () => {
     expect(card).toContain("includeRanges: false");
     expect(card).toContain("isDir: false");
     expect(card).toContain("PREVIEW_COUNT = 3");
-    expect(card).toContain("max-h-44");
+    expect(card).toContain('expanded && "max-h-44 overflow-y-auto"');
     expect(card).toContain("CollapsibleContent");
     expect(card).toContain("motion-reduce:data-[state=closed]:animate-none");
     expect(card).toContain("motion-reduce:data-[state=open]:animate-none");

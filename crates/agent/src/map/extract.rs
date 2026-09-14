@@ -218,6 +218,13 @@ pub fn is_human_tool_description(text: &str, command: Option<&str>) -> bool {
         && text.chars().any(|ch| ch.is_alphabetic())
 }
 
+/// Glanceable Bash/execute title from `description` when it is prose, not the command.
+pub fn human_execute_title(input: Option<&Value>) -> Option<String> {
+    let description = input.and_then(extract_description)?;
+    let command = input.and_then(extract_command);
+    is_human_tool_description(&description, command.as_deref()).then_some(description)
+}
+
 pub fn sanitize_execute_output(
     output: &str,
     command: Option<&str>,
@@ -738,6 +745,20 @@ pub fn extract_subagent(value: &Value) -> Option<(String, Option<String>)> {
     Some((description, agent_type))
 }
 
+/// Full child prompt (`prompt`, or `task` when it is not just the short description).
+/// Does not read result `content`.
+pub fn extract_subagent_prompt(value: &Value, description: &str) -> Option<String> {
+    if let Some(prompt) = first_string(value, &["prompt"]) {
+        return Some(prompt);
+    }
+    let task = first_string(value, &["task"])?;
+    if task == description {
+        None
+    } else {
+        Some(task)
+    }
+}
+
 pub fn extract_image_prompt(value: &Value) -> Option<String> {
     first_string(
         value,
@@ -1090,6 +1111,24 @@ mod tests {
             "Typecheck files-related web sources",
             Some("cd apps/web && bunx tsc --noEmit"),
         ));
+        assert_eq!(
+            human_execute_title(Some(&serde_json::json!({
+                "command": "cd apps/web && bunx tsc --noEmit",
+                "description": "Typecheck files-related web sources"
+            }))),
+            Some("Typecheck files-related web sources".into())
+        );
+        assert_eq!(
+            human_execute_title(Some(&serde_json::json!({
+                "command": "ls -la",
+                "description": "ls -la"
+            }))),
+            None
+        );
+        assert_eq!(
+            human_execute_title(Some(&serde_json::json!({"command": "ls -la"}))),
+            None
+        );
         assert_eq!(
             sanitize_execute_output(
                 "Typecheck files-related web sources",

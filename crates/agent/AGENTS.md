@@ -10,7 +10,7 @@ Chat business rules (jsonl transcript, `/fork` `/rewind` intercept, `rewind_view
 
 Providers map native token/window stats into a first-class Atmos event
 `AgentEvent::ContextUsageUpdated { usage: AgentContextUsage { used, context_window } }`.
-Shared formulas live in `map/context_usage.rs` (`claude_context_tokens` for
+Shared formulas live in `map/context_usage.rs` (`claude_context_occupancy` for
 native Claude only, Codex `last.totalTokens`, ACP `used` +
 `max|limit|size|contextWindow` for Cursor/Amp/Grok/Kimi/…, OpenCode
 `info.tokens` + catalog `/limit/context`, Pi `get_session_stats` / message usage,
@@ -24,7 +24,7 @@ cost only.
 
 | Host | Tokens | Window |
 |------|--------|--------|
-| Claude (native only) | last assistant `/message/usage` via `claude_context_tokens` | `result.modelUsage[*].contextWindow` (max); missing → `None` |
+| Claude (native only) | last complete main-loop assistant `/message/usage` via `claude_context_occupancy` (skip `{input_tokens:0,output_tokens:0}` stubs and nested `parent_tool_use_id`; `stream_event` `message_start` counts). Fallback: `result.usage` occupancy. Do **not** use `modelUsage` token totals (cumulative spend). | `result.modelUsage[*].contextWindow` (max); missing → `None` |
 | Codex | `tokenUsage.last.totalTokens` | `tokenUsage.modelContextWindow`; missing → `None` |
 | Cursor / Amp / Fx / Kimi (ACP) | `usage_update.used` (aliases: `usedTokens`) | first of `max` / `limit` / `size` / `maxTokens` / `contextWindow`; missing → `None` |
 | Grok (native + `grok-build` ACP) | `usage_update.used` **or** `session/update` `_meta.totalTokens` | live `availableModels[]._meta.totalContextTokens` (`session/new` / `_x.ai/models/update`); **no** hardcoded model→window table |

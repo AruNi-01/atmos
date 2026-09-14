@@ -28,7 +28,8 @@ pub(crate) struct EventMapState {
     pub supported_options: AgentSupportedOptions,
     pub current_config: AgentCurrentConfig,
     pub cancel_requested: bool,
-    /// Last assistant `message.usage` this turn (iterations overwrite — last only).
+    /// Last complete main-loop assistant `message.usage` this turn.
+    /// Zero stubs and nested subagent usage do not overwrite.
     pub last_assistant_usage: Option<Value>,
 }
 
@@ -176,10 +177,23 @@ fn map_stream_event(
     frame: &Value,
 ) -> MappedFrame {
     let event = frame.get("event").unwrap_or(frame);
-    if event.get("type").and_then(Value::as_str) != Some("content_block_delta") {
+    let event_type = event.get("type").and_then(Value::as_str);
+    // `--include-partial-messages`: occupancy often lands on message_start
+    // (`message.usage` with input + cache) rather than the later assistant frame.
+    if event_type == Some("message_start") {
+        if let Some(usage) = event
+            .get("message")
+            .and_then(|message| message.get("usage"))
+            .or_else(|| event.get("usage"))
+        {
+            remember_claude_usage(state, frame, usage);
+        }
+    }
+    if event_type != Some("content_block_delta") {
         return MappedFrame::Omit;
     }
     let delta = event.get("delta").cloned().unwrap_or(Value::Null);
+    let parent_tool_call_id = parent_tool_use_id(frame);
     match delta.get("type").and_then(Value::as_str) {
         Some("text_delta") => {
             let text = delta.get("text").and_then(Value::as_str).unwrap_or("");
@@ -196,6 +210,7 @@ fn map_stream_event(
                     AgentEvent::AssistantMessageDelta {
                         message_id,
                         delta: text.to_string(),
+                        parent_tool_call_id,
                     },
                 ),
             ))
@@ -219,6 +234,7 @@ fn map_stream_event(
                     AgentEvent::ThinkingDelta {
                         message_id,
                         delta: text.to_string(),
+                        parent_tool_call_id,
                     },
                 ),
             ))
@@ -230,14 +246,14 @@ fn map_stream_event(
 fn map_assistant(state: &mut EventMapState, turn_id: Option<String>, frame: &Value) -> MappedFrame {
     let message = frame.get("message").unwrap_or(frame);
     if let Some(usage) = message.get("usage") {
-        // Iterations overwrite — last assistant usage wins (avoid double-counting cache).
-        state.last_assistant_usage = Some(usage.clone());
+        remember_claude_usage(state, frame, usage);
     }
     if let Some(id) = message.get("id").and_then(Value::as_str) {
         if state.assistant_message_id.is_none() {
             state.assistant_message_id = Some(id.to_string());
         }
     }
+    let parent_tool_call_id = parent_tool_use_id(frame);
     let content = message
         .get("content")
         .and_then(Value::as_array)
@@ -277,6 +293,7 @@ fn map_assistant(state: &mut EventMapState, turn_id: Option<String>, frame: &Val
                             AgentEvent::ThinkingDelta {
                                 message_id,
                                 delta: text.to_string(),
+                                parent_tool_call_id: parent_tool_call_id.clone(),
                             },
                         ),
                     );
@@ -306,6 +323,7 @@ fn map_assistant(state: &mut EventMapState, turn_id: Option<String>, frame: &Val
                             AgentEvent::AssistantMessageDelta {
                                 message_id,
                                 delta: text.to_string(),
+                                parent_tool_call_id: parent_tool_call_id.clone(),
                             },
                         ),
                     );
@@ -336,6 +354,7 @@ fn map_assistant(state: &mut EventMapState, turn_id: Option<String>, frame: &Val
                                 AgentEvent::ThinkingDelta {
                                     message_id,
                                     delta: text,
+                                    parent_tool_call_id: parent_tool_call_id.clone(),
                                 },
                             ),
                         );
@@ -374,6 +393,21 @@ fn map_assistant(state: &mut EventMapState, turn_id: Option<String>, frame: &Val
                         push(state, &mut first, tool_event);
                     }
                     ToolMapOut::Hide => {}
+                    ToolMapOut::CompleteWait { wait, parent } => {
+                        let wait_event = complete_open_streams(
+                            state,
+                            turn_id.clone(),
+                            wrap(turn_id.clone(), tool_event(wait, AgentToolStatus::Running)),
+                        );
+                        push(state, &mut first, wait_event);
+                        let status = parent.status;
+                        let parent_event = complete_open_streams(
+                            state,
+                            turn_id.clone(),
+                            wrap(turn_id.clone(), merge_tool_event(parent, status)),
+                        );
+                        push(state, &mut first, parent_event);
+                    }
                     ToolMapOut::Merge { tool } => {
                         let status = tool.status;
                         let event = complete_open_streams(
@@ -437,20 +471,41 @@ fn map_user(state: &mut EventMapState, turn_id: Option<String>, frame: &Value) -
             .unwrap_or(false);
         let content = block.get("content").cloned().unwrap_or(Value::Null);
         let mapped = map_tool_result(tool_use_id, &content, is_error, &mut state.tools);
-        let tool = match mapped {
-            ToolMapOut::Tool(tool) | ToolMapOut::Merge { tool } => tool,
-            _ => continue,
-        };
-        let status = tool.status;
-        let event = complete_open_streams(
-            state,
-            turn_id.clone(),
-            wrap(turn_id.clone(), merge_tool_event(tool, status)),
-        );
-        if first.is_none() {
-            first = Some(event);
-        } else {
-            state.pending.push_back(event);
+        match mapped {
+            ToolMapOut::CompleteWait { wait, parent } => {
+                let wait_status = wait.status;
+                let parent_status = parent.status;
+                let wait_event = complete_open_streams(
+                    state,
+                    turn_id.clone(),
+                    wrap(turn_id.clone(), merge_tool_event(wait, wait_status)),
+                );
+                let parent_event = complete_open_streams(
+                    state,
+                    turn_id.clone(),
+                    wrap(turn_id.clone(), merge_tool_event(parent, parent_status)),
+                );
+                if first.is_none() {
+                    first = Some(wait_event);
+                } else {
+                    state.pending.push_back(wait_event);
+                }
+                state.pending.push_back(parent_event);
+            }
+            ToolMapOut::Tool(tool) | ToolMapOut::Merge { tool } => {
+                let status = tool.status;
+                let event = complete_open_streams(
+                    state,
+                    turn_id.clone(),
+                    wrap(turn_id.clone(), merge_tool_event(tool, status)),
+                );
+                if first.is_none() {
+                    first = Some(event);
+                } else {
+                    state.pending.push_back(event);
+                }
+            }
+            _ => {}
         }
     }
     match first {
@@ -566,6 +621,19 @@ fn tool_event(tool: AgentTool, status: AgentToolStatus) -> AgentEvent {
             tool_call: tool,
         },
     }
+}
+
+/// Keep last *complete* main-loop occupancy. Skip `{input_tokens:0,output_tokens:0}`
+/// stubs (Claude emits these for API-error assistants) and do not let nested
+/// `parent_tool_use_id` subagent usage overwrite a main-loop fill.
+fn remember_claude_usage(state: &mut EventMapState, frame: &Value, usage: &Value) {
+    if crate::map::claude_context_occupancy(usage).is_none() {
+        return;
+    }
+    if parent_tool_use_id(frame).is_some() && state.last_assistant_usage.is_some() {
+        return;
+    }
+    state.last_assistant_usage = Some(usage.clone());
 }
 
 fn parent_tool_use_id(frame: &Value) -> Option<String> {
@@ -881,6 +949,49 @@ mod tests {
     }
 
     #[test]
+    fn nested_stream_text_stamps_parent_tool_use_id() {
+        let mut state = EventMapState::new(AgentCurrentConfig::default());
+        let stream = json!({
+            "type": "stream_event",
+            "parent_tool_use_id": "toolu_parent",
+            "event": {
+                "type": "content_block_delta",
+                "index": 0,
+                "delta": { "type": "text_delta", "text": "nested hello" }
+            }
+        });
+        let (events, _) = drain_mapped(&mut state, Some("turn-1".into()), &stream);
+        assert!(events.iter().any(|envelope| matches!(
+            envelope.payload,
+            AgentEvent::AssistantMessageDelta {
+                ref delta,
+                parent_tool_call_id: Some(ref parent),
+                ..
+            } if delta == "nested hello" && parent == "toolu_parent"
+        )));
+
+        let mut replay_state = EventMapState::new(AgentCurrentConfig::default());
+        let assistant = json!({
+            "type": "assistant",
+            "parent_tool_use_id": "toolu_parent",
+            "message": {
+                "id": "msg_nested",
+                "role": "assistant",
+                "content": [{"type": "text", "text": "nested replay"}]
+            }
+        });
+        let (events, _) = drain_mapped(&mut replay_state, Some("turn-1".into()), &assistant);
+        assert!(events.iter().any(|envelope| matches!(
+            envelope.payload,
+            AgentEvent::AssistantMessageDelta {
+                ref delta,
+                parent_tool_call_id: Some(ref parent),
+                ..
+            } if delta == "nested replay" && parent == "toolu_parent"
+        )));
+    }
+
+    #[test]
     fn result_emits_context_usage_from_last_assistant_and_model_usage() {
         let mut state = EventMapState::new(AgentCurrentConfig::default());
         let assistant = json!({
@@ -931,6 +1042,128 @@ mod tests {
         let usage = context.expect("context usage");
         assert_eq!(usage.used, 310);
         assert_eq!(usage.context_window, Some(1_000_000));
+    }
+
+    #[test]
+    fn zero_stub_assistant_does_not_zero_context_usage() {
+        let mut state = EventMapState::new(AgentCurrentConfig::default());
+        let real = json!({
+            "type": "assistant",
+            "message": {
+                "id": "msg_real",
+                "usage": {
+                    "input_tokens": 5483,
+                    "cache_read_input_tokens": 159872,
+                    "output_tokens": 1373
+                }
+            }
+        });
+        let _ = drain_mapped(&mut state, Some("turn-1".into()), &real);
+        let stub = json!({
+            "type": "assistant",
+            "isApiErrorMessage": true,
+            "message": {
+                "usage": { "input_tokens": 0, "output_tokens": 0 }
+            }
+        });
+        let _ = drain_mapped(&mut state, Some("turn-1".into()), &stub);
+        let result = json!({
+            "type": "result",
+            "subtype": "success",
+            "usage": { "input_tokens": 80, "output_tokens": 40 },
+            "modelUsage": { "claude-opus-4-8": { "contextWindow": 200000 } }
+        });
+        let (mapped, _) = drain_mapped(&mut state, Some("turn-1".into()), &result);
+        let usage = mapped
+            .iter()
+            .find_map(|envelope| match &envelope.payload {
+                AgentEvent::ContextUsageUpdated { usage } => Some(*usage),
+                _ => None,
+            })
+            .expect("context usage");
+        assert_eq!(usage.used, 166_728);
+        assert_eq!(usage.context_window, Some(200_000));
+    }
+
+    #[test]
+    fn message_start_usage_feeds_context_occupancy() {
+        let mut state = EventMapState::new(AgentCurrentConfig::default());
+        let stream = json!({
+            "type": "stream_event",
+            "event": {
+                "type": "message_start",
+                "message": {
+                    "id": "msg_stream",
+                    "usage": {
+                        "input_tokens": 5336,
+                        "cache_read_input_tokens": 66816,
+                        "output_tokens": 1
+                    }
+                }
+            }
+        });
+        let _ = drain_mapped(&mut state, Some("turn-1".into()), &stream);
+        let result = json!({
+            "type": "result",
+            "subtype": "success",
+            "usage": { "input_tokens": 10, "output_tokens": 4 },
+            "modelUsage": { "claude-opus-4-8": { "contextWindow": 200000 } }
+        });
+        let (mapped, _) = drain_mapped(&mut state, Some("turn-1".into()), &result);
+        let usage = mapped
+            .iter()
+            .find_map(|envelope| match &envelope.payload {
+                AgentEvent::ContextUsageUpdated { usage } => Some(*usage),
+                _ => None,
+            })
+            .expect("context usage");
+        assert_eq!(usage.used, 72_153);
+        assert_eq!(usage.context_window, Some(200_000));
+    }
+
+    #[test]
+    fn nested_subagent_usage_does_not_overwrite_main_loop_occupancy() {
+        let mut state = EventMapState::new(AgentCurrentConfig::default());
+        let main = json!({
+            "type": "assistant",
+            "message": {
+                "id": "msg_main",
+                "usage": {
+                    "input_tokens": 5000,
+                    "cache_read_input_tokens": 100000,
+                    "output_tokens": 200
+                }
+            }
+        });
+        let _ = drain_mapped(&mut state, Some("turn-1".into()), &main);
+        let nested = json!({
+            "type": "assistant",
+            "parent_tool_use_id": "toolu_parent",
+            "message": {
+                "id": "msg_child",
+                "usage": {
+                    "input_tokens": 12,
+                    "cache_read_input_tokens": 30,
+                    "output_tokens": 4
+                }
+            }
+        });
+        let _ = drain_mapped(&mut state, Some("turn-1".into()), &nested);
+        let result = json!({
+            "type": "result",
+            "subtype": "success",
+            "usage": { "input_tokens": 1, "output_tokens": 1 },
+            "modelUsage": { "claude-opus-4-8": { "contextWindow": 200000 } }
+        });
+        let (mapped, _) = drain_mapped(&mut state, Some("turn-1".into()), &result);
+        let usage = mapped
+            .iter()
+            .find_map(|envelope| match &envelope.payload {
+                AgentEvent::ContextUsageUpdated { usage } => Some(*usage),
+                _ => None,
+            })
+            .expect("context usage");
+        assert_eq!(usage.used, 105_200);
     }
 
     #[test]
@@ -993,8 +1226,14 @@ mod tests {
                 }]
             }
         });
-        let (hidden, _) = drain_mapped(&mut state, Some("turn-1".into()), &poll);
-        assert!(hidden.is_empty());
+        let (waited, _) = drain_mapped(&mut state, Some("turn-1".into()), &poll);
+        let AgentEvent::ToolCallStarted { tool_call } = &waited[0].payload else {
+            panic!("expected wait tool started, got {:?}", waited[0].payload);
+        };
+        assert_eq!(tool_call.tool_call_id, "tu_poll");
+        assert_eq!(tool_call.name, "TaskOutput");
+        assert_eq!(tool_call.kind, AgentToolKind::Other);
+        assert_eq!(tool_call.status, AgentToolStatus::Running);
 
         let done = json!({
             "type": "user",
@@ -1007,8 +1246,21 @@ mod tests {
             }
         });
         let (completed, _) = drain_mapped(&mut state, Some("turn-1".into()), &done);
-        let AgentEvent::ToolCallCompleted { tool_call } = &completed[0].payload else {
-            panic!("expected completed task, got {:?}", completed[0].payload);
+        assert!(completed.iter().any(|event| matches!(
+            &event.payload,
+            AgentEvent::ToolCallCompleted { tool_call }
+                if tool_call.tool_call_id == "tu_poll" && tool_call.status == AgentToolStatus::Completed
+        )));
+        let AgentEvent::ToolCallCompleted { tool_call } = completed
+            .iter()
+            .map(|event| &event.payload)
+            .find(|payload| matches!(
+                payload,
+                AgentEvent::ToolCallCompleted { tool_call } if tool_call.tool_call_id == "tu_task"
+            ))
+            .expect("expected completed parent task")
+        else {
+            unreachable!()
         };
         assert_eq!(tool_call.tool_call_id, "tu_task");
         assert_eq!(tool_call.status, AgentToolStatus::Completed);

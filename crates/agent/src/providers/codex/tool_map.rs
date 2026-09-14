@@ -7,8 +7,11 @@ use crate::contract::{AgentTool, AgentToolParams, AgentToolResult, AgentToolStat
 use crate::map::{classify_tool, ClassifiedTool};
 use crate::map::{
     extract_command, extract_cwd, extract_links, extract_path, extract_query, extract_search_hits,
-    extract_skill, extract_subagent, extract_task_id, extract_url,
+    extract_skill, extract_subagent, extract_subagent_prompt, extract_task_id, extract_url,
+    human_execute_title,
 };
+
+use super::script_edits::{infer_script_edits, InferredFileEdit};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ItemPhase {
@@ -28,7 +31,7 @@ pub fn map_item(item: &Value, phase: ItemPhase) -> ItemMapOut {
     match item_type {
         "userMessage" | "agentMessage" | "reasoning" | "plan" | "contextCompaction"
         | "enteredReviewMode" | "exitedReviewMode" | "compacted" => ItemMapOut::Hide,
-        "commandExecution" => ItemMapOut::Tools(vec![map_command(item, phase)]),
+        "commandExecution" => ItemMapOut::Tools(map_command_tools(item, phase)),
         "fileChange" => ItemMapOut::Tools(map_file_changes(item, phase)),
         "webSearch" => ItemMapOut::Tools(vec![map_web_search(item, phase)]),
         "imageView" => ItemMapOut::Tools(vec![map_image_view(item, phase)]),
@@ -41,6 +44,67 @@ pub fn map_item(item: &Value, phase: ItemPhase) -> ItemMapOut {
         }
         "functionCallOutput" => ItemMapOut::Tools(vec![map_function_call_output(item, phase)]),
         _ => ItemMapOut::Tools(vec![other_tool(item, phase)]),
+    }
+}
+
+fn map_command_tools(item: &Value, phase: ItemPhase) -> Vec<AgentTool> {
+    let command_tool = map_command(item, phase);
+    if command_tool.kind != AgentToolKind::Execute {
+        return vec![command_tool];
+    }
+    let extras = inferred_file_tools(&command_tool);
+    let mut tools = Vec::with_capacity(1 + extras.len());
+    tools.push(command_tool);
+    tools.extend(extras);
+    tools
+}
+
+fn inferred_file_tools(command_tool: &AgentTool) -> Vec<AgentTool> {
+    let AgentToolParams::Execute { command, .. } = &command_tool.params else {
+        return Vec::new();
+    };
+    infer_script_edits(command)
+        .into_iter()
+        .map(|edit| inferred_file_tool(command_tool, edit))
+        .collect()
+}
+
+fn inferred_file_tool(command_tool: &AgentTool, edit: InferredFileEdit) -> AgentTool {
+    let InferredFileEdit {
+        path,
+        delete,
+        patch,
+        new_content,
+    } = edit;
+    let (kind, params) = if delete {
+        (
+            AgentToolKind::Delete,
+            AgentToolParams::Delete { path: path.clone() },
+        )
+    } else {
+        (
+            AgentToolKind::Edit,
+            AgentToolParams::Edit { path: path.clone() },
+        )
+    };
+    let result = match command_tool.status {
+        AgentToolStatus::Failed => command_tool.result.clone(),
+        _ if new_content.is_some() => Some(AgentToolResult::Diff {
+            path: path.clone(),
+            old_content: Some(String::new()),
+            new_content: new_content.unwrap(),
+        }),
+        _ => patch.map(|text| AgentToolResult::Text { text }),
+    };
+    AgentTool {
+        tool_call_id: format!("{}:{path}", command_tool.tool_call_id),
+        parent_tool_call_id: None,
+        name: "fileChange".into(),
+        title: Some(path),
+        kind,
+        status: command_tool.status,
+        params,
+        result,
     }
 }
 
@@ -82,7 +146,7 @@ fn map_command(item: &Value, phase: ItemPhase) -> AgentTool {
         tool_call_id: item_id(item),
         parent_tool_call_id: None,
         name: "commandExecution".into(),
-        title: None,
+        title: map_command_title(item),
         kind: AgentToolKind::Execute,
         status,
         params: AgentToolParams::Execute {
@@ -93,6 +157,89 @@ fn map_command(item: &Value, phase: ItemPhase) -> AgentTool {
         },
         result,
     }
+}
+
+fn map_command_title(item: &Value) -> Option<String> {
+    human_execute_title(Some(item)).or_else(|| title_from_command_actions(item))
+}
+
+fn title_from_command_actions(item: &Value) -> Option<String> {
+    let actions = item
+        .get("commandActions")
+        .or_else(|| item.get("command_actions"))
+        .and_then(Value::as_array)?;
+    actions.iter().find_map(title_from_command_action)
+}
+
+fn title_from_command_action(action: &Value) -> Option<String> {
+    let ty = action_field(action, &["type"])?;
+    match ty {
+        "read" => glanceable_file_name(action).map(|name| format!("Read {name}")),
+        "listFiles" | "list_files" => match glanceable_dir(action) {
+            Some(path) => Some(format!("List files in {path}")),
+            None => Some("List files".into()),
+        },
+        "search" => {
+            let query = action_field(action, &["query"]).map(str::to_string);
+            let path = glanceable_dir(action);
+            match (query, path) {
+                (Some(query), Some(path)) => Some(format!("Search {query} in {path}")),
+                (Some(query), None) => Some(format!("Search {query}")),
+                (None, Some(path)) => Some(format!("Search in {path}")),
+                (None, None) => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+fn action_field<'a>(action: &'a Value, keys: &[&str]) -> Option<&'a str> {
+    keys.iter().find_map(|key| {
+        action
+            .get(*key)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+    })
+}
+
+fn glanceable_file_name(action: &Value) -> Option<String> {
+    action_field(action, &["name"])
+        .or_else(|| action_field(action, &["path"]))
+        .map(basename)
+        .map(str::to_string)
+}
+
+fn glanceable_dir(action: &Value) -> Option<String> {
+    let path = action_field(action, &["path"])?;
+    let trimmed = path.trim_end_matches(['/', '\\']);
+    if trimmed.is_empty() || trimmed == "." {
+        return None;
+    }
+    if trimmed.starts_with('/') || is_windows_abs(trimmed) {
+        let name = basename(trimmed);
+        if name.is_empty() {
+            return None;
+        }
+        return Some(name.to_string());
+    }
+    Some(trimmed.to_string())
+}
+
+fn is_windows_abs(path: &str) -> bool {
+    let mut chars = path.chars();
+    matches!(
+        (chars.next(), chars.next()),
+        (Some(drive), Some(':')) if drive.is_ascii_alphabetic()
+    )
+}
+
+fn basename(path: &str) -> &str {
+    path.trim_end_matches(['/', '\\'])
+        .rsplit(['/', '\\'])
+        .next()
+        .filter(|part| !part.is_empty())
+        .unwrap_or(path)
 }
 
 fn map_file_changes(item: &Value, phase: ItemPhase) -> Vec<AgentTool> {
@@ -608,6 +755,7 @@ fn map_collab(item: &Value, phase: ItemPhase) -> AgentTool {
                 .filter(|text| !text.is_empty())
                 .map(str::to_string)
         });
+    let prompt = extract_subagent_prompt(item, &description);
     AgentTool {
         tool_call_id: item_id(item),
         parent_tool_call_id: None,
@@ -619,6 +767,7 @@ fn map_collab(item: &Value, phase: ItemPhase) -> AgentTool {
             description,
             agent_type,
             task_id: subagent_task_id(item),
+            prompt,
         },
         result: collab_result(item, phase),
     }
@@ -643,6 +792,7 @@ fn map_subagent_activity(item: &Value, phase: ItemPhase) -> AgentTool {
         .filter(|text| !text.is_empty())
         .map(str::to_string);
     let status = activity_status(item, phase);
+    let prompt = extract_subagent_prompt(item, &description);
     AgentTool {
         tool_call_id: item_id(item),
         parent_tool_call_id: None,
@@ -654,6 +804,7 @@ fn map_subagent_activity(item: &Value, phase: ItemPhase) -> AgentTool {
             description,
             agent_type,
             task_id: subagent_task_id(item),
+            prompt,
         },
         result: activity_result(item, status),
     }
@@ -1012,6 +1163,181 @@ mod tests {
         assert_eq!(json["params"]["tool"], "lookup");
     }
 
+    fn mapped_command(item: Value) -> AgentTool {
+        match map_item(&item, ItemPhase::Started) {
+            ItemMapOut::Tools(tools) => tools
+                .into_iter()
+                .find(|tool| tool.kind == AgentToolKind::Execute)
+                .expect("command must be a tool"),
+            ItemMapOut::Hide => panic!("command must be a tool"),
+        }
+    }
+
+    #[test]
+    fn command_execution_title_prefers_description_then_command_actions() {
+        let described = mapped_command(serde_json::json!({
+            "type": "commandExecution",
+            "id": "call_desc",
+            "command": "sed -n '1,40p' a.tsx",
+            "cwd": "/abs/project",
+            "status": "inProgress",
+            "description": "Read the top of a.tsx",
+            "commandActions": [{
+                "type": "read",
+                "command": "sed -n '1,40p' a.tsx",
+                "name": "a.tsx",
+                "path": "/abs/project/a.tsx"
+            }]
+        }));
+        assert_eq!(described.title.as_deref(), Some("Read the top of a.tsx"));
+
+        let read = mapped_command(serde_json::json!({
+            "type": "commandExecution",
+            "id": "call_read",
+            "command": "sed -n '1,40p' a.tsx",
+            "cwd": "/abs/project",
+            "status": "inProgress",
+            "commandActions": [{
+                "type": "read",
+                "command": "sed -n '1,40p' a.tsx",
+                "name": "a.tsx",
+                "path": "/abs/project/a.tsx"
+            }]
+        }));
+        assert_eq!(read.title.as_deref(), Some("Read a.tsx"));
+
+        let listed = mapped_command(serde_json::json!({
+            "type": "commandExecution",
+            "id": "call_ls",
+            "command": "ls src",
+            "cwd": "/abs/project",
+            "status": "inProgress",
+            "commandActions": [{
+                "type": "listFiles",
+                "command": "ls src",
+                "path": "src"
+            }]
+        }));
+        assert_eq!(listed.title.as_deref(), Some("List files in src"));
+
+        let search = mapped_command(serde_json::json!({
+            "type": "commandExecution",
+            "id": "call_rg",
+            "command": "rg AgentTool crates/agent",
+            "cwd": "/abs/project",
+            "status": "inProgress",
+            "commandActions": [{
+                "type": "search",
+                "command": "rg AgentTool crates/agent",
+                "query": "AgentTool",
+                "path": "crates/agent"
+            }]
+        }));
+        assert_eq!(
+            search.title.as_deref(),
+            Some("Search AgentTool in crates/agent")
+        );
+
+        let unknown_then_read = mapped_command(serde_json::json!({
+            "type": "commandExecution",
+            "id": "call_pipe",
+            "command": "cat a.tsx | wc -l",
+            "cwd": "/abs/project",
+            "status": "inProgress",
+            "commandActions": [
+                { "type": "unknown", "command": "cat a.tsx | wc -l" },
+                {
+                    "type": "read",
+                    "cmd": "cat a.tsx",
+                    "name": "a.tsx",
+                    "path": "/abs/project/a.tsx"
+                }
+            ]
+        }));
+        assert_eq!(unknown_then_read.title.as_deref(), Some("Read a.tsx"));
+
+        let unknown_only = mapped_command(serde_json::json!({
+            "type": "commandExecution",
+            "id": "call_unknown",
+            "command": "cargo test -p agent",
+            "cwd": "/abs/project",
+            "status": "inProgress",
+            "commandActions": [{ "type": "unknown", "command": "cargo test -p agent" }]
+        }));
+        assert_eq!(unknown_only.title, None);
+
+        let empty_actions = mapped_command(serde_json::json!({
+            "type": "commandExecution",
+            "id": "call_empty",
+            "command": "cargo test -p agent",
+            "cwd": "/abs/project",
+            "status": "inProgress",
+            "commandActions": []
+        }));
+        assert_eq!(empty_actions.title, None);
+    }
+
+    #[test]
+    fn python_rewrite_command_also_emits_edit() {
+        let item = serde_json::json!({
+            "type": "commandExecution",
+            "id": "call_py",
+            "command": "/bin/zsh -lc \"python3 << 'PY'\nfrom pathlib import Path\np = Path(\"apps/web/src/a.tsx\")\ns = p.read_text()\ns = s.replace(\"old title\", \"new title\")\np.write_text(s)\nprint(\"updated\")\nPY\"",
+            "cwd": "/abs/project",
+            "status": "completed",
+            "aggregatedOutput": "updated\n",
+            "exitCode": 0,
+            "commandActions": []
+        });
+        match map_item(&item, ItemPhase::Completed) {
+            ItemMapOut::Tools(tools) => {
+                assert_eq!(tools.len(), 2);
+                assert_eq!(tools[0].kind, AgentToolKind::Execute);
+                assert_eq!(tools[0].tool_call_id, "call_py");
+                assert_eq!(tools[1].kind, AgentToolKind::Edit);
+                assert_eq!(tools[1].tool_call_id, "call_py:apps/web/src/a.tsx");
+                assert!(matches!(
+                    tools[1].params,
+                    AgentToolParams::Edit { ref path } if path == "apps/web/src/a.tsx"
+                ));
+                match &tools[1].result {
+                    Some(AgentToolResult::Text { text }) => {
+                        assert!(text.contains("-old title"));
+                        assert!(text.contains("+new title"));
+                    }
+                    other => panic!("expected patch text, got {other:?}"),
+                }
+            }
+            ItemMapOut::Hide => panic!("command must be a tool"),
+        }
+    }
+
+    #[test]
+    fn python_variable_replace_still_emits_edit_without_hunk() {
+        let item = serde_json::json!({
+            "type": "commandExecution",
+            "id": "call_py",
+            "command": "/bin/zsh -lc \"python3 << 'PY'\nfrom pathlib import Path\np = Path(\"apps/web/src/a.tsx\")\ns = p.read_text()\ns = s.replace(old, new)\np.write_text(s)\nPY\"",
+            "cwd": "/abs/project",
+            "status": "completed",
+            "aggregatedOutput": "updated\n",
+            "exitCode": 0,
+            "commandActions": []
+        });
+        match map_item(&item, ItemPhase::Completed) {
+            ItemMapOut::Tools(tools) => {
+                assert_eq!(tools.len(), 2);
+                assert_eq!(tools[1].kind, AgentToolKind::Edit);
+                assert!(matches!(
+                    tools[1].params,
+                    AgentToolParams::Edit { ref path } if path == "apps/web/src/a.tsx"
+                ));
+                assert!(tools[1].result.is_none());
+            }
+            ItemMapOut::Hide => panic!("command must be a tool"),
+        }
+    }
+
     #[test]
     fn web_search_is_not_workspace_search() {
         let item = serde_json::json!({
@@ -1151,6 +1477,7 @@ mod tests {
                         description: "/root/tool_test_echo".into(),
                         agent_type: None,
                         task_id: Some("thread-1".into()),
+                        prompt: None,
                     }
                 );
             }
@@ -1179,6 +1506,7 @@ mod tests {
                         description: "wait".into(),
                         agent_type: Some("wait".into()),
                         task_id: None,
+                        prompt: None,
                     }
                 );
             }
@@ -1206,6 +1534,7 @@ mod tests {
                         description: "Inspect the tests".into(),
                         agent_type: Some("spawn_agent".into()),
                         task_id: Some("child-1".into()),
+                        prompt: Some("Inspect the tests".into()),
                     }
                 );
                 assert!(tools[0].result.is_none());

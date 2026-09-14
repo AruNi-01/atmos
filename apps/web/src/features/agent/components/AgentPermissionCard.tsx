@@ -151,8 +151,8 @@ export function AgentPermissionCard({
   // With todos: default todos; View plan swaps in an inline markdown preview.
   const showPlanPreview = !hasTodos || viewingPlan;
   // View plan expands the permission slot; collapsed todos stay at the shared 50cqh budget.
-  const permissionSlotMaxH = isPlanExit && showPlanPreview ? "max-h-[80cqh]" : "max-h-[50cqh]";
-  const approvalCardMaxH = isPlanExit && showPlanPreview ? "80cqh" : "50cqh";
+  const permissionSlotMaxH = isPlanExit && showPlanPreview ? "max-h-[70cqh]" : "max-h-[50cqh]";
+  const approvalCardMaxH = isPlanExit && showPlanPreview ? "70cqh" : "50cqh";
   const planTitle = overview?.title || (description || undefined);
   const planSummary = overview?.summary;
   const commandActions = useMemo(
@@ -197,7 +197,7 @@ export function AgentPermissionCard({
 
   // Plan exit wins over command heuristics: plan markdown often contains `|`
   // tables that lookLikeShellCommand would otherwise treat as shell pipes.
-  // Expand to ~80cqh only while viewing plan markdown; todos view stays ~50cqh.
+  // Expand to ~70cqh only while viewing plan markdown; todos view stays ~50cqh.
   if (isPlanExit) {
     return (
       <div

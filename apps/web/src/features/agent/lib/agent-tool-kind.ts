@@ -70,6 +70,28 @@ export function isActiveToolStatus(status?: string | null): boolean {
   return value === "running" || value === "in_progress" || value === "pending";
 }
 
+/** Vendor poll that waits on a background subagent (`TaskOutput`, `AgentOutput`, …). */
+export function isSubagentWaitTool(part: Pick<AgentToolCallPart, "name" | "title">): boolean {
+  const name = normalizeLabel(part.name);
+  const title = normalizeLabel(part.title);
+  const blob = `${name} ${title}`;
+  if (
+    blob.includes("taskoutput")
+    || blob.includes("task_output")
+    || blob.includes("agentoutput")
+    || blob.includes("agent_output")
+    || blob.includes("subagent_output")
+    || blob.includes("get_command_or_subagent")
+  ) {
+    return true;
+  }
+  return blob.includes("wait") && (
+    blob.includes("subagent")
+    || blob.includes("background_agent")
+    || blob.includes("backgroundagent")
+  );
+}
+
 const GENERIC_TOOL_LABELS = new Set([
   "",
   "tool",
@@ -92,6 +114,8 @@ const GENERIC_TOOL_LABELS = new Set([
   "bash",
   "shell",
   "command",
+  "commandexecution",
+  "command_execution",
 ]);
 
 function normalizeLabel(value?: string | null): string {

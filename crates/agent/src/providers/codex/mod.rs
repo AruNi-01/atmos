@@ -8,6 +8,7 @@ mod ids;
 pub(crate) mod options;
 mod permission;
 mod rpc;
+mod script_edits;
 mod spawn;
 mod tool_map;
 
