@@ -95,10 +95,10 @@ describe("collab rooms", () => {
     expect(skill).toContain("version:");
     expect(skill).toContain("references/catalog.md");
     expect(skill).toContain("references/board.md");
-    expect(readFileSync(join(skillDir, "references", "catalog.md"), "utf8")).toContain("propKeys");
+    expect(readFileSync(join(skillDir, "references", "catalog.md"), "utf8")).toContain("xmlExample");
     expect(readFileSync(join(skillDir, "references", "board.md"), "utf8")).toContain("pt_screenshot");
     expect(readFileSync(join(skillDir, "references", "command-reference.md"), "utf8")).toContain(
-      "pt_batch",
+      "pt_ptx_apply",
     );
   });
 });

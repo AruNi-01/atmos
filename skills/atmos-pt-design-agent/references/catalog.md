@@ -1,62 +1,33 @@
 # Catalog (on-demand)
 
-Which wireframes exist and which props actually draw. Always call `pt_catalog_list` for `defaultBBox` / `propKeys` / `variants` / `defaultVariant` — this file is a reading aid, not a substitute.
+Which PTX tags exist. Always call `pt_catalog_list` for `xmlExample` / `agentDescription` / `defaultBBox` — this file is a reading aid, not a substitute.
 
-Unknown keys are dropped (`PROP_IGNORED` on place).
-
----
-
-## Place one instance
-
-Omit `variant` → one instance. Overlay types use `trigger` (or `bar` / `collapsed`). Human catalog clicks may dump every variant; Agent `mode: "showcase"` does the same — do not use that on a page.
-
-Overlay variants: `dialog`, `alert-dialog`, `sheet`, `drawer`, `popover`, `hover-card`, `tooltip`, `dropdown-menu`, `context-menu`, `navigation-menu`, `select`, `native-select`, `combobox`, `date-picker`, `command` → `trigger` \| `open`. `menubar` → `bar` \| `open`. `accordion` / `collapsible` → `collapsed` \| `expanded`.
-
-Button: `default`, `secondary`, `outline`, `ghost`, `destructive`, `link`. Badge: `default`, `secondary`, `outline`, `destructive`.
+Copy the `xmlExample` from the catalog. Do not invent Excalidraw JSON.
 
 ---
 
-## Props that draw
+## XML, not place
 
-| Type | Keys | Notes |
-|------|------|--------|
-| `button`, `badge`, `kbd`, `label` | `label` | Width grows with text (CJK counted wider than Latin) |
-| `input`, `textarea` | `placeholder` | |
-| `checkbox`, `switch` | `label`, `checked` | |
-| `card` | `title`, `description`, `action` | defaultBBox 280×168 |
-| `alert` | `title`, `description` | |
-| `typography` | `title`, `description` | `size`: `xs`/`sm` compact, default, `lg`/`xl` hero |
-| `accordion`, `collapsible` | `title`, `description` | Question + body. Do not expect hardcoded “Is it accessible?” |
-| `tabs` | `title`, `description` | Comma-separated `title` → tab labels; `description` → panel |
-| `breadcrumb` | `title` | Trail string |
-| `sidebar` | `title` | Optional header; default items stay Home/Inbox/… |
-| overlay (`dialog`, `sheet`, …) | `title`, `description`, `label` | `label` is the trigger |
-| `avatar` | `fallback` | |
-| `toggle` | `pressed` | |
-| `attachment` | `label`, `description` | variants `image` / `uploading` / `file` |
-| `bubble` | `label` | `received` / `sent` |
-| `message` | `title`, `description` | `user` / `assistant` |
-| `block.auth-form` | `title` | |
-| `block.empty-state` | `title`, `description`, `action` | |
-| `block.nav-content` | `title`, `description` | Hero heading + subtitle |
-| `block.settings-shell` | `title` | |
+Agents edit `document.ptx`. Nested catalog tags become `children` inside a parent overlay (for example a `<card>` containing `<input>` and `<button>`). Spatial attrs `x` `y` `width` `height` are required. `rotation` is optional degrees.
 
-Types not listed still place; they often only honor generic `label` / `title` / `description` if those keys are in `propKeys`. Check catalog.
+Dotted block ids use a hyphen in XML: `block.auth-form` → `<block-auth-form>`.
 
 ---
 
-## Typography
+## Copy a snippet
 
-Hero titles need `size: "lg"` or `"xl"`. Default typography is a small 360×100 block — too small for a landing headline.
+```xml
+<page id="model-config">
+  <select id="model" label="Model" value="claude" x="300" y="200" width="240" height="40">
+    <option value="gpt-5.6">GPT-5.6</option>
+    <option value="claude">Claude</option>
+  </select>
+  <button id="run" label="Run" x="300" y="260" width="100" height="40">
+    <on event="click">
+      <action type="agent" name="run"/>
+    </on>
+  </button>
+</page>
+```
 
----
-
-## CJK
-
-Button/badge/kbd width uses a wider estimate for CJK / fullwidth glyphs. Long Chinese labels still clip on **fixed-width** cards; `pt_lint` reports `TEXT_CLIP`.
-
----
-
-## Blocks
-
-`block.auth-form`, `block.settings-shell`, `block.empty-state`, `block.nav-content` are starters, not live apps. Prefer them when the user asks for those shells; otherwise compose basics.
+Option-bearing nodes need `value` + label text. Missing `value` is `invalid_option`.

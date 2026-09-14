@@ -24,8 +24,14 @@ function t(key: string, values?: Record<string, unknown>): string {
   return cachedTranslator(key as never, values);
 }
 
+export const PT_DESIGN_RUNTIME_ACTION_COMMAND = "pt_runtime_action";
+
 function verb(command: string): string {
   return command.trim().toLowerCase().replace(/_/g, "-");
+}
+
+function runtimeActionName(args?: Record<string, unknown> | null): string {
+  return typeof args?.name === "string" ? args.name.trim() : "";
 }
 
 export function describePtDesignAgentCommand(
@@ -33,45 +39,30 @@ export function describePtDesignAgentCommand(
   args?: Record<string, unknown> | null,
 ): AgentSurfaceCommandDescriptor {
   const name = verb(command);
-  const type =
-    typeof args?.componentType === "string"
-      ? args.componentType
-      : typeof args?.type === "string"
-        ? args.type
-        : null;
 
   const kindFor = (kind: AgentSurfaceFeedKind, key: string): AgentSurfaceCommandDescriptor => ({
     kind,
     label: t(key),
   });
 
+  if (name === "pt-runtime-action") {
+    const actionName = runtimeActionName(args);
+    if (actionName) {
+      return { kind: "edit", label: t("runningAction", { name: actionName }) };
+    }
+    return kindFor("edit", "runningBoardAction");
+  }
+  if (name === "pt-ptx-get") return kindFor("read", "readingPtx");
   if (
     name === "pt-catalog-list" ||
-    name === "pt-ir-get" ||
-    name === "pt-scene-get" ||
-    name === "pt-tools-list" ||
-    name === "pt-frames-list" ||
-    name === "pt-lint"
+    name === "pt-tools-list"
   ) {
     return kindFor("read", "readingBoard");
   }
   if (name === "pt-screenshot") return kindFor("read", "capturingScreenshot");
-  if (name === "pt-place") {
-    return {
-      kind: "create",
-      label: type ? t("placingNamed", { type }) : t("placingComponent"),
-    };
+  if (name === "pt-ptx-apply") return kindFor("edit", "applyingPtx");
+  if (name === "pt-doc-init" || name === "pt-doc-open" || name === "pt-doc-save") {
+    return kindFor("edit", "workingOnBoard");
   }
-  if (name === "pt-update") return kindFor("edit", "editingComponent");
-  if (name === "pt-delete") return kindFor("delete", "deletingComponents");
-  if (name === "pt-frame-create") return kindFor("create", "creatingFrame");
-  if (name === "pt-frame-rename" || name === "pt-frame-update") return kindFor("edit", "editingFrame");
-  if (name === "pt-frame-delete") return kindFor("delete", "deletingFrame");
-  if (name === "pt-layout-row" || name === "pt-layout-column" || name === "pt-layout-grid") {
-    return kindFor("layout", "arrangingLayout");
-  }
-  if (name === "pt-batch") return kindFor("edit", "batchingCommands");
-  if (name === "pt-apply-ir") return kindFor("edit", "applyingDesign");
-  if (name === "pt-export" || name === "pt-handoff") return kindFor("read", "exportingBoard");
   return kindFor("edit", "workingOnBoard");
 }

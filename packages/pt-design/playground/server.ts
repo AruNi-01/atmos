@@ -6,6 +6,7 @@ const excalidrawCss = join(
   "../node_modules/@excalidraw/excalidraw/dist/dev/index.css",
 );
 const themeCss = join(dir, "../src/embed/excalidraw-theme.css");
+const sketchCss = join(dir, "../src/embed/overlay/sketch-ui.css");
 
 export async function startPlayground(port = Number(process.env.PT_DESIGN_PLAYGROUND_PORT ?? 4173)) {
   const built = await Bun.build({
@@ -38,7 +39,7 @@ export async function startPlayground(port = Number(process.env.PT_DESIGN_PLAYGR
 </body>
 </html>`;
 
-  const css = `${await Bun.file(excalidrawCss).text()}\n${await Bun.file(themeCss).text()}`;
+  const css = `${await Bun.file(excalidrawCss).text()}\n${await Bun.file(themeCss).text()}\n${await Bun.file(sketchCss).text()}`;
 
   return Bun.serve({
     port,

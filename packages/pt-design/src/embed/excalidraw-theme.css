@@ -121,8 +121,90 @@
 .excalidraw .help-icon,
 .excalidraw .default-sidebar-trigger,
 .excalidraw .sidebar-trigger__label-element,
-.excalidraw .sidebar__dock {
+.excalidraw .sidebar__dock,
+.excalidraw .ToolIcon__lock,
+.excalidraw [data-testid="toolbar-lock"],
+.excalidraw .App-toolbar .App-toolbar__divider {
   display: none !important;
+}
+
+.excalidraw .App-toolbar.Island {
+  --padding: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  height: var(--lg-button-size, 2.25rem);
+  padding: 0 2px;
+}
+
+.excalidraw .App-menu_top {
+  position: relative;
+}
+
+.pt-design-top-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.pt-design-top-right__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.excalidraw .pt-design-mode-toggle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  height: var(--lg-button-size, 2.25rem);
+  padding: 0 2px 0 var(--lg-button-size, 2.25rem);
+  box-sizing: border-box;
+  border-radius: var(--border-radius-lg, 0.625rem);
+  background: var(--island-bg-color, var(--card));
+  box-shadow: var(--shadow-island);
+}
+
+.excalidraw .App-menu_top .main-menu-trigger,
+.excalidraw .App-menu_top .main-menu-trigger.dropdown-menu-button {
+  position: relative;
+  z-index: 7;
+  width: var(--lg-button-size, 2.25rem);
+  height: var(--lg-button-size, 2.25rem);
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.pt-design-mode-toggle__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--lg-button-size, 2.25rem);
+  height: var(--lg-button-size, 2.25rem);
+  padding: 0;
+  border: none;
+  border-radius: var(--border-radius-md, 0.5rem);
+  background: transparent;
+  color: var(--icon-fill-color, var(--foreground, inherit));
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.pt-design-mode-toggle__btn svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.pt-design-mode-toggle__btn[aria-pressed="true"],
+.pt-design-mode-toggle__btn:hover {
+  background: var(--color-surface-primary-container, var(--muted, var(--color-surface-high)));
 }
 
 /* Floating drawer: inset rounded sheet instead of a flush right-angle panel. */
@@ -253,6 +335,13 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
   content: "素材库";
 }
 
+.excalidraw .pt-design-catalog-sidebar,
+.excalidraw [data-pt-palette],
+.excalidraw [data-pt-palette] button,
+.excalidraw [data-pt-palette] input {
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
 .excalidraw input.pt-design-catalog-search,
 .excalidraw input.pt-design-catalog-search:hover,
 .excalidraw input.pt-design-catalog-search:focus,
@@ -263,6 +352,133 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
   background: transparent !important;
   padding: 0 !important;
   border-radius: 0 !important;
+  font-size: 14px !important;
+  font-family: inherit !important;
+}
+
+.excalidraw [data-pt-palette] {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 8px 8px 12px;
+}
+
+.excalidraw [data-pt-palette] .pt-design-catalog-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin: 0 4px 8px;
+  padding: 0 10px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--muted, var(--color-surface-high));
+  color: inherit;
+}
+
+.excalidraw [data-pt-palette] .pt-design-catalog-search-wrap button {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.excalidraw [data-pt-palette] .pt-design-catalog-menu,
+.excalidraw [data-pt-palette] .pt-design-catalog-results {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.excalidraw [data-pt-palette] .pt-design-catalog-results {
+  overflow: auto;
+}
+
+.excalidraw [data-pt-palette] .pt-design-catalog-empty {
+  padding: 16px 10px;
+  font-size: 14px;
+  line-height: 20px;
+  opacity: 0.55;
+}
+
+.excalidraw [data-pt-palette] button.pt-design-catalog-row,
+.excalidraw [data-pt-palette] button.pt-design-catalog-back {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary-color, var(--foreground, inherit));
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.excalidraw [data-pt-palette] button.pt-design-catalog-back {
+  margin-bottom: 4px;
+}
+
+.excalidraw [data-pt-palette] button.pt-design-catalog-back__label,
+.excalidraw [data-pt-palette] .pt-design-catalog-back__label {
+  font-weight: 600;
+}
+
+.excalidraw [data-pt-palette] button.pt-design-catalog-row--nested {
+  padding-left: 28px;
+}
+
+.excalidraw [data-pt-palette] .pt-design-catalog-row__label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.excalidraw [data-pt-palette] .pt-design-catalog-row__icon {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.excalidraw [data-pt-palette] .pt-design-catalog-row__icon svg,
+.excalidraw [data-pt-palette] button.pt-design-catalog-row svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.excalidraw [data-pt-palette] .pt-design-catalog-row__chevron {
+  flex-shrink: 0;
+  opacity: 0.45;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.excalidraw [data-pt-palette] button.pt-design-catalog-row:hover,
+.excalidraw [data-pt-palette] button.pt-design-catalog-back:hover {
+  background: var(--muted, var(--color-surface-high));
 }
 
 .pt-design-share-trigger,
@@ -780,12 +996,12 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
   top: var(--editor-container-padding, 1rem);
   left: var(--editor-container-padding, 1rem);
   bottom: auto;
-  z-index: 5;
+  z-index: 7;
   width: var(--lg-button-size, 2.25rem);
   height: var(--lg-button-size, 2.25rem);
   border-radius: var(--border-radius-lg, 0.625rem);
-  background: var(--island-bg-color, var(--card));
-  box-shadow: var(--shadow-island);
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 .excalidraw.excalidraw--mobile .App-toolbar-content .dropdown-menu--mobile {
@@ -803,6 +1019,11 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
   top: 0;
   right: 0;
   z-index: 5;
+}
+
+.excalidraw.excalidraw--mobile .pt-design-mode-toggle {
+  top: var(--editor-container-padding, 1rem);
+  left: var(--editor-container-padding, 1rem);
 }
 
 .excalidraw.excalidraw--mobile .App-toolbar-container {

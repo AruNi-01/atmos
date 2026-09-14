@@ -29,7 +29,16 @@ describe("excalidraw API handoff", () => {
     const board = readFileSync(new URL("./ExcalidrawBoard.tsx", import.meta.url), "utf8");
     expect(board).toContain("bindHostApi");
     expect(board).toContain("handedOffRef.current = true");
-    expect(board).toContain("onApiRef.current(bindHostApi(api))");
+    expect(board).toContain("onApiRef.current(");
+    expect(board).toContain("bindHostApi(api");
+    expect(board).toContain("handleKeyboardGlobally={editModeHandlesKeyboardGlobally(viewModeEnabled)}");
+    expect(board).not.toContain("handleKeyboardGlobally={false}");
+    expect(board).toContain("onFocusCapture");
+    expect(board).toContain("onKeyDownCapture");
+    expect(board).toContain("convertToExcalidrawElements");
+    expect(board).toContain("regenerateIds: false");
+    expect(board).toContain("stampPtCustomData");
+    expect(board).toContain("toExcalidrawCompatElements");
     expect(board).not.toMatch(/excalidrawAPI=\{\(api\) => \{[\s\S]*onApiRef\.current/);
   });
 });
@@ -57,6 +66,18 @@ describe("excalidraw Atmos chrome", () => {
     expect(css).toContain(".default-sidebar-trigger");
     expect(css).toContain(".sidebar-trigger__label-element");
     expect(css).toContain(".sidebar__dock");
+    expect(css).toContain(".ToolIcon__lock");
+    expect(css).toContain('data-testid="toolbar-lock"');
+    expect(css).toContain(".App-toolbar .App-toolbar__divider");
+    expect(css).toContain(".excalidraw .App-toolbar.Island");
+    expect(css).toContain("height: var(--lg-button-size, 2.25rem)");
+    expect(css).toContain(".pt-design-mode-toggle");
+    expect(css).toContain(".App-menu_top .main-menu-trigger");
+    expect(css).toContain("padding: 0 2px 0 var(--lg-button-size, 2.25rem)");
+    expect(css).toContain("[data-pt-palette]");
+    expect(css).toContain("button.pt-design-catalog-row");
+    expect(css).toContain(".pt-design-top-right__actions");
+    expect(css).toContain(".excalidraw .App-menu_top");
     expect(css).toContain("border-radius: 12px");
     expect(css).toContain(".pt-design-island-trigger");
     expect(css).toContain(".sidebar-tab-trigger");
@@ -83,7 +104,6 @@ describe("excalidraw Atmos chrome", () => {
     expect(css).toContain("pt-design-place-breathe");
     expect(css).toContain(".pt-design-agent-highlight");
     expect(css).toContain("pt-design-agent-pulse");
-    expect(app).toContain("pt-design-agent-highlight");
     expect(css).toContain(".excalidraw .follow-mode");
     expect(css).toContain("border-radius: var(--radius-xl");
     expect(css).toContain(".excalidraw .context-menu");
@@ -104,15 +124,20 @@ describe("excalidraw Atmos chrome", () => {
     expect(css).toContain(".pt-design-top-right");
     expect(css).not.toContain("@media (pointer: fine)");
     expect(board).toContain("pt-design-top-right");
+    expect(board).toContain("pt-design-top-right__actions");
+    expect(board).toContain("topLeftChrome");
     expect(board).toContain("iconOnly={isMobile}");
     expect(css).not.toContain("background-color: var(--select-highlight-color)");
     expect(css).toContain(".context-menu-item__shortcut > kbd");
     expect(board).toContain("observeShortcutDecorations");
     expect(board).toContain("boardRef");
-    expect(app).toContain("scrollToContent");
-    expect(app).toContain("PLACE_SCROLL_OFFSETS");
-    expect(app).toContain("echoFromBoardRef");
+    expect(board).toContain("applySceneCameraNever");
+    expect(app).not.toContain("scrollToContent");
+    expect(app).toContain("createLiveBoard");
     expect(app).toContain("menuItems={menuItems}");
+    expect(app).toContain("topLeftChrome");
+    expect(app).toContain("catalog=");
+    expect(app).toContain("blockCatalog=");
     expect(app).toContain("LibraryOverlay");
     expect(app).toContain('"save"');
     expect(app).toContain('"open"');
@@ -128,18 +153,24 @@ describe("excalidraw Atmos chrome", () => {
     expect(board).toContain("DefaultSidebar");
     expect(board).toContain("pt-design-library-trigger");
     expect(board).toContain("iconOnly");
-    expect(app).toContain("drawingAppState(boardTheme)");
-    expect(app).toContain("SelectionPropsRail");
+    expect(app).not.toContain("SelectionPropsRail");
     expect(app).not.toContain("translateX(-50%)");
+    const collabHook = readFileSync(new URL("./use-collab.ts", import.meta.url), "utf8");
+    expect(collabHook).toContain('captureUpdate: "NEVER"');
     expect(css).toContain(".pt-design-prop-rail");
     expect(css).toContain(".pt-design-prop-trigger");
     expect(css).toContain(".pt-design-prop-options");
     expect(css).toContain(".pt-design-prop-option");
     expect(css).toContain("flex-direction: column");
-    const rail = readFileSync(new URL("./SelectionPropsRail.tsx", import.meta.url), "utf8");
-    expect(rail).toContain("AnimatePresence");
-    expect(rail).toContain("pt-design-selection-props");
-    expect(rail).toContain("STYLE_PANEL_SELECTOR");
+  });
+});
+
+describe("S27 collab remote apply NEVER", () => {
+  test("onScene applies remote elements with captureUpdate NEVER", () => {
+    const collabHook = readFileSync(new URL("./use-collab.ts", import.meta.url), "utf8");
+    expect(collabHook).toMatch(
+      /onScene:\s*\([^)]*\)\s*=>\s*\{[\s\S]*?captureUpdate:\s*"NEVER"/,
+    );
   });
 });
 

@@ -65,5 +65,10 @@ describe("theme palette", () => {
     );
     expect(remapped[0]?.strokeColor).toBe(ATMOS_DARK_DEFAULT_STROKE);
     expect(remapped[1]?.strokeColor).toBe("#ef4444");
+    const ptKept = applyThemeInkToElements(
+      [{ id: "run", strokeColor: "#1e1e1e", customData: { pt: { id: "run" } } }],
+      "dark",
+    );
+    expect(ptKept[0]?.strokeColor).toBe("#1e1e1e");
   });
 });

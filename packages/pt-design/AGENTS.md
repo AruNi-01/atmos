@@ -1,11 +1,11 @@
 # PT Design (`@atmos/pt-design`)
 
-Agent-first prototype wireframe package (APP-062).
+Interactive canvas package (APP-073). PTX is the Agent/file source. Live board SoT is the Excalidraw scene (LiveBoard). Not Atmos Canvas.
 
 ## Public API
 
 - `@atmos/pt-design` — `PtDesignApp` embed (official Excalidraw board) + re-exports
-- `@atmos/pt-design/headless` — session, IR, file, CLI/MCP helpers (no browser Excalidraw)
+- `@atmos/pt-design/headless` — `createHeadlessSession`, file, CLI/MCP helpers (no browser Excalidraw)
 
 `@excalidraw/excalidraw` may be imported only under `src/embed/`. Headless, CLI, and MCP must stay free of that import.
 
@@ -14,17 +14,17 @@ Agent-first prototype wireframe package (APP-062).
 - `pt-design` — Ink-compatible Agent CLI (`--json`)
 - `pt-design-mcp` — MCP stdio for **external** agents only
 
-Atmos in-app Agents call `POST /api/pt-design/agent/invoke` on the local Server after the board tab is open. Share is not required. CLI/MCP only edit `--file`. Do not tell users to put `pt-design-mcp` on PATH or paste MCP JSON.
+Atmos in-app Agents call `POST /api/pt-design/agent/invoke` on the local Server after the board tab is open. Share is not required. CLI/MCP only edit `--file` (`.ptd` / `document.ptx`). Do not tell users to put `pt-design-mcp` on PATH or paste MCP JSON.
 
-Live-board drawing: `pt_tools_list` / `pt_catalog_list` (includes `defaultBBox` + `propKeys`), `pt_frame_create` presets, `pt_place` (one instance; `at` is frame-relative when `frameId` is set), `pt_batch`, `pt_layout_*`, `pt_lint`, `pt_screenshot` (open tab only). Human catalog clicks may still dump a variant showcase; the Agent path does not. Agent activity island UI lives in `apps/web` (`AgentSurfaceIsland`), shared with Canvas.
+Live-board tools: `pt_ptx_get`, `pt_ptx_apply`, `pt_catalog_list` (XML snippet per type), `pt_screenshot` (open tab only), `pt_tools_list`. File tools: `pt_doc_init` / `pt_doc_open` / `pt_doc_save`. Human palette inserts the same PTX nodes an Agent would type. Agent activity island UI lives in `apps/web` (`AgentSurfaceIsland`).
 
-Live session vs Excalidraw: `embed/board-sync.ts`. Agent tools run in `runHeld` then one `commit` + `drain` before `reply`, so `pt_batch` / layout / update IDs match the visible board. Do not skip `pushScene` while the apply-gate is pending — that drops every op after the first.
+Live session vs Excalidraw: `embed/live-board.ts`. Overlay, inspector, and `pt_ptx_get` extract from the scene. Agent/palette writes project with `updateScene`. Do not reintroduce `createPtDesignSession` as a parallel store.
 
 ## Forbidden imports
 
 Do not import `@atmos/api-types`, `@atmos/api-client`, `@atmos/hub-client`, `@atmos/relay-client`, `@atmos/shared`, `@workspace/ui`, or `apps/*` (including `apps/cli`) from this package.
 
-Do not put Design IR types in api-types.
+Keep `catalog/shadcn-list.ts` as the frozen id list. New catalog entry is `src/components/registry.ts`.
 
 ## Skill
 

@@ -3648,18 +3648,11 @@
     },
     "agentFeedLabels": {
       "readingBoard": "正在读取画板",
+      "readingPtx": "正在读取原型源码",
+      "applyingPtx": "正在应用原型源码",
       "capturingScreenshot": "正在截图",
-      "placingComponent": "正在放置组件",
-      "placingNamed": "正在放置 {type}",
-      "editingComponent": "正在编辑组件",
-      "deletingComponents": "正在删除组件",
-      "creatingFrame": "正在创建画板",
-      "editingFrame": "正在编辑画板",
-      "deletingFrame": "正在删除画板",
-      "arrangingLayout": "正在排列布局",
-      "batchingCommands": "正在批量更新画板",
-      "applyingDesign": "正在应用设计",
-      "exportingBoard": "正在导出画板",
+      "runningAction": "正在运行 {name}",
+      "runningBoardAction": "正在运行画板动作",
       "workingOnBoard": "正在操作画板"
     },
     "share": {
@@ -3683,6 +3676,10 @@
     },
     "guest": {
       "logoLink": "打开 Atmos 官网"
+    },
+    "mode": {
+      "edit": "编辑",
+      "interact": "交互"
     }
   },
   "canvas": {

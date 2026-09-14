@@ -1,19 +1,15 @@
 export { PtDesignApp } from "./embed/PtDesignApp";
 export type { AgentBridge, AgentBridgeDispatch, PtDesignAppProps, ShareCopy } from "./embed/PtDesignApp";
 export { runSessionTool } from "./agent/session-tools";
-export { createPtDesignSession } from "./core/session";
-export type { PtDesignSession, PtDesignCommand, PtDesignSnapshot } from "./core/session";
-export type { DesignIR, DesignNode, DesignFrame } from "./ir/schema";
-export { encodeDesignIR, normalizeIR } from "./ir/encode";
-export { applyDesignIR } from "./ir/apply";
-export { buildHandoffPayload, HANDOFF_INSTRUCTIONS } from "./ir/handoff";
-export { listComponentTypes, getComponentTemplate } from "./catalog/registry";
+export { listComponentTypes, getComponentModule, defaultNodeFor } from "./components/registry";
 export { SHADCN_BASIC_IDS, REQUIRED_BLOCKS, CATALOG_VERSION } from "./catalog/shadcn-list";
 export { PT_DESIGN_TOOL_DEFS } from "./agent/tool-defs";
-export { PtDesignError, PT_ERROR_CODES } from "./agent/errors";
+export { PtDesignError } from "./protocol";
 export type { PtScene } from "./core/types";
+export type { LiveBoard, Capture } from "./embed/live-board";
 export type {
   PersistenceAdapter,
+  PtPersistV2,
   DesignLibrary,
   DesignLibraryItem,
   HandoffSink,

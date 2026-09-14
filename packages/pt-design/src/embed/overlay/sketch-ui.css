@@ -1,0 +1,55 @@
+[data-testid="pt-design-board"] [data-pt-overlay] {
+  --pt-ink: #1e1e1e;
+  --pt-paper: #fffef7;
+  color: var(--pt-ink);
+  font-family: "Excalifont", "Xiaolai", "Segoe Print", "Comic Sans MS", cursive;
+}
+
+[data-testid="pt-design-board"] [data-pt-overlay-fit],
+[data-testid="pt-design-board"] [data-pt-overlay-fit] * {
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+[data-testid="pt-design-board"] [data-pt-overlay] button,
+[data-testid="pt-design-board"] [data-pt-overlay] input,
+[data-testid="pt-design-board"] [data-pt-overlay] select,
+[data-testid="pt-design-board"] [data-pt-overlay] textarea,
+[data-testid="pt-design-board"] [data-pt-overlay] label {
+  font-family: inherit;
+  max-width: 100%;
+}
+
+[data-testid="pt-design-board"] [data-pt-overlay] input[type="checkbox"],
+[data-testid="pt-design-board"] [data-pt-overlay] input[type="radio"] {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  flex: none;
+  background: transparent;
+  border: 1.5px solid transparent;
+}
+
+[data-pt-artist-ready] * {
+  border-color: transparent !important;
+}
+
+[data-pt-artist-ready] [data-pt-artist-ink="line"],
+[data-pt-artist-ready] [role="separator"] {
+  background-color: transparent !important;
+}
+
+[data-testid="pt-design-board"] [data-pt-artist-ink="frame"],
+[data-testid="pt-design-board"] [data-pt-artist-ink="ellipse"],
+[data-testid="pt-design-board"] [data-pt-artist-ink="omit"] {
+  border-color: transparent !important;
+  outline-color: transparent !important;
+}
+
+[data-testid="pt-design-board"] [data-pt-artist-ink="line"] {
+  background-color: transparent !important;
+  border-color: transparent !important;
+}

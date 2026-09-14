@@ -1,23 +1,13 @@
-export { createPtDesignSession } from "./core/session";
-export type { PtDesignSession, PtDesignCommand, PtDesignSnapshot } from "./core/session";
-export {
-  openDesignDocument,
-  saveDesignDocument,
-  initDesignDocument,
-} from "./core/document";
-export type { DesignIR, DesignNode, DesignFrame } from "./ir/schema";
-export { encodeDesignIR, normalizeIR } from "./ir/encode";
-export { applyDesignIR } from "./ir/apply";
-export { buildHandoffPayload, HANDOFF_INSTRUCTIONS } from "./ir/handoff";
-export { listComponentTypes, getComponentTemplate, listCatalogForAgent } from "./catalog/registry";
-export type { CatalogEntry, AgentCatalogEntry } from "./catalog/registry";
+export { createHeadlessSession } from "./core/headless-session";
+export type { HeadlessSession } from "./core/headless-session";
+export { listComponentTypes, getComponentModule, defaultNodeFor } from "./components/registry";
 export { SHADCN_BASIC_IDS, REQUIRED_BLOCKS, CATALOG_VERSION } from "./catalog/shadcn-list";
-export { PT_DESIGN_TOOL_DEFS } from "./agent/tool-defs";
 export { openFileSession, runTool, runSessionTool } from "./agent/api";
 export { createMcpServer, createSdkMcpServer, serveMcpStdio } from "./mcp/server";
 export { createRoom, parseRoomFromString, shareUrlForRoom } from "./collab/room";
 export { publishAgentScene, roomFromEnv } from "./collab/publish";
 export { resolveCollaboratorName } from "./collab/names";
 export { runCli } from "./cli/bin";
-export { PtDesignError, PT_ERROR_CODES } from "./agent/errors";
-export type { PersistenceAdapter, HandoffSink, PtTheme } from "./host/adapters";
+export { PtDesignError } from "./protocol";
+export type { PersistenceAdapter, PtPersistV2, HandoffSink, PtTheme } from "./host/adapters";
+export { PT_DESIGN_TOOL_DEFS } from "./agent/tool-defs";

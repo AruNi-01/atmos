@@ -1,16 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  isCenterToolTabValue,
-  PT_DESIGN_TAB_VALUE,
-} from "@/app-shell/center-tool-tabs";
 import { ptDesignSceneStorageKey } from "@/features/pt-design/storage-key";
 
 describe("PT Design Atmos host wiring", () => {
-  test("center tool tab registry accepts pt-design", () => {
-    expect(PT_DESIGN_TAB_VALUE).toBe("pt-design");
-    expect(isCenterToolTabValue("pt-design")).toBe(true);
+  test("S23 center tool tab registry accepts pt-design", () => {
+    const tabs = readFileSync(join(import.meta.dir, "../center-tool-tabs.ts"), "utf8");
+    expect(tabs).toContain('export const PT_DESIGN_TAB_VALUE = "pt-design"');
+    expect(tabs).toContain("PT_DESIGN_TAB_VALUE,");
+    expect(tabs).toContain("CENTER_TOOL_TAB_VALUES");
+    expect(ptDesignSceneStorageKey("x")).toBe("pt-design/v2/x");
   });
 
   test("launchpad includes pt-design", () => {
@@ -91,7 +90,7 @@ describe("PT Design Atmos host wiring", () => {
       join(import.meta.dir, "../../features/pt-design/storage-key.ts"),
       "utf8",
     );
-    expect(key).toContain("`pt-design:scene:${contextId}`");
+    expect(key).toContain("`pt-design/v2/${contextId}`");
     expect(panel).toContain("useTranslations");
     expect(panel).toContain("shareCopy");
     expect(panel).toContain("collabServerUrl");
@@ -115,12 +114,12 @@ describe("PT Design Atmos host wiring", () => {
     );
     expect(support).toContain("PtDesignStandaloneStage");
     expect(support).toContain('currentView === "pt-design" || ptDesignOpen');
-    expect(stage).toContain('ptDesignOpen={tabFromUrl === "pt-design"}');
+    expect(stage).toContain('ptDesignOpen={storedLastTab === "pt-design" || tabFromUrl === "pt-design"}');
   });
 
-  test("standalone page uses the global scene key while workspace tabs stay per context", () => {
-    expect(ptDesignSceneStorageKey("global")).toBe("pt-design:scene:global");
-    expect(ptDesignSceneStorageKey("ws-1")).toBe("pt-design:scene:ws-1");
+  test("S23 / S28 standalone page uses the v2 scene key while workspace tabs stay per context", () => {
+    expect(ptDesignSceneStorageKey("global")).toBe("pt-design/v2/global");
+    expect(ptDesignSceneStorageKey("ws-1")).toBe("pt-design/v2/ws-1");
     const standalone = readFileSync(
       join(import.meta.dir, "../../features/pt-design/PtDesignStandaloneStage.tsx"),
       "utf8",
@@ -182,5 +181,25 @@ describe("PT Design Atmos host wiring", () => {
     );
     expect(stack).toContain("!shiftBase || reduce || !presented");
     expect(stack).toContain("presented && shiftBase && !reduce && \"will-change-transform\"");
+  });
+
+  test("S23 invoke still uses pt_design_bridge_* on the main /ws", () => {
+    const api = readFileSync(join(import.meta.dir, "../../api/ws-api.ts"), "utf8");
+    expect(api).toContain('wsRequest("pt_design_bridge_register"');
+    expect(api).toContain('wsRequest("pt_design_bridge_unregister"');
+    expect(api).toContain('wsRequest("pt_design_agent_dispatch_result"');
+    const bridge = readFileSync(
+      join(import.meta.dir, "../../features/pt-design/use-pt-design-agent-bridge.ts"),
+      "utf8",
+    );
+    expect(bridge).toContain("pt_design_agent_dispatch");
+  });
+
+  test("S24 host mode labels are sentence case Edit / Interact", () => {
+    const en = readFileSync(join(import.meta.dir, "../../../messages/en.json"), "utf8");
+    expect(en).toContain('"edit": "Edit"');
+    expect(en).toContain('"interact": "Interact"');
+    expect(en).not.toContain('"edit": "EDIT"');
+    expect(en).not.toContain('"interact": "INTERACT"');
   });
 });

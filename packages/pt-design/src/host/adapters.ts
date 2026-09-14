@@ -1,9 +1,10 @@
-import type { HandoffPayload } from "../ir/handoff";
 import type { PtScene } from "../core/types";
 
+export type PtPersistV2 = { ptx: string; canvas?: unknown; files?: unknown };
+
 export type PersistenceAdapter = {
-  load(): Promise<{ scene: PtScene } | null>;
-  save(input: { scene: PtScene }): Promise<void>;
+  load(): Promise<PtPersistV2 | null>;
+  save(doc: PtPersistV2): Promise<void>;
 };
 
 export type DesignLibraryItem = {
@@ -18,19 +19,29 @@ export type DesignLibrary = {
 };
 
 export type HandoffSink = {
-  accept(payload: HandoffPayload): void | Promise<void>;
+  accept(payload: { ptx: string }): void | Promise<void>;
 };
 
 export type PtTheme = "light" | "dark" | "system";
 
-export function memoryPersistence(initial?: PtScene): PersistenceAdapter {
-  let scene = initial ?? null;
+function asPersistV2(value: unknown): PtPersistV2 | null {
+  if (!value || typeof value !== "object") return null;
+  const rec = value as Record<string, unknown>;
+  if (typeof rec.ptx !== "string") return null;
+  const doc: PtPersistV2 = { ptx: rec.ptx };
+  if ("canvas" in rec) doc.canvas = rec.canvas;
+  if ("files" in rec) doc.files = rec.files;
+  return doc;
+}
+
+export function memoryPersistence(initial?: PtPersistV2 | null): PersistenceAdapter {
+  let doc = initial ?? null;
   return {
     async load() {
-      return scene ? { scene } : null;
+      return doc;
     },
     async save(input) {
-      scene = input.scene;
+      doc = input;
     },
   };
 }
@@ -42,14 +53,14 @@ export function localStoragePersistence(key: string): PersistenceAdapter {
       const raw = localStorage.getItem(key);
       if (!raw) return null;
       try {
-        return JSON.parse(raw) as { scene: PtScene };
+        return asPersistV2(JSON.parse(raw));
       } catch {
         return null;
       }
     },
     async save(input) {
       if (typeof localStorage === "undefined") return;
-      localStorage.setItem(key, JSON.stringify({ scene: input.scene }));
+      localStorage.setItem(key, JSON.stringify(input));
     },
   };
 }

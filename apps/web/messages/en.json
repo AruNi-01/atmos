@@ -3648,18 +3648,11 @@
     },
     "agentFeedLabels": {
       "readingBoard": "Reading board",
+      "readingPtx": "Reading prototype source",
+      "applyingPtx": "Applying prototype source",
       "capturingScreenshot": "Capturing screenshot",
-      "placingComponent": "Placing component",
-      "placingNamed": "Placing {type}",
-      "editingComponent": "Editing component",
-      "deletingComponents": "Deleting components",
-      "creatingFrame": "Creating frame",
-      "editingFrame": "Editing frame",
-      "deletingFrame": "Deleting frame",
-      "arrangingLayout": "Arranging layout",
-      "batchingCommands": "Batching board commands",
-      "applyingDesign": "Applying design",
-      "exportingBoard": "Exporting board",
+      "runningAction": "Running {name}",
+      "runningBoardAction": "Running board action",
       "workingOnBoard": "Working on board"
     },
     "share": {
@@ -3683,6 +3676,10 @@
     },
     "guest": {
       "logoLink": "Open Atmos"
+    },
+    "mode": {
+      "edit": "Edit",
+      "interact": "Interact"
     }
   },
   "canvas": {

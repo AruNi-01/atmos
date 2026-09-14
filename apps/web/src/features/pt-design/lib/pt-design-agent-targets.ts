@@ -1,6 +1,9 @@
 export function instanceIdsFromToolData(data: unknown): string[] {
   if (!data || typeof data !== "object") return [];
   const rec = data as Record<string, unknown>;
+  if (Array.isArray(rec.nodeIds)) {
+    return rec.nodeIds.filter((id): id is string => typeof id === "string" && id.length > 0);
+  }
   if (Array.isArray(rec.instanceIds)) {
     return rec.instanceIds.filter((id): id is string => typeof id === "string" && id.length > 0);
   }

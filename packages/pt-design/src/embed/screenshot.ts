@@ -1,17 +1,17 @@
 import { exportToBlob } from "@excalidraw/excalidraw";
-import { PT_ERROR_CODES, PtDesignError } from "../agent/errors";
-import type { PtDesignSession } from "../core/session";
+import { PtDesignError } from "../protocol";
 import type { BBox } from "../core/types";
 import type { ExcalidrawCompatElement, ExcalidrawHostApi } from "./scene-bridge";
 
 export type LiveScreenshot = {
+  mime: "image/png";
+  base64: string;
   mediaType: "image/png";
   dataUrl: string;
   width: number;
   height: number;
   bbox: BBox;
-  frameId?: string;
-  instanceIds: string[];
+  nodeIds: string[];
 };
 
 function toNum(value: unknown, fallback: number): number {
@@ -23,12 +23,17 @@ function toNum(value: unknown, fallback: number): number {
   return fallback;
 }
 
-function instanceIdsOf(elements: readonly ExcalidrawCompatElement[]): string[] {
+function nodeIdOf(el: ExcalidrawCompatElement): string | undefined {
+  const pt = el.customData?.pt as { id?: string; instanceId?: string } | undefined;
+  return pt?.id ?? pt?.instanceId;
+}
+
+function nodeIdsOf(elements: readonly ExcalidrawCompatElement[]): string[] {
   const ids: string[] = [];
   const seen = new Set<string>();
   for (const el of elements) {
-    const id = el.customData?.pt?.instanceId;
-    if (!id || seen.has(id) || !el.customData?.pt?.componentType) continue;
+    const id = nodeIdOf(el);
+    if (!id || seen.has(id)) continue;
     seen.add(id);
     ids.push(id);
   }
@@ -70,37 +75,27 @@ async function dataUrlSize(dataUrl: string): Promise<{ width: number; height: nu
 
 export async function captureLiveScreenshot(
   api: ExcalidrawHostApi,
-  session: PtDesignSession,
-  args: Record<string, unknown>,
+  args: Record<string, unknown> = {},
 ): Promise<LiveScreenshot> {
   const elements = api.getSceneElements().filter((el) => !el.isDeleted);
-  if (elements.length === 0) {
-    throw new PtDesignError(PT_ERROR_CODES.USAGE, "Board is empty; place something before screenshot.");
-  }
-
-  const frameId = typeof args.frameId === "string" ? args.frameId : typeof args.frame === "string" ? args.frame : undefined;
-  const instanceIds = Array.isArray(args.instanceIds)
-    ? args.instanceIds.map(String).filter(Boolean)
-    : [];
+  const nodeIds = Array.isArray(args.nodeIds)
+    ? args.nodeIds.map(String).filter(Boolean)
+    : Array.isArray(args.instanceIds)
+      ? args.instanceIds.map(String).filter(Boolean)
+      : [];
   const maxEdge = Math.min(2048, Math.max(256, toNum(args.maxEdge, 1024)));
 
-  let exportingFrame: ExcalidrawCompatElement | null = null;
   let scoped = elements;
-  if (frameId) {
-    const frame = session.resolveFrame(frameId);
-    if (!frame) throw new PtDesignError(PT_ERROR_CODES.NOT_FOUND, `Frame not found: ${frameId}`);
-    exportingFrame = elements.find((el) => el.id === frame.id && el.type === "frame") ?? null;
-    scoped = elements.filter((el) => el.id === frame.id || el.frameId === frame.id);
-  } else if (instanceIds.length > 0) {
-    const allow = new Set(instanceIds);
+  if (nodeIds.length > 0) {
+    const allow = new Set(nodeIds);
     scoped = elements.filter((el) => {
-      const id = el.customData?.pt?.instanceId;
+      const id = nodeIdOf(el);
       return Boolean(id && allow.has(id));
     });
   }
 
   if (scoped.length === 0) {
-    throw new PtDesignError(PT_ERROR_CODES.USAGE, "Nothing to screenshot in that frame or selection.");
+    throw new PtDesignError("unknown_type", "Nothing to screenshot.");
   }
 
   const files = api.getFiles?.() ?? null;
@@ -114,22 +109,20 @@ export async function captureLiveScreenshot(
     mimeType: "image/png",
     maxWidthOrHeight: maxEdge,
     exportPadding: 16,
-    exportingFrame: exportingFrame as never,
   });
   const dataUrl = await blobToDataUrl(blob);
   const size = await dataUrlSize(dataUrl);
-  const capturedIds = instanceIds.length ? instanceIds : instanceIdsOf(scoped);
-  const bbox = exportingFrame
-    ? { x: exportingFrame.x, y: exportingFrame.y, w: exportingFrame.width, h: exportingFrame.height }
-    : unionBBox(scoped);
+  const comma = dataUrl.indexOf(",");
+  const base64 = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
 
   return {
+    mime: "image/png",
+    base64,
     mediaType: "image/png",
     dataUrl,
     width: size.width,
     height: size.height,
-    bbox,
-    frameId: exportingFrame?.id,
-    instanceIds: capturedIds,
+    bbox: unionBBox(scoped),
+    nodeIds: nodeIds.length ? nodeIds : nodeIdsOf(scoped),
   };
 }
