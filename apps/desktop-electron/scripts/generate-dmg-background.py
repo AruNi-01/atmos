@@ -1,140 +1,224 @@
 #!/usr/bin/env python3
-"""Minimal DMG backdrop: plain surface, slogan only (no Atmos title, no art).
+"""Compose the macOS DMG backdrop: landscape + sharp arrow/caption + folder + chips.
 
-  python3 scripts/generate-dmg-background.py
+  python3 scripts/generate-dmg-background.py /path/to/landscape.png
 
-Keep ICON_* / W / H in sync with electron-builder.yml dmg.* .
+Finder still draws Atmos.app and the icon-name labels. This PNG paints the
+surface, instruction, Applications folder glyph, and white chips under names.
 """
 from __future__ import annotations
 
+import math
+import sys
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "resources" / "dmg"
+APPLICATIONS_ICON = OUT / "applications-folder.png"
 
-W, H = 540, 380
-ICON_Y = 170
-ICON_L = 148
-ICON_R = 392
+W, H = 642, 406
+ICON_APP = (95, 72)
+ICON_APPLICATIONS = (367, 213)
+ICON_SIZE = 128
 
-SLOGAN = "Atmosphere for Agentic Builders"
+ARROW_X, ARROW_Y = 242, 105
+ARROW_WIDTH = 165
+ARROW_THICKNESS = 4
+ARROW_ROTATION_DEG = 34
+ARROW_COLOR = (0x60, 0x60, 0x60, 255)
+
+TEXT = "Drag to Applications to install"
+TEXT_X, TEXT_Y = 355, 72
+TEXT_SIZE = 19
+TEXT_COLOR = (0x2F, 0x2F, 0x2F, 255)
+TEXT_FONT = (
+    "/System/Library/Fonts/Supplemental/Georgia.ttf",
+    "/Library/Fonts/Georgia.ttf",
+    "/System/Library/Fonts/Times.ttc",
+)
+
+LABEL_FONT_SIZE = 13
+LABEL_PAD_X = 6
+LABEL_PAD_Y = 2
+LABEL_RADIUS = 4
+LABEL_TOP = 137
+LABEL_BG = (255, 255, 255, 0xE0)
+LABEL_FONT = (
+    "/System/Library/Fonts/SFNS.ttf",
+    "/System/Library/Fonts/HelveticaNeue.ttc",
+    "/System/Library/Fonts/Helvetica.ttc",
+)
+LABELS = (
+    ("Atmos", ICON_APP),
+    ("Applications", ICON_APPLICATIONS),
+)
 
 
-def load_font(size: int, *, bold: bool = False) -> ImageFont.ImageFont:
-    # Prefer Helvetica Neue for both weights so slogan + caption share one family.
-    # (Mixing SFNS regular with Helvetica Neue bold made the bottom line look off.)
-    if bold:
-        cands = (
-            ("/System/Library/Fonts/HelveticaNeue.ttc", 1),  # Bold
-            ("/System/Library/Fonts/Helvetica.ttc", 1),
-            ("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 0),
-        )
-    else:
-        cands = (
-            ("/System/Library/Fonts/HelveticaNeue.ttc", 0),  # Regular
-            ("/System/Library/Fonts/Helvetica.ttc", 0),
-            ("/System/Library/Fonts/Supplemental/Arial.ttf", 0),
-        )
-    for path, idx in cands:
+def cover_crop(im: Image.Image, aspect: float) -> Image.Image:
+    w, h = im.size
+    src_aspect = w / h
+    if src_aspect > aspect:
+        new_w = int(round(h * aspect))
+        x0 = (w - new_w) // 2
+        return im.crop((x0, 0, x0 + new_w, h))
+    if src_aspect < aspect:
+        new_h = int(round(w / aspect))
+        y0 = (h - new_h) // 2
+        return im.crop((0, y0, w, y0 + new_h))
+    return im
+
+
+def flatten(im: Image.Image) -> Image.Image:
+    if im.mode == "RGB":
+        return im
+    if im.mode == "RGBA":
+        alpha = im.getchannel("A")
+        if alpha.getextrema() == (255, 255):
+            return im.convert("RGB")
+        bg = Image.new("RGB", im.size, (232, 232, 234))
+        bg.paste(im, mask=alpha)
+        return bg
+    return im.convert("RGB")
+
+
+def load_font(candidates: tuple[str, ...], size: int) -> ImageFont.ImageFont:
+    for path in candidates:
         try:
-            return ImageFont.truetype(path, size=size, index=idx)
+            return ImageFont.truetype(path, size=size)
         except OSError:
             continue
     return ImageFont.load_default()
 
 
-def text_w(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont) -> int:
-    b = draw.textbbox((0, 0), text, font=font)
-    return b[2] - b[0]
+def xform(x: float, y: float, scale: int) -> tuple[float, float]:
+    rad = math.radians(ARROW_ROTATION_DEG)
+    c, s = math.cos(rad), math.sin(rad)
+    return (ARROW_X + x * c - y * s) * scale, (ARROW_Y + x * s + y * c) * scale
 
 
-def text_h(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont) -> int:
-    b = draw.textbbox((0, 0), text, font=font)
-    return b[3] - b[1]
+def qbezier(
+    p0: tuple[float, float],
+    p1: tuple[float, float],
+    p2: tuple[float, float],
+    steps: int = 64,
+) -> list[tuple[float, float]]:
+    pts: list[tuple[float, float]] = []
+    for i in range(steps + 1):
+        t = i / steps
+        u = 1 - t
+        pts.append(
+            (
+                u * u * p0[0] + 2 * u * t * p1[0] + t * t * p2[0],
+                u * u * p0[1] + 2 * u * t * p1[1] + t * t * p2[1],
+            )
+        )
+    return pts
 
 
-def draw_solid_arrow(draw: ImageDraw.ImageDraw, cx: int, cy: int, scale: int) -> None:
-    s = scale
-    shaft_w = int(30 * s)
-    shaft_h = int(11 * s)
-    head_w = int(17 * s)
-    head_h = int(22 * s)
-    color = (24, 24, 27, 255)
-    total_w = shaft_w + head_w
-    x0 = cx - total_w // 2
-    x_join = x0 + shaft_w
-    tip_x = x0 + total_w
-    draw.polygon(
+def draw_arrow(overlay: Image.Image, scale: int) -> None:
+    n = ARROW_WIDTH
+    left, right = -n / 2, n / 2
+    hyp = math.hypot(right, 30)
+    ax, oy = right / hyp, 30 / hyp
+    head = min(18, 0.3 * n)
+    wing = min(12, 0.2 * n)
+    ux, uy = right - ax * head, -oy * head
+
+    def pt(x: float, y: float) -> tuple[int, int]:
+        px, py = xform(x, y, scale)
+        return round(px), round(py)
+
+    draw = ImageDraw.Draw(overlay)
+    width = max(1, round(ARROW_THICKNESS * scale))
+    draw.line(
+        [pt(x, y) for x, y in qbezier((left, 15), (0, -30), (right, 0))],
+        fill=ARROW_COLOR,
+        width=width,
+        joint="curve",
+    )
+    draw.line(
         [
-            (x0, cy - shaft_h // 2),
-            (x_join, cy - shaft_h // 2),
-            (x_join, cy - head_h // 2),
-            (tip_x, cy),
-            (x_join, cy + head_h // 2),
-            (x_join, cy + shaft_h // 2),
-            (x0, cy + shaft_h // 2),
+            pt(ux - oy * wing, uy + ax * wing),
+            pt(right, 0),
+            pt(ux + oy * wing, uy - ax * wing),
         ],
-        fill=color,
+        fill=ARROW_COLOR,
+        width=width,
+        joint="curve",
     )
 
 
-def compose(scale: int) -> Image.Image:
-    w, h = W * scale, H * scale
-    s = scale
+def draw_caption(overlay: Image.Image, scale: int) -> None:
+    font = load_font(TEXT_FONT, TEXT_SIZE * scale)
+    ImageDraw.Draw(overlay).text(
+        (TEXT_X * scale, TEXT_Y * scale),
+        TEXT,
+        font=font,
+        fill=TEXT_COLOR,
+        anchor="mm",
+    )
 
-    # Flat classic DMG gray (no decorative atmosphere)
-    img = Image.new("RGB", (w, h), (232, 232, 234))
-    draw = ImageDraw.Draw(img.convert("RGBA") if False else img)
-    # slight vertical wash so it doesn't look poster-board flat
-    px = img.load()
-    for y in range(h):
-        t = y / max(h - 1, 1)
-        v = int(238 - 12 * t)
-        for x in range(w):
-            px[x, y] = (v, v, v + 1 if v < 254 else v)
 
-    layer = img.convert("RGBA")
-    draw = ImageDraw.Draw(layer)
+def draw_label_chips(overlay: Image.Image, scale: int) -> None:
+    font = load_font(LABEL_FONT, LABEL_FONT_SIZE * scale)
+    draw = ImageDraw.Draw(overlay)
+    probe = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+    for name, (cx, cy) in LABELS:
+        bbox = probe.textbbox((0, 0), name, font=font)
+        chip_w = (bbox[2] - bbox[0]) + 2 * LABEL_PAD_X * scale
+        chip_h = LABEL_FONT_SIZE * scale + 2 * LABEL_PAD_Y * scale
+        x0 = cx * scale - chip_w / 2
+        y0 = (cy - ICON_SIZE / 2 + LABEL_TOP) * scale
+        draw.rounded_rectangle(
+            [x0, y0, x0 + chip_w, y0 + chip_h],
+            radius=LABEL_RADIUS * scale,
+            fill=LABEL_BG,
+        )
 
-    # Same family for slogan + caption (Helvetica Neue); slogan is bold.
-    slogan_font = load_font(int(14 * s), bold=True)
-    cap_font = load_font(int(13 * s), bold=False)
-    cap_bold = load_font(int(13 * s), bold=True)
-    ink = (40, 40, 44, 245)
-    muted = (90, 90, 98, 230)
 
-    # Slogan only at top (no Atmos wordmark)
-    sw = text_w(draw, SLOGAN, slogan_font)
-    sh = text_h(draw, SLOGAN, slogan_font)
-    draw.text(((w - sw) // 2, int(48 * s)), SLOGAN, font=slogan_font, fill=muted)
+def draw_applications_icon(overlay: Image.Image, scale: int) -> None:
+    if not APPLICATIONS_ICON.is_file():
+        raise SystemExit(f"missing {APPLICATIONS_ICON}")
+    icon = Image.open(APPLICATIONS_ICON).convert("RGBA")
+    size = ICON_SIZE * scale
+    icon = icon.resize((size, size), Image.Resampling.LANCZOS)
+    cx, cy = ICON_APPLICATIONS
+    overlay.alpha_composite(icon, (cx * scale - size // 2, cy * scale - size // 2))
 
-    draw_solid_arrow(draw, w // 2, ICON_Y * s, s)
 
-    # Bottom install caption
-    parts = [
-        ("Drag ", cap_font, ink),
-        ("Atmos", cap_bold, ink),
-        (" to Applications to install", cap_font, ink),
-    ]
-    widths = [text_w(draw, t, f) for t, f, _ in parts]
-    x = (w - sum(widths)) // 2
-    y = int(310 * s)
-    for (t, f, fill), ww in zip(parts, widths):
-        draw.text((x, y), t, font=f, fill=fill)
-        x += ww
-
-    return layer.convert("RGB")
+def compose(base: Image.Image, scale: int) -> Image.Image:
+    overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    draw_label_chips(overlay, scale)
+    draw_applications_icon(overlay, scale)
+    draw_arrow(overlay, scale)
+    draw_caption(overlay, scale)
+    return Image.alpha_composite(base.convert("RGBA"), overlay)
 
 
 def main() -> None:
+    if len(sys.argv) != 2:
+        print(
+            "usage: python3 scripts/generate-dmg-background.py /path/to/landscape.png",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    src = Path(sys.argv[1]).expanduser().resolve()
+    if not src.is_file():
+        print(f"missing source image: {src}", file=sys.stderr)
+        sys.exit(1)
+
+    cropped = cover_crop(flatten(Image.open(src)), W / H)
     OUT.mkdir(parents=True, exist_ok=True)
     for scale, name in ((1, "background.png"), (2, "background@2x.png")):
-        img = compose(scale)
+        out = compose(
+            cropped.resize((W * scale, H * scale), Image.Resampling.LANCZOS),
+            scale,
+        ).convert("RGB")
         path = OUT / name
-        img.save(path, "PNG", optimize=True)
-        print(f"wrote {path.relative_to(ROOT)} {img.size[0]}×{img.size[1]}")
+        out.save(path, "PNG", optimize=True, compress_level=9)
+        print(f"wrote {path.relative_to(ROOT)} {out.size[0]}×{out.size[1]}")
 
 
 if __name__ == "__main__":
