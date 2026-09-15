@@ -670,6 +670,7 @@ describe("device preview chrome and inventory", () => {
     expect(camera).toContain("cameraClear");
     expect(camera).toContain("readPngBase64");
     expect(camera).toContain('t("cameraHelper")');
+    expect(camera).toContain("fn: () => Promise<unknown>");
   });
 
   it("lists host devices and gates add/boot when relay is blocked", () => {
@@ -746,6 +747,12 @@ describe("device preview chrome and inventory", () => {
       expect(contract).toContain(`${action}:`);
       expect(client).toContain(`wsRequest("${action}"`);
     }
+    const exportStart = client.indexOf("export type {");
+    const exported = client.slice(
+      exportStart,
+      client.indexOf('} from "@atmos/api-types/ws/dto/simulator"', exportStart),
+    );
+    expect(exported).toContain("SimulatorDevicePlatform");
     const helperUi = `${serveSimUi}\n${serveEmuUi}`;
     expect(helperUi).not.toContain("simulator_create");
     expect(helperUi).not.toContain("simulator_boot");

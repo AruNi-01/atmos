@@ -32,7 +32,7 @@ export function SimulatorCameraControl({
   const show = platform === "android";
 
   const run = React.useCallback(
-    async (kind: "inject" | "clear", fn: () => Promise<void>) => {
+    async (kind: "inject" | "clear", fn: () => Promise<unknown>) => {
       if (!workspaceId) return;
       setBusy(kind);
       setError(null);

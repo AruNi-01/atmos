@@ -19,6 +19,7 @@ export type {
   SimulatorDeleteResponse,
   SimulatorDevice,
   SimulatorDeviceOpRequest,
+  SimulatorDevicePlatform,
   SimulatorDeviceResult,
   SimulatorDevicesChanged,
   SimulatorDownloadProgress,
