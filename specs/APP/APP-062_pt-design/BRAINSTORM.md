@@ -1,6 +1,8 @@
 # Brainstorm · APP-062: PT Design (Prototype Design)
 
 > Problem space and exploration. Settled content graduates to PRD.md; committed architecture graduates to TECH.md.
+>
+> **Successor exploration**: [APP-074](../APP-074_pt-design-interactive-canvas/BRAINSTORM.md) (PTX + real DOM + Edit/Interact). This file remains the wireframe-era record.
 
 ## Context
 

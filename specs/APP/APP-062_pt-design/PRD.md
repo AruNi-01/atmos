@@ -1,6 +1,8 @@
 # PRD · APP-062: PT Design (Prototype Design)
 
 > Product Requirements · WHAT and WHY. **Full product**: standalone package (playground + Agent surfaces) **and** first-class Atmos shell embed (left sidebar → center stage).
+>
+> **Successor**: [APP-074](../APP-074_pt-design-interactive-canvas/PRD.md) is a **greenfield rewrite** (PTX + real DOM + Excalidraw undo). No migration from this spec’s IR, tools, or documents.
 
 ## Context
 
@@ -10,6 +12,7 @@
 - **Agent binaries** (package-owned): **`pt-design`** (Ink CLI), **`pt-design-mcp`** (MCP stdio).
 - **Ship bar (full product)**: Complete package surface (playground, full basic catalog, IR, MCP, CLI+Skill, blocks + variant UX) **plus** Atmos embed: entry in the **left sidebar**, content opens in the **center stage** (tool/center tab pattern). Not a package-only MVP.
 - **Related specs**:
+  - [APP-074](../APP-074_pt-design-interactive-canvas/PRD.md) — successor product model (PTX + real DOM + Edit/Interact).
   - [APP-050](../APP-050_shared-package-layering/PRD.md) — package isolation; PT Design core must not pollute shared/ui/ws types. Host glue lives under `apps/web` (and desktop shell if it hosts the same web UI).
   - [APP-014](../APP-014_canvas/PRD.md) — existing **Canvas** is an ops desk (terminals). **PT Design is a different product**. Do not merge them; do not brand PT Design as “Canvas.”
 - **Settled**: Excalidraw wireframes (not live React); Agent read + write; dual Agent entry (MCP + CLI/Skill, Ink, not Atmos Rust CLI); self-built shadcn-aligned **full basic** catalog; common Block frames; Atmos left sidebar → center open.

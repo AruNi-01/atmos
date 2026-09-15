@@ -421,9 +421,11 @@
       "dependencies": {
         "@excalidraw/excalidraw": "0.18.1",
         "@modelcontextprotocol/sdk": "1.30.0",
+        "@zumer/snapdom": "^2.24.7",
         "ink": "^7.1.1",
         "lucide-react": "^0.544.0",
         "motion": "^12.23.12",
+        "roughjs": "4.6.4",
         "socket.io-client": "^4.8.1",
         "zod": "^4.4.3",
       },

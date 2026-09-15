@@ -27,7 +27,7 @@ import {
   TooltipTrigger,
   cn,
 } from "@workspace/ui";
-import { AnimatePresence, motion } from "motion/react";
+import { MorphingSwap } from "@/shared/components/morphing-swap";
 import {
   Tabs,
   TabsList,
@@ -65,9 +65,6 @@ import {
   TOP_N_OPTIONS,
 } from "@/features/disk-analyzer/lib/tree-adapters";
 import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
-
-const SCAN_CYCLE_EASE = [0.22, 1, 0.36, 1] as const;
-const SCAN_CYCLE_TRANSITION = { duration: 0.2, ease: SCAN_CYCLE_EASE } as const;
 
 function DiskAnalyzerScanButton({
   scanning,
@@ -126,27 +123,20 @@ function DiskAnalyzerScanButton({
       ) : (
         <RefreshCw className="size-4" />
       )}
-      <span className="relative inline-grid overflow-hidden leading-none">
-        <span className="invisible col-start-1 row-start-1 whitespace-nowrap" aria-hidden>
-          {[scanningLabel, cancelLabel, rescanLabel].reduce(
-            (longest, item) =>
-              item.length > longest.length ? item : longest,
-            "",
-          )}
-        </span>
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.span
-            key={labelKey}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={SCAN_CYCLE_TRANSITION}
-            className="col-start-1 row-start-1 whitespace-nowrap"
-          >
-            {label}
-          </motion.span>
-        </AnimatePresence>
-      </span>
+      <MorphingSwap
+        stateKey={labelKey}
+        className="whitespace-nowrap"
+        reserve={
+          <span className="whitespace-nowrap">
+            {[scanningLabel, cancelLabel, rescanLabel].reduce(
+              (longest, item) => (item.length > longest.length ? item : longest),
+              "",
+            )}
+          </span>
+        }
+      >
+        {label}
+      </MorphingSwap>
     </Button>
   );
 }

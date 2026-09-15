@@ -49,6 +49,8 @@ describe("standalone playground", () => {
       const css = await (await fetch(`http://127.0.0.1:${server.port}/excalidraw.css`)).text();
       expect(css).toContain(".excalidraw");
       expect(css).toContain(".pt-design-island-trigger");
+      expect(css).toContain("--pt-ink");
+      expect(css).toContain("Excalifont");
     } finally {
       server.stop();
     }

@@ -2,10 +2,10 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { openFileSession, runTool, type FileSession } from "../agent/api";
-import { PT_ERROR_CODES, PtDesignError } from "../agent/errors";
+import { PtDesignError } from "../protocol";
 import { PT_DESIGN_TOOL_DEFS, unknownToolMessage, type ToolName } from "../agent/tool-defs";
 import { PT_TOOL_SCHEMAS } from "./schemas";
-import { paginate, toolError, toolSuccess, type ResponseFormat, type ToolResult } from "./format";
+import { toolError, toolSuccess, type ResponseFormat, type ToolResult } from "./format";
 import { isMutatingTool } from "../agent/mutating";
 import { requireOfflineFile } from "../agent/file-required";
 import { resolveCollaboratorName } from "../collab/names";
@@ -43,24 +43,25 @@ function annotationsFor(name: ToolName) {
 function mcpDescription(def: (typeof PT_DESIGN_TOOL_DEFS)[number]): string {
   return `${def.description}
 
-Get-before-set: call pt_catalog_list and pt_ir_get before mutating.
+Read document.ptx (or pt_ptx_get), edit the XML, write it back (pt_ptx_apply or save the file). Do not invent Excalidraw JSON.
 
 Error handling:
-  - UNKNOWN_COMPONENT_TYPE — use an id from pt_catalog_list
-  - NOT_FOUND / FRAME_AMBIGUOUS — copy ids from pt_ir_get / pt_frames_list
-  - MISSING_FILE — pass --file for an offline .ptdesign.json
+  - unknown_tool — old APP-062 names are not registered; call pt_tools_list
+  - unknown_type — use an id from pt_catalog_list
+  - invalid_ptx / invalid_option — previous document is unchanged
+  - missing_file — pass --file for an offline .ptd
   - Open board — POST /api/pt-design/agent/invoke; do not join a collaboration room`;
 }
 
 export function executeTool(fs: FileSession, name: string, raw: Record<string, unknown>): ToolResult {
   if (!(name in PT_TOOL_SCHEMAS)) {
-    return toolError(new PtDesignError(PT_ERROR_CODES.USAGE, unknownToolMessage(name)));
+    return toolError(new PtDesignError("unknown_tool", unknownToolMessage(name)));
   }
   const parsed = PT_TOOL_SCHEMAS[name as ToolName].safeParse(raw);
   if (!parsed.success) {
     return toolError(
       new PtDesignError(
-        PT_ERROR_CODES.USAGE,
+        name === "pt_ptx_apply" ? "invalid_ptx" : "unknown_tool",
         parsed.error.issues.map((issue) => issue.message).join("; "),
       ),
     );
@@ -69,23 +70,7 @@ export function executeTool(fs: FileSession, name: string, raw: Record<string, u
   const format = (typeof args.response_format === "string" ? args.response_format : "json") as ResponseFormat;
   try {
     requireOfflineFile(fs, name);
-    let data = runTool(fs, { name: name as ToolName, args });
-    if (name === "pt_catalog_list") {
-      const page = paginate(
-        (data as { items: unknown[] }).items,
-        Number(args.offset ?? 0),
-        Number(args.limit ?? 100),
-      );
-      data = page;
-    }
-    if (name === "pt_frames_list") {
-      const page = paginate(
-        (data as { frames: unknown[] }).frames,
-        Number(args.offset ?? 0),
-        Number(args.limit ?? 100),
-      );
-      data = { ...page, frames: page.items };
-    }
+    const data = runTool(fs, { name, args });
     return toolSuccess(data, format);
   } catch (error) {
     return toolError(error);
@@ -144,11 +129,9 @@ export function createSdkMcpServer(options: { file?: string } = {}): {
             data: {
               tool: def.name,
               label: resolveCollaboratorName("agent"),
-              instanceIds: [],
-              elementIds: [],
             },
           });
-          void sdk.server.sendResourceUpdated({ uri: "pt-design://ir" });
+          void sdk.server.sendResourceUpdated({ uri: "pt-design://ptx" });
         }
         return {
           isError: result.isError,
@@ -164,7 +147,7 @@ export function createSdkMcpServer(options: { file?: string } = {}): {
     "pt-design://catalog",
     {
       title: "Component catalog",
-      description: "All placeable wireframe types as JSON.",
+      description: "Catalog types with XML examples.",
       mimeType: "application/json",
     },
     async (uri) => {
@@ -182,50 +165,21 @@ export function createSdkMcpServer(options: { file?: string } = {}): {
   );
 
   sdk.registerResource(
-    "ir",
-    "pt-design://ir",
+    "ptx",
+    "pt-design://ptx",
     {
-      title: "Design IR",
-      description: "Current Design IR snapshot.",
-      mimeType: "application/json",
+      title: "PTX source",
+      description: "Current document.ptx.",
+      mimeType: "application/xml",
     },
     async (uri) => {
-      const data = runTool(facade.fs, { name: "pt_ir_get", args: {} });
+      const data = runTool(facade.fs, { name: "pt_ptx_get", args: {} }) as { ptx: string };
       return {
         contents: [
           {
             uri: String(uri),
-            mimeType: "application/json",
-            text: JSON.stringify(data, null, 2),
-          },
-        ],
-      };
-    },
-  );
-
-  sdk.registerPrompt(
-    "pt_design_handoff",
-    {
-      title: "Implement this wireframe",
-      description: "Turn the current Design IR into an implementer brief.",
-      argsSchema: {
-        scope: z.enum(["selection", "frame", "document"]).optional(),
-        frame: z.string().optional(),
-      },
-    },
-    async ({ scope, frame }) => {
-      const payload = runTool(facade.fs, {
-        name: "pt_handoff",
-        args: { scope: scope ?? "document", frame },
-      });
-      return {
-        messages: [
-          {
-            role: "user",
-            content: {
-              type: "text",
-              text: JSON.stringify(payload, null, 2),
-            },
+            mimeType: "application/xml",
+            text: data.ptx,
           },
         ],
       };

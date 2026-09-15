@@ -193,10 +193,10 @@ const GithubHubPanel = dynamic(
     ),
   { ssr: false },
 );
-const PtDesignCenterPanel = dynamic(
+const PtDesignHostStage = dynamic(
   () =>
-    import("@/features/pt-design/PtDesignCenterPanel").then(
-      (mod) => mod.PtDesignCenterPanel,
+    import("@/features/pt-design/PtDesignHostStage").then(
+      (mod) => mod.PtDesignHostStage,
     ),
   { ssr: false },
 );
@@ -222,7 +222,7 @@ const KeptGitHistoryPanel = React.memo(GitHistoryPanel);
 const KeptChangesPanel = React.memo(ChangesPanel);
 const KeptReviewCenterPanel = React.memo(ReviewCenterPanel);
 const KeptGithubHubPanel = React.memo(GithubHubPanel);
-const KeptPtDesignCenterPanel = React.memo(PtDesignCenterPanel);
+const KeptPtDesignHostStage = React.memo(PtDesignHostStage);
 const KeptRunScript = React.memo(RunScript);
 const KeptFileTreePanel = React.memo(FileTreePanel);
 
@@ -1153,7 +1153,11 @@ function WorkspaceCenterFrameImpl({
           style={panelStyle("pt-design", visible, paneId)}
         >
           <DiscardableHeavySurface active={isActiveContext && visible}>
-          <KeptPtDesignCenterPanel contextId={contextId} />
+          <KeptPtDesignHostStage
+            contextId={contextId}
+            isProject={isProject}
+            active={isUrlSyncedActive && visible}
+          />
           </DiscardableHeavySurface>
         </div>
           );

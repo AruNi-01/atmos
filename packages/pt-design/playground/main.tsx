@@ -6,4 +6,11 @@ if (!root) {
   throw new Error("PT Design playground missing #root");
 }
 
-createRoot(root).render(<PtDesignApp className="pt-design-playground" />);
+createRoot(root).render(
+  <PtDesignApp
+    className="pt-design-playground"
+    onAction={(payload) => {
+      console.info("pt-design action", payload);
+    }}
+  />,
+);

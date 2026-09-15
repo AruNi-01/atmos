@@ -1,8 +1,9 @@
-import { catalogDisplayName } from "../catalog/labels";
-import type { CatalogEntry } from "../catalog/registry";
-import type { PtMeta, PtSize } from "../core/types";
+import { catalogVariantsFor } from "../catalog/variants";
+import type { PtSize } from "../core/types";
+import type { PtNode } from "../protocol";
+import { PT_RADIUS_NODE_OPTIONS, radiusChoiceOf, type PtRadiusChoice } from "../components/radius";
 
-export type SelectionPropKind = "variant" | "size" | "prop";
+export type SelectionPropKind = "variant" | "size" | "radius" | "prop";
 
 export type SelectionPropOption = {
   id: string;
@@ -21,9 +22,27 @@ export type SelectionPropGroup = {
 export type SelectionPropPatch =
   | { type: "variant"; variant: string }
   | { type: "size"; size: PtSize }
+  | { type: "radius"; radius: PtRadiusChoice }
   | { type: "prop"; key: string; value: boolean };
 
-const BOOLEAN_PROP_KEYS = new Set(["checked", "pressed"]);
+export type RailPlacement = "side" | "bottom";
+
+export type RailAnchor = {
+  placement: RailPlacement;
+  top?: number;
+  left?: number;
+  right?: number;
+  bottom?: number;
+};
+
+export type RailBox = {
+  top: number;
+  left: number;
+  right: number;
+  bottom: number;
+  width: number;
+  height: number;
+};
 
 const SIZE_OPTIONS: SelectionPropOption[] = [
   { id: "sm", label: "S" },
@@ -40,51 +59,55 @@ const TYPOGRAPHY_SIZE_OPTIONS: SelectionPropOption[] = [
 ];
 
 export const STYLE_PANEL_SELECTOR = ".App-menu__left";
+export const MOBILE_EXCALIDRAW_SELECTOR = ".excalidraw--mobile";
+export const RAIL_GAP = 8;
+export const FALLBACK_SIDE_TOP = 64;
+export const FALLBACK_SIDE_LEFT = 220;
+export const FALLBACK_MOBILE_RIGHT = 56;
+export const FALLBACK_MOBILE_BOTTOM = 76;
 
-export function selectionPropGroups(
-  entry: CatalogEntry,
-  meta: Partial<PtMeta> | undefined,
-): SelectionPropGroup[] {
+export function selectionPropGroups(node: PtNode): SelectionPropGroup[] {
   const groups: SelectionPropGroup[] = [];
-  if (entry.variants.length > 1) {
-    const fallback = entry.variants[0]!;
-    const value = meta?.variant && entry.variants.includes(meta.variant) ? meta.variant : fallback;
+  const variants = catalogVariantsFor(node.type);
+  if (variants.length > 1) {
+    const fallback = variants[0]!;
+    const raw = node.props.variant;
+    const current = typeof raw === "string" ? raw : undefined;
+    const value = current && variants.includes(current) ? current : fallback;
     groups.push({
       id: "variant",
       kind: "variant",
       label: "Variant",
       value,
-      options: entry.variants.map((variant) => ({
+      options: variants.map((variant) => ({
         id: variant,
-        label: catalogDisplayName(variant),
+        label: displayName(variant),
       })),
     });
   }
 
-  const sizeOptions = entry.componentType === "typography" ? TYPOGRAPHY_SIZE_OPTIONS : SIZE_OPTIONS;
+  const sizeOptions = node.type === "typography" ? TYPOGRAPHY_SIZE_OPTIONS : SIZE_OPTIONS;
+  const rawSize = node.props.size;
   groups.push({
     id: "size",
     kind: "size",
     label: "Size",
-    value: normalizeSize(meta?.size, sizeOptions),
+    value: normalizeSize(typeof rawSize === "string" ? rawSize : undefined, sizeOptions),
     options: sizeOptions,
   });
 
-  const props = meta?.props ?? {};
-  for (const key of entry.propKeys) {
-    if (!BOOLEAN_PROP_KEYS.has(key)) continue;
-    const on = props[key] === true || props[key] === "true";
-    groups.push({
-      id: `prop:${key}`,
-      kind: "prop",
-      label: catalogDisplayName(key),
-      value: on ? "true" : "false",
-      propKey: key,
-      options: [
-        { id: "false", label: "Off" },
-        { id: "true", label: "On" },
-      ],
-    });
+  groups.push({
+    id: "radius",
+    kind: "radius",
+    label: "Radius",
+    value: radiusChoiceOf(node.props.radius),
+    options: PT_RADIUS_NODE_OPTIONS.map((option) => ({ id: option.id, label: option.label })),
+  });
+
+  if (node.type === "checkbox" || node.type === "switch") {
+    groups.push(booleanGroup("checked", "Checked", node.checked === true));
+  } else if (node.type === "toggle") {
+    groups.push(booleanGroup("pressed", "Pressed", node.checked === true));
   }
 
   return groups;
@@ -93,34 +116,103 @@ export function selectionPropGroups(
 export function selectionPropPatch(group: SelectionPropGroup, optionId: string): SelectionPropPatch | null {
   if (group.kind === "variant") return { type: "variant", variant: optionId };
   if (group.kind === "size") return { type: "size", size: optionId };
+  if (group.kind === "radius") return { type: "radius", radius: radiusChoiceOf(optionId) };
   if (group.kind === "prop" && group.propKey) {
     return { type: "prop", key: group.propKey, value: optionId === "true" };
   }
   return null;
 }
 
-export function instanceIdFromBoardSelection(input: {
-  elements: readonly { id: string; customData?: { pt?: { instanceId?: string } } }[];
+export function applySelectionNodePatch(node: PtNode, patch: SelectionPropPatch): PtNode {
+  if (patch.type === "variant") {
+    return { ...node, props: { ...node.props, variant: patch.variant } };
+  }
+  if (patch.type === "size") {
+    return { ...node, props: { ...node.props, size: patch.size } };
+  }
+  if (patch.type === "radius") {
+    return { ...node, props: { ...node.props, radius: patch.radius } };
+  }
+  if (patch.key === "checked" || patch.key === "pressed") {
+    return { ...node, checked: patch.value };
+  }
+  return { ...node, props: { ...node.props, [patch.key]: patch.value } };
+}
+
+export function selectedNodeIdFromBoardSelection(input: {
+  elements: readonly { id: string; isDeleted?: boolean; customData?: { pt?: { id?: string } } }[];
   selectedIds: readonly string[];
-  previousInstanceId: string | null;
+  previousNodeId: string | null;
 }): string | null {
-  const live = new Set(input.elements.map((el) => el.id));
+  const live = new Set(input.elements.filter((el) => !el.isDeleted).map((el) => el.id));
   const fromSelection =
-    input.elements.find((el) => input.selectedIds.includes(el.id) && el.customData?.pt?.instanceId)?.customData
-      ?.pt?.instanceId ?? null;
+    input.elements.find((el) => input.selectedIds.includes(el.id) && el.customData?.pt?.id)?.customData?.pt
+      ?.id ?? null;
   if (fromSelection) return fromSelection;
   if (input.selectedIds.some((id) => live.has(id))) return null;
   if (input.selectedIds.length === 0) return null;
   if (
-    input.previousInstanceId &&
-    input.elements.some((el) => el.customData?.pt?.instanceId === input.previousInstanceId)
+    input.previousNodeId &&
+    input.elements.some((el) => !el.isDeleted && el.customData?.pt?.id === input.previousNodeId)
   ) {
-    return input.previousInstanceId;
+    return input.previousNodeId;
   }
   return null;
 }
 
-function normalizeSize(size: PtSize | undefined, options: SelectionPropOption[]): string {
+export function railAnchorFromLayout(input: {
+  host: RailBox;
+  mobile: boolean;
+  stylePanel: RailBox | null;
+  colorTool: RailBox | null;
+}): RailAnchor {
+  if (input.mobile) {
+    if (input.colorTool && input.colorTool.width >= 8 && input.colorTool.height >= 8) {
+      return {
+        placement: "bottom",
+        right: Math.round(input.host.right - input.colorTool.left + RAIL_GAP),
+        bottom: Math.round(input.host.bottom - input.colorTool.bottom),
+      };
+    }
+    return {
+      placement: "bottom",
+      right: FALLBACK_MOBILE_RIGHT,
+      bottom: FALLBACK_MOBILE_BOTTOM,
+    };
+  }
+  if (input.stylePanel && input.stylePanel.width >= 8 && input.stylePanel.height >= 8) {
+    return {
+      placement: "side",
+      top: Math.round(input.stylePanel.top - input.host.top + 10),
+      left: Math.round(input.stylePanel.right - input.host.left + RAIL_GAP),
+    };
+  }
+  return { placement: "side", top: FALLBACK_SIDE_TOP, left: FALLBACK_SIDE_LEFT };
+}
+
+function booleanGroup(key: string, label: string, on: boolean): SelectionPropGroup {
+  return {
+    id: `prop:${key}`,
+    kind: "prop",
+    label,
+    value: on ? "true" : "false",
+    propKey: key,
+    options: [
+      { id: "false", label: "Off" },
+      { id: "true", label: "On" },
+    ],
+  };
+}
+
+function displayName(raw: string): string {
+  const parts = raw.split(/[-_.]/).filter(Boolean);
+  if (parts.length === 0) return raw;
+  return parts
+    .map((part, index) => (index === 0 ? part.charAt(0).toUpperCase() + part.slice(1) : part))
+    .join(" ");
+}
+
+function normalizeSize(size: string | undefined, options: SelectionPropOption[]): string {
   if (size && options.some((opt) => opt.id === size)) return size;
   return "default";
 }

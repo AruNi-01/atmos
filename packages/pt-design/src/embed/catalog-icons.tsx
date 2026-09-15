@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   AlignLeft,
   AppWindow,
+  AreaChart,
   ArrowDownLeft,
   ArrowLeftRight,
   ArrowUpRight,
@@ -27,49 +28,51 @@ import {
   Columns3,
   Command,
   Component,
-  File,
-  Ghost,
-  Image,
-  Layers,
-  Link2,
-  Maximize2,
-  MousePointerClick,
-  Sparkles,
-  SquareDashed,
-  Upload,
-  User,
   CreditCard,
+  File,
   FormInput,
   GalleryHorizontal,
+  Gauge,
+  Ghost,
   Group,
   Hash,
+  Image,
   Inbox,
   Info,
   Keyboard,
+  Layers,
   LayoutPanelTop,
   LayoutTemplate,
+  LineChart,
+  Link2,
   List,
   ListChecks,
   ListFilter,
   LoaderCircle,
   LogIn,
   MapPin,
+  Maximize2,
   Menu,
   MessageCircle,
   MessageSquare,
   MessagesSquare,
   Minus,
   MoreHorizontal,
+  MousePointerClick,
   Navigation,
   Paperclip,
   PanelBottom,
   PanelLeft,
   PanelRight,
+  PieChart,
+  Radar,
   RectangleHorizontal,
   ScanSearch,
   Settings,
   SlidersHorizontal,
+  Sparkles,
   Square,
+  SquareDashed,
   StretchHorizontal,
   Table,
   Table2,
@@ -78,8 +81,21 @@ import {
   ToggleLeft,
   Type,
   UnfoldVertical,
+  Upload,
+  User,
   type LucideIcon,
 } from "lucide-react";
+import { CHART_IDS } from "../catalog/chart-list";
+
+function iconForChart(id: string): LucideIcon {
+  if (id.startsWith("chart.area-")) return AreaChart;
+  if (id.startsWith("chart.bar-")) return BarChart3;
+  if (id.startsWith("chart.line-")) return LineChart;
+  if (id.startsWith("chart.pie-")) return PieChart;
+  if (id.startsWith("chart.radar-")) return Radar;
+  if (id.startsWith("chart.radial-")) return Gauge;
+  return Info;
+}
 
 const ICONS: Record<string, LucideIcon> = {
   accordion: ChevronsDownUp,
@@ -152,6 +168,7 @@ const ICONS: Record<string, LucideIcon> = {
   "block.settings-shell": Settings,
   "block.empty-state": Inbox,
   "block.nav-content": LayoutTemplate,
+  ...Object.fromEntries(CHART_IDS.map((id) => [id, iconForChart(id)])),
 };
 
 export const ComponentSidebarIcon = Component;
@@ -180,6 +197,33 @@ export function BlockSidebarIcon({
       <rect x="13" y="3" width="8" height="8" rx="2" />
       <rect x="3" y="13" width="8" height="8" rx="2" />
       <rect x="13" y="13" width="8" height="8" rx="2" />
+    </svg>
+  );
+}
+
+/** shadcn Charts glyph: tiny area sparkline. */
+export function ChartSidebarIcon({
+  size = 16,
+  strokeWidth = 2,
+}: {
+  size?: number;
+  strokeWidth?: number;
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M4 19V6" />
+      <path d="M4 19h16" />
+      <path d="M7 15c2-4 4-6 6-4s3 1 4-3" />
     </svg>
   );
 }
