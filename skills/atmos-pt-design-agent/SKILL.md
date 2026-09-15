@@ -1,6 +1,6 @@
 ---
 name: atmos-pt-design-agent
-version: "2.0.0"
+version: "2.1.0"
 description: "Drive the user's open Atmos Prototype Design board via POST /api/pt-design/agent/invoke: read and edit document.ptx (PTX XML). Use for interactive canvas prototypes. Not Atmos Canvas. Not a wireframe layout engine."
 license: MIT
 ---
@@ -39,6 +39,7 @@ File path:     document.ptx in a .ptd directory (CLI/MCP --file only)
 |-------------|------------|----------------|
 | Build or change the board | Workflow below | *(this file only)* |
 | Which tags/attrs a type uses | `pt_catalog_list` (copy `xmlExample`) | [`references/catalog.md`](references/catalog.md) |
+| Dashboard, metrics, or a chart | `pt_catalog_list` — copy a `chart.*` `xmlExample` | [`references/catalog.md`](references/catalog.md) |
 | Screenshot / live vs file | Workflow below | [`references/board.md`](references/board.md) |
 | Full tool args / error codes / offline `.ptd` | — | [`references/command-reference.md`](references/command-reference.md) |
 

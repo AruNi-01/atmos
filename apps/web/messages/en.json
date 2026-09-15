@@ -1252,7 +1252,7 @@
         },
         "ptDesign": {
           "title": "Prototype Design",
-          "description": "Open the standalone prototype design board"
+          "description": "Open saved Prototype Design boards"
         }
       },
       "tasks": {
@@ -3685,6 +3685,35 @@
     "mode": {
       "edit": "Edit",
       "interact": "Interact"
+    },
+    "overview": {
+      "title": "Prototype Design",
+      "all": "All",
+      "global": "Global",
+      "project": "Project",
+      "workspace": "Workspace",
+      "pinned": "Pinned",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "rename": "Rename",
+      "delete": "Delete",
+      "cancel": "Cancel",
+      "more": "More",
+      "newDesign": "New",
+      "back": "Back",
+      "untitled": "Untitled",
+      "empty": "No saved designs yet",
+      "emptyFilter": "No designs in this filter",
+      "emptySearch": "No designs match this search",
+      "searchPlaceholder": "Search designs",
+      "filter": "Filters",
+      "viewBoard": "Board",
+      "viewList": "List",
+      "filterScope": "Scope",
+      "clearFilters": "Clear filters",
+      "toggleAll": "Toggle all scopes",
+      "confirmDeleteTitle": "Delete this design?",
+      "confirmDeleteDescription": "This removes “{name}” from this computer."
     }
   },
   "canvas": {
@@ -6606,7 +6635,7 @@
           },
           "ptDesign": {
             "title": "Prototype Design",
-            "description": "Open Prototype Design as its own page from Launchpad. A workspace can still open a separate board from the center tab bar."
+            "description": "Open a library of saved Prototype Design boards from Launchpad. A workspace can still open its own board from the center tab bar."
           },
           "newWorkspace": {
             "title": "New Workspace",

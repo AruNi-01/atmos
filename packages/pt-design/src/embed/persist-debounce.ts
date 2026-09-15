@@ -1,5 +1,3 @@
-import type { PtScene } from "../core/types";
-
 export type PersistDebounceOptions = {
   delay?: number;
   schedule?: (fn: () => void, ms: number) => () => void;
@@ -10,30 +8,36 @@ function defaultSchedule(fn: () => void, ms: number) {
   return () => clearTimeout(id);
 }
 
-/** Coalesces scene saves. Call `flush` on unmount. */
-export function createPersistDebouncer(
-  save: (scene: PtScene) => void | Promise<void>,
+/** Coalesces saves. Call `flush` on unmount. */
+export function createPersistDebouncer<T>(
+  save: (latest: T) => void | Promise<void>,
   options: PersistDebounceOptions = {},
 ) {
   const delay = options.delay ?? 250;
   const scheduleTimer = options.schedule ?? defaultSchedule;
   let cancel: (() => void) | null = null;
-  let latest: PtScene | null = null;
+  let latest: T | null = null;
 
   function flush() {
     cancel?.();
     cancel = null;
-    if (!latest) return;
+    if (latest === null) return;
     const next = latest;
     latest = null;
     void save(next);
   }
 
-  function schedule(scene: PtScene) {
-    latest = scene;
+  function schedule(value: T) {
+    latest = value;
     cancel?.();
     cancel = scheduleTimer(flush, delay);
   }
 
-  return { schedule, flush };
+  function drop() {
+    cancel?.();
+    cancel = null;
+    latest = null;
+  }
+
+  return { schedule, flush, drop };
 }

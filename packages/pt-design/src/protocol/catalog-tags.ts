@@ -1,7 +1,8 @@
+import { CHART_IDS } from "../catalog/chart-list";
 import { REQUIRED_BLOCKS, SHADCN_BASIC_IDS } from "../catalog/shadcn-list";
 import type { PtNodeType } from "./schema";
 
-const FROZEN_IDS: readonly PtNodeType[] = [...SHADCN_BASIC_IDS, ...REQUIRED_BLOCKS];
+const FROZEN_IDS: readonly PtNodeType[] = [...SHADCN_BASIC_IDS, ...REQUIRED_BLOCKS, ...CHART_IDS];
 const ID_SET = new Set<string>(FROZEN_IDS);
 
 export function catalogIdToXmlTag(id: PtNodeType): string {

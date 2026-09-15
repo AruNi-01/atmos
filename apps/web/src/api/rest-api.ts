@@ -1041,8 +1041,8 @@ export const ptDesignApi = {
     return fetchApi<PtDesignLibraryList>("/api/pt-design/documents");
   },
 
-  getDocument: async (name: string): Promise<{ name: string; body: { scene?: unknown } }> => {
-    return fetchApi<{ name: string; body: { scene?: unknown } }>(
+  getDocument: async (name: string): Promise<{ name: string; body: unknown }> => {
+    return fetchApi<{ name: string; body: unknown }>(
       `/api/pt-design/documents/${encodeURIComponent(name)}`,
     );
   },

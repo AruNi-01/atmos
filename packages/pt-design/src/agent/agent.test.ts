@@ -93,7 +93,14 @@ describe("agent adapters", () => {
     };
     const button = listed.types.find((item) => item.type === "button");
     expect(button?.xmlExample).toContain("<button");
+    expect(button?.xmlExample).not.toContain('type="agent"');
     expect(button?.agentDescription.length).toBeGreaterThan(0);
+    expect(listed.types.some((item) => item.type === "chart")).toBe(true);
+    const charts = listed.types.filter((item) => item.type.startsWith("chart."));
+    expect(charts).toHaveLength(70);
+    const area = listed.types.find((item) => item.type === "chart.area-default");
+    expect(area?.xmlExample).toContain("<chart-area-default");
+    expect(area?.xmlExample).not.toContain("<chart.area-default");
     expect(() =>
       runSessionTool(session, { name: "pt_doc_init", args: { path: "./nope.ptd" } }),
     ).toThrow(/Live board|\.ptd/);

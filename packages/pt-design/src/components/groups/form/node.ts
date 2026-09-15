@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import type { PtNode, PtNodeType, PtOption } from "../../../protocol";
-import { SKETCH_FONT, SKETCH_INK } from "../../sketch";
+import { SKETCH_FONT, SKETCH_INK, SKETCH_RADIUS_CSS } from "../../sketch";
 
 export type BBox = { width: number; height: number };
 
@@ -62,7 +62,7 @@ export const FIELD: CSSProperties = {
   height: "100%",
   margin: 0,
   border: "none",
-  borderRadius: 0,
+  borderRadius: SKETCH_RADIUS_CSS,
   padding: "0 10px",
   fontSize: 14,
   lineHeight: 1.4,

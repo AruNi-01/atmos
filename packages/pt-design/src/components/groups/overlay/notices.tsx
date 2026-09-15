@@ -1,32 +1,38 @@
-import type { ReactElement } from "react";
+import { useState, type ReactElement } from "react";
 import type { PtNode } from "../../../protocol";
 import type { PtComponentModule, PtRendererProps } from "./contract";
 import { TEXT_FIELDS, propString, spatialNode } from "./defaults";
-import { OverlayFrame, overlayTokens } from "./shared";
+import { OverlayFrame, ghostButtonStyle, overlayTokens } from "./shared";
 
-function ToastRow(props: { title: string; description?: string }): ReactElement {
+function ToastRow(props: { title: string; description?: string; onClose: () => void }): ReactElement {
   return (
     <div
       role="status"
       style={{
         display: "flex",
-        flexDirection: "column",
-        gap: 2,
+        alignItems: "flex-start",
+        gap: 8,
         padding: "10px 12px",
-        borderRadius: 10,
+        borderRadius: overlayTokens.radius,
         background: overlayTokens.bg,
         border: `1px solid ${overlayTokens.border}`,
       }}
     >
-      <div style={{ fontSize: 13, fontWeight: 600 }}>{props.title}</div>
-      {props.description ? (
-        <div style={{ fontSize: 12, color: overlayTokens.muted, lineHeight: 1.4 }}>{props.description}</div>
-      ) : null}
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>{props.title}</div>
+        {props.description ? (
+          <div style={{ fontSize: 12, color: overlayTokens.muted, lineHeight: 1.4 }}>{props.description}</div>
+        ) : null}
+      </div>
+      <button type="button" onClick={props.onClose} style={{ ...ghostButtonStyle(), padding: "4px 8px", flexShrink: 0 }}>
+        Close
+      </button>
     </div>
   );
 }
 
 function ToastPanel(props: PtRendererProps): ReactElement {
+  const [visible, setVisible] = useState(true);
   const title = propString(props.node, "title", propString(props.node, "label", "Notification"));
   const description = propString(props.node, "description", "Saved just now.");
   return (
@@ -36,10 +42,10 @@ function ToastPanel(props: PtRendererProps): ReactElement {
       onCommit={props.onCommit}
       onAction={props.onAction}
       role="status"
-      style={{ boxShadow: overlayTokens.shadow, justifyContent: "center" }}
+      style={{ justifyContent: "center" }}
     >
       <div style={{ padding: 10 }}>
-        <ToastRow title={title} description={description} />
+        {visible ? <ToastRow title={title} description={description} onClose={() => setVisible(false)} /> : null}
       </div>
     </OverlayFrame>
   );
@@ -59,6 +65,7 @@ function sonnerItems(node: PtNode): { title: string; description: string }[] {
 
 function SonnerPanel(props: PtRendererProps): ReactElement {
   const items = sonnerItems(props.node);
+  const [dismissed, setDismissed] = useState<ReadonlySet<number>>(() => new Set());
   return (
     <OverlayFrame
       node={props.node}
@@ -69,9 +76,22 @@ function SonnerPanel(props: PtRendererProps): ReactElement {
       style={{ background: overlayTokens.mutedBg, boxShadow: "none" }}
     >
       <div style={{ padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-        {items.map((item, index) => (
-          <ToastRow key={`${item.title}-${index}`} title={item.title} description={item.description} />
-        ))}
+        {items.map((item, index) =>
+          dismissed.has(index) ? null : (
+            <ToastRow
+              key={`${item.title}-${index}`}
+              title={item.title}
+              description={item.description}
+              onClose={() =>
+                setDismissed((prev) => {
+                  const next = new Set(prev);
+                  next.add(index);
+                  return next;
+                })
+              }
+            />
+          ),
+        )}
       </div>
     </OverlayFrame>
   );

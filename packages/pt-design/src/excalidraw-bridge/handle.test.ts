@@ -92,6 +92,22 @@ describe("live handle hit fill", () => {
     expect(live.roundness).toEqual({ type: 3, value: 12 });
   });
 
+  test("prepareLiveHandle follows node radius then the global token", () => {
+    const none = prepareLiveHandle({
+      id: "el_run",
+      customData: { pt: { id: "run", props: { radius: "none" } } },
+    });
+    expect(none.roundness).toEqual({ type: 3, value: 0 });
+    const fromGlobal = prepareLiveHandle(
+      {
+        id: "el_run",
+        customData: { pt: { id: "run" } },
+      },
+      "lg",
+    );
+    expect(fromGlobal.roundness).toEqual({ type: 3, value: 28 });
+  });
+
   test("prepareLiveHandle leaves freehand unchanged", () => {
     const el = { id: "draw1", backgroundColor: "transparent", locked: true };
     expect(prepareLiveHandle(el)).toBe(el);

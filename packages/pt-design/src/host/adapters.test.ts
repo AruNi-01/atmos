@@ -63,4 +63,32 @@ describe("S28 old storage key ignored", () => {
     expect(await adapter.load()).toEqual(doc);
     expect(await memoryPersistence().load()).toBeNull();
   });
+
+  test("v2 persist keeps global radius settings", async () => {
+    installLocalStorage();
+    const adapter = localStoragePersistence("pt-design/v2/ws-radius");
+    const doc = { ptx: `<page id="p"></page>\n`, settings: { radius: "lg" } };
+    await adapter.save(doc);
+    expect(await adapter.load()).toEqual(doc);
+  });
+
+  test("v2 persist round-trips overview metadata", async () => {
+    installLocalStorage();
+    const adapter = localStoragePersistence("pt-design/v2/doc-meta");
+    const doc = {
+      ptx: `<page id="p"></page>\n`,
+      meta: {
+        id: "doc-meta",
+        name: "Home",
+        scope: "global" as const,
+        pinned: true,
+        pinOrder: 3,
+        updatedAt: 100,
+        preview: "data:image/svg+xml;charset=utf-8,svg",
+        openMode: "canvas" as const,
+      },
+    };
+    await adapter.save(doc);
+    expect(await adapter.load()).toEqual(doc);
+  });
 });

@@ -31,4 +31,24 @@ describe("persist debounce", () => {
     expect(saves).toHaveLength(2);
     expect(saves[1]?.appState.viewBackgroundColor).toBe("#ccc");
   });
+
+  test("drop cancels a pending save without writing", () => {
+    const saves: PtScene[] = [];
+    let pending: (() => void) | null = null;
+    const debouncer = createPersistDebouncer((scene) => {
+      saves.push(scene);
+    }, {
+      delay: 250,
+      schedule(fn) {
+        pending = fn;
+        return () => {
+          pending = null;
+        };
+      },
+    });
+    debouncer.schedule({ ...emptyScene(), appState: { viewBackgroundColor: "#aaa" } });
+    debouncer.drop();
+    pending?.();
+    expect(saves).toEqual([]);
+  });
 });

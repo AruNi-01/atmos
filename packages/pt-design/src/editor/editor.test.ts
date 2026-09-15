@@ -4,12 +4,16 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { COMPONENT_PALETTE_IDS } from "../catalog/shadcn-list";
 import { listComponentTypes } from "../components/registry";
 import { ModeToggle } from "./ModeToggle";
 import {
   Palette,
+  buildChartPaletteGroups,
+  buildGroupedMenuItems,
   buildPaletteMenuItems,
   catalogLabel,
+  searchGroupedPaletteEntries,
   searchPaletteEntries,
 } from "./Palette";
 
@@ -62,10 +66,11 @@ describe("ModeToggle", () => {
 });
 
 describe("Palette", () => {
-  test("catalogLabel uses sentence case and strips block prefix", () => {
+  test("catalogLabel uses sentence case and strips block and chart prefixes", () => {
     expect(catalogLabel("alert-dialog")).toBe("Alert dialog");
     expect(catalogLabel("block.auth-form")).toBe("Auth form");
     expect(catalogLabel("button")).toBe("Button");
+    expect(catalogLabel("chart.area-default")).toBe("Area default");
   });
   test("lists listComponentTypes and does not use the old wireframe catalog", () => {
     const html = renderToStaticMarkup(createElement(Palette, { onInsert: () => {} }));
@@ -137,6 +142,78 @@ describe("Palette", () => {
 
   test("catalog search is empty when nothing matches", () => {
     expect(searchPaletteEntries(listComponentTypes(), "zzzz-not-a-component")).toEqual([]);
+  });
+
+  test("Charts palette is a two-level type then component menu", () => {
+    const placed: string[] = [];
+    const groups = buildChartPaletteGroups();
+    expect(groups.map((group) => group.label)).toEqual([
+      "Area Charts",
+      "Bar Charts",
+      "Line Charts",
+      "Pie Charts",
+      "Radar Charts",
+      "Radial Charts",
+      "Tooltips",
+    ]);
+    expect(groups.map((group) => group.items.length)).toEqual([10, 10, 10, 11, 14, 6, 9]);
+    const menu = buildGroupedMenuItems(groups, (type) => {
+      placed.push(type);
+    });
+    expect(menu.every((item) => (item.children?.length ?? 0) > 0)).toBe(true);
+    const area = menu.find((item) => item.id === "area");
+    expect(area?.label).toBe("Area Charts");
+    expect(area?.children?.map((child) => child.label)).toEqual([
+      "Interactive",
+      "Default",
+      "Linear",
+      "Step",
+      "Legend",
+      "Stacked",
+      "Stacked expand",
+      "Icons",
+      "Gradient",
+      "Axes",
+    ]);
+    expect(area?.children?.some((child) => child.label.includes("area-"))).toBe(false);
+    const linear = area?.children?.find((child) => child.id === "chart.area-linear");
+    linear?.onSelect?.(linear);
+    expect(placed).toEqual(["chart.area-linear"]);
+    const html = renderToStaticMarkup(
+      createElement(Palette, { onInsert: () => {}, groups, rootLabel: "Charts" }),
+    );
+    expect(html).toContain("data-menu-id=\"area\"");
+    expect(html).toContain("Area Charts");
+    expect(html).toContain("aria-label=\"Charts\"");
+    expect(html).not.toContain("data-menu-id=\"chart.area-linear\"");
+  });
+
+  test("Component palette does not list the chart stub or gallery charts", () => {
+    const menu = buildPaletteMenuItems(COMPONENT_PALETTE_IDS, () => {});
+    expect(menu.map((item) => item.id)).not.toContain("chart");
+    expect(menu.some((item) => String(item.id).startsWith("chart."))).toBe(false);
+    const html = renderToStaticMarkup(
+      createElement(Palette, { types: COMPONENT_PALETTE_IDS, onInsert: () => {} }),
+    );
+    expect(html).not.toContain('data-menu-id="chart"');
+    expect(html).not.toContain('data-menu-id="chart.');
+  });
+
+  test("Charts search matches group names and component titles", () => {
+    const groups = buildChartPaletteGroups();
+    const areaHits = searchGroupedPaletteEntries(groups, "area");
+    expect(areaHits).toHaveLength(10);
+    expect(areaHits.every((hit) => hit.type.startsWith("chart.area-"))).toBe(true);
+    const donut = searchGroupedPaletteEntries(groups, "donut");
+    expect(donut.map((hit) => hit.type).sort()).toEqual([
+      "chart.pie-donut",
+      "chart.pie-donut-active",
+      "chart.pie-donut-text",
+    ]);
+    expect(searchGroupedPaletteEntries(groups, "linear").map((hit) => hit.type).sort()).toEqual([
+      "chart.area-linear",
+      "chart.line-linear",
+    ]);
   });
 });
 

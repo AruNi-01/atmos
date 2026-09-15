@@ -6,20 +6,36 @@ import { createId } from "../core/ids";
 import {
   localStoragePersistence,
   type DesignLibrary,
-  type DesignLibraryItem,
   type HandoffSink,
   type PersistenceAdapter,
+  type PtDesignMeta,
   type PtPersistV2,
   type PtTheme,
 } from "../host/adapters";
+import { mergePtDesignMeta, ptDesignIdFromKey } from "../host/catalog";
+import { libraryFileStem, namedPersistForLibrarySave, shouldPromptLibraryName } from "../host/library-file";
+import { isLiveRasterPreview, contentBoundsFromPersist, previewNeedsRegen } from "../host/preview";
+import { persistPreviewImage } from "../host/preview-blob";
+import { parseRadiusToken, PT_RADIUS_DEFAULT, type PtRadiusToken } from "../components/radius";
 import { catalogListFromRegistry } from "../agent/session-tools";
 import { allToolDefs, liveBoardToolNames, unknownToolMessage, type ToolName } from "../agent/tool-defs";
 import { PtDesignError, type HandleElement, type PtDocument } from "../protocol";
-import { REQUIRED_BLOCKS, SHADCN_BASIC_IDS } from "../catalog/shadcn-list";
+import { REQUIRED_BLOCKS, COMPONENT_PALETTE_IDS } from "../catalog/shadcn-list";
+import { ModeToggle, Palette, buildChartPaletteGroups, type DesignMode } from "../editor";
 import { chromeTokens, resolveBoardTheme } from "./chrome";
 import { agentInvokeUrl, normalizeAgentApiBase } from "./agent-prompt";
-import { createLiveBoard, type LiveBoard } from "./live-board";
+import { createLiveBoard, applySceneCameraNever, type LiveBoard } from "./live-board";
 import { OverlayHost } from "./overlay";
+import {
+  AGENT_REVEAL_MS,
+  PLACE_REVEAL_MS,
+  cameraToShowRect,
+  elementsForPtIds,
+  sceneRectToBoardBox,
+  selectedIdsForElements,
+  unionElementBounds,
+  type RevealBox,
+} from "./place-reveal";
 import { SelectionPropsRail } from "./SelectionPropsRail";
 import {
   applySelectionNodePatch,
@@ -28,17 +44,15 @@ import {
   selectionPropPatch,
   type SelectionPropGroup,
 } from "./selection-props";
-import { ModeToggle, Palette, type DesignMode } from "../editor";
 import { catalogPlaceAt, PLACE_VIEWPORT_CHROME, sceneViewportRect } from "../editor/place-clear";
 import {
-  excalidrawElementsToScene,
   keepOverlayThroughEmptyLoad,
   sameOverlayDocument,
   sameOverlayViewport,
-  sceneToExcalidrawElements,
   type ExcalidrawCompatElement,
 } from "./scene-bridge";
-import { captureLiveScreenshot } from "./screenshot";
+import { createPersistDebouncer } from "./persist-debounce";
+import { captureLiveScreenshot, PREVIEW_CAPTURE_MAX_EDGE } from "./screenshot";
 import { useExcalidrawCollab } from "./use-collab";
 import { resolveShareCopy, type ShareCopy } from "./SharePopover";
 import { defaultDesignName, LibraryOverlay } from "./LibraryOverlay";
@@ -87,6 +101,9 @@ export type PtDesignAppProps = {
   clientId?: string;
   modeLabels?: { edit: string; interact: string };
   onAction?: (payload: PtDesignHostAction) => void;
+  documentMeta?: Partial<PtDesignMeta>;
+  onBack?: () => void;
+  backLabel?: string;
 };
 
 const ExcalidrawBoard = React.lazy(() => import("./ExcalidrawBoard"));
@@ -95,6 +112,21 @@ const EMPTY_DOC: PtDocument = { version: "ptx/1", pages: [{ id: "page", nodes: [
 
 function emptyOverlayState() {
   return { scrollX: 0, scrollY: 0, zoom: { value: 1 }, viewModeEnabled: false };
+}
+
+function persistIdFromKey(storageKey: string): string {
+  return ptDesignIdFromKey(storageKey) ?? storageKey;
+}
+
+function decoratePersistMeta(doc: Omit<PtPersistV2, "meta">, meta: PtDesignMeta): PtPersistV2 {
+  const nextMeta = { ...meta, updatedAt: Date.now() };
+  if (isLiveRasterPreview(nextMeta.preview)) {
+    nextMeta.previewFit = "content";
+  } else {
+    delete nextMeta.preview;
+    delete nextMeta.previewFit;
+  }
+  return { ...doc, meta: nextMeta };
 }
 
 function canvasDump(api: ExcalidrawHostApi): { elements: readonly unknown[]; appState: Record<string, unknown> } {
@@ -114,32 +146,6 @@ function canvasDump(api: ExcalidrawHostApi): { elements: readonly unknown[]; app
 
 function asHandles(elements: readonly unknown[]): HandleElement[] {
   return elements as HandleElement[];
-}
-
-function createPersistDebouncer(save: (doc: PtPersistV2) => void | Promise<void>, delay = 250) {
-  let cancel: ReturnType<typeof setTimeout> | null = null;
-  let latest: PtPersistV2 | null = null;
-  return {
-    schedule(doc: PtPersistV2) {
-      latest = doc;
-      if (cancel) clearTimeout(cancel);
-      cancel = setTimeout(() => {
-        cancel = null;
-        if (!latest) return;
-        const next = latest;
-        latest = null;
-        void save(next);
-      }, delay);
-    },
-    flush() {
-      if (cancel) clearTimeout(cancel);
-      cancel = null;
-      if (!latest) return;
-      const next = latest;
-      latest = null;
-      void save(next);
-    },
-  };
 }
 
 function errorCodeOf(error: unknown): string {
@@ -164,6 +170,9 @@ export function PtDesignApp({
   clientId = "default",
   modeLabels,
   onAction,
+  documentMeta,
+  onBack,
+  backLabel,
 }: PtDesignAppProps) {
   const persist = React.useMemo(
     () => persistence ?? localStoragePersistence(storageKey),
@@ -175,6 +184,11 @@ export function PtDesignApp({
   const loadSettledRef = React.useRef(false);
   const persistRef = React.useRef(persist);
   persistRef.current = persist;
+  const documentMetaRef = React.useRef(documentMeta);
+  documentMetaRef.current = documentMeta;
+  const metaRef = React.useRef<PtDesignMeta | null>(null);
+  const previewTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const schedulePreviewCaptureRef = React.useRef<() => void>(() => {});
   const [boardReady, setBoardReady] = React.useState(false);
   const [mode, setMode] = React.useState<DesignMode>("edit");
   const [overlayDoc, setOverlayDoc] = React.useState<PtDocument>(EMPTY_DOC);
@@ -182,16 +196,25 @@ export function PtDesignApp({
   const overlayDocRef = React.useRef(overlayDoc);
   const overlayStateRef = React.useRef(overlayState);
   const [shareOpen, setShareOpen] = React.useState(false);
-  const [libraryMode, setLibraryMode] = React.useState<"save" | "open" | null>(null);
-  const [libraryItems, setLibraryItems] = React.useState<DesignLibraryItem[]>([]);
+  const [libraryMode, setLibraryMode] = React.useState<"save" | null>(null);
   const [libraryError, setLibraryError] = React.useState<string | null>(null);
   const [libraryFile, setLibraryFile] = React.useState<string | null>(() => {
     if (typeof localStorage === "undefined") return null;
     return localStorage.getItem(`${storageKey}:file`);
   });
+  const libraryRef = React.useRef(library);
+  libraryRef.current = library;
+  const libraryFileRef = React.useRef(libraryFile);
+  libraryFileRef.current = libraryFile;
   const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
   const selectedNodeIdRef = React.useRef<string | null>(null);
   selectedNodeIdRef.current = selectedNodeId;
+  const [revealIds, setRevealIds] = React.useState<string[] | null>(null);
+  const [revealKind, setRevealKind] = React.useState<"catalog" | "agent">("catalog");
+  const [revealBox, setRevealBox] = React.useState<RevealBox | null>(null);
+  const [globalRadius, setGlobalRadius] = React.useState<PtRadiusToken>(PT_RADIUS_DEFAULT);
+  const globalRadiusRef = React.useRef(globalRadius);
+  globalRadiusRef.current = globalRadius;
   const boardTheme = resolveBoardTheme(theme);
   const chrome = chromeTokens(boardTheme);
   const shareLabels = resolveShareCopy(shareCopy);
@@ -240,6 +263,20 @@ export function PtDesignApp({
       loadingRef.current = true;
       loadSettledRef.current = false;
       try {
+        const radius = parseRadiusToken(loaded?.settings?.radius);
+        globalRadiusRef.current = radius;
+        setGlobalRadius(radius);
+        const persistId = persistIdFromKey(storageKey);
+        const mergedMeta = mergePtDesignMeta(
+          loaded?.meta,
+          documentMetaRef.current,
+          persistId,
+          loaded,
+        );
+        metaRef.current = mergedMeta;
+        if (loaded && !loaded.meta) {
+          void persistRef.current.save({ ...loaded, meta: mergedMeta });
+        }
         liveBoardRef.current.loadPersist(loaded);
         const app = api.getAppState();
         syncOverlay(liveBoardRef.current.extract(), {
@@ -247,6 +284,15 @@ export function PtDesignApp({
           scrollY: app.scrollY,
           zoom: app.zoom,
           viewModeEnabled: app.viewModeEnabled ?? false,
+        });
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (cancelled) return;
+            const loadedDoc = loaded ?? { ptx: "" };
+            if (previewNeedsRegen(mergedMeta.preview, contentBoundsFromPersist(loadedDoc), mergedMeta.previewFit)) {
+              schedulePreviewCaptureRef.current();
+            }
+          });
         });
       } finally {
         loadSettledRef.current = true;
@@ -261,12 +307,138 @@ export function PtDesignApp({
     };
   }, [boardReady, persist, syncOverlay]);
 
-  const persistDebouncer = React.useMemo(
-    () => createPersistDebouncer((doc) => persistRef.current.save(doc)),
+  const bindLibraryFile = React.useCallback(
+    (name: string) => {
+      libraryFileRef.current = name;
+      setLibraryFile(name);
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(`${storageKey}:file`, name);
+      }
+    },
+    [storageKey],
+  );
+
+  React.useEffect(() => {
+    if (typeof localStorage === "undefined") return;
+    setLibraryFile(localStorage.getItem(`${storageKey}:file`));
+  }, [storageKey]);
+
+  const snapshotCurrentPersist = React.useCallback((): PtPersistV2 | null => {
+    const api = apiRef.current;
+    const board = liveBoardRef.current;
+    if (!api || !board) return null;
+    const persistId = persistIdFromKey(storageKey);
+    const baseMeta = mergePtDesignMeta(
+      metaRef.current ?? undefined,
+      documentMetaRef.current,
+      persistId,
+      null,
+    );
+    const payload = decoratePersistMeta(
+      {
+        ptx: board.extractPtx(),
+        canvas: canvasDump(api),
+        files: api.getFiles?.(),
+        settings: { radius: globalRadiusRef.current },
+      },
+      baseMeta,
+    );
+    metaRef.current = payload.meta ?? baseMeta;
+    return payload;
+  }, [storageKey]);
+
+  const fileSyncDebouncer = React.useMemo(
+    () =>
+      createPersistDebouncer<PtPersistV2>((doc) => {
+        const bound = libraryFileRef.current;
+        const lib = libraryRef.current;
+        if (!bound || !lib) return;
+        void lib.save(bound, doc).catch(() => undefined);
+      }, { delay: 800 }),
     [],
   );
 
-  React.useEffect(() => () => persistDebouncer.flush(), [persistDebouncer]);
+  const persistDebouncer = React.useMemo(
+    () =>
+      createPersistDebouncer<PtPersistV2>((doc) => {
+        void persistRef.current.save(doc);
+        if (libraryFileRef.current && libraryRef.current) {
+          fileSyncDebouncer.schedule(doc);
+        }
+      }),
+    [fileSyncDebouncer],
+  );
+
+  const capturePreviewNow = React.useCallback(async () => {
+    const live = apiRef.current;
+    const board = liveBoardRef.current;
+    const latestMeta = metaRef.current;
+    if (!live || !board || !latestMeta) return;
+    try {
+      const shot = await captureLiveScreenshot(live, { maxEdge: PREVIEW_CAPTURE_MAX_EDGE, preview: true });
+      if (!isLiveRasterPreview(shot.dataUrl) && !shot.blob) return;
+      const stored = await persistPreviewImage(latestMeta.id, shot.dataUrl, shot.blob);
+      if (!stored) return;
+      const nextMeta = {
+        ...latestMeta,
+        preview: stored,
+        previewFit: "content" as const,
+        updatedAt: Date.now(),
+      };
+      metaRef.current = nextMeta;
+      persistDebouncer.schedule({
+        ptx: board.extractPtx(),
+        canvas: canvasDump(live),
+        files: live.getFiles?.(),
+        settings: { radius: globalRadiusRef.current },
+        meta: nextMeta,
+      });
+    } catch {
+      /* keep last live raster; never write bbox-rect SVG */
+    }
+  }, [persistDebouncer]);
+
+  const schedulePreviewCapture = React.useCallback(() => {
+    if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
+    previewTimerRef.current = setTimeout(() => {
+      previewTimerRef.current = null;
+      void capturePreviewNow();
+    }, 800);
+  }, [capturePreviewNow]);
+  schedulePreviewCaptureRef.current = schedulePreviewCapture;
+
+  const handleBack = React.useCallback(() => {
+    if (!onBack) return;
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+    const shot = capturePreviewNow();
+    const timeout = new Promise<void>((resolve) => {
+      setTimeout(resolve, 800);
+    });
+    void Promise.race([shot, timeout]).finally(() => {
+      persistDebouncer.flush();
+      fileSyncDebouncer.flush();
+      onBack();
+    });
+  }, [capturePreviewNow, fileSyncDebouncer, onBack, persistDebouncer]);
+
+  React.useEffect(
+    () => () => {
+      if (previewTimerRef.current) {
+        clearTimeout(previewTimerRef.current);
+        previewTimerRef.current = null;
+      }
+      persistDebouncer.flush();
+      fileSyncDebouncer.flush();
+      void capturePreviewNow().then(() => {
+        persistDebouncer.flush();
+        fileSyncDebouncer.flush();
+      });
+    },
+    [capturePreviewNow, fileSyncDebouncer, persistDebouncer],
+  );
 
   const applyRemoteElements = React.useCallback((elements: readonly unknown[]) => {
     const board = liveBoardRef.current;
@@ -343,14 +515,12 @@ export function PtDesignApp({
       }
       collab.broadcastScene(elements);
       if (api) {
-        persistDebouncer.schedule({
-          ptx: board.extractPtx(),
-          canvas: canvasDump(api),
-          files: api.getFiles?.(),
-        });
+        const payload = snapshotCurrentPersist();
+        if (payload) persistDebouncer.schedule(payload);
+        schedulePreviewCapture();
       }
     },
-    [collab.broadcastScene, persistDebouncer, syncOverlay],
+    [collab.broadcastScene, persistDebouncer, schedulePreviewCapture, snapshotCurrentPersist, syncOverlay],
   );
 
   const onModeChange = React.useCallback((next: DesignMode) => {
@@ -361,6 +531,78 @@ export function PtDesignApp({
     setOverlayState(nextState);
   }, []);
 
+  const revealOnBoard = React.useCallback((ptIds: string[], kind: "catalog" | "agent" = "catalog") => {
+    const api = apiRef.current;
+    const board = liveBoardRef.current;
+    if (!api || ptIds.length === 0) return;
+    const fromScene = () => elementsForPtIds(api.getSceneElements(), ptIds);
+    const fromDoc = () => {
+      const nodes = board?.extract().pages[0]?.nodes ?? [];
+      return nodes
+        .filter((node) => ptIds.includes(node.id))
+        .map((node) => ({ x: node.x, y: node.y, width: node.width, height: node.height }));
+    };
+    const selectAndPan = (attempt = 0) => {
+      const targets = fromScene();
+      if (targets.length === 0 && attempt < 8) {
+        requestAnimationFrame(() => selectAndPan(attempt + 1));
+        return;
+      }
+      if (targets.length > 0) {
+        api.updateScene({
+          appState: { selectedElementIds: selectedIdsForElements(targets) },
+          captureUpdate: "NEVER",
+        });
+      }
+      const bounds = unionElementBounds(targets.length ? targets : fromDoc());
+      if (!bounds) return;
+      applySceneCameraNever(
+        {
+          getAppState: () => api.getAppState(),
+          updateScene: (opts) => {
+            api.updateScene({
+              ...(opts.appState ? { appState: opts.appState } : {}),
+              captureUpdate: opts.captureUpdate,
+            });
+          },
+        },
+        cameraToShowRect(bounds, api.getAppState()),
+      );
+      selectedNodeIdRef.current = ptIds[0] ?? null;
+      setSelectedNodeId(ptIds[0] ?? null);
+      setRevealKind(kind);
+      setRevealIds(ptIds);
+    };
+    selectAndPan();
+  }, []);
+
+  React.useEffect(() => {
+    if (!revealIds) {
+      setRevealBox(null);
+      return;
+    }
+    const until = performance.now() + (revealKind === "agent" ? AGENT_REVEAL_MS : PLACE_REVEAL_MS);
+    let frame = 0;
+    const tick = () => {
+      const api = apiRef.current;
+      const board = liveBoardRef.current;
+      const sceneBounds = api ? unionElementBounds(elementsForPtIds(api.getSceneElements(), revealIds)) : null;
+      const docBounds =
+        board &&
+        unionElementBounds(
+          (board.extract().pages[0]?.nodes ?? [])
+            .filter((node) => revealIds.includes(node.id))
+            .map((node) => ({ x: node.x, y: node.y, width: node.width, height: node.height })),
+        );
+      const bounds = sceneBounds ?? docBounds;
+      if (api && bounds) setRevealBox(sceneRectToBoardBox(bounds, api.getAppState()));
+      if (performance.now() < until) frame = requestAnimationFrame(tick);
+      else setRevealIds(null);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [revealIds, revealKind]);
+
   const onPaletteInsert = React.useCallback((
     type: Parameters<typeof defaultNodeFor>[0],
     variant?: string,
@@ -370,7 +612,7 @@ export function PtDesignApp({
     if (!api || !board) return;
     const id = createId("pt");
     const node = defaultNodeFor(type, id);
-    if (variant) node.props = { ...node.props, variant };
+    node.props = { ...node.props, ...(variant ? { variant } : {}), radius: "default" };
     const current = board.extract();
     const page = current.pages[0] ?? { id: "page", nodes: [] };
     const at = catalogPlaceAt(
@@ -387,9 +629,14 @@ export function PtDesignApp({
       },
       "IMMEDIATELY",
     );
-  }, []);
+    revealOnBoard([id], "catalog");
+  }, [revealOnBoard]);
 
-  const onOverlayCommit = React.useCallback((doc: PtDocument) => {
+  const onOverlayCommit = React.useCallback((doc: PtDocument, capture: "IMMEDIATELY" | "NEVER" = "NEVER") => {
+    if (capture === "IMMEDIATELY") {
+      liveBoardRef.current?.applyDocument(doc, "IMMEDIATELY");
+      return;
+    }
     liveBoardRef.current?.applyDocument(doc, "NEVER");
   }, []);
 
@@ -399,6 +646,31 @@ export function PtDesignApp({
     },
     [onAction],
   );
+
+  const persistCurrent = React.useCallback((radius: PtRadiusToken) => {
+    const api = apiRef.current;
+    const board = liveBoardRef.current;
+    if (!api || !board) return;
+    persistDebouncer.schedule(
+      decoratePersistMeta(
+        {
+          ptx: board.extractPtx(),
+          canvas: canvasDump(api),
+          files: api.getFiles?.(),
+          settings: { radius },
+        },
+        metaRef.current ??
+          mergePtDesignMeta(undefined, documentMetaRef.current, persistIdFromKey(storageKey), null),
+      ),
+    );
+    persistDebouncer.flush();
+  }, [persistDebouncer, storageKey]);
+
+  const onGlobalRadiusChange = React.useCallback((radius: PtRadiusToken) => {
+    globalRadiusRef.current = radius;
+    setGlobalRadius(radius);
+    persistCurrent(radius);
+  }, [persistCurrent]);
 
   const applySelectionPatch = React.useCallback((group: SelectionPropGroup, optionId: string) => {
     const board = liveBoardRef.current;
@@ -450,6 +722,8 @@ export function PtDesignApp({
             if (ptx === undefined) throw new PtDesignError("invalid_ptx", "ptx is required");
             board.applyPtx(ptx, "IMMEDIATELY");
             data = { ok: true };
+            const ids = board.extract().pages[0]?.nodes.map((node) => node.id) ?? [];
+            revealOnBoard(ids, "agent");
           } else if (tool === "pt_catalog_list") {
             data = catalogListFromRegistry();
           } else if (tool === "pt_tools_list") {
@@ -470,7 +744,7 @@ export function PtDesignApp({
           } else if (tool === "pt_doc_init" || tool === "pt_doc_open" || tool === "pt_doc_save") {
             throw new PtDesignError(
               "path_denied",
-              "Live board tools do not use .ptd files. Use Save/Open in the board, or pt_ptx_get / pt_ptx_apply.",
+              "Live board tools do not use .ptd files. Use Save in the board, or pt_ptx_get / pt_ptx_apply.",
             );
           } else {
             throw new PtDesignError("unknown_tool", unknownToolMessage(tool));
@@ -501,90 +775,60 @@ export function PtDesignApp({
       unsubscribe();
       void Promise.resolve(agentBridge.unregister(clientId)).catch(() => undefined);
     };
-  }, [agentBridge, clientId]);
+  }, [agentBridge, clientId, revealOnBoard]);
 
   const openShare = React.useCallback(() => {
     setShareOpen(true);
   }, []);
 
-  const refreshLibrary = React.useCallback(async () => {
-    if (!library) return;
+  const saveBoundLibrary = React.useCallback(async () => {
+    const bound = libraryFileRef.current;
+    if (!bound || !library) return;
+    const doc = snapshotCurrentPersist();
+    if (!doc) return;
     try {
-      setLibraryItems(await library.list());
-    } catch (error) {
-      setLibraryError(error instanceof Error ? error.message : "Could not list saved designs");
-    }
-  }, [library]);
-
-  const openLibrary = React.useCallback(
-    (next: "save" | "open") => {
-      if (!library) return;
+      persistDebouncer.drop();
+      fileSyncDebouncer.drop();
+      void persistRef.current.save(doc);
+      await library.save(bound, doc);
       setLibraryError(null);
-      setLibraryMode(next);
-      setShareOpen(false);
-      void refreshLibrary();
-    },
-    [library, refreshLibrary],
-  );
+    } catch (error) {
+      setLibraryError(error instanceof Error ? error.message : "Could not save");
+      setLibraryMode("save");
+    }
+  }, [fileSyncDebouncer, library, persistDebouncer, snapshotCurrentPersist]);
+
+  const openLibrary = React.useCallback(() => {
+    if (!library) return;
+    if (!shouldPromptLibraryName(libraryFileRef.current)) {
+      void saveBoundLibrary();
+      return;
+    }
+    setLibraryError(null);
+    setLibraryMode("save");
+    setShareOpen(false);
+  }, [library, saveBoundLibrary]);
 
   const saveLibrary = React.useCallback(
     async (rawName: string) => {
       if (!library) return;
-      const api = apiRef.current;
-      if (!api) return;
+      const doc = snapshotCurrentPersist();
+      if (!doc) return;
+      const named = namedPersistForLibrarySave(doc, rawName);
+      if (named.meta) metaRef.current = named.meta;
       try {
-        const scene = excalidrawElementsToScene(
-          api.getSceneElementsIncludingDeleted() as readonly ExcalidrawCompatElement[],
-          api.getAppState(),
-          boardTheme,
-        );
-        const saved = await library.save(rawName, scene);
-        setLibraryFile(saved.name);
-        if (typeof localStorage !== "undefined") {
-          localStorage.setItem(`${storageKey}:file`, saved.name);
-        }
+        persistDebouncer.drop();
+        fileSyncDebouncer.drop();
+        void persistRef.current.save(named);
+        const saved = await library.save(rawName, named);
+        bindLibraryFile(saved.name);
         setLibraryMode(null);
         setLibraryError(null);
       } catch (error) {
         setLibraryError(error instanceof Error ? error.message : "Could not save");
       }
     },
-    [library, storageKey, boardTheme],
-  );
-
-  const loadLibrary = React.useCallback(
-    async (name: string) => {
-      if (!library) return;
-      const api = apiRef.current;
-      const board = liveBoardRef.current;
-      if (!api || !board) return;
-      try {
-        const loaded = await library.load(name);
-        loadingRef.current = true;
-        api.updateScene({
-          elements: sceneToExcalidrawElements(loaded.scene, boardTheme),
-          captureUpdate: "NEVER",
-        });
-        board.clearHistoryOnLoad();
-        loadingRef.current = false;
-        const app = api.getAppState();
-        syncOverlay(board.extract(), {
-          scrollX: app.scrollX,
-          scrollY: app.scrollY,
-          zoom: app.zoom,
-          viewModeEnabled: app.viewModeEnabled ?? false,
-        });
-        setLibraryFile(loaded.name);
-        if (typeof localStorage !== "undefined") {
-          localStorage.setItem(`${storageKey}:file`, loaded.name);
-        }
-        setLibraryMode(null);
-        setLibraryError(null);
-      } catch (error) {
-        setLibraryError(error instanceof Error ? error.message : "Could not open");
-      }
-    },
-    [library, storageKey, boardTheme, syncOverlay],
+    [bindLibraryFile, fileSyncDebouncer, library, persistDebouncer, snapshotCurrentPersist],
   );
 
   const menuItems = [
@@ -603,13 +847,8 @@ export function PtDesignApp({
       ? [
           {
             id: "save" as const,
-            label: libraryFile ? `Save (${libraryFile.replace(/\.ptdesign\.json$/i, "")})` : "Save",
-            onSelect: () => openLibrary("save"),
-          },
-          {
-            id: "open" as const,
-            label: "Open",
-            onSelect: () => openLibrary("open"),
+            label: libraryFile ? `Save (${libraryFileStem(libraryFile)})` : "Save",
+            onSelect: () => openLibrary(),
           },
         ]
       : []),
@@ -630,7 +869,22 @@ export function PtDesignApp({
           appState={overlayState}
           onCommit={onOverlayCommit}
           onAction={onOverlayAction}
-        />
+          globalRadius={globalRadius}
+        >
+          {revealBox ? (
+            <div
+              data-testid="pt-design-place-reveal"
+              className={revealKind === "agent" ? "pt-design-agent-highlight" : "pt-design-place-reveal"}
+              style={{
+                left: revealBox.left,
+                top: revealBox.top,
+                width: revealBox.width,
+                height: revealBox.height,
+                color: chrome.fg,
+              }}
+            />
+          ) : null}
+        </OverlayHost>
         {selectionGroups.length > 0 && selectedNodeId ? (
           <SelectionPropsRail
             nodeId={selectedNodeId}
@@ -642,15 +896,13 @@ export function PtDesignApp({
         {library && libraryMode ? (
           <LibraryOverlay
             theme={boardTheme}
-            mode={libraryMode}
-            items={libraryItems}
             error={libraryError}
-            defaultName={libraryFile?.replace(/\.ptdesign\.json$/i, "") ?? defaultDesignName()}
+            defaultName={
+              metaRef.current?.name?.trim()
+              || (libraryFile ? libraryFileStem(libraryFile) : defaultDesignName())
+            }
             onSave={(name) => {
               void saveLibrary(name);
-            }}
-            onOpen={(name) => {
-              void loadLibrary(name);
             }}
             onClose={() => setLibraryMode(null)}
           />
@@ -667,14 +919,15 @@ export function PtDesignApp({
       selectedNodeId,
       chrome,
       applySelectionPatch,
+      revealBox,
+      revealKind,
       library,
       libraryMode,
       boardTheme,
-      libraryItems,
       libraryError,
       libraryFile,
       saveLibrary,
-      loadLibrary,
+      globalRadius,
     ],
   );
 
@@ -701,9 +954,13 @@ export function PtDesignApp({
               viewModeEnabled={mode === "interact"}
               onApi={attachHost}
               onChange={handleBoardChange}
+              onBack={onBack ? handleBack : undefined}
+              backLabel={backLabel}
               topLeftChrome={<ModeToggle mode={mode} onModeChange={onModeChange} labels={modeLabels} />}
-              catalog={<Palette types={SHADCN_BASIC_IDS} onInsert={onPaletteInsert} />}
+              catalog={<Palette types={COMPONENT_PALETTE_IDS} onInsert={onPaletteInsert} />}
               blockCatalog={<Palette types={REQUIRED_BLOCKS} onInsert={onPaletteInsert} />}
+              chartCatalog={<Palette groups={buildChartPaletteGroups()} rootLabel="Charts" onInsert={onPaletteInsert} />}
+              catalogStyle={{ radius: globalRadius, onRadiusChange: onGlobalRadiusChange }}
               menuItems={menuItems}
               isCollaborating={collab.isCollaborating}
               collaborators={collab.users}

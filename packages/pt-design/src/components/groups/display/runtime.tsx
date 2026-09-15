@@ -162,3 +162,36 @@ export const primaryBtn: CSSProperties = {
   ...ghostBtn,
   border: `1.5px solid ${T.primary}`,
 };
+
+/** Pad so a 4-side border is not full-bleed (Artist ink hides those). */
+export const INSET_PAD = 8;
+
+export function InsetSurface({
+  children,
+  style,
+  border = `1px solid ${T.border}`,
+}: {
+  children: ReactNode;
+  style?: CSSProperties;
+  border?: string;
+}): ReactElement {
+  return (
+    <div style={{ ...FILL, padding: INSET_PAD, boxSizing: "border-box" }}>
+      <div
+        data-pt-inset=""
+        style={{
+          width: "100%",
+          height: "100%",
+          boxSizing: "border-box",
+          border,
+          borderRadius: T.radius,
+          background: T.bg,
+          overflow: "hidden",
+          ...style,
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}

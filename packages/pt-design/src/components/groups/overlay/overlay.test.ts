@@ -43,6 +43,16 @@ function markup(type: (typeof TYPES)[number], mode: "edit" | "interact", node?: 
   );
 }
 
+function expectOverlayContentHidden(html: string): void {
+  expect(html).toMatch(/data-pt-overlay-content="" role="[^"]+" hidden=""/);
+  expect(html).toMatch(/display:\s*none/);
+}
+
+function expectOverlayContentShown(html: string): void {
+  expect(html).not.toMatch(/data-pt-overlay-content="" role="[^"]+" hidden/);
+  expect(html).toMatch(/data-pt-overlay-content=""[^>]*display:flex/);
+}
+
 describe("OVERLAY_MODULES", () => {
   test("has 14 unique types matching the overlay catalog", () => {
     const types = OVERLAY_MODULES.map((item) => item.type);
@@ -97,14 +107,30 @@ describe("S5 in-place overlay renderers (no document.body portal)", () => {
     expect(kids.map((child) => child.type)).toEqual(["input", "input", "button"]);
   });
 
-  test("dialog interact markup includes title text and has no portal traces", () => {
+  test("dialog and dropdown chrome use the radius token", () => {
+    const dialog = markup("dialog", "interact");
+    expect(dialog).toContain("border-radius:var(--pt-radius, 3px)");
+    const menu = markup("dropdown-menu", "interact");
+    expect(menu).toContain("border-radius:var(--pt-radius, 3px)");
+    const sheet = markup("sheet", "edit");
+    expect(sheet).toContain("var(--pt-radius, 3px)");
+    expect(sheet).not.toContain("12px 12px");
+  });
+
+  test("dialog interact starts closed with a trigger; title stays mounted (hidden) and has no portal traces", () => {
     const node = moduleOf("dialog").defaultNode("dlg");
     const html = markup("dialog", "interact", node);
+    expect(html).toContain('data-pt-overlay-trigger');
+    expect(html).toMatch(/type="button"/);
+    expect(html).toMatch(/aria-expanded="false"/);
+    expect(html).toContain("Confirm");
+    expect(html).toContain("Cancel");
     expect(html).toContain(String(node.props.title));
+    expectOverlayContentHidden(html);
+    expect(html).toMatch(/1\.5px solid/);
     expect(html.toLowerCase()).not.toContain("createportal");
     expect(html).not.toContain("document.body");
     expect(html).not.toMatch(/data-radix-portal|radix-portal/i);
-    expect(html).toContain("Confirm");
   });
 
   test("overlay source files never portal to document.body", () => {
@@ -118,17 +144,48 @@ describe("S5 in-place overlay renderers (no document.body portal)", () => {
     expect(hits).toEqual([]);
   });
 
-  test("dropdown-menu interact markup exposes clickable menu items", () => {
+  test("dropdown-menu interact includes a trigger and menuitems (content mounted when closed)", () => {
     const html = markup("dropdown-menu", "interact");
+    expect(html).toContain('data-pt-overlay-trigger');
+    expect(html).toMatch(/aria-expanded="false"/);
+    expect(html).toContain("File");
     expect(html).toMatch(/role="menuitem"/);
     expect(html).toMatch(/<button\b/);
     expect(html).toContain("Open");
+    expectOverlayContentHidden(html);
+  });
+
+  test("popover interact starts closed with a trigger and content hidden", () => {
+    const html = markup("popover", "interact");
+    expect(html).toContain('data-pt-overlay-trigger');
+    expect(html).toMatch(/aria-expanded="false"/);
+    expect(html).toContain("More");
+    expect(html).toContain("Popover");
+    expectOverlayContentHidden(html);
+  });
+
+  test("menubar interact starts closed and does not expand the edit-selected submenu", () => {
+    const html = markup("menubar", "interact");
+    expect(html).toMatch(/aria-expanded="false"/);
+    expect(html).not.toMatch(/aria-expanded="true"/);
+    expectOverlayContentHidden(html);
   });
 
   test("edit mode sets inert and disables pointer events on the root", () => {
     const html = markup("dialog", "edit");
     expect(html).toMatch(/\binert\b/);
     expect(html).toMatch(/pointer-events:\s*none/);
+    expect(html).toContain("Dialog");
+    expect(html).toContain("Confirm");
+    expectOverlayContentShown(html);
+  });
+
+  test("menubar edit shows the selected item menu for layout", () => {
+    const html = markup("menubar", "edit");
+    expect(html).toMatch(/aria-expanded="true"/);
+    expect(html).toContain("File");
+    expect(html).toMatch(/role="menuitem"/);
+    expectOverlayContentShown(html);
   });
 
   test("unknown child types render an unresolved marker", () => {

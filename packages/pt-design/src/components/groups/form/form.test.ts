@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { parsePtx, serializePtx } from "../../../protocol";
 import { FORM_MODULES } from "./index";
 import type { PtComponentModule } from "./contract";
+import { fireAgentActions } from "./runtime";
 
 const dir = dirname(fileURLToPath(import.meta.url));
 
@@ -95,6 +96,13 @@ describe("FORM_MODULES", () => {
     }
   });
 
+  test("palette buttons do not stamp Agent run events", () => {
+    const button = FORM_MODULES.find((mod) => mod.type === "button")!.defaultNode("n");
+    expect(button.events).toBeUndefined();
+    const form = FORM_MODULES.find((mod) => mod.type === "form")!.defaultNode("n");
+    expect(form.children?.find((child) => child.type === "button")?.events).toBeUndefined();
+  });
+
   test("composed defaults nest at least one form-group child", () => {
     for (const type of ["form", "field", "button-group", "input-group"] as const) {
       const mod = FORM_MODULES.find((item) => item.type === type);
@@ -128,6 +136,100 @@ describe("Interact markup", () => {
     const sw = FORM_MODULES.find((mod) => mod.type === "switch")!;
     const html = markup(sw, "interact");
     expect(html).toMatch(/role="switch"|role='switch'/);
+  });
+
+  test("calendar renders an inset panel, weekday row, and bordered day cells", () => {
+    const calendar = FORM_MODULES.find((mod) => mod.type === "calendar")!;
+    const html = markup(calendar, "interact");
+    expect(html).toMatch(/role="grid"|role='grid'/);
+    expect(html).toMatch(/data-pt-calendar-panel/);
+    expect(html).toMatch(/data-pt-calendar-weekday/);
+    expect(html).toMatch(/data-pt-calendar-day/);
+    expect(html).toMatch(/border:\s*1\.5px solid/);
+    expect(html).toMatch(/border:\s*1px solid/);
+    expect(html).toContain("Su");
+    expect(html).toContain("aria-selected");
+    const src = readFileSync(join(dir, "calendar-ui.tsx"), "utf8");
+    expect(src).toContain("onPick(iso)");
+  });
+
+  test("slider uses a bordered track and fill, not a naked range accent", () => {
+    const slider = FORM_MODULES.find((mod) => mod.type === "slider")!;
+    const html = markup(slider, "interact");
+    expect(html).toMatch(/data-pt-slider-track/);
+    expect(html).toMatch(/data-pt-slider-fill/);
+    expect(html).toMatch(/data-pt-slider-thumb/);
+    expect(html).toMatch(/border:\s*1\.5px solid/);
+    expect(html).toMatch(/type="range"|type='range'/);
+  });
+
+  test("select listbox rows have padding and selected background; trigger stays borderless", () => {
+    const select = FORM_MODULES.find((mod) => mod.type === "select")!;
+    const html = markup(select, "interact");
+    expect(html).toMatch(/role="listbox"|role='listbox'/);
+    expect(html).toMatch(/data-pt-list-option/);
+    expect(html).toMatch(/padding:\s*8px 10px/);
+    expect(html).toMatch(/color-mix\(in srgb, var\(--pt-ink/);
+    expect(html).toMatch(/border:\s*none/);
+    expect(html).not.toContain("<select");
+    const listSrc = readFileSync(join(dir, "listbox.tsx"), "utf8");
+    expect(listSrc).toContain("onMouseEnter");
+    expect(listSrc).toContain('border: "none"');
+    expect(listSrc).not.toContain("createPortal");
+  });
+
+  test("button, input, select, and otp cells use the radius token", () => {
+    for (const type of ["button", "input", "textarea", "select", "input-otp"] as const) {
+      const mod = FORM_MODULES.find((item) => item.type === type)!;
+      const html = markup(mod, "interact");
+      expect(html, type).toContain("border-radius:var(--pt-radius, 3px)");
+    }
+    const fieldSrc = readFileSync(join(dir, "node.ts"), "utf8");
+    expect(fieldSrc).toContain("borderRadius: SKETCH_RADIUS_CSS");
+  });
+
+  test("standalone input keeps FIELD border none", () => {
+    const input = FORM_MODULES.find((mod) => mod.type === "input")!;
+    const html = markup(input, "interact");
+    expect(html).toMatch(/border:\s*none/);
+    const fieldSrc = readFileSync(join(dir, "node.ts"), "utf8");
+    expect(fieldSrc).toMatch(/export const FIELD: CSSProperties = \{[\s\S]*?border: "none"/);
+  });
+
+  test("Interact does not fire stale catalog Agent run on palette labels", () => {
+    const labels = ["Button", "Continue", "Submit", "Create", "Home", "Settings"] as const;
+    for (const label of labels) {
+      const payloads: unknown[] = [];
+      fireAgentActions(
+        {
+          id: "n",
+          type: "button",
+          props: { label },
+          x: 0,
+          y: 0,
+          width: 120,
+          height: 40,
+          rotation: 0,
+          events: [{ event: "click", actions: [{ type: "agent", name: "run" }] }],
+        },
+        "click",
+        (payload) => payloads.push(payload),
+      );
+      expect(payloads, label).toEqual([]);
+    }
+  });
+
+  test("explicit Run PTX still fires host Agent action", () => {
+    const payloads: unknown[] = [];
+    const node = parsePtx(`<page id="p">
+  <button id="run" label="Run" x="0" y="0" width="100" height="40">
+    <on event="click"><action type="agent" name="run"/></on>
+  </button>
+</page>`).pages[0]!.nodes[0]!;
+    fireAgentActions(node, "click", (payload) => payloads.push(payload));
+    expect(payloads).toEqual([
+      { nodeId: "run", event: "click", action: { type: "agent", name: "run" } },
+    ]);
   });
 
   test("form tree renders nested form controls, not unresolved placeholders", () => {

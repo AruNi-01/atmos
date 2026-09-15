@@ -6,7 +6,8 @@
   "description": "PT Design — Agent-first interactive canvas (APP-073). PTX source + Edit/Interact.",
   "exports": {
     ".": "./src/index.ts",
-    "./headless": "./src/headless.ts"
+    "./headless": "./src/headless.ts",
+    "./catalog": "./src/host/catalog.ts"
   },
   "bin": {
     "pt-design": "./bin/pt-design.mjs",
@@ -32,6 +33,7 @@
   "dependencies": {
     "@excalidraw/excalidraw": "0.18.1",
     "@modelcontextprotocol/sdk": "1.30.0",
+    "@zumer/snapdom": "^2.24.7",
     "ink": "^7.1.1",
     "lucide-react": "^0.544.0",
     "motion": "^12.23.12",

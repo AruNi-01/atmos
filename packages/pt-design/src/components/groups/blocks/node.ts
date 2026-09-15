@@ -49,4 +49,3 @@ export const FILL: CSSProperties = {
   overflow: "hidden",
 };
 
-export const clickRun = [{ event: "click" as const, actions: [{ type: "agent" as const, name: "run" }] }];

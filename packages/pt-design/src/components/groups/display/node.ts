@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import type { PtNode, PtNodeType, PtOption } from "../../../protocol";
-import { SKETCH_FONT, SKETCH_INK, SKETCH_PAPER, SKETCH_RADIUS } from "../../sketch";
+import { SKETCH_FONT, SKETCH_INK, SKETCH_PAPER, SKETCH_RADIUS_CSS } from "../../sketch";
 
 export type BBox = { width: number; height: number };
 
@@ -51,7 +51,7 @@ export const T = {
   accent: SKETCH_INK,
   destructive: "#dc2626",
   destructiveBg: "color-mix(in srgb, #dc2626 12%, var(--pt-paper, #fffef7))",
-  radius: SKETCH_RADIUS,
+  radius: SKETCH_RADIUS_CSS,
 } as const;
 
 export const FILL: CSSProperties = {

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { CHART_IDS } from "../catalog/chart-list";
 import { REQUIRED_BLOCKS, SHADCN_BASIC_IDS } from "../catalog/shadcn-list";
 import { PtDesignError, catalogIdToXmlTag, parsePtx, serializePtx, xmlTagToCatalogId } from "./index";
 import type { PtNode } from "./schema";
@@ -51,11 +52,15 @@ describe("catalog XML tags", () => {
     expect(xmlTagToCatalogId("button")).toBe("button");
     expect(xmlTagToCatalogId("alert-dialog")).toBe("alert-dialog");
     expect(xmlTagToCatalogId("block-auth-form")).toBe("block.auth-form");
+    expect(catalogIdToXmlTag("chart")).toBe("chart");
+    expect(catalogIdToXmlTag("chart.area-default")).toBe("chart-area-default");
+    expect(xmlTagToCatalogId("chart")).toBe("chart");
+    expect(xmlTagToCatalogId("chart-area-default")).toBe("chart.area-default");
     expect(xmlTagToCatalogId("nope")).toBeNull();
   });
 
   test("frozen catalog tags do not collide", () => {
-    const tags = [...SHADCN_BASIC_IDS, ...REQUIRED_BLOCKS].map(catalogIdToXmlTag);
+    const tags = [...SHADCN_BASIC_IDS, ...REQUIRED_BLOCKS, ...CHART_IDS].map(catalogIdToXmlTag);
     expect(new Set(tags).size).toBe(tags.length);
   });
 });
@@ -180,7 +185,7 @@ describe("S37 dotted block XML tags", () => {
 
 describe("frozen catalog ids", () => {
   test("every frozen id parses as a minimal self-closing node", () => {
-    for (const id of [...SHADCN_BASIC_IDS, ...REQUIRED_BLOCKS]) {
+    for (const id of [...SHADCN_BASIC_IDS, ...REQUIRED_BLOCKS, ...CHART_IDS]) {
       const tag = catalogIdToXmlTag(id);
       const doc = parsePtx(pageXml(`<${tag} id="n" x="1" y="2" width="3" height="4"/>`));
       const node: PtNode = doc.pages[0]!.nodes[0]!;

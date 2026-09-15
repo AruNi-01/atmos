@@ -177,7 +177,28 @@ function PropGlyph({ group }: { group: SelectionPropGroup }) {
     const current = group.options.find((opt) => opt.id === group.value);
     return <span className="pt-design-prop-size">{current?.label ?? "M"}</span>;
   }
+  if (group.kind === "radius") {
+    return <RadiusGlyph value={group.value} />;
+  }
   return <span className="pt-design-prop-size">{group.value === "true" ? "On" : "Off"}</span>;
+}
+
+function RadiusGlyph({ value }: { value: string }) {
+  const rx = value === "none" ? 0 : value === "md" ? 3.5 : value === "lg" ? 5 : 2.25;
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+      <rect
+        x="1.5"
+        y="1.5"
+        width="11"
+        height="11"
+        rx={rx}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
 }
 
 function mobileColorTool(host: HTMLElement): Element | null {

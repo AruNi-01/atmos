@@ -44,6 +44,7 @@ describe("PT Design Atmos host wiring", () => {
       "utf8",
     );
     expect(sidebar).not.toContain("onOpenPtDesign");
+    expect(sidebar).not.toContain("ptDesignLaunchpadHref");
     expect(sidebar).not.toContain('url.searchParams.set("tab", "pt-design")');
     expect(sidebar).not.toContain("useOpenToolCenterTab");
     expect(sidebar).not.toMatch(/useQueryState\(\s*["']tab["']/);
@@ -61,7 +62,7 @@ describe("PT Design Atmos host wiring", () => {
       join(import.meta.dir, "../workspace-center-frame.tsx"),
       "utf8",
     );
-    expect(frame).toContain("PtDesignCenterPanel");
+    expect(frame).toContain("PtDesignHostStage");
     expect(frame).toContain("pt-design");
   });
 
@@ -100,8 +101,24 @@ describe("PT Design Atmos host wiring", () => {
     expect(panel).toContain("library={library}");
     expect(panel).toContain("agentBridge");
     expect(panel).toContain("clientId={contextId}");
+    expect(panel).toContain("documentMeta");
+    expect(panel).toContain("hostMetaForContext");
     expect(panel).toContain("AgentSurfaceIsland");
     expect(panel).toContain("relative h-full");
+    expect(panel).toContain("onBack={onBack}");
+  });
+
+  test("library adapter writes persist documents and overwrites the same file", () => {
+    const adapter = readFileSync(
+      join(import.meta.dir, "../../features/pt-design/library-adapter.ts"),
+      "utf8",
+    );
+    expect(adapter).toContain("persistFromLibraryBody");
+    expect(adapter).toContain("overwrite: true");
+    expect(adapter).toContain("ptx: persist.ptx");
+    expect(adapter).toContain("canvas: persist.canvas");
+    expect(adapter).not.toContain("That file has no scene");
+    expect(adapter).not.toContain("scene,");
   });
 
   test("no-context center stage opens Prototype Design from /pt-design or a legacy tab", () => {
@@ -126,12 +143,36 @@ describe("PT Design Atmos host wiring", () => {
       "utf8",
     );
     expect(standalone).toContain('PT_DESIGN_GLOBAL_CONTEXT_ID = "global"');
+    expect(standalone).toContain("PtDesignOverview");
     expect(standalone).toContain("PtDesignCenterPanel");
+    expect(standalone).toContain("onBack");
+    expect(standalone).not.toContain("pt-design-standalone-canvas");
+    const overview = readFileSync(
+      join(import.meta.dir, "../../features/pt-design/PtDesignOverview.tsx"),
+      "utf8",
+    );
+    expect(overview).toContain("listPtDesignDocs");
+    expect(overview).toContain("pt-design-overview");
+    expect(overview).toContain("pt-design-search");
+    expect(overview).toContain("pt-design-new");
+    expect(overview).toContain("justify-between");
+    expect(overview).toContain("pt-design-card-pin");
+    expect(overview).toContain("hover:bg-muted");
+    expect(overview).toContain("object-contain");
+    expect(overview).toContain('loading="lazy"');
+    expect(overview).toContain("usePtDesignPreviewSrc");
+    expect(overview).toContain("viewChanged ? { opacity: 0, y: 8 } : false");
+    expect(overview).not.toContain("useVirtualizer");
+    expect(overview).not.toContain("PtDesignApp");
+    expect(overview).not.toContain("OverlayHost");
+    expect(overview).not.toContain("Excalidraw");
+    expect(overview).not.toContain("<aside");
+    expect(overview).not.toMatch(/text-transform:\s*uppercase/);
     const frame = readFileSync(
       join(import.meta.dir, "../workspace-center-frame.tsx"),
       "utf8",
     );
-    expect(frame).toContain("<KeptPtDesignCenterPanel contextId={contextId} />");
+    expect(frame).toContain("<KeptPtDesignHostStage contextId={contextId} />");
   });
 
   test("hosted collab invites skip onboarding and open a fullscreen guest board", () => {
@@ -202,5 +243,21 @@ describe("PT Design Atmos host wiring", () => {
     expect(en).toContain('"interact": "Interact"');
     expect(en).not.toContain('"edit": "EDIT"');
     expect(en).not.toContain('"interact": "INTERACT"');
+    expect(en).toContain('"all": "All"');
+    expect(en).toContain('"pin": "Pin"');
+    expect(en).toContain('"unpin": "Unpin"');
+    expect(en).toContain('"rename": "Rename"');
+    expect(en).toContain('"delete": "Delete"');
+    expect(en).toContain('"searchPlaceholder": "Search designs"');
+    expect(en).toContain('"filter": "Filters"');
+    expect(en).toContain('"back": "Back"');
+    expect(en).not.toContain('"all": "ALL"');
+    const zh = readFileSync(join(import.meta.dir, "../../../messages/zh.json"), "utf8");
+    expect(zh).toContain('"all": "全部"');
+    expect(zh).toContain('"pin": "置顶"');
+    expect(zh).toContain('"searchPlaceholder": "搜索设计"');
+    expect(zh).toContain('"filter": "筛选"');
+    expect(zh).toContain('"back": "返回"');
+    expect(zh).not.toContain('"all": "All"');
   });
 });

@@ -1,5 +1,5 @@
 import type { PtComponentModule } from "./contract";
-import { clickRun, ptNode } from "./node";
+import { ptNode } from "./node";
 import { BlockPanel } from "./runtime";
 
 const authBBox = { width: 360, height: 228 };
@@ -30,7 +30,6 @@ export const authFormModule: PtComponentModule = {
           x: 16,
           y: 156,
           props: { label: "Continue" },
-          events: clickRun,
         }),
       ],
     }),
@@ -91,7 +90,6 @@ export const emptyStateModule: PtComponentModule = {
           x: 100,
           y: 124,
           props: { label: "Create" },
-          events: clickRun,
         }),
       ],
     }),
@@ -117,13 +115,11 @@ export const navContentModule: PtComponentModule = {
           x: 16,
           y: 52,
           props: { label: "Home", variant: "ghost" },
-          events: clickRun,
         }),
         ptNode(`${id}-settings`, "button", { width: 112, height: 36 }, {
           x: 16,
           y: 96,
           props: { label: "Settings", variant: "ghost" },
-          events: clickRun,
         }),
         ptNode(`${id}-content`, "textarea", { width: 284, height: 180 }, {
           x: 140,

@@ -3,7 +3,7 @@ import type { PtComponentModule, PtRendererProps } from "./contract";
 import { ArtistInkHost } from "../../../embed/overlay/artist-ink";
 import { CalendarGrid } from "./calendar-ui";
 import { FIELD, ptNode } from "./node";
-import { clickRun, ControlRoot, fireAgentActions, propText } from "./runtime";
+import { ControlRoot, fireAgentActions, propText } from "./runtime";
 
 const buttonBBox = { width: 120, height: 40 };
 const checkboxBBox = { width: 160, height: 28 };
@@ -55,15 +55,10 @@ export const buttonModule: PtComponentModule = {
   defaultNode: (id) =>
     ptNode(id, "button", buttonBBox, {
       props: { label: "Button" },
-      events: clickRun,
     }),
   Renderer: ButtonRenderer,
-  agentDescription: "Clickable button. Caption is props.label. Optional click handler with action type=agent.",
-  xmlExample: `<button id="run" label="Run" x="0" y="0" width="120" height="40">
-  <on event="click">
-    <action type="agent" name="run"/>
-  </on>
-</button>`,
+  agentDescription: "Clickable button. Caption is props.label.",
+  xmlExample: `<button id="btn" label="Button" x="0" y="0" width="120" height="40"/>`,
   inspectorFields: [
     { key: "label", kind: "text" },
     { key: "variant", kind: "text" },
@@ -252,20 +247,101 @@ export const labelModule: PtComponentModule = {
 function SliderRenderer({ node, mode, onCommit, onAction }: PtRendererProps): ReactElement {
   const min = propText(node, "min", "0");
   const max = propText(node, "max", "100");
+  const minN = Number(min);
+  const maxN = Number(max);
+  const valueN = Number(node.value ?? "50");
+  const lo = Number.isFinite(minN) ? minN : 0;
+  const hi = Number.isFinite(maxN) && maxN !== lo ? maxN : lo + 100;
+  const current = Number.isFinite(valueN) ? Math.min(hi, Math.max(lo, valueN)) : lo;
+  const pct = ((current - lo) / (hi - lo)) * 100;
+  const ink = "var(--pt-ink, #1e1e1e)";
+  const paper = "var(--pt-paper, #fffef7)";
   return (
     <ControlRoot node={node} mode={mode}>
-      <input
-        type="range"
-        aria-label={propText(node, "label", "Slider")}
-        min={min}
-        max={max}
-        value={node.value ?? "50"}
-        style={{ width: "100%", height: "100%", margin: 0 }}
-        onChange={(event) => {
-          onCommit({ value: event.target.value });
-          fireAgentActions(node, "change", onAction);
+      <div
+        style={{
+          boxSizing: "border-box",
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          padding: "0 8px",
         }}
-      />
+      >
+        <div
+          style={{
+            position: "relative",
+            flex: 1,
+            height: 20,
+            minWidth: 0,
+          }}
+        >
+          <div
+            data-pt-slider-track=""
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              top: "50%",
+              height: 10,
+              marginTop: -5,
+              boxSizing: "border-box",
+              border: `1.5px solid ${ink}`,
+              borderRadius: 999,
+              overflow: "hidden",
+              background: paper,
+            }}
+          >
+            <div
+              data-pt-slider-fill=""
+              style={{
+                width: `${pct}%`,
+                height: "100%",
+                background: `color-mix(in srgb, ${ink} 28%, ${paper})`,
+              }}
+            />
+          </div>
+          <div
+            data-pt-slider-thumb=""
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: `${pct}%`,
+              width: 16,
+              height: 16,
+              marginTop: -8,
+              marginLeft: -8,
+              boxSizing: "border-box",
+              border: `1.5px solid ${ink}`,
+              borderRadius: 999,
+              background: paper,
+              pointerEvents: "none",
+            }}
+          />
+          <input
+            type="range"
+            aria-label={propText(node, "label", "Slider")}
+            min={min}
+            max={max}
+            value={node.value ?? "50"}
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              margin: 0,
+              opacity: 0,
+              cursor: "pointer",
+              appearance: "none",
+            }}
+            onChange={(event) => {
+              onCommit({ value: event.target.value });
+              fireAgentActions(node, "change", onAction);
+            }}
+          />
+        </div>
+      </div>
     </ControlRoot>
   );
 }

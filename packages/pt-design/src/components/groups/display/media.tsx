@@ -29,7 +29,7 @@ function ChartRenderer({ node, mode }: PtRendererProps): ReactElement {
   return (
     <ControlRoot node={node} mode={mode}>
       <svg viewBox={`0 0 ${w} ${h}`} width="100%" height="100%" role="img" aria-label={propText(node, "title", "Chart")}>
-        <rect x="0" y="0" width={w} height={h} fill={T.bg} rx="10" />
+        <rect x="0" y="0" width={w} height={h} fill={T.bg} rx={T.radius} />
         {values.map((value, i) => {
           const x = pad + i * ((w - pad * 2) / values.length);
           const bh = (value / max) * (h - pad * 2);
@@ -98,7 +98,7 @@ function AttachmentRenderer({ node, mode, onCommit, onAction }: PtRendererProps)
         }}
       >
         {variant === "image" ? (
-          <span style={{ width: 40, height: 40, borderRadius: 8, background: T.mutedBg, flexShrink: 0 }} />
+          <span style={{ width: 40, height: 40, borderRadius: T.radius, background: T.mutedBg, flexShrink: 0 }} />
         ) : variant === "uploading" ? (
           <Paperclip size={18} />
         ) : (
@@ -137,7 +137,7 @@ function BubbleRenderer({ node, mode }: PtRendererProps): ReactElement {
           display: "flex",
           alignItems: "center",
           padding: "0 12px",
-          borderRadius: 16,
+          borderRadius: T.radius,
           background: sent ? T.primary : T.mutedBg,
           color: sent ? T.primaryFg : T.fg,
           fontSize: 13,
@@ -184,7 +184,7 @@ function MessageRenderer({ node, mode }: PtRendererProps): ReactElement {
           <div
             style={{
               padding: "8px 10px",
-              borderRadius: 12,
+              borderRadius: T.radius,
               background: assistant ? T.mutedBg : T.primary,
               color: assistant ? T.fg : T.primaryFg,
               fontSize: 13,

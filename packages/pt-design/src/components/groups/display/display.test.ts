@@ -111,6 +111,33 @@ describe("Interact markup", () => {
     const html = markup(moduleOf("tabs"), "interact");
     expect(html).toMatch(/role="tab"/);
     expect(html).toMatch(/<button\b/);
+    expect(html).toMatch(/data-pt-tabs-list/);
+    expect(html).toMatch(/data-pt-tabs-indicator/);
+  });
+
+  test("progress interact markup uses a bordered track and fill", () => {
+    const html = markup(moduleOf("progress"), "interact");
+    expect(html).toMatch(/data-pt-progress-track/);
+    expect(html).toMatch(/data-pt-progress-fill/);
+    expect(html).toMatch(/role="progressbar"/);
+    expect(html).not.toMatch(/<progress\b/);
+  });
+
+  test("card, badge, and chart frame use the radius token", () => {
+    const card = markup(moduleOf("card"), "interact");
+    expect(card).toContain("border-radius:var(--pt-radius, 3px)");
+    expect(card).not.toContain("border-radius:12px");
+    const badge = markup(moduleOf("badge"), "interact");
+    expect(badge).toContain("border-radius:var(--pt-radius, 3px)");
+    const chart = markup(moduleOf("chart"), "interact");
+    expect(chart).toContain("rx=\"var(--pt-radius, 3px)\"");
+  });
+
+  test("card interact markup insets the bordered surface", () => {
+    const html = markup(moduleOf("card"), "interact");
+    expect(html).toMatch(/data-pt-inset/);
+    expect(html).toMatch(/padding:\s*8px/);
+    expect(html).toMatch(/border:\s*1px solid/);
   });
 
   test("edit mode roots are inert and ignore pointer events", () => {

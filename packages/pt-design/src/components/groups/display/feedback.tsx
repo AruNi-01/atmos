@@ -2,7 +2,7 @@ import { AlertCircle, LoaderCircle } from "lucide-react";
 import type { ReactElement } from "react";
 import type { PtComponentModule, PtRendererProps } from "./contract";
 import { FILL, T, TITLE_FIELDS, ptNode } from "./node";
-import { ControlRoot, propText } from "./runtime";
+import { ControlRoot, InsetSurface, propText } from "./runtime";
 
 const alertBBox = { width: 320, height: 72 };
 const emptyBBox = { width: 280, height: 140 };
@@ -14,14 +14,12 @@ function AlertRenderer({ node, mode }: PtRendererProps): ReactElement {
   const destructive = propText(node, "variant") === "destructive";
   return (
     <ControlRoot node={node} mode={mode} role="alert">
-      <div
+      <InsetSurface
+        border={`1px solid ${destructive ? T.destructive : T.border}`}
         style={{
-          ...FILL,
           display: "flex",
           gap: 10,
           padding: "10px 12px",
-          borderRadius: T.radius,
-          border: `1px solid ${destructive ? T.destructive : T.border}`,
           background: destructive ? T.destructiveBg : T.mutedBg,
           color: destructive ? T.destructive : T.fg,
         }}
@@ -33,7 +31,7 @@ function AlertRenderer({ node, mode }: PtRendererProps): ReactElement {
             {propText(node, "description", "Something needs attention.")}
           </span>
         </div>
-      </div>
+      </InsetSurface>
     </ControlRoot>
   );
 }
@@ -54,17 +52,15 @@ export const alertModule: PtComponentModule = {
 function EmptyRenderer({ node, mode }: PtRendererProps): ReactElement {
   return (
     <ControlRoot node={node} mode={mode}>
-      <div
+      <InsetSurface
+        border={`1px dashed ${T.border}`}
         style={{
-          ...FILL,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
           gap: 6,
           background: T.mutedBg,
-          border: `1px dashed ${T.border}`,
-          borderRadius: T.radius,
           textAlign: "center",
           padding: 16,
         }}
@@ -73,7 +69,7 @@ function EmptyRenderer({ node, mode }: PtRendererProps): ReactElement {
         <span style={{ fontSize: 12, color: T.muted }}>
           {propText(node, "description", "Try a different search.")}
         </span>
-      </div>
+      </InsetSurface>
     </ControlRoot>
   );
 }
@@ -96,12 +92,34 @@ function ProgressRenderer({ node, mode }: PtRendererProps): ReactElement {
   const n = Number.isFinite(raw) ? Math.min(100, Math.max(0, raw)) : 0;
   return (
     <ControlRoot node={node} mode={mode}>
-      <progress
-        value={n}
-        max={100}
-        aria-label={propText(node, "label", "Progress")}
-        style={{ width: "100%", height: 10, accentColor: T.primary }}
-      />
+      <div style={{ ...FILL, display: "flex", alignItems: "center" }}>
+        <div
+          role="progressbar"
+          data-pt-progress-track=""
+          aria-label={propText(node, "label", "Progress")}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={n}
+          style={{
+            width: "100%",
+            height: 10,
+            boxSizing: "border-box",
+            border: `1.5px solid ${T.border}`,
+            borderRadius: T.radius,
+            overflow: "hidden",
+            background: T.mutedBg,
+          }}
+        >
+          <div
+            data-pt-progress-fill=""
+            style={{
+              width: `${n}%`,
+              height: "100%",
+              background: T.primary,
+            }}
+          />
+        </div>
+      </div>
     </ControlRoot>
   );
 }
@@ -123,7 +141,7 @@ function SkeletonRenderer({ node, mode }: PtRendererProps): ReactElement {
         aria-hidden="true"
         style={{
           ...FILL,
-          borderRadius: 6,
+          borderRadius: T.radius,
           background: "linear-gradient(90deg, #e4e4e7 0%, #f4f4f5 50%, #e4e4e7 100%)",
         }}
       />

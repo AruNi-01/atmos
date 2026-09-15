@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import type { PtComponentModule, PtRendererProps } from "./contract";
 import { ptNode } from "./node";
-import { clickRun, ControlRoot, renderTreeChildren } from "./runtime";
+import { ControlRoot, renderTreeChildren } from "./runtime";
 
 const formBBox = { width: 360, height: 140 };
 const fieldBBox = { width: 280, height: 72 };
@@ -49,7 +49,6 @@ export const formModule: PtComponentModule = {
           x: 16,
           y: 72,
           props: { label: "Submit" },
-          events: clickRun,
         }),
       ],
     }),

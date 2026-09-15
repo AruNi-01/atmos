@@ -2,27 +2,42 @@
 
 import { Search, X } from "lucide-react";
 import { type ReactElement, useMemo, useState } from "react";
+import { CHART_GROUPS, chartVariantLabel } from "../catalog/chart-list";
 import { catalogVariantsFor } from "../catalog/variants";
 import { listComponentTypes } from "../components/registry";
 import { CatalogTypeIcon, CatalogVariantIcon } from "../embed/catalog-icons";
 import type { PtNodeType } from "../protocol";
 import { MotionSlideMenu, type MotionSlideMenuItem } from "./motion-slide-menu";
 
+export type PaletteMenuGroup = {
+  id: string;
+  label: string;
+  iconType: PtNodeType;
+  items: readonly { type: PtNodeType; label: string }[];
+};
+
 export type PaletteProps = {
   onInsert: (type: PtNodeType, variant?: string) => void;
   types?: readonly PtNodeType[];
+  groups?: readonly PaletteMenuGroup[];
+  rootLabel?: string;
 };
 
 export type PaletteSearchGroup = {
   type: PtNodeType;
   parentMatched: boolean;
   variants: readonly string[];
+  label?: string;
 };
 
 const ROW_CLASS = "pt-design-catalog-row";
 
 export function catalogLabel(type: string): string {
-  const raw = type.startsWith("block.") ? type.slice("block.".length) : type;
+  const raw = type.startsWith("block.")
+    ? type.slice("block.".length)
+    : type.startsWith("chart.")
+      ? type.slice("chart.".length)
+      : type;
   const parts = raw.split(/[-_.]/).filter(Boolean);
   if (parts.length === 0) return type;
   return parts
@@ -70,6 +85,60 @@ export function buildPaletteMenuItems(
   return types.map((type) => typeToItem(type, onInsert));
 }
 
+export function buildChartPaletteGroups(): PaletteMenuGroup[] {
+  return CHART_GROUPS.map((group) => ({
+    id: group.id,
+    label: group.label,
+    iconType: group.ids[0]!,
+    items: group.ids.map((id) => ({ type: id, label: chartVariantLabel(id) })),
+  }));
+}
+
+export function buildGroupedMenuItems(
+  groups: readonly PaletteMenuGroup[],
+  onInsert: (type: PtNodeType, variant?: string) => void,
+): MotionSlideMenuItem[] {
+  return groups.map((group) => ({
+    id: group.id,
+    label: group.label,
+    icon: <CatalogTypeIcon componentType={group.iconType} size={18} />,
+    children: group.items.map((item) => ({
+      id: item.type,
+      label: item.label,
+      icon: <CatalogTypeIcon componentType={item.type} size={18} />,
+      insertType: item.type,
+      onSelect: () => onInsert(item.type),
+    })),
+  }));
+}
+
+export function searchGroupedPaletteEntries(
+  groups: readonly PaletteMenuGroup[],
+  query: string,
+): PaletteSearchGroup[] {
+  const needle = normalizeCatalogQuery(query);
+  if (!needle) return [];
+  const hits: PaletteSearchGroup[] = [];
+  for (const group of groups) {
+    const groupMatched = textMatches(group.label, needle) || textMatches(group.id, needle);
+    for (const item of group.items) {
+      const itemMatched =
+        textMatches(item.label, needle) ||
+        textMatches(item.type, needle) ||
+        textMatches(catalogLabel(item.type), needle);
+      if (groupMatched || itemMatched) {
+        hits.push({
+          type: item.type,
+          parentMatched: true,
+          variants: [],
+          label: item.label,
+        });
+      }
+    }
+  }
+  return hits;
+}
+
 function typeToItem(
   type: PtNodeType,
   onInsert: (type: PtNodeType, variant?: string) => void,
@@ -109,13 +178,25 @@ function typeToItem(
   };
 }
 
-export function Palette({ onInsert, types }: PaletteProps): ReactElement {
-  const list = types ?? listComponentTypes();
+export function Palette({ onInsert, types, groups: menuGroups, rootLabel: rootLabelProp }: PaletteProps): ReactElement {
+  const list = types ?? (menuGroups ? menuGroups.flatMap((group) => group.items.map((item) => item.type)) : listComponentTypes());
   const [query, setQuery] = useState("");
-  const menuItems = useMemo(() => buildPaletteMenuItems(list, onInsert), [list, onInsert]);
-  const groups = useMemo(() => searchPaletteEntries(list, query), [list, query]);
+  const menuItems = useMemo(
+    () => (menuGroups ? buildGroupedMenuItems(menuGroups, onInsert) : buildPaletteMenuItems(list, onInsert)),
+    [list, menuGroups, onInsert],
+  );
+  const groups = useMemo(
+    () => (menuGroups ? searchGroupedPaletteEntries(menuGroups, query) : searchPaletteEntries(list, query)),
+    [list, menuGroups, query],
+  );
   const searching = query.trim().length > 0;
-  const rootLabel = list.every((type) => type.startsWith("block.")) ? "Blocks" : "Components";
+  const rootLabel =
+    rootLabelProp ??
+    (menuGroups
+      ? "Charts"
+      : list.every((type) => type.startsWith("block."))
+        ? "Blocks"
+        : "Components");
 
   return (
     <div data-pt-palette="" data-testid="pt-design-catalog">
@@ -204,7 +285,7 @@ function CatalogSearchResults({
               <span className="pt-design-catalog-row__icon">
                 <CatalogTypeIcon componentType={group.type} size={18} />
               </span>
-              <span className="pt-design-catalog-row__label">{catalogLabel(group.type)}</span>
+              <span className="pt-design-catalog-row__label">{group.label ?? catalogLabel(group.type)}</span>
             </button>
             {group.variants.map((variant) => (
               <button

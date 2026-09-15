@@ -2,8 +2,8 @@ import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import type { CSSProperties, ReactElement } from "react";
 import type { PtNode, PtOption } from "../../../protocol";
 import type { PtComponentModule, PtRendererProps } from "./contract";
-import { COPY_FIELDS, FILL, LABEL_FIELD, T, TITLE_FIELDS, ptNode } from "./node";
-import { ControlRoot, emit, ghostBtn, primaryBtn, propText, renderFlowChildren } from "./runtime";
+import { COPY_FIELDS, FILL, FONT, LABEL_FIELD, T, TITLE_FIELDS, ptNode } from "./node";
+import { ControlRoot, emit, ghostBtn, propText, renderFlowChildren } from "./runtime";
 
 const accordionBBox = { width: 280, height: 160 };
 const collapsibleBBox = { width: 280, height: 140 };
@@ -81,7 +81,15 @@ function AccordionLike({
                 }}
               >
                 <span>{title}</span>
-                <ChevronDown size={14} style={{ transform: open ? "rotate(180deg)" : "none" }} />
+                <ChevronDown
+                  size={14}
+                  data-pt-chevron=""
+                  style={{
+                    transform: open ? "rotate(180deg)" : "rotate(0deg)",
+                    transition: "transform 200ms ease",
+                    flexShrink: 0,
+                  }}
+                />
               </button>
               {open ? (
                 <div style={{ padding: "0 12px 12px", fontSize: 13, color: T.muted, lineHeight: 1.45 }}>{body}</div>
@@ -364,8 +372,21 @@ function TabsRenderer({ node, mode, onCommit, onAction }: PtRendererProps): Reac
   const panel = panels[index];
   return (
     <ControlRoot node={node} mode={mode}>
-      <div style={{ ...FILL, display: "flex", flexDirection: "column", border: `1px solid ${T.border}`, borderRadius: T.radius, overflow: "hidden" }}>
-        <div role="tablist" style={{ display: "flex", gap: 4, padding: 8, borderBottom: `1px solid ${T.border}`, background: T.mutedBg }}>
+      <div style={{ ...FILL, display: "flex", flexDirection: "column", gap: 8, padding: 8, boxSizing: "border-box" }}>
+        <div
+          role="tablist"
+          data-pt-tabs-list=""
+          style={{
+            display: "flex",
+            width: "fit-content",
+            maxWidth: "100%",
+            alignItems: "center",
+            gap: 2,
+            padding: 4,
+            borderRadius: T.radius,
+            background: T.mutedBg,
+          }}
+        >
           {tabs.map((tab) => {
             const selected = tab.value === current;
             return (
@@ -376,16 +397,41 @@ function TabsRenderer({ node, mode, onCommit, onAction }: PtRendererProps): Reac
                 aria-selected={selected}
                 onClick={() => emit(node, { value: tab.value }, onCommit, onAction)}
                 style={{
-                  ...(selected ? primaryBtn : ghostBtn),
+                  appearance: "none",
+                  position: "relative",
+                  border: "none",
+                  background: "transparent",
+                  color: selected ? T.fg : T.muted,
                   padding: "6px 12px",
+                  fontSize: 13,
+                  fontFamily: FONT,
+                  fontWeight: selected ? 500 : 400,
+                  cursor: "pointer",
+                  lineHeight: 1.2,
+                  borderRadius: T.radius,
                 }}
               >
                 {tab.label}
+                {selected ? (
+                  <span
+                    data-pt-tabs-indicator=""
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      left: 8,
+                      right: 8,
+                      bottom: 0,
+                      height: 2,
+                      borderRadius: 1,
+                      background: T.primary,
+                    }}
+                  />
+                ) : null}
               </button>
             );
           })}
         </div>
-        <div role="tabpanel" style={{ padding: 12, flex: 1, minHeight: 0, overflow: "auto", position: "relative" }}>
+        <div role="tabpanel" style={{ padding: "4px 2px", flex: 1, minHeight: 0, overflow: "auto", position: "relative" }}>
           {panel ? (
             <div data-pt-child={panel.id} style={{ minHeight: 48 }}>
               {propText(panel, "description", propText(panel, "title", tabs[index]?.label ?? "Panel"))}

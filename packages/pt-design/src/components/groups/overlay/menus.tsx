@@ -1,8 +1,16 @@
-import type { ReactElement } from "react";
+import { useState, type ReactElement } from "react";
 import type { PtNode, PtOption } from "../../../protocol";
 import type { PtComponentModule, PtRendererProps } from "./contract";
 import { LABEL_FIELD, TEXT_FIELDS, propString, spatialNode } from "./defaults";
-import { OverlayFrame, emitValue, overlayTokens } from "./shared";
+import {
+  ContentShell,
+  OverlayFrame,
+  OverlayTrigger,
+  emitValue,
+  overlayTokens,
+  overlayVisible,
+  useOverlayOpen,
+} from "./shared";
 
 function itemsOf(node: PtNode, fallback: PtOption[]): PtOption[] {
   return node.options && node.options.length > 0 ? node.options : fallback;
@@ -25,10 +33,11 @@ function MenuButton(props: {
         background: "transparent",
         color: overlayTokens.fg,
         cursor: "pointer",
-        borderRadius: 8,
+        borderRadius: overlayTokens.radius,
         padding: "8px 10px",
         fontSize: 13,
         fontFamily: overlayTokens.font,
+        textTransform: "none",
       }}
     >
       {props.option.label}
@@ -36,7 +45,9 @@ function MenuButton(props: {
   );
 }
 
-function VerticalMenu(props: PtRendererProps & { heading: string; fallback: PtOption[] }): ReactElement {
+function DropdownMenu(props: PtRendererProps & { heading: string; fallback: PtOption[] }): ReactElement {
+  const [open, setOpen] = useOverlayOpen(props.mode);
+  const visible = overlayVisible(props.mode, open);
   const heading = propString(props.node, "label", props.heading);
   const items = itemsOf(props.node, props.fallback);
   return (
@@ -45,12 +56,14 @@ function VerticalMenu(props: PtRendererProps & { heading: string; fallback: PtOp
       mode={props.mode}
       onCommit={props.onCommit}
       onAction={props.onAction}
-      role="menu"
     >
-      <div style={{ padding: 8, display: "flex", flexDirection: "column", gap: 2, minHeight: 0, flex: 1 }}>
-        <div style={{ fontSize: 12, fontWeight: 500, color: overlayTokens.muted, padding: "4px 10px" }}>
-          {heading}
-        </div>
+      <OverlayTrigger
+        label={heading}
+        open={visible}
+        popup="menu"
+        onClick={() => setOpen((prev) => !prev)}
+      />
+      <ContentShell open={visible} role="menu">
         {items.map((option) => (
           <MenuButton
             key={option.value}
@@ -58,7 +71,54 @@ function VerticalMenu(props: PtRendererProps & { heading: string; fallback: PtOp
             onPick={(value) => emitValue(props.node, value, props.onCommit, props.onAction)}
           />
         ))}
+      </ContentShell>
+    </OverlayFrame>
+  );
+}
+
+function ContextMenuPanel(props: PtRendererProps & { fallback: PtOption[] }): ReactElement {
+  const [open, setOpen] = useOverlayOpen(props.mode);
+  const visible = overlayVisible(props.mode, open);
+  const heading = propString(props.node, "label", "Context menu");
+  const items = itemsOf(props.node, props.fallback);
+  return (
+    <OverlayFrame
+      node={props.node}
+      mode={props.mode}
+      onCommit={props.onCommit}
+      onAction={props.onAction}
+    >
+      <div
+        data-pt-overlay-trigger=""
+        onContextMenu={(event) => {
+          event.preventDefault();
+          setOpen(true);
+        }}
+        style={{
+          margin: 8,
+          marginBottom: 0,
+          padding: 8,
+          flexShrink: 0,
+          minHeight: 36,
+          boxSizing: "border-box",
+          border: `1.5px dashed ${overlayTokens.border}`,
+          borderRadius: overlayTokens.radius,
+          background: overlayTokens.bg,
+          fontSize: 13,
+          fontFamily: overlayTokens.font,
+        }}
+      >
+        {heading}
       </div>
+      <ContentShell open={visible} role="menu">
+        {items.map((option) => (
+          <MenuButton
+            key={option.value}
+            option={option}
+            onPick={(value) => emitValue(props.node, value, props.onCommit, props.onAction)}
+          />
+        ))}
+      </ContentShell>
     </OverlayFrame>
   );
 }
@@ -66,7 +126,16 @@ function VerticalMenu(props: PtRendererProps & { heading: string; fallback: PtOp
 function BarMenu(props: PtRendererProps & { fallback: PtOption[]; role: string }): ReactElement {
   const items = itemsOf(props.node, props.fallback);
   const selected = props.node.value ?? items[0]?.value;
-  const openItems = items;
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [modeSnapshot, setModeSnapshot] = useState(props.mode);
+  if (props.mode !== modeSnapshot) {
+    setModeSnapshot(props.mode);
+    if (props.mode === "interact") setOpenKey(null);
+  }
+  const resolvedKey = props.mode === "edit" ? (openKey ?? selected ?? null) : openKey;
+  const openItems = items.filter((item) => item.value === resolvedKey);
+  const menuOpen = overlayVisible(props.mode, openItems.length > 0);
+
   return (
     <OverlayFrame
       node={props.node}
@@ -75,31 +144,47 @@ function BarMenu(props: PtRendererProps & { fallback: PtOption[]; role: string }
       onAction={props.onAction}
       role={props.role}
     >
-      <div style={{ display: "flex", gap: 4, padding: "8px 10px", borderBottom: `1px solid ${overlayTokens.border}` }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 4,
+          margin: 8,
+          marginBottom: 0,
+          padding: 4,
+          flexShrink: 0,
+          border: `1.5px solid ${overlayTokens.border}`,
+          borderRadius: overlayTokens.radius,
+          background: overlayTokens.bg,
+        }}
+      >
         {items.map((option) => (
           <button
             key={option.value}
             type="button"
-            role="menuitem"
-            onClick={() => emitValue(props.node, option.value, props.onCommit, props.onAction)}
+            aria-expanded={option.value === resolvedKey}
+            onClick={() => {
+              setOpenKey(option.value);
+              emitValue(props.node, option.value, props.onCommit, props.onAction);
+            }}
             style={{
               appearance: "none",
               border: "none",
               cursor: "pointer",
-              borderRadius: 8,
+              borderRadius: overlayTokens.radius,
               padding: "6px 10px",
               fontSize: 13,
               fontWeight: 500,
-              background: option.value === selected ? overlayTokens.mutedBg : "transparent",
+              background: option.value === (resolvedKey ?? selected) ? overlayTokens.mutedBg : "transparent",
               color: overlayTokens.fg,
               fontFamily: overlayTokens.font,
+              textTransform: "none",
             }}
           >
             {option.label}
           </button>
         ))}
       </div>
-      <div role="menu" style={{ padding: 8, display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
+      <ContentShell open={menuOpen} role="menu">
         {openItems.map((option) => (
           <MenuButton
             key={`open-${option.value}`}
@@ -107,7 +192,7 @@ function BarMenu(props: PtRendererProps & { fallback: PtOption[]; role: string }
             onPick={(value) => emitValue(props.node, value, props.onCommit, props.onAction)}
           />
         ))}
-      </div>
+      </ContentShell>
     </OverlayFrame>
   );
 }
@@ -148,7 +233,7 @@ export const dropdownMenuModule: PtComponentModule = {
   <option value="export">Export</option>
 </dropdown-menu>`,
   inspectorFields: LABEL_FIELD,
-  Renderer: (props) => <VerticalMenu {...props} heading="Menu" fallback={FILE_ITEMS} />,
+  Renderer: (props) => <DropdownMenu {...props} heading="Menu" fallback={FILE_ITEMS} />,
 };
 
 export const contextMenuModule: PtComponentModule = {
@@ -169,7 +254,7 @@ export const contextMenuModule: PtComponentModule = {
   <option value="paste">Paste</option>
 </context-menu>`,
   inspectorFields: LABEL_FIELD,
-  Renderer: (props) => <VerticalMenu {...props} heading="Context menu" fallback={CONTEXT_ITEMS} />,
+  Renderer: (props) => <ContextMenuPanel {...props} fallback={CONTEXT_ITEMS} />,
 };
 
 export const menubarModule: PtComponentModule = {

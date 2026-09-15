@@ -161,13 +161,19 @@
 [data-testid="pt-design-board"] {
   --pt-island-pad: var(--space-factor, 0.25rem);
   --pt-island-size: calc(var(--lg-button-size, 2.25rem) + 2 * var(--pt-island-pad));
+  --pt-back-slot: 0px;
+}
+
+[data-testid="pt-design-board"][data-has-back="true"] {
+  /* Icon-only Back + 8px gap before the board menu. */
+  --pt-back-slot: calc(var(--pt-island-size) + 8px);
 }
 
 .excalidraw .pt-design-mode-toggle,
 [data-testid="pt-design-board"] > .pt-design-mode-toggle {
   position: absolute;
   top: var(--editor-container-padding, 1rem);
-  left: calc(var(--editor-container-padding, 1rem) + var(--pt-island-size) + 8px);
+  left: calc(var(--editor-container-padding, 1rem) + var(--pt-back-slot, 0px) + var(--pt-island-size) + 8px);
   z-index: 8;
   display: inline-flex;
   align-items: center;
@@ -179,6 +185,42 @@
   background: var(--island-bg-color, var(--card, #ffffff));
   box-shadow: var(--shadow-island, 0 0 0 1px var(--border, rgba(0, 0, 0, 0.1)));
   pointer-events: auto;
+}
+
+.pt-design-back {
+  position: absolute;
+  top: var(--editor-container-padding, 1rem);
+  left: var(--editor-container-padding, 1rem);
+  z-index: 8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--pt-island-size);
+  height: var(--pt-island-size);
+  padding: 0;
+  box-sizing: border-box;
+  border: none;
+  border-radius: var(--border-radius-lg, 0.625rem);
+  background: var(--island-bg-color, var(--card, #ffffff));
+  box-shadow: var(--shadow-island, 0 0 0 1px var(--border, rgba(0, 0, 0, 0.1)));
+  color: var(--foreground, #18181b);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+[data-testid="pt-design-board"][data-theme="dark"] > .pt-design-back {
+  background: var(--island-bg-color, var(--card, #18181b));
+  box-shadow: var(--shadow-island, 0 0 0 1px var(--border, rgba(255, 255, 255, 0.1)));
+  color: var(--foreground, #fafafa);
+}
+
+.pt-design-back:hover {
+  background: var(--button-hover-bg, var(--muted, #f4f4f5));
+}
+
+[data-testid="pt-design-board"][data-has-back="true"] .excalidraw .App-menu_top .main-menu-trigger,
+[data-testid="pt-design-board"][data-has-back="true"] .excalidraw .App-menu_top .main-menu-trigger.dropdown-menu-button {
+  margin-left: var(--pt-back-slot);
 }
 
 [data-testid="pt-design-board"][data-theme="dark"] > .pt-design-mode-toggle {
@@ -256,6 +298,12 @@
 
 .excalidraw .sidebar__header {
   padding: 10px 12px;
+}
+
+.excalidraw .pt-design-catalog-sidebar .sidebar__header,
+.excalidraw .pt-design-catalog-sidebar .sidebar-tabs-root > .sidebar__header {
+  display: flex;
+  align-items: center;
 }
 
 .excalidraw .sidebar__header::after {
@@ -358,6 +406,85 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
 :lang(zh) .excalidraw .pt-design-library-sidebar .sidebar-triggers .sidebar-tab-trigger:nth-child(2)::after,
 html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sidebar-tab-trigger:nth-child(2)::after {
   content: "素材库";
+}
+
+.excalidraw .pt-design-catalog-sidebar .sidebar-tab-trigger {
+  padding: 0 6px;
+  font-size: 11px;
+  gap: 4px;
+}
+
+.excalidraw .pt-design-catalog-sidebar [data-testid="sidebar-close"],
+.excalidraw .pt-design-catalog-sidebar .sidebar__header__buttons {
+  display: none !important;
+}
+
+.pt-design-catalog-style {
+  position: relative;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.pt-design-catalog-style__btn {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.pt-design-catalog-style__btn:hover,
+.pt-design-catalog-style__btn[data-open="true"] {
+  background: var(--muted, var(--color-surface-high));
+}
+
+.pt-design-catalog-style-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  min-width: 176px;
+  padding: 4px;
+  border: 1px solid var(--sidebar-border-color, var(--border, rgba(0, 0, 0, 0.1)));
+  border-radius: 12px;
+  background: var(--island-bg-color, var(--card, #ffffff));
+  box-shadow: 0 16px 40px -12px rgb(0 0 0 / 0.28);
+}
+
+.pt-design-catalog-style-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pt-design-catalog-style-row:hover,
+.pt-design-catalog-style-row[data-selected="true"] {
+  background: var(--muted, var(--color-surface-high));
+}
+
+.pt-design-catalog-style-row__value {
+  color: var(--muted-foreground, #71717a);
+  font-size: 12px;
 }
 
 .excalidraw .pt-design-catalog-sidebar,
@@ -1039,7 +1166,7 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
 .excalidraw.excalidraw--mobile .App-toolbar-content > .main-menu-trigger {
   position: absolute;
   top: var(--editor-container-padding, 1rem);
-  left: var(--editor-container-padding, 1rem);
+  left: calc(var(--editor-container-padding, 1rem) + var(--pt-back-slot, 0px));
   bottom: auto;
   z-index: 7;
   width: var(--pt-island-size);

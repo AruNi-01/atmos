@@ -4,11 +4,13 @@ import {
   ARTIST_INK,
   ARTIST_SAMPLE_PX,
   artistSeed,
+  fieldMarks,
   gridMarks,
   isTransparentColor,
   marksForBox,
   pathForMark,
   planForBox,
+  pressMarks,
   type BorderEdge,
   type BoxInk,
 } from "./artist-ink";
@@ -111,6 +113,44 @@ describe("Artist overlay ink", () => {
     expect(plan.hide).toBe(true);
   });
 
+  test("nested (non-full-bleed) field gets a frame mark", () => {
+    const marks = fieldMarks({ x: 16, y: 52, w: 328, h: 40 }, { w: 360, h: 228 });
+    expect(marks).toHaveLength(1);
+    expect(marks[0]?.kind).toBe("frame");
+    expect(marks[0]?.radius).toBe(3);
+    expect(marks[0]?.color).toBe("#1e1e1e");
+    expect(marks[0]?.x).toBe(17);
+    expect(marks[0]?.y).toBe(53);
+  });
+
+  test("fieldMarks and pressMarks follow the radius token", () => {
+    expect(fieldMarks({ x: 16, y: 52, w: 328, h: 40 }, { w: 360, h: 228 }, 14)[0]?.radius).toBe(14);
+    expect(fieldMarks({ x: 16, y: 52, w: 328, h: 40 }, { w: 360, h: 228 }, 0)[0]?.radius).toBe(0);
+    const press = pressMarks({ x: 0, y: 0, w: 328, h: 40 }, { w: 328, h: 40 }, 28);
+    expect(press[0]?.radius).toBe(19);
+  });
+
+  test("nested inner artist host (button-sized box filling the inner host) gets a frame mark", () => {
+    const inner = { w: 328, h: 40 };
+    const marks = pressMarks({ x: 0, y: 0, w: 328, h: 40 }, inner);
+    expect(marks).toHaveLength(1);
+    expect(marks[0]?.kind).toBe("frame");
+    expect(marks[0]?.color).toBe("#1e1e1e");
+    expect(marks[0]?.x).toBe(1);
+    expect(marks[0]?.y).toBe(1);
+    expect(marks[0]?.w).toBe(326);
+    expect(marks[0]?.h).toBe(38);
+    expect(marks[0]?.radius).toBe(12);
+  });
+
+  test("overlay-level full-bleed four-side CSS frame is still skipped", () => {
+    const plan = planForBox(box({ w: 240, h: 80, borders: four(solid()) }), { w: 240, h: 80 });
+    expect(plan.marks).toEqual([]);
+    expect(plan.hide).toBe(true);
+    expect(fieldMarks({ x: 0, y: 0, w: 240, h: 80 }, { w: 240, h: 80 })).toEqual([]);
+    expect(marksForBox(box({ w: 240, h: 80, borders: four(solid()) }), { w: 240, h: 80 })).toEqual([]);
+  });
+
   test("inner strokes are sampled, not two-point CSS lines", () => {
     expect(ARTIST_SAMPLE_PX).toBe(8);
     const d = pathForMark({
@@ -168,5 +208,19 @@ describe("overlay wires Artist ink", () => {
     expect(ink).toContain("addEventListener(\"change\"");
     expect(ink).toContain("attributeFilter");
     expect(ink).toContain("el.dataset.ptArtist");
+    expect(ink).toContain("fieldMarks");
+    expect(ink).toContain("pressMarks");
+    expect(ink).toContain("tokenRadiusOrPill");
+    expect(ink).toContain("data-pt-radius");
+    expect(ink).toContain("inkKey");
+    expect(css).toContain("border-radius: var(--pt-radius, 3px)");
+    expect(ink).toContain("data-pt-overlay-fit");
+    expect(ink).toContain("INTERACT_PRESS_NODE_TYPE");
+    expect(ink).toContain("HTMLTextAreaElement");
+    expect(ink).toContain("datetime-local");
+    expect(ink).toContain("combobox");
+    expect(ink).toContain("native-select");
+    expect(css).toContain("[data-pt-artist-ready] [data-pt-artist-ink]");
+    expect(css).not.toContain("[data-pt-artist-ready] *");
   });
 });

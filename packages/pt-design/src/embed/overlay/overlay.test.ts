@@ -44,8 +44,70 @@ describe("OverlayHost", () => {
     expect(html).toContain("<button");
     expect(html).toContain("data-pt-overlay-id=\"run\"");
     expect(html).toContain("data-pt-node-type=\"button\"");
+    expect(html).toContain("data-pt-global-radius=\"sm\"");
+    expect(html).toContain("data-pt-radius=\"sm\"");
     expect(html).toContain("data-pt-type=\"button\"");
     expect(html).toContain("pointer-events:auto");
+  });
+
+  test("page-level radius override wins over the global token", () => {
+    const document = parsePtx(
+      `<page id="p"><button id="run" label="Run" radius="lg" x="10" y="20" width="100" height="40"/></page>`,
+    );
+    const html = renderToStaticMarkup(
+      createElement(OverlayHost, {
+        document,
+        mode: "interact",
+        appState: APP_STATE,
+        onCommit: () => {},
+        globalRadius: "none",
+      }),
+    );
+    expect(html).toContain("data-pt-global-radius=\"none\"");
+    expect(html).toContain("data-pt-radius=\"lg\"");
+    expect(html).toContain("--pt-radius:14px");
+    expect(html).toContain("--pt-handle-radius:28px");
+    expect(html).toContain("border-radius:var(--pt-radius, 3px)");
+  });
+
+  test("global radius token updates button, input, card, and dialog corners", () => {
+    const document = parsePtx(
+      `<page id="p">
+  <button id="run" label="Run" x="10" y="20" width="100" height="40"/>
+  <input id="email" label="Email" x="10" y="80" width="240" height="40"/>
+  <card id="box" title="Card" x="10" y="140" width="360" height="200"/>
+  <dialog id="dlg" title="Dialog" label="Open" x="400" y="40" width="320" height="200"/>
+</page>`,
+    );
+    const htmlOf = (globalRadius: "none" | "sm" | "lg") =>
+      renderToStaticMarkup(
+        createElement(OverlayHost, {
+          document,
+          mode: "interact",
+          appState: APP_STATE,
+          onCommit: () => {},
+          globalRadius,
+        }),
+      );
+    const sm = htmlOf("sm");
+    expect(sm).toContain("data-pt-global-radius=\"sm\"");
+    expect(sm).toContain("--pt-radius:3px");
+    expect(sm).toContain("--pt-handle-radius:12px");
+    expect(sm).toContain("border-radius:var(--pt-radius, 3px)");
+    expect(sm).toContain("data-pt-type=\"button\"");
+    expect(sm).toContain("<input");
+    expect(sm).toContain("data-pt-type=\"card\"");
+    expect(sm).toContain("data-pt-type=\"dialog\"");
+
+    const lg = htmlOf("lg");
+    expect(lg).toContain("data-pt-global-radius=\"lg\"");
+    expect(lg).toContain("--pt-radius:14px");
+    expect(lg).toContain("--pt-handle-radius:28px");
+    expect(lg).toContain("border-radius:var(--pt-radius, 3px)");
+
+    const none = htmlOf("none");
+    expect(none).toContain("--pt-radius:0px");
+    expect(none).toContain("--pt-handle-radius:0px");
   });
 
   test("Edit layer uses pointer-events none and still follows viewport zoom", () => {
@@ -87,7 +149,8 @@ describe("OverlayHost", () => {
     expect(edit).toContain('data-pt-mode="edit"');
     expect(edit).toContain("inert");
     expect(edit).toContain("pointer-events:none !important");
-    expect(edit).toContain("[data-pt-overlay-id] *");
+    expect(edit).toContain("[data-pt-overlay-id]:not([data-pt-text-editing])");
+    expect(edit).toContain("data-pt-text-editing");
     const interact = renderToStaticMarkup(
       createElement(OverlayHost, {
         document,
@@ -149,7 +212,46 @@ describe("OverlayHost", () => {
     expect(leaked).toEqual([]);
   });
 
-  test("overlay fit scales defaultBBox into the live handle box", () => {
+  test("gallery chart overlay renders sketch svg", () => {
+    const mod = PT_COMPONENT_MODULES.find((item) => item.type === "chart.area-default");
+    expect(mod).toBeDefined();
+    const html = renderToStaticMarkup(
+      createElement(OverlayHost, {
+        document: { version: "ptx/1", pages: [{ id: "p", nodes: [mod!.defaultNode("area")] }] },
+        mode: "interact",
+        appState: APP_STATE,
+        onCommit: () => {},
+      }),
+    );
+    expect(html).toContain("data-pt-overlay-id=\"area\"");
+    expect(html).toContain("data-pt-chart-id=\"chart.area-default\"");
+    expect(html).toContain("<svg");
+    expect(html).toContain("var(--pt-radius");
+    expect(html).toContain('data-pt-text="title"');
+    expect(html).toContain('data-pt-text="description"');
+    expect(html).toContain('data-pt-text="footer"');
+  });
+
+  test("bar chart overlay isolates copy hosts from svg ticks", () => {
+    const mod = PT_COMPONENT_MODULES.find((item) => item.type === "chart.bar-default");
+    expect(mod).toBeDefined();
+    const node = mod!.defaultNode("bar");
+    const html = renderToStaticMarkup(
+      createElement(OverlayHost, {
+        document: { version: "ptx/1", pages: [{ id: "p", nodes: [node] }] },
+        mode: "edit",
+        appState: APP_STATE,
+        onCommit: () => {},
+      }),
+    );
+    expect(html).toContain('data-pt-text="title"');
+    expect(html).toMatch(/data-pt-text="title"[^>]*>Bar Chart</);
+    expect(html).not.toMatch(/data-pt-text="title"[^>]*>[^<]*Jan/);
+    expect(html).toContain("<svg");
+    expect(html).toContain(">Jan</text>");
+  });
+
+  test("overlay fit scales the node box into the live handle box", () => {
     expect(overlayFitStyle({ width: 240, height: 80 }, { width: 120, height: 40 })).toEqual({
       width: 120,
       height: 40,
@@ -172,13 +274,52 @@ describe("OverlayHost", () => {
     );
     const inset = overlayArtistInset({ width: 240, height: 80 }, 1);
     const box = { width: 240 - inset * 2, height: 80 - inset * 2 };
-    const fit = overlayFitStyle(box, { width: 120, height: 40 });
+    const fit = overlayFitStyle(box, { width: 240, height: 80 });
     expect(html).toContain("data-pt-overlay-fit");
     expect(html).toContain(String(fit.transform));
-    expect(html).toContain("width:120px");
-    expect(html).toContain("height:40px");
+    expect(html).toContain("width:240px");
+    expect(html).toContain("height:80px");
     expect(html).toContain(`width:${box.width}px`);
     expect(html).toContain("<button");
+  });
+
+  test("select-type fit and layer overflow are visible; default fit stays hidden", () => {
+    expect(overlayFitStyle({ width: 240, height: 80 }, { width: 120, height: 40 }).overflow).toBe("hidden");
+    expect(overlayFitStyle({ width: 240, height: 80 }, { width: 120, height: 40 }, "visible").overflow).toBe(
+      "visible",
+    );
+    const selectXml = `<page id="p"><select id="model" label="Model" value="a" x="0" y="0" width="240" height="40"><option value="a">Option A</option><option value="b">Option B</option></select></page>`;
+    for (const type of ["select", "combobox", "native-select"] as const) {
+      const document = parsePtx(selectXml.replaceAll("select", type).replaceAll("model", type));
+      const html = renderToStaticMarkup(
+        createElement(OverlayHost, {
+          document,
+          mode: "interact",
+          appState: APP_STATE,
+          onCommit: () => {},
+        }),
+      );
+      const layer = html.match(new RegExp(`data-pt-overlay-id="${type}"[^>]*style="([^"]*)"`));
+      const fit = html.match(/data-pt-overlay-fit="" style="([^"]*)"/);
+      expect(layer?.[1], type).toContain("overflow:visible");
+      expect(layer?.[1], type).not.toContain("overflow:hidden");
+      expect(fit?.[1], type).toContain("overflow:visible");
+      expect(fit?.[1], type).not.toContain("overflow:hidden");
+    }
+    const button = renderToStaticMarkup(
+      createElement(OverlayHost, {
+        document: parsePtx(
+          `<page id="p"><button id="run" label="Run" x="10" y="20" width="100" height="40"/></page>`,
+        ),
+        mode: "interact",
+        appState: APP_STATE,
+        onCommit: () => {},
+      }),
+    );
+    const buttonLayer = button.match(/data-pt-overlay-id="run"[^>]*style="([^"]*)"/);
+    const buttonFit = button.match(/data-pt-overlay-fit="" style="([^"]*)"/);
+    expect(buttonLayer?.[1]).toContain("overflow:hidden");
+    expect(buttonFit?.[1]).toContain("overflow:hidden");
   });
 });
 
@@ -241,6 +382,11 @@ describe("overlay canvas origin", () => {
     expect(src).toContain("pressableButtonRoot");
     expect(src).toContain("armInteractPress");
     expect(src).toContain("data-pt-node-type");
+    expect(src).toContain("data-pt-text-editing");
+    expect(src).toContain("dblclick");
+    expect(src).toContain("findEditableHost");
+    expect(src).toContain("sanitizeCollectedCopy");
+    expect(src).not.toContain("return scope instanceof HTMLElement ? scope : null");
     const ink = readFileSync(new URL("./artist-ink.tsx", import.meta.url), "utf8");
     expect(ink).toContain('data-pt-artist=""');
     expect(ink).toContain("el.dataset.ptArtist");

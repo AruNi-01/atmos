@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactElement } from "react";
 import type { PtComponentModule, PtRendererProps } from "./contract";
 import { InTreeListbox } from "./listbox";
+import { SKETCH_RADIUS_CSS } from "../../sketch";
 import { FONT, pairOptions, ptNode } from "./node";
 import { ControlRoot, fireAgentActions, propText } from "./runtime";
 
@@ -153,7 +154,7 @@ function ToggleGroupRenderer({ node, mode, onCommit, onAction }: PtRendererProps
       <div
         role="group"
         aria-label={propText(node, "label", "Toggles")}
-        style={{ display: "flex", height: "100%", overflow: "hidden", borderRadius: 8 }}
+        style={{ display: "flex", height: "100%", overflow: "hidden", borderRadius: SKETCH_RADIUS_CSS }}
       >
         {options.map((opt, index) => {
           const pressed = node.value === opt.value;

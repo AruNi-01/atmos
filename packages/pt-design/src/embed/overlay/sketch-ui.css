@@ -21,6 +21,13 @@
   max-width: 100%;
 }
 
+[data-testid="pt-design-board"] [data-pt-overlay] button:not([role="switch"]),
+[data-testid="pt-design-board"] [data-pt-overlay] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+[data-testid="pt-design-board"] [data-pt-overlay] select,
+[data-testid="pt-design-board"] [data-pt-overlay] textarea {
+  border-radius: var(--pt-radius, 3px);
+}
+
 [data-testid="pt-design-board"] [data-pt-overlay] input[type="checkbox"],
 [data-testid="pt-design-board"] [data-pt-overlay] input[type="radio"] {
   appearance: none;
@@ -33,7 +40,11 @@
   border: 1.5px solid transparent;
 }
 
-[data-pt-artist-ready] * {
+[data-testid="pt-design-board"] [data-pt-overlay] input[type="checkbox"] {
+  border-radius: var(--pt-radius, 3px);
+}
+
+[data-pt-artist-ready] [data-pt-artist-ink] {
   border-color: transparent !important;
 }
 

@@ -1,7 +1,9 @@
+import { CHART_IDS } from "../catalog/chart-list";
 import { REQUIRED_BLOCKS, SHADCN_BASIC_IDS } from "../catalog/shadcn-list";
 import { PtDesignError } from "../protocol";
 import type { PtNode, PtNodeType } from "../protocol";
 import { BLOCK_MODULES } from "./groups/blocks";
+import { CHART_MODULES } from "./groups/charts";
 import { DISPLAY_MODULES } from "./groups/display";
 import { FORM_MODULES } from "./groups/form";
 import { OVERLAY_MODULES } from "./groups/overlay";
@@ -12,6 +14,7 @@ export const PT_COMPONENT_MODULES: readonly PtComponentModule[] = [
   ...OVERLAY_MODULES,
   ...DISPLAY_MODULES,
   ...BLOCK_MODULES,
+  ...CHART_MODULES,
 ];
 
 const BY_TYPE = new Map<string, PtComponentModule>();
@@ -32,7 +35,7 @@ export function getComponentModule(type: string): PtComponentModule {
 }
 
 export function listComponentTypes(): PtNodeType[] {
-  return [...SHADCN_BASIC_IDS, ...REQUIRED_BLOCKS];
+  return [...SHADCN_BASIC_IDS, ...REQUIRED_BLOCKS, ...CHART_IDS];
 }
 
 export function defaultNodeFor(type: string, id: string): PtNode {

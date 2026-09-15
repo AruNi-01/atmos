@@ -4,16 +4,16 @@
 
 ## Status
 
-- **State**: done
+- **State**: in_progress
 - **Branch**: `feat/pt-design-interactive-canvas`
 - **Last updated**: 2026-09-14
 - **Current owner**: long-task parent (orchestrator)
-- **Current phase**: TEST coverage closed — Playwright **10/10** (S5/S6/S9/S10/S11/S21/S29/S30/S31/S33)
+- **Current phase**: Edit text + catalog insert reveal (live-verified)
 
 ## Snapshot
 
-- **Done**: S0–S12 review-pass. Live `:3130`+`:31303` official Playwright **10/10** including S5 dialog+auth-form, S30 apply undo, S33 PNG. bun `src` **241 pass / 1 skip**.
-- **Next**: none for impl. S24 agent-browser still blank hydrate (Playwright covers Edit/Interact). S27 dual-client not run (source NEVER + crypto).
+- **Done**: S0–S12; Waves 14–16. Edit double-click text (width hugs). Catalog insert pans with NEVER camera + place-reveal ring.
+- **Next**: Residual nit: open select list can sit under a later sibling overlay (Alert, z-index 2).
 - **Blocked**: none
 - **Must not touch from parent**: `packages/**`, `apps/**`, `crates/**` (parent is orchestrator only)
 
@@ -57,6 +57,14 @@
 | S10 | 11 | see S10 card Owns | protocol; groups; e2e skip-as-green | S9 | done | ok | pass | bun: overlay origin = canvas; Edit handle not locked; viewMode false |
 | S11 | 12 | see S11 card Owns | protocol; groups; e2e skip-as-green | S10 | done | ok | pass | bun: undo after applyPtx restores previous extract payload |
 | S12 | 13 | see S12 card Owns | protocol; groups; e2e skip; TEST.md bodies | S11 | done | ok | pass | #20 live S30 green (8/8) |
+| S14 | 14 | `packages/pt-design/src/embed/overlay/artist-ink.tsx`, `artist-ink.test.ts`, `sketch-ui.css` | OverlayHost; groups; protocol | — | done | ok | pass | `cd packages/pt-design && bun test src/embed/overlay/artist-ink.test.ts src/embed/overlay/overlay.test.ts` |
+| S15 | 14 | `packages/pt-design/src/components/groups/overlay/**` | artist-ink; OverlayHost; sketch-ui.css; other groups | — | done | ok | pass | `cd packages/pt-design && bun test src/components/groups/overlay` |
+| S16 | 14 | `packages/pt-design/src/components/groups/display/**` | overlay group; artist-ink; OverlayHost | — | done | ok | pass | `cd packages/pt-design && bun test src/components/groups/display` |
+| S19 | 14 | lead read-only browser (playground `:4173` + Next `:3130`) | feature code | S14, S16; S15 code in tree | done | ok | — | Interact vs shadcn: pass card/tabs/progress/accordion/field ink; gap mode-open + select clip + Continue |
+| S14b | 14 | `artist-ink.tsx`, `artist-ink.test.ts` | OverlayHost; groups | S14, S19 | done | ok | pass | nested button (Continue) still gets a frame on inner press host |
+| S17 | 15 | `packages/pt-design/src/components/groups/blocks/**` | overlay; display; artist-ink | S14 | done | ok | pass | `cd packages/pt-design && bun test src/components/groups/blocks` |
+| S18 | 15 | `packages/pt-design/src/components/groups/form/**` | artist-ink; OverlayHost; overlay group | S14 | done | ok | pass | `cd packages/pt-design && bun test src/components/groups/form` |
+| S20 | 16 | `OverlayHost.tsx`, `src/embed/overlay/overlay.test.ts` | artist-ink; component groups | S18 | done | ok | pass | bun 30; live list 62px below 32px host; layer/fit `overflow: visible`; no portal |
 
 **Status**: `planned` · `ready` · `in_progress` · `blocked` · `in_review` · `rework` · `done`
 
@@ -420,6 +428,134 @@
 - S12 live dump after #19: apply → `undo=1` payload `customData` only. Overlay force-click → `undo=2` + `selectedElementIds.el_run`. z#1 pops selection (`deepseek` stays). z#2 pops payload. Dispatched rework #20: Edit Cmd+Z skip unchanged-extract selection decoy. No apply-path peel. No overlay pointer-events change.
 - S12 #20 impl ok (`undoThroughSelectionDecoy` on Edit Cmd+Z; apply path unchanged). Review pass. Official Playwright `:3130`+`:31303` **8 passed / 0 failed**, including S21/S30/S31. bun `src` **239 pass / 1 skip**. S12 → done.
 
+### S14 — Field Artist ink (nested input chrome)
+
+- **Wave**: 14
+- **Goal**: Interact text fields that are inset in a parent overlay (auth-form Email/Password, OTP cells, select trigger that is not full-bleed) get a roughjs frame like checkbox `widgetMarks`. Do not restore shadcn CSS `border` as the primary chrome.
+- **Out of scope**: OverlayHost overflow; overlay trigger/open; display/tabs; protocol.
+- **Owns**: `packages/pt-design/src/embed/overlay/artist-ink.tsx`, `packages/pt-design/src/embed/overlay/artist-ink.test.ts`, `packages/pt-design/src/embed/overlay/sketch-ui.css`
+- **Forbids**: `OverlayHost.tsx`, `packages/pt-design/src/components/**`, `apps/**`, this `PROGRESS.md`
+- **Reads (read-only)**: form `FIELD` in `groups/form/node.ts`, OverlayHost wrapping, `widgetMarks` / `planForBox` / full-bleed tests
+- **Depends**: —
+- **Invariants**: Nested children are not extra Excalidraw handles. Overlay types stay in-canvas. Full-bleed CSS frames must not duplicate the page-level handle. `[data-pt-artist-ready] *` may stay but fieldMarks must still produce visible ink.
+- **Verify**: `cd packages/pt-design && bun test src/embed/overlay/artist-ink.test.ts src/embed/overlay/overlay.test.ts`
+- **Review checklist**:
+  1. `collectMarks` draws frames for text `input` / `textarea` / date / OTP-like single-char inputs that are not checkbox/radio/range, when not full-bleed of the ArtistInkHost.
+  2. Full-bleed standalone input still skips a duplicate frame (handle remains the outer stroke).
+  3. Nested `data-pt-artist` (button press host) still stops descent; checkbox/radio `widgetMarks` unchanged.
+- **HUMAN open questions**: none
+
+### S14b — Nested button ink (Continue)
+
+- **Wave**: 14
+- **Goal**: Nested buttons inside another overlay (auth-form Continue) get an Artist frame. Inner press `ArtistInkHost` is full-bleed of itself, so current `isFullBleed` hide removes chrome. Nested press hosts are not page-level Excalidraw handles — still paint a frame.
+- **Out of scope**: OverlayHost overflow; overlay open state; protocol.
+- **Owns**: `packages/pt-design/src/embed/overlay/artist-ink.tsx`, `packages/pt-design/src/embed/overlay/artist-ink.test.ts`
+- **Forbids**: `OverlayHost.tsx`, `sketch-ui.css` unless required, `packages/pt-design/src/components/**`, `apps/**`, this `PROGRESS.md`
+- **Depends**: S14, S19
+- **Invariants**: Nested children are not extra handles. Standalone page-level button still must not double-stroke the Excalidraw handle.
+- **Verify**: `cd packages/pt-design && bun test src/embed/overlay/artist-ink.test.ts src/embed/overlay/overlay.test.ts`
+- **Review checklist**:
+  1. Nested inner `data-pt-artist` button host gets a frame mark even if full-bleed of that inner host.
+  2. Page-level standalone button still skips a duplicate full-bleed frame on the overlay-level host.
+  3. Nested `data-pt-artist` still stops parent descent (card must not scale).
+- **HUMAN open questions**: none — live UI verify: Continue has no chrome.
+
+### S15 — Overlay trigger + in-canvas open/close
+
+- **Wave**: 14
+- **Goal**: Dialog, alert-dialog, sheet, drawer, dropdown-menu, context-menu, popover, tooltip, hover-card, menubar, navigation-menu use shadcn anatomy in Interact: visible Trigger, click (or hover for tooltip/hover-card; contextmenu for context-menu) opens Content still inside the overlay box. No `createPortal` / `document.body`. Inner content uses a non-full-bleed bordered shell so Artist ink can stroke it. Menubar/nav submenu follows the selected bar item. Command/toast/sonner stay visible panels but get an inner bordered shell.
+- **Out of scope**: Artist ink pipeline; OverlayHost overflow; form FIELD; protocol `open` field (use local React state; optional `node.checked` as initial open only).
+- **Owns**: `packages/pt-design/src/components/groups/overlay/**`
+- **Forbids**: `packages/pt-design/src/embed/overlay/artist-ink.tsx`, `sketch-ui.css`, `OverlayHost.tsx`, other component groups, `apps/**`, this `PROGRESS.md`
+- **Reads (read-only)**: display `alert` inner border pattern, overlay.test.ts S5 no-portal, TECH “overlay types stay in-canvas”
+- **Depends**: —
+- **Invariants**: Overlay/popover types stay in-canvas; no `document.body` portals. Interact operates real controls. Edit mode remains inert (`pointer-events: none` / `inert` on root). English UI sentence case (Open, Cancel, Confirm — not ALL CAPS).
+- **Verify**: `cd packages/pt-design && bun test src/components/groups/overlay`
+- **Review checklist**:
+  1. Interact dialog/dropdown/popover markup includes a trigger control; content is not the only visible chrome.
+  2. No `createPortal` / `document.body` in overlay group sources.
+  3. Content panel has an inner `1px`/`1.5px` solid border (not OverlayFrame full-bleed `border:none` as the only box).
+  4. Menubar/navigation-menu does not dump every bar item’s children at once; it shows the selected item’s menu.
+  5. Existing S5 tests still prove no portal; update interact assertions if they assumed always-expanded content.
+- **HUMAN open questions**: none — HUMAN asked click-triggered modal/popover alignment, still in-canvas.
+- **Review**: pass (rework). `useOverlayOpen` seeds `false`; Edit uses `overlayVisible`; Interact starts closed without remount.
+
+### S16 — Display chrome (card, tabs, progress, accordion)
+
+- **Wave**: 14
+- **Goal**: Card/empty/alert inner surfaces are inset (not full-bleed hide-without-ink). Tabs use a muted list + active indicator/underline, not a filled primary button. Progress is a sketchable track+fill, not an unstyled native `<progress>`. Accordion chevron rotation is visible; item separators remain.
+- **Out of scope**: Artist ink; overlay trigger; block.auth-form; form FIELD.
+- **Owns**: `packages/pt-design/src/components/groups/display/**`
+- **Forbids**: overlay group; `artist-ink.tsx`; `OverlayHost.tsx`; blocks; form; `apps/**`; this `PROGRESS.md`
+- **Reads (read-only)**: `packages/ui/src/components/ui/tabs.tsx`, `card.tsx`, `progress.tsx` (anatomy only — do not import `@workspace/ui` into pt-design)
+- **Depends**: —
+- **Invariants**: Package must not import `@workspace/ui`. Overlay types stay in-canvas (N/A here). English sentence case.
+- **Verify**: `cd packages/pt-design && bun test src/components/groups/display`
+- **Review checklist**:
+  1. Card (and similar bordered panels) wrap content in an inset box with visible `border` so it is not full-bleed of the handle.
+  2. Tabs active state is not `primaryBtn` fill; muted list + indicator or underline.
+  3. Progress has a track element with a fill, not relying on native accent-only chrome.
+  4. No `@workspace/ui` / `@excalidraw/excalidraw` imports in display group.
+- **HUMAN open questions**: none
+
+### S19 — Interact UI vs shadcn anatomy (lead, read-only)
+
+- **Wave**: 14
+- **Goal**: After S14–S16 land, visually confirm Interact catalog anatomy matches shadcn (Trigger+Content, nested field ink, inset card, muted tabs, progress track). Sketch/Artist ink is expected — not a CSS pixel clone of `@workspace/ui`.
+- **Out of scope**: writing feature code in the parent session.
+- **Owns**: none (lead browser + screenshots)
+- **Depends**: S14, S16; S15 implementation already in tree
+- **Verify**: playground `http://127.0.0.1:4173` (restart after CSS/JS) and Next `http://127.0.0.1:3130/pt-design`
+- **HUMAN**: 对齐完之后要进行 UI 验证，确保效果和 shadcn 的一致
+
+### S17 — Block panel card chrome
+
+- **Wave**: 15
+- **Goal**: `block.auth-form` / settings / empty / nav get Card-like inset chrome (padding + inner 1px/1.5px border) so the panel is not full-bleed hide-without-ink. Nested fields already inherit S14 fieldMarks; nested Continue inherits S14b pressMarks.
+- **Out of scope**: artist-ink; OverlayHost; overlay trigger; form FIELD; importing display `InsetSurface` (display group is Forbidden — copy a local inset wrapper).
+- **Owns**: `packages/pt-design/src/components/groups/blocks/**`
+- **Forbids**: overlay group; display group; `artist-ink.tsx`; `OverlayHost.tsx`; form group; `apps/**`; this `PROGRESS.md`
+- **Depends**: S14
+- **Invariants**: Nested children are not extra handles. Package must not import `@workspace/ui`. English sentence case. Edit roots stay inert.
+- **Verify**: `cd packages/pt-design && bun test src/components/groups/blocks`
+- **Review checklist**:
+  1. BlockPanel (auth-form etc.) wraps content in an inset bordered surface, not full-bleed of the handle.
+  2. Title/description remain inside that surface.
+  3. No import from `groups/display` or `@workspace/ui`.
+  4. Existing nested input/button children still render.
+
+### S18 — Form extras
+
+- **Wave**: 15
+- **Goal**: Calendar grid, slider track, listbox trigger anatomy (sketch-safe). Do **not** change `FIELD` to CSS `border` (fights full-bleed hide). Do **not** edit OverlayHost (select list clip is a later serial slice).
+- **Owns**: `packages/pt-design/src/components/groups/form/**`
+- **Forbids**: `artist-ink.tsx`; `OverlayHost.tsx`; overlay group; blocks; display; `apps/**`; this `PROGRESS.md`
+- **Depends**: S14
+- **Invariants**: Overlay types stay in-canvas (listbox stays in-tree, no portal). Do not restore FIELD CSS border as primary chrome. English sentence case.
+- **Verify**: `cd packages/pt-design && bun test src/components/groups/form`
+- **Review checklist**:
+  1. Calendar has a visible grid/panel chrome (not naked transparent cells only).
+  2. Slider has a track (not native range accent-only).
+  3. Select/combobox trigger still has no CSS FIELD border as the primary chrome.
+  4. No `createPortal` / OverlayHost edits.
+
+### S20 — OverlayHost overflow for in-canvas lists (serial hot file)
+
+- **Wave**: 16
+- **Goal**: Select / combobox / native-select lists that extend past the handle are not clipped. Live UI verify: listbox `getBoundingClientRect` was taller than the 32px host; ancestors `overflow: hidden` on the overlay layer and `overlayFitStyle`. Stay in-canvas; no `createPortal`.
+- **Out of scope**: artist-ink; form FIELD; changing listbox to a portal; ExcalidrawBoard overflow.
+- **Owns**: `packages/pt-design/src/embed/overlay/OverlayHost.tsx`, `packages/pt-design/src/embed/overlay/overlay.test.ts`
+- **Forbids**: `artist-ink.tsx`; `sketch-ui.css`; `packages/pt-design/src/components/**`; `ExcalidrawBoard.tsx`; `apps/**`; this `PROGRESS.md`
+- **Depends**: S18
+- **Invariants**: Overlay types stay in-canvas; no document.body portals. Nested children are not extra handles. Do not set overflow visible on every overlay (cards/dialogs would spill). Edit overlay descendants stay pointer-events none.
+- **Verify**: `cd packages/pt-design && bun test src/embed/overlay/overlay.test.ts src/components/groups/form`
+- **Review checklist**:
+  1. `select` / `combobox` / `native-select` overlay layer (and fit wrapper) use `overflow: visible` so the in-tree list can paint outside the handle.
+  2. Other types keep `overflow: hidden` on the layer/fit (no global visible).
+  3. No `createPortal`.
+  4. Existing overlayFitStyle tests still pass for non-listbox types.
+
 ## Decisions Since TECH
 
 | ID | Decision | Why | Source update |
@@ -437,7 +573,7 @@
 | Form group | `cd packages/pt-design && bun test src/components/groups/form` | pass | S2a review: 11 tests |
 | Overlay group | `cd packages/pt-design && bun test src/components/groups/overlay` | pass | S2b review: 9 tests |
 | Blocks group | `cd packages/pt-design && bun test src/components/groups/blocks` | pass | S2d review: 7 tests |
-| Display group | `cd packages/pt-design && bun test src/components/groups/display` | pass | S2c review: 7 tests |
+| Display group | `cd packages/pt-design && bun test src/components/groups/display` | pass | S16 review: 9 tests |
 | Registry | `cd packages/pt-design && bun test src/components/registry.test.ts` | pass | S2e review: 5 tests |
 | Package tests | `cd packages/pt-design && bun test src` | pass | S5 review: 152 tests |
 | E2E / manual | Playwright APP-073 | pass | `:3130`+`:31303`: **10/10** (added S5 + S33). S24 agent-browser not_run. S27 source NEVER + crypto |
@@ -457,11 +593,11 @@ Greenfield rewrite of `@atmos/pt-design`: PTX XML Agent source, Excalidraw live 
 
 ### Current progress
 
-S0–S12 done. Parent re-ran official e2e **10 passed / 0 failed** (~22s) on `:3130`+`:31303`: S5/S6/S9/S10/S11/S21/S29/S30/S31/S33. bun **241 pass / 1 skip**. S24 agent-browser still cannot mount `pt-design-center` (150s wait; `bodyChildren=8` empty text). S27 dual-browser skipped.
+S0–S12 done. Waves 14–16 done. Edit-mode double-click edits component copy (button etc.) and hugs width. Catalog insert selects, pans with NEVER camera (not Excalidraw scrollToContent), and shows the place-reveal ring.
 
 ### Next steps
 
-None for production. Optional: dual-client S27; agent-browser S24 if that CLI ever hydrates Next.
+Residual nit: open select list can sit under a later sibling overlay (Alert, shared z-index 2). Closed-overlay leftover ink shells.
 
 ### Relevant files/symbols
 

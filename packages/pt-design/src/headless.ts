@@ -2,6 +2,7 @@ export { createHeadlessSession } from "./core/headless-session";
 export type { HeadlessSession } from "./core/headless-session";
 export { listComponentTypes, getComponentModule, defaultNodeFor } from "./components/registry";
 export { SHADCN_BASIC_IDS, REQUIRED_BLOCKS, CATALOG_VERSION } from "./catalog/shadcn-list";
+export { CHART_IDS } from "./catalog/chart-list";
 export { openFileSession, runTool, runSessionTool } from "./agent/api";
 export { createMcpServer, createSdkMcpServer, serveMcpStdio } from "./mcp/server";
 export { createRoom, parseRoomFromString, shareUrlForRoom } from "./collab/room";

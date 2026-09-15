@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactElement, ReactNode } from "react";
 import type { PtNode } from "../../../protocol";
 import type { PtComponentModule, PtRendererProps } from "./contract";
+import { SKETCH_RADIUS_CSS } from "../../sketch";
 import { FILL, FONT } from "./node";
 
 let formByType: ReadonlyMap<string, PtComponentModule> = new Map();
@@ -15,12 +16,33 @@ export function propText(node: PtNode, key: string, fallback = ""): string {
   return String(value);
 }
 
+/** Labels catalog used to stamp with `<action type="agent" name="run"/>`. */
+const CATALOG_PLACEHOLDER_RUN_LABELS = new Set([
+  "Button",
+  "Continue",
+  "Submit",
+  "Create",
+  "Home",
+  "Settings",
+]);
+
+export function isCatalogPlaceholderAgentRun(node: PtNode): boolean {
+  const handlers = node.events ?? [];
+  if (handlers.length !== 1) return false;
+  const handler = handlers[0]!;
+  if (handler.event !== "click" || handler.actions.length !== 1) return false;
+  const action = handler.actions[0]!;
+  if (action.type !== "agent" || action.name !== "run") return false;
+  return CATALOG_PLACEHOLDER_RUN_LABELS.has(propText(node, "label", "Button"));
+}
+
 export function fireAgentActions(
   node: PtNode,
   event: "click" | "change",
   onAction: PtRendererProps["onAction"],
 ): void {
   if (!onAction) return;
+  if (isCatalogPlaceholderAgentRun(node)) return;
   for (const handler of node.events ?? []) {
     if (handler.event !== event) continue;
     for (const action of handler.actions) {
@@ -79,7 +101,7 @@ export function UnresolvedNode({ node }: { node: PtNode }): ReactElement {
         alignItems: "center",
         padding: "0 8px",
         border: "1px dashed rgba(0,0,0,0.25)",
-        borderRadius: 8,
+        borderRadius: SKETCH_RADIUS_CSS,
         color: "#71717a",
         fontFamily: FONT,
         fontSize: 13,
@@ -125,4 +147,3 @@ export function renderTreeChildren(
   ));
 }
 
-export const clickRun = [{ event: "click" as const, actions: [{ type: "agent" as const, name: "run" }] }];

@@ -3,7 +3,7 @@
 import "./excalidraw-assets";
 import React from "react";
 import { DefaultSidebar, Excalidraw, MainMenu, Sidebar, convertToExcalidrawElements, useHandleLibrary } from "@excalidraw/excalidraw";
-import { FolderOpen, Library, Save, Sparkles, Users } from "lucide-react";
+import { ArrowLeft, FolderOpen, Library, Save, Sparkles, Users } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { SharePopover, type ShareCopy } from "./SharePopover";
 import type { CollabRoom } from "../collab/constants";
@@ -40,10 +40,15 @@ import {
   isDefaultStrokeColor,
   resolveDrawingStrokeColor,
 } from "./theme-palette";
-import { BlockSidebarIcon, ComponentSidebarIcon } from "./catalog-icons";
+import { BlockSidebarIcon, ChartSidebarIcon, ComponentSidebarIcon } from "./catalog-icons";
+import { CatalogStyleMenu } from "./CatalogStyleMenu";
 import type { ExcalidrawCompatElement } from "./scene-bridge";
+import type { PtRadiusToken } from "../components/radius";
+import { PT_RADIUS_DEFAULT } from "../components/radius";
 
 export type CaptureUpdate = "IMMEDIATELY" | "EVENTUALLY" | "NEVER";
+
+const catalogRadiusRef = { current: PT_RADIUS_DEFAULT as PtRadiusToken };
 
 export type ExcalidrawHostApi = {
   updateScene: (input: {
@@ -95,8 +100,9 @@ function hydrateHandleElements(elements: readonly unknown[]): unknown[] {
   const converted = alreadyLive
     ? asLive
     : convertToExcalidrawElements(toExcalidrawCompatElements(elements) as never, { regenerateIds: false });
+  const globalRadius = catalogRadiusRef.current;
   return stampPtCustomData(converted as { id: string; customData?: { pt?: { id?: string } } }[], source).map(
-    (el) => cloneScenePtCustomData(prepareLiveHandle(el)),
+    (el) => cloneScenePtCustomData(prepareLiveHandle(el, globalRadius)),
   );
 }
 
@@ -187,8 +193,11 @@ export type ExcalidrawBoardProps = {
   ) => void;
   catalog?: React.ReactNode;
   blockCatalog?: React.ReactNode;
+  chartCatalog?: React.ReactNode;
   overlay?: React.ReactNode;
   topLeftChrome?: React.ReactNode;
+  onBack?: () => void;
+  backLabel?: string;
   menuItems?: BoardMenuItem[];
   isCollaborating?: boolean;
   collaborators?: BoardCollaborator[];
@@ -206,6 +215,10 @@ export type ExcalidrawBoardProps = {
     onJoin: (raw: string) => boolean;
     onStop: () => void;
     onClose: () => void;
+  };
+  catalogStyle?: {
+    radius: PtRadiusToken;
+    onRadiusChange: (radius: PtRadiusToken) => void;
   };
   onPointerUpdate?: (payload: {
     pointer: { x: number; y: number; tool: "pointer" | "laser" };
@@ -403,13 +416,17 @@ export default function ExcalidrawBoard({
   onChange,
   catalog,
   blockCatalog,
+  chartCatalog,
   overlay,
   topLeftChrome,
+  onBack,
+  backLabel,
   menuItems,
   isCollaborating = false,
   collaborators = [],
   onShare,
   sharePanel,
+  catalogStyle,
   onPointerUpdate,
 }: ExcalidrawBoardProps) {
   const boardRef = React.useRef<HTMLDivElement>(null);
@@ -431,6 +448,20 @@ export default function ExcalidrawBoard({
   sharePanelRef.current = sharePanel;
   viewBackgroundColorRef.current = viewBackgroundColor;
   viewModeRef.current = viewModeEnabled;
+  catalogRadiusRef.current = catalogStyle?.radius ?? PT_RADIUS_DEFAULT;
+  const prevCatalogRadiusRef = React.useRef(catalogRadiusRef.current);
+
+  React.useEffect(() => {
+    const next = catalogStyle?.radius ?? PT_RADIUS_DEFAULT;
+    if (prevCatalogRadiusRef.current === next) return;
+    prevCatalogRadiusRef.current = next;
+    const api = apiRef.current;
+    if (!api || !handedOffRef.current) return;
+    api.updateScene({
+      elements: hydrateHandleElements(api.getSceneElementsIncludingDeleted()),
+      captureUpdate: "NEVER",
+    });
+  }, [catalogStyle?.radius]);
 
   const uiOptions = React.useMemo(
     () => ({
@@ -461,6 +492,7 @@ export default function ExcalidrawBoard({
     if (viewModeRef.current) return;
     const target = event.target;
     if (!(target instanceof Element) || !target.closest("[data-pt-overlay-id]")) return;
+    if (target.closest("[data-pt-text-editing]")) return;
     focusEditBoard();
   }, [focusEditBoard]);
 
@@ -667,6 +699,7 @@ export default function ExcalidrawBoard({
       ref={boardRef}
       data-testid="pt-design-board"
       data-theme={theme}
+      data-has-back={onBack ? "true" : undefined}
       onKeyDownCapture={viewModeEnabled ? undefined : captureEditUndoHotkey}
       style={{
         height: "100%",
@@ -772,7 +805,16 @@ export default function ExcalidrawBoard({
                     <BlockSidebarIcon size={16} strokeWidth={2} />
                     Block
                   </Sidebar.TabTrigger>
+                  {chartCatalog ? (
+                    <Sidebar.TabTrigger tab="charts" data-testid="pt-design-catalog-tab-charts">
+                      <ChartSidebarIcon size={16} strokeWidth={2} />
+                      Charts
+                    </Sidebar.TabTrigger>
+                  ) : null}
                 </Sidebar.TabTriggers>
+                {catalogStyle ? (
+                  <CatalogStyleMenu radius={catalogStyle.radius} onRadiusChange={catalogStyle.onRadiusChange} />
+                ) : null}
               </Sidebar.Header>
               <Sidebar.Tab tab="component">
                 <CatalogTabPanel>{catalog}</CatalogTabPanel>
@@ -780,10 +822,29 @@ export default function ExcalidrawBoard({
               <Sidebar.Tab tab="block">
                 <CatalogTabPanel>{blockCatalog}</CatalogTabPanel>
               </Sidebar.Tab>
+              {chartCatalog ? (
+                <Sidebar.Tab tab="charts">
+                  <CatalogTabPanel>{chartCatalog}</CatalogTabPanel>
+                </Sidebar.Tab>
+              ) : null}
             </Sidebar.Tabs>
           </Sidebar>
         ) : null}
       </Excalidraw>
+      {onBack ? (
+        <button
+          type="button"
+          className="pt-design-back"
+          data-testid="pt-design-back"
+          aria-label={backLabel ?? "Back"}
+          title={backLabel ?? "Back"}
+          onClick={onBack}
+          onPointerDown={(event) => event.stopPropagation()}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <ArrowLeft size={16} strokeWidth={2} aria-hidden />
+        </button>
+      ) : null}
       {topLeftChrome}
       {sharePanel?.open ? (
         <div

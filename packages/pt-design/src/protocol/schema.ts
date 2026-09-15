@@ -1,6 +1,7 @@
+import type { ChartId } from "../catalog/chart-list";
 import type { RequiredBlockId, ShadcnBasicId } from "../catalog/shadcn-list";
 
-export type PtNodeType = ShadcnBasicId | RequiredBlockId;
+export type PtNodeType = ShadcnBasicId | RequiredBlockId | ChartId;
 
 export type PtOption = { value: string; label: string };
 export type PtAction = { type: "agent"; name: string };

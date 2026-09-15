@@ -1,13 +1,27 @@
 import type { ReactElement } from "react";
 import type { PtComponentModule, PtRendererProps } from "./contract";
 import { LABEL_FIELD, TEXT_FIELDS, propString, spatialNode } from "./defaults";
-import { OverlayFrame, overlayTokens } from "./shared";
+import {
+  ContentShell,
+  OverlayFrame,
+  OverlayTrigger,
+  overlayTokens,
+  overlayVisible,
+  useOverlayOpen,
+} from "./shared";
 
 function Bubble(props: PtRendererProps & { kind: "popover" | "hover-card" | "tooltip" }): ReactElement {
+  const [open, setOpen] = useOverlayOpen(props.mode);
+  const visible = overlayVisible(props.mode, open);
   const title = propString(props.node, "title", props.kind === "tooltip" ? "" : "Details");
   const description = propString(props.node, "description", "");
-  const label = propString(props.node, "label", props.kind === "tooltip" ? "Tooltip" : "");
+  const label = propString(
+    props.node,
+    "label",
+    props.kind === "tooltip" ? "Tooltip" : props.kind === "hover-card" ? "Profile" : "Open",
+  );
   const isTooltip = props.kind === "tooltip";
+  const hover = props.kind === "tooltip" || props.kind === "hover-card";
 
   return (
     <OverlayFrame
@@ -15,31 +29,36 @@ function Bubble(props: PtRendererProps & { kind: "popover" | "hover-card" | "too
       mode={props.mode}
       onCommit={props.onCommit}
       onAction={props.onAction}
-      role={isTooltip ? "tooltip" : "dialog"}
-      style={
-        isTooltip
-          ? {
-              borderRadius: 8,
-              boxShadow: overlayTokens.shadow,
-              justifyContent: "center",
-            }
-          : undefined
-      }
     >
-      <div style={{ padding: isTooltip ? "8px 12px" : 14, display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
-        {isTooltip ? (
-          <div style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.3 }}>{label}</div>
-        ) : (
-          <>
-            <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.2 }}>{title || label}</div>
-            {description ? (
-              <div style={{ fontSize: 13, color: overlayTokens.muted, lineHeight: 1.45 }}>{description}</div>
-            ) : null}
-            {label && props.kind === "popover" ? (
-              <div style={{ fontSize: 12, color: overlayTokens.muted }}>{label}</div>
-            ) : null}
-          </>
-        )}
+      <div
+        style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
+        onPointerEnter={hover ? () => setOpen(true) : undefined}
+        onPointerLeave={hover ? () => setOpen(false) : undefined}
+      >
+        <OverlayTrigger
+          label={label}
+          open={visible}
+          popup={isTooltip ? undefined : props.kind === "popover" ? "dialog" : undefined}
+          onClick={props.kind === "popover" ? () => setOpen((prev) => !prev) : undefined}
+          onFocus={hover ? () => setOpen(true) : undefined}
+          onBlur={hover ? () => setOpen(false) : undefined}
+        />
+        <ContentShell
+          open={visible}
+          role={isTooltip ? "tooltip" : "dialog"}
+          style={isTooltip ? { borderRadius: overlayTokens.radius, boxShadow: overlayTokens.shadow, padding: "8px 12px" } : undefined}
+        >
+          {isTooltip ? (
+            <div style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.3 }}>{label}</div>
+          ) : (
+            <>
+              <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.2 }}>{title || label}</div>
+              {description ? (
+                <div style={{ fontSize: 13, color: overlayTokens.muted, lineHeight: 1.45 }}>{description}</div>
+              ) : null}
+            </>
+          )}
+        </ContentShell>
       </div>
     </OverlayFrame>
   );

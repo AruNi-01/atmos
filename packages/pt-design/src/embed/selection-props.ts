@@ -1,8 +1,9 @@
 import { catalogVariantsFor } from "../catalog/variants";
 import type { PtSize } from "../core/types";
 import type { PtNode } from "../protocol";
+import { PT_RADIUS_NODE_OPTIONS, radiusChoiceOf, type PtRadiusChoice } from "../components/radius";
 
-export type SelectionPropKind = "variant" | "size" | "prop";
+export type SelectionPropKind = "variant" | "size" | "radius" | "prop";
 
 export type SelectionPropOption = {
   id: string;
@@ -21,6 +22,7 @@ export type SelectionPropGroup = {
 export type SelectionPropPatch =
   | { type: "variant"; variant: string }
   | { type: "size"; size: PtSize }
+  | { type: "radius"; radius: PtRadiusChoice }
   | { type: "prop"; key: string; value: boolean };
 
 export type RailPlacement = "side" | "bottom";
@@ -94,6 +96,14 @@ export function selectionPropGroups(node: PtNode): SelectionPropGroup[] {
     options: sizeOptions,
   });
 
+  groups.push({
+    id: "radius",
+    kind: "radius",
+    label: "Radius",
+    value: radiusChoiceOf(node.props.radius),
+    options: PT_RADIUS_NODE_OPTIONS.map((option) => ({ id: option.id, label: option.label })),
+  });
+
   if (node.type === "checkbox" || node.type === "switch") {
     groups.push(booleanGroup("checked", "Checked", node.checked === true));
   } else if (node.type === "toggle") {
@@ -106,6 +116,7 @@ export function selectionPropGroups(node: PtNode): SelectionPropGroup[] {
 export function selectionPropPatch(group: SelectionPropGroup, optionId: string): SelectionPropPatch | null {
   if (group.kind === "variant") return { type: "variant", variant: optionId };
   if (group.kind === "size") return { type: "size", size: optionId };
+  if (group.kind === "radius") return { type: "radius", radius: radiusChoiceOf(optionId) };
   if (group.kind === "prop" && group.propKey) {
     return { type: "prop", key: group.propKey, value: optionId === "true" };
   }
@@ -118,6 +129,9 @@ export function applySelectionNodePatch(node: PtNode, patch: SelectionPropPatch)
   }
   if (patch.type === "size") {
     return { ...node, props: { ...node.props, size: patch.size } };
+  }
+  if (patch.type === "radius") {
+    return { ...node, props: { ...node.props, radius: patch.radius } };
   }
   if (patch.key === "checked" || patch.key === "pressed") {
     return { ...node, checked: patch.value };

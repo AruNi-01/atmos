@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 const srcRoot = join(dirname(fileURLToPath(import.meta.url)));
 
 const FORBIDDEN =
-  /@atmos\/(api-types|api-client|hub-client|relay-client|shared)|@workspace\/ui|from ["']apps\/|@excalidraw\/excalidraw/;
+  /@atmos\/(api-types|api-client|hub-client|relay-client|shared)|@workspace\/ui|recharts|from ["']apps\/|@excalidraw\/excalidraw/;
 
 function walk(dir: string, files: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -51,6 +51,8 @@ describe("S20 package isolation", () => {
   test("browser barrel does not import Ink, CLI, MCP, or node:fs", () => {
     const index = readFileSync(join(srcRoot, "index.ts"), "utf8");
     expect(index).not.toMatch(/headless|cli\/bin|mcp\/server|core\/document|from ["']ink["']/);
+    const catalog = readFileSync(join(srcRoot, "host", "catalog.ts"), "utf8");
+    expect(catalog).not.toContain("@excalidraw/excalidraw");
     const embed = readFileSync(join(srcRoot, "embed", "PtDesignApp.tsx"), "utf8");
     expect(embed).not.toMatch(/headless|cli\/bin|mcp\/server|core\/document|node:fs|from ["']ink["']/);
     expect(embed).toContain("ExcalidrawBoard");
@@ -83,6 +85,8 @@ describe("S20 package isolation", () => {
     expect(board).toContain("Sidebar.TabTrigger");
     expect(board).toContain("pt-design-catalog-tab-component");
     expect(board).toContain("pt-design-catalog-tab-block");
+    expect(board).toContain("pt-design-catalog-tab-charts");
+    expect(board).toContain("ChartSidebarIcon");
     expect(board).toContain("BlockSidebarIcon");
     expect(board).toContain("pt-design-library-sidebar");
     expect(board).toContain("renderTopRightUI");

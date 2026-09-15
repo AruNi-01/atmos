@@ -1,17 +1,42 @@
-import type { ReactElement } from "react";
+import type { KeyboardEvent, ReactElement } from "react";
 import type { PtComponentModule, PtRendererProps } from "./contract";
 import { TEXT_FIELDS, propString, spatialNode } from "./defaults";
-import { OverlayFrame, emitValue, overlayTokens } from "./shared";
+import {
+  ContentShell,
+  OverlayFrame,
+  OverlayTrigger,
+  emitValue,
+  ghostButtonStyle,
+  overlayTokens,
+  overlayVisible,
+  primaryButtonStyle,
+  useOverlayOpen,
+} from "./shared";
 
 type Surface = "dialog" | "alert-dialog" | "sheet" | "drawer";
 
 function ConfirmPanel(props: PtRendererProps & { surface: Surface }): ReactElement {
+  const [open, setOpen] = useOverlayOpen(props.mode);
+  const visible = overlayVisible(props.mode, open);
   const title = propString(props.node, "title", "Dialog");
   const description = propString(props.node, "description", "Confirm to continue.");
-  const label = propString(props.node, "label", "Confirm");
+  const triggerLabel = propString(props.node, "label", "Open");
   const destructive = props.surface === "alert-dialog";
   const isDrawer = props.surface === "drawer";
   const isSheet = props.surface === "sheet";
+
+  const close = (): void => setOpen(false);
+  const onConfirm = (): void => {
+    emitValue(props.node, "confirm", props.onCommit, props.onAction);
+    close();
+  };
+  const onCancel = (): void => {
+    emitValue(props.node, "cancel", props.onCommit, props.onAction);
+    close();
+  };
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+    if (event.key === "Escape") close();
+  };
 
   return (
     <OverlayFrame
@@ -19,90 +44,51 @@ function ConfirmPanel(props: PtRendererProps & { surface: Surface }): ReactEleme
       mode={props.mode}
       onCommit={props.onCommit}
       onAction={props.onAction}
-      role="dialog"
-      style={
-        isSheet
-          ? { borderRadius: "0 12px 12px 0", boxShadow: overlayTokens.shadow }
-          : isDrawer
-            ? { borderRadius: "12px 12px 0 0", justifyContent: "flex-end" }
-            : undefined
-      }
+      onKeyDown={onKeyDown}
     >
-      {isDrawer ? (
-        <div
-          aria-hidden="true"
-          style={{
-            width: 36,
-            height: 4,
-            borderRadius: 999,
-            background: overlayTokens.mutedBg,
-            margin: "8px auto 0",
-          }}
-        />
-      ) : null}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-          padding: 16,
-          flex: 1,
-          minHeight: 0,
-        }}
+      <OverlayTrigger
+        label={triggerLabel}
+        open={visible}
+        popup="dialog"
+        onClick={() => setOpen((prev) => !prev)}
+      />
+      <ContentShell
+        open={visible}
+        role="dialog"
+        style={
+          isSheet
+            ? { borderRadius: `0 ${overlayTokens.radius} ${overlayTokens.radius} 0`, boxShadow: overlayTokens.shadow }
+            : isDrawer
+              ? { borderRadius: `${overlayTokens.radius} ${overlayTokens.radius} 0 0` }
+              : undefined
+        }
       >
+        {isDrawer ? (
+          <div
+            aria-hidden="true"
+            style={{
+              width: 36,
+              height: 4,
+              borderRadius: 999,
+              background: overlayTokens.mutedBg,
+              margin: "0 auto 8px",
+              flexShrink: 0,
+            }}
+          />
+        ) : null}
         <div style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.2 }}>{title}</div>
         <div style={{ fontSize: 13, color: overlayTokens.muted, lineHeight: 1.45, flex: 1 }}>{description}</div>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-          {destructive ? (
-            <button
-              type="button"
-              onClick={() => emitValue(props.node, "cancel", props.onCommit, props.onAction)}
-              style={ghostButtonStyle()}
-            >
-              Cancel
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => emitValue(props.node, "confirm", props.onCommit, props.onAction)}
-            style={primaryButtonStyle(destructive)}
-          >
-            {label}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexShrink: 0 }}>
+          <button type="button" onClick={onCancel} style={ghostButtonStyle()}>
+            Cancel
+          </button>
+          <button type="button" onClick={onConfirm} style={primaryButtonStyle(destructive)}>
+            Confirm
           </button>
         </div>
-      </div>
+      </ContentShell>
     </OverlayFrame>
   );
-}
-
-function primaryButtonStyle(destructive: boolean) {
-  return {
-    appearance: "none" as const,
-    cursor: "pointer",
-    borderRadius: overlayTokens.radius,
-    padding: "8px 12px",
-    fontSize: 13,
-    fontWeight: 500,
-    fontFamily: overlayTokens.font,
-    background: overlayTokens.bg,
-    color: destructive ? overlayTokens.destructive : overlayTokens.fg,
-    border: `1.5px solid ${destructive ? overlayTokens.destructive : overlayTokens.border}`,
-  };
-}
-
-function ghostButtonStyle() {
-  return {
-    appearance: "none" as const,
-    border: `1.5px dashed ${overlayTokens.border}`,
-    cursor: "pointer",
-    borderRadius: overlayTokens.radius,
-    padding: "8px 12px",
-    fontSize: 13,
-    fontWeight: 500,
-    fontFamily: overlayTokens.font,
-    background: overlayTokens.bg,
-    color: overlayTokens.fg,
-  };
 }
 
 function panelModule(

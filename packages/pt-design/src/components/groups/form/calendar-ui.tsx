@@ -1,6 +1,6 @@
 import { useState, type CSSProperties, type ReactElement } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { SKETCH_RADIUS } from "../../sketch";
+import { SKETCH_RADIUS_CSS } from "../../sketch";
 import { FONT } from "./node";
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -42,31 +42,52 @@ function monthCells(y: number, m: number): Array<number | null> {
   return cells;
 }
 
+const INK = "var(--pt-ink, #1e1e1e)";
+const PAPER = "var(--pt-paper, #fffef7)";
+const CELL_BORDER = `1px solid ${INK}`;
+const PANEL_BORDER = `1.5px solid ${INK}`;
+
 const navBtn: CSSProperties = {
   width: 28,
   height: 28,
   flexShrink: 0,
-  border: "1px solid var(--pt-ink, #1e1e1e)",
-  borderRadius: SKETCH_RADIUS,
-  background: "var(--pt-paper, #fffef7)",
+  border: CELL_BORDER,
+  borderRadius: SKETCH_RADIUS_CSS,
+  background: PAPER,
   cursor: "pointer",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  color: "var(--pt-ink, #1e1e1e)",
+  color: INK,
 };
 
-const dayBtn = (selected: boolean): CSSProperties => ({
+const cellChrome: CSSProperties = {
+  boxSizing: "border-box",
   width: "100%",
   height: "100%",
   minWidth: 0,
   minHeight: 0,
+  border: CELL_BORDER,
+  borderRadius: SKETCH_RADIUS_CSS,
+};
+
+const weekdayCell: CSSProperties = {
+  ...cellChrome,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  textAlign: "center",
+  fontSize: 11,
+  color: "#71717a",
+  overflow: "hidden",
+};
+
+const dayBtn = (selected: boolean): CSSProperties => ({
+  ...cellChrome,
   padding: 0,
   overflow: "hidden",
-  border: selected ? "1px solid var(--pt-ink, #1e1e1e)" : "1px solid transparent",
-  borderRadius: SKETCH_RADIUS,
-  background: selected ? "color-mix(in srgb, var(--pt-ink, #1e1e1e) 12%, var(--pt-paper, #fffef7))" : "transparent",
-  color: "var(--pt-ink, #1e1e1e)",
+  background: selected ? `color-mix(in srgb, ${INK} 12%, ${PAPER})` : PAPER,
+  color: INK,
   cursor: "pointer",
   fontFamily: FONT,
   fontSize: 12,
@@ -88,90 +109,105 @@ export function CalendarGrid({
 
   return (
     <div
-      role="grid"
-      aria-label="Calendar"
       style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 6,
+        boxSizing: "border-box",
         width: "100%",
         height: "100%",
         minWidth: 0,
         minHeight: 0,
         padding: 6,
-        overflow: "hidden",
-        boxSizing: "border-box",
-        fontFamily: FONT,
-        background: "var(--pt-paper, #fffef7)",
-        border: "none",
-        borderRadius: 0,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, minWidth: 0 }}>
-        <button
-          type="button"
-          aria-label="Previous month"
-          style={navBtn}
-          onClick={() =>
-            setView((prev) => {
-              const m = prev.m - 1;
-              return m < 0 ? { y: prev.y - 1, m: 11 } : { y: prev.y, m };
-            })
-          }
-        >
-          <ChevronLeft size={16} />
-        </button>
-        <div style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "center", fontSize: 13, fontWeight: 600 }}>
-          {MONTHS[view.m]} {view.y}
-        </div>
-        <button
-          type="button"
-          aria-label="Next month"
-          style={navBtn}
-          onClick={() =>
-            setView((prev) => {
-              const m = prev.m + 1;
-              return m > 11 ? { y: prev.y + 1, m: 0 } : { y: prev.y, m };
-            })
-          }
-        >
-          <ChevronRight size={16} />
-        </button>
-      </div>
       <div
+        role="grid"
+        data-pt-calendar-panel=""
+        aria-label="Calendar"
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
-          gridTemplateRows: "auto repeat(6, minmax(0, 1fr))",
-          gap: 2,
-          flex: 1,
-          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+          width: "100%",
+          height: "100%",
           minWidth: 0,
+          minHeight: 0,
+          padding: 6,
           overflow: "hidden",
+          boxSizing: "border-box",
+          fontFamily: FONT,
+          background: PAPER,
+          border: PANEL_BORDER,
+          borderRadius: SKETCH_RADIUS_CSS,
         }}
       >
-        {WEEKDAYS.map((day) => (
-          <div key={day} style={{ textAlign: "center", fontSize: 11, color: "#71717a", overflow: "hidden" }}>
-            {day}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, minWidth: 0 }}>
+          <button
+            type="button"
+            aria-label="Previous month"
+            style={navBtn}
+            onClick={() =>
+              setView((prev) => {
+                const m = prev.m - 1;
+                return m < 0 ? { y: prev.y - 1, m: 11 } : { y: prev.y, m };
+              })
+            }
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <div style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "center", fontSize: 13, fontWeight: 600 }}>
+            {MONTHS[view.m]} {view.y}
           </div>
-        ))}
-        {cells.map((day, index) => {
-          if (day == null) return <div key={`e-${index}`} />;
-          const iso = toIso(view.y, view.m, day);
-          const isSelected = selected != null && iso === value;
-          return (
-            <button
-              key={iso}
-              type="button"
-              role="gridcell"
-              aria-selected={isSelected}
-              style={dayBtn(isSelected)}
-              onClick={() => onPick(iso)}
-            >
+          <button
+            type="button"
+            aria-label="Next month"
+            style={navBtn}
+            onClick={() =>
+              setView((prev) => {
+                const m = prev.m + 1;
+                return m > 11 ? { y: prev.y + 1, m: 0 } : { y: prev.y, m };
+              })
+            }
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+            gridTemplateRows: "auto repeat(6, minmax(0, 1fr))",
+            gap: 2,
+            flex: 1,
+            minHeight: 0,
+            minWidth: 0,
+            overflow: "hidden",
+          }}
+        >
+          {WEEKDAYS.map((day) => (
+            <div key={day} data-pt-calendar-weekday="" role="columnheader" style={weekdayCell}>
               {day}
-            </button>
-          );
-        })}
+            </div>
+          ))}
+          {cells.map((day, index) => {
+            if (day == null) {
+              return <div key={`e-${index}`} data-pt-calendar-empty="" role="gridcell" style={cellChrome} />;
+            }
+            const iso = toIso(view.y, view.m, day);
+            const isSelected = selected != null && iso === value;
+            return (
+              <button
+                key={iso}
+                type="button"
+                data-pt-calendar-day=""
+                role="gridcell"
+                aria-selected={isSelected}
+                style={dayBtn(isSelected)}
+                onClick={() => onPick(iso)}
+              >
+                {day}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

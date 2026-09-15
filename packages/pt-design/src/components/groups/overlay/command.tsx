@@ -2,7 +2,7 @@ import { useState, type ReactElement } from "react";
 import type { PtOption } from "../../../protocol";
 import type { PtComponentModule, PtRendererProps } from "./contract";
 import { TEXT_FIELDS, propString, spatialNode } from "./defaults";
-import { OverlayFrame, emitValue, overlayTokens } from "./shared";
+import { ContentShell, OverlayFrame, emitValue, overlayTokens } from "./shared";
 
 const COMMAND_ITEMS: PtOption[] = [
   { value: "open-file", label: "Open file" },
@@ -27,9 +27,8 @@ function CommandPanel(props: PtRendererProps): ReactElement {
       mode={props.mode}
       onCommit={props.onCommit}
       onAction={props.onAction}
-      role="dialog"
     >
-      <div style={{ display: "flex", flexDirection: "column", minHeight: 0, flex: 1 }}>
+      <ContentShell open role="dialog" style={{ padding: 0 }}>
         <input
           type="search"
           aria-label={placeholder}
@@ -40,6 +39,7 @@ function CommandPanel(props: PtRendererProps): ReactElement {
             appearance: "none",
             border: "none",
             borderBottom: `1px solid ${overlayTokens.border}`,
+            borderRadius: 0,
             padding: "10px 12px",
             fontSize: 14,
             fontFamily: overlayTokens.font,
@@ -62,17 +62,18 @@ function CommandPanel(props: PtRendererProps): ReactElement {
                 background: option.value === props.node.value ? overlayTokens.mutedBg : "transparent",
                 color: overlayTokens.fg,
                 cursor: "pointer",
-                borderRadius: 8,
+                borderRadius: overlayTokens.radius,
                 padding: "8px 10px",
                 fontSize: 13,
                 fontFamily: overlayTokens.font,
+                textTransform: "none",
               }}
             >
               {option.label}
             </button>
           ))}
         </div>
-      </div>
+      </ContentShell>
     </OverlayFrame>
   );
 }

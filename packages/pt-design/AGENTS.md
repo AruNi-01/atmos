@@ -6,6 +6,7 @@ Interactive canvas package (APP-073). PTX is the Agent/file source. Live board S
 
 - `@atmos/pt-design` — `PtDesignApp` embed (official Excalidraw board) + re-exports
 - `@atmos/pt-design/headless` — `createHeadlessSession`, file, CLI/MCP helpers (no browser Excalidraw)
+- `@atmos/pt-design/catalog` — local persist library (list/pin/rename/delete, no Excalidraw)
 
 `@excalidraw/excalidraw` may be imported only under `src/embed/`. Headless, CLI, and MCP must stay free of that import.
 
@@ -25,6 +26,8 @@ Live session vs Excalidraw: `embed/live-board.ts`. Overlay, inspector, and `pt_p
 Do not import `@atmos/api-types`, `@atmos/api-client`, `@atmos/hub-client`, `@atmos/relay-client`, `@atmos/shared`, `@workspace/ui`, or `apps/*` (including `apps/cli`) from this package.
 
 Keep `catalog/shadcn-list.ts` as the frozen id list. New catalog entry is `src/components/registry.ts`.
+
+Overview cards are static screenshots (`PtPersistV2.meta.preview`: PNG/JPEG/WebP data URL or `idb:pt-preview/{id}`). Capture from the **open** board on save / Back (`captureLiveScreenshot`). Do not mount Excalidraw or OverlayHost per card.
 
 ## Skill
 

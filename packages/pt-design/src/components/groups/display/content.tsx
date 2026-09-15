@@ -2,7 +2,7 @@ import type { CSSProperties, ReactElement } from "react";
 import type { PtNode, PtOption } from "../../../protocol";
 import type { PtComponentModule, PtRendererProps } from "./contract";
 import { FILL, FONT, T, TITLE_FIELDS, ptNode } from "./node";
-import { ControlRoot, DisplayChild, emit, patchChild, propText, renderTreeChildren } from "./runtime";
+import { ControlRoot, DisplayChild, emit, InsetSurface, patchChild, propText, renderTreeChildren } from "./runtime";
 
 const cardBBox = { width: 360, height: 200 };
 const tableBBox = { width: 360, height: 160 };
@@ -13,14 +13,9 @@ const scrollBBox = { width: 200, height: 160 };
 function CardRenderer({ node, mode, onCommit, onAction }: PtRendererProps): ReactElement {
   return (
     <ControlRoot node={node} mode={mode}>
-      <div
+      <InsetSurface
         style={{
-          ...FILL,
-          border: `1px solid ${T.border}`,
-          borderRadius: 12,
-          background: T.bg,
           boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-          overflow: "hidden",
         }}
       >
         <div style={{ padding: "14px 16px 8px" }}>
@@ -32,7 +27,7 @@ function CardRenderer({ node, mode, onCommit, onAction }: PtRendererProps): Reac
         <div style={{ position: "relative", width: "100%", height: "calc(100% - 56px)" }}>
           {renderTreeChildren(node, mode, onCommit, onAction)}
         </div>
-      </div>
+      </InsetSurface>
     </ControlRoot>
   );
 }
@@ -96,7 +91,7 @@ function TableRenderer({ node, mode }: PtRendererProps): ReactElement {
   const rows = tableRows(node);
   return (
     <ControlRoot node={node} mode={mode}>
-      <div style={{ ...FILL, overflow: "auto", border: `1px solid ${T.border}`, borderRadius: T.radius }}>
+      <InsetSurface style={{ overflow: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", background: T.bg }}>
           <thead>
             <tr>
@@ -119,7 +114,7 @@ function TableRenderer({ node, mode }: PtRendererProps): ReactElement {
             ))}
           </tbody>
         </table>
-      </div>
+      </InsetSurface>
     </ControlRoot>
   );
 }
@@ -212,7 +207,7 @@ function QuestionnaireRenderer({ node, mode, onCommit, onAction }: PtRendererPro
               alignItems: "center",
               gap: 8,
               padding: "8px 10px",
-              borderRadius: 8,
+              borderRadius: T.radius,
               border: `1px solid ${selected === option.value ? T.primary : T.border}`,
               background: selected === option.value ? T.mutedBg : T.bg,
               cursor: "pointer",

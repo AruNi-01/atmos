@@ -1,6 +1,15 @@
-import { type CSSProperties, type ReactElement, type ReactNode } from "react";
+import {
+  useState,
+  type CSSProperties,
+  type Dispatch,
+  type KeyboardEventHandler,
+  type MouseEvent,
+  type ReactElement,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import type { PtNode } from "../../../protocol";
-import { SKETCH_FONT, SKETCH_INK, SKETCH_PAPER, SKETCH_RADIUS } from "../../sketch";
+import { SKETCH_FONT, SKETCH_INK, SKETCH_PAPER, SKETCH_RADIUS_CSS } from "../../sketch";
 import { overlayModuleOf } from "./catalog";
 import type { PtRendererProps } from "./contract";
 
@@ -14,7 +23,7 @@ export const overlayTokens = {
   primaryFg: SKETCH_PAPER,
   destructive: "#dc2626",
   destructiveFg: SKETCH_PAPER,
-  radius: SKETCH_RADIUS,
+  radius: SKETCH_RADIUS_CSS,
   font: SKETCH_FONT,
   shadow: "2px 3px 0 color-mix(in srgb, var(--pt-ink, #1e1e1e) 18%, transparent)",
 } as const;
@@ -28,7 +37,7 @@ export const rootStyle = (_node: PtNode, mode: "edit" | "interact"): CSSProperti
   display: "flex",
   flexDirection: "column",
   color: overlayTokens.fg,
-  background: overlayTokens.bg,
+  background: "transparent",
   border: "none",
   borderRadius: 0,
   boxShadow: "none",
@@ -113,6 +122,7 @@ export function OverlayFrame(props: {
   onAction?: PtRendererProps["onAction"];
   role?: string;
   style?: CSSProperties;
+  onKeyDown?: KeyboardEventHandler<HTMLDivElement>;
   children: ReactNode;
 }): ReactElement {
   const edit = props.mode === "edit";
@@ -124,6 +134,7 @@ export function OverlayFrame(props: {
       data-pt-overlay="in-place"
       role={props.role}
       inert={edit ? true : undefined}
+      onKeyDown={props.onKeyDown}
       style={{ ...rootStyle(props.node, props.mode), ...props.style }}
     >
       {props.children}
@@ -133,6 +144,111 @@ export function OverlayFrame(props: {
         onCommit={props.onCommit}
         onAction={props.onAction}
       />
+    </div>
+  );
+}
+
+/** Interact starts closed. Edit still shows overlay content via overlayVisible. */
+export function useOverlayOpen(_mode: "edit" | "interact"): [boolean, Dispatch<SetStateAction<boolean>>] {
+  return useState(false);
+}
+
+export function overlayVisible(mode: "edit" | "interact", open: boolean): boolean {
+  return mode === "edit" || open;
+}
+
+export function primaryButtonStyle(destructive = false): CSSProperties {
+  return {
+    appearance: "none",
+    cursor: "pointer",
+    borderRadius: overlayTokens.radius,
+    padding: "8px 12px",
+    fontSize: 13,
+    fontWeight: 500,
+    fontFamily: overlayTokens.font,
+    background: overlayTokens.bg,
+    color: destructive ? overlayTokens.destructive : overlayTokens.fg,
+    border: `1.5px solid ${destructive ? overlayTokens.destructive : overlayTokens.border}`,
+    textTransform: "none",
+  };
+}
+
+export function ghostButtonStyle(): CSSProperties {
+  return {
+    appearance: "none",
+    border: `1.5px dashed ${overlayTokens.border}`,
+    cursor: "pointer",
+    borderRadius: overlayTokens.radius,
+    padding: "8px 12px",
+    fontSize: 13,
+    fontWeight: 500,
+    fontFamily: overlayTokens.font,
+    background: overlayTokens.bg,
+    color: overlayTokens.fg,
+    textTransform: "none",
+  };
+}
+
+export function OverlayTrigger(props: {
+  label: string;
+  open: boolean;
+  popup?: "dialog" | "menu";
+  onClick?: () => void;
+  onContextMenu?: (event: MouseEvent<HTMLButtonElement>) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
+}): ReactElement {
+  return (
+    <button
+      type="button"
+      data-pt-overlay-trigger=""
+      aria-expanded={props.open}
+      aria-haspopup={props.popup}
+      onClick={props.onClick}
+      onContextMenu={props.onContextMenu}
+      onFocus={props.onFocus}
+      onBlur={props.onBlur}
+      style={{
+        ...primaryButtonStyle(),
+        alignSelf: "flex-start",
+        flexShrink: 0,
+        margin: 8,
+        marginBottom: 0,
+      }}
+    >
+      {props.label}
+    </button>
+  );
+}
+
+export function ContentShell(props: {
+  open: boolean;
+  role?: string;
+  style?: CSSProperties;
+  children: ReactNode;
+}): ReactElement {
+  return (
+    <div
+      data-pt-overlay-content=""
+      role={props.role}
+      hidden={!props.open}
+      style={{
+        flexDirection: "column",
+        flex: 1,
+        minHeight: 0,
+        minWidth: 0,
+        margin: 8,
+        padding: 12,
+        boxSizing: "border-box",
+        border: `1.5px solid ${overlayTokens.border}`,
+        borderRadius: overlayTokens.radius,
+        background: overlayTokens.bg,
+        overflow: "hidden",
+        ...props.style,
+        display: props.open ? "flex" : "none",
+      }}
+    >
+      {props.children}
     </div>
   );
 }

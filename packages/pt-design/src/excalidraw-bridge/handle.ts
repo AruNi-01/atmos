@@ -1,3 +1,5 @@
+import { PT_RADIUS_DEFAULT, radiusHandleRoundness, resolveRadiusChoice, type PtRadiusToken } from "../components/radius";
+
 /**
  * Page-level handle look. Overlay stacking: position each page-level DOM layer
  * with OVERLAY_Z_INDEX above the canvas handles. Nested children live in the
@@ -40,6 +42,12 @@ function sketchSeed(id: string | undefined): number {
   return (n >>> 0) % 2 ** 31 || 1;
 }
 
+function radiusFromPt(pt: unknown): unknown {
+  if (!pt || typeof pt !== "object") return undefined;
+  const props = (pt as { props?: { radius?: unknown } }).props;
+  return props?.radius;
+}
+
 export function prepareLiveHandle<T extends {
   id?: string;
   customData?: { pt?: unknown };
@@ -50,19 +58,20 @@ export function prepareLiveHandle<T extends {
   seed?: number;
   strokeColor?: string;
   strokeWidth?: number;
-}>(el: T): T {
+}>(el: T, globalRadius: PtRadiusToken = PT_RADIUS_DEFAULT): T {
   if (!el.customData?.pt) return el;
   const hiddenStroke =
     !el.strokeWidth ||
     el.strokeColor === "transparent" ||
     isExcalidrawTransparentFill(el.strokeColor) ||
     el.strokeColor === HANDLE_THEME_INK;
+  const token = resolveRadiusChoice(radiusFromPt(el.customData.pt), globalRadius);
   return {
     ...el,
     backgroundColor: HANDLE_BACKGROUND,
     locked: false,
     roughness: 1,
-    roundness: HANDLE_ROUNDNESS,
+    roundness: radiusHandleRoundness(token),
     seed: el.seed && el.seed !== 1 ? el.seed : sketchSeed(el.id),
     strokeColor: hiddenStroke ? HANDLE_INK : el.strokeColor,
     strokeWidth: hiddenStroke ? HANDLE_STROKE_WIDTH : el.strokeWidth,

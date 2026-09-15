@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, type ReactElement, type ReactNode } from "react";
 import rough from "roughjs";
-import { HANDLE_INK, HANDLE_STROKE_WIDTH } from "../../excalidraw-bridge";
+import { HANDLE_INK, HANDLE_ROUNDNESS, HANDLE_STROKE_WIDTH } from "../../excalidraw-bridge";
+import { INTERACT_PRESS_NODE_TYPE } from "./interact-press";
 
 /** Same as Excalidraw Artist: roughness 1, 2px, two offset paths, pinned corners. */
 export const ARTIST_INK = {
@@ -80,8 +81,17 @@ function isDashed(style: string): boolean {
   return style === "dashed" || style === "dotted";
 }
 
-function isFullBleed(box: BoxInk, root: { w: number; h: number }): boolean {
+function isFullBleed(box: { x: number; y: number; w: number; h: number }, root: { w: number; h: number }): boolean {
   return box.x <= 2 && box.y <= 2 && box.w >= root.w - 4 && box.h >= root.h - 4;
+}
+
+function isPillOrCircle(box: { w: number; h: number; radius: number }): boolean {
+  const cap = Math.min(box.w, box.h) / 2;
+  return cap > 0.5 && box.radius >= cap - 0.5;
+}
+
+function tokenRadiusOrPill(box: { w: number; h: number; radius: number }, tokenRadius: number): number {
+  return isPillOrCircle(box) ? box.radius : tokenRadius;
 }
 
 function isHairline(box: BoxInk): boolean {
@@ -326,7 +336,7 @@ function checkPath(x: number, y: number, w: number, h: number): string {
   return polylinePath([...a, ...b.slice(1)]);
 }
 
-function widgetMarks(el: HTMLInputElement, host: HTMLElement): InkMark[] {
+function widgetMarks(el: HTMLInputElement, host: HTMLElement, radius: number): InkMark[] {
   const box = readLiveBox(el, host);
   const pad = 1;
   const x = box.x + pad;
@@ -347,11 +357,85 @@ function widgetMarks(el: HTMLInputElement, host: HTMLElement): InkMark[] {
     }
     return marks;
   }
-  const marks: InkMark[] = [{ kind: "frame", x, y, w, h, radius: 3, color: HANDLE_INK }];
+  const marks: InkMark[] = [{ kind: "frame", x, y, w, h, radius, color: HANDLE_INK }];
   if (el.checked) {
     marks.push({ kind: "path", x, y, w, h, color: HANDLE_INK, d: checkPath(x, y, w, h) });
   }
   return marks;
+}
+
+const TEXT_FIELD_TYPES = new Set([
+  "text",
+  "email",
+  "password",
+  "search",
+  "date",
+  "tel",
+  "url",
+  "number",
+  "datetime-local",
+]);
+
+const FIELD_OWNER_TYPES = new Set(["select", "combobox", "native-select"]);
+
+/** Inset rough frame for nested text fields. Full-bleed of the host keeps the Excalidraw handle. */
+export function fieldMarks(
+  box: { x: number; y: number; w: number; h: number },
+  root: { w: number; h: number },
+  radius = 3,
+): InkMark[] {
+  if (box.w < 1 || box.h < 1) return [];
+  if (isFullBleed(box, root)) return [];
+  const pad = 1;
+  const x = box.x + pad;
+  const y = box.y + pad;
+  const w = Math.max(8, box.w - pad * 2);
+  const h = Math.max(8, box.h - pad * 2);
+  return [{ kind: "frame", x, y, w, h, radius, color: HANDLE_INK }];
+}
+
+/** Nested press host frame. Full-bleed of the inner host still paints — it is not a page-level handle. */
+export function pressMarks(
+  box: { x: number; y: number; w: number; h: number },
+  root: { w: number; h: number },
+  radius = HANDLE_ROUNDNESS.value,
+): InkMark[] {
+  if (box.w < 1 || box.h < 1) return [];
+  void root;
+  const pad = 1;
+  const x = box.x + pad;
+  const y = box.y + pad;
+  const w = Math.max(8, box.w - pad * 2);
+  const h = Math.max(8, box.h - pad * 2);
+  return [{ kind: "frame", x, y, w, h, radius: Math.min(radius, w / 2, h / 2), color: HANDLE_INK }];
+}
+
+function isOverlayLevelArtistHost(host: HTMLElement): boolean {
+  const artist = host.parentElement;
+  if (!artist || artist.dataset.ptArtist === undefined) return false;
+  return artist.parentElement?.hasAttribute("data-pt-overlay-fit") === true;
+}
+
+function shouldPaintNestedPressFrame(host: HTMLElement): boolean {
+  if (isOverlayLevelArtistHost(host)) return false;
+  const overlay = host.closest("[data-pt-overlay-id]");
+  if (overlay?.getAttribute("data-pt-node-type") === INTERACT_PRESS_NODE_TYPE) return false;
+  return true;
+}
+
+export function isInkField(el: HTMLElement): boolean {
+  if (el instanceof HTMLTextAreaElement) return true;
+  if (el instanceof HTMLInputElement) {
+    if (TEXT_FIELD_TYPES.has((el.type || "text").toLowerCase())) return true;
+    return el.getAttribute("role") === "combobox";
+  }
+  if (el instanceof HTMLButtonElement || el.tagName === "BUTTON") {
+    if (el.getAttribute("role") === "combobox") return true;
+    const owner = el.closest("[data-pt-type]");
+    const type = owner?.getAttribute("data-pt-type");
+    return type != null && FIELD_OWNER_TYPES.has(type);
+  }
+  return false;
 }
 
 function isWidget(el: HTMLElement): el is HTMLInputElement {
@@ -423,7 +507,6 @@ function readBox(el: HTMLElement, host: HTMLElement): BoxInk {
     const spec = JSON.parse(raw) as StoredInk;
     return {
       ...live,
-      radius: spec.radius,
       borders: spec.borders,
       background: spec.background,
       role: spec.role,
@@ -433,10 +516,22 @@ function readBox(el: HTMLElement, host: HTMLElement): BoxInk {
   }
 }
 
+function cssPx(el: HTMLElement, name: string, fallback: number): number {
+  if (typeof getComputedStyle !== "function") return fallback;
+  const raw = getComputedStyle(el).getPropertyValue(name).trim();
+  const n = Number.parseFloat(raw);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 function collectMarks(host: HTMLElement): { marks: InkMark[]; inked: Array<{ el: HTMLElement; kind: InkKind }> } {
   const root = { w: host.offsetWidth, h: host.offsetHeight };
+  const innerRadius = cssPx(host, "--pt-radius", 3);
+  const handleRadius = cssPx(host, "--pt-handle-radius", HANDLE_ROUNDNESS.value);
   const marks: InkMark[] = [];
   const inked: Array<{ el: HTMLElement; kind: InkKind }> = [];
+  if (shouldPaintNestedPressFrame(host)) {
+    marks.push(...pressMarks({ x: 0, y: 0, w: root.w, h: root.h }, root, handleRadius));
+  }
   const walk = (el: Element) => {
     if (!(el instanceof HTMLElement)) return;
     if (el.dataset.ptArtistSvg !== undefined) return;
@@ -452,13 +547,20 @@ function collectMarks(host: HTMLElement): { marks: InkMark[]; inked: Array<{ el:
           if (cell instanceof HTMLElement) inked.push({ el: cell, kind: "omit" });
         }
       } else if (isWidget(el)) {
-        const next = widgetMarks(el, host);
+        const next = widgetMarks(el, host, innerRadius);
         marks.push(...next);
         inked.push({ el, kind: el.type === "radio" ? "ellipse" : "frame" });
-      } else if (!isTableChrome(el)) {
-        const plan = planForBox(readBox(el, host), root);
-        if (plan.hide) inked.push({ el, kind: plan.marks[0]?.kind ?? "omit" });
-        marks.push(...plan.marks);
+      } else {
+        const field = isInkField(el) ? fieldMarks(readLiveBox(el, host), root, innerRadius) : [];
+        if (field.length > 0) {
+          marks.push(...field);
+          inked.push({ el, kind: "frame" });
+        } else if (!isTableChrome(el)) {
+          const live = readBox(el, host);
+          const plan = planForBox({ ...live, radius: tokenRadiusOrPill(live, innerRadius) }, root);
+          if (plan.hide) inked.push({ el, kind: plan.marks[0]?.kind ?? "omit" });
+          marks.push(...plan.marks);
+        }
       }
     }
     for (const child of el.children) walk(child);
@@ -513,6 +615,15 @@ export function attachArtistInk(svg: SVGSVGElement, host: HTMLElement, seedKey: 
     attributes: true,
     attributeFilter: ["checked", "aria-checked", "aria-pressed"],
   });
+  const radiusMo = typeof MutationObserver === "function" ? new MutationObserver(draw) : null;
+  const overlayLayer = host.closest("[data-pt-overlay-id]");
+  const overlayRoot = host.closest("[data-pt-overlay]");
+  if (overlayLayer) {
+    radiusMo?.observe(overlayLayer, { attributes: true, attributeFilter: ["data-pt-radius", "style"] });
+  }
+  if (overlayRoot && overlayRoot !== overlayLayer) {
+    radiusMo?.observe(overlayRoot, { attributes: true, attributeFilter: ["data-pt-global-radius", "style"] });
+  }
   const onChange = () => draw();
   const onClick = () => {
     requestAnimationFrame(() => requestAnimationFrame(draw));
@@ -523,6 +634,7 @@ export function attachArtistInk(svg: SVGSVGElement, host: HTMLElement, seedKey: 
   return () => {
     ro?.disconnect();
     mo?.disconnect();
+    radiusMo?.disconnect();
     host.removeEventListener("change", onChange, true);
     host.removeEventListener("click", onClick, true);
     host.removeAttribute("data-pt-artist-ready");
@@ -536,9 +648,11 @@ export function attachArtistInk(svg: SVGSVGElement, host: HTMLElement, seedKey: 
 
 export function ArtistInkHost({
   seed,
+  inkKey,
   children,
 }: {
   seed: string;
+  inkKey?: string;
   children: ReactNode;
 }): ReactElement {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -549,7 +663,7 @@ export function ArtistInkHost({
     const svg = svgRef.current;
     if (!host || !svg) return;
     return attachArtistInk(svg, host, seed);
-  }, [seed]);
+  }, [seed, inkKey]);
 
   return (
     <div

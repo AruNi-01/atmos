@@ -150,6 +150,13 @@ describe("overlay identity guards", () => {
     expect(src).not.toContain("scrollToContent");
     expect(src).not.toContain("isMutatingTool");
     expect(src).toContain('viewModeEnabled={mode === "interact"}');
+    expect(src).toContain("captureLiveScreenshot");
+    expect(src).toContain("preview: true");
+    expect(src).toContain("isLiveRasterPreview");
+    expect(src).toContain("persistPreviewImage");
+    expect(src).toContain("PREVIEW_CAPTURE_MAX_EDGE");
+    expect(src).toContain("handleBack");
+    expect(src).not.toContain("sketchPreviewFromPersist");
   });
 });
 
@@ -440,7 +447,26 @@ describe("ptx-only persist/load → overlay ids", () => {
     expect(src).toContain("PLACE_VIEWPORT_CHROME");
     expect(src).toContain("SelectionPropsRail");
     expect(src).toContain("selectedNodeIdFromBoardSelection");
+    expect(src).toContain("revealOnBoard");
+    expect(src).toContain("cameraToShowRect");
+    expect(src).toContain("applySceneCameraNever");
+    expect(src).toContain("pt-design-place-reveal");
+    expect(src).not.toContain("scrollToContent");
     expect(src).not.toContain("72 / zoom");
     expect(src).not.toContain("96 / zoom");
+  });
+
+  test("save binds one library file then overwrites it instead of creating a new name", () => {
+    const src = readFileSync(new URL("./PtDesignApp.tsx", import.meta.url), "utf8");
+    expect(src).toContain("shouldPromptLibraryName");
+    expect(src).toContain("namedPersistForLibrarySave");
+    expect(src).toContain("fileSyncDebouncer");
+    expect(src).toContain("saveBoundLibrary");
+    expect(src).toContain("bindLibraryFile");
+    expect(src).toContain("liveBoardRef.current.loadPersist(loaded)");
+    expect(src).not.toContain("excalidrawElementsToScene");
+    expect(src).not.toContain("loaded.scene");
+    expect(src).not.toContain('id: "open" as const');
+    expect(src).not.toContain("loadLibrary");
   });
 });

@@ -31,7 +31,7 @@ function node(
 describe("selectionPropGroups", () => {
   test("button exposes variant and size, not text props", () => {
     const groups = selectionPropGroups(node("button", { variant: "outline", size: "lg", label: "Save" }));
-    expect(groups.map((group) => group.id)).toEqual(["variant", "size"]);
+    expect(groups.map((group) => group.id)).toEqual(["variant", "size", "radius"]);
     expect(groups[0]?.value).toBe("outline");
     expect(groups[0]?.options.map((opt) => opt.id)).toEqual([
       "default",
@@ -43,13 +43,15 @@ describe("selectionPropGroups", () => {
     ]);
     expect(groups[1]?.value).toBe("lg");
     expect(groups[1]?.options.map((opt) => opt.label)).toEqual(["S", "M", "L"]);
+    expect(groups[2]?.value).toBe("default");
+    expect(groups[2]?.options.map((opt) => opt.label)).toEqual(["Default", "None", "Small", "Medium", "Large"]);
   });
 
   test("checkbox exposes size and checked, not a single default variant", () => {
     const groups = selectionPropGroups(node("checkbox", { label: "On" }, { checked: true }));
-    expect(groups.map((group) => group.id)).toEqual(["size", "prop:checked"]);
-    expect(groups[1]?.value).toBe("true");
-    expect(groups[1]?.label).toBe("Checked");
+    expect(groups.map((group) => group.id)).toEqual(["size", "radius", "prop:checked"]);
+    expect(groups[2]?.value).toBe("true");
+    expect(groups[2]?.label).toBe("Checked");
   });
 
   test("typography includes extra size steps", () => {
@@ -70,8 +72,10 @@ describe("selectionPropPatch", () => {
     const button = selectionPropGroups(node("button", { variant: "default" }));
     const variant = button.find((group) => group.id === "variant")!;
     const size = button.find((group) => group.id === "size")!;
+    const radius = button.find((group) => group.id === "radius")!;
     expect(selectionPropPatch(variant, "ghost")).toEqual({ type: "variant", variant: "ghost" });
     expect(selectionPropPatch(size, "sm")).toEqual({ type: "size", size: "sm" });
+    expect(selectionPropPatch(radius, "lg")).toEqual({ type: "radius", radius: "lg" });
 
     const toggle = selectionPropGroups(node("toggle", { label: "Bold" }, { checked: false }));
     const pressed = toggle.find((group) => group.id === "prop:pressed")!;
@@ -84,6 +88,7 @@ describe("applySelectionNodePatch", () => {
     const base = node("button", { label: "Go" });
     expect(applySelectionNodePatch(base, { type: "variant", variant: "ghost" }).props.variant).toBe("ghost");
     expect(applySelectionNodePatch(base, { type: "size", size: "sm" }).props.size).toBe("sm");
+    expect(applySelectionNodePatch(base, { type: "radius", radius: "none" }).props.radius).toBe("none");
     expect(applySelectionNodePatch(node("checkbox", {}, { checked: false }), { type: "prop", key: "checked", value: true }).checked).toBe(
       true,
     );

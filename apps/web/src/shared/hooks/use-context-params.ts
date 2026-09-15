@@ -138,7 +138,7 @@ function parseContextParamsFromHref(href: string): ContextParams | null {
  *   /disk-analyzer           → disk analyzer
  *   /token-usage             → token usage dashboard
  *   /tasks                   → task surface
- *   /pt-design               → standalone Prototype Design board
+ *   /pt-design               → Prototype Design overview (saved boards)
  *   /settings                → settings (shell uses return-path underlay)
  */
 export function useContextParams(): ContextParams {

@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { REQUIRED_BLOCKS } from "../../../catalog/shadcn-list";
-import { parsePtx, serializePtx } from "../../../protocol";
+import { parsePtx, serializePtx, type PtNode } from "../../../protocol";
 import { BLOCK_MODULES } from "./index";
 import type { PtComponentModule } from "./contract";
 import { patchChild } from "./runtime";
@@ -133,9 +133,28 @@ describe("BLOCK_MODULES", () => {
     expect(html).not.toContain("data-pt-unresolved-type");
     expect(html).toContain("Sign in");
   });
+
+  test("block nested buttons do not stamp Agent run events", () => {
+    const walk = (node: PtNode, type: string) => {
+      if (node.type === "button") expect(node.events, type).toBeUndefined();
+      for (const child of node.children ?? []) walk(child, type);
+    };
+    for (const type of REQUIRED_BLOCKS) {
+      walk(moduleOf(type).defaultNode("n"), type);
+    }
+  });
 });
 
 describe("Interact and edit", () => {
+  test("block panels inset a bordered surface for artist ink", () => {
+    for (const mod of BLOCK_MODULES) {
+      const html = markup(mod, "interact");
+      expect(html).toMatch(/data-pt-inset/);
+      expect(html).toMatch(/padding:\s*8px/);
+      expect(html).toMatch(/border:\s*1px solid/);
+    }
+  });
+
   test("edit mode roots are inert and ignore pointer events", () => {
     const html = markup(moduleOf("block.auth-form"), "edit");
     expect(html).toMatch(/\binert\b/);

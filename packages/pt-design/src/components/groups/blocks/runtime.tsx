@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactElement, ReactNode } from "react";
 import type { PtNode } from "../../../protocol";
+import { SKETCH_INK, SKETCH_PAPER, SKETCH_RADIUS_CSS } from "../../sketch";
 import { FORM_MODULES } from "../form";
 import { OVERLAY_MODULES } from "../overlay";
 import type { PtComponentModule, PtRendererProps } from "./contract";
@@ -42,13 +43,46 @@ const rootStyle = (mode: PtRendererProps["mode"]): CSSProperties => ({
   pointerEvents: mode === "edit" ? "none" : "auto",
   fontFamily: FONT,
   fontSize: 14,
-  color: "var(--pt-ink, #1e1e1e)",
-  background: "var(--pt-paper, #fffef7)",
+  color: SKETCH_INK,
+  background: SKETCH_PAPER,
   border: "none",
   borderRadius: 0,
   boxShadow: "none",
   overflow: "hidden",
 });
+
+/** Pad so a 4-side border is not full-bleed (Artist ink hides those). */
+export const INSET_PAD = 8;
+
+export function InsetSurface({
+  children,
+  style,
+  border = `1px solid ${SKETCH_INK}`,
+}: {
+  children: ReactNode;
+  style?: CSSProperties;
+  border?: string;
+}): ReactElement {
+  return (
+    <div style={{ ...FILL, padding: INSET_PAD, boxSizing: "border-box" }}>
+      <div
+        data-pt-inset=""
+        style={{
+          width: "100%",
+          height: "100%",
+          boxSizing: "border-box",
+          border,
+          borderRadius: SKETCH_RADIUS_CSS,
+          background: SKETCH_PAPER,
+          overflow: "hidden",
+          ...style,
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export function BlockRoot({
   node,
@@ -82,7 +116,7 @@ function UnresolvedNode({ node }: { node: PtNode }): ReactElement {
         alignItems: "center",
         padding: "0 8px",
         border: "1px dashed rgba(0,0,0,0.25)",
-        borderRadius: 8,
+        borderRadius: SKETCH_RADIUS_CSS,
         color: "#71717a",
         fontFamily: FONT,
         fontSize: 13,
@@ -133,37 +167,39 @@ export function BlockPanel({ node, mode, onCommit, onAction }: PtRendererProps):
   const description = propText(node, "description");
   return (
     <BlockRoot node={node} mode={mode}>
-      {title ? (
-        <div
-          style={{
-            position: "absolute",
-            left: 16,
-            top: 16,
-            right: 16,
-            fontSize: 16,
-            fontWeight: 600,
-            lineHeight: 1.2,
-          }}
-        >
-          {title}
-        </div>
-      ) : null}
-      {description ? (
-        <div
-          style={{
-            position: "absolute",
-            left: 16,
-            top: 40,
-            right: 16,
-            fontSize: 13,
-            lineHeight: 1.45,
-            color: "#71717a",
-          }}
-        >
-          {description}
-        </div>
-      ) : null}
-      {renderTreeChildren(node, mode, onCommit, onAction)}
+      <InsetSurface>
+        {title ? (
+          <div
+            style={{
+              position: "absolute",
+              left: 16,
+              top: 16,
+              right: 16,
+              fontSize: 16,
+              fontWeight: 600,
+              lineHeight: 1.2,
+            }}
+          >
+            {title}
+          </div>
+        ) : null}
+        {description ? (
+          <div
+            style={{
+              position: "absolute",
+              left: 16,
+              top: 40,
+              right: 16,
+              fontSize: 13,
+              lineHeight: 1.45,
+              color: "#71717a",
+            }}
+          >
+            {description}
+          </div>
+        ) : null}
+        {renderTreeChildren(node, mode, onCommit, onAction)}
+      </InsetSurface>
     </BlockRoot>
   );
 }

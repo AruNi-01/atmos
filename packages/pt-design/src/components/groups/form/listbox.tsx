@@ -1,7 +1,7 @@
 import { useState, type CSSProperties, type ReactElement } from "react";
 import { ChevronsUpDown } from "lucide-react";
 import type { PtOption } from "../../../protocol";
-import { SKETCH_RADIUS } from "../../sketch";
+import { SKETCH_RADIUS_CSS } from "../../sketch";
 import { FONT } from "./node";
 
 const triggerStyle: CSSProperties = {
@@ -14,7 +14,7 @@ const triggerStyle: CSSProperties = {
   gap: 8,
   margin: 0,
   border: "none",
-  borderRadius: 0,
+  borderRadius: SKETCH_RADIUS_CSS,
   padding: "0 10px",
   background: "transparent",
   color: "var(--pt-ink, #1e1e1e)",
@@ -35,17 +35,22 @@ const listStyle: CSSProperties = {
   listStyle: "none",
   background: "var(--pt-paper, #fffef7)",
   border: "1px solid var(--pt-ink, #1e1e1e)",
-  borderRadius: SKETCH_RADIUS,
+  borderRadius: SKETCH_RADIUS_CSS,
   boxShadow: "2px 3px 0 color-mix(in srgb, var(--pt-ink, #1e1e1e) 18%, transparent)",
   maxHeight: 180,
   overflow: "auto",
 };
 
-const optionStyle = (selected: boolean): CSSProperties => ({
-  padding: "6px 8px",
-  borderRadius: 6,
+const optionStyle = (selected: boolean, hovered: boolean): CSSProperties => ({
+  padding: "8px 10px",
+  borderRadius: SKETCH_RADIUS_CSS,
   cursor: "pointer",
-  background: selected ? "#f4f4f5" : "transparent",
+  background:
+    selected
+      ? "color-mix(in srgb, var(--pt-ink, #1e1e1e) 14%, var(--pt-paper, #fffef7))"
+      : hovered
+        ? "color-mix(in srgb, var(--pt-ink, #1e1e1e) 8%, var(--pt-paper, #fffef7))"
+        : "transparent",
   fontFamily: FONT,
   fontSize: 14,
 });
@@ -66,6 +71,7 @@ export function InTreeListbox({
   onSelect: (next: string) => void;
 }): ReactElement {
   const [open, setOpen] = useState(false);
+  const [hovered, setHovered] = useState<number | null>(null);
   const selected = options.find((opt) => opt.value === value);
   const [query, setQuery] = useState(selected?.label ?? "");
   const needle = query.trim().toLowerCase();
@@ -115,12 +121,17 @@ export function InTreeListbox({
           <li
             key={`${opt.value}-${index}`}
             id={`${id}-opt-${index}`}
+            data-pt-list-option=""
+            data-selected={opt.value === value ? "" : undefined}
             role="option"
             aria-selected={opt.value === value}
-            style={optionStyle(opt.value === value)}
+            style={optionStyle(opt.value === value, hovered === index)}
+            onMouseEnter={() => setHovered(index)}
+            onMouseLeave={() => setHovered(null)}
             onClick={() => {
               setQuery(opt.label);
               setOpen(false);
+              setHovered(null);
               onSelect(opt.value);
             }}
           >

@@ -23,6 +23,7 @@ describe("ExcalidrawBoard live hydrate", () => {
     expect(src).toContain('data-testid="button-undo"');
     expect(src).toContain("stopImmediatePropagation");
     expect(src).toContain("stealEditFocusFromOverlay");
+    expect(src).toContain("[data-pt-text-editing]");
     expect(src).not.toMatch(/lastHydrated = ptPayloadSource/);
     expect(src).toContain("shouldWriteElements");
     expect(src).toContain("inked.length > 0");
