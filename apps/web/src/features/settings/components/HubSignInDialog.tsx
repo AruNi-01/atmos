@@ -65,12 +65,14 @@ function HubSignInDialogBody({
   const sessionQuery = useQuery({
     queryKey: ["hub", "session"],
     queryFn: async () => hubGetSession(),
+    enabled: open || waitingBrowser,
     staleTime: 15_000,
     retry: false,
   });
   const meQuery = useQuery({
     queryKey: ["hub", "me"],
     queryFn: async (): Promise<HubMe | null> => hubMe(),
+    enabled: open || waitingBrowser,
     staleTime: 15_000,
     retry: false,
   });
