@@ -147,6 +147,14 @@ describe("PT Design Atmos host wiring", () => {
     expect(standalone).toContain("PtDesignCenterPanel");
     expect(standalone).toContain("onBack");
     expect(standalone).not.toContain("pt-design-standalone-canvas");
+    expect(standalone).not.toContain("foreignHref");
+    const tabBar = readFileSync(
+      join(import.meta.dir, "../CenterStageTabBar.tsx"),
+      "utf8",
+    );
+    expect(tabBar).toContain("usePtDesignOpenTitle");
+    expect(tabBar).toContain("ptDesignTabTitle");
+    expect(tabBar).toContain("PencilRuler");
     const overview = readFileSync(
       join(import.meta.dir, "../../features/pt-design/PtDesignOverview.tsx"),
       "utf8",
@@ -162,6 +170,25 @@ describe("PT Design Atmos host wiring", () => {
     expect(overview).toContain('loading="lazy"');
     expect(overview).toContain("usePtDesignPreviewSrc");
     expect(overview).toContain("viewChanged ? { opacity: 0, y: 8 } : false");
+    expect(overview).toContain("setDesign(item.id)");
+    expect(overview).toContain("movePtDesign");
+    expect(overview).toContain("MinimalCard");
+    expect(overview).not.toContain("pushWorkspaceDeepLink");
+    const pinnedAt = overview.indexOf("grouped.pinned");
+    const globalAt = overview.indexOf("grouped.global");
+    const projectsAt = overview.indexOf("{grouped.projects.map");
+    expect(pinnedAt).toBeGreaterThan(0);
+    expect(globalAt).toBeGreaterThan(pinnedAt);
+    expect(projectsAt).toBeGreaterThan(globalAt);
+    expect(overview).not.toContain("grouped.workspace");
+    expect(overview).toContain("OverviewSection");
+    const host = readFileSync(
+      join(import.meta.dir, "../../features/pt-design/PtDesignHostStage.tsx"),
+      "utf8",
+    );
+    expect(host).toContain("if (!active || !design)");
+    expect(host).not.toContain("designVisibleInHost");
+    expect(host).toContain("ptDesignHostForFrame");
     expect(overview).not.toContain("useVirtualizer");
     expect(overview).not.toContain("PtDesignApp");
     expect(overview).not.toContain("OverlayHost");
@@ -172,7 +199,10 @@ describe("PT Design Atmos host wiring", () => {
       join(import.meta.dir, "../workspace-center-frame.tsx"),
       "utf8",
     );
-    expect(frame).toContain("<KeptPtDesignHostStage contextId={contextId} />");
+    expect(frame).toContain("<KeptPtDesignHostStage");
+    expect(frame).toContain("contextId={contextId}");
+    expect(frame).toContain("isProject={isProject}");
+    expect(frame).toContain("active={isUrlSyncedActive && visible}");
   });
 
   test("hosted collab invites skip onboarding and open a fullscreen guest board", () => {

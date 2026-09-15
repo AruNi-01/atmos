@@ -6,7 +6,8 @@ import { seedOnboardingComplete } from "../smoke/support/app-smoke";
 /**
  * APP-074 PT Design interactive canvas.
  * Board-level Interact / Edit journeys. Bun covers protocol/headless/registry.
- * Standalone `/pt-design` uses `PT_DESIGN_GLOBAL_CONTEXT_ID` → `pt-design/v2/global`.
+ * Standalone `/pt-design` is the library; `?design=global` opens the seeded
+ * `pt-design/v2/global` board (agent invoke still uses client_id=global).
  */
 
 const PT_DESIGN_STORAGE_KEY = "pt-design/v2/global";
@@ -175,7 +176,7 @@ async function openSeededPtDesign(page: Page, ptx = SEEDED_PTX): Promise<void> {
     },
     { key: PT_DESIGN_STORAGE_KEY, ptx },
   );
-  const response = await page.goto("/pt-design", { waitUntil: "domcontentloaded" });
+  const response = await page.goto("/pt-design?design=global", { waitUntil: "domcontentloaded" });
   expect(response, "missing navigation response for /pt-design").not.toBeNull();
   expect(response!.status(), `unexpected status for /pt-design`).toBeLessThan(500);
 

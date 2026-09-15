@@ -66,6 +66,7 @@ import {
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import type { CenterToolTabValue } from "@/app-shell/center-tool-tabs";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { usePtDesignOpenTitle } from "@/features/pt-design/lib/use-pt-design-open-title";
 import { AutomationTabMark } from "@/features/automations/components/AutomationTabMark";
 import { isStandaloneAutomationScope } from "@/features/automations/lib/automation-run-landing";
 import { SimulatorTabIcon } from "@/features/simulator/components/SimulatorTabIcon";
@@ -293,6 +294,11 @@ export function CenterStageTabBar({
   onCreateSpace,
 }: CenterStageTabBarProps) {
   const t = useTranslations("appShell");
+  const tOverview = useTranslations("ptDesign.overview");
+  const ptDesignTabTitle = usePtDesignOpenTitle(
+    t("centerStageTabBar.ptDesign"),
+    tOverview("untitled"),
+  );
   const newTerminalTabLabel = t("centerStageTabBar.newTerminalTab");
   const agentChatTabs = useAgentChatCenterTabsStore(
     (state) => state.tabsByContext[effectiveContextId] ?? EMPTY_AGENT_CHAT_TABS,
@@ -473,7 +479,7 @@ export function CenterStageTabBar({
         id: "pt-design",
         value: "pt-design",
         kind: "pt-design",
-        label: t("centerStageTabBar.ptDesign"),
+        label: ptDesignTabTitle,
       });
     }
 
@@ -530,6 +536,7 @@ export function CenterStageTabBar({
     codeReviewTabVisible,
     filesTabVisible,
     ptDesignTabVisible,
+    ptDesignTabTitle,
     githubHubTabVisible,
     reviewTabVisible,
     runTabVisible,
@@ -801,9 +808,9 @@ export function CenterStageTabBar({
           key={tab.id}
           closeLabel={t("centerStageTabBar.closePtDesignTab")}
           icon={<PencilRuler className="size-3.5 shrink-0" />}
-          label={t("centerStageTabBar.ptDesign")}
+          label={ptDesignTabTitle}
           shortcutDigit={shortcutDigit}
-          tooltip={t("centerStageTabBar.ptDesign")}
+          tooltip={ptDesignTabTitle}
           value="pt-design"
           onClose={() => handleCloseToolTab("pt-design")}
           onContextMenu={(event) => openContextMenu(event, tab)}

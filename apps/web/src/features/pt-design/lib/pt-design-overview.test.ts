@@ -1,11 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
-  designVisibleInHost,
+  createMetaForHost,
   displayPtDesignName,
   filterResolvedPtDesigns,
-  filterResolvedPtDesignsForHost,
   groupResolvedPtDesigns,
-  ptDesignOpenHref,
+  ptDesignHostForFrame,
   resolvePtDesignList,
   resolvePtDesignOwner,
   searchResolvedPtDesigns,
@@ -43,32 +42,42 @@ const projects: Project[] = [
     borderColor: null,
     logoPath: null,
   },
+  {
+    id: "proj-2",
+    name: "localrouter",
+    isOpen: true,
+    workspaces: [],
+    mainFilePath: "/tmp/localrouter",
+    sidebarOrder: 1,
+    borderColor: "#f00",
+    logoPath: null,
+  },
 ];
 
-function listed(id: string, scope: "global" | "project" | "workspace"): PtDesignListed {
+function listed(id: string, scope: "global" | "project" | "workspace", extra?: Partial<PtDesignListed["meta"]>): PtDesignListed {
   return {
     id,
     key: `pt-design/v2/${id}`,
     doc: { ptx: "<page id=\"page\"></page>\n" },
     meta: {
       id,
-      name: "",
+      name: extra?.name ?? "",
       scope,
-      pinned: false,
-      pinOrder: 0,
-      updatedAt: 1,
+      pinned: extra?.pinned ?? false,
+      pinOrder: extra?.pinOrder ?? 0,
+      updatedAt: extra?.updatedAt ?? 1,
       openMode: scope === "global" ? "canvas" : "center-tab",
-      workspaceId: scope === "workspace" ? id : undefined,
-      projectId: scope === "project" ? id : undefined,
+      workspaceId: extra?.workspaceId ?? (scope === "workspace" ? id : undefined),
+      projectId: extra?.projectId ?? (scope === "project" ? id : undefined),
     },
   };
 }
 
 describe("pt-design overview grouping helpers", () => {
-  test("resolves workspace and project owners, and keeps global untitled", () => {
+  test("resolves workspace designs onto their parent project", () => {
     expect(resolvePtDesignOwner(listed("ws-1", "workspace").meta, projects)).toMatchObject({
-      scope: "workspace",
-      ownerName: "Main",
+      scope: "project",
+      ownerName: "Atmos",
       workspaceId: "ws-1",
       projectId: "proj-1",
     });
@@ -83,51 +92,79 @@ describe("pt-design overview grouping helpers", () => {
     });
   });
 
-  test("open href uses the original host: canvas vs center tab", () => {
+  test("groups pinned then global then real projects, and folds workspace into the project", () => {
     const rows = resolvePtDesignList(
-      [listed("global", "global"), listed("ws-1", "workspace"), listed("proj-1", "project")],
+      [
+        listed("global", "global"),
+        listed("ws-1", "workspace"),
+        listed("doc-p", "project", { projectId: "proj-2", name: "Home" }),
+      ],
       projects,
     );
-    expect(ptDesignOpenHref(rows[0]!, { kind: "global" })).toBe("/pt-design?design=global");
-    expect(ptDesignOpenHref(rows[1]!, { kind: "global" })).toBe(
-      "/workspace?id=ws-1&tab=pt-design&design=ws-1",
-    );
-    expect(ptDesignOpenHref(rows[2]!, { kind: "global" })).toBe(
-      "/project?id=proj-1&tab=pt-design&design=proj-1",
-    );
-    expect(displayPtDesignName(rows[1]!, "Untitled")).toBe("Main");
-    expect(displayPtDesignName({ name: "Home", ownerName: "Main" }, "Untitled")).toBe("Home");
-  });
-
-  test("project and workspace hosts never link to another context", () => {
-    const rows = resolvePtDesignList(
-      [listed("global", "global"), listed("ws-1", "workspace"), listed("proj-1", "project")],
+    expect(rows[1]!.group).toBe("project");
+    expect(rows[1]!.projectId).toBe("proj-1");
+    expect(rows[0]!.group).toBe("global");
+    const grouped = groupResolvedPtDesigns(
+      rows.map((row, index) => ({ ...row, pinned: index === 2, pinOrder: index === 2 ? 1 : 0 })),
       projects,
     );
-    expect(designVisibleInHost(rows[0]!, { kind: "project", projectId: "proj-1" })).toBe(false);
-    expect(ptDesignOpenHref(rows[0]!, { kind: "project", projectId: "proj-1" })).toBeNull();
-    expect(ptDesignOpenHref(rows[2]!, { kind: "project", projectId: "proj-1" })).toBe(
-      "/project?id=proj-1&tab=pt-design&design=proj-1",
-    );
-    expect(ptDesignOpenHref(rows[1]!, { kind: "workspace", workspaceId: "ws-1" })).toBe(
-      "/workspace?id=ws-1&tab=pt-design&design=ws-1",
-    );
-    expect(ptDesignOpenHref(rows[2]!, { kind: "workspace", workspaceId: "ws-1" })).toBeNull();
-    expect(filterResolvedPtDesignsForHost(rows, { kind: "project", projectId: "proj-1" }).map((row) => row.id)).toEqual(
-      ["proj-1"],
-    );
-  });
-
-  test("pinned group stays separate from scope groups", () => {
-    const rows = resolvePtDesignList(
-      [listed("global", "global"), listed("ws-1", "workspace")],
-      projects,
-    ).map((row, index) => ({ ...row, pinned: index === 1, pinOrder: index === 1 ? 1 : 0 }));
-    const grouped = groupResolvedPtDesigns(rows);
-    expect(grouped.pinned.map((row) => row.id)).toEqual(["ws-1"]);
+    expect(grouped.pinned.map((row) => row.id)).toEqual(["doc-p"]);
     expect(grouped.global.map((row) => row.id)).toEqual(["global"]);
-    expect(grouped.workspace).toEqual([]);
-    expect(filterResolvedPtDesigns(rows, "workspace").map((row) => row.id)).toEqual(["ws-1"]);
-    expect(searchResolvedPtDesigns(rows, "main", "Untitled").map((row) => row.id)).toEqual(["ws-1"]);
+    expect(grouped.projects.map((row) => row.name)).toEqual(["Atmos"]);
+    expect(grouped.projects[0]!.items.map((row) => row.id)).toEqual(["ws-1"]);
+    expect(filterResolvedPtDesigns(rows, "project").map((row) => row.id).sort()).toEqual(["doc-p", "ws-1"]);
+    expect(filterResolvedPtDesigns(rows, "workspace").map((row) => row.id).sort()).toEqual(["doc-p", "ws-1"]);
+    expect(searchResolvedPtDesigns(rows, "atmos", "Untitled").map((row) => row.id)).toEqual(["ws-1"]);
+    expect(displayPtDesignName(rows[2]!, "Untitled")).toBe("Home");
+  });
+
+  test("new designs in a workspace host belong to the parent project", () => {
+    expect(createMetaForHost({ kind: "workspace", workspaceId: "ws-1" }, projects)).toEqual({
+      scope: "project",
+      openMode: "center-tab",
+      projectId: "proj-1",
+      workspaceId: "ws-1",
+    });
+    expect(createMetaForHost({ kind: "project", projectId: "proj-2" }, projects)).toEqual({
+      scope: "project",
+      openMode: "center-tab",
+      projectId: "proj-2",
+    });
+    expect(createMetaForHost({ kind: "global" }, projects)).toEqual({
+      scope: "global",
+      openMode: "canvas",
+    });
+    expect(createMetaForHost({ kind: "workspace", workspaceId: "ws-1" }, [])).toEqual({
+      scope: "project",
+      openMode: "center-tab",
+      projectId: undefined,
+      workspaceId: "ws-1",
+    });
+  });
+
+  test("unknown project ids stay in a project group, not global", () => {
+    const rows = resolvePtDesignList(
+      [listed("doc-x", "project", { projectId: "missing", name: "Board" })],
+      [],
+    );
+    expect(rows[0]).toMatchObject({ group: "project", projectId: "missing" });
+    const grouped = groupResolvedPtDesigns(rows, []);
+    expect(grouped.global).toEqual([]);
+    expect(grouped.projects).toEqual([
+      { projectId: "missing", name: "", items: rows },
+    ]);
+  });
+
+  test("listedDesignTitle prefers the saved name", () => {
+    expect(displayPtDesignName({ name: "Home", ownerName: "Atmos" }, "Untitled")).toBe("Home");
+    expect(displayPtDesignName({ name: "  ", ownerName: "Atmos" }, "Untitled")).toBe("Atmos");
+  });
+
+  test("frame host uses the workspace or project id, not a center-space suffix", () => {
+    expect(ptDesignHostForFrame("ws-1", false)).toEqual({ kind: "workspace", workspaceId: "ws-1" });
+    expect(ptDesignHostForFrame("proj-1::space::files", true)).toEqual({
+      kind: "project",
+      projectId: "proj-1",
+    });
   });
 });

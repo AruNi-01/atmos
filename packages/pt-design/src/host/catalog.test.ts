@@ -11,6 +11,7 @@ import {
   inferPtDesignMeta,
   listPtDesignDocs,
   ptDesignDocKey,
+  movePtDesign,
   renamePtDesign,
   setPtDesignPinned,
 } from "./catalog";
@@ -119,6 +120,16 @@ describe("pt-design catalog", () => {
     expect(setPtDesignPinned(created.id, true)?.meta.updatedAt).toBe(createdAt);
     expect(setPtDesignPinned(created.id, false)?.meta.pinned).toBe(false);
     expect(setPtDesignPinned(created.id, false)?.meta.updatedAt).toBe(createdAt);
+    expect(movePtDesign(created.id, { scope: "project", projectId: "proj-1" })?.meta).toMatchObject({
+      scope: "project",
+      projectId: "proj-1",
+      updatedAt: createdAt,
+    });
+    expect(movePtDesign(created.id, { scope: "global" })?.meta).toMatchObject({
+      scope: "global",
+      updatedAt: createdAt,
+    });
+    expect(movePtDesign(created.id, { scope: "global" })?.meta.projectId).toBeUndefined();
     expect(deletePtDesign(created.id)).toBe(true);
     expect(listPtDesignDocs()).toEqual([]);
     expect(await localStoragePersistence(ptDesignDocKey(created.id)).load()).toBeNull();

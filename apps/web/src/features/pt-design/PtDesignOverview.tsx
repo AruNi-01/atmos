@@ -20,12 +20,17 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   Input,
+  MinimalCard,
+  MinimalCardDescription,
+  MinimalCardImage,
+  MinimalCardTitle,
   ScrollArea,
 } from "@workspace/ui";
 import { formatRelativeTime } from "@atmos/shared";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   Check,
+  FolderInput,
   FolderKanban,
   Globe,
   LayoutGrid,
@@ -44,22 +49,22 @@ import {
   createPtDesignDoc,
   deletePtDesign,
   listPtDesignDocs,
+  movePtDesign,
   renamePtDesign,
   setPtDesignPinned,
   type PtDesignFilterScope,
+  type PtDesignMoveTarget,
 } from "@atmos/pt-design/catalog";
 import { MorphingIconToggle, MORPH_SWAP_TRANSITION } from "@/shared/components/morphing-swap";
 import { PageFilterButton } from "@/shared/components/PageFilterButton";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
-import { useAppRouter } from "@/shared/hooks/use-app-router";
+import { ProjectGlyph } from "@/features/project/components/ProjectGlyph";
 import { ptDesignParams } from "@/shared/lib/nuqs/searchParams";
 import {
-  designVisibleInHost,
+  createMetaForHost,
   displayPtDesignName,
   filterResolvedPtDesigns,
-  filterResolvedPtDesignsForHost,
   groupResolvedPtDesigns,
-  ptDesignOpenHref,
   resolvePtDesignList,
   searchResolvedPtDesigns,
   type PtDesignHostContext,
@@ -71,15 +76,15 @@ import {
   writePtDesignOverviewView,
   type PtDesignOverviewView,
 } from "./lib/pt-design-overview-view";
+import type { Project } from "@/shared/types/domain";
 
 const SCOPE_FILTERS: Array<{
-  id: PtDesignFilterScope;
+  id: Exclude<PtDesignFilterScope, "workspace">;
   icon: typeof Globe;
 }> = [
   { id: "all", icon: Layers },
   { id: "global", icon: Globe },
   { id: "project", icon: FolderKanban },
-  { id: "workspace", icon: Layers },
 ];
 
 const GLOBAL_HOST: PtDesignHostContext = { kind: "global" };
@@ -90,9 +95,9 @@ type DesignItemLabels = {
   rename: string;
   delete: string;
   more: string;
+  moveTo: string;
   global: string;
   project: string;
-  workspace: string;
 };
 
 export function PtDesignOverview({
@@ -102,7 +107,6 @@ export function PtDesignOverview({
 }) {
   const t = useTranslations("ptDesign.overview");
   const locale = useLocale();
-  const router = useAppRouter();
   const projects = useProjects();
   const [scope, setScope] = useQueryState("ptScope", ptDesignParams.ptScope);
   const [, setDesign] = useQueryState("design", ptDesignParams.design);
@@ -126,52 +130,33 @@ export function PtDesignOverview({
     return () => window.removeEventListener("storage", onStorage);
   }, [refresh]);
 
-  const hostKey =
-    host.kind === "project"
-      ? `project:${host.projectId}`
-      : host.kind === "workspace"
-        ? `workspace:${host.workspaceId}`
-        : "global";
   const listed = React.useMemo(() => {
     void tick;
-    void hostKey;
-    return filterResolvedPtDesignsForHost(resolvePtDesignList(listPtDesignDocs(), projects), host);
-  }, [host, hostKey, projects, tick]);
-  const scoped = host.kind === "global" ? filterResolvedPtDesigns(listed, scope) : listed;
+    return resolvePtDesignList(listPtDesignDocs(), projects);
+  }, [projects, tick]);
+  const scoped = filterResolvedPtDesigns(listed, scope === "workspace" ? "project" : scope);
   const visible = searchResolvedPtDesigns(scoped, query, t("untitled"));
-  const grouped = groupResolvedPtDesigns(visible);
-  const hasAny = grouped.pinned.length + grouped.project.length + grouped.workspace.length + grouped.global.length > 0;
+  const grouped = groupResolvedPtDesigns(visible, projects);
+  const hasAny =
+    grouped.pinned.length + grouped.global.length + grouped.projects.reduce((sum, row) => sum + row.items.length, 0) > 0;
+  const moveTargets = React.useMemo(
+    () => [...projects].sort((left, right) => left.sidebarOrder - right.sidebarOrder),
+    [projects],
+  );
 
   const openItem = React.useCallback(
     (item: ResolvedPtDesign) => {
-      if (!designVisibleInHost(item, host)) return;
-      const href = ptDesignOpenHref(item, host);
-      if (!href) return;
-      if (host.kind !== "global") {
-        void setDesign(item.id);
-        return;
-      }
-      if (href.startsWith("/pt-design?")) {
-        void setDesign(item.id);
-        return;
-      }
-      router.push(href);
+      void setDesign(item.id);
     },
-    [host, router, setDesign],
+    [setDesign],
   );
 
   const handleNew = React.useCallback(() => {
-    const created = createPtDesignDoc(
-      host.kind === "project"
-        ? { scope: "project", openMode: "center-tab", projectId: host.projectId }
-        : host.kind === "workspace"
-          ? { scope: "workspace", openMode: "center-tab", workspaceId: host.workspaceId }
-          : { scope: "global", openMode: "canvas" },
-    );
+    const created = createPtDesignDoc(createMetaForHost(host, projects));
     if (!created) return;
     refresh();
     void setDesign(created.id);
-  }, [host, refresh, setDesign]);
+  }, [host, projects, refresh, setDesign]);
 
   const handleViewChange = React.useCallback((next: PtDesignOverviewView) => {
     setView(next);
@@ -185,9 +170,9 @@ export function PtDesignOverview({
       rename: t("rename"),
       delete: t("delete"),
       more: t("more"),
+      moveTo: t("moveTo"),
       global: t("global"),
       project: t("project"),
-      workspace: t("workspace"),
     }),
     [t],
   );
@@ -203,26 +188,25 @@ export function PtDesignOverview({
     refresh();
   }, [refresh]);
 
+  const onMove = React.useCallback((item: ResolvedPtDesign, target: PtDesignMoveTarget) => {
+    movePtDesign(item.id, target);
+    refresh();
+  }, [refresh]);
+
   const collectionProps = {
     view,
     untitled: t("untitled"),
     renamingId,
     locale,
+    moveTargets,
     onOpen: openItem,
     onRenameStart: setRenamingId,
     onRename,
     onPin,
+    onMove,
     onDelete: setDeleting,
     labels,
   };
-
-  const section = (title: string, items: ResolvedPtDesign[]) =>
-    items.length === 0 ? null : (
-      <section>
-        <h2 className="mb-3 text-xs font-medium text-muted-foreground">{title}</h2>
-        <DesignCollection items={items} {...collectionProps} />
-      </section>
-    );
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background" data-testid="pt-design-overview">
@@ -259,13 +243,11 @@ export function PtDesignOverview({
                 className="h-11 sm:h-11 rounded-xl border-border/50 bg-muted/20 pl-10 shadow-sm transition-all focus:bg-background focus-visible:ring-1 focus-visible:ring-primary/20"
               />
             </div>
-            {host.kind === "global" ? (
-              <OverviewFilterMenu
-                scope={scope}
-                onScopeChange={(next) => void setScope(next)}
-                onClear={() => void setScope("all")}
-              />
-            ) : null}
+            <OverviewFilterMenu
+              scope={scope === "workspace" ? "project" : scope}
+              onScopeChange={(next) => void setScope(next)}
+              onClear={() => void setScope("all")}
+            />
             <MorphingIconToggle
               value={view}
               onChange={handleViewChange}
@@ -284,10 +266,33 @@ export function PtDesignOverview({
           <div className="mx-auto w-full max-w-5xl space-y-8">
             {hasAny ? (
               <>
-                {section(t("pinned"), grouped.pinned)}
-                {section(t("project"), grouped.project)}
-                {section(t("workspace"), grouped.workspace)}
-                {section(t("global"), grouped.global)}
+                <OverviewSection
+                  title={t("pinned")}
+                  items={grouped.pinned}
+                  icon={<Pin className="size-3.5" />}
+                  collectionProps={collectionProps}
+                />
+                <OverviewSection
+                  title={t("global")}
+                  items={grouped.global}
+                  icon={<Globe className="size-3.5" />}
+                  collectionProps={collectionProps}
+                />
+                {grouped.projects.map((row) => (
+                  <OverviewSection
+                    key={row.projectId}
+                    title={row.name.trim() || t("project")}
+                    items={row.items}
+                    icon={
+                      row.project ? (
+                        <ProjectGlyph project={row.project} className="size-4" />
+                      ) : (
+                        <FolderKanban className="size-3.5" />
+                      )
+                    }
+                    collectionProps={collectionProps}
+                  />
+                ))}
               </>
             ) : (
               <EmptyOverview
@@ -335,13 +340,36 @@ export function PtDesignOverview({
   );
 }
 
+function OverviewSection({
+  title,
+  items,
+  icon,
+  collectionProps,
+}: {
+  title: string;
+  items: ResolvedPtDesign[];
+  icon: React.ReactNode;
+  collectionProps: Omit<React.ComponentProps<typeof DesignCollection>, "items">;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <section>
+      <h2 className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+        {icon}
+        <span>{title}</span>
+      </h2>
+      <DesignCollection items={items} {...collectionProps} />
+    </section>
+  );
+}
+
 function OverviewFilterMenu({
   scope,
   onScopeChange,
   onClear,
 }: {
-  scope: PtDesignFilterScope;
-  onScopeChange: (scope: PtDesignFilterScope) => void;
+  scope: Exclude<PtDesignFilterScope, "workspace">;
+  onScopeChange: (scope: Exclude<PtDesignFilterScope, "workspace">) => void;
   onClear: () => void;
 }) {
   const t = useTranslations("ptDesign.overview");
@@ -414,10 +442,12 @@ function DesignCollection({
   untitled,
   renamingId,
   locale,
+  moveTargets,
   onOpen,
   onRenameStart,
   onRename,
   onPin,
+  onMove,
   onDelete,
   labels,
 }: {
@@ -426,10 +456,12 @@ function DesignCollection({
   untitled: string;
   renamingId: string | null;
   locale: string;
+  moveTargets: Project[];
   onOpen: (item: ResolvedPtDesign) => void;
   onRenameStart: (id: string) => void;
   onRename: (id: string, name: string) => void;
   onPin: (item: ResolvedPtDesign) => void;
+  onMove: (item: ResolvedPtDesign, target: PtDesignMoveTarget) => void;
   onDelete: (item: ResolvedPtDesign) => void;
   labels: DesignItemLabels;
 }) {
@@ -458,10 +490,12 @@ function DesignCollection({
                 untitled={untitled}
                 renaming={renamingId === item.id}
                 locale={locale}
+                moveTargets={moveTargets}
                 onOpen={onOpen}
                 onRenameStart={onRenameStart}
                 onRename={onRename}
                 onPin={onPin}
+                onMove={onMove}
                 onDelete={onDelete}
                 labels={labels}
               />
@@ -476,10 +510,12 @@ function DesignCollection({
                 untitled={untitled}
                 renaming={renamingId === item.id}
                 locale={locale}
+                moveTargets={moveTargets}
                 onOpen={onOpen}
                 onRenameStart={onRenameStart}
                 onRename={onRename}
                 onPin={onPin}
+                onMove={onMove}
                 onDelete={onDelete}
                 labels={labels}
               />
@@ -492,9 +528,9 @@ function DesignCollection({
 }
 
 function designOwnerLabel(item: ResolvedPtDesign, labels: DesignItemLabels): string {
-  if (item.scope === "global") return labels.global;
+  if (item.group === "global") return labels.global;
   if (item.ownerName?.trim()) return item.ownerName;
-  return item.scope === "project" ? labels.project : labels.workspace;
+  return labels.project;
 }
 
 const PREVIEW_ACTION_CHIP =
@@ -525,14 +561,25 @@ function PinActionButton({
   );
 }
 
+function isCurrentMoveTarget(item: ResolvedPtDesign, target: PtDesignMoveTarget): boolean {
+  if (target.scope === "global") return item.group === "global";
+  return item.group === "project" && item.projectId === target.projectId;
+}
+
 function DesignItemMenu({
+  item,
   labels,
+  moveTargets,
   onRenameStart,
+  onMove,
   onDelete,
   triggerClassName,
 }: {
+  item: ResolvedPtDesign;
   labels: DesignItemLabels;
+  moveTargets: Project[];
   onRenameStart: () => void;
+  onMove: (target: PtDesignMoveTarget) => void;
   onDelete: () => void;
   triggerClassName?: string;
 }) {
@@ -549,11 +596,42 @@ function DesignItemMenu({
           <MoreHorizontal className="size-4" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-40" onClick={(event) => event.stopPropagation()}>
+      <DropdownMenuContent align="end" className="w-48" onClick={(event) => event.stopPropagation()}>
         <DropdownMenuItem className="cursor-pointer" onSelect={() => onRenameStart()}>
           <Pencil className="size-4" />
           {labels.rename}
         </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger data-testid="pt-design-move">
+            <FolderInput className="size-4" />
+            <span className="min-w-0 flex-1 truncate">{labels.moveTo}</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="w-56">
+            <DropdownMenuItem
+              className="cursor-pointer"
+              data-testid="pt-design-move-global"
+              onSelect={() => onMove({ scope: "global" })}
+            >
+              <Globe className="size-4 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate">{labels.global}</span>
+              {isCurrentMoveTarget(item, { scope: "global" }) ? <Check className="size-4" /> : null}
+            </DropdownMenuItem>
+            {moveTargets.map((project) => (
+              <DropdownMenuItem
+                key={project.id}
+                className="cursor-pointer"
+                data-testid={`pt-design-move-project-${project.id}`}
+                onSelect={() => onMove({ scope: "project", projectId: project.id })}
+              >
+                <ProjectGlyph project={project} className="size-4" />
+                <span className="min-w-0 flex-1 truncate">{project.name}</span>
+                {isCurrentMoveTarget(item, { scope: "project", projectId: project.id }) ? (
+                  <Check className="size-4" />
+                ) : null}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
         <DropdownMenuItem
           className="cursor-pointer text-destructive focus:text-destructive"
           onSelect={() => onDelete()}
@@ -589,10 +667,12 @@ const DesignCard = React.memo(function DesignCard({
   untitled,
   renaming,
   locale,
+  moveTargets,
   onOpen,
   onRenameStart,
   onRename,
   onPin,
+  onMove,
   onDelete,
   labels,
 }: {
@@ -600,10 +680,12 @@ const DesignCard = React.memo(function DesignCard({
   untitled: string;
   renaming: boolean;
   locale: string;
+  moveTargets: Project[];
   onOpen: (item: ResolvedPtDesign) => void;
   onRenameStart: (id: string) => void;
   onRename: (id: string, name: string) => void;
   onPin: (item: ResolvedPtDesign) => void;
+  onMove: (item: ResolvedPtDesign, target: PtDesignMoveTarget) => void;
   onDelete: (item: ResolvedPtDesign) => void;
   labels: DesignItemLabels;
 }) {
@@ -612,27 +694,34 @@ const DesignCard = React.memo(function DesignCard({
   const modified = formatRelativeTime(new Date(item.updatedAt).toISOString(), locale);
 
   return (
-    <article
-      className="group relative overflow-hidden rounded-xl border border-border bg-card text-left shadow-sm"
+    <MinimalCard
+      className="group cursor-pointer text-left"
       data-testid="pt-design-card"
       data-design-id={item.id}
+      onClick={() => {
+        if (!renaming) onOpen(item);
+      }}
     >
-      <div className="relative">
-        <button type="button" onClick={() => onOpen(item)} className="block w-full cursor-pointer text-left">
-          <div className="aspect-[16/10] bg-[#fffef7] dark:bg-[#09090b]">
-            <DesignPreview preview={item.preview} />
+      <MinimalCardImage
+        alt=""
+        className="mb-2 bg-[#fffef7] dark:bg-[#09090b] [&_img]:object-contain"
+        actions={
+          <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 has-[[data-state=open]]:opacity-100">
+            <PinActionButton pinned={item.pinned} labels={labels} onPin={() => onPin(item)} />
+            <DesignItemMenu
+              item={item}
+              labels={labels}
+              moveTargets={moveTargets}
+              onRenameStart={() => onRenameStart(item.id)}
+              onMove={(target) => onMove(item, target)}
+              onDelete={() => onDelete(item)}
+            />
           </div>
-        </button>
-        <div className="absolute right-2 top-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 has-[[data-state=open]]:opacity-100">
-          <PinActionButton pinned={item.pinned} labels={labels} onPin={() => onPin(item)} />
-          <DesignItemMenu
-            labels={labels}
-            onRenameStart={() => onRenameStart(item.id)}
-            onDelete={() => onDelete(item)}
-          />
-        </div>
-      </div>
-      <div className="flex items-start justify-between gap-2 px-3 py-2.5">
+        }
+      >
+        <DesignPreview preview={item.preview} />
+      </MinimalCardImage>
+      <div className="flex items-start justify-between gap-2 px-1 pb-1">
         <div className="min-w-0 flex-1">
           {renaming ? (
             <Input
@@ -648,11 +737,11 @@ const DesignCard = React.memo(function DesignCard({
               onBlur={(event) => onRename(item.id, event.currentTarget.value)}
             />
           ) : (
-            <button type="button" onClick={() => onOpen(item)} className="block w-full truncate text-left text-sm font-medium">
-              {name}
+            <button type="button" onClick={() => onOpen(item)} className="block w-full text-left">
+              <MinimalCardTitle className="mt-0 truncate">{name}</MinimalCardTitle>
             </button>
           )}
-          <div className="mt-0.5 truncate text-xs text-muted-foreground">{owner}</div>
+          <MinimalCardDescription className="truncate">{owner}</MinimalCardDescription>
         </div>
         <time
           dateTime={new Date(item.updatedAt).toISOString()}
@@ -661,7 +750,7 @@ const DesignCard = React.memo(function DesignCard({
           {modified}
         </time>
       </div>
-    </article>
+    </MinimalCard>
   );
 });
 
@@ -670,10 +759,12 @@ const DesignListRow = React.memo(function DesignListRow({
   untitled,
   renaming,
   locale,
+  moveTargets,
   onOpen,
   onRenameStart,
   onRename,
   onPin,
+  onMove,
   onDelete,
   labels,
 }: {
@@ -681,10 +772,12 @@ const DesignListRow = React.memo(function DesignListRow({
   untitled: string;
   renaming: boolean;
   locale: string;
+  moveTargets: Project[];
   onOpen: (item: ResolvedPtDesign) => void;
   onRenameStart: (id: string) => void;
   onRename: (id: string, name: string) => void;
   onPin: (item: ResolvedPtDesign) => void;
+  onMove: (item: ResolvedPtDesign, target: PtDesignMoveTarget) => void;
   onDelete: (item: ResolvedPtDesign) => void;
   labels: DesignItemLabels;
 }) {
@@ -739,12 +832,14 @@ const DesignListRow = React.memo(function DesignListRow({
       <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 has-[[data-state=open]]:opacity-100">
         <PinActionButton pinned={item.pinned} labels={labels} onPin={() => onPin(item)} />
         <DesignItemMenu
+          item={item}
           labels={labels}
+          moveTargets={moveTargets}
           onRenameStart={() => onRenameStart(item.id)}
+          onMove={(target) => onMove(item, target)}
           onDelete={() => onDelete(item)}
         />
       </div>
     </article>
   );
 });
-

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocale, useTranslations } from "next-intl";
 import { Timer } from "lucide-react";
@@ -12,7 +12,7 @@ import { findGroupIdForMember } from "@/app-shell/sidebar/user-groups";
 import { ProjectAgentStatusMark } from "@/features/agent/components/WorkspaceAgentStatusMark";
 import { STANDALONE_GROUP_ID } from "@/features/automations/lib/standalone-sidebar";
 import { ProjectLogoMark } from "@/features/project/components/ProjectLogoMark";
-import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
+import { useProjectLogoUrl } from "@/features/project/hooks/use-project-logo-url";
 import { SidebarHeldShortcutBadge } from "@/app-shell/HeldShortcutBadge";
 import { useSidebarShortcutDigit } from "@/app-shell/held-shortcut-prefix-store";
 import { SIDEBAR_SHORTCUT_TARGET_ATTR } from "@/app-shell/shortcut-prefix";
@@ -32,61 +32,6 @@ import {
   useWorkspaceInfoHoverPortal,
   workspaceInfoHoverSession,
 } from "@/app-shell/sidebar/workspace-info-hover-session";
-
-function isDirectLogoSource(value: string): boolean {
-  return /^(https?:|data:)/i.test(value.trim());
-}
-
-function useProjectLogoUrl(logoPath: string | null): {
-  logoUrl: string | null;
-  hasLogoLoadError: boolean;
-  onLogoError: () => void;
-} {
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [hasLogoLoadError, setHasLogoLoadError] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setHasLogoLoadError(false);
-    if (!logoPath) {
-      setLogoUrl(null);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    setLogoUrl(null);
-    if (isDirectLogoSource(logoPath)) {
-      setLogoUrl(logoPath);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    void getRuntimeApiConfig()
-      .then((config) => {
-        if (cancelled) return;
-        const params = new URLSearchParams({ path: logoPath });
-        if (config.token) params.set("token", config.token);
-        setLogoUrl(`${httpBase(config)}/api/system/file?${params.toString()}`);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setLogoUrl(null);
-        setHasLogoLoadError(true);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [logoPath]);
-
-  return {
-    logoUrl,
-    hasLogoLoadError,
-    onLogoError: () => setHasLogoLoadError(true),
-  };
-}
 
 function ProjectMetadataValue({
   value,

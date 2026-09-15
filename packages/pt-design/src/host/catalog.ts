@@ -272,6 +272,39 @@ export function setPtDesignPinned(
   }));
 }
 
+export type PtDesignMoveTarget =
+  | { scope: "global" }
+  | { scope: "project"; projectId: string };
+
+export function movePtDesign(
+  id: string,
+  target: PtDesignMoveTarget,
+  storage?: Storage | null,
+): PtDesignListed | null {
+  const store = readStorage(storage);
+  if (!store) return null;
+  return patchListed(store, id, (meta) => {
+    if (target.scope === "global") {
+      const next: PtDesignMeta = {
+        ...meta,
+        scope: "global",
+        updatedAt: meta.updatedAt,
+      };
+      delete next.projectId;
+      delete next.workspaceId;
+      return next;
+    }
+    const next: PtDesignMeta = {
+      ...meta,
+      scope: "project",
+      projectId: target.projectId,
+      updatedAt: meta.updatedAt,
+    };
+    delete next.workspaceId;
+    return next;
+  });
+}
+
 export function deletePtDesign(id: string, storage?: Storage | null): boolean {
   const store = readStorage(storage);
   if (!store) return false;

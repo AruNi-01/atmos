@@ -3,6 +3,7 @@
 // UI Components
 export * from "./components/ui/button";
 export * from "./components/ui/card";
+export * from "./components/ui/minimal-card";
 export * from "./components/ui/checkbox";
 export * from "./components/ui/qr-code";
 export * from "./components/ui/input";

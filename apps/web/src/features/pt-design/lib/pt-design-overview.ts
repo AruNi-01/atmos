@@ -1,9 +1,7 @@
 import {
-  designListedInHost,
-  filterPtDesigns,
-  filterPtDesignsByHost,
   groupPinnedPtDesigns,
   inferPtDesignMeta,
+  listPtDesignDocs,
   type PtDesignFilterScope,
   type PtDesignHostContext,
   type PtDesignListed,
@@ -15,10 +13,23 @@ import type { Project } from "@/shared/types/domain";
 
 export type { PtDesignHostContext };
 
+const CENTER_SPACE_KEY_MARK = "::space::";
+
+export function ptDesignHostForFrame(
+  contextId: string,
+  isProject: boolean,
+): PtDesignHostContext {
+  const index = contextId.indexOf(CENTER_SPACE_KEY_MARK);
+  const hostId = index === -1 ? contextId : contextId.slice(0, index);
+  if (isProject) return { kind: "project", projectId: hostId };
+  return { kind: "workspace", workspaceId: hostId };
+}
+
 export type ResolvedPtDesign = {
   id: string;
   name: string;
   scope: PtDesignScope;
+  group: "global" | "project";
   openMode: PtDesignOpenMode;
   preview?: string;
   pinned: boolean;
@@ -34,6 +45,17 @@ export function hostMetaForContext(
   projects: Project[],
   override?: { openMode?: PtDesignOpenMode; name?: string },
 ): Partial<PtDesignMeta> {
+  const listed = listPtDesignDocs().find((row) => row.id === contextId)?.meta;
+  if (listed) {
+    return {
+      id: contextId,
+      name: override?.name ?? listed.name,
+      scope: listed.scope,
+      openMode: override?.openMode ?? listed.openMode,
+      projectId: listed.projectId,
+      workspaceId: listed.workspaceId,
+    };
+  }
   const resolved = resolvePtDesignOwner(inferPtDesignMeta(contextId), projects);
   return {
     id: contextId,
@@ -73,9 +95,9 @@ export function resolvePtDesignOwner(
     );
     if (!workspace) continue;
     return {
-      scope: "workspace",
+      scope: meta.scope === "global" ? "global" : "project",
       openMode: meta.openMode === "canvas" ? "canvas" : "center-tab",
-      ownerName: workspace.displayName?.trim() || workspace.name,
+      ownerName: project.name,
       projectId: project.id,
       workspaceId: workspace.id,
     };
@@ -105,87 +127,45 @@ export function resolvePtDesignOwner(
 export function resolvePtDesignList(listed: PtDesignListed[], projects: Project[]): ResolvedPtDesign[] {
   return listed.map((item) => {
     const owner = resolvePtDesignOwner(item.meta, projects);
+    const projectId =
+      item.meta.scope === "global"
+        ? undefined
+        : owner.projectId ?? item.meta.projectId ?? "unresolved";
+    const group: "global" | "project" = item.meta.scope === "global" ? "global" : "project";
     return {
       id: item.id,
       name: item.meta.name,
-      scope: owner.scope,
+      scope: item.meta.scope,
+      group,
       openMode: owner.openMode,
       preview: item.meta.preview,
       pinned: item.meta.pinned,
       pinOrder: item.meta.pinOrder,
       updatedAt: item.meta.updatedAt,
-      projectId: owner.projectId,
-      workspaceId: owner.workspaceId,
-      ownerName: owner.ownerName,
+      projectId: group === "project" ? projectId : undefined,
+      workspaceId: item.meta.workspaceId,
+      ownerName: group === "project" ? owner.ownerName : null,
     };
   });
 }
 
-export function ptDesignOpenHref(
-  item: Pick<ResolvedPtDesign, "id" | "scope" | "openMode" | "projectId" | "workspaceId">,
-  host: PtDesignHostContext = { kind: "global" },
-): string | null {
-  if (!designVisibleInHost(item, host)) return null;
-  if (host.kind === "workspace") {
-    return `/workspace?id=${encodeURIComponent(host.workspaceId)}&tab=pt-design&design=${encodeURIComponent(item.id)}`;
-  }
+export function createMetaForHost(
+  host: PtDesignHostContext,
+  projects: Project[],
+): { scope: PtDesignScope; openMode: PtDesignOpenMode; projectId?: string; workspaceId?: string } {
   if (host.kind === "project") {
-    return `/project?id=${encodeURIComponent(host.projectId)}&tab=pt-design&design=${encodeURIComponent(item.id)}`;
+    return { scope: "project", openMode: "center-tab", projectId: host.projectId };
   }
-  if (item.openMode === "center-tab" && item.scope === "workspace" && item.workspaceId) {
-    return `/workspace?id=${encodeURIComponent(item.workspaceId)}&tab=pt-design&design=${encodeURIComponent(item.id)}`;
+  if (host.kind === "workspace") {
+    const project = projects.find((row) => row.workspaces.some((workspace) => workspace.id === host.workspaceId));
+    return {
+      scope: "project",
+      openMode: "center-tab",
+      projectId: project?.id,
+      workspaceId: host.workspaceId,
+    };
   }
-  if (item.openMode === "center-tab" && item.scope === "project" && item.projectId) {
-    return `/project?id=${encodeURIComponent(item.projectId)}&tab=pt-design&design=${encodeURIComponent(item.id)}`;
-  }
-  return `/pt-design?design=${encodeURIComponent(item.id)}`;
-}
-
-export function designVisibleInHost(
-  item: Pick<ResolvedPtDesign, "id" | "scope" | "projectId" | "workspaceId">,
-  host: PtDesignHostContext,
-): boolean {
-  return designListedInHost(
-    {
-      id: item.id,
-      scope: item.scope,
-      projectId: item.projectId,
-      workspaceId: item.workspaceId,
-    },
-    host,
-  );
-}
-
-export function filterResolvedPtDesignsForHost(
-  items: ResolvedPtDesign[],
-  host: PtDesignHostContext,
-): ResolvedPtDesign[] {
-  return filterPtDesignsByHost(
-    items.map((item) => ({
-      item,
-      meta: {
-        id: item.id,
-        scope: item.scope,
-        projectId: item.projectId,
-        workspaceId: item.workspaceId,
-      },
-    })),
-    host,
-  ).map((row) => row.item);
-}
-
-export function searchResolvedPtDesigns(
-  items: ResolvedPtDesign[],
-  query: string,
-  untitled: string,
-): ResolvedPtDesign[] {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return items;
-  return items.filter((item) => {
-    const name = displayPtDesignName(item, untitled).toLowerCase();
-    const owner = item.ownerName?.toLowerCase() ?? "";
-    return name.includes(needle) || owner.includes(needle);
-  });
+  return { scope: "global", openMode: "canvas" };
 }
 
 export function displayPtDesignName(
@@ -202,17 +182,39 @@ export function filterResolvedPtDesigns(
   items: ResolvedPtDesign[],
   scope: PtDesignFilterScope,
 ): ResolvedPtDesign[] {
-  return filterPtDesigns(
-    items.map((item) => ({ item, meta: { scope: item.scope } })),
-    scope,
-  ).map((row) => row.item);
+  if (scope === "all") return items;
+  if (scope === "global") return items.filter((item) => item.group === "global");
+  return items.filter((item) => item.group === "project");
 }
 
-export function groupResolvedPtDesigns(items: ResolvedPtDesign[]): {
+export function searchResolvedPtDesigns(
+  items: ResolvedPtDesign[],
+  query: string,
+  untitled: string,
+): ResolvedPtDesign[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return items;
+  return items.filter((item) => {
+    const name = displayPtDesignName(item, untitled).toLowerCase();
+    const owner = item.ownerName?.toLowerCase() ?? "";
+    return name.includes(needle) || owner.includes(needle);
+  });
+}
+
+export type PtDesignProjectGroup = {
+  projectId: string;
+  name: string;
+  project?: Project;
+  items: ResolvedPtDesign[];
+};
+
+export function groupResolvedPtDesigns(
+  items: ResolvedPtDesign[],
+  projects: Project[],
+): {
   pinned: ResolvedPtDesign[];
-  project: ResolvedPtDesign[];
-  workspace: ResolvedPtDesign[];
   global: ResolvedPtDesign[];
+  projects: PtDesignProjectGroup[];
 } {
   const grouped = groupPinnedPtDesigns(
     items.map((item) => ({
@@ -221,10 +223,42 @@ export function groupResolvedPtDesigns(items: ResolvedPtDesign[]): {
     })),
   );
   const rest = grouped.rest.map((row) => row.item);
+  const byProject = new Map<string, ResolvedPtDesign[]>();
+  for (const item of rest) {
+    if (item.group !== "project" || !item.projectId) continue;
+    const list = byProject.get(item.projectId) ?? [];
+    list.push(item);
+    byProject.set(item.projectId, list);
+  }
+  const ordered: PtDesignProjectGroup[] = [...projects]
+    .sort((left, right) => left.sidebarOrder - right.sidebarOrder)
+    .filter((project) => byProject.has(project.id))
+    .map((project) => ({
+      projectId: project.id,
+      name: project.name,
+      project,
+      items: byProject.get(project.id)!,
+    }));
+  const seen = new Set(ordered.map((row) => row.projectId));
+  for (const [projectId, projectItems] of byProject) {
+    if (seen.has(projectId)) continue;
+    ordered.push({
+      projectId,
+      name: projectItems[0]?.ownerName?.trim() || "",
+      items: projectItems,
+    });
+  }
   return {
     pinned: grouped.pinned.map((row) => row.item),
-    project: rest.filter((item) => item.scope === "project"),
-    workspace: rest.filter((item) => item.scope === "workspace"),
-    global: rest.filter((item) => item.scope === "global"),
+    global: rest.filter((item) => item.group === "global"),
+    projects: ordered,
   };
+}
+
+export function listedDesignTitle(id: string, untitled: string): string | null {
+  const row = listPtDesignDocs().find((item) => item.id === id);
+  if (!row) return null;
+  const named = row.meta.name.trim();
+  if (named) return named;
+  return untitled;
 }

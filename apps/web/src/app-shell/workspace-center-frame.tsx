@@ -1153,7 +1153,11 @@ function WorkspaceCenterFrameImpl({
           style={panelStyle("pt-design", visible, paneId)}
         >
           <DiscardableHeavySurface active={isActiveContext && visible}>
-          <KeptPtDesignHostStage contextId={contextId} />
+          <KeptPtDesignHostStage
+            contextId={contextId}
+            isProject={isProject}
+            active={isUrlSyncedActive && visible}
+          />
           </DiscardableHeavySurface>
         </div>
           );
