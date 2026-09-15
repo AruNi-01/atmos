@@ -122,6 +122,17 @@ describe("agent adapters", () => {
     expect(opened.headless.getPtx()).toContain('id="model"');
   });
 
+  test("openFileSession strips trailing slashes on .ptd paths", () => {
+    const file = tmpPtd();
+    const created = openFileSession({ file: `${file}///`, create: true });
+    expect(created.path).toBe(file);
+    created.headless.applyPtx(LEGAL_PTX);
+    runTool(created, { name: "pt_doc_save", args: { path: `${file}/` } });
+    const reopened = openFileSession({ file: `${file}/` });
+    expect(reopened.path).toBe(file);
+    expect(reopened.headless.getPtx()).toContain('id="model"');
+  });
+
   test("unbound MCP mutate without a file is missing_file", () => {
     const mcp = createMcpServer();
     const applied = mcp.callTool("pt_ptx_apply", { ptx: LEGAL_PTX });

@@ -16,15 +16,21 @@ function isLegacyJson(file: string): boolean {
   return file.endsWith(".ptdesign.json");
 }
 
+function stripTrailingSlashes(file: string): string {
+  let end = file.length;
+  while (end > 0 && file.charCodeAt(end - 1) === 47) end -= 1;
+  return file.slice(0, end);
+}
+
 function isPtdPath(file: string): boolean {
-  const normalized = file.replace(/\/+$/, "");
+  const normalized = stripTrailingSlashes(file);
   return normalized.endsWith(".ptd") || normalized.endsWith("document.ptx");
 }
 
 function ptdDir(file: string): string {
-  const normalized = file.replace(/\/+$/, "");
+  const normalized = stripTrailingSlashes(file);
   return normalized.endsWith("document.ptx")
-    ? normalized.slice(0, -"document.ptx".length).replace(/\/+$/, "") || "."
+    ? stripTrailingSlashes(normalized.slice(0, -"document.ptx".length)) || "."
     : normalized;
 }
 
