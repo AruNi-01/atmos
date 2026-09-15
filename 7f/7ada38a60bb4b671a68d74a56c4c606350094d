@@ -1,0 +1,99 @@
+apps/web/src/features/agent/components/AgentChatTranscriptList.tsx
+  s_64217b90f17e34::t_0b452bbff9ab7f 110
+  s_64217b90f17e34::t_f94366c259f595 254-261,267
+  s_64217b90f17e34::t_d4acd3a36ed3c8 352,367
+  s_64217b90f17e34::t_183acc0beb457a 15,60-66,68-78,407
+  s_64217b90f17e34::t_bad1d0460c98f3 85
+  s_64217b90f17e34::t_f90f39605c9c5a 326-338
+  s_64217b90f17e34::t_d1a01020b3b0c1 95
+  s_64217b90f17e34::t_b3c296054648fe 30
+  s_64217b90f17e34::t_fc81add55a6aa2 67
+  s_64217b90f17e34::t_7074a805667b03 12-14
+  s_64217b90f17e34::t_bbd226cdff7686 16
+  s_64217b90f17e34::t_4e663b78a105ec 339
+  s_64217b90f17e34::t_9413bcb6c889fe 349-351
+  s_64217b90f17e34::t_835df1c1819ecf 353-355
+  s_64217b90f17e34::t_388c1d1a95856c 364-366
+  s_64217b90f17e34::t_85f45c5e73c58b 368-370,404-406
+  s_64217b90f17e34::t_709c35f656f278 408-410
+  s_26b42b28483df4::t_0c7944329855ef 28,40,106,113,177,179-181,187,195-196,198,213-217,343-348,356-358,361-363,371-403,411-426
+apps/web/src/features/agent/lib/__tests__/agent-chat-message-nav.test.ts
+  s_64217b90f17e34::t_adffa44a9c1342 151-155
+  s_64217b90f17e34::t_73cc644255c6ea 328-368
+  s_64217b90f17e34::t_117ac3cc9523e0 2-3
+  s_64217b90f17e34::t_6978af645d0003 369-370
+  s_26b42b28483df4::t_4fbbbcaf1cc38a 15,287-302
+packages/ui/src/components/ai-elements/conversation.tsx
+  s_64217b90f17e34::t_d4f7a86f77e635 10-11
+apps/web/src/features/agent/components/AgentMessageTimelineNav.tsx
+  s_64217b90f17e34::t_762eec568172e0 154,162-163
+  s_64217b90f17e34::t_dea6ba7124fbc9 279,291-293
+  s_64217b90f17e34::t_34d0fa8f7537ad 260
+  s_64217b90f17e34::t_173c51e598e9e8 5-13
+  s_64217b90f17e34::t_4c1c57164c6757 171
+  s_64217b90f17e34::t_fd3d8c0cee4000 280-290
+  s_64217b90f17e34::t_8b3167f7775a23 170
+  s_64217b90f17e34::t_cd6209fd073c93 259
+apps/web/src/features/agent/components/AgentChatPanel.tsx
+  s_64217b90f17e34::t_8c523fc9b4b992 1058-1059
+  s_64217b90f17e34::t_cbcad5501f5925 694-705
+  s_64217b90f17e34::t_b94fb7d6e6623b 1004
+apps/web/src/app-shell/__tests__/overlay-scroll-bounce.test.ts
+  s_19e17ad7920a45::t_462f0c40f9dc18 18-25
+apps/web/src/app/globals.css
+  s_19e17ad7920a45::t_154af018b4affa 303-309
+apps/web/src/features/agent/components/TerminalBlock.tsx
+  s_e6fc26c7b9917c::t_25a0d9b0623d3b 17-18
+apps/web/src/features/agent/lib/__tests__/agent-chat-transcript-window.test.ts
+  s_26b42b28483df4::t_6612eb715ae2f5 141,143-144,150-151,155,212
+apps/web/src/features/agent/lib/agent-chat-message-nav.ts
+  s_26b42b28483df4::t_e9026f90819c33 230-251
+apps/web/src/features/agent/lib/agent-chat-transcript-window.ts
+  s_26b42b28483df4::t_a0000db3c51efd 23,25
+apps/web/src/features/agent/lib/tool-results/__tests__/parse-tool-result.test.ts
+  s_e6fc26c7b9917c::t_164b0217c842f9 266,270,276
+apps/web/src/features/agent/lib/tool-results/parse-tool-result.ts
+  s_e6fc26c7b9917c::t_2e57c1c57b045e 535
+apps/web/src/features/agent/lib/tool-results/tool-activity-line.ts
+  s_e6fc26c7b9917c::t_fcd566be14ef98 34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "7f7ada38a60bb4b671a68d74a56c4c606350094d",
+  "prompts": {},
+  "sessions": {
+    "s_19e17ad7920a45": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0a425-39b3-7422-963f-921c354baf95",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_26b42b28483df4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0a4e1-57a1-73c3-bba6-d3afa99f2682",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_64217b90f17e34": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4ebb966c-88bc-4a23-b5d6-2a36121e364c",
+        "model": "grok-4.6"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_e6fc26c7b9917c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09ffa-c803-7e12-b1bc-11d66974f6d2",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
