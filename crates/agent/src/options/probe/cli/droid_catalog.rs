@@ -153,7 +153,7 @@ fn active_catalog() -> Option<(HashMap<String, DroidCatalogRow>, bool)> {
 /// Fresh snapshot (this probe fetched docs): overwrite. Stale last-good
 /// (fetch failed): fill only missing fields so a previous probe is kept.
 /// No snapshot: leave models alone.
-pub fn overlay_droid_model_catalog(models: &mut Vec<AgentModel>) {
+pub fn overlay_droid_model_catalog(models: &mut [AgentModel]) {
     let Some((catalog, fresh)) = active_catalog() else {
         return;
     };
@@ -161,7 +161,7 @@ pub fn overlay_droid_model_catalog(models: &mut Vec<AgentModel>) {
 }
 
 pub fn overlay_droid_model_catalog_with(
-    models: &mut Vec<AgentModel>,
+    models: &mut [AgentModel],
     catalog: &HashMap<String, DroidCatalogRow>,
     replace: bool,
 ) {

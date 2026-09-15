@@ -278,8 +278,8 @@ fn python_dash_c_code(s: &str) -> Option<String> {
     // Allow `-c` after other short flags: `python3 -c` or `python3 -uc`.
     loop {
         rest = rest.trim_start();
-        if rest.starts_with("-c") {
-            let after = rest[2..].trim_start();
+        if let Some(stripped) = rest.strip_prefix("-c") {
+            let after = stripped.trim_start();
             return parse_shell_string(after).map(|(code, _)| code);
         }
         if rest.starts_with('-') {

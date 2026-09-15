@@ -92,9 +92,8 @@ pub(super) struct AssembleProbeInput<'a> {
 }
 
 pub fn assemble_probe(input: AssembleProbeInput<'_>) -> SimulatorProbe {
-    let ios_reason = ios_platform_reason(input.host.clone(), input.ios, input.ios_helper);
-    let android_reason =
-        android_platform_reason(input.host.clone(), input.android, input.android_helper);
+    let ios_reason = ios_platform_reason(input.host, input.ios, input.ios_helper);
+    let android_reason = android_platform_reason(input.host, input.android, input.android_helper);
     let ios = PlatformProbe {
         ready: ios_reason == SimulatorReason::Ok,
         reason: ios_reason,
@@ -116,9 +115,9 @@ pub fn assemble_probe(input: AssembleProbeInput<'_>) -> SimulatorProbe {
     } else if ios.can_start() || android.can_start() {
         SimulatorReason::HelperMissing
     } else if ios.reason != SimulatorReason::Ok {
-        ios.reason.clone()
+        ios.reason
     } else {
-        android.reason.clone()
+        android.reason
     };
     SimulatorProbe {
         ready: ios.ready || android.ready,

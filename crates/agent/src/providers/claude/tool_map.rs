@@ -15,6 +15,7 @@ use crate::map::{
 };
 
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum ToolMapOut {
     FoldThinking {
         text: String,
@@ -839,10 +840,10 @@ fn apply_poll_output(
         parent.status = AgentToolStatus::Failed;
     }
     match &mut parent.params {
-        AgentToolParams::Execute { task_id, .. } | AgentToolParams::Subagent { task_id, .. } => {
-            if task_id.is_none() {
-                *task_id = extract_task_id(payload).or_else(|| Some(parent.tool_call_id.clone()));
-            }
+        AgentToolParams::Execute { task_id, .. } | AgentToolParams::Subagent { task_id, .. }
+            if task_id.is_none() =>
+        {
+            *task_id = extract_task_id(payload).or_else(|| Some(parent.tool_call_id.clone()));
         }
         _ => {}
     }

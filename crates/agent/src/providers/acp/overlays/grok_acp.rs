@@ -79,10 +79,8 @@ pub(super) fn task_replace(
         | AgentToolParams::Subagent {
             task_id: stored_task,
             ..
-        } => {
-            if stored_task.is_none() {
-                *stored_task = Some(task_id.clone());
-            }
+        } if stored_task.is_none() => {
+            *stored_task = Some(task_id.clone());
         }
         _ => {}
     }

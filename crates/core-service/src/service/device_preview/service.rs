@@ -124,7 +124,7 @@ impl DevicePreviewService {
     ) -> Result<SimulatorStartResult, String> {
         let mut probe = self.probe().await;
         if probe.host_blocked() {
-            return Ok(not_ready(probe.reason.clone(), None, probe));
+            return Ok(not_ready(probe.reason, None, probe));
         }
         if let Some(claim) = self.live_claim(workspace_id, udid).await {
             return Ok(ready_result(claim, self.probe().await));
@@ -133,7 +133,7 @@ impl DevicePreviewService {
         let _gate = self.claim_gate.lock().await;
         probe = self.probe().await;
         if probe.host_blocked() {
-            return Ok(not_ready(probe.reason.clone(), None, probe));
+            return Ok(not_ready(probe.reason, None, probe));
         }
         if let Some(claim) = self.live_claim(workspace_id, udid).await {
             return Ok(ready_result(claim, self.probe().await));
@@ -145,7 +145,7 @@ impl DevicePreviewService {
                 DevicePlatform::Android => &probe.android,
             };
             if !side.can_start() {
-                return Ok(not_ready(side.reason.clone(), None, probe));
+                return Ok(not_ready(side.reason, None, probe));
             }
         }
 
@@ -844,7 +844,7 @@ fn not_ready(
     mut probe: SimulatorProbe,
 ) -> SimulatorStartResult {
     probe.ready = false;
-    probe.reason = reason.clone();
+    probe.reason = reason;
     SimulatorStartResult {
         ready: false,
         reason: Some(reason),

@@ -207,6 +207,7 @@ impl AgentChatService {
 
     /// Persist the New Chat composer snapshot for `provider_id`.
     /// Call from landing chrome (`prefs_set`), never from eager `agent_chat_create`.
+    #[allow(clippy::too_many_arguments)]
     pub fn persist_last_new_chat_config(
         &self,
         provider_id: &str,

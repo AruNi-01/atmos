@@ -5,7 +5,7 @@
 //! must run the command and fold captured stdout back onto the execute tool.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -82,7 +82,7 @@ impl TerminalRegistry {
         cwd: Option<PathBuf>,
         env: Vec<(String, String)>,
         output_byte_limit: Option<u64>,
-        fallback_cwd: &PathBuf,
+        fallback_cwd: &Path,
     ) -> Result<String, String> {
         let command = command.trim();
         if command.is_empty() {
@@ -92,7 +92,7 @@ impl TerminalRegistry {
             .and_then(|value| usize::try_from(value).ok())
             .filter(|value| *value > 0)
             .unwrap_or(DEFAULT_OUTPUT_BYTE_LIMIT);
-        let cwd = cwd.unwrap_or_else(|| fallback_cwd.clone());
+        let cwd = cwd.unwrap_or_else(|| fallback_cwd.to_path_buf());
         let mut child = spawn_command(command, &args, &cwd, &env)?;
         let stdout = child.stdout.take();
         let stderr = child.stderr.take();
