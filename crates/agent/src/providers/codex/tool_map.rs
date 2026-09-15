@@ -146,7 +146,7 @@ fn map_command(item: &Value, phase: ItemPhase) -> AgentTool {
         tool_call_id: item_id(item),
         parent_tool_call_id: None,
         name: "commandExecution".into(),
-        title: map_command_title(item),
+        title: map_command_title(item, &command),
         kind: AgentToolKind::Execute,
         status,
         params: AgentToolParams::Execute {
@@ -159,8 +159,23 @@ fn map_command(item: &Value, phase: ItemPhase) -> AgentTool {
     }
 }
 
-fn map_command_title(item: &Value) -> Option<String> {
-    human_execute_title(Some(item)).or_else(|| title_from_command_actions(item))
+fn map_command_title(item: &Value, command: &str) -> Option<String> {
+    human_execute_title(Some(item))
+        .or_else(|| title_from_command_actions(item))
+        .or_else(|| first_command_line_title(command))
+}
+
+fn first_command_line_title(command: &str) -> Option<String> {
+    let mut lines = command
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty());
+    let first = lines.next()?;
+    if lines.next().is_some() {
+        Some(format!("{first}..."))
+    } else {
+        Some(first.to_string())
+    }
 }
 
 fn title_from_command_actions(item: &Value) -> Option<String> {
@@ -1264,7 +1279,7 @@ mod tests {
             "status": "inProgress",
             "commandActions": [{ "type": "unknown", "command": "cargo test -p agent" }]
         }));
-        assert_eq!(unknown_only.title, None);
+        assert_eq!(unknown_only.title.as_deref(), Some("cargo test -p agent"));
 
         let empty_actions = mapped_command(serde_json::json!({
             "type": "commandExecution",
@@ -1274,7 +1289,7 @@ mod tests {
             "status": "inProgress",
             "commandActions": []
         }));
-        assert_eq!(empty_actions.title, None);
+        assert_eq!(empty_actions.title.as_deref(), Some("cargo test -p agent"));
     }
 
     #[test]

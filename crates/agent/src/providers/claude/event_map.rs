@@ -1167,6 +1167,27 @@ mod tests {
     }
 
     #[test]
+    fn result_does_not_emit_turn_aggregate_as_context_fill() {
+        let mut state = EventMapState::new(AgentCurrentConfig::default());
+        let result = json!({
+            "type": "result",
+            "subtype": "success",
+            "usage": {
+                "input_tokens": 446386,
+                "cache_read_input_tokens": 15792768,
+                "output_tokens": 44408
+            },
+            "modelUsage": { "claude-opus-4-8": { "contextWindow": 200000 } }
+        });
+        let (mapped, _) = drain_mapped(&mut state, Some("turn-1".into()), &result);
+        let context = mapped.iter().find_map(|envelope| match &envelope.payload {
+            AgentEvent::ContextUsageUpdated { usage } => Some(*usage),
+            _ => None,
+        });
+        assert_eq!(context, None);
+    }
+
+    #[test]
     fn task_agent_id_text_stays_running_until_taskoutput() {
         let mut state = EventMapState::new(AgentCurrentConfig::default());
         let dispatch = json!({

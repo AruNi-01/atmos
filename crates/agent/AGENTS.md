@@ -24,7 +24,7 @@ cost only.
 
 | Host | Tokens | Window |
 |------|--------|--------|
-| Claude (native only) | last complete main-loop assistant `/message/usage` via `claude_context_occupancy` (skip `{input_tokens:0,output_tokens:0}` stubs and nested `parent_tool_use_id`; `stream_event` `message_start` counts). Fallback: `result.usage` occupancy. Do **not** use `modelUsage` token totals (cumulative spend). | `result.modelUsage[*].contextWindow` (max); missing → `None` |
+| Claude (native only) | last complete main-loop assistant `/message/usage` via `claude_context_occupancy` (skip `{input_tokens:0,output_tokens:0}` stubs and nested `parent_tool_use_id`; `stream_event` `message_start` counts). Fallback: `result.usage` occupancy **only when ≤ `contextWindow`**. `result.usage` is turn-aggregate spend (summed cache_read across tool steps) — never treat a value above the window as fill. Do **not** use `modelUsage` token totals (cumulative spend). | `result.modelUsage[*].contextWindow` (max); missing → `None` |
 | Codex | `tokenUsage.last.totalTokens` | `tokenUsage.modelContextWindow`; missing → `None` |
 | Cursor / Amp / Fx / Kimi (ACP) | `usage_update.used` (aliases: `usedTokens`) | first of `max` / `limit` / `size` / `maxTokens` / `contextWindow`; missing → `None` |
 | Grok (native + `grok-build` ACP) | `usage_update.used` **or** `session/update` `_meta.totalTokens` | live `availableModels[]._meta.totalContextTokens` (`session/new` / `_x.ai/models/update`); **no** hardcoded model→window table |
