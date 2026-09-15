@@ -1,0 +1,22 @@
+packages/ui/src/components/ui/notification-bell.test.ts
+  s_2d402469bb9a4a::t_04462892a52f78 8-10,13-14
+  s_2d402469bb9a4a::t_619d9968bb52bb 1-7,11-12,15-16
+packages/ui/src/components/ui/notification-bell.tsx
+  s_2d402469bb9a4a::t_26c438827a8bf7 1-363
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "baf8b4099667d9a0200d622461d2a0b401d71cea",
+  "prompts": {},
+  "sessions": {
+    "s_2d402469bb9a4a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0a3bd-64ac-7d53-9ea7-fd695d5f1ba2",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
