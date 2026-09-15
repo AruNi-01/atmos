@@ -8942,6 +8942,12 @@
     },
     "imagePreviewOverlay": {
       "menu": "Image actions",
+      "draw": "Draw",
+      "undo": "Undo",
+      "redo": "Redo",
+      "saveAnnotation": "Save to input",
+      "saveAnnotationFailedTitle": "Save failed",
+      "saveAnnotationUnavailable": "Could not save the annotated image.",
       "zoomOut": "Zoom out",
       "zoomIn": "Zoom in",
       "copyImage": "Copy image",

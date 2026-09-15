@@ -3,7 +3,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
-import { Copy, Download, X, ZoomIn, ZoomOut } from "lucide-react";
+import { Copy, Download, Paintbrush, Redo2, Save, Undo2, X, ZoomIn, ZoomOut } from "lucide-react";
 import { toastManager } from "@workspace/ui";
 import {
   ImageCopyContextMenu,
@@ -36,7 +36,105 @@ type ImagePreviewOverlayProps = {
   originRect?: ImagePreviewOriginRect | null;
   durationMs?: number;
   onClose: () => void;
+  /** When set, the overlay can annotate the image and save a new file back to the composer. */
+  onSaveAnnotation?: (file: File) => void | Promise<void>;
+  annotationFileName?: string;
 };
+
+type AnnotatePoint = { x: number; y: number };
+type AnnotateStroke = { points: AnnotatePoint[] };
+
+const ANNOTATE_COLOR = "#ef4444";
+const ANNOTATE_WIDTH = 3.5;
+
+function annotatedFileName(name?: string): string {
+  const base = (name ?? "").trim() || "image";
+  const stripped = base.replace(/\.[a-z0-9]+$/i, "");
+  return `${stripped}-annotated.png`;
+}
+
+function pointerToCanvasPoint(
+  event: { clientX: number; clientY: number },
+  canvas: HTMLCanvasElement,
+  cssWidth: number,
+  cssHeight: number,
+): AnnotatePoint {
+  const rect = canvas.getBoundingClientRect();
+  const width = rect.width || cssWidth;
+  const height = rect.height || cssHeight;
+  return {
+    x: ((event.clientX - rect.left) / width) * cssWidth,
+    y: ((event.clientY - rect.top) / height) * cssHeight,
+  };
+}
+
+function paintAnnotateStrokes(
+  ctx: CanvasRenderingContext2D,
+  strokes: AnnotateStroke[],
+  scale: number,
+): void {
+  ctx.strokeStyle = ANNOTATE_COLOR;
+  ctx.lineWidth = ANNOTATE_WIDTH * scale;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  for (const stroke of strokes) {
+    if (stroke.points.length === 0) continue;
+    const first = stroke.points[0]!;
+    ctx.beginPath();
+    ctx.moveTo(first.x * scale, first.y * scale);
+    if (stroke.points.length === 1) {
+      ctx.lineTo(first.x * scale + 0.01, first.y * scale);
+    } else {
+      for (let i = 1; i < stroke.points.length; i += 1) {
+        const point = stroke.points[i]!;
+        ctx.lineTo(point.x * scale, point.y * scale);
+      }
+    }
+    ctx.stroke();
+  }
+}
+
+function loadImageElement(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Image load failed"));
+    image.src = src;
+  });
+}
+
+async function fileFromAnnotatedImage(opts: {
+  src: string;
+  img: HTMLImageElement | null;
+  strokes: AnnotateStroke[];
+  cssWidth: number;
+  cssHeight: number;
+  fileName: string;
+}): Promise<File | null> {
+  if (opts.strokes.length === 0 || opts.cssWidth < 1 || opts.cssHeight < 1) return null;
+  let source = opts.img;
+  if (!source || source.naturalWidth < 1 || source.naturalHeight < 1) {
+    try {
+      source = await loadImageElement(opts.src);
+    } catch {
+      return null;
+    }
+  }
+  const width = source.naturalWidth || Math.round(opts.cssWidth);
+  const height = source.naturalHeight || Math.round(opts.cssHeight);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.drawImage(source, 0, 0, width, height);
+  paintAnnotateStrokes(ctx, opts.strokes, width / opts.cssWidth);
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob((next) => resolve(next), "image/png");
+  });
+  if (!blob) return null;
+  return new File([blob], opts.fileName, { type: "image/png" });
+}
 
 const DEFAULT_THUMB_RADIUS_PX = 12;
 
@@ -137,6 +235,8 @@ export function ImagePreviewOverlay({
   originRect = null,
   durationMs,
   onClose,
+  onSaveAnnotation,
+  annotationFileName,
 }: ImagePreviewOverlayProps) {
   const t = useTranslations("shared.imagePreviewOverlay");
   const { menu, onContextMenu, closeMenu, imgRef } = useImageCopyMenu();
@@ -148,7 +248,21 @@ export function ImagePreviewOverlay({
   const [opened, setOpened] = React.useState(duration <= 0);
   const [closing, setClosing] = React.useState(false);
   const [userZoom, setUserZoom] = React.useState(1);
+  const [pan, setPan] = React.useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = React.useState(false);
+  const [drawing, setDrawing] = React.useState(false);
+  const [strokes, setStrokes] = React.useState<AnnotateStroke[]>([]);
+  const [redoStrokes, setRedoStrokes] = React.useState<AnnotateStroke[]>([]);
+  const [savingAnnotation, setSavingAnnotation] = React.useState(false);
   const finishedRef = React.useRef(false);
+  const draggingRef = React.useRef(false);
+  const didDragRef = React.useRef(false);
+  const dragRef = React.useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+  const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
+  const clipRef = React.useRef<HTMLDivElement | null>(null);
+  const annotatingRef = React.useRef(false);
+  const [clipSize, setClipSize] = React.useState({ width: 0, height: 0 });
+  const canAnnotate = typeof onSaveAnnotation === "function";
 
   const finishClose = React.useCallback(() => {
     if (finishedRef.current) return;
@@ -158,6 +272,14 @@ export function ImagePreviewOverlay({
 
   const requestClose = React.useCallback(() => {
     if (closing || finishedRef.current) return;
+    setUserZoom(1);
+    setPan({ x: 0, y: 0 });
+    setDragging(false);
+    setDrawing(false);
+    setStrokes([]);
+    setRedoStrokes([]);
+    draggingRef.current = false;
+    annotatingRef.current = false;
     if (duration <= 0) {
       finishClose();
       return;
@@ -191,19 +313,7 @@ export function ImagePreviewOverlay({
     typeof window === "undefined"
       ? { width: 0, height: 0 }
       : { width: window.innerWidth, height: window.innerHeight };
-  const fit = originRect ? imagePreviewTargetRect(originRect, viewport) : null;
-  const display = fit
-    ? {
-        ...fit,
-        width: fit.width * userZoom,
-        height: fit.height * userZoom,
-        left: (viewport.width - fit.width * userZoom) / 2,
-        top: Math.max(
-          IMAGE_PREVIEW_TOOLBAR_SPACE_PX,
-          (viewport.height - fit.height * userZoom) / 2,
-        ),
-      }
-    : null;
+  const display = originRect ? imagePreviewTargetRect(originRect, viewport) : null;
   const fromOrigin =
     originRect && display
       ? imagePreviewZoomTransform(originRect, display)
@@ -223,6 +333,161 @@ export function ImagePreviewOverlay({
   const transition = duration <= 0
     ? "none"
     : `transform ${duration}ms ${ZOOM_EASE}, opacity ${duration}ms ${ZOOM_EASE}, border-radius ${duration}ms ${ZOOM_EASE}`;
+
+  const handlePointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    if (drawing) return;
+    event.preventDefault();
+    event.stopPropagation();
+    draggingRef.current = true;
+    didDragRef.current = false;
+    setDragging(true);
+    dragRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      panX: pan.x,
+      panY: pan.y,
+    };
+    if (typeof event.currentTarget.setPointerCapture === "function") {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+  }, [drawing, pan]);
+
+  const handlePointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (!draggingRef.current) return;
+    const dx = event.clientX - dragRef.current.x;
+    const dy = event.clientY - dragRef.current.y;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) didDragRef.current = true;
+    setPan({
+      x: dragRef.current.panX + dx,
+      y: dragRef.current.panY + dy,
+    });
+  }, []);
+
+  const handlePointerUp = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    draggingRef.current = false;
+    setDragging(false);
+    if (typeof event.currentTarget.releasePointerCapture !== "function") return;
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {
+      // Pointer was not captured in this environment.
+    }
+  }, []);
+
+  const cssSize = display
+    ? { width: display.width, height: display.height }
+    : clipSize;
+
+  React.useLayoutEffect(() => {
+    const el = clipRef.current;
+    if (!el) return;
+    const measure = () => {
+      setClipSize({ width: el.clientWidth, height: el.clientHeight });
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [display?.height, display?.width, expanded]);
+
+  React.useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const width = Math.max(1, Math.round(cssSize.width));
+    const height = Math.max(1, Math.round(cssSize.height));
+    const dpr = typeof window === "undefined" ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    paintAnnotateStrokes(ctx, strokes, 1);
+  }, [cssSize.height, cssSize.width, strokes]);
+
+  const handleAnnotatePointerDown = React.useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!drawing || event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    didDragRef.current = true;
+    annotatingRef.current = true;
+    const canvas = event.currentTarget;
+    const width = Math.max(1, cssSize.width);
+    const height = Math.max(1, cssSize.height);
+    const point = pointerToCanvasPoint(event, canvas, width, height);
+    setRedoStrokes([]);
+    setStrokes((current) => [...current, { points: [point] }]);
+    if (typeof canvas.setPointerCapture === "function") {
+      canvas.setPointerCapture(event.pointerId);
+    }
+  }, [cssSize.height, cssSize.width, drawing]);
+
+  const handleAnnotatePointerMove = React.useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!drawing || !annotatingRef.current) return;
+    const canvas = event.currentTarget;
+    const width = Math.max(1, cssSize.width);
+    const height = Math.max(1, cssSize.height);
+    const point = pointerToCanvasPoint(event, canvas, width, height);
+    setStrokes((current) => {
+      if (current.length === 0) return current;
+      const next = current.slice();
+      const last = next[next.length - 1]!;
+      next[next.length - 1] = { points: [...last.points, point] };
+      return next;
+    });
+  }, [cssSize.height, cssSize.width, drawing]);
+
+  const handleAnnotatePointerUp = React.useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
+    annotatingRef.current = false;
+    if (typeof event.currentTarget.releasePointerCapture !== "function") return;
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {
+      // Pointer was not captured in this environment.
+    }
+  }, []);
+
+  const handleSaveAnnotation = React.useCallback(() => {
+    if (!onSaveAnnotation || strokes.length === 0 || savingAnnotation) return;
+    setSavingAnnotation(true);
+    void (async () => {
+      const file = await fileFromAnnotatedImage({
+        src,
+        img: imgRef.current,
+        strokes,
+        cssWidth: Math.max(1, cssSize.width),
+        cssHeight: Math.max(1, cssSize.height),
+        fileName: annotatedFileName(annotationFileName ?? alt),
+      });
+      setSavingAnnotation(false);
+      if (!file) {
+        toastManager.add({
+          title: t("saveAnnotationFailedTitle"),
+          description: t("saveAnnotationUnavailable"),
+          type: "error",
+        });
+        return;
+      }
+      await onSaveAnnotation(file);
+      requestClose();
+    })();
+  }, [
+    alt,
+    annotationFileName,
+    cssSize.height,
+    cssSize.width,
+    imgRef,
+    onSaveAnnotation,
+    requestClose,
+    savingAnnotation,
+    src,
+    strokes,
+    t,
+  ]);
 
   const handleCopy = React.useCallback(() => {
     void copyImageSrcToClipboard(src, imgRef.current).then((ok) => {
@@ -264,6 +529,10 @@ export function ImagePreviewOverlay({
           : "fixed inset-0 z-[2147483647] flex cursor-zoom-out items-center justify-center"
       }
       onClick={() => {
+        if (didDragRef.current) {
+          didDragRef.current = false;
+          return;
+        }
         if (menu) {
           closeMenu();
           return;
@@ -314,6 +583,54 @@ export function ImagePreviewOverlay({
             onContextMenu={(event) => event.stopPropagation()}
           >
             <div className="flex items-center gap-0.5 rounded-full border border-white/15 bg-neutral-950/80 p-1 text-white shadow-lg backdrop-blur-md">
+              {canAnnotate && drawing ? (
+                <>
+                  <ImagePreviewToolbarButton
+                    action="save-annotation"
+                    label={t("saveAnnotation")}
+                    disabled={strokes.length === 0 || savingAnnotation}
+                    onClick={handleSaveAnnotation}
+                  >
+                    <Save className="size-4" />
+                  </ImagePreviewToolbarButton>
+                  <ImagePreviewToolbarButton
+                    action="undo"
+                    label={t("undo")}
+                    disabled={strokes.length === 0}
+                    onClick={() => {
+                      if (strokes.length === 0) return;
+                      const last = strokes[strokes.length - 1]!;
+                      setStrokes(strokes.slice(0, -1));
+                      setRedoStrokes([...redoStrokes, last]);
+                    }}
+                  >
+                    <Undo2 className="size-4" />
+                  </ImagePreviewToolbarButton>
+                  <ImagePreviewToolbarButton
+                    action="redo"
+                    label={t("redo")}
+                    disabled={redoStrokes.length === 0}
+                    onClick={() => {
+                      if (redoStrokes.length === 0) return;
+                      const restored = redoStrokes[redoStrokes.length - 1]!;
+                      setRedoStrokes(redoStrokes.slice(0, -1));
+                      setStrokes([...strokes, restored]);
+                    }}
+                  >
+                    <Redo2 className="size-4" />
+                  </ImagePreviewToolbarButton>
+                </>
+              ) : null}
+              {canAnnotate ? (
+                <ImagePreviewToolbarButton
+                  action="draw"
+                  label={t("draw")}
+                  pressed={drawing}
+                  onClick={() => setDrawing((value) => !value)}
+                >
+                  <Paintbrush className="size-4" />
+                </ImagePreviewToolbarButton>
+              ) : null}
               <ImagePreviewToolbarButton
                 action="zoom-out"
                 label={t("zoomOut")}
@@ -355,12 +672,21 @@ export function ImagePreviewOverlay({
           </div>
         ) : null}
         <div
+          ref={clipRef}
+          data-image-preview-canvas=""
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
           style={{
+            position: "relative",
             width: "100%",
             height: "100%",
             borderRadius,
             overflow: "hidden",
             clipPath: `inset(0 round ${borderRadius}px)`,
+            touchAction: "none",
+            cursor: drawing ? "crosshair" : dragging ? "grabbing" : "grab",
             transition: duration <= 0
               ? "none"
               : `border-radius ${duration}ms ${ZOOM_EASE}`,
@@ -371,8 +697,30 @@ export function ImagePreviewOverlay({
             ref={imgRef}
             src={src}
             alt={alt}
-            className="block h-full w-full object-cover"
+            draggable={false}
+            className="pointer-events-none block h-full w-full select-none object-cover"
+            style={{
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${userZoom})`,
+              transformOrigin: "center center",
+            }}
           />
+          {canAnnotate ? (
+            <canvas
+              ref={canvasRef}
+              data-image-preview-annotate=""
+              className="absolute inset-0"
+              style={{
+                transform: `translate(${pan.x}px, ${pan.y}px) scale(${userZoom})`,
+                transformOrigin: "center center",
+                pointerEvents: drawing ? "auto" : "none",
+                cursor: drawing ? "crosshair" : "inherit",
+              }}
+              onPointerDown={handleAnnotatePointerDown}
+              onPointerMove={handleAnnotatePointerMove}
+              onPointerUp={handleAnnotatePointerUp}
+              onPointerCancel={handleAnnotatePointerUp}
+            />
+          ) : null}
         </div>
       </div>
       {menu ? (
@@ -392,12 +740,23 @@ function ImagePreviewToolbarButton({
   action,
   label,
   disabled,
+  pressed,
   onClick,
   children,
 }: {
-  action: "zoom-out" | "zoom-in" | "copy" | "download" | "close";
+  action:
+    | "zoom-out"
+    | "zoom-in"
+    | "copy"
+    | "download"
+    | "close"
+    | "draw"
+    | "undo"
+    | "redo"
+    | "save-annotation";
   label: string;
   disabled?: boolean;
+  pressed?: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -406,9 +765,14 @@ function ImagePreviewToolbarButton({
       type="button"
       aria-label={label}
       title={label}
+      aria-pressed={pressed}
       disabled={disabled}
       data-image-preview-toolbar-action={action}
-      className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full text-white/90 transition-colors hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-40"
+      className={
+        pressed
+          ? "inline-flex size-8 cursor-pointer items-center justify-center rounded-full bg-white/15 text-white transition-colors hover:bg-white/20 disabled:pointer-events-none disabled:opacity-40"
+          : "inline-flex size-8 cursor-pointer items-center justify-center rounded-full text-white/90 transition-colors hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-40"
+      }
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();

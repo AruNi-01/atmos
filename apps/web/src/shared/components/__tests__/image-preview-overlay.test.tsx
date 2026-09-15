@@ -8,6 +8,12 @@ mock.module("next-intl", () => ({
   useTranslations: () => (key: string) =>
     ({
       menu: "Image actions",
+      draw: "Draw",
+      undo: "Undo",
+      redo: "Redo",
+      saveAnnotation: "Save to input",
+      saveAnnotationFailedTitle: "Save failed",
+      saveAnnotationUnavailable: "Could not save the annotated image.",
       zoomOut: "Zoom out",
       zoomIn: "Zoom in",
       copyImage: "Copy image",
@@ -235,15 +241,97 @@ describe("ImagePreviewOverlay context menu", () => {
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("hides draw tools unless annotation save is enabled", async () => {
+    renderOverlay(() => undefined);
+    expect(document.querySelector('[data-image-preview-toolbar-action="draw"]')).toBeNull();
+  });
+
+  it("shows draw, undo, redo, and save on the composer annotation toolbar", async () => {
+    renderOverlay(() => undefined, { onSaveAnnotation: () => undefined });
+    const draw = document.querySelector('[data-image-preview-toolbar-action="draw"]');
+    expect(draw).not.toBeNull();
+    expect(document.querySelector('[data-image-preview-toolbar-action="save-annotation"]')).toBeNull();
+
+    await act(async () => {
+      draw?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(document.querySelector('[data-image-preview-toolbar-action="save-annotation"]')).not.toBeNull();
+    expect(document.querySelector('[data-image-preview-toolbar-action="undo"]')).not.toBeNull();
+    expect(document.querySelector('[data-image-preview-toolbar-action="redo"]')).not.toBeNull();
+    const actions = [
+      ...document.querySelectorAll("[data-image-preview-toolbar-action]"),
+    ].map((node) => node.getAttribute("data-image-preview-toolbar-action"));
+    expect(actions.slice(0, 4)).toEqual(["save-annotation", "undo", "redo", "draw"]);
+  });
+
+  it("keeps the frame size fixed and scales only the image", async () => {
+    renderOverlay(() => undefined);
+    const frame = document.querySelector("[data-image-preview-frame]") as HTMLElement | null;
+    const img = frame?.querySelector("img") as HTMLElement | null;
+    const width = frame?.style.width;
+    const height = frame?.style.height;
+
+    await act(async () => {
+      document
+        .querySelector('[data-image-preview-toolbar-action="zoom-in"]')
+        ?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(frame?.style.width).toBe(width);
+    expect(frame?.style.height).toBe(height);
+    expect(img?.style.transform).toContain("scale(1.25)");
+    expect(document.querySelector("[data-image-preview-toolbar]")).not.toBeNull();
+  });
+
+  it("pans the image inside the fixed frame", async () => {
+    renderOverlay(() => undefined);
+    const canvas = document.querySelector("[data-image-preview-canvas]");
+    const img = canvas?.querySelector("img") as HTMLElement | null;
+    const PointerEvent = window.PointerEvent;
+
+    await act(async () => {
+      canvas?.dispatchEvent(new PointerEvent("pointerdown", {
+        bubbles: true,
+        button: 0,
+        clientX: 10,
+        clientY: 10,
+      }));
+      canvas?.dispatchEvent(new PointerEvent("pointermove", {
+        bubbles: true,
+        button: 0,
+        clientX: 40,
+        clientY: 25,
+      }));
+      canvas?.dispatchEvent(new PointerEvent("pointerup", {
+        bubbles: true,
+        button: 0,
+        clientX: 40,
+        clientY: 25,
+      }));
+    });
+
+    expect(img?.style.transform).toContain("translate(30px, 15px)");
+  });
 });
 
-function renderOverlay(onClose: () => void) {
+function renderOverlay(
+  onClose: () => void,
+  extra?: { onSaveAnnotation?: (file: File) => void },
+) {
   const container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
   act(() => {
     root?.render(
-      <ImagePreviewOverlay alt="shot" src={PNG_SRC} durationMs={0} onClose={onClose} />,
+      <ImagePreviewOverlay
+        alt="shot"
+        src={PNG_SRC}
+        durationMs={0}
+        onClose={onClose}
+        onSaveAnnotation={extra?.onSaveAnnotation}
+      />,
     );
   });
   return container;
@@ -262,6 +350,7 @@ function installDom(): void {
   setGlobal("Text", win.Text);
   setGlobal("Event", win.Event);
   setGlobal("MouseEvent", win.MouseEvent);
+  setGlobal("PointerEvent", win.PointerEvent);
   setGlobal("IS_REACT_ACT_ENVIRONMENT", true);
 }
 
@@ -276,6 +365,7 @@ function cleanupDom(): void {
     "Text",
     "Event",
     "MouseEvent",
+    "PointerEvent",
     "IS_REACT_ACT_ENVIRONMENT",
   ]) {
     Reflect.deleteProperty(globalThis, key);

@@ -239,6 +239,30 @@ describe("agent composer attachments", () => {
     });
 
     expect(document.querySelector("[data-image-preview-overlay]")).not.toBeNull();
+    expect(document.querySelector('[data-image-preview-toolbar-action="draw"]')).toBeNull();
+  });
+
+  it("enables annotation tools when saving back to the composer", async () => {
+    const container = renderList({
+      files: [
+        {
+          id: "img-1",
+          filename: "shot.png",
+          mediaType: "image/png",
+          url: "blob:shot",
+        },
+      ],
+      onRemove: () => undefined,
+      onSaveAnnotation: () => undefined,
+    });
+
+    await act(async () => {
+      container
+        .querySelector('[data-agent-composer-attachment="image"] button')
+        ?.dispatchEvent(new window.Event("click", { bubbles: true }));
+    });
+
+    expect(document.querySelector('[data-image-preview-toolbar-action="draw"]')).not.toBeNull();
   });
 
   it("removes files from the pill action", async () => {
@@ -271,10 +295,12 @@ describe("agent composer attachments", () => {
 function renderList({
   files,
   onRemove,
+  onSaveAnnotation,
   density,
 }: {
   files: React.ComponentProps<typeof AgentComposerAttachmentList>["files"];
   onRemove?: (id: string) => void;
+  onSaveAnnotation?: (id: string, file: File) => void;
   density?: React.ComponentProps<typeof AgentComposerAttachmentList>["density"];
 }) {
   const container = document.createElement("div");
@@ -286,6 +312,7 @@ function renderList({
         density={density}
         files={files}
         onRemove={onRemove}
+        onSaveAnnotation={onSaveAnnotation}
       />,
     );
   });

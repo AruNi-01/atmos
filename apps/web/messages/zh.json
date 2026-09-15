@@ -8942,6 +8942,12 @@
     },
     "imagePreviewOverlay": {
       "menu": "图片操作",
+      "draw": "画笔",
+      "undo": "撤销",
+      "redo": "重做",
+      "saveAnnotation": "保存到输入框",
+      "saveAnnotationFailedTitle": "保存失败",
+      "saveAnnotationUnavailable": "无法保存标注后的图片。",
       "zoomOut": "缩小",
       "zoomIn": "放大",
       "copyImage": "复制图片",
