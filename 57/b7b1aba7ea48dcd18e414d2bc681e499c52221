@@ -1,0 +1,37 @@
+crates/agent/src/providers/claude/event_map.rs
+  s_c13466b6bb9a0c::t_3722e825c1d03d 1170-1189
+  s_c13466b6bb9a0c::t_c582a70c010cc4 1169
+crates/agent/src/map/context_usage.rs
+  s_c13466b6bb9a0c::t_59cd3afded53e8 116-120,123-129
+  s_c13466b6bb9a0c::t_0dc98822696b73 542-581
+crates/agent/AGENTS.md
+  s_c13466b6bb9a0c::t_ad2b42ccb12b01 27
+crates/agent/src/providers/codex/script_edits.rs
+  s_e6fc26c7b9917c::t_1be52c420bc417 7-9,171-174,181-223,374-375,567-612,614,620,630,768-789
+crates/agent/src/providers/codex/tool_map.rs
+  s_e6fc26c7b9917c::t_fa5e95f021e1e5 149,162-178,1282,1292
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "57b7b1aba7ea48dcd18e414d2bc681e499c52221",
+  "prompts": {},
+  "sessions": {
+    "s_c13466b6bb9a0c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "63d83db3-49f2-4c2e-b780-fbba619e6da7",
+        "model": "grok-4.6"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_e6fc26c7b9917c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09ffa-c803-7e12-b1bc-11d66974f6d2",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
