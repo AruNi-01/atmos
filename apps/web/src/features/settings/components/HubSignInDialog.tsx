@@ -17,6 +17,7 @@ import {
 } from "@/app/hub-auth/hub-auth-channel";
 import {
   getStoredDeviceCredential,
+  hubConfigured,
   hubMe,
   storeDeviceCredential,
   type HubMe,
@@ -39,6 +40,7 @@ export function HubSignInDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  if (!hubConfigured()) return null;
   return (
     <HubAuthUIProvider>
       <HubSignInDialogBody open={open} onOpenChange={onOpenChange} />

@@ -13,12 +13,8 @@ import {
   createBrowserDeviceCredentialStore,
   hubCookieFromDocument,
 } from "@atmos/hub-client/device-storage/browser";
+import { resolveWebHubUrl } from "@/api/hub-url";
 
-const hubUrl =
-  process.env.NEXT_PUBLIC_ATMOS_HUB_URL?.trim() ||
-  process.env.ATMOS_HUB_URL?.trim() ||
-  "";
-
-configureHubClient({ baseUrl: hubUrl });
+configureHubClient({ baseUrl: resolveWebHubUrl() });
 setDeviceCredentialStore(createBrowserDeviceCredentialStore());
 setHubSessionCookieProvider(hubCookieFromDocument);
