@@ -1,0 +1,41 @@
+apps/desktop-electron/scripts/stamp-dmg-applications-alias.ts
+  s_e24999e8925594::t_d079f1095d4c58 1-143
+apps/desktop-electron/resources/dmg/README.md
+  s_e24999e8925594::t_7c08af325cb434 7,13-15
+  s_e24999e8925594::t_c0874083b01d72 11
+  s_e24999e8925594::t_1c696b4a9b351f 3,8-9,18,21
+apps/desktop-electron/scripts/generate-dmg-background.py
+  s_e24999e8925594::t_7700ac9db58bf4 2,4,6-7,11-12,19-87,89,95-161,164-178,181-188,191-197,201-212,215-218,220-221
+apps/desktop-electron/scripts/dmg-background.test.ts
+  s_e24999e8925594::t_d2e9edc3e7a05a 1-34,36,39,42,51,58-59
+  s_e24999e8925594::t_3a09249e21dd3a 35,37-38,40-41,43-50,52-57
+  s_e24999e8925594::t_b7910e0f8a4444 60
+apps/desktop-electron/electron-builder.yml
+  s_64217b90f17e34::t_80ffa741caeeed 98-99,104,106-107,109-113
+apps/desktop-electron/scripts/package.ts
+  s_64217b90f17e34::t_df14b879f7db56 23,217-223
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5f1f9c50fb7fbfcac8490957e241777ab4f9fd33",
+  "prompts": {},
+  "sessions": {
+    "s_64217b90f17e34": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4ebb966c-88bc-4a23-b5d6-2a36121e364c",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_e24999e8925594": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0a372-8601-73d1-ab95-4301113ab4a1",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
