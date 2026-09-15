@@ -20,6 +20,9 @@ import type {
 export function ToolsPanel({
   open,
   onClose,
+  peerConnection,
+  webrtcStatsUrl,
+  webrtcSessionId,
   udid,
   deviceRuntime,
   currentApp,
@@ -33,10 +36,14 @@ export function ToolsPanel({
   activeCodec,
   avccSupported,
   streamSettingsPending,
+  streamTransportLocked = false,
   width,
 }: {
   open: boolean;
   onClose: () => void;
+  peerConnection: RTCPeerConnection | null;
+  webrtcStatsUrl?: string;
+  webrtcSessionId?: string | null;
   udid: string;
   deviceRuntime: string | null;
   currentApp: { bundleId: string; isReactNative: boolean; pid?: number } | null;
@@ -50,6 +57,7 @@ export function ToolsPanel({
   activeCodec: string;
   avccSupported: boolean;
   streamSettingsPending: boolean;
+  streamTransportLocked?: boolean;
   width: number;
 }) {
   return (
@@ -83,6 +91,10 @@ export function ToolsPanel({
             activeCodec={activeCodec}
             avccSupported={avccSupported}
             encoderSettingsDisabled={streamSettingsPending}
+            transportLocked={streamTransportLocked}
+            peerConnection={peerConnection}
+            webrtcStatsUrl={webrtcStatsUrl}
+            webrtcSessionId={webrtcSessionId}
           />
         </div>
       )}

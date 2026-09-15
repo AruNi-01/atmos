@@ -14,6 +14,7 @@ Canonical on-disk layout (no legacy root-level secret/config files).
     client-session.json
     cli/update-check.json
     simulator/              # APP-060/070 claims + last-device prefs (not under data/desktop/)
+      camera/               # APP-073 Android emulator imagefile camera PNGs
 
   config/               # non-secret preferences
     function_settings.json   # product preferences (not center layout)

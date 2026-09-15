@@ -1,7 +1,12 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use core_engine::DevicePlatform;
+use core_engine::{
+    boot_android_argv, boot_ios_argv, camera_feed_path, create_android_avd_argv, create_ios_argv,
+    default_android_avd_name, default_ios_create_name, delete_android_avd_argv, delete_ios_argv,
+    emulator_serial, free_emulator_port, is_valid_avd_name, seed_camera_feeds,
+    shutdown_android_argv, shutdown_ios_argv, BootState, CameraLens, DevicePlatform, HostDevice,
+};
 use tokio::process::Child;
 use tokio::sync::Mutex;
 
@@ -12,8 +17,9 @@ use super::pick::{pick_device, pick_reason};
 use super::probe::{all_devices, assemble_probe, host_reason, AssembleProbeInput};
 use super::production::ProductionHooks;
 use super::types::{
-    claim_preview_url, helper_process_ids, DeviceClaim, HelperKind, HelperPin, LastDevicePref,
-    SimulatorDevice, SimulatorProbe, SimulatorReason, SimulatorStartResult,
+    claim_preview_url, helper_process_ids, DeviceClaim, DeviceRuntime, DeviceType, HelperKind,
+    HelperPin, InventoryPlatform, LastDevicePref, SimulatorDevice, SimulatorInventory,
+    SimulatorOpError, SimulatorProbe, SimulatorReason, SimulatorStartResult,
 };
 
 const SERVE_SIM_PIN: &str = include_str!(concat!(
@@ -174,6 +180,21 @@ impl DevicePreviewService {
             }
         }
 
+        if device.platform == DevicePlatform::Android {
+            if device.boot() != BootState::Booted {
+                if let Err(err) = self.boot_android_vm(&device.udid).await {
+                    probe = self.probe().await;
+                    return Ok(not_ready(err.reason, None, probe));
+                }
+            }
+        } else if let Err(err) = self.boot_ios_vm(&device.udid).await {
+            probe = self.probe().await;
+            return Ok(not_ready(err.reason, None, probe));
+        }
+        let device = self
+            .lookup_simulator(&device.udid, Some(device.platform))
+            .unwrap_or(device);
+
         let evicted = {
             let mut guard = self.running.lock().await;
             guard.remove(workspace_id)
@@ -193,7 +214,13 @@ impl DevicePreviewService {
         }
 
         let argv_device = if device.platform == DevicePlatform::Android {
-            device.serial.clone().unwrap_or_else(|| device.udid.clone())
+            match device.serial.clone() {
+                Some(serial) => serial,
+                None => {
+                    probe = self.probe().await;
+                    return Ok(not_ready(SimulatorReason::BootFailed, None, probe));
+                }
+            }
         } else {
             device.udid.clone()
         };
@@ -220,7 +247,7 @@ impl DevicePreviewService {
                 port,
                 device_id: device.udid.clone(),
                 argv_device: argv_device.clone(),
-                android_serial: device.serial.is_some(),
+                android_serial: device.platform == DevicePlatform::Android,
                 version: pin.version.clone(),
             })
             .await
@@ -256,6 +283,10 @@ impl DevicePreviewService {
 
     pub async fn stop(&self, workspace_id: &str) -> Result<(), String> {
         let _gate = self.claim_gate.lock().await;
+        self.stop_locked(workspace_id).await
+    }
+
+    async fn stop_locked(&self, workspace_id: &str) -> Result<(), String> {
         let mut running = {
             let mut guard = self.running.lock().await;
             let running = guard.remove(workspace_id);
@@ -324,6 +355,323 @@ impl DevicePreviewService {
             .join("serve-sim")
     }
 
+    pub(super) fn hooks(&self) -> &Arc<dyn DevicePreviewHooks> {
+        &self.hooks
+    }
+
+    pub fn host_device(&self, udid: &str) -> Option<HostDevice> {
+        self.hooks
+            .ios_snapshot()
+            .devices
+            .into_iter()
+            .chain(self.hooks.android_snapshot().devices)
+            .find(|device| device.id == udid)
+    }
+
+    pub async fn inventory(&self) -> SimulatorInventory {
+        let claims = self.snapshot_claims().await;
+        let ios_devices = annotate(&self.hooks.ios_snapshot().devices, &claims);
+        let android_devices = annotate(&self.hooks.android_snapshot().devices, &claims);
+        SimulatorInventory {
+            ios: ios_inventory(self.hooks.ios_runtimes(), ios_devices),
+            android: android_inventory(
+                self.hooks.android_profiles(),
+                self.hooks.android_images(),
+                android_devices,
+            ),
+        }
+    }
+
+    pub async fn create(
+        &self,
+        platform: DevicePlatform,
+        device_type: &str,
+        runtime: &str,
+        name: Option<&str>,
+    ) -> Result<SimulatorDevice, SimulatorOpError> {
+        let _gate = self.claim_gate.lock().await;
+        match platform {
+            DevicePlatform::Ios => self.create_ios(device_type, runtime, name).await,
+            DevicePlatform::Android => self.create_android(device_type, runtime, name).await,
+        }
+    }
+
+    pub async fn boot(
+        &self,
+        workspace_id: &str,
+        udid: &str,
+        platform: DevicePlatform,
+    ) -> Result<SimulatorDevice, SimulatorOpError> {
+        let _gate = self.claim_gate.lock().await;
+        self.refuse_foreign(workspace_id, udid).await?;
+        let device = self
+            .lookup_simulator(udid, Some(platform))
+            .ok_or_else(|| SimulatorOpError::new(SimulatorReason::NoDevice))?;
+        match platform {
+            DevicePlatform::Ios => self.boot_ios_vm(&device.udid).await?,
+            DevicePlatform::Android => {
+                if device.boot() != BootState::Booted {
+                    self.boot_android_vm(&device.udid).await?;
+                }
+            }
+        }
+        self.lookup_simulator(udid, Some(platform))
+            .ok_or_else(|| SimulatorOpError::new(SimulatorReason::BootFailed))
+    }
+
+    pub async fn shutdown(
+        &self,
+        workspace_id: &str,
+        udid: &str,
+        platform: DevicePlatform,
+    ) -> Result<SimulatorDevice, SimulatorOpError> {
+        let _gate = self.claim_gate.lock().await;
+        self.refuse_foreign(workspace_id, udid).await?;
+        if self.claim_is_ours(workspace_id, udid).await {
+            let _ = self.stop_locked(workspace_id).await;
+        }
+        self.shutdown_vm(udid, platform).await?;
+        self.lookup_simulator(udid, Some(platform))
+            .ok_or_else(|| SimulatorOpError::new(SimulatorReason::ShutdownFailed))
+    }
+
+    pub async fn delete(
+        &self,
+        workspace_id: &str,
+        udid: &str,
+        platform: DevicePlatform,
+    ) -> Result<String, SimulatorOpError> {
+        let _gate = self.claim_gate.lock().await;
+        self.refuse_foreign(workspace_id, udid).await?;
+        if self.claim_is_ours(workspace_id, udid).await {
+            let _ = self.stop_locked(workspace_id).await;
+        }
+        self.shutdown_vm(udid, platform).await?;
+        let argv_udid = udid.to_string();
+        let result = match platform {
+            DevicePlatform::Ios => self
+                .hooks
+                .delete_ios(&delete_ios_argv(&argv_udid))
+                .await
+                .map_err(|_| SimulatorOpError::new(SimulatorReason::DeleteFailed)),
+            DevicePlatform::Android => self
+                .hooks
+                .delete_android(&delete_android_avd_argv(&argv_udid))
+                .await
+                .map_err(|_| SimulatorOpError::new(SimulatorReason::DeleteFailed)),
+        };
+        result?;
+        Ok(argv_udid)
+    }
+
+    async fn create_ios(
+        &self,
+        device_type: &str,
+        runtime: &str,
+        name: Option<&str>,
+    ) -> Result<SimulatorDevice, SimulatorOpError> {
+        let runtimes = self.hooks.ios_runtimes();
+        let rt = runtimes
+            .iter()
+            .find(|item| item.identifier == runtime)
+            .ok_or_else(|| SimulatorOpError::new(SimulatorReason::RuntimeMissing))?;
+        let ty = rt
+            .supported_device_types
+            .iter()
+            .find(|item| item.identifier == device_type)
+            .ok_or_else(|| SimulatorOpError::new(SimulatorReason::DeviceTypeUnknown))?;
+        let name = name
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(|| default_ios_create_name(&rt.name, &ty.name));
+        let argv = create_ios_argv(&name, device_type, runtime);
+        let udid = self
+            .hooks
+            .create_ios(&argv)
+            .await
+            .map_err(|_| SimulatorOpError::new(SimulatorReason::CreateFailed))?;
+        Ok(self
+            .lookup_simulator(&udid, Some(DevicePlatform::Ios))
+            .unwrap_or(SimulatorDevice {
+                udid,
+                name,
+                runtime: runtime.to_string(),
+                state: BootState::Shutdown.as_wire().to_string(),
+                available: true,
+                platform: DevicePlatform::Ios,
+                claimed_by_workspace: None,
+                serial: None,
+            }))
+    }
+
+    async fn create_android(
+        &self,
+        device_type: &str,
+        runtime: &str,
+        name: Option<&str>,
+    ) -> Result<SimulatorDevice, SimulatorOpError> {
+        let images = self.hooks.android_images();
+        let image = images
+            .iter()
+            .find(|item| item.package == runtime)
+            .ok_or_else(|| SimulatorOpError::new(SimulatorReason::SystemImageMissing))?;
+        let profiles = self.hooks.android_profiles();
+        if !profiles.iter().any(|item| item.id == device_type) {
+            return Err(SimulatorOpError::new(SimulatorReason::DeviceTypeUnknown));
+        }
+        let existing: Vec<String> = self
+            .hooks
+            .android_snapshot()
+            .devices
+            .into_iter()
+            .map(|device| device.id)
+            .collect();
+        let avd_name = match name.map(str::trim).filter(|value| !value.is_empty()) {
+            Some(raw) => {
+                if !is_valid_avd_name(raw) {
+                    return Err(SimulatorOpError::new(SimulatorReason::CreateFailed));
+                }
+                unique_avd_name(raw, &existing)
+            }
+            None => default_android_avd_name(device_type, &image.api_level, &existing),
+        };
+        let argv = create_android_avd_argv(&avd_name, runtime, device_type)
+            .map_err(|_| SimulatorOpError::new(SimulatorReason::CreateFailed))?;
+        self.hooks
+            .create_android(&argv)
+            .await
+            .map_err(|_| SimulatorOpError::new(SimulatorReason::CreateFailed))?;
+        Ok(self
+            .lookup_simulator(&avd_name, Some(DevicePlatform::Android))
+            .unwrap_or(SimulatorDevice {
+                udid: avd_name.clone(),
+                name: avd_name.replace('_', " "),
+                runtime: runtime.to_string(),
+                state: BootState::Shutdown.as_wire().to_string(),
+                available: true,
+                platform: DevicePlatform::Android,
+                claimed_by_workspace: None,
+                serial: None,
+            }))
+    }
+
+    async fn boot_ios_vm(&self, udid: &str) -> Result<(), SimulatorOpError> {
+        self.hooks
+            .boot_ios(&boot_ios_argv(udid))
+            .await
+            .map_err(|_| SimulatorOpError::new(SimulatorReason::BootFailed))?;
+        self.hooks.hide_ios_simulator_app().await;
+        Ok(())
+    }
+
+    async fn boot_android_vm(&self, avd: &str) -> Result<String, SimulatorOpError> {
+        let snapshot = self.hooks.android_snapshot();
+        if let Some(device) = snapshot.devices.iter().find(|device| device.id == avd) {
+            if device.boot.is_booted() {
+                return device
+                    .serial
+                    .clone()
+                    .ok_or_else(|| SimulatorOpError::new(SimulatorReason::BootFailed));
+            }
+        }
+        let used: Vec<String> = snapshot
+            .devices
+            .iter()
+            .filter_map(|device| device.serial.clone())
+            .collect();
+        let port = free_emulator_port(&used)
+            .ok_or_else(|| SimulatorOpError::new(SimulatorReason::BootFailed))?;
+        let serial = emulator_serial(port);
+        let front = camera_feed_path(&self.paths.camera_dir, &serial, CameraLens::Front);
+        let back = camera_feed_path(&self.paths.camera_dir, &serial, CameraLens::Back);
+        let cameras = match seed_camera_feeds(&self.paths.camera_dir, &serial) {
+            Ok(()) => Some((front, back)),
+            Err(_) => None,
+        };
+        let bin = self
+            .hooks
+            .emulator_bin()
+            .ok_or_else(|| SimulatorOpError::new(SimulatorReason::BootFailed))?;
+        let argv = boot_android_argv(
+            &bin,
+            avd,
+            port,
+            cameras
+                .as_ref()
+                .map(|(front, back)| (front.as_path(), back.as_path())),
+        );
+        self.hooks
+            .spawn_emulator(&argv)
+            .await
+            .map_err(|_| SimulatorOpError::new(SimulatorReason::BootFailed))?;
+        Ok(serial)
+    }
+
+    async fn shutdown_vm(
+        &self,
+        udid: &str,
+        platform: DevicePlatform,
+    ) -> Result<(), SimulatorOpError> {
+        match platform {
+            DevicePlatform::Ios => self
+                .hooks
+                .shutdown_ios(&shutdown_ios_argv(udid))
+                .await
+                .map_err(|_| SimulatorOpError::new(SimulatorReason::ShutdownFailed)),
+            DevicePlatform::Android => {
+                let serial = self
+                    .hooks
+                    .android_snapshot()
+                    .devices
+                    .into_iter()
+                    .find(|device| device.id == udid)
+                    .and_then(|device| device.serial);
+                let Some(serial) = serial else {
+                    return Ok(());
+                };
+                self.hooks
+                    .shutdown_android(&shutdown_android_argv(&serial))
+                    .await
+                    .map_err(|_| SimulatorOpError::new(SimulatorReason::ShutdownFailed))
+            }
+        }
+    }
+
+    async fn refuse_foreign(&self, workspace_id: &str, udid: &str) -> Result<(), SimulatorOpError> {
+        if let Some(claim) = self.claim_for(udid).await {
+            if claim.workspace_id != workspace_id {
+                return Err(SimulatorOpError::new(SimulatorReason::DeviceAlreadyClaimed));
+            }
+        }
+        Ok(())
+    }
+
+    async fn claim_is_ours(&self, workspace_id: &str, udid: &str) -> bool {
+        self.claim_for(udid)
+            .await
+            .is_some_and(|claim| claim.workspace_id == workspace_id)
+    }
+
+    async fn claim_for(&self, udid: &str) -> Option<DeviceClaim> {
+        self.snapshot_claims()
+            .await
+            .into_iter()
+            .find(|claim| claim.udid == udid || claim.argv_id == udid)
+    }
+
+    fn lookup_simulator(
+        &self,
+        udid: &str,
+        platform: Option<DevicePlatform>,
+    ) -> Option<SimulatorDevice> {
+        let ios = annotate(&self.hooks.ios_snapshot().devices, &[]);
+        let android = annotate(&self.hooks.android_snapshot().devices, &[]);
+        ios.into_iter().chain(android).find(|device| {
+            device.udid == udid && platform.is_none_or(|platform| device.platform == platform)
+        })
+    }
+
     fn with_filled_name(&self, mut claim: DeviceClaim) -> DeviceClaim {
         if !claim.name.is_empty() {
             return claim;
@@ -390,6 +738,78 @@ impl DevicePreviewService {
             },
         );
         persist_prefs(&self.paths.state_dir, &prefs)
+    }
+}
+
+fn unique_avd_name(base: &str, existing: &[String]) -> String {
+    let set: HashSet<&str> = existing.iter().map(String::as_str).collect();
+    if !set.contains(base) {
+        return base.to_string();
+    }
+    let mut n = 2u32;
+    loop {
+        let candidate = format!("{base}_{n}");
+        if !set.contains(candidate.as_str()) {
+            return candidate;
+        }
+        n = n.saturating_add(1);
+        if n == u32::MAX {
+            return candidate;
+        }
+    }
+}
+
+fn ios_inventory(
+    runtimes: Vec<core_engine::IosRuntime>,
+    devices: Vec<SimulatorDevice>,
+) -> InventoryPlatform {
+    InventoryPlatform {
+        devices,
+        device_types: Vec::new(),
+        runtimes: runtimes
+            .into_iter()
+            .map(|runtime| DeviceRuntime {
+                id: runtime.identifier,
+                name: runtime.name,
+                platform: DevicePlatform::Ios,
+                supported_device_types: runtime
+                    .supported_device_types
+                    .into_iter()
+                    .map(|item| DeviceType {
+                        id: item.identifier,
+                        name: item.name,
+                        platform: DevicePlatform::Ios,
+                    })
+                    .collect(),
+            })
+            .collect(),
+    }
+}
+
+fn android_inventory(
+    profiles: Vec<core_engine::AndroidProfile>,
+    images: Vec<core_engine::AndroidImage>,
+    devices: Vec<SimulatorDevice>,
+) -> InventoryPlatform {
+    InventoryPlatform {
+        devices,
+        device_types: profiles
+            .into_iter()
+            .map(|profile| DeviceType {
+                id: profile.id,
+                name: profile.name,
+                platform: DevicePlatform::Android,
+            })
+            .collect(),
+        runtimes: images
+            .into_iter()
+            .map(|image| DeviceRuntime {
+                id: image.package,
+                name: format!("{} {} {}", image.api_level, image.tag, image.abi),
+                platform: DevicePlatform::Android,
+                supported_device_types: Vec::new(),
+            })
+            .collect(),
     }
 }
 

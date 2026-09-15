@@ -65,7 +65,7 @@ actor HIDInjector {
     private var digitalCrownFunc: IndigoDigitalCrownFunc?
 
     // NOTE: scroll is NOT a native HID event on the simulator — see the "Scroll
-    // events" section below. Device Hub's trackpad-capture path requires private
+    // events" section below. Simulator.app's trackpad-capture path requires private
     // Apple HID entitlements an unprivileged helper can't have, and synthetic
     // scroll events are ignored by iOS, so we scroll via a touch drag instead.
 
@@ -292,11 +292,11 @@ actor HIDInjector {
     // MARK: - Scroll events
     //
     // iOS treats the simulator display as a touchscreen — there is no hardware
-    // scroll wheel. Device Hub scrolls by capturing a real Mac trackpad and
+    // scroll wheel. Simulator.app scrolls by capturing a real Mac trackpad and
     // forwarding genuine HID scroll events through a privileged pointer service
     // (`com.apple.private.hid.client.event-filter`); an unprivileged helper can't
     // capture host HID or synthesize events iOS accepts (synthetic scroll to the
-    // pointer service 0x35 is silently dropped). See docs/scroll-injection-devicehub.md.
+    // pointer service 0x35 is silently dropped). See docs/scroll-injection-privileged-hid.md.
     //
     // So we scroll the way a finger does: translate the wheel delta into a touch
     // drag on the digitizer (target 0x32) — the same path taps/swipes use, which

@@ -5,6 +5,7 @@ import CoreMedia
 import Accelerate
 import VideoToolbox
 import LiveKitWebRTC
+import StreamingPolicy
 
 private let webRTCDebugEnabled: Bool = {
     switch ProcessInfo.processInfo.environment["SERVE_SIM_WEBRTC_DEBUG"]?
@@ -43,6 +44,48 @@ struct WebRTCAnswerPayload: Codable {
     let sdp: String
 }
 
+/// Seconds and bits/second, as libwebrtc reports them.
+struct WebRTCSenderStatsPayload: Codable {
+    let sessionId: String
+    let codec: String
+    let connected: Bool
+    let qualityLimitationReason: String?
+    let qualityLimitationDurations: [String: Double]?
+    let framesEncoded: Int?
+    let framesSent: Int?
+    let framesPerSecond: Double?
+    let targetBitrate: Double?
+    let totalEncodeTime: Double?
+    let frameWidth: Int?
+    let frameHeight: Int?
+    let packetsSent: Int?
+    let packetsLost: Int?
+    let roundTripTime: Double?
+    let localCandidateType: String?
+    let remoteCandidateType: String?
+    /// The encoder reports no limitation while its adapter drops frames, so this is where they go.
+    let sourceFrames: Int?
+    let sourceFramesPerSecond: Double?
+    let sourceFramesDropped: Int?
+}
+
+struct WebRTCCaptureCounts: Codable {
+    let screenFrames: UInt64
+    let idleFrames: UInt64
+    /// Offered frames are capture deliveries, including the 5 FPS idle refresh. Forwarded frames
+    /// are paced source submissions and may be higher when the retained latest frame is repeated.
+    let offeredFrames: UInt64?
+    let forwardedFrames: UInt64?
+    /// Times the arrival-side watchdog replaced a frame pump that stopped
+    /// ticking. Nonzero means the host starved or dropped pump timers.
+    let pumpRestarts: UInt64?
+}
+
+struct WebRTCSenderStatsReport: Codable {
+    let sessions: [WebRTCSenderStatsPayload]
+    let capture: WebRTCCaptureCounts?
+}
+
 private final class WebRTCSignalingCompletion: @unchecked Sendable {
     private let lock = NSLock()
     private var completed = false
@@ -67,7 +110,6 @@ private final class WebRTCSignalingCompletion: @unchecked Sendable {
 
 private struct PendingWebRTCFrame {
     let pixelBuffer: CVPixelBuffer
-    let timestamp: CMTime
 }
 
 private struct PendingWebRTCOffer {
@@ -79,7 +121,29 @@ final class WebRTCPublisher: @unchecked Sendable {
     private static let signalingTimeoutMs = 10_000
     private static let connectionTimeoutMs = 10_000
 
-    private let queue = DispatchQueue(label: "webrtc-publisher")
+    /// The playout-delay extension the sender stamps on every packet. The
+    /// default stays min 0 / max 0 — render every frame as soon as it arrives.
+    /// `SERVE_SIM_WEBRTC_PLAYOUT_MAX_MS` raises the max so a deployment can
+    /// let the receiver absorb arrival jitter instead of rendering it as
+    /// stutter; changing the default is a separate, data-driven decision
+    /// (viewer-visible latency), tracked against tap-to-pixel measurements.
+    private static let defaultPlayoutDelayMaxMs = 0
+
+    private static func configureLowLatencyPlayout() {
+        struct Once {
+            static let run: Void = {
+                let environment = ProcessInfo.processInfo.environment["SERVE_SIM_WEBRTC_PLAYOUT_MAX_MS"]
+                let maxMs = environment.flatMap(Int.init).map { max(0, min(1_000, $0)) }
+                    ?? WebRTCPublisher.defaultPlayoutDelayMaxMs
+                LKRTCPeerConnectionFactory.configureFieldTrials(
+                    "WebRTC-ForceSendPlayoutDelay/min_ms:0,max_ms:\(maxMs)/"
+                )
+            }()
+        }
+        _ = Once.run
+    }
+
+    private let queue = DispatchQueue(label: "webrtc-publisher", qos: .userInteractive)
     private let factory: LKRTCPeerConnectionFactory
     private let videoSource: LKRTCVideoSource
     private let videoTrack: LKRTCVideoTrack
@@ -90,37 +154,55 @@ final class WebRTCPublisher: @unchecked Sendable {
     private var cancelledSessionIdOrder: [String] = []
     private let frameLock = NSLock()
     private var acceptsFrames = false
-    private var pendingFrame: PendingWebRTCFrame?
-    private var framePumpScheduled = false
-    private var lastSentFrameAtNs: UInt64 = 0
+    private var latestFrame: PendingWebRTCFrame?
+    private var framePacer: ContinuousFramePacer
+    private var arrivalPumpPending = false
+    private var framePumpGeneration: UInt64 = 0
+    /// The single pending chain tick; confined to `queue` (armed, fired, and
+    /// cancelled there only).
+    private var pumpTimer: DispatchSourceTimer?
+    /// Keeps macOS from applying App Nap / timer throttling to the process
+    /// while a publisher exists — the EAS deployment runs serve-sim as a
+    /// detached background daemon. Confined to `queue` after init.
+    private var activityToken: NSObjectProtocol?
+    /// All guarded by `frameLock`.
+    private var offeredFrameCount: UInt64 = 0
+    private var forwardedFrameCount: UInt64 = 0
+    private var framePumpRestartCount: UInt64 = 0
     private var lastOutputWidth = 0
     private var lastOutputHeight = 0
     private var sentFrameCount: Int64 = 0
     private var lastFrameTimestampNs: Int64 = 0
     private var lastInputPixelFormat: OSType?
     private var useNativePixelBufferFrames: Bool?
+    private let pixelBufferScaler = PixelBufferScaler()
     private let h264PixelBufferConverter = H264WebRTCPixelBufferConverter()
     private lazy var h264WebRTCSupport = Self.detectH264WebRTCSupport()
     private let h264FrameModeOverride: H264WebRTCFrameMode?
-    private var maxFps: Int
+    private var frameRatePolicy: WebRTCFrameRatePolicy
     private var targetBitrate: Int
     private var maxDimension: Int
-    private var frameIntervalNs: UInt64
 
     init(maxFps: Int, targetBitrate: Int, maxDimension: Int) {
-        let normalizedMaxFps = max(1, min(120, maxFps))
-        self.maxFps = normalizedMaxFps
+        let frameRatePolicy = WebRTCFrameRatePolicy(configuredFramesPerSecond: maxFps)
+        let normalizedMaxFps = frameRatePolicy.outputFramesPerSecond
+        self.frameRatePolicy = frameRatePolicy
         self.targetBitrate = max(100_000, targetBitrate)
         self.maxDimension = max(0, maxDimension)
-        self.frameIntervalNs = UInt64(1_000_000_000 / normalizedMaxFps)
+        self.framePacer = ContinuousFramePacer(framesPerSecond: normalizedMaxFps)
         h264FrameModeOverride = Self.h264FrameModeOverride()
+        Self.configureLowLatencyPlayout()
+        activityToken = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiated, .latencyCritical],
+            reason: "serve-sim WebRTC streaming"
+        )
         let defaultEncoderFactory = LKRTCDefaultVideoEncoderFactory()
         let decoderFactory = LKRTCDefaultVideoDecoderFactory()
         factory = LKRTCPeerConnectionFactory(
             encoderFactory: defaultEncoderFactory,
             decoderFactory: decoderFactory
         )
-        videoSource = factory.videoSource(forScreenCast: true)
+        videoSource = factory.videoSource(forScreenCast: false)
         videoTrack = factory.videoTrack(with: videoSource, trackId: "simulator-video")
         videoTrack.isEnabled = true
         capturer = LKRTCVideoCapturer(delegate: videoSource)
@@ -134,25 +216,46 @@ final class WebRTCPublisher: @unchecked Sendable {
     func updateSettings(maxFps: Int, targetBitrate: Int, maxDimension: Int) async {
         await withCheckedContinuation { continuation in
             queue.async {
-                let normalizedMaxFps = max(1, min(120, maxFps))
+                let frameRatePolicy = WebRTCFrameRatePolicy(
+                    configuredFramesPerSecond: maxFps
+                )
+                let normalizedMaxFps = frameRatePolicy.outputFramesPerSecond
+                var replacementPump: (delayNs: UInt64, generation: UInt64)?
                 self.frameLock.lock()
-                self.maxFps = normalizedMaxFps
-                self.frameIntervalNs = UInt64(1_000_000_000 / normalizedMaxFps)
+                if self.frameRatePolicy.outputFramesPerSecond != normalizedMaxFps {
+                    self.framePumpGeneration &+= 1
+                    self.arrivalPumpPending = false
+                    let generation = self.framePumpGeneration
+                    if let delayNs = self.framePacer.update(
+                        framesPerSecond: normalizedMaxFps,
+                        atNanoseconds: DispatchTime.now().uptimeNanoseconds
+                    ) {
+                        replacementPump = (delayNs, generation)
+                    }
+                }
+                self.frameRatePolicy = frameRatePolicy
                 self.frameLock.unlock()
+                if let replacementPump {
+                    self.scheduleFramePump(
+                        afterNs: replacementPump.delayNs,
+                        generation: replacementPump.generation
+                    )
+                }
                 self.targetBitrate = max(100_000, targetBitrate)
                 self.maxDimension = max(0, maxDimension)
                 if self.lastOutputWidth > 0, self.lastOutputHeight > 0 {
                     self.videoSource.adaptOutputFormat(
                         toWidth: Int32(self.lastOutputWidth),
                         height: Int32(self.lastOutputHeight),
-                        fps: Int32(self.maxFps)
+                        fps: Int32(frameRatePolicy.sourceAdapterFramesPerSecond)
                     )
                 }
                 for session in self.sessions.values {
                     self.applyBitrateSettings(to: session)
                 }
                 streamLog(
-                    "[webrtc] Settings updated fps=\(self.maxFps) bitrate=\(self.targetBitrate) " +
+                    "[webrtc] Settings updated fps=\(frameRatePolicy.outputFramesPerSecond) " +
+                    "bitrate=\(self.targetBitrate) " +
                     "maxDimension=\(self.maxDimension)"
                 )
                 continuation.resume()
@@ -210,61 +313,219 @@ final class WebRTCPublisher: @unchecked Sendable {
         }
     }
 
-    func sendFrame(_ pixelBuffer: CVPixelBuffer, timestamp: CMTime) {
-        let frame = PendingWebRTCFrame(pixelBuffer: pixelBuffer, timestamp: timestamp)
-        var scheduleDelayNs: UInt64?
-        let nowNs = DispatchTime.now().uptimeNanoseconds
-        let schedulingToleranceNs: UInt64 = 1_000_000
+    private static let statisticsTimeout: TimeInterval = 2
+
+    func senderStatistics(sessionId: String? = nil) async -> [WebRTCSenderStatsPayload] {
+        // Snapshot on the publisher queue: codec and connected are mutated there.
+        let liveSessions: [WebRTCSessionSnapshot] = await withCheckedContinuation { continuation in
+            queue.async {
+                continuation.resume(returning: self.sessions.values
+                    .filter { sessionId == nil || $0.id == sessionId }
+                    .sorted { $0.id < $1.id }
+                    .map(WebRTCSessionSnapshot.init))
+            }
+        }
+        var payloads: [WebRTCSenderStatsPayload] = []
+        for session in liveSessions {
+            guard let report = await Self.gatherStatistics(session.peerConnection) else { continue }
+            payloads.append(Self.reduceSenderStatistics(report, session: session))
+        }
+        return payloads
+    }
+
+    /// libwebrtc may never call back for a torn-down connection, and the request would hang.
+    private static func gatherStatistics(
+        _ peerConnection: LKRTCPeerConnection
+    ) async -> LKRTCStatisticsReport? {
+        await withCheckedContinuation { continuation in
+            let resumed = NSLock()
+            var done = false
+            let finish: (LKRTCStatisticsReport?) -> Void = { report in
+                resumed.lock()
+                let alreadyDone = done
+                done = true
+                resumed.unlock()
+                if !alreadyDone { continuation.resume(returning: report) }
+            }
+            DispatchQueue.global().asyncAfter(deadline: .now() + statisticsTimeout) {
+                finish(nil)
+            }
+            peerConnection.statistics { report in finish(report) }
+        }
+    }
+
+    private static func reduceSenderStatistics(
+        _ report: LKRTCStatisticsReport,
+        session: WebRTCSessionSnapshot
+    ) -> WebRTCSenderStatsPayload {
+        let byId = report.statistics
+        let outbound = firstStatistic(byId, type: "outbound-rtp", kind: "video")
+        let remoteInbound = firstStatistic(byId, type: "remote-inbound-rtp", kind: "video")
+        let mediaSource = firstStatistic(byId, type: "media-source", kind: "video")
+        let candidatePair = selectedCandidatePair(byId)
+        let localCandidate = statsString(candidatePair, "localCandidateId").flatMap { byId[$0] }
+        let remoteCandidate = statsString(candidatePair, "remoteCandidateId").flatMap { byId[$0] }
+        return WebRTCSenderStatsPayload(
+            sessionId: session.id,
+            codec: session.codecName,
+            connected: session.isConnected,
+            qualityLimitationReason: statsString(outbound, "qualityLimitationReason"),
+            qualityLimitationDurations: statsDurations(outbound, "qualityLimitationDurations"),
+            framesEncoded: statsInt(outbound, "framesEncoded"),
+            framesSent: statsInt(outbound, "framesSent"),
+            framesPerSecond: statsDouble(outbound, "framesPerSecond"),
+            targetBitrate: statsDouble(outbound, "targetBitrate"),
+            totalEncodeTime: statsDouble(outbound, "totalEncodeTime"),
+            frameWidth: statsInt(outbound, "frameWidth"),
+            frameHeight: statsInt(outbound, "frameHeight"),
+            packetsSent: statsInt(outbound, "packetsSent"),
+            packetsLost: statsInt(remoteInbound, "packetsLost"),
+            roundTripTime: statsDouble(remoteInbound, "roundTripTime")
+                ?? statsDouble(candidatePair, "currentRoundTripTime"),
+            localCandidateType: statsString(localCandidate, "candidateType"),
+            remoteCandidateType: statsString(remoteCandidate, "candidateType"),
+            sourceFrames: statsInt(mediaSource, "frames"),
+            sourceFramesPerSecond: statsDouble(mediaSource, "framesPerSecond"),
+            sourceFramesDropped: statsInt(mediaSource, "framesDropped")
+        )
+    }
+
+    private static func firstStatistic(
+        _ byId: [String: LKRTCStatistics],
+        type: String,
+        kind: String
+    ) -> LKRTCStatistics? {
+        let ofType = byId.values.filter { $0.type == type }
+        return ofType.first { statsString($0, "kind") == kind } ?? ofType.first
+    }
+
+    private static func selectedCandidatePair(
+        _ byId: [String: LKRTCStatistics]
+    ) -> LKRTCStatistics? {
+        let selectedId = byId.values
+            .filter { $0.type == "transport" }
+            .compactMap { statsString($0, "selectedCandidatePairId") }
+            .first
+        if let selectedId, let pair = byId[selectedId] {
+            return pair
+        }
+        // libwebrtc's report has no `selected` flag; that is a browser extension.
+        let pairs = byId.values.filter { $0.type == "candidate-pair" && statsString($0, "state") == "succeeded" }
+        return pairs.first { statsBool($0, "nominated") == true } ?? pairs.first
+    }
+
+    /// Drops a non-finite value: `JSONEncoder` throws on one, which would fail the whole report.
+    private static func statsDouble(_ statistics: LKRTCStatistics?, _ key: String) -> Double? {
+        guard let value = (statistics?.values[key] as? NSNumber)?.doubleValue else { return nil }
+        return value.isFinite ? value : nil
+    }
+
+    private static func statsInt(_ statistics: LKRTCStatistics?, _ key: String) -> Int? {
+        (statistics?.values[key] as? NSNumber)?.intValue
+    }
+
+    private static func statsBool(_ statistics: LKRTCStatistics?, _ key: String) -> Bool? {
+        (statistics?.values[key] as? NSNumber)?.boolValue
+    }
+
+    private static func statsString(_ statistics: LKRTCStatistics?, _ key: String) -> String? {
+        statistics?.values[key] as? String
+    }
+
+    private static func statsDurations(_ statistics: LKRTCStatistics?, _ key: String) -> [String: Double]? {
+        guard let durations = statistics?.values[key] as? [String: NSNumber] else { return nil }
+        return durations.mapValues(\.doubleValue)
+    }
+
+    func frameFlowCounts() -> (offered: UInt64, forwarded: UInt64, pumpRestarts: UInt64) {
         frameLock.lock()
-        let frameIntervalNs = self.frameIntervalNs
+        defer { frameLock.unlock() }
+        return (
+            offered: offeredFrameCount,
+            forwarded: forwardedFrameCount,
+            pumpRestarts: framePumpRestartCount
+        )
+    }
+
+    func sendFrame(_ pixelBuffer: CVPixelBuffer, timestamp _: CMTime) {
+        let nowNs = DispatchTime.now().uptimeNanoseconds
+        frameLock.lock()
+        offeredFrameCount &+= 1
         guard acceptsFrames else {
             frameLock.unlock()
             return
         }
-        // Always retain the newest frame. Dropping every frame inside the rate
-        // limit can lose the final state of a short animation until the 5fps
-        // idle floor emits it again.
-        pendingFrame = frame
-        if !framePumpScheduled {
-            framePumpScheduled = true
-            let earliestSendNs = lastSentFrameAtNs &+ frameIntervalNs
-            scheduleDelayNs = lastSentFrameAtNs == 0 || nowNs &+ schedulingToleranceNs >= earliestSendNs
-                ? 0
-                : earliestSendNs - nowNs
+        latestFrame = PendingWebRTCFrame(pixelBuffer: pixelBuffer)
+        let generation = framePumpGeneration
+        switch framePacer.latestFrameArrived(atNanoseconds: nowNs) {
+        case .ignore:
+            break
+        case .pumpNow:
+            guard !arrivalPumpPending else { break }
+            arrivalPumpPending = true
+            queue.async {
+                self.drainFramePump(generation: generation, chained: false)
+            }
+        case let .schedule(delayNs):
+            frameLock.unlock()
+            scheduleFramePump(afterNs: delayNs, generation: generation)
+            return
+        case let .restart(delayNs):
+            // The chain stopped ticking (a lost or starved timer). Invalidate
+            // any zombie pump and start a replacement under a fresh generation.
+            framePumpGeneration &+= 1
+            framePumpRestartCount &+= 1
+            arrivalPumpPending = false
+            let restartGeneration = framePumpGeneration
+            frameLock.unlock()
+            scheduleFramePump(afterNs: delayNs, generation: restartGeneration)
+            return
         }
         frameLock.unlock()
-        if let scheduleDelayNs {
-            scheduleFramePump(afterNs: scheduleDelayNs)
-        }
     }
 
-    private func nextFrameTimestampNs(_ timestamp: CMTime) -> Int64 {
-        let captureTime = CMTimeGetSeconds(timestamp) * 1_000_000_000
-        let proposedTimestamp = captureTime.isFinite && captureTime > 0
-            ? Int64(captureTime)
-            : Int64(DispatchTime.now().uptimeNanoseconds)
+    private func nextFrameTimestampNs(_ proposedTimestamp: UInt64) -> Int64 {
+        let proposedTimestamp = Int64(clamping: proposedTimestamp)
         let timestampNs = max(proposedTimestamp, lastFrameTimestampNs + 1)
         lastFrameTimestampNs = timestampNs
         return timestampNs
     }
 
-    private func sendFrameOnQueue(_ pixelBuffer: CVPixelBuffer, timestamp: CMTime) {
-        let width = CVPixelBufferGetWidth(pixelBuffer)
-        let height = CVPixelBufferGetHeight(pixelBuffer)
+    private func sendFrameOnQueue(_ pixelBuffer: CVPixelBuffer, timestampNanoseconds: UInt64) {
+        let sourceWidth = CVPixelBufferGetWidth(pixelBuffer)
+        let sourceHeight = CVPixelBufferGetHeight(pixelBuffer)
+        guard let scaledPixelBuffer = pixelBufferScaler.scale(pixelBuffer, maxDimension: maxDimension) else {
+            streamLog(
+                "[webrtc] Failed to scale input frame \(sourceWidth)x\(sourceHeight) " +
+                "maxDimension=\(maxDimension)"
+            )
+            return
+        }
+        // Counted after the scale succeeds: a frame we failed to scale is never handed on, and
+        // counting it would hide the drop behind a healthy forwarded total.
+        frameLock.lock()
+        forwardedFrameCount &+= 1
+        frameLock.unlock()
+        let width = CVPixelBufferGetWidth(scaledPixelBuffer)
+        let height = CVPixelBufferGetHeight(scaledPixelBuffer)
         if width != lastOutputWidth || height != lastOutputHeight {
             lastOutputWidth = width
             lastOutputHeight = height
             videoSource.adaptOutputFormat(
                 toWidth: Int32(width),
                 height: Int32(height),
-                fps: Int32(maxFps)
+                fps: Int32(frameRatePolicy.sourceAdapterFramesPerSecond)
             )
             for session in sessions.values {
                 applyBitrateSettings(to: session)
             }
-            streamLog("[webrtc] Video source output format: \(width)x\(height) @ \(maxFps)fps")
+            streamLog(
+                "[webrtc] Video source output format: \(width)x\(height) " +
+                "adapterCeiling=\(frameRatePolicy.sourceAdapterFramesPerSecond)fps " +
+                "pacer=\(frameRatePolicy.outputFramesPerSecond)fps"
+            )
         }
-        let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
+        let pixelFormat = CVPixelBufferGetPixelFormatType(scaledPixelBuffer)
         if lastInputPixelFormat != pixelFormat {
             lastInputPixelFormat = pixelFormat
             let supported = LKRTCCVPixelBuffer.supportedPixelFormats()
@@ -273,9 +534,9 @@ final class WebRTCPublisher: @unchecked Sendable {
             let frameMode = supported ? "native CVPixelBuffer" : "I420 fallback"
             streamLog("[webrtc] Input pixel format: \(pixelFormat) cvPixelBufferSupported=\(supported); forwarding as \(frameMode)")
         }
-        let timeNs = nextFrameTimestampNs(timestamp)
+        let timeNs = nextFrameTimestampNs(timestampNanoseconds)
         let sourceFrame = LKRTCVideoFrame(
-            buffer: LKRTCCVPixelBuffer(pixelBuffer: pixelBuffer),
+            buffer: LKRTCCVPixelBuffer(pixelBuffer: scaledPixelBuffer),
             rotation: ._0,
             timeStampNs: timeNs
         )
@@ -311,7 +572,7 @@ final class WebRTCPublisher: @unchecked Sendable {
                 if Self.isBiPlanar420(pixelFormat) {
                     usedNativeFrame = true
                     frameMode = "nv12-input"
-                } else if let converted = h264PixelBufferConverter.convert(pixelBuffer) {
+                } else if let converted = h264PixelBufferConverter.convert(scaledPixelBuffer) {
                     convertDurationMs = h264PixelBufferConverter.lastDurationMs
                     forwardedPixelFormat = CVPixelBufferGetPixelFormatType(converted)
                     usedFrame = LKRTCVideoFrame(
@@ -341,7 +602,8 @@ final class WebRTCPublisher: @unchecked Sendable {
         if shouldLogFrame(sentFrameCount) {
             streamLog(
                 "[webrtc] Sent video frame #\(sentFrameCount) codecs=\(codecSummary) " +
-                "size=\(width)x\(height) timestampNs=\(timeNs) frameMode=\(frameMode) " +
+                "source=\(sourceWidth)x\(sourceHeight) size=\(width)x\(height) " +
+                "timestampNs=\(timeNs) frameMode=\(frameMode) " +
                 "inputFormat=\(pixelFormatDescription(pixelFormat)) " +
                 "forwardedFormat=\(pixelFormatDescription(forwardedPixelFormat)) " +
                 "native=\(usedNativeFrame) conversionMs=\(String(format: "%.2f", convertDurationMs))"
@@ -361,66 +623,88 @@ final class WebRTCPublisher: @unchecked Sendable {
             }
             sessions.removeAll()
             setFrameAcceptance(false)
+            pumpTimer?.cancel()
+            pumpTimer = nil
+            if let activityToken {
+                ProcessInfo.processInfo.endActivity(activityToken)
+                self.activityToken = nil
+            }
         }
     }
 
-    private func drainFramePump() {
+    private func drainFramePump(generation: UInt64, chained: Bool = true) {
         let nowNs = DispatchTime.now().uptimeNanoseconds
-        let schedulingToleranceNs: UInt64 = 1_000_000
         frameLock.lock()
-        let frameIntervalNs = self.frameIntervalNs
-        guard acceptsFrames else {
-            pendingFrame = nil
-            framePumpScheduled = false
+        guard generation == framePumpGeneration else {
             frameLock.unlock()
             return
         }
-        guard let frame = pendingFrame else {
-            framePumpScheduled = false
+        if !chained { arrivalPumpPending = false }
+        let decision = framePacer.tick(atNanoseconds: nowNs, chained: chained)
+        guard case let .send(timestampNs, nextDelayNs) = decision else {
             frameLock.unlock()
+            if chained, case let .wait(delayNs) = decision {
+                scheduleFramePump(afterNs: delayNs, generation: generation)
+            }
             return
         }
-        let earliestSendNs = lastSentFrameAtNs &+ frameIntervalNs
-        if lastSentFrameAtNs > 0, nowNs &+ schedulingToleranceNs < earliestSendNs {
-            let delayNs = earliestSendNs - nowNs
+        guard let frame = latestFrame else {
             frameLock.unlock()
-            scheduleFramePump(afterNs: delayNs)
+            // The pacer consumed a slot with nothing retained (acceptance was
+            // toggling); keep the chain alive for the next retained frame.
+            if chained {
+                scheduleFramePump(afterNs: nextDelayNs, generation: generation)
+            }
             return
         }
-        pendingFrame = nil
-        lastSentFrameAtNs = nowNs
         frameLock.unlock()
 
-        if sessions.values.contains(where: \.isConnected) {
-            sendFrameOnQueue(frame.pixelBuffer, timestamp: frame.timestamp)
+        // Preserve the cadence by scheduling the next tick before scaling or
+        // conversion work consumes part of the frame interval.
+        if chained {
+            scheduleFramePump(afterNs: nextDelayNs, generation: generation)
         }
-
-        frameLock.lock()
-        if acceptsFrames && pendingFrame != nil {
-            frameLock.unlock()
-            scheduleFramePump(afterNs: frameIntervalNs)
-        } else {
-            framePumpScheduled = false
-            frameLock.unlock()
+        if sessions.values.contains(where: \.isConnected) {
+            sendFrameOnQueue(frame.pixelBuffer, timestampNanoseconds: timestampNs)
         }
     }
 
-    private func scheduleFramePump(afterNs delayNs: UInt64) {
-        if delayNs == 0 {
-            queue.async { self.drainFramePump() }
-            return
+    private func scheduleFramePump(afterNs delayNs: UInt64, generation: UInt64) {
+        // Anchor the deadline here, on the caller's timeline. The arming hop
+        // through `queue.async` lands after the current drain's scale and
+        // convert work, and a deadline anchored there would push every wake
+        // late by that work — the drift the pre-work scheduling exists to
+        // avoid. A deadline the hop has already passed fires immediately.
+        let deadline: DispatchTime = .now() + .nanoseconds(Int(clamping: delayNs))
+        queue.async { self.armFramePump(at: deadline, generation: generation) }
+    }
+
+    /// Queue-confined. `.strict` with zero leeway opts the pump out of macOS
+    /// timer coalescing — on virtualized hosts, coalesced `asyncAfter`
+    /// wake-ups arrived late enough to collapse the send cadence. Arming
+    /// always cancels the previous timer, so at most one chain tick is ever
+    /// pending and a replacement chain cannot race a zombie one.
+    private func armFramePump(at deadline: DispatchTime, generation: UInt64) {
+        pumpTimer?.cancel()
+        let timer = DispatchSource.makeTimerSource(flags: .strict, queue: queue)
+        timer.schedule(deadline: deadline, repeating: .never, leeway: .nanoseconds(0))
+        timer.setEventHandler { [weak self] in
+            guard let self else { return }
+            self.pumpTimer = nil
+            self.drainFramePump(generation: generation)
         }
-        queue.asyncAfter(deadline: .now() + .nanoseconds(Int(delayNs))) {
-            self.drainFramePump()
-        }
+        pumpTimer = timer
+        timer.resume()
     }
 
     private func setFrameAcceptance(_ active: Bool) {
         frameLock.lock()
         if acceptsFrames != active {
             acceptsFrames = active
-            pendingFrame = nil
-            lastSentFrameAtNs = 0
+            latestFrame = nil
+            arrivalPumpPending = false
+            framePumpGeneration &+= 1
+            framePacer.setActive(active)
         }
         frameLock.unlock()
     }
@@ -590,6 +874,7 @@ final class WebRTCPublisher: @unchecked Sendable {
             guard !session.isConnected else { return }
             session.isConnected = true
             self.refreshFrameAcceptance()
+            self.applyBitrateSettings(to: session)
             streamLog("[webrtc] Peer connected; activePeers=\(self.sessions.values.filter(\.isConnected).count)")
         }
     }
@@ -861,9 +1146,10 @@ final class WebRTCPublisher: @unchecked Sendable {
         let encodings = parameters.encodings.isEmpty
             ? [LKRTCRtpEncodingParameters()]
             : parameters.encodings
-        let maxBitrate = NSNumber(value: targetBitrate)
-        let minBitrate = NSNumber(value: max(100_000, targetBitrate / 5))
-        let fps = NSNumber(value: maxFps)
+        let bitratePolicy = WebRTCBitratePolicy(targetBitsPerSecond: targetBitrate)
+        let maxBitrate = NSNumber(value: bitratePolicy.maximumBitsPerSecond)
+        let minBitrate = NSNumber(value: bitratePolicy.minimumBitsPerSecond)
+        let senderFramesPerSecond = frameRatePolicy.senderFramesPerSecond
         let sourceMaxDimension = max(lastOutputWidth, lastOutputHeight)
         let scaleResolutionDownBy = maxDimension > 0 && sourceMaxDimension > maxDimension
             ? Double(sourceMaxDimension) / Double(maxDimension)
@@ -872,20 +1158,29 @@ final class WebRTCPublisher: @unchecked Sendable {
             encoding.isActive = true
             encoding.maxBitrateBps = maxBitrate
             encoding.minBitrateBps = minBitrate
-            encoding.maxFramerate = fps
+            encoding.maxFramerate = senderFramesPerSecond.map { NSNumber(value: $0) }
             encoding.scaleResolutionDownBy = NSNumber(value: scaleResolutionDownBy)
         }
         parameters.encodings = encodings
+        parameters.degradationPreference =
+            NSNumber(value: LKRTCDegradationPreference.maintainFramerate.rawValue)
         sender.parameters = parameters
+        // Read back: assigning `scaleResolutionDownBy` is not proof libwebrtc kept it.
+        let appliedScale = sender.parameters.encodings.first?.scaleResolutionDownBy?.doubleValue
         let bweUpdated = session.peerConnection.setBweMinBitrateBps(
             minBitrate,
             currentBitrateBps: maxBitrate,
             maxBitrateBps: maxBitrate
         )
         streamLog(
-            "[webrtc] Sender parameters fps=\(maxFps) minBitrate=\(minBitrate) " +
+            "[webrtc] Sender parameters pacerFps=\(frameRatePolicy.outputFramesPerSecond) " +
+            "senderFpsCap=none " +
+            "minBitrate=\(minBitrate) " +
             "maxBitrate=\(maxBitrate) maxDimension=\(maxDimension) " +
-            "scaleDown=\(String(format: "%.3f", scaleResolutionDownBy)) bweUpdated=\(bweUpdated)"
+            "scaleDown=\(String(format: "%.3f", scaleResolutionDownBy)) " +
+            "applied=\(appliedScale.map { String(format: "%.3f", $0) } ?? "nil") " +
+            "encodings=\(encodings.count) " +
+            "bweUpdated=\(bweUpdated)"
         )
     }
 
@@ -1391,6 +1686,20 @@ private func pixelFormatDescription(_ pixelFormat: OSType) -> String {
         return String(bytes: bytes, encoding: .ascii) ?? "\(pixelFormat)"
     }
     return "\(text)(\(pixelFormat))"
+}
+
+private struct WebRTCSessionSnapshot {
+    let id: String
+    let codecName: String
+    let isConnected: Bool
+    let peerConnection: LKRTCPeerConnection
+
+    init(_ session: WebRTCSession) {
+        id = session.id
+        codecName = session.codecName
+        isConnected = session.isConnected
+        peerConnection = session.peerConnection
+    }
 }
 
 private final class WebRTCSession {

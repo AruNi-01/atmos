@@ -1,4 +1,4 @@
-# How Device Hub / Simulator.app forwards scroll to the iOS Simulator
+# How Simulator.app forwards scroll to the iOS Simulator
 
 > Reverse-engineered from `SimulatorKit`
 > (`/Applications/Xcode-beta.app/Contents/SharedFrameworks/SimulatorKit.framework/Versions/A/SimulatorKit`)
@@ -17,7 +17,7 @@ Indigo HID message. Real two-finger trackpad scroll → real momentum/inertial
 scroll on the device.
 
 The class that owns all of this is **`SimHIDCaptureManager`** (source file
-`SimHIDCaptureManager.m`). Device Hub itself contains **zero** scroll code — it
+`SimHIDCaptureManager.m`). Simulator.app itself contains **zero** scroll code — it
 drives `SimDisplayView` / `SimHIDCaptureManager` in SimulatorKit.
 
 ## The two input planes
@@ -231,7 +231,7 @@ Environment: iPhone 17 Pro, **iOS 27.0**, Xcode 26.6 (17F109). Server:
   symbol names, transport, and `IndigoHIDMessageForButton` /
   `…KeyboardArbitrary` / `…DigitalCrownEvent` signatures all match the binary.
 - ✅ serve-sim's current scroll uses target **`0x32` (display digitizer)** —
-  *different* from Device Hub's **`0x35` (pointer service)**.
+  *different* from Simulator.app's **`0x35` (pointer service)**.
 
 ### Confirmed against a running simulator (behavioral)
 
@@ -250,7 +250,7 @@ Environment: iPhone 17 Pro, **iOS 27.0**, Xcode 26.6 (17F109). Server:
 taps/drags work on iOS 27.0. The synthetic scroll message reaches the guest but
 is ignored. This matches the hypothesis that iOS only accepts scroll on the
 **indirect-pointer service (`0x35`)** that must first be created with
-`IndigoHIDMessageToCreatePointerService`, the way Device Hub does it — the
+`IndigoHIDMessageToCreatePointerService`, the way Simulator.app does it — the
 digitizer surface (`0x32`) has no scroll concept (it's a touchscreen).
 
 ### Implementation attempts — all delivered, none scrolled (iOS 27.0)
@@ -268,12 +268,12 @@ confirm), and left the Settings view byte-identical:
    `changed` across the wheel burst, `ended` on 120 ms idle (mirrors a real
    trackpad). Still nothing.
 
-### Ground-truth check against Device Hub itself (computer-use)
+### Ground-truth check against Simulator.app itself (computer-use)
 
-Opened **Device Hub** showing the same iPhone 17 Pro / iOS 27.0 sim:
+Opened **Simulator.app** showing the same iPhone 17 Pro / iOS 27.0 sim:
 
 - ✅ A synthetic **click** (computer-use `left_click`) on "General" **navigated**
-  the sim → Device Hub forwards synthetic taps to the guest.
+  the sim → Simulator.app forwards synthetic taps to the guest.
 - ❌ A synthetic **scroll** (computer-use `scroll`, which emits a *discrete,
   line-based* wheel event with no phase/momentum) did **not** scroll — same as
   serve-sim's synthetic attempts.
@@ -283,13 +283,13 @@ builder — it's event *fidelity*. iOS 27's pointer scroll only commits for a
 **continuous, pixel-based, phase+momentum** scroll stream as produced by real
 trackpad hardware. Both serve-sim's synthesized `IOHIDEvent` scrolls and
 computer-use's discrete wheel events are ignored, even when routed correctly
-through the pointer service. Device Hub "works" because `SimHIDCaptureManager`
+through the pointer service. Simulator.app "works" because `SimHIDCaptureManager`
 forwards *genuine* captured `IOHIDEventRef`s (full sender ID, pixel units,
 hardware phase/momentum) — fidelity we have not reproduced synthetically.
 
 ### Why the pointer path is infeasible for serve-sim (definitive)
 
-`Simulator.app` (and Device Hub, which shares `SimHIDCaptureManager`) is signed
+`Simulator.app` (which uses `SimHIDCaptureManager`) is signed
 with **private Apple entitlements** that an ad-hoc-signed helper cannot obtain:
 
 ```
@@ -304,10 +304,10 @@ This was proven empirically: a `--capture-scroll` diagnostic (see
 helper and hooked `sendWithMessage:`. It successfully sent the **create-pointer
 (`0x35`)** and **create-mouse (`0x36`)** service messages, but received **zero**
 HID events during a real trackpad scroll — without `…hid.client.event-filter`,
-the IOHID filter is silently starved. And we can't inject into Device Hub itself
+the IOHID filter is silently starved. And we can't inject into Simulator.app itself
 (SIP + `library-validation`).
 
-So Device Hub's scroll fundamentally depends on **privileged host-HID capture**
+So Simulator.app's scroll fundamentally depends on **privileged host-HID capture**
 forwarding genuine hardware events; iOS 27's pointer scroll only accepts those,
 and an unprivileged helper can neither capture nor synthesize them.
 

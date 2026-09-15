@@ -32,8 +32,12 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "StreamingPolicy"
+        ),
+        .target(
             name: "SimNative",
             dependencies: [
+                "StreamingPolicy",
                 .product(name: "NodeAPI", package: "node-swift"),
                 .product(name: "NodeModuleSupport", package: "node-swift"),
                 .product(name: "LiveKitWebRTC", package: "webrtc-xcframework"),
@@ -55,6 +59,10 @@ let package = Package(
                 .linkedFramework("AppKit"),
                 .linkedFramework("Accelerate"),
             ]
+        ),
+        .testTarget(
+            name: "StreamingPolicyTests",
+            dependencies: ["StreamingPolicy"]
         ),
     ],
     // The reused SimStreamHelper logic was written against the standalone helper

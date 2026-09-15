@@ -1,4 +1,4 @@
-# Atmos patches on serve-sim 0.1.37
+# Atmos patches on serve-sim 0.1.48
 
 These are the only first-party behavior changes. Prefer rebasing them when bumping the pin.
 
@@ -7,6 +7,7 @@ These are the only first-party behavior changes. Prefer rebasing them when bumpi
    - `/exec` and `/exec-ws` stay token + Origin gated; global `--kill` with no device is refused.
 2. **Hide serve-sim brand + GitHub jump** (device sidebar / empty state)
    - No `serve-sim` wordmark, no `https://github.com/expo/serve-sim` link.
+   - 0.1.48 replaced that wordmark with an EAS Simulator jump; that stays hidden too.
    - Empty state does not mention `bunx @expo/serve-sim`.
 3. **Left device panel matches the Tools floating card** (`Panel.tsx`, `resize-handle.tsx`, `grid-panel.tsx`)
    - Inset, rounded, bordered card instead of a flush full-height dock.

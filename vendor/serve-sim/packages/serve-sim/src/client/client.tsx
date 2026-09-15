@@ -41,7 +41,6 @@ import { ResizeHandle } from "./components/resize-handle";
 import { SimulatorResizeCornerHandle } from "./components/simulator-resize-corner-handle";
 import { ServeSimToaster } from "./components/app-toasts";
 import { SimulatorResizeSizeBadge } from "./components/simulator-resize-size-badge";
-
 import { ToolsPanel } from "./components/tools-panel";
 import { WebKitDevtoolsPanel } from "./components/webkit-devtools-panel";
 import { useMediaDrop } from "./hooks/use-media-drop";
@@ -64,13 +63,16 @@ import {
 import { fileExtension } from "./utils/drop";
 import { execOnHost, openHostEventStream } from "./utils/exec";
 import { hidUsageForCode } from "./utils/hid";
+import { copyTextToSim, simPasteHidEvents } from "./utils/sim-clipboard";
+import { useClipboardToast } from "./hooks/use-clipboard-toast";
 import {
   DEVICE_SIDEBAR_WIDTH,
   DEVTOOLS_PANEL_WIDTH,
   PANEL_WIDTH,
 } from "./utils/panel-widths";
 import { proxyPreviewConfigForBrowser } from "./utils/preview-config";
-import { mjpegStreamUrlFrom, simEndpoint, streamConfigFrom, webrtcCloseUrlFrom, webrtcOfferUrlFrom } from "./utils/sim-endpoint";
+import { mjpegStreamUrlFrom, simEndpoint, streamConfigFrom, webrtcCloseUrlFrom, webrtcOfferUrlFrom, webrtcStatsUrlFrom } from "./utils/sim-endpoint";
+import { shouldStreamSimulatorLogs } from "./utils/simulator-logs";
 import {
   SIMULATOR_RESIZE_DRAG_TRANSITION,
   SIMULATOR_RESIZE_LAYOUT_TRANSITION,
@@ -89,6 +91,13 @@ import {
 // ─── App ───
 
 type PreviewConfig = NonNullable<Window["__SIM_PREVIEW__"]>;
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  return target.isContentEditable;
+}
 
 function previewConfigKey(config: PreviewConfig | null): string {
   return config
@@ -130,23 +139,27 @@ function App() {
   // main placeholder. Endpoints resolve from simEndpoint so this also works in
   // the no-helper empty state (the grid routes are always served).
   const preview = window.__SIM_PREVIEW__;
-  const gridApiEndpoint = preview?.gridApiEndpoint ?? simEndpoint("grid/api");
+  const gridCatalogEndpoint = preview?.gridCatalogEndpoint ?? simEndpoint("grid/api/catalog");
+  const gridStatusEndpoint = preview?.gridStatusEndpoint ?? simEndpoint("grid/api/status");
+  const gridStatusEventsEndpoint = preview?.gridStatusEventsEndpoint ?? simEndpoint("grid/api/status/events");
   const gridStartEndpoint = preview?.gridStartEndpoint ?? simEndpoint("grid/api/start");
   const gridShutdownEndpoint = preview?.gridShutdownEndpoint ?? simEndpoint("grid/api/shutdown");
   const [starting, setStarting] = useState<Record<string, boolean>>({});
   const [shuttingDown, setShuttingDown] = useState<Record<string, boolean>>({});
   const [actionErrors, setActionErrors] = useState<Record<string, string | null>>({});
-  const hasPending =
-    Object.values(starting).some(Boolean) || Object.values(shuttingDown).some(Boolean);
   const {
     devices: gridDevices,
     total: gridTotal,
-    refresh: refreshGrid,
     loadMore: loadMoreGrid,
     loadAll: loadAllGrid,
     resetPage: resetGridPage,
     hasMore: gridHasMore,
-  } = useGridDevices(gridApiEndpoint, true, hasPending);
+  } = useGridDevices(
+    gridCatalogEndpoint,
+    gridStatusEventsEndpoint,
+    true,
+    selectedUdid,
+  );
   // Re-subscribe the stream SSE the instant the selected device gains (or loses)
   // a helper, so its config lands as soon as it boots rather than waiting on the
   // next filesystem-watch tick — the stream appears sooner after boot.
@@ -172,15 +185,17 @@ function App() {
       const deadline = Date.now() + timeoutMs;
       while (Date.now() < deadline) {
         try {
-          const res = await fetch(gridApiEndpoint, { cache: "no-store" });
+          const endpoint = new URL(gridStatusEndpoint, window.location.href);
+          endpoint.searchParams.set("device", udid);
+          const res = await fetch(endpoint, { cache: "no-store" });
           const json = await res.json();
-          if ((json.devices ?? []).some((d: any) => d.device === udid && d.helper)) return true;
+          if ((json.statuses ?? []).some((d: any) => d.device === udid && d.helper)) return true;
         } catch {}
         await new Promise((r) => setTimeout(r, 400));
       }
       return false;
     },
-    [gridApiEndpoint],
+    [gridStatusEndpoint],
   );
 
   const startDevice = useCallback(
@@ -209,10 +224,9 @@ function App() {
         setActionErrors((e) => ({ ...e, [udid]: err?.message ?? "Request failed" }));
       } finally {
         setStarting((p) => ({ ...p, [udid]: false }));
-        refreshGrid();
       }
     },
-    [gridStartEndpoint, waitForHelper, refreshGrid],
+    [gridStartEndpoint, waitForHelper],
   );
 
   const shutdownDevice = useCallback(
@@ -237,10 +251,9 @@ function App() {
         setActionErrors((e) => ({ ...e, [udid]: err?.message ?? "Request failed" }));
       } finally {
         setShuttingDown((s) => ({ ...s, [udid]: false }));
-        refreshGrid();
       }
     },
-    [gridShutdownEndpoint, refreshGrid],
+    [gridShutdownEndpoint],
   );
 
   // Pick a sensible default device once the grid loads and nothing is selected:
@@ -291,9 +304,11 @@ function App() {
     return () => es.close();
   }, [selectedUdid, selectedHasHelper]);
 
-  // Stream simctl logs into the browser console with colors + grouping
+  // Stream simctl logs into the browser console with colors + grouping. The
+  // full simulator log is too expensive to send through remote tunnels by
+  // default; remote previews can opt in with `?logs=1`.
   useEffect(() => {
-    if (!config?.logsEndpoint) return;
+    if (!config?.logsEndpoint || !shouldStreamSimulatorLogs(window.location)) return;
     const es = openHostEventStream(config.logsEndpoint);
 
     const procColors = new Map<string, string>();
@@ -551,6 +566,7 @@ function AppWithConfig({
   });
   const streamSettings = streamSettingsState.settings;
   const updateStreamPlayback = streamSettingsState.updatePlayback;
+  const streamTransportLocked = streamSettingsState.transportLocked;
 
   const wantsWebRtcVideo = streamSettings.transport === "webrtc";
   const handledWebRtcFailureRef = useRef<string | null>(null);
@@ -607,6 +623,7 @@ function AppWithConfig({
     );
     if (!decision) return;
     if (decision.type === "switch-to-http") {
+      if (streamTransportLocked) return;
       updateStreamPlayback({ transport: "http" });
       return;
     }
@@ -614,10 +631,15 @@ function AppWithConfig({
   }, [
     configuredWebRtcCodec,
     effectiveWebRtcCodec,
+    streamTransportLocked,
     updateStreamPlayback,
     wantsWebRtcVideo,
     webrtc.failure,
   ]);
+  const lockedWebRtcError =
+    streamTransportLocked && webrtc.failure && !webrtc.error
+      ? "WebRTC streaming failed. HTTP fallback is disabled for this session."
+      : null;
   // One-shot startup window; the JPEG seed paints immediately but only a
   // decoded H.264 frame proves AVCC is viable and cancels this fallback.
   useEffect(() => {
@@ -872,6 +894,19 @@ function AppWithConfig({
     sendKey("up", R);
   }, [sendKey]);
 
+  const clipboard = useClipboardToast(config.device);
+
+  const sendSimPaste = useCallback(async (pressed: Set<number>) => {
+    const gap = () => new Promise<void>((r) => setTimeout(r, 30));
+    for (const ev of simPasteHidEvents(pressed)) {
+      if (ev.type === "up") await gap();
+      sendKey(ev.type, ev.usage);
+      // Losing focus mid-sequence must release the Command we injected.
+      if (ev.type === "up") pressed.delete(ev.usage);
+      else pressed.add(ev.usage);
+    }
+  }, [sendKey]);
+
   const simContainerRef = useRef<HTMLDivElement | null>(null);
   const [deviceRenderedWidth, setDeviceRenderedWidth] = useState(0);
   const [deviceRenderedHeight, setDeviceRenderedHeight] = useState(0);
@@ -938,6 +973,7 @@ function AppWithConfig({
         if (type === "down" && !e.repeat) sendWs(0x0c, {});
         return;
       }
+      if (e.code === "KeyV" && (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey) return;
       const usage = hidUsageForCode(e.code);
       if (usage == null) return;
       e.preventDefault();
@@ -954,6 +990,27 @@ function AppWithConfig({
       window.removeEventListener("keyup", up);
     };
   }, [sendWs, config.device, rotateBy]);
+
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      if (!simFocusedRef.current) return;
+      if (isTypingTarget(e.target)) return;
+      const text = e.clipboardData?.getData("text/plain");
+      if (!text) return;
+      e.preventDefault();
+      void copyTextToSim(config.device, text, execOnHost)
+        .then((ok) => {
+          if (!ok) {
+            clipboard.reportPasteFailure();
+            return;
+          }
+          return sendSimPaste(pressedKeysRef.current);
+        })
+        .catch(() => clipboard.reportPasteFailure());
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [config.device, sendSimPaste, clipboard]);
 
   const uploads = useUploadToasts();
   const screenshot = useScreenshotToast(config.device);
@@ -1157,7 +1214,7 @@ function AppWithConfig({
                 streamMode={useWebRtcVideo ? "webrtc" : useAvccVideo ? "avcc" : "mjpeg"}
                 webRtcStream={webrtc.stream}
                 onWebRtcFrame={webrtc.markFrameDecoded}
-                streamError={useWebRtcVideo ? webrtc.error : null}
+                streamError={useWebRtcVideo ? webrtc.error ?? lockedWebRtcError : null}
                 onAvccError={() => dispatchAvccFallback("error")}
                 onAvccDecodedFrame={() => dispatchAvccFallback("decoded-frame")}
                 subscribeFrame={useAvccVideo ? undefined : mjpeg.subscribeFrame}
@@ -1262,6 +1319,10 @@ function AppWithConfig({
                 title="Screenshot"
                 onClick={(e) => { e.preventDefault(); void screenshot.capture(); }}
               />
+              <SimulatorToolbar.CopyButton
+                title="Copy simulator clipboard"
+                onClick={(e) => { e.preventDefault(); void clipboard.copyFromSim(); }}
+              />
               <SimulatorToolbar.RotateButton title="Rotate device" />
             </SimulatorToolbar.Actions>
           </SimulatorToolbar>
@@ -1344,10 +1405,14 @@ function AppWithConfig({
         onStreamPlaybackSettingsChange={streamSettingsState.updatePlayback}
         onStreamEncoderSettingsChange={streamSettingsState.updateEncoder}
         activeCodec={useWebRtcVideo ? `webrtc/${effectiveWebRtcCodec}` : useAvccVideo ? "h264" : "mjpeg"}
+        peerConnection={webrtc.peerConnection}
+        webrtcSessionId={webrtc.sessionId}
+        webrtcStatsUrl={webrtcStatsUrlFrom(config)}
         avccSupported={avcc.supported}
         streamSettingsPending={
           streamSettingsState.pending || !streamSettingsState.encoderSettingsAvailable
         }
+        streamTransportLocked={streamTransportLocked}
         width={toolsPanelWidth}
       />
       <ResizeHandle

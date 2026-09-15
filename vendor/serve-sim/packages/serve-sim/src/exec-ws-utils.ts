@@ -1,15 +1,5 @@
 export const EXEC_WS_MAX_MESSAGE_BYTES = 4 * 1024 * 1024;
 
-export interface ExecWebSocket {
-  readonly OPEN: number;
-  readonly readyState: number;
-  send(data: string): void;
-  close(): void;
-  on(event: "message", listener: (data: unknown) => void): void;
-  on(event: "error", listener: (error?: unknown) => void): void;
-  on(event: "close", listener: () => void): void;
-}
-
 export type SseRequestHandler = (
   path: string,
   websocketRequest: Request,

@@ -21,7 +21,10 @@ import type {
   AgentOptionsUpdated,
   AgentChatEvent,
 } from "./dto/agent-chat";
-import type { SimulatorDownloadProgress } from "./dto/simulator";
+import type {
+  SimulatorDevicesChanged,
+  SimulatorDownloadProgress,
+} from "./dto/simulator";
 import type {
   ProjectDeleteProgressNotification,
   WorkspaceDeleteProgressNotification,
@@ -63,6 +66,7 @@ export type WsEventContract = {
   automation_stale_prompt: { payload: AutomationStalePromptEvent };
   disk_analyzer_scan_progress: { payload: DiskScanProgress };
   simulator_download_progress: { payload: SimulatorDownloadProgress };
+  simulator_devices_changed: { payload: SimulatorDevicesChanged };
   resource_monitor_updated: { payload: ResourceMonitorSnapshot };
   agent_chat_event: { payload: AgentChatEvent };
   agent_options_updated: { payload: AgentOptionsUpdated };

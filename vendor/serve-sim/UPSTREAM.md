@@ -4,10 +4,10 @@
 |-------|--------|
 | Original upstream | https://github.com/EvanBacon/serve-sim |
 | Pin repository | https://github.com/expo/serve-sim |
-| Tag | `@expo/serve-sim@0.1.37` |
-| Commit | `b2c92534d373f2a2975a3c013c25a3ab3985f268` |
+| Tag | `@expo/serve-sim@0.1.48` |
+| Commit | `494ef2cce27bbdb2b214eb09e2b97fe7aad72039` |
 | License | Apache-2.0 |
-| Atmos fork version | `0.1.37-atmos.1` |
+| Atmos fork version | `0.1.48-atmos.1` |
 
 Atmos patches (see `ATMOS-PATCHES.md`):
 

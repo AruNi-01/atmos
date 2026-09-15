@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { execSync, spawnSync } from "child_process";
 import { join } from "path";
+import { parseDetachState } from "./detach-state";
 
 /**
  * Integration test for the accessibility endpoint.
@@ -63,7 +64,7 @@ describeWithSim(`serve-sim accessibility endpoint (booted sim ${bootedUdid ?? "<
 
     // The raw axe-shaped tree is served in-process at /helper/<device>/ax
     // (the root /ax is the normalized SSE stream). Derive it from streamUrl.
-    const state = JSON.parse(detach.stdout.trim()) as { streamUrl: string };
+    const state = parseDetachState<{ streamUrl: string }>(detach.stdout);
     axUrl = state.streamUrl.replace("stream.mjpeg", "ax");
   }, 60_000);
 

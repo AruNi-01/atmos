@@ -52,7 +52,7 @@ describe("DeviceKit chrome helpers", () => {
     expect(chrome?.buttons.some((button) => button.name === "digital-crown")).toBe(true);
   });
 
-  test("resolves Device Hub-style placeholder assets from CoreTypes metadata", () => {
+  test("resolves CoreTypes placeholder assets from metadata", () => {
     if (!existsSync("/System/Library/CoreServices/CoreTypes.bundle/Contents/Library/MobileDevices.bundle")) return;
 
     // The CoreTypes icon set ships with the host SDK, so older runner images

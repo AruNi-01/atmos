@@ -144,6 +144,42 @@ mod tests {
             parse_ws_action("simulator_press"),
             Some(WsAction::SimulatorPress)
         ));
+        assert!(matches!(
+            parse_ws_action("simulator_inventory"),
+            Some(WsAction::SimulatorInventory)
+        ));
+        assert!(matches!(
+            parse_ws_action("simulator_create"),
+            Some(WsAction::SimulatorCreate)
+        ));
+        assert!(matches!(
+            parse_ws_action("simulator_boot"),
+            Some(WsAction::SimulatorBoot)
+        ));
+        assert!(matches!(
+            parse_ws_action("simulator_shutdown"),
+            Some(WsAction::SimulatorShutdown)
+        ));
+        assert!(matches!(
+            parse_ws_action("simulator_delete"),
+            Some(WsAction::SimulatorDelete)
+        ));
+        assert!(matches!(
+            parse_ws_action("simulator_appearance_get"),
+            Some(WsAction::SimulatorAppearanceGet)
+        ));
+        assert!(matches!(
+            parse_ws_action("simulator_appearance_set"),
+            Some(WsAction::SimulatorAppearanceSet)
+        ));
+        assert!(matches!(
+            parse_ws_action("simulator_camera_inject"),
+            Some(WsAction::SimulatorCameraInject)
+        ));
+        assert!(matches!(
+            parse_ws_action("simulator_camera_clear"),
+            Some(WsAction::SimulatorCameraClear)
+        ));
     }
 
     #[test]

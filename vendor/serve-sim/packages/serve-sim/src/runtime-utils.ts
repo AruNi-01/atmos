@@ -1,14 +1,14 @@
 import { type IncomingMessage, type ServerResponse } from "http";
 import { once } from "events";
 import { Readable } from "stream";
-import { type ExecWebSocket } from "./exec-ws-utils";
+import { type UpgradeHandlerWebSocket } from "./middleware-utils";
 
 type RequestInitWithDuplex = RequestInit & { duplex?: "half" };
 
 /** Fetch-style middleware signature, matching what `simMiddleware` returns. */
 export type WebMiddleware = ((request: Request) => Response | undefined | Promise<Response | undefined>) & {
   /** WebSocket hook (exec channel); returns true when handled. */
-  handleWebSocket?: (request: Request, websocket: ExecWebSocket) => boolean;
+  handleWebSocket?: (request: Request, websocket: UpgradeHandlerWebSocket) => boolean;
 };
 
 export function nodeRequestToWeb(req: IncomingMessage, res?: ServerResponse): Request {

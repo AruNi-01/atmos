@@ -64,10 +64,12 @@ pub use service::center_layout::{
     MAX_SPACES_PER_HOST,
 };
 pub use service::device_preview::{
-    ClaimOwner, ClaimOwnerLookup, DeviceClaim, DeviceControlError, DeviceControlService,
-    DevicePreviewService, DevicePreviewSwipeInput, HelperKind, MapClaimOwnerLookup, PlatformProbe,
-    PressKey, SimulatorClaimList, SimulatorClaimListItem, SimulatorControlAck, SimulatorDevice,
-    SimulatorDeviceHandle, SimulatorProbe, SimulatorReason, SimulatorScreenshotResult,
+    Appearance, CameraLens, ClaimOwner, ClaimOwnerLookup, DeviceClaim, DeviceControlError,
+    DeviceControlService, DevicePreviewService, DevicePreviewSwipeInput, DeviceRuntime, DeviceType,
+    HelperKind, InventoryPlatform, MapClaimOwnerLookup, PlatformProbe, PressKey,
+    SimulatorAppearanceResult, SimulatorCameraAck, SimulatorClaimList, SimulatorClaimListItem,
+    SimulatorControlAck, SimulatorDevice, SimulatorDeviceHandle, SimulatorInventory,
+    SimulatorOpError, SimulatorProbe, SimulatorReason, SimulatorScreenshotResult,
     SimulatorStartResult, WorkspaceProjectOwnerLookup,
 };
 pub use service::disk_analyzer::{DiskAnalyzerScanEvent, DiskAnalyzerService};

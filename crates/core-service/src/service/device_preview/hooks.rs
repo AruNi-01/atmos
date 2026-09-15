@@ -1,5 +1,10 @@
+use std::path::PathBuf;
+
 use async_trait::async_trait;
-use core_engine::{AndroidSnapshot, IosSnapshot};
+use core_engine::{
+    AndroidImage, AndroidProfile, AndroidSnapshot, Appearance, DevicePlatform, IosRuntime,
+    IosSnapshot,
+};
 use tokio::process::Child;
 
 use super::types::{HelperKind, HelperPin};
@@ -47,4 +52,32 @@ pub trait DevicePreviewHooks: Send + Sync {
     async fn live_helper(&self, kind: HelperKind, device_ids: &[String]) -> Option<(u32, u16)>;
     async fn kill_orphans(&self, kind: HelperKind, device_ids: &[String], keep_pids: &[u32]);
     async fn hide_ios_simulator_app(&self);
+
+    fn ios_runtimes(&self) -> Vec<IosRuntime>;
+    fn android_profiles(&self) -> Vec<AndroidProfile>;
+    fn android_images(&self) -> Vec<AndroidImage>;
+    fn emulator_bin(&self) -> Option<PathBuf>;
+
+    async fn create_ios(&self, argv: &[String]) -> Result<String, String>;
+    async fn create_android(&self, argv: &[String]) -> Result<(), String>;
+    async fn boot_ios(&self, argv: &[String]) -> Result<(), String>;
+    async fn spawn_emulator(&self, argv: &[String]) -> Result<(), String>;
+    async fn shutdown_ios(&self, argv: &[String]) -> Result<(), String>;
+    async fn shutdown_android(&self, argv: &[String]) -> Result<(), String>;
+    async fn delete_ios(&self, argv: &[String]) -> Result<(), String>;
+    async fn delete_android(&self, argv: &[String]) -> Result<(), String>;
+
+    async fn appearance_get(
+        &self,
+        platform: DevicePlatform,
+        id: &str,
+    ) -> Result<Appearance, String>;
+    async fn appearance_set(
+        &self,
+        platform: DevicePlatform,
+        id: &str,
+        appearance: Appearance,
+    ) -> Result<(), String>;
+
+    fn camera_wired(&self, serial: &str) -> bool;
 }

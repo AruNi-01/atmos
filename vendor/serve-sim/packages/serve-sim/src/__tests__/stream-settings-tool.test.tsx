@@ -21,6 +21,7 @@ describe("StreamSettingsTool", () => {
         onPlaybackSettingsChange={() => {}}
         onEncoderSettingsChange={() => {}}
         activeCodec="h264"
+        peerConnection={null}
         avccSupported
       />,
     );
@@ -38,6 +39,7 @@ describe("StreamSettingsTool", () => {
         onPlaybackSettingsChange={() => {}}
         onEncoderSettingsChange={() => {}}
         activeCodec="mjpeg"
+        peerConnection={null}
         avccSupported={false}
       />,
     );
@@ -54,6 +56,7 @@ describe("StreamSettingsTool", () => {
         onPlaybackSettingsChange={() => {}}
         onEncoderSettingsChange={() => {}}
         activeCodec="webrtc/vp8"
+        peerConnection={null}
         avccSupported={false}
       />,
     );
@@ -62,5 +65,27 @@ describe("StreamSettingsTool", () => {
     expect(html).not.toMatch(/aria-label="Video FPS"[^>]*disabled=""/);
     expect(html).not.toMatch(/aria-label="Video bitrate"[^>]*disabled=""/);
     expect(html).toMatch(/aria-label="MJPEG FPS"[^>]*disabled=""/);
+  });
+
+  test("shows only WebRTC controls when the launch transport is locked", () => {
+    const html = renderToStaticMarkup(
+      <StreamSettingsTool
+        settings={{ ...settings, transport: "webrtc", webRtcCodec: "vp9" }}
+        onPlaybackSettingsChange={() => {}}
+        onEncoderSettingsChange={() => {}}
+        activeCodec="webrtc/vp9"
+        peerConnection={null}
+        avccSupported
+        transportLocked
+      />,
+    );
+
+    expect(html).toMatch(/aria-label="Transport"[^>]*disabled=""/);
+    expect(html).not.toContain("HTTP codec");
+    expect(html).not.toContain("MJPEG FPS");
+    expect(html).not.toContain("MJPEG quality");
+    expect(html).not.toMatch(/aria-label="WebRTC codec"[^>]*disabled=""/);
+    expect(html).not.toMatch(/aria-label="Video FPS"[^>]*disabled=""/);
+    expect(html).not.toMatch(/aria-label="Video bitrate"[^>]*disabled=""/);
   });
 });

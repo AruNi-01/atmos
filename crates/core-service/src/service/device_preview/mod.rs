@@ -19,14 +19,15 @@ mod tests;
 
 pub use control::{
     ClaimOwner, ClaimOwnerLookup, DeviceControlError, DeviceControlService,
-    DevicePreviewSwipeInput, MapClaimOwnerLookup, PressKey, SimulatorClaimList,
-    SimulatorClaimListItem, SimulatorControlAck, SimulatorDeviceHandle, SimulatorScreenshotResult,
-    WorkspaceProjectOwnerLookup,
+    DevicePreviewSwipeInput, MapClaimOwnerLookup, PressKey, SimulatorAppearanceResult,
+    SimulatorCameraAck, SimulatorClaimList, SimulatorClaimListItem, SimulatorControlAck,
+    SimulatorDeviceHandle, SimulatorScreenshotResult, WorkspaceProjectOwnerLookup,
 };
 pub use paths::DevicePreviewPaths;
 pub use service::DevicePreviewService;
 pub use types::{
-    claim_preview_url, helper_process_ids, preview_url, DeviceClaim, HelperKind, HelperPin,
-    LastDevicePref, PlatformProbe, SimulatorDevice, SimulatorProbe, SimulatorReason,
-    SimulatorStartResult,
+    claim_preview_url, helper_process_ids, preview_url, Appearance, CameraLens, DeviceClaim,
+    DeviceRuntime, DeviceType, HelperKind, HelperPin, InventoryPlatform, LastDevicePref,
+    PlatformProbe, SimulatorDevice, SimulatorInventory, SimulatorOpError, SimulatorProbe,
+    SimulatorReason, SimulatorStartResult,
 };

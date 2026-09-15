@@ -15,10 +15,12 @@ https://github.com/user-attachments/assets/fbf890f4-c8c7-4684-82be-d677b8a188f8
 
 ## Features 
 
-- Up to 60 FPS over HTTP, or low-latency 30 FPS over WebRTC.
+- Low-latency SimulatorKit capture with a 60 Hz IOSurface seed poll and configurable WebRTC cadence.
 - Swipe from the bottom to go home.
 - gestures like pinch to zoom by holding the option key.
-- Simulator logs are forwarded to the browser for browser-use MCP tools to read from.
+- Simulator logs are forwarded to the browser console on local previews. Remote
+  previews disable this high-volume stream by default; append `?logs=1` to the
+  preview URL to opt in explicitly.
 - Recent simulator actions are available in the browser tools panel and `serve-sim event-log`.
 - Drag and drop videos and images to add them to the simulator device. 
 - Keyboard commands and hot keys are forwarded to the simulator, including CMD+SHIFT+H to go home.
@@ -92,7 +94,7 @@ Options:
       --video-bitrate <bits-per-second>
                       H.264/WebRTC target bitrate
       --video-fps <fps>
-                      H.264/WebRTC frame rate (1-120)
+                      H.264/WebRTC frame rate (1-140)
       --list [device] List running streams
       --kill [device] Kill running stream(s)
 
@@ -112,6 +114,16 @@ WebRTC uses HTTP for SDP signaling and RTP for video. Simulator input and screen
 metadata continue over the existing helper WebSocket. ICE prefers a direct UDP
 path when one is reachable, even if the page was loaded through a tunnel URL;
 TURN is used as a fallback when direct/STUN candidates fail.
+Starting with `--transport webrtc` locks the preview to WebRTC for the lifetime
+of the server. The UI exposes only WebRTC codec and encoder controls, the
+settings API rejects HTTP-only controls, and the MJPEG/AVCC endpoints return
+`409 stream_transport_locked` instead of opening tunneled screen streams.
+While a peer is connected, one absolute-cadence publisher continuously submits
+the latest captured frame at the configured `--video-fps`. SimulatorKit change
+callbacks are supplemented by a 60 Hz IOSurface seed poll; that poll is a
+fallback cadence, not a capture FPS ceiling. The libwebrtc
+source adapter uses a 1,000 FPS safety ceiling and the RTP sender has no separate
+FPS cap, so neither can phase-collide with the publisher cadence.
 Multiple WebRTC viewers can use the same simulator simultaneously. They share
 one SimulatorKit capture source, while each viewer has an independent peer
 connection, encoder, congestion controller, and helper WebSocket. HTTP streams
@@ -205,19 +217,9 @@ Create a `.claude/launch.json` and define a server:
 
 ### Expo
 
-Expo apps don't need to touch `metro.config.js` — the [`expo-device-hub`](https://github.com/expo/expo-device-hub) plugin uses `serve-sim` and sets up the device streaming for you.
-
-```sh
-npx expo install expo-device-hub
-```
-
-Then run `npx expo start` and open the simulator preview at:
-
-```
-http://localhost:8081/_expo/plugins/expo-device-hub
-```
-
-No other configuration needed.
+Run `npx @expo/serve-sim` alongside your Expo dev server. The preview is at
+`http://localhost:3200` by default. No `metro.config.js` change is required to
+stream a booted iOS Simulator.
 
 ## Embed in your dev server
 
@@ -287,6 +289,12 @@ bun run packages/serve-sim/build.ts                    # full production build
 packages/serve-sim/Sources/SimNative/build.sh           # native addon only
 bun run --filter serve-sim dev                          # watch mode
 ```
+
+## Origin and attribution
+
+`serve-sim` was created and open-sourced by [Evan Bacon](https://github.com/EvanBacon) in the [original serve-sim project](https://github.com/EvanBacon/serve-sim). This repository is an Expo-maintained fork. We are grateful to Evan for creating the project and making it available to the community.
+
+See [NOTICE](NOTICE) for attribution details.
 
 ## License
 

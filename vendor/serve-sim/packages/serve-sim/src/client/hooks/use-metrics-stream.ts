@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 // Type-only — the sampler's node: imports must not reach the client bundle.
-import type { MetricSample, MetricsMeta } from "../../cpu-mem-sampler";
+import type { MetricSample, MetricsMeta } from "../../metrics-sampler";
 import { openHostEventStream } from "../utils/exec";
 
 export type { MetricSample, MetricsMeta };
