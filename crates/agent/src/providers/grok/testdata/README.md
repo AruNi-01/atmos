@@ -11,7 +11,7 @@ Live 1.0.17 handshake that works (same as 1.0.16):
 1. `initialize` `{ protocolVersion: 1, clientCapabilities: { fs, terminal }, clientInfo }`
 2. `session/new` `{ cwd, mcpServers: [] }` → `sessionId`, `models`, `configOptions`, `_meta`
 
-Inbound `_x.ai/announcements|mcp|models|settings|session_notification` frames are **notifications** (`id` omitted). Skip them; do not JSON-RPC-error. Live main `/ws` turns (2026-09-02, `grok 1.0.17`). Do **not** treat these as handshake/spawn failures or protocol success:
+Inbound `_x.ai/announcements|mcp|models|settings|session_notification` frames are **notifications** (`id` omitted). Do not JSON-RPC-error. Consume `_x.ai/session_notification` `sessionUpdate` `subagent_spawned` / `subagent_progress` / `subagent_finished` onto the spawn card (`subagent_spawned.json`, `subagent_progress.json`, `subagent_finished.json`, `subagent_started_background.txt`). Skip the rest as telemetry. Live main `/ws` turns (2026-09-02, `grok 1.0.17`). Do **not** treat these as handshake/spawn failures or protocol success:
 
 - default / `--model grok-4.6` → `402 Payment Required: Grok Build usage balance exhausted` (no `tool_call`)
 - `--model grok-4.5` → same `402` Grok Build exhausted

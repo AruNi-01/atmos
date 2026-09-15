@@ -11,7 +11,7 @@ use serde_json::Value;
 use crate::contract::{
     AgentTool, AgentToolKind, AgentToolParams, AgentToolResult, AgentToolStatus,
 };
-use crate::map::extract::{extract_task_id, first_string, labeled_id_from_text};
+use crate::map::extract::first_string;
 
 /// Wire names that spawn a child agent (after `normalize_label`).
 pub fn is_subagent_spawn_name(name: &str) -> bool {
@@ -259,28 +259,6 @@ pub enum XaiSubagentNotice {
     },
 }
 
-impl XaiSubagentNotice {
-    pub fn ids(&self) -> impl Iterator<Item = &str> {
-        match self {
-            Self::Spawned {
-                subagent_id,
-                child_session_id,
-                ..
-            }
-            | Self::Progress {
-                subagent_id,
-                child_session_id,
-                ..
-            }
-            | Self::Finished {
-                subagent_id,
-                child_session_id,
-                ..
-            } => [subagent_id.as_str(), child_session_id.as_str()].into_iter(),
-        }
-    }
-}
-
 pub fn is_xai_session_notification_method(method: &str) -> bool {
     let method = method.strip_prefix('_').unwrap_or(method);
     method == "x.ai/session_notification" || method == "x.ai/session/update"
@@ -485,7 +463,9 @@ pub fn apply_xai_subagent_notice(
     }
 }
 
-pub fn extract_task_id_from_output(value: &Value) -> Option<String> {
+#[cfg(test)]
+fn extract_task_id_from_output(value: &Value) -> Option<String> {
+    use crate::map::extract::{extract_task_id, labeled_id_from_text};
     extract_task_id(value).or_else(|| labeled_id_from_text(&raw_subagent_text(value)))
 }
 

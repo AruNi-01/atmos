@@ -229,6 +229,9 @@ pub struct StreamDelta {
     pub delta: String,
     pub done: bool,
     pub usage: Option<StreamUsage>,
+    /// ACP `sessionId` for this chunk. Child subagent sessions differ from the parent.
+    #[serde(default)]
+    pub session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -266,6 +269,9 @@ pub struct ToolCallUpdate {
     pub tool_call_id: String,
     /// Parent tool call ID when this tool call belongs to a nested/subagent invocation.
     pub parent_tool_call_id: Option<String>,
+    /// ACP `sessionId` for this tool. Child subagent sessions differ from the parent.
+    #[serde(default)]
+    pub session_id: Option<String>,
     pub tool: String,
     pub description: String,
     /// ACP protocol `ToolKind` slug (`read`, `execute`, `other`, …). Absent on patches.

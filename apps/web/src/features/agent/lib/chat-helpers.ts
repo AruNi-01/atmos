@@ -391,6 +391,12 @@ function waitingForBackgroundAgentsActivity(count: number): AgentActivity {
   return { busy: true, label, kind: "working", trail: "none" };
 }
 
+function isParentProcessTool(part: Extract<AgentPart, { type: "tool_call" }>): boolean {
+  if (isSubagentWaitTool(part)) return false;
+  if (part.kind === "subagent") return false;
+  return true;
+}
+
 function activityForToolPart(
   part: Extract<AgentPart, { type: "tool_call" }>,
   message: AgentMessage,
@@ -457,6 +463,31 @@ export function deriveAgentActivity(messages: AgentMessage[], turnOpen: boolean)
       ? chatHelpersT("activity.resumingSession", "Resuming session")
       : chatHelpersT("activity.creatingSession", "Creating session");
     return { busy: true, label, kind: "working" };
+  }
+
+  for (let i = last.parts.length - 1; i >= 0; i--) {
+    const part = last.parts[i];
+    if (isNestedSubagentChild(part)) continue;
+    if (
+      part.type === "tool_call"
+      && toolStatusIsActive(part.status)
+      && !isLiveBackgroundToolCall(part)
+      && isParentProcessTool(part)
+    ) {
+      return activityForToolPart(part, last);
+    }
+  }
+
+  for (let i = last.parts.length - 1; i >= 0; i--) {
+    const part = last.parts[i];
+    if (isNestedSubagentChild(part)) continue;
+    if (
+      part.type === "tool_call"
+      && toolStatusIsActive(part.status)
+      && isSubagentWaitTool(part)
+    ) {
+      return activityForToolPart(part, last);
+    }
   }
 
   for (let i = last.parts.length - 1; i >= 0; i--) {

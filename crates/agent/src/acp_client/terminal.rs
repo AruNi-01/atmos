@@ -392,6 +392,7 @@ mod tests {
         let mut update = ToolCallUpdate {
             tool_call_id: "tc".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Execute".into(),
             description: String::new(),
             acp_kind: Some("execute".into()),
@@ -426,6 +427,7 @@ mod tests {
         let mut update = ToolCallUpdate {
             tool_call_id: "tc".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Execute".into(),
             description: String::new(),
             acp_kind: Some("execute".into()),

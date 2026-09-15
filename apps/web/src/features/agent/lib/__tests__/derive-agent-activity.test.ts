@@ -82,6 +82,71 @@ describe("deriveAgentActivity", () => {
     ], true)).toMatchObject({ busy: true, kind: "working", label: "Generating" });
   });
 
+  it("follows later parent execute instead of a stuck subagent or wait Tool", () => {
+    const activity = deriveAgentActivity([
+      assistant([
+        {
+          type: "tool_call",
+          tool_call_id: "sub",
+          name: "Task",
+          kind: "subagent",
+          status: "running",
+          params: { type: "subagent", description: "Inspect tests", agent_type: "explore" },
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "wait",
+          name: "TaskOutput",
+          kind: "other",
+          status: "running",
+          params: { type: "other", value: { task_id: "child1" } },
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "bash",
+          name: "Bash",
+          kind: "execute",
+          status: "running",
+          params: { type: "execute", command: "ls", background: false },
+        },
+      ], { streaming: true }),
+    ], true);
+    expect(activity).toMatchObject({ busy: true, kind: "working", label: "Execute ls" });
+  });
+
+  it("omits nested child tools from parent activity", () => {
+    const activity = deriveAgentActivity([
+      assistant([
+        {
+          type: "tool_call",
+          tool_call_id: "sub",
+          name: "spawn_subagent",
+          kind: "subagent",
+          status: "completed",
+          params: { type: "subagent", description: "Read hello", agent_type: "explore" },
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "child-read",
+          name: "Read",
+          kind: "read",
+          status: "running",
+          parent_tool_call_id: "sub",
+          params: { type: "read", path: "hello2.txt" },
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "bash",
+          name: "Bash",
+          kind: "execute",
+          status: "running",
+          params: { type: "execute", command: "pwd", background: false },
+        },
+      ], { streaming: true }),
+    ], true);
+    expect(activity).toMatchObject({ busy: true, kind: "working", label: "Execute pwd" });
+  });
+
   it("lets a running tool take precedence over earlier thought", () => {
     const activity = deriveAgentActivity([
       assistant([

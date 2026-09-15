@@ -114,6 +114,7 @@ fn map_protocol_tool_call(
     ToolCallUpdate {
         tool_call_id,
         parent_tool_call_id: extract_parent_tool_use_id(claude_code_meta),
+        session_id: None,
         tool: extract_claude_tool_name(claude_code_meta)
             .unwrap_or_else(|| protocol_kind_name(kind)),
         description: title.unwrap_or("").to_string(),
@@ -551,6 +552,7 @@ impl AtmosAcpClient {
         let mut update = ToolCallUpdate {
             tool_call_id,
             parent_tool_call_id: None,
+            session_id: None,
             tool: String::new(),
             description: String::new(),
             acp_kind: Some("execute".into()),
@@ -887,6 +889,7 @@ impl AtmosAcpClient {
                     delta: text,
                     done: false,
                     usage: None,
+                    session_id: Some(args.session_id.to_string()),
                 }));
             }
             schema::SessionUpdate::AgentMessageChunk(schema::ContentChunk { content, .. }) => {
@@ -904,6 +907,7 @@ impl AtmosAcpClient {
                     delta: text,
                     done: false,
                     usage: None,
+                    session_id: Some(args.session_id.to_string()),
                 }));
             }
             schema::SessionUpdate::AgentThoughtChunk(schema::ContentChunk { content, .. }) => {
@@ -921,6 +925,7 @@ impl AtmosAcpClient {
                     delta: text,
                     done: false,
                     usage: None,
+                    session_id: Some(args.session_id.to_string()),
                 }));
             }
             schema::SessionUpdate::ToolCall(tool_call) => {
@@ -931,7 +936,7 @@ impl AtmosAcpClient {
                     _ => ToolCallStatus::Running,
                 };
                 let claude_code_meta = extract_claude_code_meta(&tool_call);
-                self.emit_mapped_tool_call(map_protocol_tool_call(
+                let mut mapped = map_protocol_tool_call(
                     tool_call.tool_call_id.to_string(),
                     Some(&tool_call.kind),
                     Some(tool_call.title.as_str()),
@@ -941,8 +946,9 @@ impl AtmosAcpClient {
                     Some(tool_call.locations.as_slice()),
                     &tool_call.content,
                     claude_code_meta.as_ref(),
-                ))
-                .await;
+                );
+                mapped.session_id = Some(args.session_id.to_string());
+                self.emit_mapped_tool_call(mapped).await;
             }
             schema::SessionUpdate::ToolCallUpdate(update) => {
                 let status = match update
@@ -957,7 +963,7 @@ impl AtmosAcpClient {
                 };
                 let claude_code_meta = extract_claude_code_meta(&update);
                 let content = update.fields.content.as_deref().unwrap_or(&[]);
-                self.emit_mapped_tool_call(map_protocol_tool_call(
+                let mut mapped = map_protocol_tool_call(
                     update.tool_call_id.to_string(),
                     update.fields.kind.as_ref(),
                     update.fields.title.as_deref(),
@@ -967,8 +973,9 @@ impl AtmosAcpClient {
                     update.fields.locations.as_deref(),
                     content,
                     claude_code_meta.as_ref(),
-                ))
-                .await;
+                );
+                mapped.session_id = Some(args.session_id.to_string());
+                self.emit_mapped_tool_call(mapped).await;
             }
             schema::SessionUpdate::Plan(plan) => {
                 let entries = plan

@@ -16,6 +16,7 @@ Live notes from `pi --mode rpc` (no `-p` / `--print` / `--mode json` / `--extens
 - `fork` / `clone` success `data` is `{text?, cancelled}` — new path comes from a following `get_state.sessionFile`
 - `agent_settled` completes the host turn; abort response is written **after** settled events
 - User `message_start` / `message_end` frames are emitted around each prompt
+- Subagent spawn is an optional extension (`agent_spawn` / `subagent`). `subagent_spawn.json` pins that tool name plus `description` / `task` / `subagent_type` / result `session_id`. Core Pi RPC has no built-in spawn tool.
 
 Live main `/ws` (2026-09-02): spawn/handshake/turn/`tool_call` (bash/execute **and write/edit**) and `/fork` pass. `/rewind` is **not** intercepted (user turn). This machine: `pi list` → no packages; `~/.pi/agent/extensions/` does not call `ui.confirm`.
 

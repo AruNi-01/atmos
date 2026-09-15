@@ -426,7 +426,12 @@ fn attach_subagent_activity(
     item: &Value,
     mut tool: AgentTool,
 ) -> Option<AgentTool> {
-    if item.get("type").and_then(Value::as_str) != Some("subAgentActivity") {
+    let item_type = item.get("type").and_then(Value::as_str).unwrap_or("");
+    let collab_tool = item.get("tool").and_then(Value::as_str).unwrap_or("");
+    let attach = item_type == "subAgentActivity"
+        || (matches!(item_type, "collabAgentToolCall" | "collabToolCall")
+            && matches!(collab_tool, "wait" | "close_agent" | "wait_agent"));
+    if !attach {
         return Some(tool);
     }
     let AgentToolParams::Subagent {
@@ -434,12 +439,22 @@ fn attach_subagent_activity(
         ..
     } = &tool.params
     else {
-        return None;
+        return if item_type == "subAgentActivity" {
+            None
+        } else {
+            Some(tool)
+        };
     };
-    let original = state.tools.get(task_id)?;
-    if original.kind != AgentToolKind::Subagent {
-        return None;
-    }
+    let original = match state.tools.get(task_id) {
+        Some(original) if original.kind == AgentToolKind::Subagent => original,
+        _ => {
+            return if item_type == "subAgentActivity" {
+                None
+            } else {
+                Some(tool)
+            };
+        }
+    };
     tool.tool_call_id = original.tool_call_id.clone();
     tool.parent_tool_call_id = original.parent_tool_call_id.clone();
     if tool.title.is_none() {
@@ -919,5 +934,35 @@ mod tests {
                     Some(crate::contract::AgentToolResult::Text { text }) if text == "All tests pass."
                 )
         ));
+    }
+
+    #[test]
+    fn collab_fixture_spawn_progress_and_wait_share_one_card() {
+        let mut state = EventMapState::new(AgentCurrentConfig::default());
+        let lines = include_str!("testdata/subagent_collab.jsonl");
+        let mut last_id = String::new();
+        for line in lines.lines().filter(|line| !line.trim().is_empty()) {
+            let item: serde_json::Value = serde_json::from_str(line).unwrap();
+            let events = map_notification(
+                &mut state,
+                Some("turn-1".into()),
+                "item/completed",
+                &serde_json::json!({ "item": item }),
+            );
+            if let Some(AgentEventEnvelope {
+                payload:
+                    AgentEvent::ToolCallCompleted { tool_call }
+                    | AgentEvent::ToolCallUpdated { tool_call }
+                    | AgentEvent::ToolCallStarted { tool_call },
+                ..
+            }) = events.first()
+            {
+                last_id = tool_call.tool_call_id.clone();
+            }
+        }
+        assert_eq!(last_id, "collab_1");
+        let tool = state.tools.get("collab_1").expect("spawn card");
+        assert_eq!(tool.kind, AgentToolKind::Subagent);
+        assert_eq!(tool.status, AgentToolStatus::Completed);
     }
 }

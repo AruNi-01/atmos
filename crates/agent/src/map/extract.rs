@@ -769,6 +769,18 @@ pub fn extract_task_id(value: &Value) -> Option<String> {
             return Some(id);
         }
     }
+    if let Some(items) = value.as_array() {
+        for item in items {
+            if let Some(id) = extract_task_id(item) {
+                return Some(id);
+            }
+            if let Some(text) = item.get("text").and_then(Value::as_str) {
+                if let Some(id) = labeled_id_from_text(text) {
+                    return Some(id);
+                }
+            }
+        }
+    }
     if let Some(id) = first_id(
         value,
         &[

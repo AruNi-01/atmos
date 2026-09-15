@@ -7,6 +7,8 @@ Pin used for these recordings:
 - **`message.part.delta.field`**: this is the JSON field on the part (`text`), not `part.type`. Reasoning vs answer is `part.type` (`reasoning` | `text`) looked up by `partID`. Deltas can arrive before the first `message.part.updated` for that `partID`.
 - **Question reply**: newer HttpApi `POST /session/{id}/question/{requestID}/reply` (204) and `…/reject`. Fallback: `POST /question/{requestID}/reply` if `/doc` only lists that. `openapi-doc.json` records the session-scoped paths.
 
+`subagent_task.json` is the OpenCode `task` tool part (`description` / `prompt` / `subagent_type`, optional `background`, result `task_id` + `output`) from `packages/opencode/src/tool/task.ts`.
+
 CI does not spawn a live `opencode` binary. Re-record `openapi-doc.json` and SSE from `GET /doc` + `GET /event` when paths or event names move.
 
 `remember` is **not** sent on permission replies: current `/doc` body is only `{ response }`; `always` is the remember dialect (do not send both).

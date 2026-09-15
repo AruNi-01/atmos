@@ -12,8 +12,9 @@ use crate::map::{
     extract_aspect_ratio, extract_background, extract_command, extract_cwd, extract_description,
     extract_generated_images, extract_image_prompt, extract_image_size, extract_links,
     extract_path, extract_query, extract_reference_paths, extract_search_hits, extract_skill,
-    extract_subagent, extract_subagent_prompt, extract_task_id, extract_url, human_execute_title,
-    sanitize_execute_output,
+    extract_subagent, extract_subagent_prompt, extract_task_id, extract_url, hold_subagent_open,
+    human_execute_title, is_background_spawn_notice, is_subagent_dispatch_ack,
+    parse_subagent_status, sanitize_execute_output, subagent_result_text,
 };
 
 use super::overlays::{self, OverlayState};
@@ -112,6 +113,7 @@ pub(crate) fn merge_tool_call_patch(
         parent_tool_call_id: incoming
             .parent_tool_call_id
             .or_else(|| prev.parent_tool_call_id.clone()),
+        session_id: incoming.session_id.or_else(|| prev.session_id.clone()),
         tool: if is_generic_tool_label(&incoming.tool) && !prev.tool.is_empty() {
             prev.tool.clone()
         } else {
@@ -223,21 +225,14 @@ fn build_typed_tool(
     output: Option<&Value>,
 ) -> AgentTool {
     let params = typed_params(kind, payload, update);
-    let dispatched_subagent = matches!(
-        &params,
-        AgentToolParams::Subagent {
-            task_id: Some(_),
-            ..
-        }
-    );
-    // A task ID means this tool has dispatched a child. Its own completed
-    // transport update does not mean the child completed.
-    let status = if dispatched_subagent {
+    let hold_open =
+        kind == AgentToolKind::Subagent && acp_hold_subagent_open(payload, output, update);
+    let status = if hold_open {
         AgentToolStatus::Running
     } else {
         map_status(&update.status)
     };
-    let result = match (&update.status, dispatched_subagent) {
+    let result = match (&update.status, hold_open) {
         (_, true) => None,
         (ToolCallStatus::Running, false) => None,
         (ToolCallStatus::Failed, false) => Some(mapped_result(kind, payload, output, update, true)),
@@ -259,6 +254,55 @@ fn build_typed_tool(
         params,
         result,
     }
+}
+
+fn acp_hold_subagent_open(
+    payload: Option<&Value>,
+    output: Option<&Value>,
+    update: &ToolCallUpdate,
+) -> bool {
+    if output.is_some_and(|value| {
+        matches!(
+            parse_subagent_status(value),
+            Some(AgentToolStatus::Completed | AgentToolStatus::Failed)
+        )
+    }) {
+        return false;
+    }
+    let output_text = output
+        .and_then(|value| {
+            value
+                .as_str()
+                .map(str::to_string)
+                .or_else(|| first_string(value, &["output", "text"]))
+        })
+        .or_else(|| content_text(&update.content))
+        .unwrap_or_default();
+    if is_background_spawn_notice(&output_text)
+        || is_subagent_dispatch_ack(&serde_json::json!(output_text))
+        || output.is_some_and(is_subagent_dispatch_ack)
+    {
+        return true;
+    }
+    if !output_text.trim().is_empty() {
+        return false;
+    }
+    if hold_subagent_open(payload, output) {
+        return true;
+    }
+    payload.is_some_and(|value| {
+        first_bool_opt(value, &["run_in_background", "background"]).unwrap_or(true)
+    })
+}
+
+fn first_bool_opt(value: &Value, keys: &[&str]) -> Option<bool> {
+    let object = value.as_object()?;
+    for key in keys {
+        if let Some(flag) = object.get(*key).and_then(Value::as_bool) {
+            return Some(flag);
+        }
+    }
+    None
 }
 
 fn cleaned_title(
@@ -415,7 +459,11 @@ fn typed_params(
                     .raw_output
                     .as_ref()
                     .and_then(extract_task_id)
-                    .or_else(|| value.and_then(extract_task_id)),
+                    .or_else(|| value.and_then(extract_task_id))
+                    .or_else(|| {
+                        content_text(&update.content)
+                            .and_then(|text| extract_task_id(&serde_json::json!(text)))
+                    }),
                 prompt,
             }
         }
@@ -510,10 +558,16 @@ fn mapped_result(
         AgentToolKind::Edit => diff_or_text(payload, output, update),
         AgentToolKind::Search => search_result(payload, output, update),
         AgentToolKind::ImageGen => images_result(payload, output, update),
+        AgentToolKind::Subagent => AgentToolResult::Text {
+            text: output
+                .map(subagent_result_text)
+                .filter(|text| !text.is_empty())
+                .or_else(|| result_text(output, update))
+                .unwrap_or_default(),
+        },
         AgentToolKind::Delete
         | AgentToolKind::Move
         | AgentToolKind::Skill
-        | AgentToolKind::Subagent
         | AgentToolKind::McpList
         | AgentToolKind::McpCall
         | AgentToolKind::PlanDocument => text_or_empty(result_text(output, update)),
@@ -1255,6 +1309,7 @@ mod tests {
         ToolCallUpdate {
             tool_call_id: "tc_1".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: name.into(),
             description: String::new(),
             acp_kind: None,
@@ -2209,6 +2264,7 @@ mod tests {
         let update = ToolCallUpdate {
             tool_call_id: raw["toolCallId"].as_str().unwrap().into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Tool".into(),
             description: raw["title"].as_str().unwrap_or("").into(),
             acp_kind: Some("other".into()),
@@ -2259,6 +2315,7 @@ mod tests {
         let update = ToolCallUpdate {
             tool_call_id: raw["toolCallId"].as_str().unwrap().into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Tool".into(),
             description: raw["title"].as_str().unwrap_or("").into(),
             acp_kind: Some("other".into()),
@@ -2287,6 +2344,7 @@ mod tests {
         let update = ToolCallUpdate {
             tool_call_id: "tc_amp_todos".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Tool".into(),
             description: "Update TODOs".into(),
             acp_kind: Some("other".into()),

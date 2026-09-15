@@ -17,6 +17,7 @@ use crate::map::{
     extract_subagent, extract_subagent_prompt, extract_task_id, extract_url, hold_subagent_open,
     human_execute_title, is_background_spawn_notice, is_human_tool_description,
     is_subagent_dispatch_ack, parse_subagent_status, sanitize_execute_output, store_subagent_tool,
+    strip_subagent_footers, subagent_result_text,
 };
 
 #[derive(Debug, Clone)]
@@ -127,6 +128,7 @@ pub(crate) fn merge_tool_call_patch(
         parent_tool_call_id: incoming
             .parent_tool_call_id
             .or_else(|| prev.parent_tool_call_id.clone()),
+        session_id: incoming.session_id.or_else(|| prev.session_id.clone()),
         tool: if is_generic_tool_label(&incoming.tool) && !prev.tool.is_empty() {
             prev.tool.clone()
         } else {
@@ -423,8 +425,7 @@ fn grok_hold_subagent_open(
         return false;
     }
     let content = content_text(&update.content);
-    let output_text = output
-        .and_then(value_text)
+    let output_text = value_text(output)
         .or_else(|| content.clone())
         .unwrap_or_default();
     if is_background_spawn_notice(&output_text)
@@ -731,16 +732,20 @@ fn mapped_result(
                 AgentToolResult::Images { images }
             }
         }
-        AgentToolKind::Delete
-        | AgentToolKind::Move
-        | AgentToolKind::Skill
-        | AgentToolKind::Subagent => AgentToolResult::Text {
+        AgentToolKind::Subagent => AgentToolResult::Text {
             text: output
                 .map(subagent_result_text)
                 .filter(|text| !text.is_empty())
                 .or_else(|| content_text(&update.content).map(|text| strip_subagent_footers(&text)))
                 .unwrap_or_default(),
         },
+        AgentToolKind::Delete | AgentToolKind::Move | AgentToolKind::Skill => {
+            AgentToolResult::Text {
+                text: value_text(output)
+                    .or_else(|| content_text(&update.content))
+                    .unwrap_or_default(),
+            }
+        }
         AgentToolKind::McpList | AgentToolKind::McpCall | AgentToolKind::PlanDocument => {
             AgentToolResult::Text {
                 text: value_text(output)
@@ -1603,6 +1608,7 @@ mod tests {
         ToolCallUpdate {
             tool_call_id: "tc_1".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: name.into(),
             description: String::new(),
             acp_kind: None,
@@ -1661,6 +1667,7 @@ mod tests {
         let tool = mapped(ToolCallUpdate {
             tool_call_id: "tc_list".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Tool".into(),
             description: "List `/Users/aarynlu/OpenSource/atmos/tmp`".into(),
             acp_kind: Some("read".into()),
@@ -1720,6 +1727,7 @@ mod tests {
         let poll = ToolCallUpdate {
             tool_call_id: "tc_poll".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Tool".into(),
             description: "get_command_or_subagent_output".into(),
             acp_kind: None,
@@ -1767,6 +1775,7 @@ mod tests {
         let kill = ToolCallUpdate {
             tool_call_id: "tc_kill".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Tool".into(),
             description: "kill_command_or_subagent".into(),
             acp_kind: None,
@@ -1796,6 +1805,7 @@ mod tests {
         let tool = mapped(ToolCallUpdate {
             tool_call_id: update_json["toolCallId"].as_str().unwrap().into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Tool".into(),
             description: update_json["title"].as_str().unwrap_or("").into(),
             acp_kind: update_json["kind"].as_str().map(str::to_string),
@@ -1825,6 +1835,7 @@ mod tests {
             &ToolCallUpdate {
                 tool_call_id: update_json["toolCallId"].as_str().unwrap().into(),
                 parent_tool_call_id: None,
+                session_id: None,
                 tool: "Tool".into(),
                 description: update_json["title"].as_str().unwrap_or("").into(),
                 acp_kind: None,
@@ -1849,6 +1860,7 @@ mod tests {
         ToolCallUpdate {
             tool_call_id: frame["toolCallId"].as_str().unwrap().into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: if frame["kind"].as_str() == Some("edit") {
                 "Edit".into()
             } else {
@@ -1978,6 +1990,7 @@ mod tests {
         let tool = mapped(ToolCallUpdate {
             tool_call_id: update_json["toolCallId"].as_str().unwrap().into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Tool".into(),
             description: update_json["title"].as_str().unwrap_or("").into(),
             acp_kind: update_json["kind"].as_str().map(str::to_string),
@@ -2094,6 +2107,7 @@ mod tests {
         let started = ToolCallUpdate {
             tool_call_id: "tc_grep".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Tool".into(),
             description: "grep".into(),
             acp_kind: None,
@@ -2112,6 +2126,7 @@ mod tests {
             ToolCallUpdate {
                 tool_call_id: "tc_grep".into(),
                 parent_tool_call_id: None,
+                session_id: None,
                 tool: "Search".into(),
                 description: "WebSearch|websearch|web_search".into(),
                 acp_kind: Some("search".into()),
@@ -2132,6 +2147,7 @@ mod tests {
             ToolCallUpdate {
                 tool_call_id: "tc_grep".into(),
                 parent_tool_call_id: None,
+                session_id: None,
                 tool: "Tool".into(),
                 description: String::new(),
                 acp_kind: None,
@@ -2305,6 +2321,7 @@ mod tests {
                 .unwrap()
                 .into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: fixture["taskoutput"]["name"].as_str().unwrap().into(),
             description: String::new(),
             acp_kind: None,
@@ -2334,6 +2351,7 @@ mod tests {
         let started = ToolCallUpdate {
             tool_call_id: "tc_grep".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Tool".into(),
             description: "grep".into(),
             acp_kind: Some("search".into()),
@@ -2352,6 +2370,7 @@ mod tests {
             ToolCallUpdate {
                 tool_call_id: "tc_grep".into(),
                 parent_tool_call_id: None,
+                session_id: None,
                 tool: "Tool".into(),
                 description: "test|Note|#".into(),
                 acp_kind: Some("search".into()),
@@ -2390,11 +2409,52 @@ mod tests {
     }
 
     #[test]
+    fn grok_background_notice_keeps_subagent_running() {
+        let mut grok_tasks = HashMap::new();
+        let notice = include_str!("testdata/subagent_started_background.txt");
+        let spawned = ToolCallUpdate {
+            tool_call_id: "tc_sub".into(),
+            parent_tool_call_id: None,
+            session_id: None,
+            tool: "Tool".into(),
+            description: "spawn_subagent".into(),
+            acp_kind: None,
+            status: ToolCallStatus::Completed,
+            raw_input: Some(serde_json::json!({
+                "description": "Read hello2.txt",
+                "prompt": "Read hello2.txt and return its contents.",
+                "subagent_type": "explore"
+            })),
+            content: vec![crate::acp_client::types::AgentToolCallContentItem::Text {
+                text: notice.to_string(),
+            }],
+            locations: Vec::new(),
+            raw_output: Some(serde_json::json!(notice)),
+            detail: None,
+        };
+        let ToolMapOut::Tool(sub) = map_tool_call(&spawned, &mut grok_tasks) else {
+            panic!("expected subagent");
+        };
+        assert_eq!(sub.kind, AgentToolKind::Subagent);
+        assert_eq!(sub.status, crate::contract::AgentToolStatus::Running);
+        assert!(sub.result.is_none());
+        match sub.params {
+            AgentToolParams::Subagent {
+                task_id: Some(task_id),
+                ..
+            } => assert_eq!(task_id, "sa-1"),
+            other => panic!("expected subagent_id from notice, got {other:?}"),
+        }
+        assert!(grok_tasks.contains_key("sa-1"));
+    }
+
+    #[test]
     fn grok_taskoutput_merges_into_parent_subagent() {
         let mut grok_tasks = HashMap::new();
         let spawned = ToolCallUpdate {
             tool_call_id: "tc_sub".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Tool".into(),
             description: "spawn_subagent".into(),
             acp_kind: None,
@@ -2419,6 +2479,7 @@ mod tests {
         let poll = ToolCallUpdate {
             tool_call_id: "tc_poll".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Tool".into(),
             description: "get_command_or_subagent_output".into(),
             acp_kind: None,
@@ -2461,6 +2522,7 @@ mod tests {
         let spawned = ToolCallUpdate {
             tool_call_id: "tc_sub".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Tool".into(),
             description: "spawn_subagent".into(),
             acp_kind: None,
@@ -2485,6 +2547,7 @@ mod tests {
         let poll = ToolCallUpdate {
             tool_call_id: "tc_poll".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Tool".into(),
             description: "get_command_or_subagent_output".into(),
             acp_kind: None,
@@ -2520,6 +2583,7 @@ mod tests {
         let done = ToolCallUpdate {
             tool_call_id: "tc_poll".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Tool".into(),
             description: "get_command_or_subagent_output".into(),
             acp_kind: None,
@@ -2557,6 +2621,7 @@ mod tests {
         let spawned = ToolCallUpdate {
             tool_call_id: "tc_sub".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Tool".into(),
             description: "spawn_subagent".into(),
             acp_kind: None,
@@ -2577,6 +2642,7 @@ mod tests {
         let poll = ToolCallUpdate {
             tool_call_id: "tc_poll".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Tool".into(),
             description: "get_command_or_subagent_output".into(),
             acp_kind: None,
@@ -2604,6 +2670,7 @@ mod tests {
         let spawned = ToolCallUpdate {
             tool_call_id: "tc_sub".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Tool".into(),
             description: "spawn_subagent".into(),
             acp_kind: None,
@@ -2628,6 +2695,7 @@ mod tests {
         let poll = ToolCallUpdate {
             tool_call_id: "tc_poll".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Tool".into(),
             description: "get_command_or_subagent_output".into(),
             acp_kind: None,
@@ -2650,6 +2718,7 @@ mod tests {
         let kill = ToolCallUpdate {
             tool_call_id: "tc_kill".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "Tool".into(),
             description: "kill_command_or_subagent".into(),
             acp_kind: None,

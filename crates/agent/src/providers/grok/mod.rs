@@ -27,7 +27,7 @@ use crate::contract::{
 };
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
 
-use event_map::{map_event, EventMapState};
+use event_map::{map_event, map_xai_subagent, EventMapState};
 use rpc::{
     fork_session_params, forked_session_id, interject_params, map_xai_notification,
     resolve_target_prompt_index, rewind_execute_failed, rewind_execute_params,
@@ -499,6 +499,9 @@ impl AgentRuntime for GrokMappedSession {
                     }
                     let turn_id = self.commands.running_turn.lock().await.clone();
                     let turn_id = turn_id.or_else(|| self.last_user_turn_id.clone());
+                    if let Some(event) = map_xai_subagent(&mut self.map, turn_id.clone(), &method, params.clone()) {
+                        return Some(event);
+                    }
                     if let Some(payload) = map_xai_notification(&method, params) {
                         return Some(AgentEventEnvelope::new(turn_id, payload));
                     }
