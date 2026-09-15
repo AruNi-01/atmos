@@ -41,7 +41,7 @@ fn walk_objects(value: &Value) -> Vec<&Map<String, Value>> {
     objects
 }
 
-fn first_string(value: &Value, keys: &[&str]) -> Option<String> {
+pub(crate) fn first_string(value: &Value, keys: &[&str]) -> Option<String> {
     for object in walk_objects(value) {
         for key in keys {
             if let Some(text) = object.get(*key).and_then(non_empty_str) {
@@ -715,8 +715,71 @@ pub fn extract_background(value: &Value) -> bool {
     first_bool(value, &["run_in_background", "is_background", "background"]).unwrap_or(false)
 }
 
+pub fn labeled_id_from_text(text: &str) -> Option<String> {
+    const MARKERS: &[&str] = &[
+        "subagent_id:",
+        "child_session_id:",
+        "agentId:",
+        "agent_id:",
+        "task_id:",
+    ];
+    for marker in MARKERS {
+        if let Some(id) = labeled_after(text, marker) {
+            return Some(id);
+        }
+    }
+    let lower = text.to_ascii_lowercase();
+    for marker in [
+        "subagent_id:",
+        "child_session_id:",
+        "agentid:",
+        "agent_id:",
+        "task_id:",
+    ] {
+        if let Some(pos) = lower.find(marker) {
+            if let Some(id) = text.get(pos + marker.len()..).and_then(take_id_token) {
+                return Some(id);
+            }
+        }
+    }
+    None
+}
+
+fn labeled_after(text: &str, marker: &str) -> Option<String> {
+    let pos = text.find(marker)?;
+    take_id_token(&text[pos + marker.len()..])
+}
+
+fn take_id_token(rest: &str) -> Option<String> {
+    let rest = rest.trim_start();
+    let end = rest
+        .find(|c: char| !(c.is_ascii_alphanumeric() || c == '-' || c == '_'))
+        .unwrap_or(rest.len());
+    let id = rest[..end].trim();
+    if id.is_empty() {
+        None
+    } else {
+        Some(id.to_string())
+    }
+}
+
 pub fn extract_task_id(value: &Value) -> Option<String> {
-    if let Some(id) = first_id(value, &["task_id", "taskId"]) {
+    if let Some(text) = value.as_str() {
+        if let Some(id) = labeled_id_from_text(text) {
+            return Some(id);
+        }
+    }
+    if let Some(id) = first_id(
+        value,
+        &[
+            "task_id",
+            "taskId",
+            "subagent_id",
+            "agentId",
+            "agent_id",
+            "child_session_id",
+        ],
+    ) {
         return Some(id);
     }
     for object in walk_objects(value) {
@@ -728,6 +791,25 @@ pub fn extract_task_id(value: &Value) -> Option<String> {
                     }
                     Value::Number(number) => return Some(number.to_string()),
                     _ => {}
+                }
+            }
+        }
+        for nested in object.values() {
+            if let Some(text) = nested.as_str() {
+                if let Some(id) = labeled_id_from_text(text) {
+                    return Some(id);
+                }
+            }
+            if let Some(items) = nested.as_array() {
+                for item in items {
+                    if let Some(text) = item
+                        .as_str()
+                        .or_else(|| item.get("text").and_then(Value::as_str))
+                    {
+                        if let Some(id) = labeled_id_from_text(text) {
+                            return Some(id);
+                        }
+                    }
                 }
             }
         }
@@ -1205,6 +1287,29 @@ mod tests {
         assert_eq!(links[0].title, "OpenCode Home");
         assert_eq!(links[1].url, "https://github.com/anomalyco/opencode");
         assert_eq!(links[1].title, "GitHub");
+    }
+
+    #[test]
+    fn extract_task_id_reads_subagent_id_and_labeled_text() {
+        assert_eq!(
+            extract_task_id(&serde_json::json!({"subagent_id": "sa-1"})).as_deref(),
+            Some("sa-1")
+        );
+        assert_eq!(
+            extract_task_id(&serde_json::json!(
+                "Subagent started in background.\nsubagent_id: sa-1\n"
+            ))
+            .as_deref(),
+            Some("sa-1")
+        );
+        assert_eq!(
+            extract_task_id(&serde_json::json!([{
+                "type": "text",
+                "text": "agentId: child1 (use SendMessage to resume)"
+            }]))
+            .as_deref(),
+            Some("child1")
+        );
     }
 
     #[test]

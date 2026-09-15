@@ -1,0 +1,14 @@
+{
+  "sessionId": "sess_parent",
+  "update": {
+    "sessionUpdate": "subagent_finished",
+    "subagent_id": "sa-1",
+    "child_session_id": "sa-1",
+    "status": "completed",
+    "tool_calls": 3,
+    "turns": 2,
+    "duration_ms": 4100,
+    "tokens_used": 1800,
+    "output": "hello from child"
+  }
+}

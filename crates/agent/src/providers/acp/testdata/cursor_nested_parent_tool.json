@@ -1,0 +1,16 @@
+{
+  "note": "Cursor ACP has no dedicated spawn tool. Nested Claude-ACP child tools use _meta.claudeCode.parentToolUseId.",
+  "toolCall": {
+    "toolCallId": "child_read",
+    "title": "Read README.md",
+    "kind": "read",
+    "status": "completed",
+    "rawInput": { "path": "README.md" },
+    "_meta": {
+      "claudeCode": {
+        "parentToolUseId": "parent_task",
+        "toolName": "Read"
+      }
+    }
+  }
+}
