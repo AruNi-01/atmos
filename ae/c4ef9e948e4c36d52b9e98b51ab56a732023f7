@@ -1,0 +1,38 @@
+crates/agent/src/providers/opencode/testdata/subagent_task.json
+  s_ee43cc22277171::t_06fb069dda7981 1-22
+crates/agent/src/providers/grok/testdata/subagent_progress.json
+  s_ee43cc22277171::t_d1ba9af52fd35a 1-17
+crates/agent/src/map/subagent.rs
+  s_ee43cc22277171::t_3ba636fedbb3a2 1-667,670-673
+  s_ee43cc22277171::t_06274640808958 668-669
+crates/agent/src/providers/claude/testdata/subagent_agent_output_completed.json
+  s_ee43cc22277171::t_21310f265b34c9 1-15
+crates/agent/src/providers/acp/testdata/cursor_nested_parent_tool.json
+  s_ee43cc22277171::t_139de97d3c4e07 1-16
+crates/agent/src/providers/grok/testdata/subagent_started_background.txt
+  s_ee43cc22277171::t_69daa70db38d05 1-6
+crates/agent/src/providers/grok/testdata/subagent_finished.json
+  s_ee43cc22277171::t_47c843c2b3f314 1-14
+crates/agent/src/providers/grok/testdata/subagent_spawned.json
+  s_ee43cc22277171::t_f0a339475909c6 1-11
+crates/agent/src/providers/codex/testdata/subagent_collab.jsonl
+  s_ee43cc22277171::t_b28f49c4d0a66a 1-4
+crates/agent/src/providers/pi/testdata/subagent_spawn.json
+  s_ee43cc22277171::t_cfaa103a6c4a60 1-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "aec4ef9e948e4c36d52b9e98b51ab56a732023f7",
+  "prompts": {},
+  "sessions": {
+    "s_ee43cc22277171": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0a4f5-d4fc-7e22-80b2-f18632936755",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
