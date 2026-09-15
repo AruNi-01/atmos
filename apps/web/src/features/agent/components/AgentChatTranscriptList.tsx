@@ -9,9 +9,11 @@
  * every scroll tick (isAtBottom / state) and would re-render the list.
  * The scroll element is StickToBottom's `.agent-chat-scroll` node.
  *
- * Pinned user prompts stay on the original virtual row (`absolute` + `translateY`).
- * Do not switch that row onto a CSS sticky containing block: it leaves the
- * virtualizer slot and fights React layout against scroll-driven push.
+ * Pinned user prompts use a CSS-sticky overlay (same pattern as Git history
+ * column chrome): a `sticky top-0 h-0` sibling of the virtualizer, not an
+ * `absolute` row whose `translateY` tracks `scrollTop`. JS only pushes `top`
+ * when the next user prompt arrives. The original row stays mounted and
+ * portals its view into the overlay so collapse state does not remount.
  */
 
 import React, {
@@ -23,7 +25,9 @@ import React, {
   useState,
   type RefObject,
 } from "react";
+import { createPortal } from "react-dom";
 import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual";
+import { useStickToBottomContext } from "@workspace/ui";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import {
   countMessagesBelowViewport,
@@ -33,7 +37,7 @@ import {
   nextUserMessageIndex,
   resolveActiveUserMessageIndex,
   resolveStickyUserMessageIndex,
-  stickyUserPinLayout,
+  stickyUserPushLayout,
   userMessageRectsFromMeasurements,
 } from "@/features/agent/lib/agent-chat-message-nav";
 import {
@@ -53,12 +57,32 @@ import {
 } from "@/features/agent/lib/agent-chat-transcript-window";
 import { AgentChatMessageView } from "./AgentChatMessageView";
 
+/**
+ * Captures StickToBottom.stopScroll without subscribing the virtualizer to
+ * context identity changes on every scroll tick.
+ */
+function StickToBottomStop({
+  stopRef,
+}: {
+  stopRef: React.MutableRefObject<(() => void) | null>;
+}) {
+  const { stopScroll } = useStickToBottomContext();
+  useLayoutEffect(() => {
+    stopRef.current = stopScroll;
+    return () => {
+      stopRef.current = null;
+    };
+  }, [stopRef, stopScroll]);
+  return null;
+}
+
 export function AgentChatTranscriptList({
   messages,
   registryId,
   transcriptRef,
   userMessageIndices,
   onActiveUserMessage,
+  onUserScrollIntent,
   scrollToIndexRef,
   belowCountStore = null,
   activityStatus = null,
@@ -68,6 +92,7 @@ export function AgentChatTranscriptList({
   transcriptRef: RefObject<HTMLDivElement | null>;
   userMessageIndices: readonly number[];
   onActiveUserMessage: (index: number) => void;
+  onUserScrollIntent?: () => void;
   scrollToIndexRef: RefObject<((index: number) => void) | null>;
   belowCountStore?: MessagesBelowCountStore | null;
   /**
@@ -78,12 +103,14 @@ export function AgentChatTranscriptList({
   activityStatus?: React.ReactNode;
 }) {
   const listRef = useRef<HTMLDivElement | null>(null);
+  const stickyWrapRef = useRef<HTMLDivElement | null>(null);
   const mermaidKeepRef = useRef<number[]>([]);
-  const stickyNodeRef = useRef<HTMLDivElement | null>(null);
   const stickyUserIndexRef = useRef<number | null>(null);
   const measurementsRef = useRef<Array<{ start: number; size: number } | undefined>>([]);
+  const stopStickRef = useRef<(() => void) | null>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
   const [stickyUserIndex, setStickyUserIndex] = useState<number | null>(null);
+  const [stickyHost, setStickyHost] = useState<HTMLDivElement | null>(null);
   const roles = messages.map((message) => message.role);
   const mermaidFlags = useMemo(() => messages.map(agentMessageHasMermaid), [messages]);
 
@@ -147,28 +174,28 @@ export function AgentChatTranscriptList({
   const syncActiveRef = useRef<() => void>(() => undefined);
   const didAnchorToEndRef = useRef(false);
 
-  const applyStickyPin = useCallback(
+  const applyStickyPush = useCallback(
     (stickyIndex: number, scroll: HTMLElement) => {
-      const node = stickyNodeRef.current;
-      if (!node || Number(node.dataset.index) !== stickyIndex) return;
+      const wrap = stickyWrapRef.current;
+      const host = stickyHost;
+      if (!wrap) return;
       const measurement = measurementsRef.current[stickyIndex];
       if (!measurement) return;
       const incomingIndex = nextUserMessageIndex(userMessageIndices, stickyIndex);
       const nextStart =
         incomingIndex == null ? null : measurementsRef.current[incomingIndex]?.start;
-      const pin = stickyUserPinLayout(
+      const pin = stickyUserPushLayout(
         scroll.scrollTop,
-        virtualizer.options.scrollMargin,
         measurement.size,
         nextStart,
         AGENT_CHAT_TRANSCRIPT_GAP,
         AGENT_CHAT_STICKY_USER_TOP_PX,
         AGENT_CHAT_STICKY_USER_FADE_PX,
       );
-      node.style.transform = `translateY(${pin.translateY}px)`;
-      node.dataset.stickyUserFade = pin.hideFade ? "off" : "";
+      wrap.style.top = `${AGENT_CHAT_STICKY_USER_TOP_PX + pin.pushPx}px`;
+      if (host) host.dataset.stickyUserFade = pin.hideFade ? "off" : "";
     },
-    [userMessageIndices, virtualizer],
+    [stickyHost, userMessageIndices],
   );
 
   const updateStickyUser = useCallback(() => {
@@ -183,8 +210,11 @@ export function AgentChatTranscriptList({
       stickyUserIndexRef.current = next;
       setStickyUserIndex(next);
     }
-    if (next != null) applyStickyPin(next, scroll);
-  }, [applyStickyPin, getScrollElement, userMessageIndices, virtualizer]);
+    if (next != null) applyStickyPush(next, scroll);
+    else if (stickyWrapRef.current) {
+      stickyWrapRef.current.style.top = `${AGENT_CHAT_STICKY_USER_TOP_PX}px`;
+    }
+  }, [applyStickyPush, getScrollElement, userMessageIndices, virtualizer]);
 
   useLayoutEffect(() => {
     if (didAnchorToEndRef.current || messages.length === 0) return;
@@ -221,12 +251,20 @@ export function AgentChatTranscriptList({
 
   useLayoutEffect(() => {
     scrollToIndexRef.current = (index: number) => {
+      stopStickRef.current?.();
+      const scroll = getScrollElement();
+      const measurement = virtualizer.measurementsCache[index];
+      if (scroll && measurement) {
+        const top = Math.max(0, measurement.start - virtualizer.options.scrollMargin);
+        scroll.scrollTo({ top, behavior: "smooth" });
+        return;
+      }
       virtualizer.scrollToIndex(index, { align: "start", behavior: "smooth" });
     };
     return () => {
       scrollToIndexRef.current = null;
     };
-  }, [scrollToIndexRef, virtualizer]);
+  }, [getScrollElement, scrollToIndexRef, virtualizer]);
 
   useLayoutEffect(() => {
     syncActiveRef.current = () => {
@@ -285,77 +323,107 @@ export function AgentChatTranscriptList({
     };
   }, [getScrollElement, updateStickyUser]);
 
+  useEffect(() => {
+    const scroll = getScrollElement();
+    if (!scroll || !onUserScrollIntent) return;
+    const onIntent = () => onUserScrollIntent();
+    scroll.addEventListener("wheel", onIntent, { passive: true });
+    scroll.addEventListener("touchmove", onIntent, { passive: true });
+    scroll.addEventListener("pointerdown", onIntent);
+    return () => {
+      scroll.removeEventListener("wheel", onIntent);
+      scroll.removeEventListener("touchmove", onIntent);
+      scroll.removeEventListener("pointerdown", onIntent);
+    };
+  }, [getScrollElement, onUserScrollIntent]);
+
   const lastIndex = messages.length - 1;
   const listScrollMargin = virtualizer.options.scrollMargin;
   const scrollTop = getScrollElement()?.scrollTop ?? 0;
+  const stickyMeasurement =
+    stickyUserIndex == null ? undefined : virtualizer.measurementsCache[stickyUserIndex];
+  const incomingIndex =
+    stickyUserIndex == null ? null : nextUserMessageIndex(userMessageIndices, stickyUserIndex);
+  const nextStart =
+    incomingIndex == null ? null : virtualizer.measurementsCache[incomingIndex]?.start;
+  const push = stickyMeasurement
+    ? stickyUserPushLayout(
+        scrollTop,
+        stickyMeasurement.size,
+        nextStart,
+        AGENT_CHAT_TRANSCRIPT_GAP,
+        AGENT_CHAT_STICKY_USER_TOP_PX,
+        AGENT_CHAT_STICKY_USER_FADE_PX,
+      )
+    : { pushPx: 0, hideFade: false };
 
   return (
-    <div
-      ref={listRef}
-      data-agent-chat-transcript="virtual"
-      className="relative w-full"
-      style={{ height: virtualizer.getTotalSize(), overflowAnchor: "none" }}
-    >
-      {virtualItems.map((item) => {
-        const message = messages[item.index];
-        if (!message) return null;
-        const showActivityFooter = activityStatus != null && item.index === lastIndex;
-        const isStickyUser = message.role === "user" && item.index === stickyUserIndex;
-        const incomingIndex = isStickyUser
-          ? nextUserMessageIndex(userMessageIndices, item.index)
-          : null;
-        const nextStart =
-          incomingIndex == null
-            ? null
-            : virtualizer.measurementsCache[incomingIndex]?.start;
-        const pin = isStickyUser
-          ? stickyUserPinLayout(
-              scrollTop,
-              listScrollMargin,
-              item.size,
-              nextStart,
-              AGENT_CHAT_TRANSCRIPT_GAP,
-              AGENT_CHAT_STICKY_USER_TOP_PX,
-              AGENT_CHAT_STICKY_USER_FADE_PX,
-            )
-          : null;
-        const translateY = pin?.translateY ?? item.start - listScrollMargin;
-        const hideStickyFade = pin?.hideFade === true;
-        return (
-          <div
-            key={item.key}
-            data-index={item.index}
-            data-agent-chat-sticky-user={isStickyUser ? "" : undefined}
-            data-sticky-user-fade={hideStickyFade ? "off" : undefined}
-            ref={(node) => {
-              virtualizer.measureElement(node);
-              if (isStickyUser) stickyNodeRef.current = node;
-              else if (stickyNodeRef.current === node) stickyNodeRef.current = null;
-            }}
-            className={
-              isStickyUser
-                ? `absolute top-0 left-0 w-full ${AGENT_CHAT_STICKY_USER_ROW_CLASS}`
-                : "absolute top-0 left-0 w-full"
-            }
-            style={{
-              transform: `translateY(${translateY}px)`,
-            }}
-          >
-            <AgentChatMessageView
-              message={message}
-              index={item.index}
-            />
-            {showActivityFooter ? (
-              <div
-                data-agent-chat-activity-status=""
-                className="mx-auto mt-2 w-[calc(100%-1rem)]"
-              >
-                {activityStatus}
-              </div>
-            ) : null}
-          </div>
-        );
-      })}
+    <div className="relative w-full">
+      <StickToBottomStop stopRef={stopStickRef} />
+      <div
+        ref={stickyWrapRef}
+        data-agent-chat-sticky-user-wrap=""
+        className="pointer-events-none sticky top-0 z-20 h-0 w-full"
+        style={{ top: AGENT_CHAT_STICKY_USER_TOP_PX + push.pushPx }}
+      >
+        <div
+          ref={setStickyHost}
+          data-agent-chat-sticky-user={stickyUserIndex != null ? "" : undefined}
+          data-sticky-user-fade={push.hideFade ? "off" : undefined}
+          className={
+            stickyUserIndex != null
+              ? `pointer-events-auto w-full ${AGENT_CHAT_STICKY_USER_ROW_CLASS}`
+              : undefined
+          }
+        />
+      </div>
+      <div
+        ref={listRef}
+        data-agent-chat-transcript="virtual"
+        className="relative w-full"
+        style={{ height: virtualizer.getTotalSize(), overflowAnchor: "none" }}
+      >
+        {virtualItems.map((item) => {
+          const message = messages[item.index];
+          if (!message) return null;
+          const showActivityFooter = activityStatus != null && item.index === lastIndex;
+          const isStickyUser = message.role === "user" && item.index === stickyUserIndex;
+          const pinToOverlay = isStickyUser && stickyHost != null;
+          const children = (
+            <>
+              <AgentChatMessageView
+                message={message}
+                index={item.index}
+              />
+              {showActivityFooter ? (
+                <div
+                  data-agent-chat-activity-status=""
+                  className="mx-auto mt-2 w-[calc(100%-1rem)]"
+                >
+                  {activityStatus}
+                </div>
+              ) : null}
+            </>
+          );
+          return (
+            <div
+              key={item.key}
+              data-index={item.index}
+              ref={(node) => {
+                if (node && !pinToOverlay) virtualizer.measureElement(node);
+              }}
+              className="absolute top-0 left-0 w-full"
+              style={{
+                transform: `translateY(${item.start - listScrollMargin}px)`,
+                height: pinToOverlay ? item.size : undefined,
+                visibility: pinToOverlay ? "hidden" : undefined,
+              }}
+            >
+              {pinToOverlay && stickyHost ? createPortal(children, stickyHost) : children}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

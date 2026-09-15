@@ -245,7 +245,7 @@ fn parse_opencode_auth_list(text: &str) -> Option<bool> {
 
 fn credential_count(lower: &str) -> Option<u32> {
     let idx = lower.find(" credentials")?;
-    let before = lower[..idx].as_bytes();
+    let before = &lower.as_bytes()[..idx];
     let mut end = before.len();
     while end > 0 && before[end - 1].is_ascii_whitespace() {
         end -= 1;

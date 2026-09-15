@@ -62,7 +62,13 @@ describe("header button hover", () => {
     expect(actions).not.toContain("transition-colors duration-200 ease-out hover:bg-accent");
 
     const bell = read("../HeaderAttentionBell.tsx");
+    expect(bell).toContain("NotificationBell");
+    expect(bell).toContain('color={badgeReason === "permission_request" ? "orange" : "green"}');
+    expect(bell).toContain("BADGE_INSET");
+    expect(bell).toContain("TRAILING_GAP");
+    expect(bell).toContain("scale: 0.45");
     expect(bell).not.toContain("transition-colors duration-200");
+    expect(bell).not.toContain("<Bell");
 
     const quota = read("../QuotaPopover.tsx");
     expect(quota).toContain(

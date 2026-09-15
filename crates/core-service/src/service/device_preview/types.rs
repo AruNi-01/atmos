@@ -1,6 +1,8 @@
 use core_engine::{BootState, DevicePlatform, HostDevice};
 use serde::{Deserialize, Serialize};
 
+pub use core_engine::Appearance;
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum HelperKind {
@@ -8,7 +10,7 @@ pub enum HelperKind {
     ServeEmu,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SimulatorReason {
     Ok,
@@ -28,6 +30,116 @@ pub enum SimulatorReason {
     EmulatorMissing,
     NoAvd,
     DeviceAlreadyClaimed,
+    DeviceNotBooted,
+    RuntimeMissing,
+    SystemImageMissing,
+    DeviceTypeUnknown,
+    CreateFailed,
+    BootFailed,
+    ShutdownFailed,
+    DeleteFailed,
+    CameraUnavailable,
+    AppearanceUnavailable,
+    UnsupportedOnPlatform,
+}
+
+impl SimulatorReason {
+    pub fn as_code(&self) -> &'static str {
+        match self {
+            Self::Ok => "ok",
+            Self::UnsupportedPlatform => "unsupported_platform",
+            Self::UnsupportedArch => "unsupported_arch",
+            Self::MacosTooOld => "macos_too_old",
+            Self::XcodeMissing => "xcode_missing",
+            Self::SimctlMissing => "simctl_missing",
+            Self::NoRuntime => "no_runtime",
+            Self::NoDevice => "no_device",
+            Self::HelperMissing => "helper_missing",
+            Self::DownloadFailed => "download_failed",
+            Self::ChecksumMismatch => "checksum_mismatch",
+            Self::StartFailed => "start_failed",
+            Self::AndroidSdkMissing => "android_sdk_missing",
+            Self::AdbMissing => "adb_missing",
+            Self::EmulatorMissing => "emulator_missing",
+            Self::NoAvd => "no_avd",
+            Self::DeviceAlreadyClaimed => "device_already_claimed",
+            Self::DeviceNotBooted => "device_not_booted",
+            Self::RuntimeMissing => "runtime_missing",
+            Self::SystemImageMissing => "system_image_missing",
+            Self::DeviceTypeUnknown => "device_type_unknown",
+            Self::CreateFailed => "create_failed",
+            Self::BootFailed => "boot_failed",
+            Self::ShutdownFailed => "shutdown_failed",
+            Self::DeleteFailed => "delete_failed",
+            Self::CameraUnavailable => "camera_unavailable",
+            Self::AppearanceUnavailable => "appearance_unavailable",
+            Self::UnsupportedOnPlatform => "unsupported_on_platform",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SimulatorOpError {
+    pub reason: SimulatorReason,
+}
+
+impl SimulatorOpError {
+    pub fn new(reason: SimulatorReason) -> Self {
+        Self { reason }
+    }
+}
+
+impl std::fmt::Display for SimulatorOpError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.reason.as_code())
+    }
+}
+
+impl std::error::Error for SimulatorOpError {}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CameraLens {
+    Front,
+    Back,
+}
+
+impl CameraLens {
+    pub fn to_engine(self) -> core_engine::CameraLens {
+        match self {
+            Self::Front => core_engine::CameraLens::Front,
+            Self::Back => core_engine::CameraLens::Back,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DeviceType {
+    pub id: String,
+    pub name: String,
+    pub platform: DevicePlatform,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DeviceRuntime {
+    pub id: String,
+    pub name: String,
+    pub platform: DevicePlatform,
+    /// iOS only: types valid with this runtime. Empty on Android.
+    pub supported_device_types: Vec<DeviceType>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct InventoryPlatform {
+    pub devices: Vec<SimulatorDevice>,
+    pub device_types: Vec<DeviceType>,
+    pub runtimes: Vec<DeviceRuntime>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SimulatorInventory {
+    pub ios: InventoryPlatform,
+    pub android: InventoryPlatform,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

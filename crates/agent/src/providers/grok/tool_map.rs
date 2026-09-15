@@ -14,11 +14,13 @@ use crate::map::{
     extract_aspect_ratio, extract_background, extract_command, extract_cwd, extract_description,
     extract_generated_images, extract_image_prompt, extract_image_size, extract_links,
     extract_path, extract_query, extract_reference_paths, extract_search_hits, extract_skill,
-    extract_subagent, extract_subagent_prompt, extract_task_id, extract_url, human_execute_title,
-    is_human_tool_description, sanitize_execute_output,
+    extract_subagent, extract_subagent_prompt, extract_task_id, extract_url, hold_subagent_open,
+    human_execute_title, is_background_spawn_notice, is_human_tool_description,
+    is_subagent_dispatch_ack, parse_subagent_status, sanitize_execute_output, store_subagent_tool,
 };
 
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum ToolMapOut {
     FoldThinking {
         text: String,
@@ -287,7 +289,8 @@ fn map_grok_task_output(
         && original.kind == AgentToolKind::Subagent
         && incoming_status == AgentToolStatus::Running
     {
-        let wait = subagent_wait_tool(update);
+        let mut wait = subagent_wait_tool(update);
+        wait.parent_tool_call_id = Some(original.tool_call_id.clone());
         grok_tasks.insert(update.tool_call_id.clone(), wait.clone());
         return ToolMapOut::Tool(wait);
     }
@@ -296,11 +299,13 @@ fn map_grok_task_output(
     if !kill || original.result.is_none() {
         original.result = Some(match original.kind {
             AgentToolKind::Subagent => AgentToolResult::Text {
-                text: strip_grok_poll_footer(
-                    &value_text(output)
+                text: strip_subagent_footers(&strip_grok_poll_footer(
+                    &output
+                        .map(subagent_result_text)
+                        .filter(|text| !text.is_empty())
                         .or_else(|| content_text(&update.content))
                         .unwrap_or_default(),
-                ),
+                )),
             },
             _ => execute_result(output, Some(update)),
         });
@@ -313,10 +318,8 @@ fn map_grok_task_output(
         | AgentToolParams::Subagent {
             task_id: stored_task,
             ..
-        } => {
-            if stored_task.is_none() {
-                *stored_task = Some(task_id.clone());
-            }
+        } if stored_task.is_none() => {
+            *stored_task = Some(task_id.clone());
         }
         _ => {}
     }
@@ -363,7 +366,7 @@ fn remember_grok_task(
             }
         }
         AgentToolParams::Subagent { .. } => {
-            grok_tasks.insert(tool.tool_call_id.clone(), tool.clone());
+            store_subagent_tool(grok_tasks, tool);
             if let Some(task_id) = task_id_of(output) {
                 grok_tasks.insert(task_id, tool.clone());
             }
@@ -379,21 +382,14 @@ fn build_typed_tool(
     output: Option<&Value>,
 ) -> Option<AgentTool> {
     let params = typed_params(kind, payload, output, update)?;
-    let dispatched_subagent = matches!(
-        &params,
-        AgentToolParams::Subagent {
-            task_id: Some(_),
-            ..
-        }
-    );
-    // `spawn_subagent` completes its dispatch tool call before the child itself
-    // finishes. The later TaskOutput poll is authoritative for child status/output.
-    let status = if dispatched_subagent {
+    let hold_open =
+        kind == AgentToolKind::Subagent && grok_hold_subagent_open(payload, output, update);
+    let status = if hold_open {
         AgentToolStatus::Running
     } else {
         map_status(&update.status)
     };
-    let result = match (&update.status, dispatched_subagent) {
+    let result = match (&update.status, hold_open) {
         (_, true) => None,
         (ToolCallStatus::Running, false) => None,
         (ToolCallStatus::Failed, false) => Some(mapped_result(kind, payload, output, update, true)),
@@ -411,6 +407,52 @@ fn build_typed_tool(
         params,
         result,
     })
+}
+
+fn grok_hold_subagent_open(
+    payload: Option<&Value>,
+    output: Option<&Value>,
+    update: &ToolCallUpdate,
+) -> bool {
+    if output.is_some_and(|value| {
+        matches!(
+            parse_subagent_status(value),
+            Some(AgentToolStatus::Completed | AgentToolStatus::Failed)
+        )
+    }) {
+        return false;
+    }
+    let content = content_text(&update.content);
+    let output_text = output
+        .and_then(value_text)
+        .or_else(|| content.clone())
+        .unwrap_or_default();
+    if is_background_spawn_notice(&output_text)
+        || is_subagent_dispatch_ack(&serde_json::json!(output_text))
+        || output.is_some_and(is_subagent_dispatch_ack)
+    {
+        return true;
+    }
+    if !output_text.trim().is_empty() {
+        return false;
+    }
+    if hold_subagent_open(payload, output) {
+        return true;
+    }
+    // Grok TaskToolInput.run_in_background defaults true when omitted.
+    payload.is_some_and(|value| {
+        first_bool_opt(value, &["run_in_background", "background"]).unwrap_or(true)
+    })
+}
+
+fn first_bool_opt(value: &Value, keys: &[&str]) -> Option<bool> {
+    let object = value.as_object()?;
+    for key in keys {
+        if let Some(flag) = object.get(*key).and_then(Value::as_bool) {
+            return Some(flag);
+        }
+    }
+    None
 }
 
 /// Keep Search titles stable: Grok often overwrites `grep` with the raw query.
@@ -536,10 +578,16 @@ fn typed_params(
                 )
             });
             let prompt = value.and_then(|value| extract_subagent_prompt(value, &description));
+            let task_id = task_id_of(output)
+                .or_else(|| task_id_of(value))
+                .or_else(|| {
+                    content_text(&update.content)
+                        .and_then(|text| extract_task_id(&serde_json::json!(text)))
+                });
             Some(AgentToolParams::Subagent {
                 description,
                 agent_type,
-                task_id: task_id_of(output).or_else(|| task_id_of(value)),
+                task_id,
                 prompt,
             })
         }
@@ -686,14 +734,20 @@ fn mapped_result(
         AgentToolKind::Delete
         | AgentToolKind::Move
         | AgentToolKind::Skill
-        | AgentToolKind::Subagent
-        | AgentToolKind::McpList
-        | AgentToolKind::McpCall
-        | AgentToolKind::PlanDocument => AgentToolResult::Text {
-            text: value_text(output)
-                .or_else(|| content_text(&update.content))
+        | AgentToolKind::Subagent => AgentToolResult::Text {
+            text: output
+                .map(subagent_result_text)
+                .filter(|text| !text.is_empty())
+                .or_else(|| content_text(&update.content).map(|text| strip_subagent_footers(&text)))
                 .unwrap_or_default(),
         },
+        AgentToolKind::McpList | AgentToolKind::McpCall | AgentToolKind::PlanDocument => {
+            AgentToolResult::Text {
+                text: value_text(output)
+                    .or_else(|| content_text(&update.content))
+                    .unwrap_or_default(),
+            }
+        }
         AgentToolKind::Other => match update.raw_output.clone() {
             Some(value) => AgentToolResult::Other { value },
             None => AgentToolResult::Empty,
@@ -2457,7 +2511,7 @@ mod tests {
         assert_eq!(wait.kind, AgentToolKind::Other);
         assert_eq!(wait.status, crate::contract::AgentToolStatus::Running);
         assert_eq!(wait.name, "get_command_or_subagent_output");
-        assert!(wait.parent_tool_call_id.is_none());
+        assert_eq!(wait.parent_tool_call_id.as_deref(), Some("tc_sub"));
         assert_eq!(
             grok_tasks.get("tc_sub").map(|tool| tool.kind),
             Some(AgentToolKind::Subagent)

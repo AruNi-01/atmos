@@ -89,6 +89,9 @@ describe("Resource Monitor live session titles", () => {
     expect(hierarchySrc).toContain("data-resource-monitor-session-trigger");
     expect(hierarchySrc).toContain("data-resource-monitor-session-locate");
     expect(hierarchySrc).toContain("data-resource-monitor-session-row");
+    expect(hierarchySrc).toContain("group/session");
+    expect(hierarchySrc).toContain("group-hover/session:opacity-0");
+    expect(hierarchySrc).toContain("ResourceMonitorSessionIcon");
     expect(hierarchySrc).toContain("data-session-id");
     expect(hierarchySrc).toContain("data-resource-monitor-space-badge");
     expect(hierarchySrc).toContain("resolveResourceMonitorSessionSpaceBadge");

@@ -256,6 +256,7 @@ fn ip_is_blocked(ip: IpAddr, allow_proxy_fake_ip: bool) -> bool {
     }
 }
 
+#[cfg(test)]
 fn ipv4_is_unsafe(ip: Ipv4Addr) -> bool {
     ipv4_is_blocked(ip, false)
 }
@@ -447,28 +448,27 @@ fn decode_entities(value: &str) -> String {
     while let Some(amp) = rest.find('&') {
         out.push_str(&rest[..amp]);
         rest = &rest[amp..];
-        if rest.starts_with("&amp;") {
+        if let Some(stripped) = rest.strip_prefix("&amp;") {
             out.push('&');
-            rest = &rest[5..];
-        } else if rest.starts_with("&lt;") {
+            rest = stripped;
+        } else if let Some(stripped) = rest.strip_prefix("&lt;") {
             out.push('<');
-            rest = &rest[4..];
-        } else if rest.starts_with("&gt;") {
+            rest = stripped;
+        } else if let Some(stripped) = rest.strip_prefix("&gt;") {
             out.push('>');
-            rest = &rest[4..];
-        } else if rest.starts_with("&quot;") {
+            rest = stripped;
+        } else if let Some(stripped) = rest.strip_prefix("&quot;") {
             out.push('"');
-            rest = &rest[6..];
-        } else if rest.starts_with("&apos;") || rest.starts_with("&#39;") {
+            rest = stripped;
+        } else if let Some(stripped) = rest.strip_prefix("&apos;") {
             out.push('\'');
-            rest = if rest.starts_with("&apos;") {
-                &rest[6..]
-            } else {
-                &rest[5..]
-            };
-        } else if rest.starts_with("&nbsp;") {
+            rest = stripped;
+        } else if let Some(stripped) = rest.strip_prefix("&#39;") {
+            out.push('\'');
+            rest = stripped;
+        } else if let Some(stripped) = rest.strip_prefix("&nbsp;") {
             out.push(' ');
-            rest = &rest[6..];
+            rest = stripped;
         } else if let Some(end) = rest.find(';') {
             out.push_str(&rest[..=end]);
             rest = &rest[end + 1..];

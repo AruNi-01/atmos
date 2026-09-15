@@ -3,9 +3,9 @@ import { createHash, timingSafeEqual } from "crypto";
 import {
   messageToString,
   requestHost,
-  type ExecWebSocket,
   type SseRequestHandler,
 } from "./exec-ws-utils";
+import { type UpgradeHandlerWebSocket } from "./middleware-utils";
 import { isGlobalServeSimKill, rewriteHostCommand } from "./host-bin";
 
 // WebSocket control channel for the preview page. Browsers cap HTTP/1.1 at
@@ -73,7 +73,7 @@ interface ExecChannelOptions {
 }
 
 function wireExecSocket(
-  ws: ExecWebSocket,
+  ws: UpgradeHandlerWebSocket,
   request: Request,
   opts: ExecChannelOptions,
 ): void {
@@ -241,7 +241,7 @@ function wireExecSocket(
  * for the exec channel, false when the caller should close or route it.
  */
 export function createExecWebSocketHandler(opts: ExecChannelOptions) {
-  return function handleWebSocket(request: Request, websocket: ExecWebSocket): boolean {
+  return function handleWebSocket(request: Request, websocket: UpgradeHandlerWebSocket): boolean {
     const url = new URL(request.url);
     if (url.pathname !== opts.path && url.pathname !== `${opts.path}/`) return false;
 

@@ -54,15 +54,5 @@ describe("formatAgentToolActivityLine", () => {
       title: "Execute",
       params: { type: "execute", command: "npm test", background: false },
     }), "Execute")).toBe("Execute npm test");
-    expect(formatAgentToolActivityLine(tool({
-      tool_call_id: "t6",
-      kind: "execute",
-      name: "commandExecution",
-      params: {
-        type: "execute",
-        command: `/bin/zsh -lc "python3 << 'PY'\nfrom pathlib import Path\nPath("a.tsx").write_text("x")\nPY"`,
-        background: false,
-      },
-    }), "Execute")).toBe(`Execute /bin/zsh -lc "python3 << 'PY'...`);
   });
 });

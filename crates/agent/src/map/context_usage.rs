@@ -49,6 +49,7 @@ fn claude_token_part(usage: &Value, snake: &str, camel: &str) -> Option<u64> {
 ///
 /// All-zero / output-only stubs still return `Some(0)` here. Occupancy callers
 /// must use [`claude_context_occupancy`] so those placeholders do not win.
+#[cfg(test)]
 pub fn claude_context_tokens(usage: &Value) -> Option<u64> {
     let parts = [
         claude_token_part(usage, "input_tokens", "inputTokens"),
@@ -112,10 +113,20 @@ pub fn claude_context_usage(
     // Prefer last *complete* assistant occupancy (input + cache). Zero stubs
     // must not block fallback — they are not a real fill. `modelUsage` tokens
     // are cumulative spend (including subagents), not current-window occupancy.
+    //
+    // `result.usage` is turn-aggregate *spend*: every API call's input + cache_read
+    // + output, so a long tool loop near a full window becomes tens of millions.
+    // Only use it when it still looks like a single-request fill (≤ window).
+    let context_window = model_usage.and_then(claude_context_window_from_model_usage);
     let used = last_assistant_usage
         .and_then(claude_context_occupancy)
-        .or_else(|| result_usage.and_then(claude_context_occupancy))?;
-    let context_window = model_usage.and_then(claude_context_window_from_model_usage);
+        .or_else(|| {
+            let used = result_usage.and_then(claude_context_occupancy)?;
+            match context_window {
+                Some(window) if used > window => None,
+                _ => Some(used),
+            }
+        })?;
     Some(AgentContextUsage::new(used, context_window))
 }
 
@@ -526,6 +537,46 @@ mod tests {
         let usage = claude_context_usage(None, Some(&result), None).expect("camel");
         assert_eq!(usage.used, 170);
         assert_eq!(usage.context_window, None);
+    }
+
+    #[test]
+    fn claude_context_usage_rejects_turn_aggregate_result_usage() {
+        // Live Claude session: last assistant fill was ~155k / 200k, but
+        // `result.usage` summed every step's cache_read → 16_283_562.
+        let result = json!({
+            "input_tokens": 446386,
+            "cache_read_input_tokens": 15792768,
+            "output_tokens": 44408
+        });
+        let model_usage = json!({
+            "claude-opus-4-8": { "contextWindow": 200000 }
+        });
+        assert_eq!(claude_context_occupancy(&result), Some(16_283_562));
+        assert_eq!(
+            claude_context_usage(None, Some(&result), Some(&model_usage)),
+            None
+        );
+    }
+
+    #[test]
+    fn claude_context_usage_keeps_last_assistant_when_result_is_aggregate() {
+        let last = json!({
+            "input_tokens": 311,
+            "cache_read_input_tokens": 154880,
+            "output_tokens": 363
+        });
+        let result = json!({
+            "input_tokens": 446386,
+            "cache_read_input_tokens": 15792768,
+            "output_tokens": 44408
+        });
+        let model_usage = json!({
+            "claude-opus-4-8": { "contextWindow": 200000 }
+        });
+        let usage = claude_context_usage(Some(&last), Some(&result), Some(&model_usage))
+            .expect("occupancy");
+        assert_eq!(usage.used, 155_554);
+        assert_eq!(usage.context_window, Some(200_000));
     }
 
     #[test]

@@ -7,6 +7,8 @@ pub struct DevicePreviewPaths {
     pub serve_sim_cache: PathBuf,
     pub serve_emu_cache: PathBuf,
     pub state_dir: PathBuf,
+    /// `~/.atmos/state/simulator/camera` (or `{isolated_root}/state/simulator/camera`).
+    pub camera_dir: PathBuf,
     /// `~/.atmos/tmp/device-preview` (or `{isolated_root}/tmp/device-preview`).
     pub tmp_dir: PathBuf,
 }
@@ -19,6 +21,7 @@ impl DevicePreviewPaths {
             serve_sim_cache: runtime_manager::serve_sim_cache_dir()?,
             serve_emu_cache: runtime_manager::serve_emu_cache_dir()?,
             state_dir: runtime_manager::simulator_state_dir()?,
+            camera_dir: runtime_manager::simulator_camera_dir()?,
             tmp_dir: runtime_manager::atmos_home_dir()?
                 .join("tmp")
                 .join("device-preview"),
@@ -32,6 +35,7 @@ impl DevicePreviewPaths {
             serve_sim_cache: root.join("cache/serve-sim"),
             serve_emu_cache: root.join("cache/serve-emu"),
             state_dir: root.join("state/simulator"),
+            camera_dir: root.join("state/simulator/camera"),
             tmp_dir: root.join("tmp").join("device-preview"),
         }
     }

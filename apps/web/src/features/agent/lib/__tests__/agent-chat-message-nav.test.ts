@@ -1,4 +1,6 @@
 import { describe, expect, it } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   nextUserMessageIndex,
   previousUserMessageIndex,
@@ -10,6 +12,7 @@ import {
   stepUserMessageIndex,
   stickyUserMessagePushPx,
   stickyUserPinLayout,
+  stickyUserPushLayout,
   stickyUserTranslateY,
   TIMELINE_RAIL_ITEM_SIZE_MAX,
   TIMELINE_RAIL_ITEM_SIZE_MIN,
@@ -145,6 +148,11 @@ describe("stepUserMessageIndex", () => {
     expect(stepUserMessageIndex([0, 2, 4], 2, "next")).toBe(4);
   });
 
+  it("steps from the catalog item even when two prompts would share a viewport", () => {
+    expect(stepUserMessageIndex([0, 2], 0, "next")).toBe(2);
+    expect(stepUserMessageIndex([0, 2], 2, "previous")).toBe(0);
+  });
+
   it("disables the ends", () => {
     expect(stepUserMessageIndex([0, 2, 4], 0, "previous")).toBeNull();
     expect(stepUserMessageIndex([0, 2, 4], 4, "next")).toBeNull();
@@ -276,6 +284,22 @@ describe("stickyUserPinLayout", () => {
   });
 });
 
+describe("stickyUserPushLayout", () => {
+  it("keeps top at 0 until the next prompt overlaps the pinned height", () => {
+    expect(stickyUserPushLayout(200, 80, 520, 12, 0, 32)).toEqual({
+      pushPx: 0,
+      hideFade: false,
+    });
+  });
+
+  it("returns the negative top offset used to push a CSS-sticky overlay out", () => {
+    expect(stickyUserPushLayout(450, 80, 520, 12, 0, 32)).toEqual({
+      pushPx: -22,
+      hideFade: true,
+    });
+  });
+});
+
 describe("userMessageRectsFromMeasurements", () => {
   it("maps cached virtual items into viewport-relative rects", () => {
     expect(userMessageRectsFromMeasurements(
@@ -299,5 +323,48 @@ describe("userMessageRectsFromMeasurements", () => {
     expect(userMessageRectsFromMeasurements([0, 2], [{ start: 0, size: 80 }], 0)).toEqual([
       { messageIndex: 0, top: 0, bottom: 80 },
     ]);
+  });
+});
+
+const timelineNav = readFileSync(
+  join(import.meta.dir, "../../components/AgentMessageTimelineNav.tsx"),
+  "utf8",
+);
+const transcriptList = readFileSync(
+  join(import.meta.dir, "../../components/AgentChatTranscriptList.tsx"),
+  "utf8",
+);
+const panel = readFileSync(
+  join(import.meta.dir, "../../components/AgentChatPanel.tsx"),
+  "utf8",
+);
+
+describe("AgentMessageTimelineNav", () => {
+  it("uses the shared tooltip and only fills the step buttons on hover", () => {
+    expect(timelineNav).toContain("TooltipProvider");
+    expect(timelineNav).toContain("TooltipTrigger");
+    expect(timelineNav).toContain("TooltipContent");
+    expect(timelineNav).toContain("hover:bg-muted");
+    expect(timelineNav).not.toContain("bg-muted/75");
+    expect(timelineNav).not.toContain("group/timeline-step");
+    expect(timelineNav).not.toContain("group-hover/timeline-step:flex");
+  });
+
+  it("steps previous/next from the highlighted catalog item", () => {
+    expect(timelineNav).toContain("const catalogIndex = activeItem?.messageIndex ?? activeMessageIndex");
+    expect(timelineNav).toContain('stepUserMessageIndex(userMessageIndices, catalogIndex, "previous")');
+    expect(timelineNav).toContain('stepUserMessageIndex(userMessageIndices, catalogIndex, "next")');
+  });
+});
+
+describe("timeline message scroll", () => {
+  it("unlocks stick-to-bottom and scrolls the selected catalog item into place", () => {
+    expect(transcriptList).toContain("stopStickRef.current?.()");
+    expect(transcriptList).toContain("measurement.start - virtualizer.options.scrollMargin");
+    expect(transcriptList).toContain("onUserScrollIntent");
+    expect(panel).toContain("handleSelectTimelineMessage");
+    expect(panel).toContain("timelineNavLockedRef.current = true");
+    expect(panel).toContain("onActiveUserMessage={handleActiveTimelineMessage}");
+    expect(panel).toContain("onUserScrollIntent={releaseTimelineNavLock}");
   });
 });

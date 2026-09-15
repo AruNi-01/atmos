@@ -691,6 +691,18 @@ export function AgentChatPanel({
     isResumingHistory,
   });
   const showTimelineNav = !isRestoringTranscript && userMessageIndices.length > 1;
+  const timelineNavLockedRef = useRef(false);
+  const handleSelectTimelineMessage = useCallback((messageIndex: number) => {
+    timelineNavLockedRef.current = true;
+    handleSelectMessage(messageIndex);
+  }, [handleSelectMessage]);
+  const handleActiveTimelineMessage = useCallback((index: number) => {
+    if (timelineNavLockedRef.current) return;
+    setMessageNavIndex(index);
+  }, [setMessageNavIndex]);
+  const releaseTimelineNavLock = useCallback(() => {
+    timelineNavLockedRef.current = false;
+  }, []);
   const wasResumingHistoryRef = useRef(false);
   const [aboveComposerOverlaysNode, setAboveComposerOverlaysNode] = useState<HTMLDivElement | null>(
     null,
@@ -989,7 +1001,7 @@ export function AgentChatPanel({
               messages={messages}
               userMessageIndices={userMessageIndices}
               activeMessageIndex={messageNavIndex}
-              onSelectMessage={handleSelectMessage}
+              onSelectMessage={handleSelectTimelineMessage}
             />
           </div>
         ) : null}
@@ -1043,7 +1055,8 @@ export function AgentChatPanel({
                 registryId={registryId}
                 transcriptRef={transcriptRef}
                 userMessageIndices={userMessageIndices}
-                onActiveUserMessage={setMessageNavIndex}
+                onActiveUserMessage={handleActiveTimelineMessage}
+                onUserScrollIntent={releaseTimelineNavLock}
                 scrollToIndexRef={scrollToIndexRef}
                 belowCountStore={messagesBelowCountStore}
                 activityStatus={

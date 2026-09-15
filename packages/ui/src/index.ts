@@ -232,6 +232,19 @@ export type {
   OrbVariant,
   RingVariant,
 } from "./components/ui/orb";
+export { MatrixOrb } from "./components/ui/matrix-orb";
+export type { MatrixOrbProps, MatrixOrbState } from "./components/ui/matrix-orb";
+export {
+  matrixOrbColor,
+  matrixOrbDotsForSize,
+  matrixOrbLayout,
+  readMatrixOrbTheme,
+} from "./components/ui/matrix-orb-color";
+export type {
+  MatrixOrbColorOptions,
+  MatrixOrbColorScheme,
+  MatrixOrbTheme,
+} from "./components/ui/matrix-orb-color";
 
 // Dither / ordered-dot charts (MIT-adapted Amicro simple-comp style)
 export {
@@ -311,6 +324,11 @@ export { NativeFollowCursor } from "./components/native/native-follow-cursor";
 export type { NativeFollowCursorProps } from "./components/native/native-follow-cursor";
 export { AnimatedNumber } from "./components/ui/animated-number";
 export type { AnimatedNumberProps } from "./components/ui/animated-number";
+export { NotificationBell } from "./components/ui/notification-bell";
+export type {
+  NotificationBellColor,
+  NotificationBellProps,
+} from "./components/ui/notification-bell";
 export { SlidingNumber } from "./components/ui/sliding-number";
 export type { SlidingNumberProps } from "./components/ui/sliding-number";
 export {

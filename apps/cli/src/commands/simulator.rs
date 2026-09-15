@@ -38,6 +38,38 @@ pub enum SimulatorPressKey {
     Recents,
 }
 
+#[derive(Debug, Clone, Copy, ValueEnum)]
+#[clap(rename_all = "lowercase")]
+pub enum SimulatorAppearance {
+    Light,
+    Dark,
+}
+
+impl SimulatorAppearance {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Light => "light",
+            Self::Dark => "dark",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+#[clap(rename_all = "lowercase")]
+pub enum SimulatorCameraLens {
+    Front,
+    Back,
+}
+
+impl SimulatorCameraLens {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Front => "front",
+            Self::Back => "back",
+        }
+    }
+}
+
 impl SimulatorPressKey {
     fn as_str(self) -> &'static str {
         match self {
@@ -70,6 +102,26 @@ pub enum SimulatorCommand {
     Type(SimulatorTypeArgs),
     /// Press a hardware key
     Press(SimulatorPressArgs),
+    /// Host simulator/emulator inventory
+    Inventory,
+    /// Create an iOS simulator or Android AVD
+    Create(SimulatorCreateArgs),
+    /// Power on a VM without claiming Device Preview
+    Boot(SimulatorDeviceArgs),
+    /// Power off a VM (stops our claim first)
+    Shutdown(SimulatorDeviceArgs),
+    /// Delete a VM
+    Delete(SimulatorDeviceArgs),
+    /// Get or set light/dark appearance
+    Appearance {
+        #[command(subcommand)]
+        command: SimulatorAppearanceCommand,
+    },
+    /// Inject or clear Android emulator camera PNG
+    Camera {
+        #[command(subcommand)]
+        command: SimulatorCameraCommand,
+    },
 }
 
 #[derive(Debug, Args)]
@@ -132,6 +184,56 @@ pub struct SimulatorPressArgs {
     pub key: SimulatorPressKey,
     #[arg(long)]
     pub udid: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct SimulatorCreateArgs {
+    #[arg(long)]
+    pub platform: SimulatorPlatform,
+    #[arg(long = "type")]
+    pub device_type: String,
+    #[arg(long)]
+    pub runtime: String,
+    #[arg(long)]
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct SimulatorDeviceArgs {
+    #[arg(long)]
+    pub udid: String,
+    #[arg(long)]
+    pub platform: Option<SimulatorPlatform>,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum SimulatorAppearanceCommand {
+    /// Read light/dark appearance
+    Get,
+    /// Set light or dark appearance
+    Set { appearance: SimulatorAppearance },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum SimulatorCameraCommand {
+    /// Inject a Computer-local PNG onto a camera lens
+    Inject(SimulatorCameraInjectArgs),
+    /// Clear an injected camera PNG
+    Clear(SimulatorCameraClearArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct SimulatorCameraInjectArgs {
+    #[arg(long)]
+    pub lens: SimulatorCameraLens,
+    #[arg(long)]
+    pub file: String,
+}
+
+#[derive(Debug, Args)]
+pub struct SimulatorCameraClearArgs {
+    #[arg(long)]
+    pub lens: SimulatorCameraLens,
 }
 
 pub async fn execute_simulator(api: ApiClientArgs, command: SimulatorCommand) -> CliEnvelope {
@@ -353,6 +455,206 @@ pub async fn execute_simulator(api: ApiClientArgs, command: SimulatorCommand) ->
             )
             .await
         }
+        SimulatorCommand::Inventory => {
+            let data = match context::resolve_workspace(None) {
+                Some(ws) => Value::Object(workspace_payload(&ws)),
+                None => json!({}),
+            };
+            invoke_env(
+                &api,
+                "atmos simulator inventory",
+                "simulator_inventory",
+                data,
+                vec![
+                    next(
+                        "atmos simulator create --platform ios --type <id> --runtime <id>",
+                        "Create a simulator or AVD",
+                    ),
+                    next("atmos simulator list", "List live claims"),
+                ],
+            )
+            .await
+        }
+        SimulatorCommand::Create(args) => {
+            let command = create_command(&args);
+            invoke_env(
+                &api,
+                &command,
+                "simulator_create",
+                Value::Object(create_payload(&args)),
+                vec![next(
+                    "atmos simulator boot --udid <id> --platform ios|android",
+                    "Power on the new device",
+                )],
+            )
+            .await
+        }
+        SimulatorCommand::Boot(args) => {
+            execute_device_op(
+                &api,
+                "atmos simulator boot",
+                "simulator_boot",
+                &args,
+                vec![
+                    next(
+                        "atmos simulator start",
+                        "Start Device Preview for this workspace",
+                    ),
+                    next(
+                        "atmos simulator appearance get",
+                        "Read light/dark appearance",
+                    ),
+                ],
+            )
+            .await
+        }
+        SimulatorCommand::Shutdown(args) => {
+            execute_device_op(
+                &api,
+                "atmos simulator shutdown",
+                "simulator_shutdown",
+                &args,
+                vec![next(
+                    "atmos simulator boot --udid <id> --platform ios|android",
+                    "Power the device back on",
+                )],
+            )
+            .await
+        }
+        SimulatorCommand::Delete(args) => {
+            execute_device_op(
+                &api,
+                "atmos simulator delete",
+                "simulator_delete",
+                &args,
+                vec![next("atmos simulator inventory", "Refresh host inventory")],
+            )
+            .await
+        }
+        SimulatorCommand::Appearance { command } => execute_appearance(&api, command).await,
+        SimulatorCommand::Camera { command } => execute_camera(&api, command).await,
+    }
+}
+
+async fn execute_device_op(
+    api: &ApiClientArgs,
+    command_prefix: &str,
+    action: &str,
+    args: &SimulatorDeviceArgs,
+    next_actions: Vec<NextAction>,
+) -> CliEnvelope {
+    let command = device_op_command(command_prefix, args);
+    let ws = match require_workspace(&command) {
+        Ok(ws) => ws,
+        Err(env) => return *env,
+    };
+    let platform = match require_platform(&command, args.platform) {
+        Ok(platform) => platform,
+        Err(env) => return *env,
+    };
+    invoke_env(
+        api,
+        &command,
+        action,
+        Value::Object(device_op_payload(&ws, &args.udid, platform)),
+        next_actions,
+    )
+    .await
+}
+
+async fn execute_appearance(
+    api: &ApiClientArgs,
+    command: SimulatorAppearanceCommand,
+) -> CliEnvelope {
+    match command {
+        SimulatorAppearanceCommand::Get => {
+            let command = "atmos simulator appearance get";
+            let ws = match require_workspace(command) {
+                Ok(ws) => ws,
+                Err(env) => return *env,
+            };
+            invoke_env(
+                api,
+                command,
+                "simulator_appearance_get",
+                Value::Object(workspace_payload(&ws)),
+                vec![next(
+                    "atmos simulator appearance set dark",
+                    "Set dark appearance",
+                )],
+            )
+            .await
+        }
+        SimulatorAppearanceCommand::Set { appearance } => {
+            let command = format!("atmos simulator appearance set {}", appearance.as_str());
+            let ws = match require_workspace(&command) {
+                Ok(ws) => ws,
+                Err(env) => return *env,
+            };
+            let mut data = workspace_payload(&ws);
+            data.insert("appearance".into(), json!(appearance.as_str()));
+            invoke_env(
+                api,
+                &command,
+                "simulator_appearance_set",
+                Value::Object(data),
+                vec![next(
+                    "atmos simulator appearance get",
+                    "Read the current appearance",
+                )],
+            )
+            .await
+        }
+    }
+}
+
+async fn execute_camera(api: &ApiClientArgs, command: SimulatorCameraCommand) -> CliEnvelope {
+    match command {
+        SimulatorCameraCommand::Inject(args) => {
+            let command = format!(
+                "atmos simulator camera inject --lens {} --file {}",
+                args.lens.as_str(),
+                args.file
+            );
+            let ws = match require_workspace(&command) {
+                Ok(ws) => ws,
+                Err(env) => return *env,
+            };
+            let mut data = workspace_payload(&ws);
+            data.insert("lens".into(), json!(args.lens.as_str()));
+            data.insert("path".into(), json!(args.file));
+            invoke_env(
+                api,
+                &command,
+                "simulator_camera_inject",
+                Value::Object(data),
+                vec![next(
+                    "atmos simulator camera clear --lens front",
+                    "Clear the injected camera image",
+                )],
+            )
+            .await
+        }
+        SimulatorCameraCommand::Clear(args) => {
+            let command = format!("atmos simulator camera clear --lens {}", args.lens.as_str());
+            let ws = match require_workspace(&command) {
+                Ok(ws) => ws,
+                Err(env) => return *env,
+            };
+            let mut data = workspace_payload(&ws);
+            data.insert("lens".into(), json!(args.lens.as_str()));
+            invoke_env(
+                api,
+                &command,
+                "simulator_camera_clear",
+                Value::Object(data),
+                vec![next(
+                    "atmos simulator camera inject --lens front --file <png>",
+                    "Inject a camera PNG",
+                )],
+            )
+            .await
+        }
     }
 }
 
@@ -426,6 +728,29 @@ fn missing_workspace(command: &str) -> CliEnvelope {
     )
 }
 
+fn require_platform(
+    command: &str,
+    platform: Option<SimulatorPlatform>,
+) -> Result<SimulatorPlatform, Box<CliEnvelope>> {
+    match platform {
+        Some(platform) => Ok(platform),
+        None => Err(Box::new(missing_platform(command))),
+    }
+}
+
+fn missing_platform(command: &str) -> CliEnvelope {
+    CliEnvelope::failure(
+        command,
+        "PLATFORM_REQUIRED",
+        "platform required",
+        "Pass --platform ios or --platform android",
+        vec![next(
+            format!("{command} --platform ios"),
+            "Retry with an explicit platform",
+        )],
+    )
+}
+
 fn workspace_payload(workspace_id: &str) -> Map<String, Value> {
     let mut data = Map::new();
     data.insert("workspace_id".into(), json!(workspace_id));
@@ -442,6 +767,47 @@ fn insert_opt_platform(data: &mut Map<String, Value>, platform: Option<Simulator
     if let Some(platform) = platform {
         data.insert("platform".into(), json!(platform.as_str()));
     }
+}
+
+fn create_payload(args: &SimulatorCreateArgs) -> Map<String, Value> {
+    let mut data = Map::new();
+    data.insert("platform".into(), json!(args.platform.as_str()));
+    data.insert("device_type".into(), json!(args.device_type));
+    data.insert("runtime".into(), json!(args.runtime));
+    insert_opt_str(&mut data, "name", args.name.clone());
+    data
+}
+
+fn device_op_payload(
+    workspace_id: &str,
+    udid: &str,
+    platform: SimulatorPlatform,
+) -> Map<String, Value> {
+    let mut data = workspace_payload(workspace_id);
+    data.insert("udid".into(), json!(udid));
+    data.insert("platform".into(), json!(platform.as_str()));
+    data
+}
+
+fn create_command(args: &SimulatorCreateArgs) -> String {
+    let mut cmd = format!(
+        "atmos simulator create --platform {} --type {} --runtime {}",
+        args.platform.as_str(),
+        args.device_type,
+        args.runtime
+    );
+    if let Some(name) = &args.name {
+        cmd.push_str(&format!(" --name {name}"));
+    }
+    cmd
+}
+
+fn device_op_command(prefix: &str, args: &SimulatorDeviceArgs) -> String {
+    let mut cmd = format!("{prefix} --udid {}", args.udid);
+    if let Some(platform) = args.platform {
+        cmd.push_str(&format!(" --platform {}", platform.as_str()));
+    }
+    cmd
 }
 
 fn strip_status_for_agents(result: Value) -> Value {
@@ -639,5 +1005,137 @@ mod tests {
         assert!(!text.contains("url"));
         assert!(!text.contains("http://"));
         assert!(!text.contains("127.0.0.1"));
+    }
+
+    fn parse_simulator(args: &[&str]) -> SimulatorCommand {
+        use clap::Parser;
+        #[derive(Parser)]
+        struct Probe {
+            #[command(subcommand)]
+            command: SimulatorCommand,
+        }
+        Probe::try_parse_from(std::iter::once("simulator").chain(args.iter().copied()))
+            .unwrap_or_else(|e| panic!("{e}"))
+            .command
+    }
+
+    #[test]
+    fn parses_simulator_inventory_and_lifecycle_verbs() {
+        assert!(matches!(
+            parse_simulator(&["inventory"]),
+            SimulatorCommand::Inventory
+        ));
+        match parse_simulator(&[
+            "create",
+            "--platform",
+            "ios",
+            "--type",
+            "iPhone17,1",
+            "--runtime",
+            "com.apple.CoreSimulator.SimRuntime.iOS-18-0",
+            "--name",
+            "Phone",
+        ]) {
+            SimulatorCommand::Create(args) => {
+                assert!(matches!(args.platform, SimulatorPlatform::Ios));
+                assert_eq!(args.device_type, "iPhone17,1");
+                assert_eq!(args.runtime, "com.apple.CoreSimulator.SimRuntime.iOS-18-0");
+                assert_eq!(args.name.as_deref(), Some("Phone"));
+                assert_eq!(
+                    create_payload(&args),
+                    json!({
+                        "platform": "ios",
+                        "device_type": "iPhone17,1",
+                        "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-18-0",
+                        "name": "Phone",
+                    })
+                    .as_object()
+                    .cloned()
+                    .unwrap()
+                );
+            }
+            other => panic!("expected create, got {other:?}"),
+        }
+        match parse_simulator(&["boot", "--udid", "AAA", "--platform", "android"]) {
+            SimulatorCommand::Boot(args) => {
+                assert_eq!(args.udid, "AAA");
+                assert!(matches!(args.platform, Some(SimulatorPlatform::Android)));
+                assert_eq!(
+                    device_op_payload("ws-1", &args.udid, args.platform.unwrap()),
+                    json!({
+                        "workspace_id": "ws-1",
+                        "udid": "AAA",
+                        "platform": "android",
+                    })
+                    .as_object()
+                    .cloned()
+                    .unwrap()
+                );
+            }
+            other => panic!("expected boot, got {other:?}"),
+        }
+        assert!(matches!(
+            parse_simulator(&["shutdown", "--udid", "AAA", "--platform", "ios"]),
+            SimulatorCommand::Shutdown(_)
+        ));
+        assert!(matches!(
+            parse_simulator(&["delete", "--udid", "AAA", "--platform", "ios"]),
+            SimulatorCommand::Delete(_)
+        ));
+    }
+
+    #[test]
+    fn parses_simulator_appearance_and_camera_verbs() {
+        assert!(matches!(
+            parse_simulator(&["appearance", "get"]),
+            SimulatorCommand::Appearance {
+                command: SimulatorAppearanceCommand::Get
+            }
+        ));
+        match parse_simulator(&["appearance", "set", "dark"]) {
+            SimulatorCommand::Appearance {
+                command: SimulatorAppearanceCommand::Set { appearance },
+            } => assert!(matches!(appearance, SimulatorAppearance::Dark)),
+            other => panic!("expected appearance set, got {other:?}"),
+        }
+        match parse_simulator(&[
+            "camera",
+            "inject",
+            "--lens",
+            "front",
+            "--file",
+            "/tmp/cam.png",
+        ]) {
+            SimulatorCommand::Camera {
+                command: SimulatorCameraCommand::Inject(args),
+            } => {
+                assert!(matches!(args.lens, SimulatorCameraLens::Front));
+                assert_eq!(args.file, "/tmp/cam.png");
+            }
+            other => panic!("expected camera inject, got {other:?}"),
+        }
+        match parse_simulator(&["camera", "clear", "--lens", "back"]) {
+            SimulatorCommand::Camera {
+                command: SimulatorCameraCommand::Clear(args),
+            } => assert!(matches!(args.lens, SimulatorCameraLens::Back)),
+            other => panic!("expected camera clear, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn simulator_boot_without_platform_is_platform_required() {
+        let err = require_platform("atmos simulator boot --udid AAA", None).unwrap_err();
+        let v = err.to_value();
+        assert_eq!(v["ok"], false);
+        assert_eq!(v["error"]["code"], "PLATFORM_REQUIRED");
+        assert!(v["fix"].as_str().unwrap().contains("--platform"));
+    }
+
+    #[test]
+    fn simulator_lifecycle_verbs_need_workspace() {
+        let err = require_workspace_id("atmos simulator boot --udid AAA --platform ios", None)
+            .unwrap_err();
+        let v = err.to_value();
+        assert_eq!(v["error"]["code"], "CONTEXT_REQUIRED");
     }
 }

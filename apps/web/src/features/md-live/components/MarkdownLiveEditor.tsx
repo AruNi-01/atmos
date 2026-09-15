@@ -85,12 +85,12 @@ export function MarkdownLiveEditor({
     },
     [placeholder],
   );
-  const slashMenu = useMemo<ComponentType<MdLiveSlashMenuProps>>(
-    () => (props) => (
-      <HostSlashMenu {...props} enableMedia={enableMedia} workspaceRoot={workspaceRoot} />
-    ),
-    [enableMedia, workspaceRoot],
-  );
+  const slashMenu = useMemo<ComponentType<MdLiveSlashMenuProps>>(() => {
+    function MarkdownLiveSlashMenu(props: MdLiveSlashMenuProps) {
+      return <HostSlashMenu {...props} enableMedia={enableMedia} workspaceRoot={workspaceRoot} />;
+    }
+    return MarkdownLiveSlashMenu;
+  }, [enableMedia, workspaceRoot]);
 
   useEffect(() => {
     getMdLiveEditor(filePath)?.setToggleDefaultOpen(mdToggleDefaultOpen);

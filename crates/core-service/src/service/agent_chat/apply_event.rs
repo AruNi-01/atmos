@@ -791,6 +791,7 @@ fn stamp_advertised_selection(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn apply_config_changed(
     meta: &mut AgentChatMeta,
     advertised: Vec<SessionAdvertisedOption>,
@@ -1965,6 +1966,7 @@ pub(super) async fn sync_pending_session_config_if_needed(
     .await
 }
 
+#[allow(clippy::too_many_arguments)]
 fn revert_session_config(
     store: &AgentChatStore,
     chat_id: &str,

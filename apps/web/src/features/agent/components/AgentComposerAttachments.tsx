@@ -22,6 +22,10 @@ export function AgentComposerAttachments() {
     <AgentComposerAttachmentList
       files={attachments.files}
       onRemove={attachments.remove}
+      onSaveAnnotation={(id, file) => {
+        attachments.add([file]);
+        attachments.remove(id);
+      }}
     />
   );
 }
@@ -29,18 +33,22 @@ export function AgentComposerAttachments() {
 export function AgentComposerAttachmentList({
   files,
   onRemove,
+  onSaveAnnotation,
   density = "composer",
   className,
 }: {
   files: ComposerAttachmentFile[];
   onRemove?: (id: string) => void;
+  onSaveAnnotation?: (id: string, file: File) => void;
   density?: "composer" | "compact";
   className?: string;
 }) {
   const t = useTranslations("Agent.components.composer.attachments");
   const [preview, setPreview] = useState<{
+    id: string;
     src: string;
     alt: string;
+    fileName?: string;
     originRect: ImagePreviewOriginRect | null;
   } | null>(null);
 
@@ -84,8 +92,10 @@ export function AgentComposerAttachmentList({
             onPreview={(event) => {
               event.stopPropagation();
               setPreview({
+                id: file.id,
                 src: file.url,
                 alt: label,
+                fileName: file.filename,
                 originRect: imagePreviewOriginRectFromElement(event.currentTarget),
               });
             }}
@@ -107,6 +117,16 @@ export function AgentComposerAttachmentList({
           src={preview.src}
           alt={preview.alt}
           originRect={preview.originRect}
+          annotationFileName={preview.fileName}
+          onSaveAnnotation={
+            onSaveAnnotation
+              ? (file) => {
+                  const id = preview.id;
+                  setPreview(null);
+                  onSaveAnnotation(id, file);
+                }
+              : undefined
+          }
           onClose={() => setPreview(null)}
         />
       ) : null}

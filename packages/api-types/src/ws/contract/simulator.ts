@@ -1,8 +1,20 @@
 import type { WsEmpty } from "../dto/common";
 import type {
+  SimulatorAppearanceGetRequest,
+  SimulatorAppearanceResult,
+  SimulatorAppearanceSetRequest,
+  SimulatorCameraAck,
+  SimulatorCameraClearRequest,
+  SimulatorCameraInjectRequest,
   SimulatorClaim,
   SimulatorClaimList,
   SimulatorControlAck,
+  SimulatorCreateRequest,
+  SimulatorDeleteResponse,
+  SimulatorDeviceOpRequest,
+  SimulatorDeviceResult,
+  SimulatorInventory,
+  SimulatorInventoryRequest,
   SimulatorListRequest,
   SimulatorPressRequest,
   SimulatorProbe,
@@ -54,5 +66,41 @@ export type SimulatorContract = {
   simulator_press: {
     input: SimulatorPressRequest;
     output: SimulatorControlAck;
+  };
+  simulator_inventory: {
+    input: SimulatorInventoryRequest;
+    output: SimulatorInventory;
+  };
+  simulator_create: {
+    input: SimulatorCreateRequest;
+    output: SimulatorDeviceResult;
+  };
+  simulator_boot: {
+    input: SimulatorDeviceOpRequest;
+    output: SimulatorDeviceResult;
+  };
+  simulator_shutdown: {
+    input: SimulatorDeviceOpRequest;
+    output: SimulatorDeviceResult;
+  };
+  simulator_delete: {
+    input: SimulatorDeviceOpRequest;
+    output: SimulatorDeleteResponse;
+  };
+  simulator_appearance_get: {
+    input: SimulatorAppearanceGetRequest;
+    output: SimulatorAppearanceResult;
+  };
+  simulator_appearance_set: {
+    input: SimulatorAppearanceSetRequest;
+    output: SimulatorAppearanceResult;
+  };
+  simulator_camera_inject: {
+    input: SimulatorCameraInjectRequest;
+    output: SimulatorCameraAck;
+  };
+  simulator_camera_clear: {
+    input: SimulatorCameraClearRequest;
+    output: SimulatorCameraAck;
   };
 };

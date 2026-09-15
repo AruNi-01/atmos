@@ -32,6 +32,20 @@ const describeIfBuilt = BUNDLES.every((b) => existsSync(join(PKG_DIR, b)))
   ? describe
   : describe.skip;
 
+describe("package attribution", () => {
+  test("publishes the upstream attribution notice", () => {
+    const pkg = JSON.parse(readFileSync(join(PKG_DIR, "package.json"), "utf8"));
+    const notice = readFileSync(join(PKG_DIR, "NOTICE"), "utf8");
+    const repositoryNotice = readFileSync(join(PKG_DIR, "../..", "NOTICE"), "utf8");
+
+    expect(pkg.files).toContain("NOTICE");
+    expect(notice).toBe(repositoryNotice);
+    expect(notice).toContain("Evan Bacon");
+    expect(notice).toContain("https://github.com/EvanBacon/serve-sim");
+    expect(notice).toContain("Apache License, Version 2.0");
+  });
+});
+
 describeIfBuilt("bundle portability", () => {
   test.each([...BUNDLES])("%s has no build-machine path baked in", (bundle) => {
     const js = readFileSync(join(PKG_DIR, bundle), "utf-8");

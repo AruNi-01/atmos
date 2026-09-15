@@ -487,14 +487,14 @@ const Header: React.FC = () => {
             </div>
           ) : null}
 
-          {/* App actions (bell + quick open). Parent gap-6 always separates this from chrome,
-              including when the bell is hidden and only Quick Open remains. */}
-          <div className="desktop-no-drag flex shrink-0 items-center gap-1">
+          {/* App actions (bell + quick open). Bell slot owns the gap so Quick Open
+              slides as the bell pops in/out. Parent gap-6 still separates this from chrome. */}
+          <div className="desktop-no-drag flex shrink-0 items-center">
             <HeaderAttentionBell />
             {showHeaderQuickOpen && (currentWorkspace || currentProject) ? (
               <motion.div
                 layout
-                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.8 }}
                 className="min-w-0"
               >
                 <QuickOpen

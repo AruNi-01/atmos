@@ -9,6 +9,7 @@ describe("ToolsPanel", () => {
     const html = renderToStaticMarkup(
       <ToolsPanel
         open={false}
+        peerConnection={null}
         onClose={noop}
         udid="one"
         deviceRuntime="iOS-27-0"

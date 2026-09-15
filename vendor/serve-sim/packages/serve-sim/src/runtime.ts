@@ -5,7 +5,8 @@ import { createServer as createHttpServer, type IncomingMessage } from "http";
 import type { Socket } from "net";
 import { createConnection, createServer as createNetServer, type Server as NetServer } from "net";
 import { WebSocketServer } from "ws";
-import { EXEC_WS_MAX_MESSAGE_BYTES, type ExecWebSocket } from "./exec-ws-utils";
+import { EXEC_WS_MAX_MESSAGE_BYTES } from "./exec-ws-utils";
+import { type UpgradeHandlerWebSocket } from "./middleware-utils";
 import { nodeRequestToWeb, writeWebResponse, type WebMiddleware } from "./runtime-utils";
 
 export function dirnameOf(metaUrl: string): string {
@@ -179,7 +180,7 @@ export async function servePreview(opts: {
       wss.handleUpgrade(req, socket, head, (websocket) => {
         const handled = opts.middleware.handleWebSocket?.(
           request,
-          websocket as unknown as ExecWebSocket,
+          websocket as unknown as UpgradeHandlerWebSocket,
         );
         if (!handled) websocket.close();
       });

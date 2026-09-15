@@ -27,7 +27,7 @@ impl AgentThinkingSupport {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub struct AgentModel {
     pub id: String,
@@ -51,22 +51,6 @@ pub struct AgentModel {
     /// Multiplier when Fast is on (`4x`). Droid `*-fast` sibling.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fast_multiplier: Option<String>,
-}
-
-impl Default for AgentModel {
-    fn default() -> Self {
-        Self {
-            id: String::new(),
-            label: String::new(),
-            group: None,
-            is_default: false,
-            thinking: None,
-            context: Vec::new(),
-            fast: false,
-            multiplier: None,
-            fast_multiplier: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -36,16 +36,24 @@ export function Select({
     if (open) place();
   }, [open]);
 
-  // Second pass once the popup has a size: keep it inside the viewport (the
-  // settings triggers sit near the panel's right edge and the option list is
-  // wider than the trigger).
+  // Second pass once the popup has a size: keep it inside the viewport. The settings triggers sit
+  // near the panel's right edge and the option list is wider than the trigger, and the last few
+  // triggers sit near the bottom of the window, where a downward list would open off screen.
   useLayoutEffect(() => {
     if (!open || !pos) return;
     const popup = popupRef.current;
-    if (!popup) return;
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!popup || !rect) return;
     const margin = 8;
     const maxLeft = window.innerWidth - popup.offsetWidth - margin;
-    if (pos.left > maxLeft) setPos({ ...pos, left: Math.max(margin, maxLeft) });
+    const left = pos.left > maxLeft ? Math.max(margin, maxLeft) : pos.left;
+    const above = rect.top - popup.offsetHeight - 4;
+    const top = pos.top + popup.offsetHeight <= window.innerHeight - margin
+      ? pos.top
+      : above >= margin
+        ? above
+        : Math.max(margin, window.innerHeight - popup.offsetHeight - margin);
+    if (top !== pos.top || left !== pos.left) setPos({ ...pos, top, left });
   }, [open, pos]);
 
   useEffect(() => {

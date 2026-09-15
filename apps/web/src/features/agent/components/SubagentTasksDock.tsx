@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import {
-  ActivityIndicator,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
+  MatrixOrb,
   TextShimmer,
 } from "@workspace/ui";
-import { ChevronDown, CircleCheck, XCircle } from "lucide-react";
+import { ChevronDown, XCircle } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
@@ -21,17 +21,23 @@ import {
 import { useSubagentOverlay } from "./subagent-overlay-context";
 
 function SubagentTaskGlyph({
+  seed,
   status,
 }: {
+  seed: string;
   status: ReturnType<typeof subagentTaskStatus>;
 }) {
-  if (status === "running") {
-    return <ActivityIndicator style="S1" size={20} />;
-  }
   if (status === "failed") {
     return <XCircle className="size-4 text-destructive" />;
   }
-  return <CircleCheck className="size-4 text-green-500" />;
+  return (
+    <MatrixOrb
+      state={status === "running" ? "thinking" : "idle"}
+      size={20}
+      seed={seed}
+      aria-hidden
+    />
+  );
 }
 
 export function SubagentTasksPanel({
@@ -106,8 +112,8 @@ export function SubagentTasksPanel({
                       active && "bg-muted/60",
                     )}
                   >
-                    <span className="flex size-4 shrink-0 items-center justify-center overflow-visible">
-                      <SubagentTaskGlyph status={status} />
+                    <span className="flex size-5 shrink-0 items-center justify-center">
+                      <SubagentTaskGlyph seed={part.tool_call_id} status={status} />
                     </span>
                     {status === "running" ? (
                       <TextShimmer

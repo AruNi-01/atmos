@@ -138,18 +138,21 @@ describe("transcript virtual list wiring", () => {
     expect(list).toContain("resolveStickyUserMessageIndex");
     expect(list).toContain("mergeStickyUserRange");
     expect(list).toContain("data-agent-chat-sticky-user");
-    expect(list).toContain("stickyUserPinLayout");
+    expect(list).toContain("stickyUserPushLayout");
     expect(list).toContain("AGENT_CHAT_STICKY_USER_ROW_CLASS");
+    expect(list).toContain("sticky top-0 z-20 h-0 w-full");
+    expect(list).toContain("createPortal");
     expect(list).toContain("absolute top-0 left-0 w-full");
     expect(list).not.toContain("node.style.top");
     expect(list).not.toContain("getBoundingClientRect");
     expect(list).not.toContain("position: sticky");
-    expect(list).not.toContain("createPortal");
     expect(list).not.toContain("invisible pointer-events-none");
+    expect(list).not.toContain("stickyUserPinLayout");
+    expect(list).not.toContain("pin?.translateY");
     expect(panel).toContain("relative min-h-0 overflow-hidden");
     expect(panel).toContain("data-agent-chat-composer-fade");
     expect(panel).toContain("AGENT_CHAT_COMPOSER_FADE_CLASS");
-    expect(list).not.toContain("useStickToBottomContext()");
+    expect(list).toContain("StickToBottomStop");
     expect(list).not.toContain('from "use-stick-to-bottom"');
     expect(panel).toContain("activityStatus=");
     expect(panel).toContain("<AgentActivityIndicator");
@@ -206,6 +209,7 @@ describe("composer fade", () => {
 describe("sticky user row class", () => {
   it("pins the original user row flush to the top with a fade over scrolling tokens", () => {
     expect(AGENT_CHAT_STICKY_USER_ROW_CLASS.split(/\s+/)).not.toContain("sticky");
+    expect(AGENT_CHAT_STICKY_USER_ROW_CLASS).toContain("relative");
     expect(AGENT_CHAT_STICKY_USER_ROW_CLASS).toContain("z-20");
     expect(AGENT_CHAT_STICKY_USER_ROW_CLASS).toContain("bg-background");
     expect(AGENT_CHAT_STICKY_USER_ROW_CLASS).toContain("after:bg-gradient-to-b");

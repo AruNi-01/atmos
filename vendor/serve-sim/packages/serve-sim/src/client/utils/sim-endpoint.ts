@@ -19,6 +19,9 @@ declare global {
       eventLogEventsEndpoint?: string;
       devtoolsEndpoint?: string;
       gridApiEndpoint?: string;
+      gridCatalogEndpoint?: string;
+      gridStatusEndpoint?: string;
+      gridStatusEventsEndpoint?: string;
       gridStartEndpoint?: string;
       gridShutdownEndpoint?: string;
       gridMemoryEndpoint?: string;
@@ -78,6 +81,18 @@ export function webrtcCloseUrlFrom(config: NonNullable<Window["__SIM_PREVIEW__"]
   const closeUrl = new URL(webrtcOfferUrlFrom(config));
   closeUrl.pathname = closeUrl.pathname.replace(/\/offer$/, "/close");
   return closeUrl.toString();
+}
+
+export function webrtcStatsUrlFrom(config: NonNullable<Window["__SIM_PREVIEW__"]>): string {
+  const statsUrl = new URL(webrtcOfferUrlFrom(config));
+  statsUrl.pathname = statsUrl.pathname.replace(/\/offer$/, "/stats");
+  return statsUrl.toString();
+}
+
+export function webrtcSessionStatsUrl(statsUrl: string, sessionId: string): string {
+  const url = new URL(statsUrl);
+  url.searchParams.set("sessionId", sessionId);
+  return url.toString();
 }
 
 export function simEndpoint(path: string): string {

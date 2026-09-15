@@ -4,6 +4,8 @@ import {
   streamConfigFrom,
   webrtcCloseUrlFrom,
   webrtcOfferUrlFrom,
+  webrtcSessionStatsUrl,
+  webrtcStatsUrlFrom,
 } from "../client/utils/sim-endpoint";
 import { inProcessServeSimState } from "../state";
 
@@ -129,5 +131,13 @@ describe("webrtcCloseUrlFrom", () => {
     expect(webrtcCloseUrlFrom(config)).toBe(
       "http://127.0.0.1:3200/preview/helper/DEVICE-A/webrtc/close",
     );
+  });
+});
+
+describe("webrtcSessionStatsUrl", () => {
+  test("scopes the panel poll to this viewer's session", () => {
+    expect(
+      webrtcSessionStatsUrl(webrtcStatsUrlFrom(fullConfig), "07a5f32b-273e-4a30-8f62-8e741a815af1"),
+    ).toBe("http://127.0.0.1:3100/webrtc/stats?sessionId=07a5f32b-273e-4a30-8f62-8e741a815af1");
   });
 });

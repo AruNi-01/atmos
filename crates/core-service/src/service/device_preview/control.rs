@@ -5,14 +5,15 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use core_engine::{
-    serve_emu_key, serve_emu_screenshot, serve_emu_swipe, serve_emu_tap, serve_emu_text,
-    serve_sim_button, serve_sim_swipe, serve_sim_tap, serve_sim_type, simctl_screenshot,
-    validate_point, DevicePlatform, EngineError, ScreenshotSize,
+    clear_camera_png, serve_emu_key, serve_emu_screenshot, serve_emu_swipe, serve_emu_tap,
+    serve_emu_text, serve_sim_button, serve_sim_swipe, serve_sim_tap, serve_sim_type,
+    set_camera_png, simctl_screenshot, validate_point, BootState, DevicePlatform, EngineError,
+    ScreenshotSize,
 };
 use serde::{Deserialize, Serialize};
 
 use super::service::DevicePreviewService;
-use super::types::{DeviceClaim, HelperKind};
+use super::types::{Appearance, CameraLens, DeviceClaim, HelperKind};
 use crate::service::project::ProjectService;
 use crate::service::workspace::WorkspaceService;
 
@@ -49,6 +50,14 @@ pub enum DeviceControlError {
     EmptyText,
     #[error("helper unreachable: {0}")]
     HelperUnreachable(String),
+    #[error("device is not booted")]
+    DeviceNotBooted,
+    #[error("camera is unavailable")]
+    CameraUnavailable,
+    #[error("appearance is unavailable")]
+    AppearanceUnavailable,
+    #[error("unsupported on this platform")]
+    UnsupportedOnThisPlatform { platform: DevicePlatform },
 }
 
 impl DeviceControlError {
@@ -63,6 +72,10 @@ impl DeviceControlError {
             Self::InvalidCoords => "INVALID_COORDS",
             Self::EmptyText => "EMPTY_TEXT",
             Self::HelperUnreachable(_) => "HELPER_UNREACHABLE",
+            Self::DeviceNotBooted => "DEVICE_NOT_BOOTED",
+            Self::CameraUnavailable => "CAMERA_UNAVAILABLE",
+            Self::AppearanceUnavailable => "APPEARANCE_UNAVAILABLE",
+            Self::UnsupportedOnThisPlatform { .. } => "UNSUPPORTED_ON_PLATFORM",
         }
     }
 }
@@ -110,6 +123,20 @@ pub struct SimulatorControlAck {
     pub udid: String,
     pub name: String,
     pub platform: DevicePlatform,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SimulatorAppearanceResult {
+    pub appearance: Appearance,
+    pub udid: String,
+    pub platform: DevicePlatform,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SimulatorCameraAck {
+    pub ok: bool,
+    pub lens: CameraLens,
+    pub udid: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -423,6 +450,109 @@ impl DeviceControlService {
         Ok(ack(&claim))
     }
 
+    pub async fn appearance_get(
+        &self,
+        workspace_id: &str,
+        udid: Option<&str>,
+        platform: Option<DevicePlatform>,
+    ) -> Result<SimulatorAppearanceResult, DeviceControlError> {
+        let claim = self.resolve_target(workspace_id, udid, platform).await?;
+        let host = self.require_booted(&claim)?;
+        let id = appearance_id(&claim, &host)?;
+        let appearance = self
+            .preview
+            .hooks()
+            .appearance_get(claim.platform, &id)
+            .await
+            .map_err(|_| DeviceControlError::AppearanceUnavailable)?;
+        Ok(appearance_result(&claim, appearance))
+    }
+
+    pub async fn appearance_set(
+        &self,
+        workspace_id: &str,
+        udid: Option<&str>,
+        platform: Option<DevicePlatform>,
+        appearance: Appearance,
+    ) -> Result<SimulatorAppearanceResult, DeviceControlError> {
+        let claim = self.resolve_target(workspace_id, udid, platform).await?;
+        let host = self.require_booted(&claim)?;
+        let id = appearance_id(&claim, &host)?;
+        self.preview
+            .hooks()
+            .appearance_set(claim.platform, &id, appearance)
+            .await
+            .map_err(|_| DeviceControlError::AppearanceUnavailable)?;
+        Ok(appearance_result(&claim, appearance))
+    }
+
+    pub async fn camera_inject(
+        &self,
+        workspace_id: &str,
+        udid: Option<&str>,
+        platform: Option<DevicePlatform>,
+        lens: CameraLens,
+        png: &[u8],
+    ) -> Result<SimulatorCameraAck, DeviceControlError> {
+        let claim = self.resolve_target(workspace_id, udid, platform).await?;
+        self.camera_write(&claim, lens, Some(png)).await
+    }
+
+    pub async fn camera_clear(
+        &self,
+        workspace_id: &str,
+        udid: Option<&str>,
+        platform: Option<DevicePlatform>,
+        lens: CameraLens,
+    ) -> Result<SimulatorCameraAck, DeviceControlError> {
+        let claim = self.resolve_target(workspace_id, udid, platform).await?;
+        self.camera_write(&claim, lens, None).await
+    }
+
+    async fn camera_write(
+        &self,
+        claim: &DeviceClaim,
+        lens: CameraLens,
+        png: Option<&[u8]>,
+    ) -> Result<SimulatorCameraAck, DeviceControlError> {
+        if claim.platform == DevicePlatform::Ios {
+            return Err(DeviceControlError::UnsupportedOnThisPlatform {
+                platform: DevicePlatform::Ios,
+            });
+        }
+        let host = self.require_booted(claim)?;
+        let serial = android_serial(claim, &host).ok_or(DeviceControlError::CameraUnavailable)?;
+        let camera_dir = self.preview.paths().camera_dir.clone();
+        let engine_lens = lens.to_engine();
+        let write = match png {
+            Some(bytes) => set_camera_png(&camera_dir, &serial, engine_lens, bytes),
+            None => clear_camera_png(&camera_dir, &serial, engine_lens),
+        };
+        write.map_err(|err| DeviceControlError::HelperUnreachable(err.to_string()))?;
+        if !self.preview.hooks().camera_wired(&serial) {
+            return Err(DeviceControlError::CameraUnavailable);
+        }
+        Ok(SimulatorCameraAck {
+            ok: true,
+            lens,
+            udid: claim.udid.clone(),
+        })
+    }
+
+    fn require_booted(
+        &self,
+        claim: &DeviceClaim,
+    ) -> Result<core_engine::HostDevice, DeviceControlError> {
+        let device = self
+            .preview
+            .host_device(&claim.udid)
+            .ok_or(DeviceControlError::DeviceNotBooted)?;
+        if device.boot != BootState::Booted {
+            return Err(DeviceControlError::DeviceNotBooted);
+        }
+        Ok(device)
+    }
+
     fn require_serve_sim_bin(&self) -> Result<PathBuf, DeviceControlError> {
         let bin = self.preview.serve_sim_binary();
         if bin.is_file() {
@@ -433,6 +563,38 @@ impl DeviceControlService {
                 bin.display()
             )))
         }
+    }
+}
+
+fn appearance_id(
+    claim: &DeviceClaim,
+    host: &core_engine::HostDevice,
+) -> Result<String, DeviceControlError> {
+    match claim.platform {
+        DevicePlatform::Ios => Ok(claim.udid.clone()),
+        DevicePlatform::Android => {
+            android_serial(claim, host).ok_or(DeviceControlError::AppearanceUnavailable)
+        }
+    }
+}
+
+fn android_serial(claim: &DeviceClaim, host: &core_engine::HostDevice) -> Option<String> {
+    host.serial
+        .clone()
+        .or_else(|| {
+            claim
+                .argv_id
+                .starts_with("emulator-")
+                .then(|| claim.argv_id.clone())
+        })
+        .filter(|serial| serial.starts_with("emulator-"))
+}
+
+fn appearance_result(claim: &DeviceClaim, appearance: Appearance) -> SimulatorAppearanceResult {
+    SimulatorAppearanceResult {
+        appearance,
+        udid: claim.udid.clone(),
+        platform: claim.platform,
     }
 }
 

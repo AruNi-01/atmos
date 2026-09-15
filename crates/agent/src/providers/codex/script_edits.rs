@@ -4,6 +4,9 @@
 //! `Path(...).write_text` rewrites stay as shell. Recover those so the
 //! transcript can show Edit/Delete cards and turn file-change chips.
 
+use std::borrow::Cow;
+use std::collections::HashMap;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InferredFileEdit {
     pub path: String,
@@ -165,21 +168,57 @@ fn extract_python_heredocs(command: &str) -> Vec<String> {
             continue;
         };
         let rest = &command[start + after_bin..];
-        // After optional shell quotes, look for `<< TAG`.
-        let looking = rest.trim_start();
-        let looking = looking.strip_prefix('"').unwrap_or(looking);
-        let looking = looking.strip_prefix('\'').unwrap_or(looking);
-        let looking = looking.trim_start();
-        if !looking.starts_with("<<") {
-            search = start + 6;
-            continue;
-        }
-        if let Some(body) = heredoc_body(looking) {
-            sources.push(body);
+        if let Some(looking) = skip_to_heredoc(rest) {
+            if let Some(body) = heredoc_body(looking) {
+                sources.push(body);
+            }
         }
         search = start + 6;
     }
     sources
+}
+
+fn skip_to_heredoc(rest: &str) -> Option<&str> {
+    let mut s = rest.trim_start();
+    s = s.strip_prefix('"').unwrap_or(s);
+    s = s.strip_prefix('\'').unwrap_or(s).trim_start();
+    let idx = s.find("<<")?;
+    let between = s[..idx].trim();
+    if !between.is_empty() {
+        let only_stdin_flags = between
+            .split_whitespace()
+            .all(|tok| tok.starts_with('-') && !tok.contains('c') && tok != "--");
+        if !only_stdin_flags {
+            return None;
+        }
+    }
+    Some(&s[idx..])
+}
+
+fn maybe_unescape_python(source: &str) -> Cow<'_, str> {
+    if !source.contains('\\') {
+        return Cow::Borrowed(source);
+    }
+    let mut out = String::with_capacity(source.len());
+    let mut chars = source.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c != '\\' {
+            out.push(c);
+            continue;
+        }
+        match chars.next() {
+            Some('n') => out.push('\n'),
+            Some('t') => out.push('\t'),
+            Some('r') => out.push('\r'),
+            Some(other @ ('\\' | '"' | '\'')) => out.push(other),
+            Some(other) => {
+                out.push('\\');
+                out.push(other);
+            }
+            None => out.push('\\'),
+        }
+    }
+    Cow::Owned(out)
 }
 
 fn consume_python_bin(s: &str) -> Option<usize> {
@@ -278,8 +317,8 @@ fn python_dash_c_code(s: &str) -> Option<String> {
     // Allow `-c` after other short flags: `python3 -c` or `python3 -uc`.
     loop {
         rest = rest.trim_start();
-        if rest.starts_with("-c") {
-            let after = rest[2..].trim_start();
+        if let Some(stripped) = rest.strip_prefix("-c") {
+            let after = stripped.trim_start();
             return parse_shell_string(after).map(|(code, _)| code);
         }
         if rest.starts_with('-') {
@@ -332,6 +371,8 @@ fn parse_shell_string(s: &str) -> Option<(String, usize)> {
 }
 
 fn python_edits_from_source(source: &str) -> Vec<InferredFileEdit> {
+    let source = maybe_unescape_python(source);
+    let source = source.as_ref();
     let paths = path_hits(source);
     if paths.is_empty() {
         return Vec::new();
@@ -523,13 +564,60 @@ fn call_string_arg_after(source: &str, end: usize, method: &str) -> Option<Strin
     parse_python_string(source, after).map(|(text, _)| text)
 }
 
+fn parse_string_assignments(source: &str) -> HashMap<String, String> {
+    let mut map = HashMap::new();
+    let mut search = 0;
+    while let Some(rel) = source[search..].find('=') {
+        let abs = search + rel;
+        let ident = ident_at_end(source[..abs].trim_end()).map(str::to_string);
+        let after = skip_ws(source, abs + 1);
+        if let (Some(ident), Some((value, end))) = (ident, parse_python_string(source, after)) {
+            map.entry(ident).or_insert(value);
+            search = end;
+            continue;
+        }
+        search = abs + 1;
+    }
+    map
+}
+
+fn parse_ident_at(source: &str, i: usize) -> Option<(String, usize)> {
+    let i = skip_ws(source, i);
+    let rest = &source[i..];
+    let mut len = 0;
+    for c in rest.chars() {
+        if len == 0 {
+            if !(c.is_ascii_alphabetic() || c == '_') {
+                return None;
+            }
+        } else if !is_ident_char(c) {
+            break;
+        }
+        len += c.len_utf8();
+    }
+    if len == 0 {
+        return None;
+    }
+    Some((rest[..len].to_string(), i + len))
+}
+
+fn replace_arg(source: &str, i: usize, bound: &HashMap<String, String>) -> Option<(String, usize)> {
+    if let Some(parsed) = parse_python_string(source, i) {
+        return Some(parsed);
+    }
+    let (ident, end) = parse_ident_at(source, i)?;
+    let value = bound.get(&ident)?.clone();
+    Some((value, end))
+}
+
 fn parse_str_replaces(source: &str) -> Vec<(String, String)> {
+    let bound = parse_string_assignments(source);
     let mut out = Vec::new();
     let mut search = 0;
     while let Some(rel) = source[search..].find(".replace(") {
         let abs = search + rel;
         let after = skip_ws(source, abs + ".replace(".len());
-        let Some((old, after_old)) = parse_python_string(source, after) else {
+        let Some((old, after_old)) = replace_arg(source, after, &bound) else {
             search = abs + 9;
             continue;
         };
@@ -539,7 +627,7 @@ fn parse_str_replaces(source: &str) -> Vec<(String, String)> {
             continue;
         }
         let after_comma = skip_ws(source, after_old + 1);
-        let Some((new, _)) = parse_python_string(source, after_comma) else {
+        let Some((new, _)) = replace_arg(source, after_comma, &bound) else {
             search = abs + 9;
             continue;
         };
@@ -675,6 +763,28 @@ PY""#;
         assert!(patch.contains("*** Update File:"));
         assert!(patch.contains("-old title"));
         assert!(patch.contains("+new title"));
+    }
+
+    #[test]
+    fn python_dash_stdin_heredoc_with_escaped_path_emits_edit() {
+        let command = r#"/bin/zsh -lc "python3 - <<'PY'
+from pathlib import Path
+css_path = Path(\"apps/web/src/app/globals.css\")
+css = css_path.read_text()
+old = \"\"\"scrollbar-gutter: auto !important;\"\"\"
+new = \"\"\"scrollbar-gutter: stable;\"\"\"
+css = css.replace(old, new)
+css_path.write_text(css)
+print("updated")
+PY""#;
+        let edits = infer_script_edits(command);
+        assert_eq!(edits.len(), 1, "{edits:?}");
+        assert_eq!(edits[0].path, "apps/web/src/app/globals.css");
+        assert!(!edits[0].delete);
+        let patch = edits[0].patch.as_deref().expect("patch");
+        assert!(patch.contains("*** Update File: apps/web/src/app/globals.css"));
+        assert!(patch.contains("-scrollbar-gutter: auto !important;"));
+        assert!(patch.contains("+scrollbar-gutter: stable;"));
     }
 
     #[test]

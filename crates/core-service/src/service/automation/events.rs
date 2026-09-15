@@ -18,6 +18,7 @@ pub enum AutomationDefinitionChange {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(clippy::large_enum_variant)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AutomationEvent {
     DefinitionUpdated {

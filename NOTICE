@@ -625,6 +625,78 @@ Notes:    Copy-paste React + Tailwind + Motion component, installed via the
           Full Apache-2.0 text: https://www.apache.org/licenses/LICENSE-2.0
 
 -------------------------------------------------------------------------------
+19. Rare UI Matrix Orb
+-------------------------------------------------------------------------------
+
+Source:   https://github.com/swamimalode07/rare-ui
+          https://rareui.com
+Location: packages/ui/src/components/ui/matrix-orb.tsx
+License:  MIT
+Copyright (c) 2026 Swami Malode
+
+Notes:    Copy-paste React + canvas component, installed from the shadcn
+          registry (`swamimalode07/rare-ui/matrix-orb`) and adapted for Atmos
+          (idle/thinking only, theme-aware seeded colors, compact default).
+          Color helper: packages/ui/src/components/ui/matrix-orb-color.ts.
+
+The MIT License (MIT)
+
+Copyright (c) 2026 Swami Malode
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+20. Rare UI Notification Bell
+-------------------------------------------------------------------------------
+
+Source:   https://github.com/swamimalode07/rare-ui
+          https://rareui.com
+Location: packages/ui/src/components/ui/notification-bell.tsx
+License:  MIT
+Copyright (c) 2026 Swami Malode
+
+Notes:    Copy-paste React + Tailwind + Motion component, installed from the
+          shadcn registry (`swamimalode07/rare-ui/notification-bell`).
+
+The MIT License (MIT)
+
+Copyright (c) 2026 Swami Malode
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
 End of NOTICE
 -------------------------------------------------------------------------------
 

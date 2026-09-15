@@ -192,6 +192,11 @@ pub fn simulator_state_dir() -> Result<PathBuf, String> {
     Ok(state_dir()?.join("simulator"))
 }
 
+/// Android emulator `imagefile:` camera PNGs: `~/.atmos/state/simulator/camera/`.
+pub fn simulator_camera_dir() -> Result<PathBuf, String> {
+    Ok(simulator_state_dir()?.join("camera"))
+}
+
 pub fn local_model_runtime_data_dir() -> Result<PathBuf, String> {
     Ok(data_dir()?.join("local-model-runtime"))
 }
@@ -243,5 +248,8 @@ mod tests {
         assert!(simulator_state_dir()
             .unwrap()
             .starts_with(home.join("state").join("simulator")));
+        assert!(simulator_camera_dir()
+            .unwrap()
+            .starts_with(home.join("state").join("simulator").join("camera")));
     }
 }

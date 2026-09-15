@@ -20,6 +20,7 @@ import {
   verifyPackagedMacIcon,
 } from "./macos-icon.ts";
 import { STAGED_CLI_REQUIREMENT_REL } from "./prepare-package.ts";
+import { stampDmgApplicationsAlias } from "./stamp-dmg-applications-alias.ts";
 
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(join(appRoot, "package.json"));
@@ -212,6 +213,13 @@ function main() {
     ...extra,
   ]);
   console.log("[package] artifacts under apps/desktop-electron/release/");
+
+  if (builderArgsIncludeMac(extra) && process.platform === "darwin") {
+    const dmg = join(appRoot, "release", "Atmos.dmg");
+    if (existsSync(dmg)) {
+      stampDmgApplicationsAlias(dmg);
+    }
+  }
 
   if (builderArgsIncludeMac(extra) && process.platform === "darwin") {
     const app = findPackagedMacApp();

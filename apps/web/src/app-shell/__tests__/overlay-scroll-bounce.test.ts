@@ -15,8 +15,14 @@ describe("overlay scroll bounce (macOS rubber-banding)", () => {
     expect(css).not.toMatch(/\*::-webkit-scrollbar\s*\{[^}]*\bheight\s*:/);
     expect(css).toContain("scrollbar-color:");
     expect(css).toContain("scrollbar-width: thin");
-    expect(css).toContain(".agent-chat-scroll");
-    expect(css).toContain("scrollbar-gutter: auto !important");
+    expect(css).not.toMatch(
+      /\.agent-chat-scroll\s*\{[^}]*scrollbar-gutter:\s*auto/,
+    );
+
+    const stickToBottom = read(
+      "apps/web/node_modules/use-stick-to-bottom/dist/StickToBottom.js",
+    );
+    expect(stickToBottom).toContain('scrollbarGutter: "stable both-edges"');
 
     const terminalCss = read(
       "apps/web/src/features/terminal/components/terminal-grid.css",

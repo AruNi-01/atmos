@@ -116,10 +116,12 @@ describe("resource monitor dither structure", () => {
   });
 
   test("session titles reuse agent icons and fall back to the Terminal icon", () => {
+    expect(sessionNameSrc).toContain("ResourceMonitorSessionIcon");
     expect(sessionNameSrc).toContain("AgentIcon");
     expect(sessionNameSrc).toContain('iconType === "built-in"');
     expect(sessionNameSrc).toContain('iconType === "custom"');
     expect(sessionNameSrc).toContain("TerminalIcon");
+    expect(sessionNameSrc).toContain("showIcon");
   });
 
   test("Footer swaps Monitor for usage on hover with reduced-motion support", () => {
@@ -173,7 +175,18 @@ describe("resource monitor dither structure", () => {
     expect(hierarchySrc).toContain("data-resource-monitor-session-row");
     expect(hierarchySrc).toContain("RM_ROW_INTERACTIVE");
     expect(hierarchySrc).not.toContain("<Locate");
+    expect(hierarchySrc).toContain("group/session");
+    expect(hierarchySrc).toContain("group/trigger");
+    expect(hierarchySrc).toContain("group-hover/session:opacity-0");
+    expect(hierarchySrc).toContain("group-hover/session:opacity-100");
     expect(hierarchySrc).toContain(
+      "group-data-[state=closed]/trigger:-rotate-90",
+    );
+    expect(hierarchySrc).toContain("transition-opacity duration-150");
+    expect(hierarchySrc).toContain("transition-[opacity,transform] duration-150");
+    expect(hierarchySrc).toContain("ResourceMonitorSessionIcon");
+    expect(hierarchySrc).toContain("ChevronDown");
+    expect(hierarchySrc).not.toContain(
       "group inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground",
     );
     expect(hierarchySrc).not.toContain(

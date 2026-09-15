@@ -2,8 +2,15 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { PreviewRail, type PreviewRailItem, cn } from "@workspace/ui";
-import { Button } from "@workspace/ui/components/ui/button";
+import {
+  PreviewRail,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  type PreviewRailItem,
+  cn,
+} from "@workspace/ui";
 import { Bot, ChevronDown, ChevronUp, User } from "lucide-react";
 import type { RegistryAgent } from "@/api/ws-api";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
@@ -144,6 +151,7 @@ export function AgentMessageTimelineNav({
 
   const selectedNavIndex = items.findIndex((item) => item.messageIndex === activeMessageIndex);
   const activeItem = items[selectedNavIndex >= 0 ? selectedNavIndex : items.length - 1];
+  const catalogIndex = activeItem?.messageIndex ?? activeMessageIndex;
   const itemSize = timelineRailItemSize(items.length, containerHeight, TIMELINE_RAIL_CHROME_PX);
   const railMaxHeight = containerHeight > 0
     ? Math.min(
@@ -151,15 +159,16 @@ export function AgentMessageTimelineNav({
         Math.max(0, containerHeight - TIMELINE_RAIL_CHROME_PX),
       )
     : undefined;
-  const previousIndex = stepUserMessageIndex(userMessageIndices, activeMessageIndex, "previous");
-  const nextIndex = stepUserMessageIndex(userMessageIndices, activeMessageIndex, "next");
+  const previousIndex = stepUserMessageIndex(userMessageIndices, catalogIndex, "previous");
+  const nextIndex = stepUserMessageIndex(userMessageIndices, catalogIndex, "next");
 
   return (
     <div
       ref={rootRef}
       className="agent-message-timeline-nav pointer-events-none absolute inset-y-0 left-0 z-20 flex w-8 min-h-0 items-center justify-center overflow-visible"
     >
-      <div className="pointer-events-auto flex min-h-0 flex-col items-center gap-1">
+      <TooltipProvider delayDuration={200}>
+        <div className="pointer-events-auto flex min-h-0 flex-col items-center gap-1">
         <TimelineStepButton
           direction="previous"
           label={t("previousMessage")}
@@ -247,7 +256,8 @@ export function AgentMessageTimelineNav({
             onSelectMessage(nextIndex);
           }}
         />
-      </div>
+        </div>
+      </TooltipProvider>
     </div>
   );
 }
@@ -266,20 +276,20 @@ function TimelineStepButton({
   const Icon = direction === "previous" ? ChevronUp : ChevronDown;
 
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon-sm"
-      disabled={disabled}
-      aria-label={label}
-      data-agent-chat-timeline-step={direction}
-      onClick={onClick}
-      className="group/timeline-step size-8 rounded-full bg-muted/75 text-foreground shadow-sm ring-1 ring-border/50 before:rounded-full hover:bg-muted hover:text-foreground"
-    >
-      <Icon className="size-4" />
-      <span className="pointer-events-none absolute left-full z-50 ml-2 hidden h-8 items-center whitespace-nowrap rounded-full bg-popover/95 px-3 text-sm font-medium text-popover-foreground shadow-sm ring-1 ring-border/60 group-hover/timeline-step:flex group-focus-visible/timeline-step:flex">
-        {label}
-      </span>
-    </Button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          aria-label={label}
+          data-agent-chat-timeline-step={direction}
+          onClick={onClick}
+          className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+        >
+          <Icon className="size-4" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
   );
 }

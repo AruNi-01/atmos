@@ -1,0 +1,14 @@
+{
+  "tool_call_id": "spawn_1",
+  "tool_name": "agent_spawn",
+  "args": {
+    "description": "Inspect tests",
+    "task": "Read the test files and report coverage gaps.",
+    "subagent_type": "explore",
+    "agent": "explore"
+  },
+  "result": {
+    "session_id": "child-1",
+    "output": "All tests pass."
+  }
+}

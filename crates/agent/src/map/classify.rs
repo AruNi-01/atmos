@@ -80,7 +80,7 @@ pub fn classify_tool(
     if is_subagent_wait_poll_label(&name) {
         return ClassifiedTool::Call(AgentToolKind::Other);
     }
-    if name == "task" || name == "agent" || name == "subagent" || has_subagent_input(input) {
+    if crate::map::subagent::is_subagent_spawn_name(&name) || has_subagent_input(input) {
         return ClassifiedTool::Call(AgentToolKind::Subagent);
     }
     if name.contains("skill") || has_skill_input(input) {
@@ -713,7 +713,7 @@ fn has_subagent_input(input: Option<&serde_json::Value>) -> bool {
     value
         .get("_toolName")
         .and_then(|item| item.as_str())
-        .is_some_and(|name| normalize_label(name) == "task")
+        .is_some_and(|name| crate::map::subagent::is_subagent_spawn_name(&normalize_label(name)))
 }
 
 fn has_skill_input(input: Option<&serde_json::Value>) -> bool {
@@ -877,6 +877,18 @@ mod tests {
                 None,
                 Some(&serde_json::json!({"subagent_type": "explore"}))
             ),
+            ClassifiedTool::Call(AgentToolKind::Subagent)
+        );
+        assert_eq!(
+            classify_tool("spawn_subagent", None, None),
+            ClassifiedTool::Call(AgentToolKind::Subagent)
+        );
+        assert_eq!(
+            classify_tool("spawn_agent", None, None),
+            ClassifiedTool::Call(AgentToolKind::Subagent)
+        );
+        assert_eq!(
+            classify_tool("agent_spawn", None, None),
             ClassifiedTool::Call(AgentToolKind::Subagent)
         );
         assert_eq!(

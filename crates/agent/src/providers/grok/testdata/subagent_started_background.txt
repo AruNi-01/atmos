@@ -1,0 +1,6 @@
+Subagent started in background.
+subagent_id: sa-1
+type: explore
+description: Read hello2.txt
+
+When you need its result, use get_command_or_subagent_output with task_ids=["sa-1"] and a positive timeout_ms.

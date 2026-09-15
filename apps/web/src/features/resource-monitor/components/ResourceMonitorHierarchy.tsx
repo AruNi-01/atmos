@@ -6,6 +6,7 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  ChevronDown,
   ChevronRight,
   Layers,
   LoaderCircle,
@@ -35,7 +36,10 @@ import type {
   ResourceWorkspaceMetrics,
 } from "@atmos/api-types/ws/dto/resource-monitor";
 import type { DesktopShellMetricsSnapshot } from "@/features/resource-monitor/lib/desktop-shell-metrics";
-import { ResourceMonitorSessionName } from "@/features/resource-monitor/components/ResourceMonitorSessionName";
+import {
+  ResourceMonitorSessionIcon,
+  ResourceMonitorSessionName,
+} from "@/features/resource-monitor/components/ResourceMonitorSessionName";
 import {
   RM_MEMORY,
   RM_METRIC,
@@ -358,19 +362,55 @@ function ProcessRow({
 function SessionName({
   name,
   toolbarAgent,
+  showIcon = true,
 }: {
   name: string;
   toolbarAgent: ResourceMonitorSessionDisplay["toolbarAgent"];
+  showIcon?: boolean;
 }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <ResourceMonitorSessionName name={name} toolbarAgent={toolbarAgent} />
+        <ResourceMonitorSessionName
+          name={name}
+          toolbarAgent={toolbarAgent}
+          showIcon={showIcon}
+        />
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-xs">
         {name}
       </TooltipContent>
     </Tooltip>
+  );
+}
+
+function SessionCollapseTrigger({
+  name,
+  toolbarAgent,
+}: {
+  name: string;
+  toolbarAgent: ResourceMonitorSessionDisplay["toolbarAgent"];
+}) {
+  const t = useTranslations("resourceMonitor.popover");
+  return (
+    <CollapsibleTrigger
+      type="button"
+      data-resource-monitor-session-trigger=""
+      aria-label={t("sessionProcessesAria", { name })}
+      className="group/trigger relative inline-flex size-3 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
+      onClick={(event) => event.stopPropagation()}
+    >
+      <span
+        className="absolute inset-0 flex items-center justify-center transition-opacity duration-150 group-hover/session:opacity-0 group-focus-visible/trigger:opacity-0"
+        aria-hidden
+      >
+        <ResourceMonitorSessionIcon toolbarAgent={toolbarAgent} />
+      </span>
+      <ChevronDown
+        className="absolute inset-0 size-3 opacity-0 transition-[opacity,transform] duration-150 group-hover/session:opacity-100 group-focus-visible/trigger:opacity-100 group-data-[state=closed]/trigger:-rotate-90"
+        aria-hidden
+      />
+    </CollapsibleTrigger>
   );
 }
 
@@ -535,23 +575,23 @@ function SessionRow({
       data-resource-monitor-session-kind={kind}
     >
       <div
-        className={cn(RM_ROW, RM_ROW_INTERACTIVE, locatable && "cursor-pointer")}
+        className={cn(
+          RM_ROW,
+          RM_ROW_INTERACTIVE,
+          "group/session",
+          locatable && "cursor-pointer",
+        )}
         data-resource-monitor-session-row=""
         onClick={locatable ? goToSession : undefined}
       >
         <span
-          className={cn(RM_NAME, "flex items-center gap-1")}
+          className={cn(RM_NAME, "flex items-center gap-1.5")}
           style={{ paddingLeft: indent * 12 }}
         >
-          <CollapsibleTrigger
-            type="button"
-            data-resource-monitor-session-trigger=""
-            aria-label={t("sessionProcessesAria", { name })}
-            className="group inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <ChevronRight className="size-3 transition-transform group-data-[state=open]:rotate-90" />
-          </CollapsibleTrigger>
+          <SessionCollapseTrigger
+            name={name}
+            toolbarAgent={display.toolbarAgent}
+          />
           {locatable ? (
             <button
               type="button"
@@ -563,10 +603,18 @@ function SessionRow({
                 goToSession();
               }}
             >
-              <SessionName name={name} toolbarAgent={display.toolbarAgent} />
+              <SessionName
+                name={name}
+                toolbarAgent={display.toolbarAgent}
+                showIcon={false}
+              />
             </button>
           ) : (
-            <SessionName name={name} toolbarAgent={display.toolbarAgent} />
+            <SessionName
+              name={name}
+              toolbarAgent={display.toolbarAgent}
+              showIcon={false}
+            />
           )}
           {kindChip}
           {spaceBadge ? <SessionSpaceBadge badge={spaceBadge} /> : null}

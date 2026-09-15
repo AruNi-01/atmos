@@ -2,6 +2,13 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
+use core_engine::{
+    android_appearance_get, android_appearance_set, camera_feed_path, camera_wiring_matches,
+    ios_appearance_get, ios_appearance_set, ios_boot_already_booted, ios_shutdown_already_shutdown,
+    list_android_profiles, list_android_system_images, list_ios_runtimes, parse_emu_avd_name,
+    resolve_android_toolchain_from, AndroidImage, AndroidProfile, AndroidToolchain, Appearance,
+    CameraLens, DevicePlatform, IosRuntime,
+};
 use tokio::io::AsyncWriteExt;
 use tokio::process::{Child, Command};
 
@@ -10,6 +17,9 @@ use super::checksum::assert_checksum;
 use super::hooks::{DevicePreviewHooks, EnsureError, SpawnSpec, SpawnedHelper};
 use super::paths::DevicePreviewPaths;
 use super::types::{HelperKind, HelperPin};
+
+const ANDROID_BOOT_TIMEOUT: Duration = Duration::from_secs(180);
+const ANDROID_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub struct ProductionHooks {
     pub paths: DevicePreviewPaths,
@@ -171,6 +181,200 @@ impl DevicePreviewHooks for ProductionHooks {
             .status()
             .await;
     }
+
+    fn ios_runtimes(&self) -> Vec<IosRuntime> {
+        list_ios_runtimes()
+    }
+
+    fn android_profiles(&self) -> Vec<AndroidProfile> {
+        list_android_profiles()
+    }
+
+    fn android_images(&self) -> Vec<AndroidImage> {
+        list_android_system_images()
+    }
+
+    fn emulator_bin(&self) -> Option<PathBuf> {
+        android_toolchain().emulator
+    }
+
+    async fn create_ios(&self, argv: &[String]) -> Result<String, String> {
+        let output = run_xcrun_simctl(argv).await?;
+        if !output.success {
+            return Err(output.stderr);
+        }
+        let udid = output.stdout.trim().to_string();
+        if udid.is_empty() {
+            return Err("simctl create returned an empty udid".into());
+        }
+        Ok(udid)
+    }
+
+    async fn create_android(&self, argv: &[String]) -> Result<(), String> {
+        let bin = android_toolchain()
+            .avdmanager
+            .ok_or_else(|| "avdmanager is missing".to_string())?;
+        let output = run_bin(&bin, argv).await?;
+        if !output.success {
+            return Err(output.stderr);
+        }
+        Ok(())
+    }
+
+    async fn boot_ios(&self, argv: &[String]) -> Result<(), String> {
+        let output = run_xcrun_simctl(argv).await?;
+        ios_boot_status(output.success, &output.stderr)
+    }
+
+    async fn spawn_emulator(&self, argv: &[String]) -> Result<(), String> {
+        let (bin, args) = argv
+            .split_first()
+            .ok_or_else(|| "empty emulator argv".to_string())?;
+        let port = argv_flag(argv, "-port")
+            .ok_or_else(|| "emulator argv missing -port".to_string())?
+            .parse::<u16>()
+            .map_err(|e| e.to_string())?;
+        let serial = format!("emulator-{port}");
+        let mut cmd = Command::new(bin);
+        cmd.args(args)
+            .kill_on_drop(false)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null());
+        #[cfg(unix)]
+        {
+            cmd.process_group(0);
+        }
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| format!("failed to start emulator: {e}"))?;
+        let adb = android_toolchain()
+            .adb
+            .ok_or_else(|| "adb is missing".to_string())?;
+        let deadline = Instant::now() + ANDROID_BOOT_TIMEOUT;
+        loop {
+            if let Ok(Some(status)) = child.try_wait() {
+                return Err(format!("emulator exited ({status}): {}", argv.join(" ")));
+            }
+            if android_guest_ready(&adb, &serial).await {
+                return Ok(());
+            }
+            if Instant::now() >= deadline {
+                return Err(format!(
+                    "emulator did not boot within {}s: {}",
+                    ANDROID_BOOT_TIMEOUT.as_secs(),
+                    argv.join(" ")
+                ));
+            }
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+    }
+
+    async fn shutdown_ios(&self, argv: &[String]) -> Result<(), String> {
+        let output = run_xcrun_simctl(argv).await?;
+        ios_shutdown_status(output.success, &output.stderr)
+    }
+
+    async fn shutdown_android(&self, argv: &[String]) -> Result<(), String> {
+        let adb = android_toolchain()
+            .adb
+            .ok_or_else(|| "adb is missing".to_string())?;
+        let serial = argv_flag(argv, "-s").ok_or_else(|| "missing -s".to_string())?;
+        let output = run_bin(&adb, argv).await?;
+        if !output.success
+            && !output.stderr.to_ascii_lowercase().contains("not found")
+            && !output.stdout.to_ascii_lowercase().contains("ok")
+        {
+            return Err(output.stderr);
+        }
+        let deadline = Instant::now() + ANDROID_SHUTDOWN_TIMEOUT;
+        loop {
+            if !adb_has_serial(&adb, &serial).await {
+                return Ok(());
+            }
+            if Instant::now() >= deadline {
+                return Err(format!("emulator {serial} did not leave adb devices"));
+            }
+            tokio::time::sleep(Duration::from_millis(250)).await;
+        }
+    }
+
+    async fn delete_ios(&self, argv: &[String]) -> Result<(), String> {
+        let output = run_xcrun_simctl(argv).await?;
+        if !output.success {
+            return Err(output.stderr);
+        }
+        Ok(())
+    }
+
+    async fn delete_android(&self, argv: &[String]) -> Result<(), String> {
+        let bin = android_toolchain()
+            .avdmanager
+            .ok_or_else(|| "avdmanager is missing".to_string())?;
+        let output = run_bin(&bin, argv).await?;
+        if !output.success {
+            return Err(output.stderr);
+        }
+        Ok(())
+    }
+
+    async fn appearance_get(
+        &self,
+        platform: DevicePlatform,
+        id: &str,
+    ) -> Result<Appearance, String> {
+        let id = id.to_string();
+        tokio::task::spawn_blocking(move || match platform {
+            DevicePlatform::Ios => ios_appearance_get(&id).map_err(|e| e.to_string()),
+            DevicePlatform::Android => android_appearance_get(&id).map_err(|e| e.to_string()),
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    async fn appearance_set(
+        &self,
+        platform: DevicePlatform,
+        id: &str,
+        appearance: Appearance,
+    ) -> Result<(), String> {
+        let id = id.to_string();
+        tokio::task::spawn_blocking(move || match platform {
+            DevicePlatform::Ios => ios_appearance_set(&id, appearance).map_err(|e| e.to_string()),
+            DevicePlatform::Android => {
+                android_appearance_set(&id, appearance).map_err(|e| e.to_string())
+            }
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+
+    fn camera_wired(&self, serial: &str) -> bool {
+        if !serial.starts_with("emulator-") {
+            return false;
+        }
+        let Some(adb) = android_toolchain().adb else {
+            return false;
+        };
+        let output = std::process::Command::new(&adb)
+            .args(["-s", serial, "emu", "avd", "path"])
+            .output()
+            .ok();
+        let Some(output) = output.filter(|o| o.status.success()) else {
+            return false;
+        };
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let Some(avd_path) = parse_emu_avd_name(&stdout) else {
+            return false;
+        };
+        let ini_path = PathBuf::from(&avd_path).join("hardware-qemu.ini");
+        let Ok(ini) = std::fs::read_to_string(&ini_path) else {
+            return false;
+        };
+        let front = camera_feed_path(&self.paths.camera_dir, serial, CameraLens::Front);
+        let back = camera_feed_path(&self.paths.camera_dir, serial, CameraLens::Back);
+        camera_wiring_matches(&ini, &front, &back)
+    }
 }
 
 pub fn helper_files_present(dir: &Path, kind: HelperKind) -> bool {
@@ -195,6 +399,120 @@ fn run_capture(cmd: &str, args: &[&str]) -> Option<String> {
         .ok()
         .filter(|o| o.status.success())
         .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+}
+
+struct CmdOutput {
+    success: bool,
+    stdout: String,
+    stderr: String,
+}
+
+fn argv_flag(argv: &[String], flag: &str) -> Option<String> {
+    argv.windows(2).find(|w| w[0] == flag).map(|w| w[1].clone())
+}
+
+fn android_toolchain() -> AndroidToolchain {
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    resolve_android_toolchain_from(
+        std::env::var_os("ANDROID_HOME")
+            .map(PathBuf::from)
+            .as_deref(),
+        std::env::var_os("ANDROID_SDK_ROOT")
+            .map(PathBuf::from)
+            .as_deref(),
+        home.as_deref(),
+        which("adb").as_deref(),
+        which("emulator").as_deref(),
+        which("avdmanager").as_deref(),
+        which("sdkmanager").as_deref(),
+    )
+}
+
+fn which(cmd: &str) -> Option<PathBuf> {
+    run_capture("which", &[cmd]).map(|s| PathBuf::from(s.trim()))
+}
+
+pub(super) fn ios_boot_status(success: bool, stderr: &str) -> Result<(), String> {
+    if success || ios_boot_already_booted(stderr) {
+        Ok(())
+    } else {
+        Err(stderr.trim().to_string())
+    }
+}
+
+pub(super) fn ios_shutdown_status(success: bool, stderr: &str) -> Result<(), String> {
+    if success || ios_shutdown_already_shutdown(stderr) {
+        Ok(())
+    } else {
+        Err(stderr.trim().to_string())
+    }
+}
+
+async fn run_xcrun_simctl(argv: &[String]) -> Result<CmdOutput, String> {
+    let mut full = vec!["simctl".to_string()];
+    if argv.first().map(String::as_str) != Some("simctl") {
+        full.extend(argv.iter().cloned());
+    } else {
+        full = argv.to_vec();
+    }
+    run_named("xcrun", &full).await
+}
+
+async fn run_bin(bin: &Path, argv: &[String]) -> Result<CmdOutput, String> {
+    let output = Command::new(bin)
+        .args(argv)
+        .output()
+        .await
+        .map_err(|e| format!("failed to spawn {}: {e}", bin.display()))?;
+    Ok(CmdOutput {
+        success: output.status.success(),
+        stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+    })
+}
+
+async fn run_named(bin: &str, argv: &[String]) -> Result<CmdOutput, String> {
+    let output = Command::new(bin)
+        .args(argv)
+        .output()
+        .await
+        .map_err(|e| format!("failed to spawn {bin}: {e}"))?;
+    Ok(CmdOutput {
+        success: output.status.success(),
+        stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+    })
+}
+
+async fn android_guest_ready(adb: &Path, serial: &str) -> bool {
+    let state = capture_bin(adb, &["-s", serial, "get-state"]).await;
+    if state.trim() != "device" {
+        return false;
+    }
+    let completed = capture_bin(
+        adb,
+        &["-s", serial, "shell", "getprop", "sys.boot_completed"],
+    )
+    .await;
+    completed.trim() == "1"
+}
+
+async fn adb_has_serial(adb: &Path, serial: &str) -> bool {
+    capture_bin(adb, &["devices", "-l"])
+        .await
+        .lines()
+        .any(|line| line.split_whitespace().next() == Some(serial))
+}
+
+async fn capture_bin(bin: &Path, args: &[&str]) -> String {
+    Command::new(bin)
+        .args(args)
+        .output()
+        .await
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+        .unwrap_or_default()
 }
 
 async fn port_is_open(port: u16) -> bool {
@@ -449,6 +767,25 @@ mod tests {
             ),
             Some((42, 3300))
         );
+    }
+
+    #[test]
+    fn already_booted_and_shutdown_are_success() {
+        assert!(ios_boot_status(false, "Unable to boot device in current state: Booted\n").is_ok());
+        assert!(ios_shutdown_status(
+            false,
+            "Unable to shutdown device in current state: Shutdown"
+        )
+        .is_ok());
+        assert!(
+            ios_boot_status(false, "Unable to boot device in current state: Shutdown").is_err()
+        );
+        assert!(
+            ios_shutdown_status(false, "Unable to shutdown device in current state: Booted")
+                .is_err()
+        );
+        assert!(ios_boot_status(true, "").is_ok());
+        assert!(ios_shutdown_status(true, "").is_ok());
     }
 
     #[test]

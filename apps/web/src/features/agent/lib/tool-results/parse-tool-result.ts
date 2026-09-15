@@ -511,39 +511,6 @@ export function otherToolBodies(part: AgentToolCallPart): {
   return { paramsJson, resultBody: { kind: "json", value: prettyJson(result) } };
 }
 
-/** First non-empty command line for collapsed execute headers. Extra lines become `...`. */
-export function firstCommandLineTitle(command: string): string {
-  const lines = command.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  if (lines.length === 0) return "";
-  const line = lines[0] ?? "";
-  return lines.length > 1 ? `${line}...` : line;
-}
-
-const PYTHON_PATH_CALL = /\bPath\(\s*(?:\\?["'])([^"'\\]+)(?:\\?["'])\s*\)/g;
-const APPLY_PATCH_FILE = /\*\*\* (?:Update|Add|Delete) File:\s+(\S+)/g;
-const PYTHON_MUTATION = /\.(?:write_text|write_bytes|unlink)\s*\(/;
-
-/** Paths a Codex shell rewrite is mutating, even when the diff hunk is unknown. */
-export function scriptMutationPathsFromCommand(command: string): string[] {
-  const text = command.trim();
-  if (!text) return [];
-  const paths: string[] = [];
-  const seen = new Set<string>();
-  const add = (raw: string | undefined) => {
-    const path = raw?.trim();
-    if (!path || seen.has(path)) return;
-    seen.add(path);
-    paths.push(path);
-  };
-  APPLY_PATCH_FILE.lastIndex = 0;
-  for (const match of text.matchAll(APPLY_PATCH_FILE)) add(match[1]);
-  if (paths.length > 0) return paths;
-  if (!PYTHON_MUTATION.test(text) || !text.includes("Path(")) return [];
-  PYTHON_PATH_CALL.lastIndex = 0;
-  for (const match of text.matchAll(PYTHON_PATH_CALL)) add(match[1]);
-  return paths;
-}
-
 export function preferredCollapsedToolTitle(
   part: AgentToolCallPart,
   fallback: string,
@@ -560,19 +527,12 @@ export function preferredCollapsedToolTitle(
     if (query && (candidate === query || candidate.includes(query))) continue;
     return candidate;
   }
-  if (command) {
-    const firstLine = firstCommandLineTitle(command);
-    if (firstLine) return firstLine;
-  }
   return fallback;
 }
 
 function toolTitleEchoesCommand(title: string, command: string): boolean {
   if (!command) return false;
-  if (title === command) return true;
-  if (title.includes(`\`${command}`)) return true;
-  const snippet = command.slice(0, 48);
-  return snippet.length >= 12 && title.includes(snippet);
+  return title.includes(`\`${command}`);
 }
 
 function searchFieldsFromPart(part: AgentToolCallPart): {

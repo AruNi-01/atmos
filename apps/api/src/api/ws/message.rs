@@ -851,6 +851,24 @@ pub enum WsAction {
     SimulatorType,
     /// Press a hardware key on the resolved claim
     SimulatorPress,
+    /// Host simulator/emulator inventory (catalogs + VMs, not live claims)
+    SimulatorInventory,
+    /// Create an iOS simulator or Android AVD
+    SimulatorCreate,
+    /// Power on a VM without claiming Device Preview
+    SimulatorBoot,
+    /// Power off a VM (stops our claim first)
+    SimulatorShutdown,
+    /// Delete a VM
+    SimulatorDelete,
+    /// Get light/dark appearance on the resolved claim
+    SimulatorAppearanceGet,
+    /// Set light/dark appearance on the resolved claim
+    SimulatorAppearanceSet,
+    /// Inject a camera PNG into a claimed Android emulator
+    SimulatorCameraInject,
+    /// Clear an injected camera PNG on a claimed Android emulator
+    SimulatorCameraClear,
 
     // ===== Resource Monitor (APP-066) =====
     /// One-shot Computer resource snapshot
@@ -932,6 +950,8 @@ pub enum WsEvent {
     DiskAnalyzerScanProgress,
     /// serve-sim helper download progress (APP-060)
     SimulatorDownloadProgress,
+    /// Host inventory changed after create/boot/shutdown/delete
+    SimulatorDevicesChanged,
     /// Connection-scoped Computer resource snapshot (APP-066)
     ResourceMonitorUpdated,
     AgentChatEvent,
@@ -1463,6 +1483,71 @@ pub struct SimulatorPressRequest {
     #[serde(default)]
     pub platform: Option<core_engine::DevicePlatform>,
     pub key: core_service::PressKey,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorInventoryRequest {
+    #[serde(default)]
+    pub workspace_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorCreateRequest {
+    pub platform: core_engine::DevicePlatform,
+    pub device_type: String,
+    pub runtime: String,
+    #[serde(default)]
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorDeviceOpRequest {
+    pub workspace_id: String,
+    pub udid: String,
+    pub platform: core_engine::DevicePlatform,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorAppearanceGetRequest {
+    pub workspace_id: String,
+    #[serde(default)]
+    pub udid: Option<String>,
+    #[serde(default)]
+    pub platform: Option<core_engine::DevicePlatform>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorAppearanceSetRequest {
+    pub workspace_id: String,
+    pub appearance: core_service::Appearance,
+    #[serde(default)]
+    pub udid: Option<String>,
+    #[serde(default)]
+    pub platform: Option<core_engine::DevicePlatform>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorCameraInjectRequest {
+    pub workspace_id: String,
+    pub lens: core_service::CameraLens,
+    #[serde(default)]
+    pub path: Option<String>,
+    #[serde(default)]
+    pub png_base64: Option<String>,
+    #[serde(default)]
+    pub udid: Option<String>,
+    #[serde(default)]
+    pub platform: Option<core_engine::DevicePlatform>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorCameraClearRequest {
+    pub workspace_id: String,
+    pub lens: core_service::CameraLens,
+    #[serde(default)]
+    pub udid: Option<String>,
+    #[serde(default)]
+    pub platform: Option<core_engine::DevicePlatform>,
 }
 
 // ===== Local Model Notification Payload =====
