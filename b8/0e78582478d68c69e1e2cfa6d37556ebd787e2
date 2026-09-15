@@ -1,0 +1,64 @@
+apps/web/src/features/agent/lib/__tests__/assistant-process-parts.test.ts
+  h_5be255725524c8 59-75
+apps/web/src/features/agent/lib/__tests__/derive-agent-activity.test.ts
+  h_5be255725524c8 85-149
+apps/web/src/features/agent/lib/chat-helpers.ts
+  h_5be255725524c8 394-399,468-492
+crates/agent/src/acp_client/client.rs
+  h_5be255725524c8 117,555,892,910,928,939,949-951,966,976-978
+crates/agent/src/acp_client/terminal.rs
+  h_5be255725524c8 395,430
+crates/agent/src/acp_client/types.rs
+  h_5be255725524c8 232-234,272-274
+crates/agent/src/map/extract.rs
+  h_5be255725524c8 772-783
+crates/agent/src/map/mod.rs
+  h_5be255725524c8 27,31-32
+crates/agent/src/map/subagent.rs
+  h_5be255725524c8 14,466-468
+crates/agent/src/providers/acp/adapter.rs
+  h_5be255725524c8 25,211-217
+crates/agent/src/providers/acp/event_map.rs
+  h_5be255725524c8 8,14,152-156,239-245,395-440,446-456,505-515,923,957,1133,1167-1204,1213,1225,1236,1238-1239,1244-1327,1341,1365,1466,1515
+crates/agent/src/providers/acp/overlays/deepseek.rs
+  h_5be255725524c8 53
+crates/agent/src/providers/acp/overlays/grok_acp.rs
+  h_5be255725524c8 104-108,277,370,398,432,458
+crates/agent/src/providers/acp/testdata/README.md
+  h_5be255725524c8 8-9
+crates/agent/src/providers/acp/tool_map.rs
+  h_5be255725524c8 15-17,116,228-230,235,259-307,462-466,561-567,1312,2267,2318,2347
+crates/agent/src/providers/claude/testdata/README.md
+  h_5be255725524c8 22-23
+crates/agent/src/providers/codex/event_map.rs
+  h_5be255725524c8 429-434,442-456,938-967
+crates/agent/src/providers/codex/testdata/README.md
+  h_5be255725524c8 11-12
+crates/agent/src/providers/grok/event_map.rs
+  h_5be255725524c8 8,19-20,120-124,203-205,343-362,365-382,425-460,466-477,731,765,932,958,976,1099,1141,1172,1211,1236-1374,1384,1414,1446,1475
+crates/agent/src/providers/grok/mod.rs
+  h_5be255725524c8 30,502-504
+crates/agent/src/providers/grok/testdata/README.md
+  h_5be255725524c8 14
+crates/agent/src/providers/grok/tool_map.rs
+  h_5be255725524c8 20,131,428,735,742-748,1611,1670,1730,1778,1808,1838,1863,1993,2110,2129,2150,2324,2354,2373,2411-2450,2457,2482,2525,2550,2586,2624,2645,2673,2698,2721
+crates/agent/src/providers/opencode/testdata/README.md
+  h_5be255725524c8 10-11
+crates/agent/src/providers/opencode/tool_map.rs
+  h_5be255725524c8 14-15,118-130,227,230-236,314,432-437,571-599
+crates/agent/src/providers/pi/testdata/README.md
+  h_5be255725524c8 19
+crates/agent/src/providers/pi/tool_map.rs
+  h_5be255725524c8 14,138-148,204-205,215,305-314,501-536
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "b80e78582478d68c69e1e2cfa6d37556ebd787e2",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
