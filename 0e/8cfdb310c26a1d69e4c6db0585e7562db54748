@@ -1,0 +1,20 @@
+apps/web/src/app-shell/HeaderAttentionBell.tsx
+  s_2d402469bb9a4a::t_6ec2ca5fcd6716 6-13
+  s_2d402469bb9a4a::t_ed93dca0c00667 5,22-40,44,48,52,65-66,73-76,79-121
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0e8cfdb310c26a1d69e4c6db0585e7562db54748",
+  "prompts": {},
+  "sessions": {
+    "s_2d402469bb9a4a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0a3bd-64ac-7d53-9ea7-fd695d5f1ba2",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
