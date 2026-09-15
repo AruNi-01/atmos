@@ -1,0 +1,29 @@
+apps/web/messages/en.json
+  s_34bab59ccce4c7::t_be76d249146f09 8945-8950
+apps/web/messages/zh.json
+  s_34bab59ccce4c7::t_68b7607c3bd7d0 8945-8950
+apps/web/src/features/agent/components/AgentComposerAttachments.tsx
+  s_34bab59ccce4c7::t_9dcd9b9f5b4188 25-28,36,42,48,51,95,98,120-129
+apps/web/src/features/agent/components/__tests__/agent-composer-attachments.dom.test.tsx
+  s_34bab59ccce4c7::t_317452626d3dac 242-265,298,303,315
+apps/web/src/shared/components/__tests__/image-preview-overlay.test.tsx
+  s_34bab59ccce4c7::t_f8434d1a217288 11-16,244-316,319-322,328-334,353,368
+apps/web/src/shared/components/image-preview-overlay.tsx
+  s_34bab59ccce4c7::t_e90ec4bb3ccb32 6,39-41,44-138,238-239,251-256,258-265,275-282,316,337-491,532-535,586-633,675-680,682,688-689,700-705,707-723,743,747-756,759,768,771-775
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "58f376066d0532137b8146d939d52b3cb8a854a3",
+  "prompts": {},
+  "sessions": {
+    "s_34bab59ccce4c7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09fef-b259-7e83-b7ec-68abaff7e766",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
