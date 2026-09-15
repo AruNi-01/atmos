@@ -1,0 +1,20 @@
+crates/agent/src/providers/claude/tool_map.rs
+  s_b3a6e13e480a91::t_59f1e498e420f3 15
+  s_b3a6e13e480a91::t_0b4d9e60af31b0 14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f142dd0327bd49a4d7255242fc6b2de8a4744aa3",
+  "prompts": {},
+  "sessions": {
+    "s_b3a6e13e480a91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "97fde6b2-2280-4117-8174-042babb365eb",
+        "model": "grok-4.6"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
