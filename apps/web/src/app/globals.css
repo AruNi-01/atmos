@@ -300,11 +300,13 @@ html:not([data-theme-ready="true"]) body {
     background: transparent;
   }
 
-  /* use-stick-to-bottom hardcodes `scrollbar-gutter: stable both-edges` inline.
-     Classic gutters also drop overlay rubber-banding on the chat transcript. */
-  .agent-chat-scroll {
-    scrollbar-gutter: auto !important;
-  }
+  /*
+   * StickToBottom sets `scrollbar-gutter: stable both-edges` inline so the
+   * centered transcript stays put when overflow (and a classic/thin bar)
+   * appears. Do not override this to `auto`: a right-only overflow gutter
+   * shoves the max-w-3xl chat left the moment the scrollbar shows up.
+   * Classic `::-webkit-scrollbar { width }` is still forbidden (kills bounce).
+   */
 }
 
 /*

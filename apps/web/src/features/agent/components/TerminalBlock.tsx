@@ -14,8 +14,8 @@ import {
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import { getToolKindIcon } from "../lib/chat-helpers";
 import { isBackgroundToolCall } from "../lib/agent/background-command";
-import { preferredCollapsedToolTitle, scriptMutationPathsFromCommand } from "@/features/agent/lib/tool-results/parse-tool-result";
-import { AgentToolCard, AgentToolFileChip, type AgentToolSurface } from "./tool-results/AgentToolCard";
+import { preferredCollapsedToolTitle } from "@/features/agent/lib/tool-results/parse-tool-result";
+import { AgentToolCard, type AgentToolSurface } from "./tool-results/AgentToolCard";
 import { AgentToolEmptyBody } from "./tool-results/AgentToolBodies";
 import { AgentCommandLine } from "./AgentCommandLine";
 import { cn } from "@/shared/lib/utils";
@@ -95,16 +95,6 @@ export function TerminalBlock({
   const background = isBackgroundToolCall(part);
   const failed = (status ?? "").toLowerCase() === "failed" || part.result?.type === "error";
   const title = preferredCollapsedToolTitle(part, t("terminalBlock.title"));
-  const mutationPaths = commandStr ? scriptMutationPathsFromCommand(commandStr) : [];
-  const fileChips = mutationPaths.length > 0
-    ? (
-      <span className="flex min-w-0 items-center gap-1">
-        {mutationPaths.map((path) => (
-          <AgentToolFileChip key={path} path={path} />
-        ))}
-      </span>
-    )
-    : null;
 
   return (
     <AgentToolCard
@@ -115,7 +105,6 @@ export function TerminalBlock({
       icon={getToolKindIcon("execute")}
       title={title}
       titleTooltip={commandStr || title}
-      accessory={fileChips}
       status={status}
       shimmer={running && !background}
       defaultOpen={defaultOpen}

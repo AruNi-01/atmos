@@ -43,12 +43,17 @@ describe("subagent tasks panel", () => {
     expect(composer).not.toContain("|| hasSubagentTasks\n    || hasBackgroundTools");
   });
 
-  it("uses orbit while running and opens the shared overlay", () => {
+  it("uses a matrix orb while running and opens the shared overlay", () => {
     expect(dock).toContain("w-full rounded-3xl border border-border bg-background p-3 shadow-none");
     expect(dock).toContain("data-agent-subagent-tasks-panel");
     expect(dock).toContain("Collapsible");
     expect(dock).toContain("ChevronDown");
-    expect(dock).toContain('style="S1"');
+    expect(dock).toContain("MatrixOrb");
+    expect(dock).toContain('state={status === "running" ? "thinking" : "idle"}');
+    expect(dock).toContain("seed={seed}");
+    expect(dock).toContain("seed={part.tool_call_id}");
+    expect(dock).not.toContain('style="S1"');
+    expect(dock).not.toContain("ActivityIndicator");
     expect(dock).toContain("formatSubagentTaskLine");
     expect(dock).toContain("subagentChildActivity");
     expect(dock).toContain("TextShimmer");

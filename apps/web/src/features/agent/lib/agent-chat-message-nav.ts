@@ -227,6 +227,28 @@ export function stickyUserPinLayout(
   };
 }
 
+/**
+ * CSS-sticky overlay only needs the push offset (`top`) and fade.
+ * Pinning itself is compositor sticky; do not fake it with translateY(scrollTop).
+ */
+export function stickyUserPushLayout(
+  scrollTop: number,
+  stickySize: number,
+  nextUserStart: number | null | undefined,
+  gap = 0,
+  pinTop = 0,
+  fadePx = 0,
+): { pushPx: number; hideFade: boolean } {
+  const nextViewportTop =
+    nextUserStart == null || !Number.isFinite(nextUserStart)
+      ? Number.POSITIVE_INFINITY
+      : nextUserStart - scrollTop - pinTop;
+  return {
+    pushPx: stickyUserMessagePushPx(nextViewportTop, stickySize, gap),
+    hideFade: shouldHideStickyUserFade(nextViewportTop, stickySize, fadePx),
+  };
+}
+
 /** Last user prompt in view, or the last one already scrolled past if none remain in view. */
 export function resolveActiveUserMessageIndex(
   items: readonly UserMessageNavRect[],

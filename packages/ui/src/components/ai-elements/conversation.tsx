@@ -7,6 +7,8 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowDownIcon, DownloadIcon } from "lucide-react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 
+export { useStickToBottomContext };
+
 import { Button } from "../ui/button";
 import { SPRING_LAYOUT } from "../../lib/ease";
 import { spring } from "../../lib/springs";
