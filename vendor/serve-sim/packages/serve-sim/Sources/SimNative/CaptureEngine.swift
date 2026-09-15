@@ -280,6 +280,23 @@ actor CaptureEngine {
         }
     }
 
+    func webRTCSenderStats(sessionId: String? = nil) async throws -> String {
+        let sessions = await webRTCPublisher?.senderStatistics(sessionId: sessionId) ?? []
+        let counts = await frameCapture.frameCounts()
+        let flow = webRTCPublisher?.frameFlowCounts()
+        let data = try JSONEncoder().encode(WebRTCSenderStatsReport(
+            sessions: sessions,
+            capture: WebRTCCaptureCounts(
+                screenFrames: counts.screen,
+                idleFrames: counts.idle,
+                offeredFrames: flow?.offered,
+                forwardedFrames: flow?.forwarded,
+                pumpRestarts: flow?.pumpRestarts
+            )
+        ))
+        return String(decoding: data, as: UTF8.self)
+    }
+
     func currentScreenSize() -> Dimensions {
         screenSize
     }

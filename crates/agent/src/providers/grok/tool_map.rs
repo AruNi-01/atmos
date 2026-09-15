@@ -19,6 +19,7 @@ use crate::map::{
 };
 
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum ToolMapOut {
     FoldThinking {
         text: String,
@@ -313,10 +314,8 @@ fn map_grok_task_output(
         | AgentToolParams::Subagent {
             task_id: stored_task,
             ..
-        } => {
-            if stored_task.is_none() {
-                *stored_task = Some(task_id.clone());
-            }
+        } if stored_task.is_none() => {
+            *stored_task = Some(task_id.clone());
         }
         _ => {}
     }

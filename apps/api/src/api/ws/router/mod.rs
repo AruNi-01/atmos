@@ -1424,6 +1424,23 @@ impl WsMessageService {
             WsAction::SimulatorSwipe => self.handle_simulator_swipe(request.data).await,
             WsAction::SimulatorType => self.handle_simulator_type(request.data).await,
             WsAction::SimulatorPress => self.handle_simulator_press(request.data).await,
+            WsAction::SimulatorInventory => self.handle_simulator_inventory(request.data).await,
+            WsAction::SimulatorCreate => self.handle_simulator_create(request.data).await,
+            WsAction::SimulatorBoot => self.handle_simulator_boot(request.data).await,
+            WsAction::SimulatorShutdown => self.handle_simulator_shutdown(request.data).await,
+            WsAction::SimulatorDelete => self.handle_simulator_delete(request.data).await,
+            WsAction::SimulatorAppearanceGet => {
+                self.handle_simulator_appearance_get(request.data).await
+            }
+            WsAction::SimulatorAppearanceSet => {
+                self.handle_simulator_appearance_set(request.data).await
+            }
+            WsAction::SimulatorCameraInject => {
+                self.handle_simulator_camera_inject(request.data).await
+            }
+            WsAction::SimulatorCameraClear => {
+                self.handle_simulator_camera_clear(request.data).await
+            }
 
             // Resource Monitor (APP-066)
             WsAction::ResourceMonitorGet => self.handle_resource_monitor_get(request.data).await,

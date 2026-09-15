@@ -2,6 +2,11 @@ import { useCallback, useRef } from "react";
 import { toast as sonnerToast } from "sonner";
 import { ScreenshotToast } from "../components/screenshot-toast";
 import { execOnHost, shellEscape } from "../utils/exec";
+import {
+  fetchScreenshotPng,
+  isLoopbackPreviewHostname,
+  triggerBrowserDownload,
+} from "../utils/screenshot-capture";
 
 export type ScreenshotToast = {
   id: string;
@@ -12,6 +17,11 @@ export type ScreenshotToast = {
   // Absolute path on the host once the capture lands; used by "Open in Finder"
   // and the drag-and-drop file URL.
   path?: string;
+  // Tunneled/LAN previews download into the browser instead of exposing a path
+  // on the remote simulator host. Kept alive while the toast is mounted so the
+  // thumbnail and "Download again" action can reuse it.
+  downloadUrl?: string;
+  downloadName?: string;
   // data: URL of a downscaled preview, filled in best-effort after the save.
   thumb?: string;
   message?: string;
@@ -22,6 +32,7 @@ export type ScreenshotToast = {
 // read and act on it.
 const SAVED_DISMISS_MS = 3500;
 const ERROR_DISMISS_MS = 4000;
+const CAPTURE_TIMEOUT_MS = 10_000;
 
 function timestampSlug(): string {
   // 2026-06-11T14-12-44-123 — filesystem-safe, sorts chronologically. Keep the
@@ -35,6 +46,7 @@ export function useScreenshotToast(deviceUdid?: string | null) {
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dismissDeadlineRef = useRef<number | null>(null);
   const remainingDismissMsRef = useRef<number | null>(null);
+  const captureInFlightRef = useRef(false);
 
   const clearDismissTimer = useCallback(() => {
     if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
@@ -48,6 +60,8 @@ export function useScreenshotToast(deviceUdid?: string | null) {
     remainingDismissMsRef.current = null;
     sonnerToast.dismiss(targetId);
     if (targetId === undefined || toastIdRef.current === String(targetId)) {
+      const downloadUrl = toastRef.current?.downloadUrl;
+      if (downloadUrl) URL.revokeObjectURL(downloadUrl);
       toastRef.current = null;
       toastIdRef.current = null;
     }
@@ -56,6 +70,9 @@ export function useScreenshotToast(deviceUdid?: string | null) {
   const reveal = useCallback(() => {
     const t = toastRef.current;
     if (t?.path) void execOnHost(`open -R ${shellEscape(t.path)}`);
+    else if (t?.downloadUrl && t.downloadName) {
+      triggerBrowserDownload(t.downloadUrl, t.downloadName);
+    }
   }, []);
 
   const scheduleDismiss = useCallback((ms: number) => {
@@ -102,24 +119,67 @@ export function useScreenshotToast(deviceUdid?: string | null) {
   }, [clearDismissTimer, dismiss, pauseDismiss, resumeDismiss, reveal, scheduleDismiss]);
 
   const capture = useCallback(async () => {
-    if (!deviceUdid) return;
+    if (!deviceUdid || captureInFlightRef.current) return;
+    captureInFlightRef.current = true;
     const id = crypto.randomUUID();
     render({ id, status: "saving", phase: "in" });
 
-    // Resolve $HOME shell-side so the saved path comes back absolute — a "~"
-    // path would survive shellEscape() as a literal tilde and break the later
-    // `open -R`. The command echoes the path it wrote on success.
-    const file = `$HOME/Desktop/simulator-screenshot-${timestampSlug()}.png`;
-    const capCmd =
-      `F="${file}"; xcrun simctl io ${shellEscape(deviceUdid)} screenshot "$F" && printf '%s' "$F"`;
+    const fileName = `simulator-screenshot-${timestampSlug()}.png`;
+    const captureController = new AbortController();
+    const captureTimer = setTimeout(() => {
+      captureController.abort(new Error("Screenshot timed out"));
+    }, CAPTURE_TIMEOUT_MS);
 
-    let path: string;
     try {
-      const res = await execOnHost(capCmd);
-      path = res.stdout.trim();
+      if (!isLoopbackPreviewHostname(window.location.hostname)) {
+        const png = await fetchScreenshotPng(deviceUdid, {
+          signal: captureController.signal,
+        });
+        const downloadUrl = URL.createObjectURL(png);
+        triggerBrowserDownload(downloadUrl, fileName);
+        render({
+          id,
+          status: "saved",
+          phase: "in",
+          downloadUrl,
+          downloadName: fileName,
+          thumb: downloadUrl,
+        }, SAVED_DISMISS_MS);
+        return;
+      }
+
+      // Resolve $HOME shell-side so the saved path comes back absolute — a "~"
+      // path would survive shellEscape() as a literal tilde and break the later
+      // `open -R`. The command echoes the path it wrote on success.
+      const file = `$HOME/Desktop/${fileName}`;
+      const capCmd =
+        `F="${file}"; xcrun simctl io ${shellEscape(deviceUdid)} screenshot "$F" && printf '%s' "$F"`;
+      const res = await execOnHost(capCmd, { signal: captureController.signal });
+      const path = res.stdout.trim();
       if (res.exitCode !== 0 || !path) {
         render({ id, status: "error", phase: "in", message: res.stderr.trim() || "Screenshot failed" }, ERROR_DISMISS_MS);
         return;
+      }
+
+      render({ id, status: "saved", phase: "in", path }, SAVED_DISMISS_MS);
+
+      // Best-effort thumbnail: downscale to a temp PNG, base64 it back, then
+      // delete it. Failures (sips missing, etc.) just leave the placeholder.
+      const thumb = `/tmp/simulator-screenshot-thumb-${id}.png`;
+      try {
+        const tr = await execOnHost(
+          `sips -Z 320 ${shellEscape(path)} --out ${shellEscape(thumb)} >/dev/null 2>&1 && base64 -i ${shellEscape(thumb)}; rm -f ${shellEscape(thumb)}`,
+          { signal: captureController.signal },
+        );
+        const b64 = tr.stdout.replace(/\s+/g, "");
+        if (b64) {
+          const current = toastRef.current;
+          if (current?.id === id) {
+            render({ ...current, thumb: `data:image/png;base64,${b64}` }, SAVED_DISMISS_MS);
+          }
+        }
+      } catch {
+        // ignore — the pill is fully functional without a preview.
       }
     } catch (e) {
       render({
@@ -128,27 +188,9 @@ export function useScreenshotToast(deviceUdid?: string | null) {
         phase: "in",
         message: e instanceof Error ? e.message : "Screenshot failed",
       }, ERROR_DISMISS_MS);
-      return;
-    }
-
-    render({ id, status: "saved", phase: "in", path }, SAVED_DISMISS_MS);
-
-    // Best-effort thumbnail: downscale to a temp PNG, base64 it back, then
-    // delete it. Failures (sips missing, etc.) just leave the placeholder.
-    const thumb = `/tmp/simulator-screenshot-thumb-${id}.png`;
-    try {
-      const tr = await execOnHost(
-        `sips -Z 320 ${shellEscape(path)} --out ${shellEscape(thumb)} >/dev/null 2>&1 && base64 -i ${shellEscape(thumb)}; rm -f ${shellEscape(thumb)}`,
-      );
-      const b64 = tr.stdout.replace(/\s+/g, "");
-      if (b64) {
-        const current = toastRef.current;
-        if (current?.id === id) {
-          render({ ...current, thumb: `data:image/png;base64,${b64}` }, SAVED_DISMISS_MS);
-        }
-      }
-    } catch {
-      // ignore — the pill is fully functional without a preview.
+    } finally {
+      clearTimeout(captureTimer);
+      captureInFlightRef.current = false;
     }
   }, [deviceUdid, render]);
 

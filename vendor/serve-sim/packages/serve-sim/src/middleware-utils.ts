@@ -1,9 +1,49 @@
 
+export interface UpgradeHandlerWebSocket {
+  readonly OPEN: number;
+  readonly readyState: number;
+  send(data: string | Buffer): void;
+  close(): void;
+  on(event: "message", listener: (data: Buffer<ArrayBufferLike>) => void): void;
+  on(event: "error", listener: (error?: unknown) => void): void;
+  on(event: "close", listener: () => void): void;
+}
+
 export type SseSink = {
   readonly closed: boolean;
   write(chunk: string): void;
   close(): void;
 };
+
+export function claimHelperHidSocket(
+  request: Request,
+  websocket: UpgradeHandlerWebSocket,
+  { helperProxyTarget, fallbackDevice, resolveSession }: {
+    helperProxyTarget(rawUrl: string): { device: string | null; upstreamPath: string } | null;
+    fallbackDevice: string | null;
+    resolveSession: {
+      (device: string): { attachHidSocket(ws: UpgradeHandlerWebSocket): void };
+    };
+  },
+): boolean {
+  const url = new URL(request.url, "http://serve-sim.local");
+  const target = helperProxyTarget(`${url.pathname}${url.search}`);
+  if (!target || target.upstreamPath !== "/ws") return false;
+  const device = target.device ?? fallbackDevice ?? null;
+  if (!device) {
+    websocket.close();
+    return true;
+  }
+  let session: { attachHidSocket(ws: UpgradeHandlerWebSocket): void };
+  try {
+    session = resolveSession(device);
+  } catch {
+    websocket.close(); // not booted / capture unavailable
+    return true;
+  }
+  session.attachHidSocket(websocket);
+  return true;
+}
 
 export function requestHost(request: Request, url: URL): string | undefined {
   return request.headers.get("host") ?? url.host ?? undefined;

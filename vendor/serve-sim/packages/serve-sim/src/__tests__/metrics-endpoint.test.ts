@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { execFileSync, execSync, spawnSync } from "child_process";
 import { join } from "path";
+import { parseDetachState } from "./detach-state";
 
 /**
  * Integration test for the `/metrics` SSE endpoint.
@@ -50,7 +51,7 @@ describeOrSkip("/metrics endpoint (real simulator)", () => {
         `serve-sim --detach failed (exit=${detach.status} signal=${detach.signal})\nstdout: ${detach.stdout ?? "<none>"}`,
       );
     }
-    const state = JSON.parse(detach.stdout.trim()) as { url: string };
+    const state = parseDetachState<{ url: string }>(detach.stdout);
     baseUrl = state.url;
   }, 60_000);
 

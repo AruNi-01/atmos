@@ -9,11 +9,11 @@ import {
 describe("host serve-sim bin", () => {
   test("treats bun compile paths as virtual", () => {
     expect(isBunVirtualPath("/$bunfs/root/serve-sim")).toBe(true);
-    expect(isBunVirtualPath("/Users/aarynlu/.atmos/runtime/serve-sim/0.1.37-atmos.1/serve-sim")).toBe(false);
+    expect(isBunVirtualPath("/Users/aarynlu/.atmos/runtime/serve-sim/0.1.48-atmos.1/serve-sim")).toBe(false);
   });
 
   test("rewrites bunfs and bare serve-sim commands to the real binary", () => {
-    const bin = "/Users/me/.atmos/runtime/serve-sim/0.1.37-atmos.1/serve-sim";
+    const bin = "/Users/me/.atmos/runtime/serve-sim/0.1.48-atmos.1/serve-sim";
     expect(rewriteHostCommand("/$bunfs/root/serve-sim permissions grant photos com.app -d UDID", bin)).toBe(
       `${bin} permissions grant photos com.app -d UDID`,
     );

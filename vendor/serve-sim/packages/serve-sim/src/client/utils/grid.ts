@@ -8,6 +8,59 @@ export interface GridDevice {
   helper: { port: number; url: string; streamUrl: string; wsUrl: string } | null;
 }
 
+export type GridCatalogDevice = Omit<GridDevice, "state" | "helper">;
+
+export type GridDeviceStatus = Pick<GridDevice, "device" | "state" | "helper">;
+
+export interface GridCatalogResponse {
+  devices: GridCatalogDevice[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export interface GridStatusResponse {
+  statuses: GridDeviceStatus[];
+}
+
+/**
+ * Overlay the small live status feed on the cached catalog. Status order is
+ * authoritative, so streaming/booted devices continue to float to the top
+ * without re-downloading their static DeviceKit descriptors.
+ */
+export function mergeGridCatalog(
+  catalog: readonly GridCatalogDevice[],
+  statuses: readonly GridDeviceStatus[],
+): GridDevice[] {
+  const catalogByUdid = new Map(catalog.map((device) => [device.device, device] as const));
+  const merged: GridDevice[] = [];
+
+  for (const status of statuses) {
+    const device = catalogByUdid.get(status.device);
+    if (!device) continue;
+    merged.push({ ...device, state: status.state, helper: status.helper });
+    catalogByUdid.delete(status.device);
+  }
+
+  // A newly added runtime may appear in the catalog just before the next
+  // status sample. Keep it visible with a conservative stopped state.
+  for (const device of catalogByUdid.values()) {
+    merged.push({ ...device, state: "Shutdown", helper: null });
+  }
+  return merged;
+}
+
+/** Whether a status reorder moved an uncached device into the loaded window. */
+export function gridCatalogNeedsRefresh(
+  catalog: readonly GridCatalogDevice[],
+  statuses: readonly GridDeviceStatus[],
+  limit: number,
+): boolean {
+  if (catalog.length === 0) return false;
+  const loaded = new Set(catalog.map((device) => device.device));
+  return statuses.slice(0, Math.min(limit, statuses.length)).some((status) => !loaded.has(status.device));
+}
+
 export interface DevicePlaceholderAssetDescriptor {
   name: string;
   width: number;

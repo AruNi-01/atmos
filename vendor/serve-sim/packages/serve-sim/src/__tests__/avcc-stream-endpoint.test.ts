@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { execFileSync, execSync, spawnSync } from "child_process";
 import { join } from "path";
+import { parseDetachState } from "./detach-state";
 
 /**
  * Integration test for the AVCC (H.264) stream endpoint.
@@ -73,7 +74,7 @@ describeWithSim(`serve-sim AVCC endpoint (booted sim ${bootedUdid ?? "<skipped>"
     }
     // The preview server serves the stream in-process under
     // /helper/<device>/… — derive the AVCC URL from the reported MJPEG one.
-    const state = JSON.parse(detach.stdout.trim()) as { streamUrl: string };
+    const state = parseDetachState<{ streamUrl: string }>(detach.stdout);
     avccUrl = state.streamUrl.replace("stream.mjpeg", "stream.avcc");
   }, 60_000);
 

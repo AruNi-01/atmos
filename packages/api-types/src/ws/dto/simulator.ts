@@ -16,7 +16,18 @@ export type SimulatorReason =
   | "adb_missing"
   | "emulator_missing"
   | "no_avd"
-  | "device_already_claimed";
+  | "device_already_claimed"
+  | "device_not_booted"
+  | "runtime_missing"
+  | "system_image_missing"
+  | "device_type_unknown"
+  | "create_failed"
+  | "boot_failed"
+  | "shutdown_failed"
+  | "delete_failed"
+  | "camera_unavailable"
+  | "appearance_unavailable"
+  | "unsupported_on_platform";
 
 export type SimulatorDevicePlatform = "ios" | "android";
 
@@ -170,4 +181,103 @@ export type SimulatorControlAck = {
   udid: string;
   name: string;
   platform: SimulatorDevicePlatform;
+};
+
+export type SimulatorAppearance = "light" | "dark";
+
+export type SimulatorCameraLens = "front" | "back";
+
+export type SimulatorDeviceType = {
+  id: string;
+  name: string;
+  platform: SimulatorDevicePlatform;
+};
+
+export type SimulatorDeviceRuntime = {
+  id: string;
+  name: string;
+  platform: SimulatorDevicePlatform;
+  supported_device_types: SimulatorDeviceType[];
+};
+
+export type SimulatorInventoryPlatform = {
+  devices: SimulatorDevice[];
+  device_types: SimulatorDeviceType[];
+  runtimes: SimulatorDeviceRuntime[];
+};
+
+export type SimulatorInventory = {
+  ios: SimulatorInventoryPlatform;
+  android: SimulatorInventoryPlatform;
+};
+
+export type SimulatorInventoryRequest = {
+  workspace_id?: string | null;
+};
+
+export type SimulatorCreateRequest = {
+  platform: SimulatorDevicePlatform;
+  device_type: string;
+  runtime: string;
+  name?: string | null;
+};
+
+export type SimulatorDeviceResult = {
+  device: SimulatorDevice;
+};
+
+export type SimulatorDeviceOpRequest = {
+  workspace_id: string;
+  udid: string;
+  platform: SimulatorDevicePlatform;
+};
+
+export type SimulatorDeleteResponse = {
+  deleted: true;
+  udid: string;
+};
+
+export type SimulatorAppearanceGetRequest = {
+  workspace_id: string;
+  udid?: string | null;
+  platform?: SimulatorDevicePlatform | null;
+};
+
+export type SimulatorAppearanceSetRequest = {
+  workspace_id: string;
+  appearance: SimulatorAppearance;
+  udid?: string | null;
+  platform?: SimulatorDevicePlatform | null;
+};
+
+export type SimulatorAppearanceResult = {
+  appearance: SimulatorAppearance;
+  udid: string;
+  platform: SimulatorDevicePlatform;
+};
+
+export type SimulatorCameraInjectRequest = {
+  workspace_id: string;
+  lens: SimulatorCameraLens;
+  path?: string | null;
+  png_base64?: string | null;
+  udid?: string | null;
+  platform?: SimulatorDevicePlatform | null;
+};
+
+export type SimulatorCameraClearRequest = {
+  workspace_id: string;
+  lens: SimulatorCameraLens;
+  udid?: string | null;
+  platform?: SimulatorDevicePlatform | null;
+};
+
+export type SimulatorCameraAck = {
+  ok: boolean;
+  lens: SimulatorCameraLens;
+  udid: string;
+};
+
+export type SimulatorDevicesChanged = {
+  platform?: SimulatorDevicePlatform | null;
 };

@@ -49,6 +49,7 @@ fn claude_token_part(usage: &Value, snake: &str, camel: &str) -> Option<u64> {
 ///
 /// All-zero / output-only stubs still return `Some(0)` here. Occupancy callers
 /// must use [`claude_context_occupancy`] so those placeholders do not win.
+#[cfg(test)]
 pub fn claude_context_tokens(usage: &Value) -> Option<u64> {
     let parts = [
         claude_token_part(usage, "input_tokens", "inputTokens"),

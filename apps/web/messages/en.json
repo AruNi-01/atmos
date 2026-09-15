@@ -11239,8 +11239,56 @@
         "startIos": "Start iOS",
         "startAndroid": "Start Android",
         "stop": "Stop",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "addDevice": "Add device",
+        "boot": "Boot",
+        "shutdown": "Shut down",
+        "delete": "Delete",
+        "preview": "Preview",
+        "clear": "Clear"
       },
+      "inventory": {
+        "title": "Devices",
+        "empty": "No simulators or emulators on this Mac.",
+        "collapse": "Hide devices",
+        "expand": "Show devices",
+        "claimedThis": "This workspace",
+        "claimedOther": "Another workspace",
+        "unclaimed": "Not claimed",
+        "stateBooted": "Booted",
+        "stateShutdown": "Shutdown",
+        "stateBooting": "Booting",
+        "stateShuttingDown": "Shutting down",
+        "stateUnavailable": "Unavailable"
+      },
+      "createDialog": {
+        "title": "Add device",
+        "description": "Create a simulator or AVD from types already installed on this Mac. It stays shut down until you boot it.",
+        "platform": "Platform",
+        "runtime": "Runtime",
+        "deviceType": "Device type",
+        "profile": "Device profile",
+        "systemImage": "System image",
+        "name": "Name",
+        "nameOptional": "Optional",
+        "androidNameHint": "Letters, digits, period, underscore, and hyphen only.",
+        "androidNameInvalid": "Android names can only use letters, digits, period, underscore, and hyphen.",
+        "missingRuntime": "Install an iOS runtime in Xcode, then try again.",
+        "missingImage": "Install an Android system image in SDK Manager, then try again.",
+        "missingType": "No device types are available for this runtime.",
+        "confirm": "Create"
+      },
+      "appearance": "Appearance",
+      "light": "Light",
+      "dark": "Dark",
+      "camera": "Camera",
+      "front": "Front",
+      "back": "Back",
+      "cameraHelper": "Reopen the camera in the app to see the new image.",
+      "cameraFileInvalid": "Choose a PNG file smaller than 32 MiB.",
+      "choosePng": "Choose PNG",
+      "platformIos": "iOS",
+      "platformAndroid": "Android",
       "stopConfirm": {
         "title": "Stop the simulator preview?",
         "body": "This ends the helper process and frees the device."
@@ -11317,6 +11365,54 @@
         "start_failed": {
           "title": "Could not start preview",
           "body": "The helper did not come up. Retry after Xcode or the Android SDK is ready."
+        },
+        "no_claim": {
+          "title": "No live preview",
+          "body": "Start a preview from the inventory, then try again."
+        },
+        "device_not_booted": {
+          "title": "Device is not booted",
+          "body": "Boot the simulator or emulator, then try again."
+        },
+        "runtime_missing": {
+          "title": "Runtime is not installed",
+          "body": "Install that iOS runtime in Xcode Settings → Platforms, then try again."
+        },
+        "system_image_missing": {
+          "title": "System image is not installed",
+          "body": "Install that Android system image in SDK Manager, then try again."
+        },
+        "device_type_unknown": {
+          "title": "Unknown device type",
+          "body": "Pick a device type from the installed catalog."
+        },
+        "create_failed": {
+          "title": "Could not create device",
+          "body": "Check the name and catalog, then try again."
+        },
+        "boot_failed": {
+          "title": "Could not boot",
+          "body": "The simulator or emulator did not power on. Retry, or check Xcode or the Android SDK."
+        },
+        "shutdown_failed": {
+          "title": "Could not shut down",
+          "body": "The device did not power off. Retry in a moment."
+        },
+        "delete_failed": {
+          "title": "Could not delete",
+          "body": "The device could not be removed. Shut it down, then try again."
+        },
+        "camera_unavailable": {
+          "title": "Camera is unavailable",
+          "body": "This emulator was not booted from Atmos with camera files. Shut down, then boot it from Atmos."
+        },
+        "appearance_unavailable": {
+          "title": "Appearance is unavailable",
+          "body": "The device could not change light or dark. Make sure it is booted."
+        },
+        "unsupported_on_platform": {
+          "title": "Not supported on this platform",
+          "body": "Camera injection is available on Android only."
         }
       }
     }

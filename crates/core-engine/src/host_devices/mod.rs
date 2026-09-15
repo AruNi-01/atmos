@@ -1,12 +1,32 @@
-//! Host device inventory (iOS Simulator + Android Emulator).
+//! Host device inventory, lifecycle argv, and Android camera files.
 //!
 //! No workspace or claim concept. Callers in `core-service` own occupancy.
+
+mod camera;
+mod catalog;
+mod lifecycle;
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use serde::{Deserialize, Serialize};
+
+pub use camera::{
+    camera_feed_path, camera_wiring_matches, clear_camera_png, sanitize_camera_serial,
+    seed_camera_feeds, set_camera_png, validate_camera_png, CameraLens, CAMERA_PLACEHOLDER_PNG,
+    CAMERA_PNG_MAX_BYTES,
+};
+pub use catalog::{
+    parse_avd_device_list, parse_sdk_installed_system_images, parse_simctl_runtimes, AndroidImage,
+    AndroidProfile, IosDeviceType, IosRuntime,
+};
+pub use lifecycle::{
+    boot_android_argv, boot_ios_argv, create_android_avd_argv, create_ios_argv,
+    default_android_avd_name, default_ios_create_name, delete_android_avd_argv, delete_ios_argv,
+    emulator_serial, free_emulator_port, ios_boot_already_booted, ios_shutdown_already_shutdown,
+    is_valid_avd_name, shutdown_android_argv, shutdown_ios_argv,
+};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
@@ -58,6 +78,8 @@ pub struct AndroidToolchain {
     pub sdk_root: Option<PathBuf>,
     pub adb: Option<PathBuf>,
     pub emulator: Option<PathBuf>,
+    pub avdmanager: Option<PathBuf>,
+    pub sdkmanager: Option<PathBuf>,
 }
 
 impl BootState {
@@ -227,6 +249,8 @@ pub fn resolve_android_toolchain_from(
     home: Option<&Path>,
     adb_on_path: Option<&Path>,
     emulator_on_path: Option<&Path>,
+    avdmanager_on_path: Option<&Path>,
+    sdkmanager_on_path: Option<&Path>,
 ) -> AndroidToolchain {
     let sdk_root = android_home
         .filter(|p| p.is_dir())
@@ -246,11 +270,35 @@ pub fn resolve_android_toolchain_from(
         .map(|sdk| sdk.join("emulator/emulator"))
         .filter(|p| p.is_file())
         .or_else(|| emulator_on_path.map(Path::to_path_buf));
+    let avdmanager = sdk_rel_bin(
+        sdk_root.as_deref(),
+        &[
+            "cmdline-tools/latest/bin/avdmanager",
+            "tools/bin/avdmanager",
+        ],
+    )
+    .or_else(|| avdmanager_on_path.map(Path::to_path_buf));
+    let sdkmanager = sdk_rel_bin(
+        sdk_root.as_deref(),
+        &[
+            "cmdline-tools/latest/bin/sdkmanager",
+            "tools/bin/sdkmanager",
+        ],
+    )
+    .or_else(|| sdkmanager_on_path.map(Path::to_path_buf));
     AndroidToolchain {
         sdk_root,
         adb,
         emulator,
+        avdmanager,
+        sdkmanager,
     }
+}
+
+fn sdk_rel_bin(sdk_root: Option<&Path>, rels: &[&str]) -> Option<PathBuf> {
+    rels.iter()
+        .filter_map(|rel| sdk_root.map(|sdk| sdk.join(rel)))
+        .find(|p| p.is_file())
 }
 
 pub fn collect_ios_snapshot() -> IosSnapshot {
@@ -267,18 +315,7 @@ pub fn collect_ios_snapshot() -> IosSnapshot {
 }
 
 pub fn collect_android_snapshot() -> AndroidSnapshot {
-    let home = std::env::var_os("HOME").map(PathBuf::from);
-    let toolchain = resolve_android_toolchain_from(
-        std::env::var_os("ANDROID_HOME")
-            .map(PathBuf::from)
-            .as_deref(),
-        std::env::var_os("ANDROID_SDK_ROOT")
-            .map(PathBuf::from)
-            .as_deref(),
-        home.as_deref(),
-        which("adb").as_deref(),
-        which("emulator").as_deref(),
-    );
+    let toolchain = current_android_toolchain();
     let sdk =
         toolchain.sdk_root.is_some() || (toolchain.adb.is_some() && toolchain.emulator.is_some());
     let adb = toolchain.adb.is_some();
@@ -323,6 +360,50 @@ pub fn collect_android_snapshot() -> AndroidSnapshot {
         emulator,
         devices: merge_android_devices(&avds, &adb_lines, &avd_by_serial),
     }
+}
+
+pub fn list_ios_runtimes() -> Vec<IosRuntime> {
+    run_capture("xcrun", &["simctl", "list", "runtimes", "--json"])
+        .as_deref()
+        .map(parse_simctl_runtimes)
+        .unwrap_or_default()
+}
+
+pub fn list_android_profiles() -> Vec<AndroidProfile> {
+    current_android_toolchain()
+        .avdmanager
+        .as_ref()
+        .and_then(|bin| run_capture(bin.to_str()?, &["list", "device"]))
+        .as_deref()
+        .map(parse_avd_device_list)
+        .unwrap_or_default()
+}
+
+pub fn list_android_system_images() -> Vec<AndroidImage> {
+    current_android_toolchain()
+        .sdkmanager
+        .as_ref()
+        .and_then(|bin| run_capture(bin.to_str()?, &["--list_installed"]))
+        .as_deref()
+        .map(parse_sdk_installed_system_images)
+        .unwrap_or_default()
+}
+
+fn current_android_toolchain() -> AndroidToolchain {
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    resolve_android_toolchain_from(
+        std::env::var_os("ANDROID_HOME")
+            .map(PathBuf::from)
+            .as_deref(),
+        std::env::var_os("ANDROID_SDK_ROOT")
+            .map(PathBuf::from)
+            .as_deref(),
+        home.as_deref(),
+        which("adb").as_deref(),
+        which("emulator").as_deref(),
+        which("avdmanager").as_deref(),
+        which("sdkmanager").as_deref(),
+    )
 }
 
 fn which(cmd: &str) -> Option<PathBuf> {

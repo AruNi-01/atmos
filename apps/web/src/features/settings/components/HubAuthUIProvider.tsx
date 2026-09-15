@@ -4,6 +4,7 @@ import React from "react";
 import { AuthUIProvider } from "@daveyplate/better-auth-ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn, toastManager } from "@workspace/ui";
+import { hubConfigured } from "@/api/hub-client";
 import {
   getHubAuthClient,
   hubSignOut,
@@ -68,6 +69,13 @@ function HubAvatarImage({
  * Account linking uses `openHubOAuth` from HubSecuritySettingsCards directly.
  */
 export function HubAuthUIProvider({ children }: HubAuthUIProviderProps) {
+  if (!hubConfigured()) {
+    return children;
+  }
+  return <ConfiguredHubAuthUIProvider>{children}</ConfiguredHubAuthUIProvider>;
+}
+
+function ConfiguredHubAuthUIProvider({ children }: HubAuthUIProviderProps) {
   const authClient = React.useMemo(() => getHubAuthClient(), []);
   const queryClient = useQueryClient();
 

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  isWebRtcTransportLocked,
   mergeStreamControlSettings,
   mergeStreamEncoderSettings,
+  mergeStreamPlaybackSettings,
   normalizeStreamEncoderSettings,
   streamControlSettingsFrom,
   streamEncoderSettingsFrom,
@@ -38,6 +40,7 @@ export function useStreamSettings({
   endpoint?: string;
   initialSettings?: StreamSettings;
 }) {
+  const transportLocked = isWebRtcTransportLocked(initialSettings);
   const [settings, setSettings] = useState<StreamControlSettings>(() =>
     initialControlSettings(initialSettings)
   );
@@ -121,17 +124,18 @@ export function useStreamSettings({
   }, [device, endpoint, initialSettings]);
 
   const updatePlayback = useCallback((patch: Partial<StreamPlaybackSettings>) => {
-    if (patch.httpCodec !== undefined) {
+    if (!transportLocked && patch.httpCodec !== undefined) {
       try {
         window.localStorage.setItem(HTTP_CODEC_STORAGE_KEY, patch.httpCodec);
       } catch {
         // Keep the in-memory preference when storage is unavailable.
       }
     }
-    const next = mergeStreamControlSettings(settingsRef.current, patch);
+    const next = mergeStreamPlaybackSettings(settingsRef.current, patch, transportLocked);
+    if (next === settingsRef.current) return;
     settingsRef.current = next;
     setSettings(next);
-  }, []);
+  }, [transportLocked]);
 
   const updateEncoder = useCallback((patch: Partial<StreamEncoderSettings>) => {
     if (!endpoint || pendingRef.current || Object.keys(patch).length === 0) return;
@@ -188,6 +192,7 @@ export function useStreamSettings({
     updatePlayback,
     updateEncoder,
     pending,
+    transportLocked,
     encoderSettingsAvailable: !!endpoint,
   };
 }

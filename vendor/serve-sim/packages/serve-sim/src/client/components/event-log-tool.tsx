@@ -61,8 +61,7 @@ export function EventLogTool({
           <span className="text-[11px] font-semibold text-white/50 uppercase tracking-[0.08em] leading-none">
             Event Log
           </span>
-          <span />
-          <span className="rounded-md border border-white/8 bg-white/[0.04] px-1.5 py-[3px] text-[10px] font-mono text-white/60">
+          <span className="justify-self-end rounded-md border border-white/8 bg-white/[0.04] px-1.5 py-[3px] text-[10px] font-mono text-white/60">
             {events.length}
           </span>
         </>

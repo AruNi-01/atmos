@@ -13,6 +13,7 @@ describe("DeviceSidebarToggle", () => {
     expect(html).toContain("z-30");
     expect(html).toContain("flex items-center");
     expect(html).not.toContain("serve-sim");
+    expect(html).not.toContain("EAS Simulator");
     expect(html).not.toContain("github.com");
     expect(html).not.toContain("max-[900px]:hidden");
   });

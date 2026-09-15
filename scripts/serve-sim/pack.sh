@@ -86,6 +86,7 @@ if [[ -f "$VENDOR/dist/simax/serve-sim-ax-settings" ]]; then
   mkdir -p "$STAGE/simax"
   cp "$VENDOR/dist/simax/serve-sim-ax-settings" "$STAGE/simax/"
 fi
+# Camera dylibs (`dist/simcam/`) are not required for the preview. Omit them.
 
 ARCHIVE="$OUT_DIR/$ASSET"
 tar -C "$OUT_DIR" -czf "$ARCHIVE" "serve-sim-${VERSION}-darwin-arm64"

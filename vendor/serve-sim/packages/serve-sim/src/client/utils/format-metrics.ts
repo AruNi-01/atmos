@@ -9,13 +9,27 @@ export function formatMem(memBytes: number): string {
   return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${Math.round(mb)} MB`;
 }
 
+/** Format a per-second byte rate (e.g. "0 B/s", "12 KB/s", "1.2 MB/s"); non-finite or negative input renders as "0 B/s". */
+export function formatRate(bytesPerSec: number): string {
+  if (!Number.isFinite(bytesPerSec) || bytesPerSec <= 0) return "0 B/s";
+  if (bytesPerSec < 1024) return `${Math.round(bytesPerSec)} B/s`;
+  const kb = bytesPerSec / 1024;
+  return kb < 1024 ? `${Math.round(kb)} KB/s` : `${(kb / 1024).toFixed(1)} MB/s`;
+}
+
 /**
  * Smooth sparkline path, auto-scaled to the window peak. Catmull-Rom spline with
- * control points clamped per segment so the curve never overshoots the data.
+ * control points clamped per segment so the curve never overshoots the data. Pass `sharedMax` to
+ * scale several series against one peak (e.g. the download/upload pair) so their heights compare.
  */
-export function sparklinePath(values: number[], width: number, height: number): string {
+export function sparklinePath(
+  values: number[],
+  width: number,
+  height: number,
+  sharedMax?: number,
+): string {
   if (values.length < 2) return "";
-  const max = Math.max(...values, 1);
+  const max = sharedMax !== undefined && sharedMax > 0 ? sharedMax : Math.max(...values, 1);
   const stepX = width / (values.length - 1);
   const pts = values.map((v, i) => ({ x: i * stepX, y: height - (v / max) * height }));
 

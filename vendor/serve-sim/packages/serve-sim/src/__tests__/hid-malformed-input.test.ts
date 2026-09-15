@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { execFileSync, spawnSync } from "child_process";
 import { existsSync } from "fs";
 import { join } from "path";
+import { parseDetachState } from "./detach-state";
 
 /**
  * Regression test for the in-process HID path (napi migration, #108).
@@ -80,7 +81,7 @@ describeIfSim(`serve-sim malformed HID input (booted sim ${bootedUdid ?? "<skipp
         `stdout: ${detach.stdout ?? "<none>"}`,
       );
     }
-    const state = JSON.parse(detach.stdout.trim()) as { wsUrl: string; streamUrl: string };
+    const state = parseDetachState<{ wsUrl: string; streamUrl: string }>(detach.stdout);
     wsUrl = state.wsUrl;
     configUrl = state.streamUrl.replace("stream.mjpeg", "config");
 

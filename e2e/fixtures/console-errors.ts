@@ -5,6 +5,8 @@ const allowedConsoleErrorPatterns = [
   /\[response\.404\] .*\/api\/system\/client-session\b/i,
   // Setup / remote onboarding probes the relay proxy before credentials exist.
   /\[response\.400\] .*\/api\/system\/computer\/relay\b/i,
+  // Hub identity probe while signed out; hubMe() treats 401 as null.
+  /\[response\.401\] .*\/v1\/me\b/i,
   // registerAccessTokenOnRelay treats 409 as success (token already registered).
   /\[response\.409\] .*\/v1\/tenants\b/i,
   /Encountered a script tag while rendering React component/i,

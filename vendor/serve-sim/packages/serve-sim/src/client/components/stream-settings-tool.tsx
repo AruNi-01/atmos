@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { SlidersHorizontal, Video } from "lucide-react";
 import { CollapsibleSection } from "./collapsible-section";
+import { TriangleAlert } from "lucide-react";
+import { useSenderStats } from "../hooks/use-sender-stats";
+import { useStreamStats } from "../hooks/use-stream-stats";
+import { StreamStatsDownload, StreamStatsSection, describeFaults, summariseStream } from "./stream-stats-tool";
 import { SettingRow, SettingSelect } from "./simulator-settings-tool";
+import { streamFpsOptions } from "../utils/stream-fps-options";
 import type {
   HttpStreamCodec,
   StreamControlSettings,
@@ -16,6 +21,7 @@ const TRANSPORT_OPTIONS = [
   { value: "http", label: "HTTP" },
   { value: "webrtc", label: "WebRTC" },
 ];
+const LOCKED_WEBRTC_TRANSPORT_OPTIONS = [{ value: "webrtc", label: "WebRTC" }];
 const HTTP_CODEC_OPTIONS = [
   { value: "auto", label: "Auto" },
   { value: "h264", label: "H.264" },
@@ -34,7 +40,6 @@ const MAX_DIMENSION_OPTIONS = [
   { value: "960", label: "960" },
   { value: "720", label: "720" },
 ];
-const FPS_OPTIONS = ["60", "30", "20", "15", "10", "5"].map((value) => ({ value, label: value }));
 const QUALITY_OPTIONS = [
   { value: "0.45", label: "45%" },
   { value: "0.55", label: "55%" },
@@ -69,7 +74,11 @@ export function StreamSettingsTool({
   onEncoderSettingsChange,
   activeCodec,
   avccSupported,
+  peerConnection,
+  webrtcStatsUrl,
+  webrtcSessionId,
   encoderSettingsDisabled = false,
+  transportLocked = false,
 }: {
   settings: StreamControlSettings;
   onPlaybackSettingsChange: (patch: Partial<StreamPlaybackSettings>) => void;
@@ -77,8 +86,22 @@ export function StreamSettingsTool({
   activeCodec: string;
   avccSupported: boolean;
   encoderSettingsDisabled?: boolean;
+  transportLocked?: boolean;
+  peerConnection: RTCPeerConnection | null;
+  webrtcStatsUrl?: string;
+  webrtcSessionId?: string | null;
 }) {
   const [open, setOpen] = useState(false);
+  const { stats, history, stale } = useStreamStats(peerConnection);
+  const senderView = useSenderStats(
+    webrtcStatsUrl ?? "",
+    webrtcSessionId ?? null,
+    webrtcStatsUrl !== undefined && peerConnection !== null && webrtcSessionId != null,
+  );
+  const sender = senderView.stale ? null : senderView.session;
+  const faults = stats === null || stale ? [] : describeFaults(stats, sender);
+  const warning = stale ? "Stream samples have stopped" : faults.join("; ");
+  const summary = stats === null ? null : summariseStream(stats);
   const httpActive = settings.transport === "http";
   const webrtcActive = settings.transport === "webrtc";
 
@@ -93,31 +116,70 @@ export function StreamSettingsTool({
           <span className="text-[11px] font-semibold text-white/50 uppercase tracking-[0.08em] leading-none inline-flex items-center">
             Stream
           </span>
-          <span className="text-[11px] text-white/40 justify-self-end uppercase">
-            {activeCodec}
+          <span className="justify-self-end inline-flex items-center gap-1.5">
+            {!open && summary !== null ? (
+              <span className="text-[11px] text-white/40 tabular-nums">{summary}</span>
+            ) : (
+              <span className="text-[11px] text-white/40 uppercase">{activeCodec}</span>
+            )}
+            {(faults.length > 0 || stale) && (
+              <span
+                data-stream-warning
+                role="status"
+                className="group relative inline-flex items-center"
+              >
+                <TriangleAlert aria-hidden="true" className="w-3.5 h-3.5 text-warning" />
+                <span className="sr-only">{warning}</span>
+                <span className="pointer-events-none absolute right-0 top-full z-10 mt-1 hidden w-max max-w-[220px] rounded-md bg-black/90 px-2 py-1 text-[11px] leading-snug text-white/90 shadow-lg group-hover:block">
+                  {warning}
+                </span>
+              </span>
+            )}
           </span>
         </>
       }
     >
       <div className="flex flex-col gap-1.5 pb-1.5">
+        <StreamStatsSection
+          stats={stats}
+          history={history}
+          faults={faults}
+          sender={sender}
+          capture={senderView.stale ? null : senderView.capture}
+          requestedFps={settings.h264Fps}
+          stale={stale}
+          action={
+            <StreamStatsDownload
+              history={history}
+              context={{
+                transport: settings.transport,
+                codec: stats?.codec,
+                sender,
+                capture: senderView.stale ? null : senderView.capture,
+              }}
+            />
+          }
+        />
         <SettingRow icon={<Video className={iconClass} />} label="Transport">
           <SettingSelect
             label="Transport"
             value={settings.transport}
-            options={TRANSPORT_OPTIONS}
-            disabled={false}
+            options={transportLocked ? LOCKED_WEBRTC_TRANSPORT_OPTIONS : TRANSPORT_OPTIONS}
+            disabled={transportLocked}
             onChange={(v) => onPlaybackSettingsChange({ transport: v as StreamTransport })}
           />
         </SettingRow>
-        <SettingRow icon={<Video className={iconClass} />} label="HTTP codec">
-          <SettingSelect
-            label="HTTP codec"
-            value={avccSupported ? settings.httpCodec : "mjpeg"}
-            options={HTTP_CODEC_OPTIONS}
-            disabled={!httpActive || !avccSupported}
-            onChange={(v) => onPlaybackSettingsChange({ httpCodec: v as HttpStreamCodec })}
-          />
-        </SettingRow>
+        {!transportLocked && (
+          <SettingRow icon={<Video className={iconClass} />} label="HTTP codec">
+            <SettingSelect
+              label="HTTP codec"
+              value={avccSupported ? settings.httpCodec : "mjpeg"}
+              options={HTTP_CODEC_OPTIONS}
+              disabled={!httpActive || !avccSupported}
+              onChange={(v) => onPlaybackSettingsChange({ httpCodec: v as HttpStreamCodec })}
+            />
+          </SettingRow>
+        )}
         <SettingRow icon={<Video className={iconClass} />} label="WebRTC codec">
           <SettingSelect
             label="WebRTC codec"
@@ -140,33 +202,37 @@ export function StreamSettingsTool({
             onChange={(v) => onEncoderSettingsChange({ maxDimension: Number(v) })}
           />
         </SettingRow>
-        <SettingRow icon={<SlidersHorizontal className={iconClass} />} label="MJPEG FPS">
-          <SettingSelect
-            label="MJPEG FPS"
-            value={String(settings.mjpegFps)}
-            options={optionsWithCurrentValue(settings.mjpegFps, FPS_OPTIONS, String)}
-            disabled={encoderSettingsDisabled || !httpActive}
-            onChange={(v) => onEncoderSettingsChange({ mjpegFps: Number(v) })}
-          />
-        </SettingRow>
-        <SettingRow icon={<SlidersHorizontal className={iconClass} />} label="MJPEG quality">
-          <SettingSelect
-            label="MJPEG quality"
-            value={String(settings.mjpegQuality)}
-            options={optionsWithCurrentValue(
-              settings.mjpegQuality,
-              QUALITY_OPTIONS,
-              (value) => `${Math.round(value * 100)}%`,
-            )}
-            disabled={encoderSettingsDisabled || !httpActive}
-            onChange={(v) => onEncoderSettingsChange({ mjpegQuality: Number(v) })}
-          />
-        </SettingRow>
+        {!transportLocked && (
+          <>
+            <SettingRow icon={<SlidersHorizontal className={iconClass} />} label="MJPEG FPS">
+              <SettingSelect
+                label="MJPEG FPS"
+                value={String(settings.mjpegFps)}
+                options={streamFpsOptions(settings.mjpegFps)}
+                disabled={encoderSettingsDisabled || !httpActive}
+                onChange={(v) => onEncoderSettingsChange({ mjpegFps: Number(v) })}
+              />
+            </SettingRow>
+            <SettingRow icon={<SlidersHorizontal className={iconClass} />} label="MJPEG quality">
+              <SettingSelect
+                label="MJPEG quality"
+                value={String(settings.mjpegQuality)}
+                options={optionsWithCurrentValue(
+                  settings.mjpegQuality,
+                  QUALITY_OPTIONS,
+                  (value) => `${Math.round(value * 100)}%`,
+                )}
+                disabled={encoderSettingsDisabled || !httpActive}
+                onChange={(v) => onEncoderSettingsChange({ mjpegQuality: Number(v) })}
+              />
+            </SettingRow>
+          </>
+        )}
         <SettingRow icon={<SlidersHorizontal className={iconClass} />} label="Video FPS">
           <SettingSelect
             label="Video FPS"
             value={String(settings.h264Fps)}
-            options={optionsWithCurrentValue(settings.h264Fps, FPS_OPTIONS, String)}
+            options={streamFpsOptions(settings.h264Fps)}
             disabled={
               encoderSettingsDisabled
               || (httpActive && (!avccSupported || settings.httpCodec === "mjpeg"))

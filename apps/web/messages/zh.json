@@ -11240,8 +11240,56 @@
         "startIos": "启动 iOS",
         "startAndroid": "启动 Android",
         "stop": "停止",
-        "cancel": "取消"
+        "cancel": "取消",
+        "addDevice": "添加设备",
+        "boot": "开机",
+        "shutdown": "关机",
+        "delete": "删除",
+        "preview": "预览",
+        "clear": "清除"
       },
+      "inventory": {
+        "title": "设备",
+        "empty": "这台 Mac 上还没有模拟器或虚拟设备。",
+        "collapse": "隐藏设备列表",
+        "expand": "显示设备列表",
+        "claimedThis": "当前工作区",
+        "claimedOther": "其他工作区正在使用",
+        "unclaimed": "未被占用",
+        "stateBooted": "已开机",
+        "stateShutdown": "已关机",
+        "stateBooting": "正在开机",
+        "stateShuttingDown": "正在关机",
+        "stateUnavailable": "不可用"
+      },
+      "createDialog": {
+        "title": "添加设备",
+        "description": "从这台 Mac 上已安装的类型创建模拟器或 AVD。创建设备后保持关机，直到你手动开机。",
+        "platform": "平台",
+        "runtime": "运行时",
+        "deviceType": "机型",
+        "profile": "设备配置",
+        "systemImage": "系统镜像",
+        "name": "名称",
+        "nameOptional": "可选",
+        "androidNameHint": "仅可使用字母、数字、点、下划线和连字符。",
+        "androidNameInvalid": "Android 名称只能使用字母、数字、点、下划线和连字符。",
+        "missingRuntime": "请先在 Xcode 中安装 iOS 运行时，然后再试。",
+        "missingImage": "请先在 SDK Manager 中安装 Android 系统镜像，然后再试。",
+        "missingType": "当前运行时没有可用机型。",
+        "confirm": "创建"
+      },
+      "appearance": "外观",
+      "light": "浅色",
+      "dark": "深色",
+      "camera": "相机",
+      "front": "前置",
+      "back": "后置",
+      "cameraHelper": "请在应用中重新打开相机，才能看到新的图片。",
+      "cameraFileInvalid": "请选择小于 32 MiB 的 PNG 文件。",
+      "choosePng": "选择 PNG",
+      "platformIos": "iOS",
+      "platformAndroid": "Android",
       "stopConfirm": {
         "title": "停止模拟器预览？",
         "body": "这会结束后台助手并释放这台设备。"
@@ -11318,6 +11366,54 @@
         "start_failed": {
           "title": "无法启动预览",
           "body": "助手没有启动。请确认 Xcode 或 Android SDK 可用后重试。"
+        },
+        "no_claim": {
+          "title": "没有正在预览的设备",
+          "body": "请先从设备列表启动预览，然后再试。"
+        },
+        "device_not_booted": {
+          "title": "设备尚未开机",
+          "body": "请先开机模拟器或虚拟设备，然后再试。"
+        },
+        "runtime_missing": {
+          "title": "未安装该运行时",
+          "body": "请在 Xcode 设置 → Platforms 中安装对应的 iOS 运行时，然后再试。"
+        },
+        "system_image_missing": {
+          "title": "未安装该系统镜像",
+          "body": "请在 SDK Manager 中安装对应的 Android 系统镜像，然后再试。"
+        },
+        "device_type_unknown": {
+          "title": "未知机型",
+          "body": "请从已安装的目录中选择机型。"
+        },
+        "create_failed": {
+          "title": "无法创建设备",
+          "body": "请检查名称和目录选项，然后再试。"
+        },
+        "boot_failed": {
+          "title": "无法开机",
+          "body": "模拟器或虚拟设备没有启动。请重试，或检查 Xcode 与 Android SDK。"
+        },
+        "shutdown_failed": {
+          "title": "无法关机",
+          "body": "设备没有关机。请稍后再试。"
+        },
+        "delete_failed": {
+          "title": "无法删除",
+          "body": "无法移除这台设备。请先关机，然后再试。"
+        },
+        "camera_unavailable": {
+          "title": "相机不可用",
+          "body": "这台模拟器不是由 Atmos 以相机文件方式启动的。请先关机，再从 Atmos 开机。"
+        },
+        "appearance_unavailable": {
+          "title": "无法更改外观",
+          "body": "设备无法切换浅色或深色。请确认它已经开机。"
+        },
+        "unsupported_on_platform": {
+          "title": "当前平台不支持",
+          "body": "相机注入仅适用于 Android。"
         }
       }
     }
