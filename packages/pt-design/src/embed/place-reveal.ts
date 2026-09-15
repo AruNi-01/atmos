@@ -24,13 +24,19 @@ export function unionElementBounds(
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
-export function elementsForPtIds<T extends { isDeleted?: boolean; customData?: { pt?: { id?: string } } }>(
+function ptInstanceId(el: unknown): string | undefined {
+  if (!el || typeof el !== "object") return undefined;
+  const id = (el as { customData?: { pt?: { id?: string } } }).customData?.pt?.id;
+  return typeof id === "string" ? id : undefined;
+}
+
+export function elementsForPtIds<T extends { id: string; isDeleted?: boolean }>(
   elements: readonly T[],
   ptIds: readonly string[],
 ): T[] {
   const ids = new Set(ptIds);
   return elements.filter((el) => {
-    const id = el.customData?.pt?.id;
+    const id = ptInstanceId(el);
     return Boolean(id && ids.has(id) && !el.isDeleted);
   });
 }

@@ -398,7 +398,7 @@ export function fieldMarks(
 export function pressMarks(
   box: { x: number; y: number; w: number; h: number },
   root: { w: number; h: number },
-  radius = HANDLE_ROUNDNESS.value,
+  radius: number = HANDLE_ROUNDNESS.value,
 ): InkMark[] {
   if (box.w < 1 || box.h < 1) return [];
   void root;

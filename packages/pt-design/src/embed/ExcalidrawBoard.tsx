@@ -468,7 +468,7 @@ export default function ExcalidrawBoard({
       canvasActions: {
         changeViewBackgroundColor: false,
         clearCanvas: false,
-        export: false,
+        export: false as const,
         loadScene: false,
         saveAsImage: false,
         saveToActiveFile: false,

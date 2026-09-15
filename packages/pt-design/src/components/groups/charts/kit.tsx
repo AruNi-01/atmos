@@ -500,7 +500,7 @@ function CartesianPlot({
                 />
               );
             }
-            if (stacked || kind === "tooltip") {
+            if (stacked) {
               let acc = 0;
               const max = expand ? 1 : Math.max(1, ...totals);
               return (
@@ -828,7 +828,7 @@ function TooltipCard({ meta, series }: { meta: ChartMeta; series: Series }): Rea
     : has(meta, "label-formatter")
       ? "Feb 2024"
       : series.labels[1] ?? "Feb";
-  const rows = [
+  const rows: { label: string; value: number; fill: string }[] = [
     { label: "Desktop", value: series.values[0]![1] ?? 305, fill: T.fillA },
     { label: "Mobile", value: series.values[1]?.[1] ?? 200, fill: T.fillB },
   ];
@@ -882,7 +882,7 @@ function legendItems(meta: ChartMeta): { label: string; fill: string }[] | null 
   if (meta.kind === "pie") {
     return PIE_LABELS.map((label, i) => ({ label, fill: fillFor(i % 3) }));
   }
-  const items = [{ label: "Desktop", fill: T.fillA }];
+  const items: { label: string; fill: string }[] = [{ label: "Desktop", fill: T.fillA }];
   if (meta.series > 1) items.push({ label: "Mobile", fill: T.fillB });
   return items;
 }
