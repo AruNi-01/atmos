@@ -3,6 +3,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { arrayMove, type DragEndEvent } from "@workspace/ui";
+import { usePtDesignOpenTitle } from "@/features/pt-design/lib/use-pt-design-open-title";
 
 import {
   EDITOR_REVIEW_DIFF_PREFIX,
@@ -212,6 +213,8 @@ export function useCenterStageTabGroups({
 }) {
   const t = useTranslations("appShell.centerStageTabGroups");
   const tabBarT = useTranslations("appShell.centerStageTabBar");
+  const tOverview = useTranslations("ptDesign.overview");
+  const ptDesignTabTitle = usePtDesignOpenTitle(tabBarT("ptDesign"), tOverview("untitled"));
   const browserFallbackLabel = t("browser.newTab");
   const [tabGroupOrderByContext, setTabGroupOrderByContext] =
     React.useState<TabGroupOrderByContext>(() => readCenterStageTabGroupOrder());
@@ -294,7 +297,7 @@ export function useCenterStageTabGroups({
     if (ptDesignTabVisible) {
       fileTabs.push({
         id: "pt-design",
-        label: tabBarT("ptDesign"),
+        label: ptDesignTabTitle,
         value: "pt-design",
         kind: "pt-design",
       });
@@ -486,6 +489,7 @@ export function useCenterStageTabGroups({
     codeReviewTabVisible,
     filesTabVisible,
     ptDesignTabVisible,
+    ptDesignTabTitle,
     gitHistoryTabVisible,
     githubHubTabVisible,
     githubTabs,

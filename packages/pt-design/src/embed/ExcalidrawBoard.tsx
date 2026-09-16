@@ -2,14 +2,32 @@
 
 import "./excalidraw-assets";
 import React from "react";
-import { DefaultSidebar, Excalidraw, MainMenu, Sidebar, useHandleLibrary } from "@excalidraw/excalidraw";
-import { FolderOpen, Library, Save, Sparkles, Users } from "lucide-react";
+import { DefaultSidebar, Excalidraw, MainMenu, Sidebar, convertToExcalidrawElements, useHandleLibrary } from "@excalidraw/excalidraw";
+import { ArrowLeft, FolderOpen, Library, Save, Sparkles, Users } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { SharePopover, type ShareCopy } from "./SharePopover";
 import type { CollabRoom } from "../collab/constants";
 import "@excalidraw/excalidraw/index.css";
 import "./excalidraw-theme.css";
-import { FONT_HELVETICA } from "../catalog/primitives";
+import { prepareLiveHandle } from "../excalidraw-bridge";
+import {
+  applySceneCameraNever,
+  armSkipInkAfterImmediate,
+  editBoardCapturesUndoHotkey,
+  editModeHandlesKeyboardGlobally,
+  followUpImmediateCapture,
+  isSkipInkAfterImmediate,
+  scheduleClearSkipInkAfterImmediate,
+  sceneExtractPtx,
+  undoThroughSelectionDecoy,
+} from "./live-board";
+import {
+  FONT_EXCALIFONT,
+  cloneScenePtCustomData,
+  createPtRestampState,
+  stampPtCustomData,
+  toExcalidrawCompatElements,
+} from "./scene-bridge";
 import {
   bindExcalidrawLibraryWindowName,
   localStorageLibraryAdapter,
@@ -22,10 +40,81 @@ import {
   isDefaultStrokeColor,
   resolveDrawingStrokeColor,
 } from "./theme-palette";
-import { BlockSidebarIcon, ComponentSidebarIcon } from "./catalog-icons";
-import type { ExcalidrawCompatElement, ExcalidrawHostApi } from "./scene-bridge";
+import { BlockSidebarIcon, ChartSidebarIcon, ComponentSidebarIcon } from "./catalog-icons";
+import { CatalogStyleMenu } from "./CatalogStyleMenu";
+import type { ExcalidrawCompatElement } from "./scene-bridge";
+import type { PtRadiusToken } from "../components/radius";
+import { PT_RADIUS_DEFAULT } from "../components/radius";
 
-export type { ExcalidrawHostApi };
+export type CaptureUpdate = "IMMEDIATELY" | "EVENTUALLY" | "NEVER";
+
+const catalogRadiusRef = { current: PT_RADIUS_DEFAULT as PtRadiusToken };
+
+export type ExcalidrawHostApi = {
+  updateScene: (input: {
+    elements?: readonly unknown[];
+    appState?: Record<string, unknown>;
+    collaborators?: unknown;
+    captureUpdate?: CaptureUpdate;
+  }) => void;
+  scrollToContent: (
+    target?: unknown,
+    opts?: {
+      animate?: boolean;
+      duration?: number;
+      fitToContent?: boolean;
+      minZoom?: number;
+      maxZoom?: number;
+      canvasOffsets?: { top?: number; right?: number; bottom?: number; left?: number };
+    },
+  ) => void;
+  getSceneElements: () => readonly ExcalidrawCompatElement[];
+  getSceneElementsIncludingDeleted: () => readonly ExcalidrawCompatElement[];
+  getFiles?: () => Record<string, unknown>;
+  addFiles?: (files: unknown[]) => void;
+  getAppState: () => {
+    scrollX: number;
+    scrollY: number;
+    zoom: { value: number };
+    width: number;
+    height: number;
+    viewBackgroundColor: string;
+    selectedElementIds: Record<string, boolean>;
+    viewModeEnabled?: boolean;
+  };
+  history: { clear: () => void };
+};
+
+function hydrateHandleElements(elements: readonly unknown[]): unknown[] {
+  const source = elements.map((raw) => {
+    const el = raw as { id?: string; customData?: { pt?: { id?: string } } };
+    return { id: el.id ?? "", customData: el.customData };
+  });
+  const asLive = elements as { id: string; seed?: number; versionNonce?: number }[];
+  // Live-board already ran convert + the single IMMEDIATELY identity bump.
+  // Re-converting would reset versionNonce; a second identity bump here would
+  // add another History entry.
+  const alreadyLive = asLive.every(
+    (el) => typeof el.seed === "number" && typeof el.versionNonce === "number",
+  );
+  const converted = alreadyLive
+    ? asLive
+    : convertToExcalidrawElements(toExcalidrawCompatElements(elements) as never, { regenerateIds: false });
+  const globalRadius = catalogRadiusRef.current;
+  return stampPtCustomData(converted as { id: string; customData?: { pt?: { id?: string } } }[], source).map(
+    (el) => cloneScenePtCustomData(prepareLiveHandle(el, globalRadius)),
+  );
+}
+
+function excalidrawHistoryButton(
+  root: ParentNode | null | undefined,
+  testId: "button-undo" | "button-redo",
+): HTMLButtonElement | null {
+  if (testId === "button-undo") {
+    return root?.querySelector('[data-testid="button-undo"]') ?? null;
+  }
+  return root?.querySelector('[data-testid="button-redo"]') ?? null;
+}
 
 type ExcalidrawApi = {
   updateScene: (next: Record<string, unknown>) => void;
@@ -52,6 +141,8 @@ type ExcalidrawApi = {
   getSceneElements: () => readonly ExcalidrawCompatElement[];
   getSceneElementsIncludingDeleted: () => readonly ExcalidrawCompatElement[];
   getFiles?: () => Record<string, unknown>;
+  addFiles?: (files: unknown[]) => void;
+  history?: { clear: () => void };
   getAppState: () => {
     scrollX: number;
     scrollY: number;
@@ -62,6 +153,7 @@ type ExcalidrawApi = {
     selectedElementIds: Record<string, boolean>;
     currentItemStrokeColor?: string;
     openSidebar?: { name: string; tab?: string } | null;
+    viewModeEnabled?: boolean;
   };
 };
 
@@ -84,17 +176,28 @@ export type ExcalidrawBoardProps = {
   initialElements: ExcalidrawCompatElement[];
   viewBackgroundColor: string;
   theme?: "light" | "dark";
+  viewModeEnabled?: boolean;
   onApi: (api: ExcalidrawHostApi) => void;
   onChange: (
     elements: readonly ExcalidrawCompatElement[],
     appState: {
       viewBackgroundColor: string;
       selectedElementIds: Record<string, boolean>;
+      scrollX: number;
+      scrollY: number;
+      zoom: { value: number };
+      width: number;
+      height: number;
+      viewModeEnabled?: boolean;
     },
   ) => void;
   catalog?: React.ReactNode;
   blockCatalog?: React.ReactNode;
+  chartCatalog?: React.ReactNode;
   overlay?: React.ReactNode;
+  topLeftChrome?: React.ReactNode;
+  onBack?: () => void;
+  backLabel?: string;
   menuItems?: BoardMenuItem[];
   isCollaborating?: boolean;
   collaborators?: BoardCollaborator[];
@@ -112,6 +215,10 @@ export type ExcalidrawBoardProps = {
     onJoin: (raw: string) => boolean;
     onStop: () => void;
     onClose: () => void;
+  };
+  catalogStyle?: {
+    radius: PtRadiusToken;
+    onRadiusChange: (radius: PtRadiusToken) => void;
   };
   onPointerUpdate?: (payload: {
     pointer: { x: number; y: number; tool: "pointer" | "laser" };
@@ -223,24 +330,61 @@ const DISABLE_CANVAS_INVERT = `
 `;
 
 function bindHostApi(api: ExcalidrawApi): ExcalidrawHostApi {
+  const restampState = createPtRestampState();
+  let recentlyImmediate = false;
   return {
     updateScene: (input) => {
+      const captureUpdate =
+        input.captureUpdate === undefined
+          ? undefined
+          : followUpImmediateCapture(input.captureUpdate, recentlyImmediate);
+      let hydrated: unknown[] | undefined;
+      if (input.elements) {
+        hydrated = hydrateHandleElements(input.elements);
+        restampState.ingest(hydrated as { id: string; versionNonce?: number; customData?: { pt?: { id?: string } } }[]);
+      }
+      if (captureUpdate === "IMMEDIATELY") {
+        armSkipInkAfterImmediate(api); // skipInkAfterImmediate: no theme ink this frame
+        // Nested onChange must not push a second bindHost IMMEDIATELY.
+        recentlyImmediate = true;
+      }
       api.updateScene({
-        ...(input.elements ? { elements: input.elements as never } : {}),
+        ...(hydrated ? { elements: hydrated as never } : {}),
         ...(input.appState ? { appState: input.appState as never } : {}),
+        ...(input.collaborators ? { collaborators: input.collaborators as never } : {}),
+        ...(captureUpdate ? { captureUpdate } : {}),
+      });
+      if (captureUpdate === "IMMEDIATELY") {
+        if (typeof requestAnimationFrame === "function") {
+          requestAnimationFrame(() => {
+            recentlyImmediate = false;
+          });
+        } else {
+          queueMicrotask(() => {
+            recentlyImmediate = false;
+          });
+        }
+      }
+    },
+    scrollToContent: () => {
+      applySceneCameraNever({
+        getAppState: () => api.getAppState(),
+        updateScene: (opts) => {
+          api.updateScene({
+            ...(opts.appState ? { appState: opts.appState as never } : {}),
+            captureUpdate: opts.captureUpdate,
+          });
+        },
       });
     },
-    scrollToContent: (target, opts) => {
-      api.scrollToContent(target as never, opts);
-    },
-    getSceneElements: () =>
-      api.getSceneElements() as unknown as readonly ExcalidrawCompatElement[],
+    getSceneElements: () => restampState.restamp(api.getSceneElements() as unknown as ExcalidrawCompatElement[]),
     getSceneElementsIncludingDeleted: () =>
-      api.getSceneElementsIncludingDeleted() as unknown as readonly ExcalidrawCompatElement[],
+      restampState.restamp(api.getSceneElementsIncludingDeleted() as unknown as ExcalidrawCompatElement[]),
     getFiles: () =>
-      typeof (api as { getFiles?: () => Record<string, unknown> }).getFiles === "function"
-        ? (api as { getFiles: () => Record<string, unknown> }).getFiles()
-        : {},
+      typeof api.getFiles === "function" ? api.getFiles() : {},
+    addFiles: (files) => {
+      api.addFiles?.(files);
+    },
     getAppState: () => {
       const state = api.getAppState();
       return {
@@ -251,7 +395,14 @@ function bindHostApi(api: ExcalidrawApi): ExcalidrawHostApi {
         height: state.height,
         viewBackgroundColor: state.viewBackgroundColor,
         selectedElementIds: state.selectedElementIds as Record<string, boolean>,
+        viewModeEnabled: state.viewModeEnabled,
       };
+    },
+    history: {
+      clear: () => {
+        restampState.clearWitnesses();
+        api.history?.clear();
+      },
     },
   };
 }
@@ -260,28 +411,201 @@ export default function ExcalidrawBoard({
   initialElements,
   viewBackgroundColor,
   theme = "light",
+  viewModeEnabled = false,
   onApi,
   onChange,
   catalog,
   blockCatalog,
+  chartCatalog,
   overlay,
+  topLeftChrome,
+  onBack,
+  backLabel,
   menuItems,
   isCollaborating = false,
   collaborators = [],
   onShare,
   sharePanel,
+  catalogStyle,
   onPointerUpdate,
 }: ExcalidrawBoardProps) {
   const boardRef = React.useRef<HTMLDivElement>(null);
   const apiRef = React.useRef<ExcalidrawApi | null>(null);
   const onApiRef = React.useRef(onApi);
+  const onChangeRef = React.useRef(onChange);
+  const themeRef = React.useRef(theme);
   const sharePanelRef = React.useRef(sharePanel);
   const handedOffRef = React.useRef(false);
   const inkFixRef = React.useRef(false);
+  const inkEpochRef = React.useRef(0);
+  const viewBackgroundColorRef = React.useRef(viewBackgroundColor);
+  const viewModeRef = React.useRef(viewModeEnabled);
   const [libraryHost, setLibraryHost] = React.useState<ExcalidrawApi | null>(null);
   const libraryAdapter = React.useMemo(() => localStorageLibraryAdapter(), []);
   onApiRef.current = onApi;
+  onChangeRef.current = onChange;
+  themeRef.current = theme;
   sharePanelRef.current = sharePanel;
+  viewBackgroundColorRef.current = viewBackgroundColor;
+  viewModeRef.current = viewModeEnabled;
+  catalogRadiusRef.current = catalogStyle?.radius ?? PT_RADIUS_DEFAULT;
+  const prevCatalogRadiusRef = React.useRef(catalogRadiusRef.current);
+
+  React.useEffect(() => {
+    const next = catalogStyle?.radius ?? PT_RADIUS_DEFAULT;
+    if (prevCatalogRadiusRef.current === next) return;
+    prevCatalogRadiusRef.current = next;
+    const api = apiRef.current;
+    if (!api || !handedOffRef.current) return;
+    api.updateScene({
+      elements: hydrateHandleElements(api.getSceneElementsIncludingDeleted()),
+      captureUpdate: "NEVER",
+    });
+  }, [catalogStyle?.radius]);
+
+  const uiOptions = React.useMemo(
+    () => ({
+      canvasActions: {
+        changeViewBackgroundColor: false,
+        clearCanvas: false,
+        export: false as const,
+        loadScene: false,
+        saveAsImage: false,
+        saveToActiveFile: false,
+        toggleTheme: false,
+      },
+    }),
+    [],
+  );
+
+  const bindExcalidrawApi = React.useCallback((api: unknown) => {
+    apiRef.current = api as ExcalidrawApi;
+    wrapToggleSidebar(apiRef.current, () => boardRef.current);
+  }, []);
+
+  const focusEditBoard = React.useCallback(() => {
+    if (viewModeRef.current) return;
+    boardRef.current?.querySelector<HTMLElement>(".excalidraw")?.focus({ preventScroll: true });
+  }, []);
+
+  const stealEditFocusFromOverlay = React.useCallback((event: { target: EventTarget | null }) => {
+    if (viewModeRef.current) return;
+    const target = event.target;
+    if (!(target instanceof Element) || !target.closest("[data-pt-overlay-id]")) return;
+    if (target.closest("[data-pt-text-editing]")) return;
+    focusEditBoard();
+  }, [focusEditBoard]);
+
+  const captureEditUndoHotkey = React.useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!editBoardCapturesUndoHotkey(viewModeRef.current, event.nativeEvent)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.nativeEvent.stopImmediatePropagation();
+    undoThroughSelectionDecoy({
+      extractPtx: () => {
+        const api = apiRef.current;
+        if (!api) return "";
+        return sceneExtractPtx(api.getSceneElements() as never);
+      },
+      queryUndoControl: () => excalidrawHistoryButton(boardRef.current, "button-undo"),
+      afterPaint: (cb) => {
+        requestAnimationFrame(cb);
+      },
+    });
+  }, []);
+
+  // Excalidraw calls `excalidrawAPI` from `_App`'s constructor — before mount —
+  // and then `restore(initialData)` with `elements: []`. First `onChange` runs after
+  // that restore (`isLoading` is already false). Hand the host API over here so
+  // loadPersist cannot be wiped by the empty initialData restore.
+
+  const handleSceneChange = React.useCallback(
+    (elements: readonly unknown[], appState: {
+      cursorButton?: string;
+      newElement?: unknown;
+      currentItemStrokeColor?: string;
+      viewBackgroundColor: string;
+      selectedElementIds: Record<string, boolean>;
+      scrollX: number;
+      scrollY: number;
+      zoom: { value: number };
+      width: number;
+      height: number;
+      viewModeEnabled?: boolean;
+    }) => {
+      const api = apiRef.current;
+      if (api && !handedOffRef.current) {
+        handedOffRef.current = true;
+        wrapToggleSidebar(api, () => boardRef.current);
+        setLibraryHost(api);
+        onApiRef.current(bindHostApi(api));
+        api.updateScene({
+          appState: {
+            viewBackgroundColor: viewBackgroundColorRef.current,
+            theme: themeRef.current,
+            currentItemRoughness: 1,
+            currentItemFontFamily: FONT_EXCALIFONT,
+            viewModeEnabled: viewModeRef.current,
+            ...drawingAppState(themeRef.current),
+          },
+          captureUpdate: "NEVER",
+        });
+      }
+      const typed = elements as unknown as readonly ExcalidrawCompatElement[];
+      const drawing = appState.cursorButton === "down" || Boolean(appState.newElement);
+      const desiredStroke = resolveDrawingStrokeColor(themeRef.current, appState.currentItemStrokeColor);
+      const inked = drawing ? typed : applyThemeInkToElements(typed, themeRef.current);
+      const elementsChanged = inked !== typed;
+      // Raw updateScene bypasses hydrate. Never write [] (would replaceAllElements
+      // empty) and always NEVER so an IMMEDIATELY apply stays on the undo stack.
+      // Re-read the live scene in the microtask so a stale applied array cannot
+      // overwrite History after undo.
+      const shouldWriteElements = elementsChanged && inked.length > 0;
+      inkEpochRef.current += 1;
+      const inkEpoch = inkEpochRef.current;
+      if (isSkipInkAfterImmediate(api)) {
+        scheduleClearSkipInkAfterImmediate(api);
+      }
+      if ((desiredStroke || shouldWriteElements) && !inkFixRef.current) {
+        inkFixRef.current = true;
+        queueMicrotask(() => {
+          try {
+            if (inkEpochRef.current !== inkEpoch) return;
+            const liveApi = apiRef.current;
+            if (!liveApi) return;
+            if (isSkipInkAfterImmediate(liveApi)) return;
+            const live = liveApi.getSceneElements() as unknown as ExcalidrawCompatElement[];
+            if (live.length === 0) return;
+            const inkedNow = drawing ? live : applyThemeInkToElements(live, themeRef.current);
+            const writeEls = inkedNow !== live && inkedNow.length > 0;
+            const stroke = resolveDrawingStrokeColor(
+              themeRef.current,
+              liveApi.getAppState().currentItemStrokeColor,
+            );
+            if (!writeEls && !stroke) return;
+            liveApi.updateScene({
+              ...(writeEls ? { elements: inkedNow } : {}),
+              ...(stroke ? { appState: { currentItemStrokeColor: stroke } } : {}),
+              captureUpdate: "NEVER",
+            });
+          } finally {
+            inkFixRef.current = false;
+          }
+        });
+      }
+      onChangeRef.current(inked, {
+        viewBackgroundColor: appState.viewBackgroundColor,
+        selectedElementIds: appState.selectedElementIds,
+        scrollX: appState.scrollX,
+        scrollY: appState.scrollY,
+        zoom: { value: appState.zoom.value },
+        width: appState.width,
+        height: appState.height,
+        viewModeEnabled: appState.viewModeEnabled,
+      });
+    },
+    [],
+  );
 
   React.useEffect(() => {
     const id = "pt-design-excalidraw-theme";
@@ -312,26 +636,6 @@ export default function ExcalidrawBoard({
     adapter: libraryAdapter,
   });
 
-  // Excalidraw calls `excalidrawAPI` from `_App`'s constructor — before mount.
-  // Hand the host API over only after this board (and `_App`) have committed.
-  React.useEffect(() => {
-    const api = apiRef.current;
-    if (!api || handedOffRef.current) return;
-    handedOffRef.current = true;
-    wrapToggleSidebar(api, () => boardRef.current);
-    setLibraryHost(api);
-    onApiRef.current(bindHostApi(api));
-    api.updateScene({
-      appState: {
-        viewBackgroundColor,
-        theme,
-        currentItemRoughness: 1,
-        currentItemFontFamily: FONT_HELVETICA,
-        ...drawingAppState(theme),
-      },
-    });
-  });
-
   React.useEffect(() => {
     if (!handedOffRef.current) return;
     const ink = drawingAppState(theme);
@@ -341,12 +645,13 @@ export default function ExcalidrawBoard({
         viewBackgroundColor,
         theme,
         currentItemRoughness: 1,
-        currentItemFontFamily: FONT_HELVETICA,
+        currentItemFontFamily: FONT_EXCALIFONT,
         ...ink,
         ...(isDefaultStrokeColor(currentStroke)
           ? {}
           : { currentItemStrokeColor: currentStroke }),
       },
+      captureUpdate: "NEVER",
     });
   }, [theme, viewBackgroundColor]);
 
@@ -386,7 +691,7 @@ export default function ExcalidrawBoard({
         socketId: user.socketId,
       });
     }
-    api.updateScene({ collaborators: next } as never);
+    api.updateScene({ collaborators: next, captureUpdate: "NEVER" } as never);
   }, [collaborators]);
 
   return (
@@ -394,6 +699,8 @@ export default function ExcalidrawBoard({
       ref={boardRef}
       data-testid="pt-design-board"
       data-theme={theme}
+      data-has-back={onBack ? "true" : undefined}
+      onKeyDownCapture={viewModeEnabled ? undefined : captureEditUndoHotkey}
       style={{
         height: "100%",
         width: "100%",
@@ -405,104 +712,71 @@ export default function ExcalidrawBoard({
     >
       <Excalidraw
         theme={theme}
-        handleKeyboardGlobally={false}
-        UIOptions={{
-          canvasActions: {
-            changeViewBackgroundColor: false,
-            clearCanvas: false,
-            export: false,
-            loadScene: false,
-            saveAsImage: false,
-            saveToActiveFile: false,
-            toggleTheme: false,
-          },
-        }}
+        viewModeEnabled={viewModeEnabled}
+        handleKeyboardGlobally={editModeHandlesKeyboardGlobally(viewModeEnabled)}
+        UIOptions={uiOptions}
         initialData={{
           elements: initialElements as never,
           appState: {
             viewBackgroundColor,
             theme,
             currentItemRoughness: 1,
-            currentItemFontFamily: FONT_HELVETICA,
+            currentItemFontFamily: FONT_EXCALIFONT,
+            viewModeEnabled,
             ...drawingAppState(theme),
           },
         }}
         isCollaborating={isCollaborating}
         onPointerUpdate={onPointerUpdate}
         renderTopRightUI={(isMobile, appState) => (
-          <div className="pt-design-top-right" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {onShare ? (
-              <ShareTrigger
-                active={Boolean(sharePanel?.open)}
-                collaborating={isCollaborating}
-                title={isCollaborating ? (sharePanel?.copy.openMenu ?? "Collaborate") : (sharePanel?.copy.startMenu ?? "Collaborate")}
-                onClick={onShare}
-              />
-            ) : null}
-            <IslandTrigger
-              active={appState.openSidebar?.name === "default"}
-              title="Library"
-              testId="pt-design-library-trigger"
-              iconOnly
-              onClick={() => {
-                apiRef.current?.toggleSidebar({ name: "default", tab: "library" });
-              }}
-            >
-              <Library size={16} strokeWidth={2} />
-            </IslandTrigger>
-            {catalog ? (
+          <div className="pt-design-top-right">
+            <div className="pt-design-top-right__actions">
+              {onShare ? (
+                <ShareTrigger
+                  active={Boolean(sharePanel?.open)}
+                  collaborating={isCollaborating}
+                  title={isCollaborating ? (sharePanel?.copy.openMenu ?? "Collaborate") : (sharePanel?.copy.startMenu ?? "Collaborate")}
+                  onClick={onShare}
+                />
+              ) : null}
               <IslandTrigger
-                active={appState.openSidebar?.name === "components"}
-                title="Component"
-                testId="pt-design-component-trigger"
-                iconOnly={isMobile}
+                active={appState.openSidebar?.name === "default"}
+                title="Library"
+                testId="pt-design-library-trigger"
+                iconOnly
                 onClick={() => {
-                  const open = appState.openSidebar;
-                  if (open?.name === "components") {
-                    apiRef.current?.toggleSidebar({
-                      name: "components",
-                      tab: open.tab ?? "component",
-                    });
-                    return;
-                  }
-                  apiRef.current?.toggleSidebar({ name: "components", tab: "component" });
+                  apiRef.current?.toggleSidebar({ name: "default", tab: "library" });
                 }}
               >
-                <ComponentSidebarIcon size={16} strokeWidth={2} />
-                {isMobile ? null : "Component"}
+                <Library size={16} strokeWidth={2} />
               </IslandTrigger>
-            ) : null}
+              {catalog ? (
+                <IslandTrigger
+                  active={appState.openSidebar?.name === "components"}
+                  title="Component"
+                  testId="pt-design-component-trigger"
+                  iconOnly={isMobile}
+                  onClick={() => {
+                    const open = appState.openSidebar;
+                    if (open?.name === "components") {
+                      apiRef.current?.toggleSidebar({
+                        name: "components",
+                        tab: open.tab ?? "component",
+                      });
+                      return;
+                    }
+                    apiRef.current?.toggleSidebar({ name: "components", tab: "component" });
+                  }}
+                >
+                  <ComponentSidebarIcon size={16} strokeWidth={2} />
+                  {isMobile ? null : "Component"}
+                </IslandTrigger>
+              ) : null}
+            </div>
           </div>
         )}
-        excalidrawAPI={(api) => {
-          apiRef.current = api as unknown as ExcalidrawApi;
-          wrapToggleSidebar(apiRef.current, () => boardRef.current);
-        }}
-        onChange={(elements, appState) => {
-          const typed = elements as unknown as readonly ExcalidrawCompatElement[];
-          const drawing = appState.cursorButton === "down" || Boolean(appState.newElement);
-          const desiredStroke = resolveDrawingStrokeColor(theme, appState.currentItemStrokeColor);
-          const inked = drawing ? typed : applyThemeInkToElements(typed, theme);
-          const elementsChanged = inked !== typed;
-          if ((desiredStroke || elementsChanged) && !inkFixRef.current) {
-            inkFixRef.current = true;
-            queueMicrotask(() => {
-              try {
-                apiRef.current?.updateScene({
-                  ...(elementsChanged ? { elements: inked } : {}),
-                  ...(desiredStroke ? { appState: { currentItemStrokeColor: desiredStroke } } : {}),
-                  captureUpdate: "NEVER",
-                });
-              } finally {
-                inkFixRef.current = false;
-              }
-            });
-          }
-          onChange(inked, {
-            viewBackgroundColor: appState.viewBackgroundColor,
-            selectedElementIds: appState.selectedElementIds as Record<string, boolean>,
-          });
-        }}
+        excalidrawAPI={bindExcalidrawApi}
+        onChange={handleSceneChange}
       >
         {menuItems && menuItems.length > 0 ? (
           <MainMenu>
@@ -524,14 +798,23 @@ export default function ExcalidrawBoard({
               <Sidebar.Header>
                 <Sidebar.TabTriggers>
                   <Sidebar.TabTrigger tab="component" data-testid="pt-design-catalog-tab-component">
-                    <ComponentSidebarIcon size={14} strokeWidth={2} />
+                    <ComponentSidebarIcon size={16} strokeWidth={2} />
                     Component
                   </Sidebar.TabTrigger>
                   <Sidebar.TabTrigger tab="block" data-testid="pt-design-catalog-tab-block">
-                    <BlockSidebarIcon size={14} strokeWidth={2} />
+                    <BlockSidebarIcon size={16} strokeWidth={2} />
                     Block
                   </Sidebar.TabTrigger>
+                  {chartCatalog ? (
+                    <Sidebar.TabTrigger tab="charts" data-testid="pt-design-catalog-tab-charts">
+                      <ChartSidebarIcon size={16} strokeWidth={2} />
+                      Charts
+                    </Sidebar.TabTrigger>
+                  ) : null}
                 </Sidebar.TabTriggers>
+                {catalogStyle ? (
+                  <CatalogStyleMenu radius={catalogStyle.radius} onRadiusChange={catalogStyle.onRadiusChange} />
+                ) : null}
               </Sidebar.Header>
               <Sidebar.Tab tab="component">
                 <CatalogTabPanel>{catalog}</CatalogTabPanel>
@@ -539,15 +822,35 @@ export default function ExcalidrawBoard({
               <Sidebar.Tab tab="block">
                 <CatalogTabPanel>{blockCatalog}</CatalogTabPanel>
               </Sidebar.Tab>
+              {chartCatalog ? (
+                <Sidebar.Tab tab="charts">
+                  <CatalogTabPanel>{chartCatalog}</CatalogTabPanel>
+                </Sidebar.Tab>
+              ) : null}
             </Sidebar.Tabs>
           </Sidebar>
         ) : null}
       </Excalidraw>
+      {onBack ? (
+        <button
+          type="button"
+          className="pt-design-back"
+          data-testid="pt-design-back"
+          aria-label={backLabel ?? "Back"}
+          title={backLabel ?? "Back"}
+          onClick={onBack}
+          onPointerDown={(event) => event.stopPropagation()}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <ArrowLeft size={16} strokeWidth={2} aria-hidden />
+        </button>
+      ) : null}
+      {topLeftChrome}
       {sharePanel?.open ? (
         <div
           style={{
             position: "absolute",
-            top: 56,
+            top: "calc(var(--editor-container-padding, 1rem) + var(--pt-island-pad, 0.25rem) + var(--pt-chrome-size, 2.25rem) + 8px)",
             right: 12,
             zIndex: 20,
           }}
@@ -567,7 +870,14 @@ export default function ExcalidrawBoard({
           />
         </div>
       ) : null}
-      {overlay}
+      {overlay ? (
+        <div
+          onPointerDownCapture={viewModeEnabled ? undefined : stealEditFocusFromOverlay}
+          onFocusCapture={viewModeEnabled ? undefined : stealEditFocusFromOverlay}
+        >
+          {overlay}
+        </div>
+      ) : null}
     </div>
   );
 }

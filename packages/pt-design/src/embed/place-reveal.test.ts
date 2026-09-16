@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
-  elementsForInstances,
-  frameIdFromToolData,
-  instanceIdsFromToolData,
+  cameraToShowRect,
+  elementsForPtIds,
   sceneRectToBoardBox,
   selectedIdsForElements,
   unionElementBounds,
@@ -21,44 +20,31 @@ describe("place reveal", () => {
 
   test("maps a scene rect onto the board overlay", () => {
     expect(
-      sceneRectToBoardBox(
-        { x: 100, y: 50, w: 80, h: 40 },
-        { scrollX: 20, scrollY: 10, zoom: { value: 2 } },
-        6,
-      ),
+      sceneRectToBoardBox({ x: 100, y: 50, w: 80, h: 40 }, { scrollX: 20, scrollY: 10, zoom: { value: 2 } }, 6),
     ).toEqual({ left: 234, top: 114, width: 172, height: 92 });
   });
 
-  test("selects live instance members only", () => {
+  test("selects live pt members only", () => {
     const elements = [
-      { id: "a", customData: { pt: { instanceId: "one" } } },
-      { id: "b", customData: { pt: { instanceId: "one" } }, isDeleted: true },
-      { id: "c", customData: { pt: { instanceId: "two" } } },
+      { id: "a", customData: { pt: { id: "one" } } },
+      { id: "b", customData: { pt: { id: "one" } }, isDeleted: true },
+      { id: "c", customData: { pt: { id: "two" } } },
     ];
-    const live = elementsForInstances(elements, ["one"]);
+    const live = elementsForPtIds(elements, ["one"]);
     expect(live.map((el) => el.id)).toEqual(["a"]);
     expect(selectedIdsForElements(live)).toEqual({ a: true });
   });
 
-  test("pulls instance and frame ids out of tool payloads", () => {
-    expect(instanceIdsFromToolData({ instanceId: "a", instanceIds: ["b", "c"] })).toEqual(["b", "c"]);
-    expect(
-      instanceIdsFromToolData({
-        results: [
-          { ok: true, data: { instanceId: "one" } },
-          { ok: false, data: { instanceId: "nope" } },
-          { ok: true, data: { instanceIds: ["two"] } },
-        ],
-      }),
-    ).toEqual(["one", "two"]);
-    expect(frameIdFromToolData({ frameId: "frame-1" })).toBe("frame-1");
-    expect(
-      frameIdFromToolData({
-        results: [
-          { ok: true, data: { frameId: "first" } },
-          { ok: true, data: { frameId: "last" } },
-        ],
-      }),
-    ).toBe("last");
+  test("camera pans without changing zoom so the rect sits in the usable viewport", () => {
+    const camera = cameraToShowRect(
+      { x: 2000, y: 800, w: 120, h: 40 },
+      { zoom: { value: 1 }, width: 1920, height: 1080 },
+      { left: 24, top: 72, right: 376, bottom: 64 },
+    );
+    expect(camera.zoom).toEqual({ value: 1 });
+    const usableW = 1920 - 24 - 376;
+    const usableH = 1080 - 72 - 64;
+    expect(camera.scrollX).toBe(24 + (usableW - 120) / 2 - 2000);
+    expect(camera.scrollY).toBe(72 + (usableH - 40) / 2 - 800);
   });
 });

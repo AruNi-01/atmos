@@ -91,14 +91,19 @@ describe("collab rooms", () => {
     const root = join(dirname(fileURLToPath(import.meta.url)), "../../../..");
     const skillDir = join(root, "skills", "atmos-pt-design-agent");
     const skill = readFileSync(join(skillDir, "SKILL.md"), "utf8");
+    const catalog = readFileSync(join(skillDir, "references", "catalog.md"), "utf8");
     expect(skill).toContain("name: atmos-pt-design-agent");
     expect(skill).toContain("version:");
     expect(skill).toContain("references/catalog.md");
     expect(skill).toContain("references/board.md");
-    expect(readFileSync(join(skillDir, "references", "catalog.md"), "utf8")).toContain("propKeys");
+    expect(skill).toContain("chart.*");
+    expect(catalog).toContain("xmlExample");
+    expect(catalog).toContain("Charts");
+    expect(catalog).toContain("chart.area-default");
+    expect(catalog).toContain("<chart-area-default");
     expect(readFileSync(join(skillDir, "references", "board.md"), "utf8")).toContain("pt_screenshot");
     expect(readFileSync(join(skillDir, "references", "command-reference.md"), "utf8")).toContain(
-      "pt_batch",
+      "pt_ptx_apply",
     );
   });
 });

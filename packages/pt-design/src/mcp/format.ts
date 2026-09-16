@@ -1,6 +1,4 @@
-import { isPtDesignError, PT_ERROR_CODES } from "../agent/errors";
-import type { AgentCatalogEntry, CatalogEntry } from "../catalog/registry";
-import type { DesignIR } from "../ir/schema";
+import { PtDesignError } from "../protocol";
 
 export const CHARACTER_LIMIT = 50_000;
 
@@ -46,23 +44,24 @@ export function clipText(text: string): string {
 
 function hintFor(code: string): string {
   switch (code) {
-    case PT_ERROR_CODES.UNKNOWN_COMPONENT_TYPE:
-      return "Call pt_catalog_list and use a returned componentType.";
-    case PT_ERROR_CODES.NOT_FOUND:
-    case PT_ERROR_CODES.FRAME_AMBIGUOUS:
-      return "Call pt_ir_get or pt_frames_list to copy a valid id.";
-    case PT_ERROR_CODES.MISSING_FILE:
-    case PT_ERROR_CODES.INVALID_FILE:
-      return "Pass file to pt_doc_init / pt_doc_open, or start the server with --file.";
-    case PT_ERROR_CODES.USAGE:
-      return "Call pt_tools_list for argument summaries. componentType/instanceId/file are the usual misses.";
+    case "unknown_type":
+      return "Call pt_catalog_list and use a returned type.";
+    case "unknown_tool":
+      return "Call pt_tools_list. Old APP-062 names are not registered.";
+    case "missing_file":
+      return "Pass path to pt_doc_init / pt_doc_open, or start the server with --file pointing at a .ptd.";
+    case "invalid_ptx":
+    case "invalid_option":
+      return "Read document.ptx (or pt_ptx_get), edit the XML, write the complete file back.";
+    case "path_denied":
+      return "pt_screenshot is live-tab only. Doc tools need a .ptd path.";
     default:
       return "";
   }
 }
 
 export function toolError(error: unknown): ToolResult {
-  const code = isPtDesignError(error) ? error.code : PT_ERROR_CODES.INTERNAL;
+  const code = error instanceof PtDesignError ? error.code : "unknown_tool";
   const message = error instanceof Error ? error.message : String(error);
   const hint = hintFor(code);
   const text = hint ? `Error (${code}): ${message} ${hint}` : `Error (${code}): ${message}`;
@@ -88,65 +87,32 @@ export function toolSuccess(data: unknown, format: ResponseFormat = "json"): Too
 function toMarkdown(data: unknown): string {
   if (!data || typeof data !== "object") return String(data);
   const rec = data as Record<string, unknown>;
-  if (Array.isArray(rec.items) && rec.items[0] && typeof rec.items[0] === "object" && "componentType" in (rec.items[0] as object)) {
+  if (Array.isArray(rec.types) && rec.types[0] && typeof rec.types[0] === "object" && "xmlExample" in (rec.types[0] as object)) {
     return catalogMarkdown(rec);
   }
-  if (Array.isArray(rec.frames) && rec.version === undefined) {
-    return framesMarkdown(rec);
-  }
-  if (rec.version === "pt-design-ir/1") {
-    return irMarkdown(rec as unknown as DesignIR);
-  }
-  if (rec.instructions && rec.ir) {
-    return `# Handoff\n\n${String(rec.instructions)}\n`;
+  if (typeof rec.ptx === "string") {
+    return rec.ptx;
   }
   return JSON.stringify(data, null, 2);
 }
 
 function catalogMarkdown(page: Record<string, unknown>): string {
-  const items = page.items as Array<CatalogEntry | AgentCatalogEntry>;
-  const lines = [
-    `# Catalog`,
-    ``,
-    `Showing ${String(page.count)} of ${String(page.total)} (offset ${String(page.offset)}).`,
-    ``,
-  ];
-  for (const item of items) {
-    const variants = item.variants.length ? item.variants.join(", ") : "default";
-    const box = "defaultBBox" in item ? item.defaultBBox : undefined;
-    const size = box ? `${box.w}×${box.h}` : "";
-    const props = item.propKeys?.length ? item.propKeys.join(", ") : "";
-    lines.push(
-      `- **${item.label}** (\`${item.componentType}\`) — ${item.kind}${size ? `; ${size}` : ""}; variants: ${variants}${props ? `; props: ${props}` : ""}`,
-    );
-  }
-  if (page.has_more) lines.push(``, `More results: pass offset=${String(page.next_offset)}.`);
-  return lines.join("\n");
-}
-
-function framesMarkdown(page: Record<string, unknown>): string {
-  const frames = page.frames as Array<{ id: string; name: string; bbox: { x: number; y: number; w: number; h: number } }>;
-  const lines = [`# Frames`, ``, `${String(page.total)} frame(s).`, ``];
-  for (const frame of frames) {
-    lines.push(`- **${frame.name}** (\`${frame.id}\`) ${frame.bbox.w}×${frame.bbox.h} at ${frame.bbox.x},${frame.bbox.y}`);
-  }
-  return lines.join("\n");
-}
-
-function irMarkdown(ir: DesignIR): string {
-  const lines = [`# Design IR`, ``, `Catalog ${ir.catalogVersion}.`, ``];
-  for (const frame of ir.frames) {
-    lines.push(`## ${frame.name} (\`${frame.id}\`)`);
-    for (const node of frame.nodes) {
-      lines.push(`- ${node.componentType} \`${node.instanceId}\`${node.variant ? ` / ${node.variant}` : ""}`);
-    }
+  const types = page.types as Array<{
+    type: string;
+    xmlExample: string;
+    agentDescription: string;
+    defaultBBox: { width: number; height: number };
+  }>;
+  const lines = [`# Catalog`, ``];
+  for (const item of types) {
+    const box = item.defaultBBox;
+    const size = box ? `${box.width}×${box.height}` : "";
+    lines.push(`- **${item.type}**${size ? ` (${size})` : ""} — ${item.agentDescription}`);
     lines.push("");
-  }
-  if (ir.freeNodes.length) {
-    lines.push(`## Free nodes`);
-    for (const node of ir.freeNodes) {
-      lines.push(`- ${node.componentType} \`${node.instanceId}\`${node.variant ? ` / ${node.variant}` : ""}`);
-    }
+    lines.push("```xml");
+    lines.push(item.xmlExample.trim());
+    lines.push("```");
+    lines.push("");
   }
   return lines.join("\n");
 }

@@ -5,37 +5,36 @@ import React from "react";
 import type { ChromeTokens } from "./chrome";
 import { CatalogVariantIcon } from "./catalog-icons";
 import {
+  MOBILE_EXCALIDRAW_SELECTOR,
   STYLE_PANEL_SELECTOR,
+  railAnchorFromLayout,
+  type RailAnchor,
+  type RailBox,
   type SelectionPropGroup,
 } from "./selection-props";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 const PRESS = { scale: 0.96 };
-const FALLBACK_TOP = 64;
-const FALLBACK_LEFT = 220;
-const GAP = 8;
-
-type Anchor = { top: number; left: number };
 
 export function SelectionPropsRail({
   groups,
   chrome,
-  instanceId,
+  nodeId,
   onSelect,
 }: {
   groups: SelectionPropGroup[];
   chrome: ChromeTokens;
-  instanceId: string;
+  nodeId: string;
   onSelect: (group: SelectionPropGroup, optionId: string) => void;
 }) {
   const rootRef = React.useRef<HTMLDivElement>(null);
-  const [anchor, setAnchor] = React.useState<Anchor | null>(null);
+  const [anchor, setAnchor] = React.useState<RailAnchor | null>(null);
   const [openId, setOpenId] = React.useState<string | null>(null);
   const reduceMotion = useReducedMotion();
 
   React.useLayoutEffect(() => {
     setOpenId(null);
-  }, [instanceId]);
+  }, [nodeId]);
 
   React.useLayoutEffect(() => {
     const host = rootRef.current?.closest("[data-testid='pt-design-board']") as HTMLElement | null;
@@ -43,22 +42,13 @@ export function SelectionPropsRail({
 
     let frame = 0;
     const measure = () => {
-      const panel = host.querySelector(STYLE_PANEL_SELECTOR) as HTMLElement | null;
-      const hostRect = host.getBoundingClientRect();
-      if (!panel) {
-        setAnchor((prev) => prev ?? { top: FALLBACK_TOP, left: FALLBACK_LEFT });
-        return;
-      }
-      const rect = panel.getBoundingClientRect();
-      if (rect.width < 8 || rect.height < 8) {
-        setAnchor((prev) => prev ?? { top: FALLBACK_TOP, left: FALLBACK_LEFT });
-        return;
-      }
-      const next = {
-        top: Math.round(rect.top - hostRect.top + 10),
-        left: Math.round(rect.right - hostRect.left + GAP),
-      };
-      setAnchor((prev) => (prev && prev.top === next.top && prev.left === next.left ? prev : next));
+      const next = railAnchorFromLayout({
+        host: boxOf(host.getBoundingClientRect()),
+        mobile: Boolean(host.querySelector(MOBILE_EXCALIDRAW_SELECTOR)),
+        stylePanel: visibleBox(host.querySelector(STYLE_PANEL_SELECTOR)),
+        colorTool: visibleBox(mobileColorTool(host)),
+      });
+      setAnchor((prev) => (sameAnchor(prev, next) ? prev : next));
     };
 
     const tick = () => {
@@ -67,7 +57,7 @@ export function SelectionPropsRail({
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [instanceId, groups.length]);
+  }, [nodeId, groups.length]);
 
   React.useEffect(() => {
     if (!openId) return;
@@ -91,17 +81,23 @@ export function SelectionPropsRail({
   if (groups.length === 0) return null;
 
   const duration = reduceMotion ? 0 : 0.22;
+  const placement = anchor?.placement ?? "side";
+  const from = placement === "bottom" ? { opacity: 0, y: 12 } : { opacity: 0, x: -12 };
+  const leave = placement === "bottom" ? { opacity: 0, y: 8 } : { opacity: 0, x: -8 };
 
   return (
     <div
       ref={rootRef}
       className="pt-design-prop-rail"
       data-testid="pt-design-selection-props"
-      data-instance-id={instanceId}
+      data-node-id={nodeId}
+      data-placement={placement}
       style={
         {
-          top: anchor?.top ?? FALLBACK_TOP,
-          left: anchor?.left ?? FALLBACK_LEFT,
+          top: placement === "bottom" ? "auto" : (anchor?.top ?? 64),
+          left: placement === "bottom" ? "auto" : (anchor?.left ?? 220),
+          right: placement === "bottom" ? (anchor?.right ?? 56) : "auto",
+          bottom: placement === "bottom" ? (anchor?.bottom ?? 76) : "auto",
           opacity: anchor ? 1 : 0,
           "--pt-prop-bg": chrome.card,
           "--pt-prop-fg": chrome.fg,
@@ -129,7 +125,7 @@ export function SelectionPropsRail({
               aria-haspopup="listbox"
               whileTap={reduceMotion ? undefined : PRESS}
               transition={{ duration: reduceMotion ? 0 : 0.12, ease: EASE }}
-              onClick={() => setOpenId((current) => (current === group.id ? null : group.id))}
+              onClick={() => setOpenId((currentOpen) => (currentOpen === group.id ? null : group.id))}
             >
               <PropGlyph group={group} />
             </motion.button>
@@ -140,11 +136,11 @@ export function SelectionPropsRail({
                   className="pt-design-prop-options"
                   role="listbox"
                   aria-label={group.label}
-                  initial={reduceMotion ? { opacity: 1 } : { opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -8 }}
+                  initial={reduceMotion ? { opacity: 1 } : from}
+                  animate={{ opacity: 1, x: 0, y: 0 }}
+                  exit={reduceMotion ? { opacity: 0 } : leave}
                   transition={{ duration, ease: EASE }}
-                  style={{ transformOrigin: "left center" }}
+                  style={{ transformOrigin: placement === "bottom" ? "center bottom" : "left center" }}
                 >
                   {group.options.map((option) => {
                     const selected = option.id === group.value;
@@ -181,5 +177,71 @@ function PropGlyph({ group }: { group: SelectionPropGroup }) {
     const current = group.options.find((opt) => opt.id === group.value);
     return <span className="pt-design-prop-size">{current?.label ?? "M"}</span>;
   }
+  if (group.kind === "radius") {
+    return <RadiusGlyph value={group.value} />;
+  }
   return <span className="pt-design-prop-size">{group.value === "true" ? "On" : "Off"}</span>;
+}
+
+function RadiusGlyph({ value }: { value: string }) {
+  const rx = value === "none" ? 0 : value === "md" ? 3.5 : value === "lg" ? 5 : 2.25;
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+      <rect
+        x="1.5"
+        y="1.5"
+        width="11"
+        height="11"
+        rx={rx}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
+}
+
+function mobileColorTool(host: HTMLElement): Element | null {
+  const content = host.querySelector(".App-toolbar-content");
+  if (!(content instanceof HTMLElement)) return null;
+  const hostRect = host.getBoundingClientRect();
+  const midY = hostRect.top + hostRect.height * 0.45;
+  for (const child of content.children) {
+    if (!(child instanceof HTMLElement)) continue;
+    if (child.classList.contains("main-menu-trigger")) continue;
+    if (child.classList.contains("pt-design-top-right")) continue;
+    const rect = child.getBoundingClientRect();
+    if (rect.width < 8 || rect.height < 8) continue;
+    if (rect.bottom < midY) continue;
+    return child;
+  }
+  return null;
+}
+
+function visibleBox(el: Element | null): RailBox | null {
+  if (!(el instanceof HTMLElement)) return null;
+  const rect = el.getBoundingClientRect();
+  if (rect.width < 8 || rect.height < 8) return null;
+  return boxOf(rect);
+}
+
+function boxOf(rect: DOMRect): RailBox {
+  return {
+    top: rect.top,
+    left: rect.left,
+    right: rect.right,
+    bottom: rect.bottom,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
+function sameAnchor(prev: RailAnchor | null, next: RailAnchor): boolean {
+  return (
+    prev?.placement === next.placement &&
+    prev.top === next.top &&
+    prev.left === next.left &&
+    prev.right === next.right &&
+    prev.bottom === next.bottom
+  );
 }

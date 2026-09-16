@@ -7,13 +7,18 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { PT_DESIGN_TOOL_DEFS } from "../agent/tool-defs";
 import { createMcpServer, createSdkMcpServer, MCP_SERVER_NAME } from "./server";
 
-function tmpFile() {
-  return join(mkdtempSync(join(tmpdir(), "pt-mcp-")), "app.ptdesign.json");
+const LEGAL_PTX = `<page id="model-config">
+  <button id="run" label="Run" x="300" y="260" width="100" height="40"/>
+</page>
+`;
+
+function tmpPtd() {
+  return join(mkdtempSync(join(tmpdir(), "pt-mcp-")), "app.ptd");
 }
 
 describe("standard MCP SDK server", () => {
-  test("official client lists tools and places a button over in-memory transport", async () => {
-    const file = tmpFile();
+  test("official client lists tools and applies PTX over in-memory transport", async () => {
+    const file = tmpPtd();
     const { sdk, facade } = createSdkMcpServer({ file });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const client = new Client({ name: "pt-design-test", version: "0.0.1" });
@@ -23,25 +28,28 @@ describe("standard MCP SDK server", () => {
       expect(listed.tools.map((tool) => tool.name).sort()).toEqual(
         PT_DESIGN_TOOL_DEFS.map((def) => def.name).sort(),
       );
-      const placeTool = listed.tools.find((tool) => tool.name === "pt_place");
-      expect(placeTool?.inputSchema).toBeDefined();
-      expect(JSON.stringify(placeTool?.inputSchema)).toContain("componentType");
-      expect(placeTool?.annotations?.readOnlyHint).toBe(false);
+      expect(listed.tools.some((tool) => tool.name === "pt_ir_get")).toBe(false);
+      const applyTool = listed.tools.find((tool) => tool.name === "pt_ptx_apply");
+      expect(applyTool?.inputSchema).toBeDefined();
+      expect(JSON.stringify(applyTool?.inputSchema)).toContain("ptx");
+      expect(applyTool?.annotations?.readOnlyHint).toBe(false);
 
-      const placed = await client.callTool({
-        name: "pt_place",
-        arguments: { componentType: "button", at: { x: 10, y: 12 }, props: { label: "Save" } },
+      const applied = await client.callTool({
+        name: "pt_ptx_apply",
+        arguments: { ptx: LEGAL_PTX },
       });
-      expect(placed.isError).toBeFalsy();
-      const ir = await client.callTool({ name: "pt_ir_get", arguments: {} });
-      expect(ir.isError).toBeFalsy();
-      const text = (ir.content as Array<{ type: string; text: string }>)[0]?.text ?? "";
-      expect(text).toContain("button");
-      expect(text).toContain("Save");
-      expect(facade.fs.session.getIR().freeNodes[0]?.componentType).toBe("button");
+      expect(applied.isError).toBeFalsy();
+      const got = await client.callTool({ name: "pt_ptx_get", arguments: {} });
+      expect(got.isError).toBeFalsy();
+      const text = (got.content as Array<{ type: string; text: string }>)[0]?.text ?? "";
+      expect(text).toContain("<button");
+      expect(text).toContain("run");
+      expect(facade.fs.headless.getPtx()).toContain('id="run"');
 
       const resources = await client.listResources();
       expect(resources.resources.some((item) => item.uri === "pt-design://catalog")).toBe(true);
+      expect(resources.resources.some((item) => item.uri === "pt-design://ptx")).toBe(true);
+      expect(resources.resources.some((item) => item.uri === "pt-design://ir")).toBe(false);
       const catalog = await client.readResource({ uri: "pt-design://catalog" });
       expect(catalog.contents[0]?.text).toContain("button");
     } finally {
@@ -51,15 +59,15 @@ describe("standard MCP SDK server", () => {
   });
 
   test("invalid args return a tool error, not a protocol crash", async () => {
-    const { sdk } = createSdkMcpServer({ file: tmpFile() });
+    const { sdk } = createSdkMcpServer({ file: tmpPtd() });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const client = new Client({ name: "pt-design-test", version: "0.0.1" });
     await Promise.all([sdk.connect(serverTransport), client.connect(clientTransport)]);
     try {
-      const result = await client.callTool({ name: "pt_place", arguments: {} });
+      const result = await client.callTool({ name: "pt_ptx_apply", arguments: {} });
       expect(result.isError).toBe(true);
       const text = (result.content as Array<{ type: string; text: string }>)[0]?.text ?? "";
-      expect(text).toMatch(/Error \(USAGE\)|componentType/i);
+      expect(text).toMatch(/invalid_ptx|ptx/i);
     } finally {
       await client.close();
       await sdk.close();
@@ -70,15 +78,13 @@ describe("standard MCP SDK server", () => {
     expect(MCP_SERVER_NAME).toBe("pt-design-mcp-server");
   });
 
-  test("pt_apply_ir rejects omitted or incomplete IR before dispatch", () => {
-    const mcp = createMcpServer({ file: tmpFile() });
-    expect(mcp.callTool("pt_apply_ir", { dryRun: true }).isError).toBe(true);
-    expect(mcp.callTool("pt_apply_ir", { ir: null }).isError).toBe(true);
-    expect(mcp.callTool("pt_apply_ir", { ir: { version: "pt-design-ir/1" } }).isError).toBe(true);
-    const dry = mcp.callTool("pt_apply_ir", {
-      ir: { version: "pt-design-ir/1", frames: [], freeNodes: [], extra: true },
-      dryRun: true,
-    });
-    expect(dry.isError).toBe(false);
+  test("old APP-062 tools are unknown_tool", () => {
+    const mcp = createMcpServer({ file: tmpPtd() });
+    const ir = mcp.callTool("pt_ir_get", {});
+    expect(ir.isError).toBe(true);
+    expect(ir.error?.code).toBe("unknown_tool");
+    const layout = mcp.callTool("pt_layout_row", { instanceIds: ["a"] });
+    expect(layout.isError).toBe(true);
+    expect(layout.error?.code).toBe("unknown_tool");
   });
 });

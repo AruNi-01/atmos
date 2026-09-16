@@ -1,62 +1,71 @@
 # Catalog (on-demand)
 
-Which wireframes exist and which props actually draw. Always call `pt_catalog_list` for `defaultBBox` / `propKeys` / `variants` / `defaultVariant` — this file is a reading aid, not a substitute.
+Which PTX tags exist. Always call `pt_catalog_list` for `xmlExample` / `agentDescription` / `defaultBBox` — this file is a reading aid, not a substitute.
 
-Unknown keys are dropped (`PROP_IGNORED` on place).
+Copy the `xmlExample` from the catalog. Do not invent Excalidraw JSON.
 
----
-
-## Place one instance
-
-Omit `variant` → one instance. Overlay types use `trigger` (or `bar` / `collapsed`). Human catalog clicks may dump every variant; Agent `mode: "showcase"` does the same — do not use that on a page.
-
-Overlay variants: `dialog`, `alert-dialog`, `sheet`, `drawer`, `popover`, `hover-card`, `tooltip`, `dropdown-menu`, `context-menu`, `navigation-menu`, `select`, `native-select`, `combobox`, `date-picker`, `command` → `trigger` \| `open`. `menubar` → `bar` \| `open`. `accordion` / `collapsible` → `collapsed` \| `expanded`.
-
-Button: `default`, `secondary`, `outline`, `ghost`, `destructive`, `link`. Badge: `default`, `secondary`, `outline`, `destructive`.
+Palette and catalog `xmlExample` buttons have **no** click handler. Interact clicks are local UI (press, toggle, type). Only add `<on event="click"><action type="agent" name="…"/></on>` when the prototype should notify the host — for example a dedicated Run control, not Sign in Continue.
 
 ---
 
-## Props that draw
+## XML, not place
 
-| Type | Keys | Notes |
-|------|------|--------|
-| `button`, `badge`, `kbd`, `label` | `label` | Width grows with text (CJK counted wider than Latin) |
-| `input`, `textarea` | `placeholder` | |
-| `checkbox`, `switch` | `label`, `checked` | |
-| `card` | `title`, `description`, `action` | defaultBBox 280×168 |
-| `alert` | `title`, `description` | |
-| `typography` | `title`, `description` | `size`: `xs`/`sm` compact, default, `lg`/`xl` hero |
-| `accordion`, `collapsible` | `title`, `description` | Question + body. Do not expect hardcoded “Is it accessible?” |
-| `tabs` | `title`, `description` | Comma-separated `title` → tab labels; `description` → panel |
-| `breadcrumb` | `title` | Trail string |
-| `sidebar` | `title` | Optional header; default items stay Home/Inbox/… |
-| overlay (`dialog`, `sheet`, …) | `title`, `description`, `label` | `label` is the trigger |
-| `avatar` | `fallback` | |
-| `toggle` | `pressed` | |
-| `attachment` | `label`, `description` | variants `image` / `uploading` / `file` |
-| `bubble` | `label` | `received` / `sent` |
-| `message` | `title`, `description` | `user` / `assistant` |
-| `block.auth-form` | `title` | |
-| `block.empty-state` | `title`, `description`, `action` | |
-| `block.nav-content` | `title`, `description` | Hero heading + subtitle |
-| `block.settings-shell` | `title` | |
+Agents edit `document.ptx`. Nested catalog tags become `children` inside a parent overlay (for example a `<card>` containing `<input>` and `<button>`). Spatial attrs `x` `y` `width` `height` are required. `rotation` is optional degrees.
 
-Types not listed still place; they often only honor generic `label` / `title` / `description` if those keys are in `propKeys`. Check catalog.
+Dotted catalog ids use a hyphen in XML: `block.auth-form` → `<block-auth-form>`, `chart.area-default` → `<chart-area-default>`.
 
 ---
 
-## Typography
+## Copy a snippet
 
-Hero titles need `size: "lg"` or `"xl"`. Default typography is a small 360×100 block — too small for a landing headline.
+```xml
+<page id="model-config">
+  <select id="model" label="Model" value="claude" x="300" y="200" width="240" height="40">
+    <option value="gpt-5.6">GPT-5.6</option>
+    <option value="claude">Claude</option>
+  </select>
+  <button id="run" label="Run" x="300" y="260" width="100" height="40">
+    <on event="click">
+      <action type="agent" name="run"/>
+    </on>
+  </button>
+</page>
+```
+
+Option-bearing nodes need `value` + label text. Missing `value` is `invalid_option`.
 
 ---
 
-## CJK
+## Charts
 
-Button/badge/kbd width uses a wider estimate for CJK / fullwidth glyphs. Long Chinese labels still clip on **fixed-width** cards; `pt_lint` reports `TEXT_CLIP`.
+The Charts catalog is first-class. `pt_catalog_list` returns **70** gallery types (`chart.area-*`, `chart.bar-*`, `chart.line-*`, `chart.pie-*`, `chart.radar-*`, `chart.radial-*`, `chart.tooltip-*`) plus a leftover generic `chart` stub. For dashboards and metrics, copy a gallery `xmlExample` — do not draw axes as rectangles, and do not invent recharts/JSON.
 
----
+Families (pick a variant from `pt_catalog_list`):
 
-## Blocks
+| Family | Catalog prefix | XML tag prefix |
+|--------|----------------|----------------|
+| Area | `chart.area-` | `<chart-area-…>` |
+| Bar | `chart.bar-` | `<chart-bar-…>` |
+| Line | `chart.line-` | `<chart-line-…>` |
+| Pie | `chart.pie-` | `<chart-pie-…>` |
+| Radar | `chart.radar-` | `<chart-radar-…>` |
+| Radial | `chart.radial-` | `<chart-radial-…>` |
+| Tooltip demos | `chart.tooltip-` | `<chart-tooltip-…>` |
 
-`block.auth-form`, `block.settings-shell`, `block.empty-state`, `block.nav-content` are starters, not live apps. Prefer them when the user asks for those shells; otherwise compose basics.
+Sketch charts, not live data. Nested `<option>` rows are the series: label is the category; `value` is a number, or comma-separated numbers for multiple series. `title`, `description`, and `footer` are optional text.
+
+```xml
+<page id="metrics">
+  <chart-area-default id="visitors" title="Area Chart" description="Showing total visitors for the last 6 months" x="40" y="40" width="360" height="300">
+    <option value="186">Jan</option>
+    <option value="305">Feb</option>
+    <option value="237">Mar</option>
+  </chart-area-default>
+  <chart-bar-multiple id="channels" title="Bar Chart - Multiple" x="420" y="40" width="360" height="300">
+    <option value="186,80">Jan</option>
+    <option value="305,200">Feb</option>
+  </chart-bar-multiple>
+</page>
+```
+
+Generic `<chart>` is a small bar/line stub. Prefer a `chart.*` gallery type when the prototype needs a real chart.

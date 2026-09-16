@@ -1,5 +1,8 @@
+import { PLACE_VIEWPORT_CHROME } from "../editor/place-clear";
+
 export const PLACE_REVEAL_MS = 2250;
-export const PLACE_SCROLL_OFFSETS = { top: 56, right: 376, bottom: 56, left: 8 };
+export const AGENT_REVEAL_MS = 2400;
+export const PLACE_SCROLL_CHROME = PLACE_VIEWPORT_CHROME;
 
 export type RevealRect = { x: number; y: number; w: number; h: number };
 export type RevealBox = { left: number; top: number; width: number; height: number };
@@ -21,13 +24,19 @@ export function unionElementBounds(
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
-export function elementsForInstances<T extends { isDeleted?: boolean; customData?: { pt?: { instanceId?: string } } }>(
+function ptInstanceId(el: unknown): string | undefined {
+  if (!el || typeof el !== "object") return undefined;
+  const id = (el as { customData?: { pt?: { id?: string } } }).customData?.pt?.id;
+  return typeof id === "string" ? id : undefined;
+}
+
+export function elementsForPtIds<T extends { id: string; isDeleted?: boolean }>(
   elements: readonly T[],
-  instanceIds: readonly string[],
+  ptIds: readonly string[],
 ): T[] {
-  const ids = new Set(instanceIds);
+  const ids = new Set(ptIds);
   return elements.filter((el) => {
-    const id = el.customData?.pt?.instanceId;
+    const id = ptInstanceId(el);
     return Boolean(id && ids.has(id) && !el.isDeleted);
   });
 }
@@ -52,41 +61,29 @@ export function sceneRectToBoardBox(
   };
 }
 
+/**
+ * Keep zoom. Pan so `rect` sits in the usable viewport (catalog chrome inset).
+ * Do not call Excalidraw `scrollToContent` — that records camera History.
+ */
+export function cameraToShowRect(
+  rect: RevealRect,
+  appState: { zoom: { value: number }; width: number; height: number },
+  chrome: { left: number; top: number; right: number; bottom: number } = PLACE_SCROLL_CHROME,
+): { scrollX: number; scrollY: number; zoom: { value: number } } {
+  const zoom = appState.zoom.value || 1;
+  const usableW = Math.max(1, appState.width - chrome.left - chrome.right);
+  const usableH = Math.max(1, appState.height - chrome.top - chrome.bottom);
+  const rw = rect.w * zoom;
+  const rh = rect.h * zoom;
+  const screenX = rw < usableW ? chrome.left + (usableW - rw) / 2 : chrome.left;
+  const screenY = rh < usableH ? chrome.top + (usableH - rh) / 2 : chrome.top;
+  return {
+    scrollX: screenX / zoom - rect.x,
+    scrollY: screenY / zoom - rect.y,
+    zoom: { value: zoom },
+  };
+}
+
 export function prefersReducedMotion(): boolean {
-  return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-}
-
-export function instanceIdsFromToolData(data: unknown): string[] {
-  if (!data || typeof data !== "object") return [];
-  const rec = data as Record<string, unknown>;
-  if (Array.isArray(rec.instanceIds)) {
-    return rec.instanceIds.filter((id): id is string => typeof id === "string" && id.length > 0);
-  }
-  if (typeof rec.instanceId === "string" && rec.instanceId) return [rec.instanceId];
-  if (Array.isArray(rec.results)) {
-    return rec.results.flatMap((item) => {
-      if (!item || typeof item !== "object") return [];
-      const row = item as Record<string, unknown>;
-      if (row.ok === false) return [];
-      return instanceIdsFromToolData(row.data);
-    });
-  }
-  return [];
-}
-
-export function frameIdFromToolData(data: unknown): string | undefined {
-  if (!data || typeof data !== "object") return undefined;
-  const rec = data as Record<string, unknown>;
-  if (typeof rec.frameId === "string" && rec.frameId) return rec.frameId;
-  if (Array.isArray(rec.results)) {
-    for (let i = rec.results.length - 1; i >= 0; i--) {
-      const item = rec.results[i];
-      if (!item || typeof item !== "object") continue;
-      const row = item as Record<string, unknown>;
-      if (row.ok === false) continue;
-      const id = frameIdFromToolData(row.data);
-      if (id) return id;
-    }
-  }
-  return undefined;
+  return typeof window !== "undefined" && Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
 }

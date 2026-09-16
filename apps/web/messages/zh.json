@@ -1252,7 +1252,7 @@
         },
         "ptDesign": {
           "title": "原型设计",
-          "description": "打开独立的原型设计画板"
+          "description": "打开已保存的原型设计"
         }
       },
       "tasks": {
@@ -3658,18 +3658,11 @@
     },
     "agentFeedLabels": {
       "readingBoard": "正在读取画板",
+      "readingPtx": "正在读取原型源码",
+      "applyingPtx": "正在应用原型源码",
       "capturingScreenshot": "正在截图",
-      "placingComponent": "正在放置组件",
-      "placingNamed": "正在放置 {type}",
-      "editingComponent": "正在编辑组件",
-      "deletingComponents": "正在删除组件",
-      "creatingFrame": "正在创建画板",
-      "editingFrame": "正在编辑画板",
-      "deletingFrame": "正在删除画板",
-      "arrangingLayout": "正在排列布局",
-      "batchingCommands": "正在批量更新画板",
-      "applyingDesign": "正在应用设计",
-      "exportingBoard": "正在导出画板",
+      "runningAction": "正在运行 {name}",
+      "runningBoardAction": "正在运行画板动作",
       "workingOnBoard": "正在操作画板"
     },
     "share": {
@@ -3693,6 +3686,40 @@
     },
     "guest": {
       "logoLink": "打开 Atmos 官网"
+    },
+    "mode": {
+      "edit": "编辑",
+      "interact": "交互"
+    },
+    "overview": {
+      "title": "原型设计",
+      "all": "全部",
+      "global": "全局",
+      "project": "项目",
+      "workspace": "工作区",
+      "pinned": "置顶",
+      "pin": "置顶",
+      "unpin": "取消置顶",
+      "rename": "重命名",
+      "delete": "删除",
+      "cancel": "取消",
+      "more": "更多",
+      "moveTo": "移动到",
+      "newDesign": "新建",
+      "back": "返回",
+      "untitled": "未命名",
+      "empty": "还没有已保存的设计",
+      "emptyFilter": "这个筛选下没有设计",
+      "emptySearch": "没有符合搜索的设计",
+      "searchPlaceholder": "搜索设计",
+      "filter": "筛选",
+      "viewBoard": "看板",
+      "viewList": "列表",
+      "filterScope": "范围",
+      "clearFilters": "清除筛选",
+      "toggleAll": "展开或收起全部范围",
+      "confirmDeleteTitle": "删除这个设计？",
+      "confirmDeleteDescription": "这会从这台电脑移除“{name}”。"
     }
   },
   "canvas": {
@@ -6629,7 +6656,7 @@
           },
           "ptDesign": {
             "title": "原型设计",
-            "description": "从启动台打开独立的原型设计页面。工作区中心区域仍可再新建一块画布。"
+            "description": "从启动台打开已保存的原型设计列表。工作区中心标签栏仍可打开该工作区自己的画板。"
           },
           "newWorkspace": {
             "title": "New Workspace",

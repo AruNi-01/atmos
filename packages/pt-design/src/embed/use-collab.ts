@@ -13,7 +13,6 @@ import {
 } from "../collab/room";
 import { DEFAULT_COLLAB_SERVER } from "../collab/wire";
 import type { CollabMode } from "./SharePopover";
-import type { ExcalidrawHostApi } from "./scene-bridge";
 
 export const COLLAB_ROOM_STORAGE_KEY = "pt-design:collab-room";
 const NAME_STORAGE_KEY = "pt-design:collab-username";
@@ -92,7 +91,12 @@ export function readInitialRoom(): CollabRoom | null {
 }
 
 export function useExcalidrawCollab(input: {
-  api: ExcalidrawHostApi | null;
+  api: {
+    updateScene: (next: {
+      elements?: readonly unknown[];
+      captureUpdate?: "IMMEDIATELY" | "EVENTUALLY" | "NEVER";
+    }) => void;
+  } | null;
   username?: string;
   serverUrl?: string;
   getElements: () => readonly unknown[];
@@ -109,6 +113,7 @@ export function useExcalidrawCollab(input: {
   const clientRef = React.useRef<CollabClient | null>(null);
   const applyRef = React.useRef(input.applyRemoteElements);
   const elementsRef = React.useRef(input.getElements);
+  const apiRef = React.useRef(input.api);
   const usernameRef = React.useRef(username);
   const roomRef = React.useRef(room);
   const serverUrlRef = React.useRef(input.serverUrl);
@@ -116,6 +121,7 @@ export function useExcalidrawCollab(input: {
   const generationRef = React.useRef(0);
   applyRef.current = input.applyRemoteElements;
   elementsRef.current = input.getElements;
+  apiRef.current = input.api;
   usernameRef.current = username;
   roomRef.current = room;
   modeRef.current = mode;
@@ -133,6 +139,7 @@ export function useExcalidrawCollab(input: {
       serverUrl: serverUrlRef.current,
       handlers: {
         onScene: (_type, elements) => {
+          apiRef.current?.updateScene({ elements, captureUpdate: "NEVER" });
           applyRef.current(elements);
         },
         onUsers: setUsers,

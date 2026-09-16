@@ -1252,7 +1252,7 @@
         },
         "ptDesign": {
           "title": "Prototype Design",
-          "description": "Open the standalone prototype design board"
+          "description": "Open saved Prototype Design boards"
         }
       },
       "tasks": {
@@ -3658,18 +3658,11 @@
     },
     "agentFeedLabels": {
       "readingBoard": "Reading board",
+      "readingPtx": "Reading prototype source",
+      "applyingPtx": "Applying prototype source",
       "capturingScreenshot": "Capturing screenshot",
-      "placingComponent": "Placing component",
-      "placingNamed": "Placing {type}",
-      "editingComponent": "Editing component",
-      "deletingComponents": "Deleting components",
-      "creatingFrame": "Creating frame",
-      "editingFrame": "Editing frame",
-      "deletingFrame": "Deleting frame",
-      "arrangingLayout": "Arranging layout",
-      "batchingCommands": "Batching board commands",
-      "applyingDesign": "Applying design",
-      "exportingBoard": "Exporting board",
+      "runningAction": "Running {name}",
+      "runningBoardAction": "Running board action",
       "workingOnBoard": "Working on board"
     },
     "share": {
@@ -3693,6 +3686,40 @@
     },
     "guest": {
       "logoLink": "Open Atmos"
+    },
+    "mode": {
+      "edit": "Edit",
+      "interact": "Interact"
+    },
+    "overview": {
+      "title": "Prototype Design",
+      "all": "All",
+      "global": "Global",
+      "project": "Project",
+      "workspace": "Workspace",
+      "pinned": "Pinned",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "rename": "Rename",
+      "delete": "Delete",
+      "cancel": "Cancel",
+      "more": "More",
+      "moveTo": "Move to",
+      "newDesign": "New",
+      "back": "Back",
+      "untitled": "Untitled",
+      "empty": "No saved designs yet",
+      "emptyFilter": "No designs in this filter",
+      "emptySearch": "No designs match this search",
+      "searchPlaceholder": "Search designs",
+      "filter": "Filters",
+      "viewBoard": "Board",
+      "viewList": "List",
+      "filterScope": "Scope",
+      "clearFilters": "Clear filters",
+      "toggleAll": "Toggle all scopes",
+      "confirmDeleteTitle": "Delete this design?",
+      "confirmDeleteDescription": "This removes “{name}” from this computer."
     }
   },
   "canvas": {
@@ -6629,7 +6656,7 @@
           },
           "ptDesign": {
             "title": "Prototype Design",
-            "description": "Open Prototype Design as its own page from Launchpad. A workspace can still open a separate board from the center tab bar."
+            "description": "Open a library of saved Prototype Design boards from Launchpad. A workspace can still open its own board from the center tab bar."
           },
           "newWorkspace": {
             "title": "New Workspace",

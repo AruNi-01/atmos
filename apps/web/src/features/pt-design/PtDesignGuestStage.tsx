@@ -13,6 +13,7 @@ export function PtDesignGuestStage() {
   const { resolvedTheme } = useTheme();
   const t = useTranslations("ptDesign.share");
   const tGuest = useTranslations("ptDesign.guest");
+  const tMode = useTranslations("ptDesign.mode");
   const theme = resolvedTheme === "dark" ? "dark" : "light";
   const persistence = React.useMemo(() => memoryPersistence(), []);
 
@@ -27,8 +28,12 @@ export function PtDesignGuestStage() {
           <PtDesignApp
             theme={theme}
             persistence={persistence}
-            storageKey="pt-design:scene:guest"
+            storageKey="pt-design/v2/guest"
             className="h-full min-h-0"
+            modeLabels={{ edit: tMode("edit"), interact: tMode("interact") }}
+            onAction={(payload) => {
+              console.info("pt-design action", payload);
+            }}
             shareCopy={{
               title: t("title"),
               nameLabel: t("nameLabel"),

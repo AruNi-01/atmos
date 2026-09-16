@@ -332,3 +332,18 @@ export const taskParams = {
     "best-match",
   ]).withDefault("updated-desc"),
 };
+
+// ---------------------------------------------------------------------------
+// Prototype Design overview
+// ---------------------------------------------------------------------------
+export type PtDesignScopeFilter = "all" | "global" | "project" | "workspace";
+
+export const ptDesignParams = {
+  design: parseAsString,
+  ptScope: parseAsStringEnum<PtDesignScopeFilter>([
+    "all",
+    "global",
+    "project",
+    "workspace",
+  ]).withDefault("all"),
+};
