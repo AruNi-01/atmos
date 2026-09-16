@@ -17,6 +17,7 @@ use crate::map::{
     extract_subagent, extract_subagent_prompt, extract_task_id, extract_url, hold_subagent_open,
     human_execute_title, is_background_spawn_notice, is_human_tool_description,
     is_subagent_dispatch_ack, parse_subagent_status, sanitize_execute_output, store_subagent_tool,
+    strip_subagent_footers, subagent_result_text,
 };
 
 #[derive(Debug, Clone)]
@@ -423,8 +424,7 @@ fn grok_hold_subagent_open(
         return false;
     }
     let content = content_text(&update.content);
-    let output_text = output
-        .and_then(value_text)
+    let output_text = value_text(output)
         .or_else(|| content.clone())
         .unwrap_or_default();
     if is_background_spawn_notice(&output_text)
