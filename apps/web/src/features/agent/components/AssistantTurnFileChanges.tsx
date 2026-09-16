@@ -3,10 +3,10 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
-  cn,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
+  ScrollArea,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -14,7 +14,6 @@ import {
 import type { AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
 import {
   collectTurnFileChanges,
-  selectRangesForTurnFile,
   type TurnFileChange,
 } from "@/features/agent/lib/tool-results/turn-file-changes";
 import { displayAgentChatFilePath, resolveAgentChatOpenableFile } from "@/features/agent/lib/agent-chat-file-links";
@@ -103,7 +102,7 @@ export function AssistantTurnFileChanges({
       onOpen={(path) => {
         void openWorkspacePath(path, {
           isDir: false,
-          selectRanges: selectRangesForTurnFile(parts, path),
+          openGitGutter: "all",
         });
       }}
     />
@@ -118,7 +117,11 @@ export function AssistantTurnFileChanges({
       </div>
       {hidden > 0 ? (
         <Collapsible open={expanded} onOpenChange={setExpanded}>
-          <div className={cn(expanded && "max-h-44 overflow-y-auto")}>
+          <ScrollArea
+            className="h-auto max-h-44"
+            scrollFade
+            viewportClassName="h-auto max-h-44"
+          >
             <ul className="flex flex-col">
               {preview.map(renderChange)}
             </ul>
@@ -127,7 +130,7 @@ export function AssistantTurnFileChanges({
                 {extra.map(renderChange)}
               </ul>
             </CollapsibleContent>
-          </div>
+          </ScrollArea>
           <CollapsibleTrigger className="mt-0.5 py-1 text-left text-sm text-muted-foreground hover:text-foreground">
             {expanded ? t("showLess") : t("showMore", { count: hidden })}
           </CollapsibleTrigger>

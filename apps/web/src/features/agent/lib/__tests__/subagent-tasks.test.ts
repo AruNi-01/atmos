@@ -5,8 +5,10 @@ import {
   currentTurnSubagentTasks,
   displaySubagentType,
   formatSubagentTaskLine,
+  isSubagentDispatchAckText,
   messagesForSubagent,
   subagentChildActivity,
+  subagentResultText,
   subagentTaskStatus,
   titleCaseSubagentType,
 } from "@/features/agent/lib/subagent-tasks";
@@ -206,6 +208,45 @@ describe("messagesForSubagent", () => {
     expect(ids).toEqual(["child-read", "child-sub"]);
   });
 
+  it("stamps host timestamps and nested thinking onto the overlay turn", () => {
+    const parent = subagent({
+      tool_call_id: "parent",
+      status: "completed",
+      result: { type: "text", text: "mapped the repo" },
+    });
+    const projected = messagesForSubagent(
+      [
+        {
+          id: "u1",
+          role: "user",
+          created_at: "2026-09-15T15:05:58.000Z",
+          parts: [{ type: "text", text: "go" }],
+        },
+        assistant(
+          [
+            parent,
+            { type: "thinking", text: "hmm", duration_ms: 4000, parent_tool_call_id: "parent" },
+            { type: "text", text: "nested hello", parent_tool_call_id: "parent" },
+          ],
+          {
+            created_at: "2026-09-15T15:06:03.000Z",
+            completed_at: "2026-09-15T15:08:53.000Z",
+            worked_ms: 170_000,
+          },
+        ),
+      ],
+      "parent",
+    );
+    expect(projected![0]?.created_at).toBe("2026-09-15T15:06:03.000Z");
+    expect(projected![1]).toMatchObject({
+      created_at: "2026-09-15T15:06:03.000Z",
+      thinking_ms: 4000,
+      worked_ms: 4000,
+      completed_at: "2026-09-15T15:08:53.000Z",
+      streaming: false,
+    });
+  });
+
   it("still projects a historical subagent after a later user turn", () => {
     const previous = subagent({
       tool_call_id: "old",
@@ -260,6 +301,31 @@ describe("messagesForSubagent", () => {
     ).toBe(true);
   });
 
+  it("does not project Claude async-launch dispatch ack as the child answer", () => {
+    const ack = "Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.) agentId: a827867c2504be0f1 The agent is working in the background.";
+    expect(isSubagentDispatchAckText(ack)).toBe(true);
+    const parent = subagent({
+      tool_call_id: "parent",
+      status: "completed",
+      result: { type: "text", text: ack },
+    });
+    expect(subagentResultText(parent)).toBeNull();
+    const projected = messagesForSubagent(
+      [
+        { id: "u1", role: "user", parts: [{ type: "text", text: "go" }] },
+        assistant([
+          parent,
+          { type: "text", text: ack, parent_tool_call_id: "parent" },
+          { type: "text", text: "mapped the repo", parent_tool_call_id: "parent" },
+        ]),
+      ],
+      "parent",
+    );
+    expect(projected![1]?.parts).toEqual([
+      { type: "text", text: "mapped the repo" },
+    ]);
+  });
+
   it("uses the stored prompt as the overlay user message", () => {
     const parent = subagent({
       tool_call_id: "parent",
@@ -286,6 +352,33 @@ describe("messagesForSubagent", () => {
 
   it("returns null when the tool call is missing", () => {
     expect(messagesForSubagent([], "missing")).toBeNull();
+  });
+
+  it("does not project wait/poll descendants into the overlay transcript", () => {
+    const parent = subagent({ tool_call_id: "parent" });
+    const waitPoll: AgentToolCallPart = {
+      type: "tool_call",
+      tool_call_id: "wait",
+      name: "TaskOutput",
+      title: "get_command_or_subagent_output",
+      kind: "other",
+      status: "running",
+      parent_tool_call_id: "parent",
+      params: { type: "other", value: { task_id: "parent" } },
+    };
+    const projected = messagesForSubagent(
+      [
+        { id: "u1", role: "user", parts: [{ type: "text", text: "go" }] },
+        assistant([parent, childRead, waitPoll]),
+      ],
+      "parent",
+    );
+    const ids = projected![1]!.parts
+      .filter((part): part is AgentToolCallPart => part.type === "tool_call")
+      .map((part) => part.tool_call_id);
+    expect(ids).toEqual(["child-read"]);
+    expect(JSON.stringify(projected)).not.toContain("TaskOutput");
+    expect(JSON.stringify(projected)).not.toContain("get_command_or_subagent_output");
   });
 });
 
@@ -326,6 +419,66 @@ describe("subagentChildActivity", () => {
     }
   });
 
+  it("uses the child Read line even when a nested wait-poll is also running", () => {
+    const activity = subagentChildActivity(
+      [
+        { id: "u1", role: "user", parts: [{ type: "text", text: "go" }] },
+        assistant([
+          subagent({ tool_call_id: "parent" }),
+          {
+            type: "tool_call",
+            tool_call_id: "wait",
+            name: "TaskOutput",
+            title: "get_command_or_subagent_output",
+            kind: "other",
+            status: "running",
+            parent_tool_call_id: "parent",
+            params: { type: "other", value: { task_id: "parent" } },
+          },
+          {
+            type: "tool_call",
+            tool_call_id: "child-read",
+            name: "Read",
+            kind: "read",
+            status: "running",
+            parent_tool_call_id: "parent",
+            params: { type: "read", path: "hello2.txt" },
+          },
+        ]),
+      ],
+      "parent",
+    );
+    expect(activity.busy).toBe(true);
+    if (activity.busy) {
+      expect(activity.label).toContain("hello2.txt");
+      expect(activity.label).not.toContain("Waiting");
+    }
+  });
+
+  it("is generating when the parent is running with only a nested wait-poll", () => {
+    const activity = subagentChildActivity(
+      [
+        { id: "u1", role: "user", parts: [{ type: "text", text: "go" }] },
+        assistant([
+          subagent({ tool_call_id: "parent" }),
+          {
+            type: "tool_call",
+            tool_call_id: "wait",
+            name: "TaskOutput",
+            title: "get_command_or_subagent_output",
+            kind: "other",
+            status: "running",
+            parent_tool_call_id: "parent",
+            params: { type: "other", value: { task_id: "parent" } },
+          },
+        ]),
+      ],
+      "parent",
+    );
+    expect(activity).toMatchObject({ busy: true, label: "Generating" });
+    expect(JSON.stringify(activity)).not.toContain("Waiting");
+  });
+
   it("is idle when the parent completed", () => {
     const activity = subagentChildActivity(
       [
@@ -341,5 +494,77 @@ describe("subagentChildActivity", () => {
       "parent",
     );
     expect(activity).toEqual({ busy: false });
+  });
+
+  it("is idle after the parent completed even if a Grok TaskOutput poll is still running", () => {
+    const activity = subagentChildActivity(
+      [
+        { id: "u1", role: "user", parts: [{ type: "text", text: "go" }] },
+        assistant([
+          subagent({
+            tool_call_id: "parent",
+            status: "completed",
+            result: { type: "text", text: "done" },
+          }),
+          {
+            type: "tool_call",
+            tool_call_id: "wait",
+            name: "Tool",
+            title: "[subagent:general-purpose] Fix overlay UI layout (01a0a960)",
+            kind: "other",
+            status: "running",
+            parent_tool_call_id: "parent",
+            params: {
+              type: "other",
+              value: {
+                task_ids: ["01a0a960-5042-7bf0-99d4-a284b33e03e3"],
+                timeout_ms: 180000,
+                variant: "TaskOutput",
+              },
+            },
+          },
+        ]),
+      ],
+      "parent",
+    );
+    expect(activity).toEqual({ busy: false });
+  });
+
+  it("does not project a Grok child-labeled TaskOutput poll into the overlay", () => {
+    const parent = subagent({
+      tool_call_id: "parent",
+      status: "completed",
+      result: { type: "text", text: "done" },
+    });
+    const poll: AgentToolCallPart = {
+      type: "tool_call",
+      tool_call_id: "wait",
+      name: "Tool",
+      title: "[subagent:general-purpose] Fix overlay UI layout (01a0a960)",
+      kind: "other",
+      status: "running",
+      parent_tool_call_id: "parent",
+      params: {
+        type: "other",
+        value: {
+          task_ids: ["01a0a960-5042-7bf0-99d4-a284b33e03e3"],
+          timeout_ms: 180000,
+          variant: "TaskOutput",
+        },
+      },
+    };
+    const projected = messagesForSubagent(
+      [
+        { id: "u1", role: "user", parts: [{ type: "text", text: "go" }] },
+        assistant([parent, poll]),
+      ],
+      "parent",
+    );
+    const ids = projected![1]!.parts
+      .filter((part): part is AgentToolCallPart => part.type === "tool_call")
+      .map((part) => part.tool_call_id);
+    expect(ids).toEqual([]);
+    expect(JSON.stringify(projected)).not.toContain("TaskOutput");
+    expect(JSON.stringify(projected)).not.toContain("01a0a960");
   });
 });

@@ -1,6 +1,6 @@
 //! Vendor stream-json frames → Atmos `AgentEventEnvelope`.
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use serde_json::{json, Value};
 
@@ -8,7 +8,7 @@ use crate::contract::AgentPersistenceHandle;
 use crate::contract::{AgentCurrentConfig, AgentIdentity, AgentSupportedOptions};
 use crate::contract::{AgentDescriptor, TurnStop};
 use crate::contract::{AgentEvent, AgentEventEnvelope};
-use crate::contract::{AgentTool, AgentToolStatus};
+use crate::contract::{AgentTool, AgentToolKind, AgentToolStatus};
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
 
 use super::codec::{frame_kind, ClaudeFrameKind};
@@ -31,6 +31,9 @@ pub(crate) struct EventMapState {
     /// Last complete main-loop assistant `message.usage` this turn.
     /// Zero stubs and nested subagent usage do not overwrite.
     pub last_assistant_usage: Option<Value>,
+    /// Host `result` arrived while a Task/Agent spawn is still running.
+    /// Keep `running_turn` so a later host `result` (background wakeup) can settle.
+    deferred_host_stop: Option<(String, TurnStop)>,
 }
 
 impl EventMapState {
@@ -59,7 +62,17 @@ impl EventMapState {
             current_config,
             cancel_requested: false,
             last_assistant_usage: None,
+            deferred_host_stop: None,
         }
+    }
+
+    pub(crate) fn has_running_subagent(&self) -> bool {
+        unique_subagents(&self.tools).iter().any(|tool| {
+            matches!(
+                tool.status,
+                AgentToolStatus::Running | AgentToolStatus::Pending
+            )
+        })
     }
 
     pub(crate) fn descriptor(&self) -> AgentDescriptor {
@@ -515,6 +528,10 @@ fn map_user(state: &mut EventMapState, turn_id: Option<String>, frame: &Value) -
 }
 
 fn map_result(state: &mut EventMapState, turn_id: Option<String>, frame: &Value) -> MappedFrame {
+    // Nested child `result` frames must not settle the host turn.
+    if parent_tool_use_id(frame).is_some() {
+        return MappedFrame::Omit;
+    }
     let Some(turn_id) = turn_id else {
         return MappedFrame::Omit;
     };
@@ -547,7 +564,28 @@ fn map_result(state: &mut EventMapState, turn_id: Option<String>, frame: &Value)
     }
     state.streamed_assistant = false;
     state.streamed_thinking = false;
-    state.tools.clear();
+
+    let running_subagent = state.has_running_subagent();
+    let already_deferred = state.deferred_host_stop.is_some();
+    let hold_host_turn = running_subagent && !already_deferred && !state.cancel_requested;
+    if hold_host_turn {
+        // Claude emits a host `result` when the parent finishes the dispatch
+        // ack. The child keeps streaming on the same stdout. Hold the turn
+        // open so a later host `result` can settle.
+        state.deferred_host_stop = Some((turn_id.clone(), TurnStop::Completed));
+    } else {
+        if running_subagent {
+            for tool in complete_running_subagents(state) {
+                let status = tool.status;
+                push(
+                    state,
+                    wrap(Some(turn_id.clone()), merge_tool_event(tool, status)),
+                );
+            }
+        }
+        state.tools.clear();
+        state.deferred_host_stop = None;
+    }
 
     if frame.get("usage").is_some() || frame.get("total_cost_usd").is_some() {
         let mut usage = frame.get("usage").cloned().unwrap_or_else(|| json!({}));
@@ -576,6 +614,14 @@ fn map_result(state: &mut EventMapState, turn_id: Option<String>, frame: &Value)
         );
     }
     state.last_assistant_usage = None;
+
+    if hold_host_turn {
+        state.cancel_requested = false;
+        return match first {
+            Some(event) => MappedFrame::Envelope(event),
+            None => MappedFrame::Omit,
+        };
+    }
 
     let is_error = frame
         .get("is_error")
@@ -643,6 +689,43 @@ fn parent_tool_use_id(frame: &Value) -> Option<String> {
         .map(str::trim)
         .filter(|id| !id.is_empty())
         .map(str::to_string)
+}
+
+fn unique_subagents(tools: &HashMap<String, AgentTool>) -> Vec<AgentTool> {
+    let mut seen = HashSet::new();
+    tools
+        .values()
+        .filter(|tool| {
+            tool.kind == AgentToolKind::Subagent && seen.insert(tool.tool_call_id.clone())
+        })
+        .cloned()
+        .collect()
+}
+
+fn complete_running_subagents(state: &mut EventMapState) -> Vec<AgentTool> {
+    let running: Vec<AgentTool> = unique_subagents(&state.tools)
+        .into_iter()
+        .filter(|tool| {
+            matches!(
+                tool.status,
+                AgentToolStatus::Running | AgentToolStatus::Pending
+            )
+        })
+        .collect();
+    let mut completed = Vec::new();
+    for mut tool in running {
+        tool.status = AgentToolStatus::Completed;
+        state.tools.insert(tool.tool_call_id.clone(), tool.clone());
+        if let crate::contract::AgentToolParams::Subagent {
+            task_id: Some(task_id),
+            ..
+        } = &tool.params
+        {
+            state.tools.insert(task_id.clone(), tool.clone());
+        }
+        completed.push(tool);
+    }
+    completed
 }
 
 fn merge_tool_event(tool: AgentTool, status: AgentToolStatus) -> AgentEvent {
@@ -1291,5 +1374,113 @@ mod tests {
                 text: "All tests pass.".into()
             })
         );
+    }
+
+    #[test]
+    fn async_launch_host_result_defers_until_a_later_host_result() {
+        let mut state = EventMapState::new(AgentCurrentConfig::default());
+        let spawn = json!({
+            "type": "assistant",
+            "message": {
+                "content": [{
+                    "type": "tool_use",
+                    "id": "tu_agent",
+                    "name": "Agent",
+                    "input": {
+                        "description": "Explore atmos monorepo",
+                        "subagent_type": "Explore"
+                    }
+                }]
+            }
+        });
+        let (started, _) = drain_mapped(&mut state, Some("turn-1".into()), &spawn);
+        assert!(matches!(
+            started[0].payload,
+            AgentEvent::ToolCallStarted { ref tool_call }
+                if tool_call.kind == AgentToolKind::Subagent
+                    && tool_call.status == AgentToolStatus::Running
+        ));
+
+        let ack = json!({
+            "type": "user",
+            "message": {
+                "content": [{
+                    "type": "tool_result",
+                    "tool_use_id": "tu_agent",
+                    "content": [{
+                        "type": "text",
+                        "text": "Async agent launched successfully. (This tool result is internal metadata — never quote.) agentId: child1 The agent is working in the background."
+                    }]
+                }]
+            }
+        });
+        let (acked, _) = drain_mapped(&mut state, Some("turn-1".into()), &ack);
+        assert!(matches!(
+            acked[0].payload,
+            AgentEvent::ToolCallUpdated { ref tool_call }
+                if tool_call.status == AgentToolStatus::Running && tool_call.result.is_none()
+        ));
+        assert!(state.has_running_subagent());
+
+        let nested = json!({
+            "type": "assistant",
+            "parent_tool_use_id": "tu_agent",
+            "message": {
+                "content": [{
+                    "type": "tool_use",
+                    "id": "tu_read",
+                    "name": "Read",
+                    "input": { "file_path": "AGENTS.md" }
+                }]
+            }
+        });
+        let (child, _) = drain_mapped(&mut state, Some("turn-1".into()), &nested);
+        assert!(child.iter().any(|event| matches!(
+            &event.payload,
+            AgentEvent::ToolCallStarted { tool_call }
+                if tool_call.tool_call_id == "tu_read"
+                    && tool_call.parent_tool_call_id.as_deref() == Some("tu_agent")
+        )));
+
+        let early_result = json!({
+            "type": "result",
+            "subtype": "success",
+            "usage": { "input_tokens": 10, "output_tokens": 4 }
+        });
+        let (held, _) = drain_mapped(&mut state, Some("turn-1".into()), &early_result);
+        assert!(
+            !held
+                .iter()
+                .any(|event| matches!(event.payload, AgentEvent::TurnCompleted { .. })),
+            "first host result while the spawn is running must not settle the turn: {held:?}"
+        );
+        assert!(state.has_running_subagent());
+
+        let nested_result = json!({
+            "type": "result",
+            "subtype": "success",
+            "parent_tool_use_id": "tu_agent"
+        });
+        let (ignored, _) = drain_mapped(&mut state, Some("turn-1".into()), &nested_result);
+        assert!(ignored.is_empty());
+
+        let done = json!({
+            "type": "result",
+            "subtype": "success",
+            "usage": { "input_tokens": 20, "output_tokens": 8 }
+        });
+        let (settled, _) = drain_mapped(&mut state, Some("turn-1".into()), &done);
+        assert!(settled.iter().any(|event| matches!(
+            &event.payload,
+            AgentEvent::ToolCallCompleted { tool_call }
+                if tool_call.tool_call_id == "tu_agent"
+                    && tool_call.status == AgentToolStatus::Completed
+        )));
+        assert!(settled.iter().any(|event| matches!(
+            event.payload,
+            AgentEvent::TurnCompleted { turn_id: ref id, stop: TurnStop::Completed }
+                if id == "turn-1"
+        )));
+        assert!(!state.has_running_subagent());
     }
 }

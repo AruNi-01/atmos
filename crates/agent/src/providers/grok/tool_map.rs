@@ -291,8 +291,16 @@ fn map_grok_task_output(
         && original.kind == AgentToolKind::Subagent
         && incoming_status == AgentToolStatus::Running
     {
-        let mut wait = subagent_wait_tool(update);
-        wait.parent_tool_call_id = Some(original.tool_call_id.clone());
+        // A late poll after the child already settled is not live work.
+        if matches!(
+            original.status,
+            AgentToolStatus::Completed | AgentToolStatus::Failed
+        ) {
+            return ToolMapOut::Hide;
+        }
+        // Poll stays parent-process chrome so the main turn can show
+        // "Waiting for N background agent(s)". Do not nest it under the spawn.
+        let wait = subagent_wait_tool(update);
         grok_tasks.insert(update.tool_call_id.clone(), wait.clone());
         return ToolMapOut::Tool(wait);
     }
@@ -1016,22 +1024,13 @@ fn edit_payload_string(value: &Value, keys: &[&str]) -> Option<String> {
 }
 
 fn subagent_wait_tool(update: &ToolCallUpdate) -> AgentTool {
-    let title = nonempty_title(update).map(str::to_string);
-    let name = title
-        .clone()
-        .filter(|value| !is_generic_tool_label(value))
-        .unwrap_or_else(|| {
-            if is_generic_tool_label(&update.tool) {
-                "TaskOutput".into()
-            } else {
-                update.tool.clone()
-            }
-        });
+    // Keep a stable poll name so UI wait-detection does not treat Grok's
+    // `[subagent:…]` command label as a nested child spawn.
     AgentTool {
         tool_call_id: update.tool_call_id.clone(),
         parent_tool_call_id: None,
-        name,
-        title,
+        name: "get_command_or_subagent_output".into(),
+        title: Some("TaskOutput".into()),
         kind: AgentToolKind::Other,
         status: AgentToolStatus::Running,
         params: AgentToolParams::Other {
@@ -1298,14 +1297,32 @@ fn is_task_output(update: &ToolCallUpdate) -> bool {
             | "agent_output"
             | "get_command_or_subagent_output"
     ) || title.to_ascii_lowercase().starts_with("get task output")
-        || envelope_type(update.raw_input.as_ref())
-            .or_else(|| envelope_type(update.raw_output.as_ref()))
-            .is_some_and(|ty| {
-                matches!(
-                    ty.as_str(),
-                    "taskoutput" | "task_output" | "agentoutput" | "agent_output"
-                )
-            })
+        || grok_subagent_poll_title(title)
+        || grok_taskoutput_payload(update.raw_input.as_ref())
+        || grok_taskoutput_payload(update.raw_output.as_ref())
+}
+
+/// Live Grok labels `get_command_or_subagent_output` with the child command
+/// (`[subagent:general-purpose] Fix overlay UI layout (01a0a960)`) instead of
+/// the vendor tool name.
+fn grok_subagent_poll_title(title: &str) -> bool {
+    title.trim().starts_with("[subagent:")
+}
+
+fn grok_taskoutput_payload(value: Option<&Value>) -> bool {
+    if envelope_type(value).is_some_and(|ty| {
+        matches!(
+            ty.as_str(),
+            "taskoutput" | "task_output" | "agentoutput" | "agent_output"
+        )
+    }) {
+        return true;
+    }
+    value
+        .and_then(Value::as_object)
+        .and_then(|object| object.get("task_ids"))
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty())
 }
 
 fn is_kill_command(update: &ToolCallUpdate) -> bool {
@@ -2574,7 +2591,7 @@ mod tests {
         assert_eq!(wait.kind, AgentToolKind::Other);
         assert_eq!(wait.status, crate::contract::AgentToolStatus::Running);
         assert_eq!(wait.name, "get_command_or_subagent_output");
-        assert_eq!(wait.parent_tool_call_id.as_deref(), Some("tc_sub"));
+        assert_eq!(wait.parent_tool_call_id, None);
         assert_eq!(
             grok_tasks.get("tc_sub").map(|tool| tool.kind),
             Some(AgentToolKind::Subagent)
@@ -2610,9 +2627,122 @@ mod tests {
         };
         assert_eq!(wait.tool_call_id, "tc_poll");
         assert_eq!(wait.status, crate::contract::AgentToolStatus::Completed);
+        assert_eq!(wait.parent_tool_call_id, None);
         assert_eq!(parent.tool_call_id, "tc_sub");
         assert_eq!(parent.kind, AgentToolKind::Subagent);
         assert_eq!(parent.status, crate::contract::AgentToolStatus::Completed);
+    }
+
+    #[test]
+    fn grok_subagent_labeled_taskoutput_is_a_wait_poll_not_a_child_tool() {
+        let mut grok_tasks = HashMap::new();
+        let spawned = ToolCallUpdate {
+            tool_call_id: "tc_sub".into(),
+            parent_tool_call_id: None,
+            session_id: None,
+            tool: "Tool".into(),
+            description: "spawn_subagent".into(),
+            acp_kind: None,
+            status: ToolCallStatus::Running,
+            raw_input: Some(serde_json::json!({
+                "description": "Fix overlay UI layout",
+                "subagent_type": "general-purpose"
+            })),
+            content: Vec::new(),
+            locations: Vec::new(),
+            raw_output: Some(serde_json::json!({
+                "task_id": "01a0a960-5042-7bf0-99d4-a284b33e03e3",
+                "status": "running"
+            })),
+            detail: None,
+        };
+        let ToolMapOut::Tool(sub) = map_tool_call(&spawned, &mut grok_tasks) else {
+            panic!("expected subagent");
+        };
+        assert_eq!(sub.kind, AgentToolKind::Subagent);
+
+        let poll = ToolCallUpdate {
+            tool_call_id: "tc_poll".into(),
+            parent_tool_call_id: Some("tc_sub".into()),
+            session_id: Some("sa-1".into()),
+            tool: "Tool".into(),
+            description: "[subagent:general-purpose] Fix overlay UI layout (01a0a960)".into(),
+            acp_kind: None,
+            status: ToolCallStatus::Running,
+            raw_input: Some(serde_json::json!({
+                "task_ids": ["01a0a960-5042-7bf0-99d4-a284b33e03e3"],
+                "timeout_ms": 180000,
+                "variant": "TaskOutput"
+            })),
+            content: Vec::new(),
+            locations: Vec::new(),
+            raw_output: None,
+            detail: None,
+        };
+        let ToolMapOut::Tool(wait) = map_tool_call(&poll, &mut grok_tasks) else {
+            panic!("expected wait poll, not a nested child tool");
+        };
+        assert_eq!(wait.kind, AgentToolKind::Other);
+        assert_eq!(wait.name, "get_command_or_subagent_output");
+        assert_eq!(wait.title.as_deref(), Some("TaskOutput"));
+        assert_eq!(wait.parent_tool_call_id, None);
+        assert_eq!(wait.status, crate::contract::AgentToolStatus::Running);
+        assert_eq!(
+            grok_tasks.get("tc_sub").map(|tool| tool.status),
+            Some(crate::contract::AgentToolStatus::Running)
+        );
+    }
+
+    #[test]
+    fn grok_running_taskoutput_after_subagent_finished_is_hidden() {
+        let mut grok_tasks = HashMap::new();
+        let spawned = ToolCallUpdate {
+            tool_call_id: "tc_sub".into(),
+            parent_tool_call_id: None,
+            session_id: None,
+            tool: "Tool".into(),
+            description: "spawn_subagent".into(),
+            acp_kind: None,
+            status: ToolCallStatus::Completed,
+            raw_input: Some(serde_json::json!({
+                "description": "Fix overlay UI layout",
+                "subagent_type": "general-purpose"
+            })),
+            content: Vec::new(),
+            locations: Vec::new(),
+            raw_output: Some(serde_json::json!({
+                "task_id": "01a0a960-5042-7bf0-99d4-a284b33e03e3",
+                "status": "completed"
+            })),
+            detail: None,
+        };
+        let ToolMapOut::Tool(sub) = map_tool_call(&spawned, &mut grok_tasks) else {
+            panic!("expected subagent");
+        };
+        assert_eq!(sub.status, crate::contract::AgentToolStatus::Completed);
+
+        let poll = ToolCallUpdate {
+            tool_call_id: "tc_poll".into(),
+            parent_tool_call_id: Some("tc_sub".into()),
+            session_id: Some("sa-1".into()),
+            tool: "Tool".into(),
+            description: "[subagent:general-purpose] Fix overlay UI layout (01a0a960)".into(),
+            acp_kind: None,
+            status: ToolCallStatus::Running,
+            raw_input: Some(serde_json::json!({
+                "task_ids": ["01a0a960-5042-7bf0-99d4-a284b33e03e3"],
+                "timeout_ms": 180000,
+                "variant": "TaskOutput"
+            })),
+            content: Vec::new(),
+            locations: Vec::new(),
+            raw_output: None,
+            detail: None,
+        };
+        assert!(matches!(
+            map_tool_call(&poll, &mut grok_tasks),
+            ToolMapOut::Hide
+        ));
     }
 
     #[test]

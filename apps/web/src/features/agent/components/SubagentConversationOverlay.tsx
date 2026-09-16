@@ -46,7 +46,7 @@ export function SubagentConversationOverlay({
       data-agent-subagent-overlay=""
       role="region"
       aria-label={t("subAgent.overlayAria")}
-      className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-3xl border border-border bg-background"
+      className="flex h-full min-h-0 w-full min-w-0 flex-1 select-text flex-col overflow-hidden rounded-3xl border border-border bg-background"
     >
       <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-3">
         <div className="min-w-0 truncate text-sm font-medium text-foreground">
@@ -62,10 +62,19 @@ export function SubagentConversationOverlay({
         </button>
       </div>
       <AgentChatCwdProvider cwd={cwd} projectOrWorkspacePath={cwd}>
-        <Conversation className="min-h-0 flex-1 overflow-hidden">
-          <ConversationContent className={cn("gap-3 px-3 py-4")}>
+        <Conversation
+          key={toolCallId}
+          className="min-h-0 h-full w-full min-w-0 flex-1 overflow-hidden"
+          initial={false}
+          resize="instant"
+        >
+          <ConversationContent
+            data-canvas-selectable-text="true"
+            className={cn("w-full min-w-0 gap-3 px-3 py-4")}
+            scrollClassName="h-full min-h-0 w-full min-w-0 overflow-y-auto"
+          >
             {projected.map((message, index) => (
-              <div key={message.id}>
+              <div key={message.id} className="w-full min-w-0">
                 <AgentChatMessageView
                   message={message}
                   index={index}

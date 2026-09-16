@@ -104,6 +104,9 @@ pub fn is_background_spawn_notice(text: &str) -> bool {
     trimmed.starts_with("Subagent started in background.")
         || trimmed.contains("moved to the background to keep the conversation responsive")
         || trimmed.starts_with("The task is working in the background.")
+        || trimmed.starts_with("Async agent launched successfully.")
+        || trimmed.contains("This tool result is internal metadata")
+        || trimmed.contains("The agent is working in the background.")
 }
 
 fn is_resume_only_notice(text: &str) -> bool {
@@ -472,6 +475,7 @@ fn extract_task_id_from_output(value: &Value) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::map::extract::labeled_id_from_text;
     use serde_json::json;
 
     #[test]
@@ -538,6 +542,20 @@ mod tests {
         assert_eq!(
             extract_task_id_from_output(&value).as_deref(),
             Some("child1")
+        );
+    }
+
+    #[test]
+    fn claude_async_launch_notice_is_dispatch_ack() {
+        let text = "Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.) agentId: a827867c2504be0f1 (internal ID - do not mention to user. Use SendMessage with to: 'a827867c2504be0f1', summary: '<5-10 word recap>' to continue this agent.) The agent is working in the background. You will be notified automatically when it completes.";
+        assert!(is_background_spawn_notice(text));
+        assert!(is_subagent_dispatch_ack(
+            &json!([{ "type": "text", "text": text }])
+        ));
+        assert!(is_subagent_dispatch_ack(&json!(text)));
+        assert_eq!(
+            extract_task_id_from_output(&json!(text)).as_deref(),
+            Some("a827867c2504be0f1")
         );
     }
 

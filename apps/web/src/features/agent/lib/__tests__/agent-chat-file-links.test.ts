@@ -365,6 +365,8 @@ describe("agent chat file-link wiring", () => {
     expect(hook).toContain("resolveAgentChatPathKind");
     expect(hook).toContain('kind !== "file"');
     expect(hook).toContain("selectRanges");
+    expect(hook).toContain("openGitGutter");
+    expect(hook).toContain("openAllGutter");
     expect(hook).not.toContain("preferMarkdownSource");
     expect(hook).not.toContain("flushSync");
     expect(hook).toContain("void openFile");

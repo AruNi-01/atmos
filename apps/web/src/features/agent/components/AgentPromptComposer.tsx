@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState, useEffect, useRef } from "react";
+import React, { useCallback, useState, useEffect, useLayoutEffect, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useTranslations } from "next-intl";
 import {
@@ -36,6 +36,7 @@ import { MessageQueueDock } from "./MessageQueueDock";
 import { SubagentTasksPanel } from "./SubagentTasksDock";
 import { useSubagentOverlay } from "./subagent-overlay-context";
 import type { CurrentTurnSubagentTasks } from "@/features/agent/lib/subagent-tasks";
+import { subagentOverlayFrameHeight } from "@/features/agent/lib/subagent-overlay-layout";
 import { useAgentComposerPopovers } from "../hooks/use-agent-composer-popovers";
 import type { AgentChatSlashCommand } from "../hooks/use-agent-chat-session";
 import {
@@ -589,6 +590,8 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   );
   const persistedDraftRef = useRef(localDraft);
   const composerRef = useRef<ComposerHandle | null>(null);
+  const composerSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const overlayLaneRef = useRef<HTMLDivElement | null>(null);
   const [editingQueueId, setEditingQueueId] = useState<string | null>(null);
   const [contextUsageOpen, setContextUsageOpen] = useState(false);
   const { close: closeSubagentOverlay } = useSubagentOverlay();
@@ -619,9 +622,38 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     setContextUsageOpen(false);
   }, [contextStats, contextUsageOpen]);
 
+  const setOverlayLaneNode = useCallback((node: HTMLDivElement | null) => {
+    overlayLaneRef.current = node;
+    onAboveComposerOverlaysNodeChange?.(node);
+  }, [onAboveComposerOverlaysNodeChange]);
+
   useEffect(() => {
     return () => onAboveComposerOverlaysNodeChange?.(null);
   }, [onAboveComposerOverlaysNodeChange]);
+
+  const overlayOpen = Boolean(subagentOverlay);
+
+  useLayoutEffect(() => {
+    const lane = overlayLaneRef.current;
+    const surface = composerSurfaceRef.current;
+    if (!overlayOpen || !lane || !surface) {
+      lane?.style.removeProperty("height");
+      return;
+    }
+    const column = surface.closest("[data-agent-chat-column]");
+    if (!(column instanceof HTMLElement)) return;
+    const apply = () => {
+      const next = `${subagentOverlayFrameHeight(column.clientHeight, surface.clientHeight)}px`;
+      if (lane.style.height !== next) lane.style.height = next;
+    };
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(column);
+    observer.observe(surface);
+    return () => {
+      observer.disconnect();
+    };
+  }, [overlayOpen]);
   const modeOption = configOptions.find((option) => configKindMatches(option.id, option.category, "mode")) ?? null;
   const permissionOption =
     configOptions.find((option) =>
@@ -763,11 +795,14 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
         setEditingQueueId(null);
       }}
     >
-      <div className="relative">
+      <div ref={composerSurfaceRef} className="relative">
         <div
-          ref={onAboveComposerOverlaysNodeChange}
+          ref={setOverlayLaneNode}
           data-agent-chat-above-composer-overlays=""
-          className="pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full flex-col gap-2 has-[.pointer-events-auto]:pb-2"
+          className={cn(
+            "pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full min-h-0 flex-col gap-2 has-[.pointer-events-auto]:pb-2",
+            subagentOverlay && "overflow-hidden",
+          )}
         >
           <div
             data-agent-chat-scroll-button-host=""
@@ -775,19 +810,12 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
           />
           <div
             className={cn(
-              "flex w-full min-h-0 flex-col gap-2 empty:hidden",
+              "flex min-h-0 w-full flex-col gap-2 empty:hidden",
+              subagentOverlay && "h-full min-h-0 flex-1 overflow-hidden",
               hasUpperComposerCards && "px-6",
             )}
           >
             <AnimatePresence initial={false}>
-              {subagentOverlay ? (
-                <div
-                  data-agent-subagent-overlay=""
-                  className="pointer-events-auto relative z-30 h-[70cqh] max-h-[70cqh] min-h-0 w-full"
-                >
-                  {subagentOverlay}
-                </div>
-              ) : null}
               {showContextUsageCard ? (
                 <motion.div
                   key="agent-context-usage"
@@ -815,6 +843,14 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
                     onClose={() => setContextUsageOpen(false)}
                   />
                 </motion.div>
+              ) : null}
+              {subagentOverlay ? (
+                <div
+                  data-agent-subagent-overlay=""
+                  className="pointer-events-auto relative z-30 flex h-full min-h-0 min-w-0 w-full flex-1 select-text flex-col overflow-hidden"
+                >
+                  {subagentOverlay}
+                </div>
               ) : null}
               {showSubagentTasksCard ? (
                 <motion.div

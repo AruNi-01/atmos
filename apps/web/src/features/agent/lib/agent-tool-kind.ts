@@ -71,9 +71,12 @@ export function isActiveToolStatus(status?: string | null): boolean {
 }
 
 /** Vendor poll that waits on a background subagent (`TaskOutput`, `AgentOutput`, …). */
-export function isSubagentWaitTool(part: Pick<AgentToolCallPart, "name" | "title">): boolean {
+export function isSubagentWaitTool(
+  part: Pick<AgentToolCallPart, "name" | "title"> & Partial<Pick<AgentToolCallPart, "params">>,
+): boolean {
   const name = normalizeLabel(part.name);
   const title = normalizeLabel(part.title);
+  const raw = `${part.name} ${part.title ?? ""}`;
   const blob = `${name} ${title}`;
   if (
     blob.includes("taskoutput")
@@ -85,11 +88,29 @@ export function isSubagentWaitTool(part: Pick<AgentToolCallPart, "name" | "title
   ) {
     return true;
   }
+  // Grok labels the poll with the child command instead of TaskOutput.
+  if (raw.includes("[subagent:")) return true;
+  if (otherParamsLookLikeWaitPoll(part.params)) return true;
   return blob.includes("wait") && (
     blob.includes("subagent")
     || blob.includes("background_agent")
     || blob.includes("backgroundagent")
   );
+}
+
+function otherParamsLookLikeWaitPoll(params: AgentToolCallPart["params"] | undefined): boolean {
+  if (params?.type !== "other" || !params.value || typeof params.value !== "object") return false;
+  const value = params.value as Record<string, unknown>;
+  const variant = String(value.variant ?? value.type ?? "").toLowerCase();
+  if (
+    variant === "taskoutput"
+    || variant === "task_output"
+    || variant === "agentoutput"
+    || variant === "agent_output"
+  ) {
+    return true;
+  }
+  return Array.isArray(value.task_ids) && value.task_ids.length > 0;
 }
 
 const GENERIC_TOOL_LABELS = new Set([

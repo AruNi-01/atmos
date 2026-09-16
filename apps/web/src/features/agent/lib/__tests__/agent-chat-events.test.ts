@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
   currentPlanFromMessages,
+  currentTurnHasRunningSubagent,
   dedupeAgentMessages,
   foldMessagesFromEvent,
   hydrateAgentChatMessages,
@@ -861,6 +862,83 @@ describe("agent chat fold stays on AgentMessage", () => {
       status: "completed",
       duration_ms: 1800,
     });
+  });
+
+  it("holds turn_completed while a current-turn subagent is still running", () => {
+    const user = chatEvent("chat-1", 1, {
+      type: "user_message",
+      turn_id: "t1",
+      message_id: "u1",
+      text: "explore",
+    });
+    const started = chatEvent("chat-1", 2, {
+      type: "tool_call_started",
+      tool_call: {
+        tool_call_id: "sub-1",
+        name: "Agent",
+        kind: "subagent",
+        status: "running",
+        params: { type: "subagent", description: "Explore atmos monorepo", agent_type: "Explore" },
+      },
+    });
+    const done = chatEvent("chat-1", 3, {
+      type: "turn_completed",
+      turn_id: "t1",
+      worked_ms: 12_000,
+      completed_at: "2026-09-15T15:06:11.000Z",
+    });
+    let messages = foldMessagesFromEvent([], user, "chat-1");
+    messages = foldMessagesFromEvent(messages, started, "chat-1");
+    expect(currentTurnHasRunningSubagent(messages)).toBe(true);
+    messages = foldMessagesFromEvent(messages, done, "chat-1");
+    expect(messages[1]?.streaming).toBe(true);
+    expect(messages[1]?.completed_at).toBe("2026-09-15T15:06:11.000Z");
+    expect(messages[1]?.worked_ms).toBe(12_000);
+    expect(currentTurnHasRunningSubagent(messages)).toBe(true);
+
+    const child = chatEvent("chat-1", 4, {
+      type: "tool_call_started",
+      tool_call: {
+        tool_call_id: "read-1",
+        name: "Read",
+        kind: "read",
+        status: "running",
+        parent_tool_call_id: "sub-1",
+        params: { type: "read", path: "AGENTS.md" },
+      },
+    });
+    messages = foldMessagesFromEvent(messages, child, "chat-1");
+    expect(messages[1]?.streaming).toBe(true);
+    expect(messages[1]?.completed_at).toBe("2026-09-15T15:06:11.000Z");
+
+    const childDone = chatEvent("chat-1", 5, {
+      type: "tool_call_completed",
+      tool_call: {
+        tool_call_id: "read-1",
+        name: "Read",
+        kind: "read",
+        status: "completed",
+        parent_tool_call_id: "sub-1",
+        params: { type: "read", path: "AGENTS.md" },
+      },
+    });
+    messages = foldMessagesFromEvent(messages, childDone, "chat-1");
+    expect(messages[1]?.streaming).toBe(true);
+
+    const finished = chatEvent("chat-1", 6, {
+      type: "tool_call_completed",
+      tool_call: {
+        tool_call_id: "sub-1",
+        name: "Agent",
+        kind: "subagent",
+        status: "completed",
+        params: { type: "subagent", description: "Explore atmos monorepo", agent_type: "Explore" },
+      },
+    });
+    messages = foldMessagesFromEvent(messages, finished, "chat-1");
+    expect(currentTurnHasRunningSubagent(messages)).toBe(false);
+    expect(messages[1]?.streaming).toBe(false);
+    expect(messages[1]?.completed_at).toBe("2026-09-15T15:06:11.000Z");
   });
 
   it("keeps streaming through assistant_message_completed until turn_completed", () => {
