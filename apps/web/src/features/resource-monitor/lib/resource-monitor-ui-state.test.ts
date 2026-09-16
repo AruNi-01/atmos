@@ -253,6 +253,7 @@ describe("ResourceMonitorPopover structure", () => {
     expect(hierarchySrc).toContain('t("projectResources")');
     expect(hierarchySrc).toContain('t("agentSessions")');
     expect(hierarchySrc).toContain("SessionKindChip");
+    expect(hierarchySrc).toContain("RM_CHIP");
     expect(hierarchySrc).toContain('t("kindTui")');
     expect(hierarchySrc).toContain('t("kindChatUi")');
     expect(hierarchySrc).toContain("canLocateResourceMonitorChatSession");

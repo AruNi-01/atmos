@@ -41,6 +41,7 @@ import {
   ResourceMonitorSessionName,
 } from "@/features/resource-monitor/components/ResourceMonitorSessionName";
 import {
+  RM_CHIP,
   RM_MEMORY,
   RM_METRIC,
   RM_NAME,
@@ -419,7 +420,7 @@ function SessionKindChip({ kind }: { kind: ResourceMonitorSessionUiKind }) {
   return (
     <Badge
       variant="secondary"
-      className="h-4 shrink-0 rounded px-1 text-[9px] font-medium"
+      className={RM_CHIP}
       data-resource-monitor-session-kind={kind}
     >
       {kind === "chat" ? t("kindChatUi") : t("kindTui")}
@@ -436,7 +437,7 @@ function SessionSpaceBadge({
   return (
     <Badge
       variant="secondary"
-      className="h-4 max-w-[7.5rem] shrink-0 gap-0.5 rounded px-1 text-[9px] font-medium"
+      className={cn(RM_CHIP, "max-w-[7.5rem] gap-0.5")}
       data-resource-monitor-space-badge={badge.spaceId}
       aria-label={t("spaceBadgeAria", { name: badge.name })}
     >
@@ -845,7 +846,7 @@ function WorkspaceBlock({
       trailingBadge={
         <Badge
           variant="secondary"
-          className="h-4 shrink-0 rounded px-1 text-[9px] font-medium"
+          className={RM_CHIP}
           data-resource-monitor-workspace-badge=""
         >
           {t("workspaceBadge")}
