@@ -1,6 +1,6 @@
 # PT Design (`@atmos/pt-design`)
 
-Interactive canvas package (APP-074). PTX is the Agent/file source. Live board SoT is the Excalidraw scene (LiveBoard). Not Atmos Canvas.
+Interactive canvas package (APP-075). PTX is the Agent/file source. Live board SoT is the Excalidraw scene (LiveBoard). Not Atmos Canvas.
 
 ## Public API
 

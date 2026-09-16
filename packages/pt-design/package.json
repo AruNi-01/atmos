@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "PT Design — Agent-first interactive canvas (APP-074). PTX source + Edit/Interact.",
+  "description": "PT Design — Agent-first interactive canvas (APP-075). PTX source + Edit/Interact.",
   "exports": {
     ".": "./src/index.ts",
     "./headless": "./src/headless.ts",

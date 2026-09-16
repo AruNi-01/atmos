@@ -1,6 +1,6 @@
-# TEST · APP-074: PT Design Interactive Canvas
+# TEST · APP-075: PT Design Interactive Canvas
 
-> Test Plan · extract/project, real DOM Interact, Excalidraw Edit + **native undo**, Agent PTX. References PRD APP-074 and TECH APP-074. No APP-062 compatibility tests.
+> Test Plan · extract/project, real DOM Interact, Excalidraw Edit + **native undo**, Agent PTX. References PRD APP-075 and TECH APP-075. No APP-062 compatibility tests.
 
 ## Test strategy
 
@@ -41,7 +41,7 @@
 | S3 | Bun | `bun test` | `pt_ptx_get` | headless | PTX, no scene JSON required | planned |
 | S4 | Bun | `bun test` | parse spatial | button attrs | numbers on node | planned |
 | S5 | Bun + browser | playground + `bun test` | full catalog | Interact / registry | every frozen id is a real Renderer, not a drawing | planned |
-| S6 | E2E | Playwright `just test-e2e -- tests/specs/APP-074_pt-design-interactive-canvas.e2e.ts` | Interact | select+input+click | values in extract; action fired | planned |
+| S6 | E2E | Playwright `just test-e2e -- tests/specs/APP-075_pt-design-interactive-canvas.e2e.ts` | Interact | select+input+click | values in extract; action fired | planned |
 | S7 | Bun | `bun test` | invalid option | no value | `invalid_option` | planned |
 | S8 | Bun | `bun test` | valid option | value+label | AST options | planned |
 | S9 | E2E | Playwright | Edit drag | handle | extract x/y changed | planned |
@@ -229,7 +229,7 @@ Commands (exact):
 
 - `cd packages/pt-design && bun test src` → **241 pass / 1 skip / 0 fail**, exit **0** (S33 live bun still skip; S27 `onScene` NEVER + crypto round-trip green).
 - `bun run --cwd e2e lint` → exit **0**.
-- `E2E_API_PORT=31303 E2E_WEB_PORT=3130 E2E_SINGLE_SERVER=0 E2E_REUSE_SERVER=1 just test-e2e tests/specs/APP-074_pt-design-interactive-canvas.e2e.ts --project=chromium --workers=1` (no extra `--`; no `E2E_START_WEB=0`; reused Next `:3130` `/pt-design` HTTP **200**). Official 10-test run → **10 passed / 0 failed / 0 skipped**, exit **0** (~1.2m). Added `@spec S33` and `@spec S5`; existing S6/S9/S10/S11/S21/S29/S30/S31 bodies unchanged.
+- `E2E_API_PORT=31303 E2E_WEB_PORT=3130 E2E_SINGLE_SERVER=0 E2E_REUSE_SERVER=1 just test-e2e tests/specs/APP-075_pt-design-interactive-canvas.e2e.ts --project=chromium --workers=1` (no extra `--`; no `E2E_START_WEB=0`; reused Next `:3130` `/pt-design` HTTP **200**). Official 10-test run → **10 passed / 0 failed / 0 skipped**, exit **0** (~1.2m). Added `@spec S33` and `@spec S5`; existing S6/S9/S10/S11/S21/S29/S30/S31 bodies unchanged.
 - `just lint` / full `just test-e2e` (mobile project) not claimed.
 
 Live board: `seedOnboardingComplete` + `{ ptx }` at `pt-design/v2/global` projects chrome, Edit/Interact, Excalidraw toolbar, and overlay ids `model` / `prompt` / `run` (S5 also `dlg` / `auth`). Scope this pass: S6 / S9 / S10 / S11 / S21 / S29 / S30 / S31 / **S33 live PNG** / **S5 dialog + block.auth-form**. S24 agent-browser only if Edit/Interact observed. S27 source-level (no dual-browser).

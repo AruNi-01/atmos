@@ -4,7 +4,7 @@ import { expect, test } from "../../fixtures/test";
 import { seedOnboardingComplete } from "../smoke/support/app-smoke";
 
 /**
- * APP-074 PT Design interactive canvas.
+ * APP-075 PT Design interactive canvas.
  * Board-level Interact / Edit journeys. Bun covers protocol/headless/registry.
  * Standalone `/pt-design` is the library; `?design=global` opens the seeded
  * `pt-design/v2/global` board (agent invoke still uses client_id=global).
@@ -259,7 +259,7 @@ async function dragOverlay(page: Page, overlayId: string, dx: number, dy: number
   await page.mouse.up();
 }
 
-test.describe("APP-074 PT Design interactive canvas", () => {
+test.describe("APP-075 PT Design interactive canvas", () => {
   test.beforeAll(async () => {
     if (!(await liveBoardEnvReady())) {
       test.skip(
@@ -272,7 +272,7 @@ test.describe("APP-074 PT Design interactive canvas", () => {
   test.beforeEach(({}, testInfo) => {
     test.skip(
       testInfo.project.name === "mobile-chromium",
-      "APP-074 board journeys are desktop Chromium (TEST.md Non-coverage: mobile); client_id=global cannot register two boards",
+      "APP-075 board journeys are desktop Chromium (TEST.md Non-coverage: mobile); client_id=global cannot register two boards",
     );
   });
 

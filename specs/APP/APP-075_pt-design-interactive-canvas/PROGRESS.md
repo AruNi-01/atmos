@@ -1,4 +1,4 @@
-# PROGRESS · APP-074: PT Design Interactive Canvas
+# PROGRESS · APP-075: PT Design Interactive Canvas
 
 > Implementation Progress · current state, handoff notes, blockers, and verification status. This file is not a requirements source.
 
@@ -230,7 +230,7 @@
   - `apps/web/src/features/pt-design/__tests__/pt-design-agent-feed-labels.test.ts`
   - `apps/web/messages/en.json`
   - `apps/web/messages/zh.json`
-- **Forbids**: `src/protocol/**`; `src/components/groups/**`; `src/core/headless-session.ts`; `e2e/**`; `specs/APP/APP-074*/TEST.md` scenario bodies
+- **Forbids**: `src/protocol/**`; `src/components/groups/**`; `src/core/headless-session.ts`; `e2e/**`; `specs/APP/APP-075*/TEST.md` scenario bodies
 - **Depends**: S5
 - **Verify**: `cd packages/pt-design && bun test src/embed/live-board.test.ts` (S17 OverlayHost onAction test no longer skipped)
 - **Review checklist**:
@@ -576,7 +576,7 @@
 | Display group | `cd packages/pt-design && bun test src/components/groups/display` | pass | S16 review: 9 tests |
 | Registry | `cd packages/pt-design && bun test src/components/registry.test.ts` | pass | S2e review: 5 tests |
 | Package tests | `cd packages/pt-design && bun test src` | pass | S5 review: 152 tests |
-| E2E / manual | Playwright APP-074 | pass | `:3130`+`:31303`: **10/10** (added S5 + S33). S24 agent-browser not_run. S27 source NEVER + crypto |
+| E2E / manual | Playwright APP-075 | pass | `:3130`+`:31303`: **10/10** (added S5 + S33). S24 agent-browser not_run. S27 source NEVER + crypto |
 | Test-run bun | `cd packages/pt-design && bun test src` | pass | 239 pass / 1 skip (S33 live png skip) |
 | S6 onAction | `bun test src/embed/live-board.test.ts` | pass | S6 review: 9 pass / 0 skip |
 | S4 glue | `bun test src/embed/live-board src/isolation.test.ts src/agent` | pass | S4 review: 38 tests |
@@ -601,11 +601,11 @@ Residual nit: open select list can sit under a later sibling overlay (Alert, sha
 
 ### Relevant files/symbols
 
-- Spec: `specs/APP/APP-074_pt-design-interactive-canvas/`
+- Spec: `specs/APP/APP-075_pt-design-interactive-canvas/`
 - Catalog ids: `packages/pt-design/src/catalog/shadcn-list.ts`
 - New: `packages/pt-design/src/protocol/**`
 
 ## Changed Areas
 
-- `specs/APP/APP-074_pt-design-interactive-canvas`: PRD/TECH/TEST/BRAINSTORM/PROGRESS
-- `packages/pt-design`, `apps/web` pt-design, `skills/atmos-pt-design-agent`, `e2e/tests/specs/APP-074_*.e2e.ts`
+- `specs/APP/APP-075_pt-design-interactive-canvas`: PRD/TECH/TEST/BRAINSTORM/PROGRESS
+- `packages/pt-design`, `apps/web` pt-design, `skills/atmos-pt-design-agent`, `e2e/tests/specs/APP-075_*.e2e.ts`

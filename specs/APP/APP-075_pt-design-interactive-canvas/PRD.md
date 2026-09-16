@@ -1,4 +1,4 @@
-# PRD · APP-074: PT Design Interactive Canvas
+# PRD · APP-075: PT Design Interactive Canvas
 
 > Product Requirements · WHAT and WHY. **Greenfield rewrite** of PT Design: Agent-native interactive canvas. PTX is what Agents and files speak. The live board uses Excalidraw, including **native undo/redo**. No compatibility with APP-062 wireframes, Design IR, or old tools.
 >

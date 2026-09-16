@@ -1,4 +1,4 @@
-# Brainstorm · APP-074: PT Design Interactive Canvas
+# Brainstorm · APP-075: PT Design Interactive Canvas
 
 > Problem space and exploration. Settled content graduates to PRD.md; committed architecture graduates to TECH.md.
 >

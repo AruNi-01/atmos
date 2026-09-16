@@ -1,6 +1,6 @@
-# TECH · APP-074: PT Design Interactive Canvas
+# TECH · APP-075: PT Design Interactive Canvas
 
-> Technical Design · HOW. Implements PRD APP-074. Addresses **M1–M16** including **full existing catalog** (M4). **N3–N7** deferred. N1/N2 (extra types / blocks) are **not** deferred — they are M4.
+> Technical Design · HOW. Implements PRD APP-075. Addresses **M1–M16** including **full existing catalog** (M4). **N3–N7** deferred. N1/N2 (extra types / blocks) are **not** deferred — they are M4.
 >
 > **Greenfield.** Delete APP-062 IR, wireframe templates, scene-session SoT, `pt_layout_*`, old tool names. Do not migrate documents.
 
