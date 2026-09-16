@@ -850,7 +850,7 @@ export default function ExcalidrawBoard({
         <div
           style={{
             position: "absolute",
-            top: 56,
+            top: "calc(var(--editor-container-padding, 1rem) + var(--pt-island-pad, 0.25rem) + var(--pt-chrome-size, 2.25rem) + 8px)",
             right: 12,
             zIndex: 20,
           }}

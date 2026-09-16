@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { MousePointerClick, Pencil } from "lucide-react";
+import { MousePointerClick, PencilSparkles } from "lucide-react";
 
 export type DesignMode = "edit" | "interact";
 
@@ -29,7 +29,7 @@ export function ModeToggle({ mode, onModeChange, labels }: ModeToggleProps): Rea
         title={edit}
         onClick={() => onModeChange("edit")}
       >
-        <Pencil size={16} strokeWidth={2} aria-hidden />
+        <PencilSparkles size={16} strokeWidth={2} aria-hidden />
       </button>
       <button
         type="button"

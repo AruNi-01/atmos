@@ -49,6 +49,8 @@ describe("ModeToggle", () => {
     const src = readFileSync(join(dir, "ModeToggle.tsx"), "utf8");
     expect(src).toContain("onPointerDown");
     expect(src).toContain("stopPropagation");
+    expect(src).toContain("PencilSparkles");
+    expect(src).not.toMatch(/import \{[^}]*\bPencil\b/);
   });
 
   test("ModeToggle uses host labels when provided", () => {

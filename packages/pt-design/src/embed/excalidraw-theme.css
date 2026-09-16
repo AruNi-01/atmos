@@ -142,6 +142,7 @@
 
 .excalidraw .App-menu_top {
   position: relative;
+  align-items: center;
 }
 
 .pt-design-top-right {
@@ -161,25 +162,27 @@
 [data-testid="pt-design-board"] {
   --pt-island-pad: var(--space-factor, 0.25rem);
   --pt-island-size: calc(var(--lg-button-size, 2.25rem) + 2 * var(--pt-island-pad));
+  --pt-chrome-size: var(--lg-button-size, 2.25rem);
+  --pt-chrome-btn-size: calc(var(--pt-chrome-size) - 2 * var(--pt-island-pad));
   --pt-back-slot: 0px;
 }
 
 [data-testid="pt-design-board"][data-has-back="true"] {
   /* Icon-only Back + 8px gap before the board menu. */
-  --pt-back-slot: calc(var(--pt-island-size) + 8px);
+  --pt-back-slot: calc(var(--pt-chrome-size) + 8px);
 }
 
 .excalidraw .pt-design-mode-toggle,
 [data-testid="pt-design-board"] > .pt-design-mode-toggle {
   position: absolute;
-  top: var(--editor-container-padding, 1rem);
-  left: calc(var(--editor-container-padding, 1rem) + var(--pt-back-slot, 0px) + var(--pt-island-size) + 8px);
+  top: calc(var(--editor-container-padding, 1rem) + var(--pt-island-pad, 0.25rem));
+  left: calc(var(--editor-container-padding, 1rem) + var(--pt-back-slot, 0px) + var(--pt-chrome-size) + 8px);
   z-index: 8;
   display: inline-flex;
   align-items: center;
-  gap: var(--pt-island-pad, 0.25rem);
-  height: var(--pt-island-size);
-  padding: var(--pt-island-pad, 0.25rem);
+  gap: var(--pt-island-pad);
+  height: var(--pt-chrome-size);
+  padding: var(--pt-island-pad);
   box-sizing: border-box;
   border-radius: var(--border-radius-lg, 0.625rem);
   background: var(--island-bg-color, var(--card, #ffffff));
@@ -189,14 +192,14 @@
 
 .pt-design-back {
   position: absolute;
-  top: var(--editor-container-padding, 1rem);
+  top: calc(var(--editor-container-padding, 1rem) + var(--pt-island-pad, 0.25rem));
   left: var(--editor-container-padding, 1rem);
   z-index: 8;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--pt-island-size);
-  height: var(--pt-island-size);
+  width: var(--pt-chrome-size);
+  height: var(--pt-chrome-size);
   padding: 0;
   box-sizing: border-box;
   border: none;
@@ -233,20 +236,22 @@
 .excalidraw .App-menu_top .main-menu-trigger.dropdown-menu-button {
   position: relative;
   z-index: 7;
-  width: var(--pt-island-size);
-  height: var(--pt-island-size);
+  width: var(--pt-chrome-size);
+  height: var(--pt-chrome-size);
   border-radius: var(--border-radius-lg, 0.625rem);
   background: var(--island-bg-color, var(--card)) !important;
   border: none !important;
   box-shadow: var(--shadow-island) !important;
 }
 
-.pt-design-mode-toggle__btn {
+.pt-design-mode-toggle .pt-design-mode-toggle__btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--lg-button-size, 2.25rem);
-  height: var(--lg-button-size, 2.25rem);
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: calc(var(--pt-chrome-size) - 2 * var(--pt-island-pad));
+  height: calc(var(--pt-chrome-size) - 2 * var(--pt-island-pad));
   padding: 0;
   border: none;
   border-radius: var(--border-radius-md, 0.5rem);
@@ -641,7 +646,7 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
   justify-content: center;
   box-sizing: border-box;
   width: auto;
-  height: var(--pt-island-size);
+  height: var(--pt-chrome-size);
   padding: 0;
   border: none;
   border-radius: 8px;
@@ -666,7 +671,7 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
 
 .excalidraw .pt-design-share-trigger,
 .excalidraw .pt-design-island-trigger[data-icon-only="true"] {
-  width: var(--pt-island-size);
+  width: var(--pt-chrome-size);
 }
 
 .excalidraw .pt-design-island-trigger[data-icon-only="false"] {
@@ -1165,12 +1170,12 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
 
 .excalidraw.excalidraw--mobile .App-toolbar-content > .main-menu-trigger {
   position: absolute;
-  top: var(--editor-container-padding, 1rem);
+  top: calc(var(--editor-container-padding, 1rem) + var(--pt-island-pad, 0.25rem));
   left: calc(var(--editor-container-padding, 1rem) + var(--pt-back-slot, 0px));
   bottom: auto;
   z-index: 7;
-  width: var(--pt-island-size);
-  height: var(--pt-island-size);
+  width: var(--pt-chrome-size);
+  height: var(--pt-chrome-size);
   border-radius: var(--border-radius-lg, 0.625rem);
   background: var(--island-bg-color, var(--card)) !important;
   box-shadow: var(--shadow-island) !important;
