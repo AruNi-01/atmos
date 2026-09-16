@@ -255,6 +255,10 @@ pub struct AgentChatMetaWire {
     pub parent_chat_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rewind_view: Option<AgentChatRewindViewWire>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grok_goal: Option<agent::GrokGoal>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grok_workflow: Option<agent::GrokWorkflow>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -290,6 +294,8 @@ impl From<&AgentChatMeta> for AgentChatMetaWire {
                 .map(|view| AgentChatRewindViewWire {
                     until_turn_id: view.until_turn_id.clone(),
                 }),
+            grok_goal: meta.grok_goal.clone(),
+            grok_workflow: meta.grok_workflow.clone(),
         }
     }
 }
@@ -355,6 +361,8 @@ mod wire_tests {
             pending_session_op: None,
             source: None,
             automation_run_guid: None,
+            grok_goal: None,
+            grok_workflow: None,
         }
     }
 

@@ -1,10 +1,16 @@
 //! Native Grok Chat adapter (`grok agent stdio` ACP JSON-RPC + `_x.ai/*`).
 
+mod chrome;
 mod event_map;
 pub(crate) mod options;
 mod rpc;
 mod spawn;
 mod tool_map;
+
+pub use chrome::{
+    attach_grok_goal_child, attach_grok_workflow_agent, is_grok_chrome_tool,
+    looks_like_grok_goal_child, map_xai_ext_events, merge_grok_goal, merge_grok_workflow,
+};
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};

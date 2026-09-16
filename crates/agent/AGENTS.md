@@ -54,6 +54,26 @@ active; `updateTodos` still folds to `PlanUpdated`.
 
 ---
 
+## Grok `/goal` and workflow chrome
+
+Grok `/goal` and `/deep-research` (builtin workflow) are **Grok-only** session
+surfaces. Do **not** fold them into a shared orchestrator type.
+
+- Wire: `_x.ai/session_notification` / `_x.ai/session/update` `goal_updated` /
+  `workflow_updated` plus orphan `subagent_spawned` / `finished`.
+- Contract: `GrokGoal` and `GrokWorkflow` as separate snapshots.
+  `AgentEvent::GrokGoalUpdated { goal: Option<GrokGoal> }` /
+  `GrokWorkflowUpdated { workflow: Option<GrokWorkflow> }` (`None` = cleared).
+- Persist: Chat meta `grok_goal` and `grok_workflow` are independent slots.
+  Clearing one must not wipe the other.
+- Mapper lives in `providers/grok/chrome.rs` (ACP Grok-family only).
+- Synthesized child tools use name `grok_chrome` (`GROK_CHROME_SUBAGENT_NAME`)
+  so the parent transcript can hide them; overlay still keys by `child_session_id`.
+- UI: `GrokGoalPanel` / `GrokWorkflowPanel` in the composer overlay slot.
+  Claude Task and Cursor `createPlan` stay on their own paths.
+
+---
+
 ## Build And Test
 
 - **Build**: `cargo build -p agent`

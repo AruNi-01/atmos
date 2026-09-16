@@ -11,7 +11,7 @@ use crate::contract::{AgentDescriptor, TurnStop};
 use crate::contract::{
     AgentEvent, AgentEventEnvelope, AgentPermissionOption, AgentPermissionRequest,
 };
-use crate::map::{apply_xai_subagent_notice, parse_xai_subagent_notification, XaiSubagentNotice};
+use crate::contract::{GrokGoal, GrokWorkflow};
 use crate::options::{
     is_mode_config_id, is_permission_mode_config_id, probe_result_from_config_options,
 };
@@ -19,6 +19,7 @@ use crate::policy::{
     boolean_fast_modes, capabilities_for_provider, is_droid_chat_provider, is_fast_on,
     option_support_for_provider,
 };
+use crate::providers::grok::map_xai_ext_events;
 
 use super::overlays::OverlayState;
 use super::tool_map::{map_tool_call, merge_tool_call_patch, ToolEventKind, ToolMapOut};
@@ -42,6 +43,8 @@ pub(crate) struct EventMapState {
     /// Companion ACP `session/update` `plan` entries must not drive the execution
     /// PlanUpdated / PlanBlockView dock until we leave plan phase.
     pub plan_document_active: bool,
+    pub grok_goal: Option<GrokGoal>,
+    pub grok_workflow: Option<GrokWorkflow>,
 }
 
 impl EventMapState {
@@ -70,6 +73,8 @@ impl EventMapState {
             overlay: OverlayState::default(),
             model_context_windows: HashMap::new(),
             plan_document_active: false,
+            grok_goal: None,
+            grok_workflow: None,
         }
     }
 
@@ -421,20 +426,24 @@ pub(crate) fn map_xai_subagent(
     if !state.is_grok_family() {
         return None;
     }
-    let notice = parse_xai_subagent_notification(method, &params)?;
-    let tool = apply_xai_subagent_notice(&mut state.overlay.grok_tasks, &notice)?;
-    let kind = match notice {
-        XaiSubagentNotice::Finished { status, .. } => match status {
-            crate::contract::AgentToolStatus::Completed => ToolEventKind::Completed,
-            crate::contract::AgentToolStatus::Failed => ToolEventKind::Failed,
-            _ => ToolEventKind::Updated,
-        },
-        _ => ToolEventKind::Updated,
-    };
+    let mut events = map_xai_ext_events(
+        &mut state.overlay.grok_tasks,
+        &mut state.grok_goal,
+        &mut state.grok_workflow,
+        method,
+        &params,
+    );
+    if events.is_empty() {
+        return None;
+    }
+    let first = events.remove(0);
+    for extra in events {
+        state.pending.push_back(wrap(turn_id.clone(), extra));
+    }
     Some(complete_before_thinking(
         state,
         turn_id.clone(),
-        wrap(turn_id, tool_event(tool, kind)),
+        wrap(turn_id, first),
     ))
 }
 

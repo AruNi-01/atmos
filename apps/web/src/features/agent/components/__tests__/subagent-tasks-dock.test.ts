@@ -113,7 +113,8 @@ describe("subagent tasks panel", () => {
   });
 
   it("collects current-turn subagents from the live session messages", () => {
-    expect(session).toContain("currentTurnSubagentTasks(messages, { followUpPending: queue.length > 0 })");
+    expect(session).toContain("excludeIds: grokChromeIds");
+    expect(session).toContain("currentTurnSubagentTasks(messages, {");
     expect(session).toContain("subagentTasks");
     expect(panel).toContain("subagentTasks={subagentTasks}");
   });

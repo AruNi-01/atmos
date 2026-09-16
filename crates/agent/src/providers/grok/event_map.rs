@@ -16,7 +16,8 @@ use crate::options::{
 };
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
 
-use crate::map::{apply_xai_subagent_notice, parse_xai_subagent_notification, XaiSubagentNotice};
+use super::chrome::map_xai_ext_events;
+use crate::contract::{GrokGoal, GrokWorkflow};
 
 use super::tool_map::{map_tool_call, merge_tool_call_patch, ToolEventKind, ToolMapOut};
 
@@ -35,6 +36,8 @@ pub(crate) struct EventMapState {
     pub current_config: AgentCurrentConfig,
     /// `modelId` → `_meta.totalContextTokens` from session/new / models/update.
     pub model_context_windows: HashMap<String, u64>,
+    pub grok_goal: Option<GrokGoal>,
+    pub grok_workflow: Option<GrokWorkflow>,
 }
 
 impl EventMapState {
@@ -62,6 +65,8 @@ impl EventMapState {
             supported_options: AgentSupportedOptions::default(),
             current_config,
             model_context_windows: HashMap::new(),
+            grok_goal: None,
+            grok_workflow: None,
         }
     }
 
@@ -365,20 +370,24 @@ pub(crate) fn map_xai_subagent(
     method: &str,
     params: serde_json::Value,
 ) -> Option<AgentEventEnvelope> {
-    let notice = parse_xai_subagent_notification(method, &params)?;
-    let tool = apply_xai_subagent_notice(&mut state.grok_tasks, &notice)?;
-    let kind = match notice {
-        XaiSubagentNotice::Finished { status, .. } => match status {
-            crate::contract::AgentToolStatus::Completed => ToolEventKind::Completed,
-            crate::contract::AgentToolStatus::Failed => ToolEventKind::Failed,
-            _ => ToolEventKind::Updated,
-        },
-        _ => ToolEventKind::Updated,
-    };
+    let mut events = map_xai_ext_events(
+        &mut state.grok_tasks,
+        &mut state.grok_goal,
+        &mut state.grok_workflow,
+        method,
+        &params,
+    );
+    if events.is_empty() {
+        return None;
+    }
+    let first = events.remove(0);
+    for extra in events {
+        state.pending.push_back(wrap(turn_id.clone(), extra));
+    }
     Some(complete_before_thinking(
         state,
         turn_id.clone(),
-        wrap(turn_id, tool_event(tool, kind)),
+        wrap(turn_id, first),
     ))
 }
 
@@ -1370,6 +1379,229 @@ mod tests {
             Some(AgentToolResult::Text { text }) => assert_eq!(text, "hello from child"),
             other => panic!("expected child output on the spawn, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn live_goal_session_maps_orphans_and_does_not_mix_skeptics() {
+        let mut state = state();
+        state.persistence = Some(crate::contract::AgentPersistenceHandle::new(
+            "01a0aa67-90b6-7f52-826d-a9947de25aef",
+        ));
+        let planning: serde_json::Value =
+            serde_json::from_str(include_str!("testdata/goal_updated_planning.json")).unwrap();
+        let goal = map_xai_subagent(
+            &mut state,
+            Some("turn-1".into()),
+            "_x.ai/session/update",
+            planning,
+        )
+        .expect("goal_updated");
+        assert!(matches!(
+            goal.payload,
+            AgentEvent::GrokGoalUpdated { goal: Some(_) }
+        ));
+
+        let plan_spawn: serde_json::Value =
+            serde_json::from_str(include_str!("testdata/subagent_spawned_plan_writer.json"))
+                .unwrap();
+        let plan = map_xai_subagent(
+            &mut state,
+            Some("turn-1".into()),
+            "_x.ai/session/update",
+            plan_spawn,
+        )
+        .expect("plan writer");
+        let AgentEvent::ToolCallStarted { tool_call } = plan.payload else {
+            panic!("expected synthesized plan writer, got {:?}", plan.payload);
+        };
+        assert_eq!(
+            tool_call.tool_call_id,
+            "01a0aa67-9404-7771-b043-b2101c138e4f"
+        );
+        assert_eq!(tool_call.name, crate::contract::GROK_CHROME_SUBAGENT_NAME);
+
+        let a: serde_json::Value =
+            serde_json::from_str(include_str!("testdata/subagent_spawned_skeptic_a.json")).unwrap();
+        let b: serde_json::Value =
+            serde_json::from_str(include_str!("testdata/subagent_spawned_skeptic_b.json")).unwrap();
+        let started_a =
+            map_xai_subagent(&mut state, Some("turn-1".into()), "_x.ai/session/update", a)
+                .expect("skeptic a");
+        let started_b =
+            map_xai_subagent(&mut state, Some("turn-1".into()), "_x.ai/session/update", b)
+                .expect("skeptic b");
+        let id_a = match started_a.payload {
+            AgentEvent::ToolCallStarted { tool_call } => tool_call.tool_call_id,
+            other => panic!("{other:?}"),
+        };
+        let id_b = match started_b.payload {
+            AgentEvent::ToolCallStarted { tool_call } => tool_call.tool_call_id,
+            other => panic!("{other:?}"),
+        };
+        assert_ne!(id_a, id_b);
+
+        let child_a = map_event(
+            &mut state,
+            Some("turn-1".into()),
+            AcpSessionEvent::Stream(StreamDelta {
+                role: "assistant".into(),
+                kind: "message".into(),
+                delta: "skeptic-a-only".into(),
+                done: false,
+                usage: None,
+                session_id: Some(id_a.clone()),
+            }),
+        )
+        .expect("child a text");
+        let AgentEvent::AssistantMessageDelta {
+            parent_tool_call_id,
+            delta,
+            ..
+        } = child_a.payload
+        else {
+            panic!("expected parented delta");
+        };
+        assert_eq!(delta, "skeptic-a-only");
+        assert_eq!(parent_tool_call_id.as_deref(), Some(id_a.as_str()));
+
+        let parent_read = map_event(
+            &mut state,
+            Some("turn-1".into()),
+            AcpSessionEvent::ToolCall(ToolCallUpdate {
+                tool_call_id: "parent_read".into(),
+                parent_tool_call_id: None,
+                session_id: Some("01a0aa67-90b6-7f52-826d-a9947de25aef".into()),
+                tool: "Read".into(),
+                description: "crates/AGENTS.md".into(),
+                acp_kind: Some("read".into()),
+                status: ToolCallStatus::Completed,
+                raw_input: Some(serde_json::json!({ "path": "crates/AGENTS.md" })),
+                content: Vec::new(),
+                locations: Vec::new(),
+                raw_output: None,
+                detail: None,
+            }),
+        )
+        .expect("parent read");
+        let parent_call = match parent_read.payload {
+            AgentEvent::ToolCallCompleted { tool_call }
+            | AgentEvent::ToolCallStarted { tool_call }
+            | AgentEvent::ToolCallUpdated { tool_call } => tool_call,
+            other => panic!("{other:?}"),
+        };
+        assert!(parent_call.parent_tool_call_id.is_none());
+
+        let finished_a: serde_json::Value =
+            serde_json::from_str(include_str!("testdata/subagent_finished_skeptic_a.json"))
+                .unwrap();
+        let done_a = map_xai_subagent(
+            &mut state,
+            Some("turn-1".into()),
+            "_x.ai/session/update",
+            finished_a,
+        )
+        .expect("finish a");
+        let AgentEvent::ToolCallCompleted { tool_call } = done_a.payload else {
+            panic!("expected completed skeptic a");
+        };
+        assert_eq!(tool_call.tool_call_id, id_a);
+        assert_eq!(
+            state.grok_tasks.get(&id_b).map(|tool| tool.status),
+            Some(AgentToolStatus::Running)
+        );
+
+        let workflow: serde_json::Value =
+            serde_json::from_str(include_str!("testdata/workflow_updated_deep_research.json"))
+                .unwrap();
+        let wf = map_xai_subagent(
+            &mut state,
+            Some("turn-1".into()),
+            "_x.ai/session_notification",
+            workflow,
+        )
+        .expect("workflow");
+        let AgentEvent::GrokWorkflowUpdated {
+            workflow: Some(workflow),
+        } = wf.payload
+        else {
+            panic!("expected grok_workflow_updated, got {:?}", wf.payload);
+        };
+        assert_eq!(
+            workflow
+                .phases
+                .iter()
+                .map(|phase| phase.title.as_str())
+                .collect::<Vec<_>>(),
+            ["Plan", "Research", "Verify", "Report"]
+        );
+        assert!(
+            state.grok_goal.is_some(),
+            "workflow update must not wipe the live goal"
+        );
+    }
+
+    #[test]
+    fn grok_build_goal_cleared_empty_id_drops_snapshot() {
+        let mut state = state();
+        let planning: serde_json::Value =
+            serde_json::from_str(include_str!("testdata/goal_updated_planning.json")).unwrap();
+        map_xai_subagent(
+            &mut state,
+            Some("turn-1".into()),
+            "_x.ai/session/update",
+            planning,
+        )
+        .expect("planning");
+        assert_eq!(
+            state.grok_goal.as_ref().map(|goal| goal.status.as_str()),
+            Some("active")
+        );
+
+        let cleared: serde_json::Value =
+            serde_json::from_str(include_str!("testdata/goal_updated_cleared.json")).unwrap();
+        let event = map_xai_subagent(
+            &mut state,
+            Some("turn-1".into()),
+            "x.ai/session_notification",
+            cleared,
+        )
+        .expect("cleared must emit, not Skip");
+        assert!(matches!(
+            event.payload,
+            AgentEvent::GrokGoalUpdated { goal: None }
+        ));
+        assert!(state.grok_goal.is_none());
+    }
+
+    #[test]
+    fn workflow_cleared_drops_snapshot() {
+        let mut state = state();
+        let workflow: serde_json::Value =
+            serde_json::from_str(include_str!("testdata/workflow_updated_deep_research.json"))
+                .unwrap();
+        map_xai_subagent(
+            &mut state,
+            Some("turn-1".into()),
+            "x.ai/session_notification",
+            workflow,
+        )
+        .expect("workflow");
+        assert!(state.grok_workflow.is_some());
+
+        let cleared: serde_json::Value =
+            serde_json::from_str(include_str!("testdata/workflow_updated_cleared.json")).unwrap();
+        let event = map_xai_subagent(
+            &mut state,
+            Some("turn-1".into()),
+            "x.ai/session_notification",
+            cleared,
+        )
+        .expect("cleared must emit, not Skip");
+        assert!(matches!(
+            event.payload,
+            AgentEvent::GrokWorkflowUpdated { workflow: None }
+        ));
+        assert!(state.grok_workflow.is_none());
     }
 
     #[test]

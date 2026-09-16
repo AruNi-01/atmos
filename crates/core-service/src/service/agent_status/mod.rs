@@ -952,6 +952,8 @@ mod tests {
             pending_session_op: None,
             source: None,
             automation_run_guid: None,
+            grok_goal: None,
+            grok_workflow: None,
         }
     }
 
@@ -1521,6 +1523,8 @@ mod tests {
             pending_session_op: None,
             source: None,
             automation_run_guid: None,
+            grok_goal: None,
+            grok_workflow: None,
         };
         apply_host_event(
             &service,

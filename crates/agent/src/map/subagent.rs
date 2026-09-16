@@ -360,30 +360,21 @@ fn unique_subagents(tools: &HashMap<String, AgentTool>) -> Vec<AgentTool> {
         .collect()
 }
 
-fn match_spawn_without_id(
-    tools: &HashMap<String, AgentTool>,
-    description: &str,
-) -> Option<AgentTool> {
+fn unique_unmatched_spawn(tools: &HashMap<String, AgentTool>) -> Option<AgentTool> {
     let unmatched: Vec<AgentTool> = unique_subagents(tools)
         .into_iter()
         .filter(|tool| {
             tool.status == AgentToolStatus::Running
+                && !crate::contract::is_grok_chrome_subagent_name(&tool.name)
                 && matches!(
                     &tool.params,
                     AgentToolParams::Subagent { task_id: None, .. }
                 )
         })
         .collect();
-    if unmatched.len() == 1 {
-        return unmatched.into_iter().next();
-    }
-    unmatched.into_iter().find(|tool| match &tool.params {
-        AgentToolParams::Subagent {
-            description: stored,
-            ..
-        } => !description.is_empty() && stored == description,
-        _ => false,
-    })
+    (unmatched.len() == 1)
+        .then(|| unmatched.into_iter().next())
+        .flatten()
 }
 
 pub fn apply_xai_subagent_notice(
@@ -398,7 +389,17 @@ pub fn apply_xai_subagent_notice(
             subagent_type,
         } => {
             let mut tool = find_subagent_by_ids(tools, &[subagent_id, child_session_id])
-                .or_else(|| match_spawn_without_id(tools, description))?;
+                .or_else(|| unique_unmatched_spawn(tools))
+                .unwrap_or_else(|| {
+                    synthesize_grok_chrome_tool(
+                        child_session_id,
+                        subagent_id,
+                        description,
+                        subagent_type.clone(),
+                        AgentToolStatus::Running,
+                        None,
+                    )
+                });
             if let AgentToolParams::Subagent {
                 task_id,
                 agent_type,
@@ -440,7 +441,17 @@ pub fn apply_xai_subagent_notice(
             output,
             error,
         } => {
-            let mut tool = find_subagent_by_ids(tools, &[subagent_id, child_session_id])?;
+            let mut tool = find_subagent_by_ids(tools, &[subagent_id, child_session_id])
+                .unwrap_or_else(|| {
+                    synthesize_grok_chrome_tool(
+                        child_session_id,
+                        subagent_id,
+                        "",
+                        None,
+                        *status,
+                        output.clone(),
+                    )
+                });
             tool.status = *status;
             if *status == AgentToolStatus::Failed {
                 tool.result = Some(AgentToolResult::Error {
@@ -463,6 +474,31 @@ pub fn apply_xai_subagent_notice(
             tools.insert(child_session_id.clone(), tool.clone());
             Some(tool)
         }
+    }
+}
+
+fn synthesize_grok_chrome_tool(
+    child_session_id: &str,
+    subagent_id: &str,
+    description: &str,
+    agent_type: Option<String>,
+    status: AgentToolStatus,
+    output: Option<String>,
+) -> AgentTool {
+    AgentTool {
+        tool_call_id: child_session_id.to_string(),
+        parent_tool_call_id: None,
+        name: crate::contract::GROK_CHROME_SUBAGENT_NAME.into(),
+        title: (!description.is_empty()).then(|| description.to_string()),
+        kind: AgentToolKind::Subagent,
+        status,
+        params: AgentToolParams::Subagent {
+            description: description.to_string(),
+            agent_type,
+            task_id: Some(subagent_id.to_string()),
+            prompt: None,
+        },
+        result: output.map(|text| AgentToolResult::Text { text }),
     }
 }
 
@@ -615,7 +651,7 @@ mod tests {
             params: AgentToolParams::Subagent {
                 description: "Read a".into(),
                 agent_type: Some("explore".into()),
-                task_id: None,
+                task_id: Some("sa-a".into()),
                 prompt: None,
             },
             result: None,
@@ -630,7 +666,7 @@ mod tests {
             params: AgentToolParams::Subagent {
                 description: "Read b".into(),
                 agent_type: Some("explore".into()),
-                task_id: None,
+                task_id: Some("sa-b".into()),
                 prompt: None,
             },
             result: None,
@@ -665,6 +701,60 @@ mod tests {
         assert_eq!(done.status, AgentToolStatus::Completed);
         assert_eq!(
             tools.get("tc_b").map(|tool| tool.status),
+            Some(AgentToolStatus::Running)
+        );
+    }
+
+    #[test]
+    fn orphan_skeptics_with_the_same_description_stay_distinct() {
+        let mut tools = HashMap::new();
+        let a: Value = serde_json::from_str(include_str!(
+            "../providers/grok/testdata/subagent_spawned_skeptic_a.json"
+        ))
+        .unwrap();
+        let b: Value = serde_json::from_str(include_str!(
+            "../providers/grok/testdata/subagent_spawned_skeptic_b.json"
+        ))
+        .unwrap();
+        let spawned_a = parse_xai_subagent_notification("_x.ai/session/update", &a).unwrap();
+        let spawned_b = parse_xai_subagent_notification("_x.ai/session/update", &b).unwrap();
+        let tool_a = apply_xai_subagent_notice(&mut tools, &spawned_a).unwrap();
+        let tool_b = apply_xai_subagent_notice(&mut tools, &spawned_b).unwrap();
+        assert_eq!(tool_a.tool_call_id, "01a0aa73-2fd5-7dd3-82d6-32cd809cc95a");
+        assert_eq!(tool_b.tool_call_id, "01a0aa76-1a9d-7b12-98a4-c6a7531262dc");
+        assert_ne!(tool_a.tool_call_id, tool_b.tool_call_id);
+        assert_eq!(tool_a.name, crate::contract::GROK_CHROME_SUBAGENT_NAME);
+        assert_eq!(tool_b.name, crate::contract::GROK_CHROME_SUBAGENT_NAME);
+        match (&tool_a.params, &tool_b.params) {
+            (
+                AgentToolParams::Subagent {
+                    description: a_desc,
+                    ..
+                },
+                AgentToolParams::Subagent {
+                    description: b_desc,
+                    ..
+                },
+            ) => {
+                assert_eq!(a_desc, b_desc);
+                assert_eq!(a_desc, "goal achievement skeptic");
+            }
+            _ => panic!("expected subagent params"),
+        }
+
+        let finished_a: Value = serde_json::from_str(include_str!(
+            "../providers/grok/testdata/subagent_finished_skeptic_a.json"
+        ))
+        .unwrap();
+        let done_a = apply_xai_subagent_notice(
+            &mut tools,
+            &parse_xai_subagent_notification("_x.ai/session/update", &finished_a).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(done_a.tool_call_id, tool_a.tool_call_id);
+        assert_eq!(done_a.status, AgentToolStatus::Completed);
+        assert_eq!(
+            tools.get(&tool_b.tool_call_id).map(|tool| tool.status),
             Some(AgentToolStatus::Running)
         );
     }

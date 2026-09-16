@@ -237,6 +237,48 @@ export type AgentChatMeta = {
   descriptor: AgentDescriptor;
   parent_chat_id?: string | null;
   rewind_view?: { until_turn_id: string } | null;
+  grok_goal?: GrokGoal | null;
+  grok_workflow?: GrokWorkflow | null;
+};
+
+export type GrokGoalChild = {
+  id: string;
+  label: string;
+  role: string;
+  agent_type?: string | null;
+};
+
+export type GrokGoal = {
+  goal_id: string;
+  objective: string;
+  status: string;
+  phase: string;
+  planning?: boolean;
+  verifying_completion?: boolean;
+  last_event?: string | null;
+  children: GrokGoalChild[];
+};
+
+export type GrokWorkflowPhase = {
+  id: string;
+  title: string;
+  state: string;
+};
+
+export type GrokWorkflowAgent = {
+  id: string;
+  label: string;
+  phase_id: string;
+  agent_type?: string | null;
+};
+
+export type GrokWorkflow = {
+  run_id: string;
+  name: string;
+  objective: string;
+  status: string;
+  phases: GrokWorkflowPhase[];
+  agents: GrokWorkflowAgent[];
 };
 
 export type AgentSessionUsage = {
@@ -599,6 +641,8 @@ export type AgentChatPayload =
       type: "available_commands_updated";
       commands?: Array<{ name?: string; description?: string; hint?: string | null }>;
     }
+  | { type: "grok_goal_updated"; grok_goal?: GrokGoal | null }
+  | { type: "grok_workflow_updated"; grok_workflow?: GrokWorkflow | null }
   | { type: "config_updated"; descriptor: AgentDescriptor }
   | { type: "unknown"; event_type: string; payload: unknown }
   | {

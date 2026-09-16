@@ -1,0 +1,16 @@
+{
+  "sessionId": "01a0aa67-90b6-7f52-826d-a9947de25aef",
+  "update": {
+    "sessionUpdate": "subagent_finished",
+    "subagent_id": "01a0aa79-6831-7683-9571-2c87627e2f45",
+    "attempt_id": "at1.9a0554cb3fdf43ccb5c9553735da71f1",
+    "child_session_id": "01a0aa79-6831-7683-9571-2c87627e2f45",
+    "status": "completed",
+    "tool_calls": 9,
+    "turns": 1,
+    "duration_ms": 71301,
+    "tokens_used": 33178,
+    "output": "A cited, analysis-only optimization writeup for the Atmos monorepo is ready: a live product-surface map plus nine suggestions (H1–H4 high leverage, L1–L5 later). No code was changed.\n\n- Start with H3: wire `check-actions` / `check-events` and `bun test` into CI.\n- Then H1: move Git/GitHub logic from `apps/api` into `core-service`.\n- Then H2/H4: split files over 1,000 lines, and stop Electron from staging via deprecated `apps/desktop/src-tauri`.",
+    "will_wake": false
+  }
+}

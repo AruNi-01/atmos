@@ -1,4 +1,5 @@
 import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
+import { isGrokChromeRosterSubagent } from "@/features/agent/lib/grok-chrome";
 import {
   isActiveToolStatus,
   isSubagentWaitTool,
@@ -102,11 +103,12 @@ export function subagentTaskStatus(part: AgentToolCallPart): SubagentTaskStatus 
 
 export function currentTurnSubagentTasks(
   messages: AgentMessage[],
-  options?: { followUpPending?: boolean },
+  options?: { followUpPending?: boolean; excludeIds?: Iterable<string> },
 ): CurrentTurnSubagentTasks {
   const start = lastUserIndex(messages) + 1;
   const tools: AgentToolCallPart[] = [];
   const seen = new Set<string>();
+  const excludeIds = options?.excludeIds;
 
   for (let index = start; index < messages.length; index += 1) {
     const message = messages[index];
@@ -115,6 +117,7 @@ export function currentTurnSubagentTasks(
       if (part.type !== "tool_call") continue;
       if (seen.has(part.tool_call_id)) continue;
       seen.add(part.tool_call_id);
+      if (isGrokChromeRosterSubagent(part, excludeIds)) continue;
       tools.push(part);
     }
   }

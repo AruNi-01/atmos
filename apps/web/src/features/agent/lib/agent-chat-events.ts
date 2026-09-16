@@ -13,6 +13,7 @@ import {
   wireToolKind,
 } from "@/features/agent/lib/agent-tool-kind";
 import { isLiveBackgroundToolCall } from "@/features/agent/lib/agent/background-command";
+import { isGrokChromeSubagent } from "@/features/agent/lib/grok-chrome";
 
 export type { AgentChatEvent, AgentEvent, AgentMessage, AgentPart };
 
@@ -56,6 +57,7 @@ function settleOrphanToolCalls(parts: AgentPart[]): AgentPart[] {
     if (part.type !== "tool_call") return part;
     if (!isActiveToolStatus(part.status)) return part;
     if (isLiveBackgroundToolCall(part)) return part;
+    if (isGrokChromeSubagent(part)) return part;
     return { ...part, status: "completed" };
   });
 }
@@ -91,6 +93,7 @@ export function currentTurnHasRunningSubagent(messages: AgentMessage[]): boolean
       if (
         part.type === "tool_call"
         && part.kind === "subagent"
+        && !isGrokChromeSubagent(part)
         && isActiveToolStatus(part.status)
       ) {
         return true;
@@ -132,6 +135,7 @@ function hasActiveForegroundWork(parts: AgentPart[]): boolean {
   return parts.some((part) => {
     if (part.type !== "tool_call") return false;
     if (!isActiveToolStatus(part.status)) return false;
+    if (isGrokChromeSubagent(part)) return false;
     return !isLiveBackgroundToolCall(part);
   });
 }

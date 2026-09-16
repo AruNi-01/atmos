@@ -3,6 +3,7 @@ pub mod context_usage;
 pub mod descriptor;
 pub mod error;
 pub mod event;
+pub mod grok;
 pub mod options;
 pub mod provider;
 pub mod tool;
@@ -20,6 +21,10 @@ pub use event::{
     AgentAskQuestion, AgentAvailableCommand, AgentEvent, AgentEventEnvelope, AgentPermissionOption,
     AgentPermissionRequest, AgentSessionOpRequest, AgentToolCall, SessionOpOutcome, TurnStop,
     UserMessageKind,
+};
+pub use grok::{
+    is_grok_chrome_subagent_name, GrokGoal, GrokGoalChild, GrokWorkflow, GrokWorkflowAgent,
+    GrokWorkflowPhase, GROK_CHROME_SUBAGENT_NAME,
 };
 pub use options::{AgentMode, AgentModel, AgentThinkingSupport};
 pub use provider::{

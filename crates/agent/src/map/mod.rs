@@ -27,7 +27,6 @@ pub use extract::{
     is_human_tool_description, sanitize_execute_output,
 };
 pub use subagent::{
-    apply_xai_subagent_notice, hold_subagent_open, is_background_spawn_notice,
-    is_subagent_dispatch_ack, parse_subagent_status, parse_xai_subagent_notification,
-    store_subagent_tool, strip_subagent_footers, subagent_result_text, XaiSubagentNotice,
+    hold_subagent_open, is_background_spawn_notice, is_subagent_dispatch_ack,
+    parse_subagent_status, store_subagent_tool, strip_subagent_footers, subagent_result_text,
 };

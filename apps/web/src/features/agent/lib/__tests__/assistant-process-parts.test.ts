@@ -56,6 +56,34 @@ describe("assistant process collapse", () => {
     expect(tailParts.map((item) => item.part)).toEqual([{ type: "text", text: "final" }]);
   });
 
+  it("keeps the grok chrome spawn tool in the parent message and hides nested chrome work", () => {
+    const parts: AgentPart[] = [
+      {
+        type: "tool_call",
+        tool_call_id: "sa-a",
+        name: "grok_chrome",
+        kind: "subagent",
+        status: "running",
+        params: { type: "subagent", description: "goal achievement skeptic", agent_type: "general-purpose" },
+      },
+      { type: "text", text: "only-a", parent_tool_call_id: "sa-a" },
+      {
+        type: "tool_call",
+        tool_call_id: "child-read",
+        name: "Read",
+        kind: "read",
+        status: "completed",
+        parent_tool_call_id: "sa-a",
+        params: { type: "read", path: "a.ts" },
+      },
+      { type: "text", text: "parent reply" },
+    ];
+    const { processParts, tailParts } = splitAssistantProcessParts(parts);
+    expect(processParts.map((item) => item.part.type)).toEqual(["tool_call"]);
+    expect(processParts[0]?.part).toMatchObject({ tool_call_id: "sa-a", name: "grok_chrome" });
+    expect(tailParts.map((item) => item.part)).toEqual([{ type: "text", text: "parent reply" }]);
+  });
+
   it("does not treat grok child final text with a parent id as the parent answer", () => {
     const parts: AgentPart[] = [
       {

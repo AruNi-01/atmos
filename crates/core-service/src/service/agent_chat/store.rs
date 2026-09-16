@@ -89,6 +89,8 @@ impl AgentChatStore {
             pending_session_op: None,
             source: req.source,
             automation_run_guid: req.automation_run_guid,
+            grok_goal: None,
+            grok_workflow: None,
         };
         if meta
             .persistence_handle

@@ -1,0 +1,15 @@
+{
+  "sessionId": "01a0aa67-90b6-7f52-826d-a9947de25aef",
+  "update": {
+    "sessionUpdate": "subagent_spawned",
+    "subagent_id": "01a0aa76-1a9d-7b12-98a4-c6a7531262dc",
+    "attempt_id": "at1.e6e1de6b9c9f4918b1ec1e3d96d53028",
+    "parent_session_id": "01a0aa67-90b6-7f52-826d-a9947de25aef",
+    "parent_prompt_id": "18dce77d-1bf0-4c94-aad4-80d5abd1aab2",
+    "child_session_id": "01a0aa76-1a9d-7b12-98a4-c6a7531262dc",
+    "subagent_type": "general-purpose",
+    "description": "goal achievement skeptic",
+    "effective_context_source": "new",
+    "model": "grok-4.6"
+  }
+}

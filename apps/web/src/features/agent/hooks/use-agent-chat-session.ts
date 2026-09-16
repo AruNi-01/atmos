@@ -35,6 +35,8 @@ import type {
   AgentChatEvent,
   AgentDescriptor,
   AgentMessage,
+  GrokGoal,
+  GrokWorkflow,
   AgentQueueItem,
   AgentSessionUsage,
 } from "@atmos/api-types/ws/dto/agent-chat";
@@ -92,6 +94,7 @@ import {
   dedupeAgentMessages,
   foldMessagesFromEvent,
 } from "@/features/agent/lib/agent-chat-events";
+import { grokChromeAgentIds } from "@/features/agent/lib/grok-chrome";
 import { currentTurnSubagentTasks } from "@/features/agent/lib/subagent-tasks";
 import { routeBusySubmit, resolveFollowupPolicy } from "@/features/agent/lib/followup-policy";
 import { isLiveAgentRuntimeStatus } from "@/features/agent/lib/agent-composer-placeholder";
@@ -369,6 +372,8 @@ export function useAgentChatSession({
   const [descriptor, setDescriptor] = useState<AgentDescriptor | null>(null);
   const [sessionCommands, setSessionCommands] = useState<AgentChatSlashCommand[]>([]);
   const [sessionUsage, setSessionUsage] = useState<AgentSessionUsage | null>(null);
+  const [grokGoal, setGrokGoal] = useState<GrokGoal | null>(null);
+  const [grokWorkflow, setGrokWorkflow] = useState<GrokWorkflow | null>(null);
   const [turnStartedAt, setTurnStartedAt] = useState<number | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const consumedPrompts = useRef(new Set<string>());
@@ -464,9 +469,17 @@ export function useAgentChatSession({
     () => runningBackgroundTools(messages),
     [messages],
   );
+  const grokChromeIds = useMemo(
+    () => grokChromeAgentIds(grokGoal, grokWorkflow),
+    [grokGoal, grokWorkflow],
+  );
   const subagentTasks = useMemo(
-    () => currentTurnSubagentTasks(messages, { followUpPending: queue.length > 0 }),
-    [messages, queue.length],
+    () =>
+      currentTurnSubagentTasks(messages, {
+        followUpPending: queue.length > 0,
+        excludeIds: grokChromeIds,
+      }),
+    [grokChromeIds, messages, queue.length],
   );
   const agentActivity = useMemo(
     () => deriveAgentActivity(messages, busy),
@@ -581,6 +594,8 @@ export function useAgentChatSession({
     setBusy(running);
     setRunningTurnId(snapshot.running_turn_id ?? null);
     setSessionUsage(meta.session_usage ?? null);
+    setGrokGoal(meta.grok_goal ?? null);
+    setGrokWorkflow(meta.grok_workflow ?? null);
     if (running) {
       const elapsed = snapshotLiveElapsedMs(snapshot) ?? 0;
       setTurnStartedAt(clockFromElapsedMs(elapsed));
@@ -1045,6 +1060,8 @@ export function useAgentChatSession({
           setRunningTurnId(null);
           setSessionCommands([]);
           setSessionUsage(null);
+          setGrokGoal(null);
+          setGrokWorkflow(null);
           setTurnStartedAt(null);
           setElapsedMs(0);
           lastSeq.current = 0;
@@ -1062,6 +1079,12 @@ export function useAgentChatSession({
       }
       if (payload.type === "queue_updated" && payload.items) {
         setQueue(payload.items);
+      }
+      if (payload.type === "grok_goal_updated") {
+        setGrokGoal(payload.grok_goal ?? null);
+      }
+      if (payload.type === "grok_workflow_updated") {
+        setGrokWorkflow(payload.grok_workflow ?? null);
       }
       if (payload.type === "available_commands_updated") {
         const commands = normalizeAgentSlashCommands(payload.commands);
@@ -2343,6 +2366,8 @@ export function useAgentChatSession({
     currentPlan,
     backgroundTools,
     subagentTasks,
+    grokGoal,
+    grokWorkflow,
     pendingPermission,
     pendingPermissionMarkdown: pendingPermission?.content_markdown ?? null,
     pendingSessionOp,

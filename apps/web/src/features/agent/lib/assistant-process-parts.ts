@@ -1,4 +1,5 @@
 import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
+import { isHiddenGrokChromePart } from "@/features/agent/lib/grok-chrome";
 
 export function isAssistantAnswerTextPart(part: AgentPart): boolean {
   return part.type === "text" && Boolean(part.text) && !part.parent_tool_call_id;
@@ -90,7 +91,9 @@ export function splitAssistantProcessParts(parts: AgentPart[]): {
   processParts: { part: AgentPart; origIndex: number }[];
   tailParts: { part: AgentPart; origIndex: number }[];
 } {
-  const items = parts.flatMap((part, origIndex) => (part ? [{ part, origIndex }] : []));
+  const items = parts.flatMap((part, origIndex) =>
+    part && !isHiddenGrokChromePart(part, parts) ? [{ part, origIndex }] : [],
+  );
   const layout = layoutAssistantAnswer(
     items,
     (item) => isAssistantAnswerTextPart(item.part),
@@ -138,7 +141,10 @@ function isVisibleProcessPart(part: AgentPart): boolean {
 
 export function hasCollapsibleAssistantProcess(message: AgentMessage): boolean {
   const hasRunningTool = message.parts.some(
-    (part) => part.type === "tool_call" && part.status?.toLowerCase() === "running",
+    (part) =>
+      part.type === "tool_call"
+      && part.status?.toLowerCase() === "running"
+      && !isHiddenGrokChromePart(part, message.parts),
   );
   const { processParts, tailParts } = splitAssistantProcessParts(message.parts);
   return shouldCollapseAssistantProcess(

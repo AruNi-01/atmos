@@ -3257,6 +3257,26 @@
         "panelAria": "子代理任务",
         "fallbackType": "子代理"
       },
+      "grokGoal": {
+        "title": "目标",
+        "runningCount": "{count} 个运行中",
+        "idleCount": "空闲",
+        "rowAria": "查看 {label}",
+        "collapseAria": "折叠目标代理",
+        "expandAria": "展开目标代理",
+        "panelAria": "Grok 目标代理",
+        "fallbackType": "代理"
+      },
+      "grokWorkflow": {
+        "title": "研究",
+        "runningCount": "{count} 个运行中",
+        "idleCount": "空闲",
+        "rowAria": "查看 {label}",
+        "collapseAria": "折叠研究代理",
+        "expandAria": "展开研究代理",
+        "panelAria": "Grok 研究代理",
+        "fallbackType": "代理"
+      },
       "authDialog": {
         "title": "需要 Agent 认证",
         "description": "继续之前请先完成 Agent 认证。",

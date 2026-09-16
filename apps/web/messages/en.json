@@ -3257,6 +3257,26 @@
         "panelAria": "Subagent tasks",
         "fallbackType": "Subagent"
       },
+      "grokGoal": {
+        "title": "Goal",
+        "runningCount": "{count} running",
+        "idleCount": "Idle",
+        "rowAria": "Show {label}",
+        "collapseAria": "Collapse goal agents",
+        "expandAria": "Expand goal agents",
+        "panelAria": "Grok goal agents",
+        "fallbackType": "Agent"
+      },
+      "grokWorkflow": {
+        "title": "Research",
+        "runningCount": "{count} running",
+        "idleCount": "Idle",
+        "rowAria": "Show {label}",
+        "collapseAria": "Collapse research agents",
+        "expandAria": "Expand research agents",
+        "panelAria": "Grok research agents",
+        "fallbackType": "Agent"
+      },
       "authDialog": {
         "title": "Agent authentication required",
         "description": "Authenticate the agent before continuing.",

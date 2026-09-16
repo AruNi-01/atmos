@@ -23,7 +23,12 @@ import {
   registerActiveAgentComposer,
   touchActiveAgentComposer,
 } from "@/features/agent/lib/agent/active-composer";
-import type { AgentMessage, AgentSessionUsage } from "@atmos/api-types/ws/dto/agent-chat";
+import type {
+  AgentMessage,
+  GrokGoal,
+  GrokWorkflow,
+  AgentSessionUsage,
+} from "@atmos/api-types/ws/dto/agent-chat";
 import { stopStreamingMessages } from "@/features/agent/lib/agent-chat-events";
 import { expandAgentComposerText } from "@/features/agent/lib/agent-chat-slash-command";
 import { stripSkillDisableSession } from "@/features/skills/lib/skill-disable-protocol";
@@ -34,6 +39,8 @@ import { PlanBlockView } from "./PlanBlockView";
 import { BackgroundCommandsDock } from "./BackgroundCommandsDock";
 import { MessageQueueDock } from "./MessageQueueDock";
 import { SubagentTasksPanel } from "./SubagentTasksDock";
+import { GrokGoalPanel } from "./grok/GrokGoalPanel";
+import { GrokWorkflowPanel } from "./grok/GrokWorkflowPanel";
 import { useSubagentOverlay } from "./subagent-overlay-context";
 import type { CurrentTurnSubagentTasks } from "@/features/agent/lib/subagent-tasks";
 import { subagentOverlayFrameHeight } from "@/features/agent/lib/subagent-overlay-layout";
@@ -475,6 +482,8 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   isResumedSession,
   backgroundTools = [],
   subagentTasks = { items: [], tools: [] },
+  grokGoal = null,
+  grokWorkflow = null,
   queuedPrompts,
   onRemoveQueuedPrompt,
   onUpdateQueuedPrompt,
@@ -524,6 +533,8 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   isResumedSession: boolean;
   backgroundTools?: AgentToolCallPart[];
   subagentTasks?: CurrentTurnSubagentTasks;
+  grokGoal?: GrokGoal | null;
+  grokWorkflow?: GrokWorkflow | null;
   queuedPrompts: QueuedAgentPrompt[];
   onRemoveQueuedPrompt: (id: string) => void;
   onUpdateQueuedPrompt: (id: string, prompt: string) => void | Promise<void>;
@@ -602,6 +613,8 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   const contextStats = contextWindowStats(sessionUsage);
   const showContextUsageCard = contextUsageOpen && contextStats != null;
   const hasSubagentTasks = subagentTasks.items.length > 0;
+  const showGrokGoalCard = Boolean(grokGoal && grokGoal.status !== "cleared");
+  const showGrokWorkflowCard = Boolean(grokWorkflow && grokWorkflow.status !== "cleared");
   const hasBackgroundTools = backgroundTools.length > 0;
   const hasQueuedPrompts = queuedPrompts.length > 0;
   const showSubagentTasksCard = hasSubagentTasks;
@@ -851,6 +864,54 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
                 >
                   {subagentOverlay}
                 </div>
+              ) : null}
+              {showGrokGoalCard && grokGoal ? (
+                <motion.div
+                  key="agent-grok-goal"
+                  className={cn(
+                    "pointer-events-auto w-full",
+                    subagentOverlay && "hidden",
+                  )}
+                  initial={false}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{
+                    opacity: 0,
+                    y: 10,
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    transition: reduceOverlayMotion
+                      ? { duration: 0 }
+                      : { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+                  }}
+                >
+                  <GrokGoalPanel goal={grokGoal} messages={messages} />
+                </motion.div>
+              ) : null}
+              {showGrokWorkflowCard && grokWorkflow ? (
+                <motion.div
+                  key="agent-grok-workflow"
+                  className={cn(
+                    "pointer-events-auto w-full",
+                    subagentOverlay && "hidden",
+                  )}
+                  initial={false}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{
+                    opacity: 0,
+                    y: 10,
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    transition: reduceOverlayMotion
+                      ? { duration: 0 }
+                      : { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+                  }}
+                >
+                  <GrokWorkflowPanel workflow={grokWorkflow} messages={messages} />
+                </motion.div>
               ) : null}
               {showSubagentTasksCard ? (
                 <motion.div

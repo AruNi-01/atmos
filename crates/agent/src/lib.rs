@@ -11,16 +11,18 @@ pub mod providers;
 pub mod testing;
 
 pub use contract::{
-    AgentAction, AgentActionError, AgentActionKind, AgentActionResult, AgentAskQuestion,
-    AgentAvailableCommand, AgentCapabilities, AgentCheckpoint, AgentContextUsage,
-    AgentCurrentConfig, AgentDescriptor, AgentEvent, AgentEventEnvelope, AgentGeneratedImage,
-    AgentIdentity, AgentMcpRef, AgentMode, AgentModel, AgentOptionSupport, AgentOptionsContext,
-    AgentPermissionOption, AgentPermissionRequest, AgentPersistenceHandle, AgentPlanDocumentTodo,
-    AgentPrompt, AgentProvider, AgentProviderError, AgentProviderFactory, AgentResult,
-    AgentRuntime, AgentRuntimeConfig, AgentRuntimeConfigUpdate, AgentRuntimeControl,
+    is_grok_chrome_subagent_name, AgentAction, AgentActionError, AgentActionKind,
+    AgentActionResult, AgentAskQuestion, AgentAvailableCommand, AgentCapabilities, AgentCheckpoint,
+    AgentContextUsage, AgentCurrentConfig, AgentDescriptor, AgentEvent, AgentEventEnvelope,
+    AgentGeneratedImage, AgentIdentity, AgentMcpRef, AgentMode, AgentModel, AgentOptionSupport,
+    AgentOptionsContext, AgentPermissionOption, AgentPermissionRequest, AgentPersistenceHandle,
+    AgentPlanDocumentTodo, AgentPrompt, AgentProvider, AgentProviderError, AgentProviderFactory,
+    AgentResult, AgentRuntime, AgentRuntimeConfig, AgentRuntimeConfigUpdate, AgentRuntimeControl,
     AgentSessionOpRequest, AgentSupportedOptions, AgentThinkingSupport, AgentTool, AgentToolCall,
     AgentToolKind, AgentToolParams, AgentToolResult, AgentToolStatus, AgentTurnHandle, Capability,
-    SearchHit, SessionOpKind, SessionOpOutcome, TurnStop, UserMessageKind, WebSearchLink,
+    GrokGoal, GrokGoalChild, GrokWorkflow, GrokWorkflowAgent, GrokWorkflowPhase, SearchHit,
+    SessionOpKind, SessionOpOutcome, TurnStop, UserMessageKind, WebSearchLink,
+    GROK_CHROME_SUBAGENT_NAME,
 };
 pub use manager::AgentManager;
 pub use manager::{
@@ -60,5 +62,9 @@ pub use policy::{
 pub use providers::acp::{AcpAgentProvider, AcpProviderParams};
 pub use providers::claude::ClaudeNativeProvider;
 pub use providers::codex::CodexNativeProvider;
+pub use providers::grok::{
+    attach_grok_goal_child, attach_grok_workflow_agent, is_grok_chrome_tool,
+    looks_like_grok_goal_child, merge_grok_goal, merge_grok_workflow, GrokNativeProvider,
+};
 pub use providers::opencode::OpenCodeNativeProvider;
 pub use providers::pi::PiNativeProvider;

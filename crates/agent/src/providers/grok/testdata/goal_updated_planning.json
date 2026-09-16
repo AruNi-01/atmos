@@ -1,0 +1,21 @@
+{
+  "sessionId": "01a0aa67-90b6-7f52-826d-a9947de25aef",
+  "update": {
+    "sessionUpdate": "goal_updated",
+    "goal_id": "776113a2-c79c-467e-892a-aeec5aeb6161",
+    "objective": "探索一下代码库，给我优化建议",
+    "status": "active",
+    "phase": "executing",
+    "tokens_used": 0,
+    "elapsed_ms": 1,
+    "total_deliverables": 0,
+    "completed_deliverables": 0,
+    "total_worker_rounds": 0,
+    "total_verify_rounds": 0,
+    "token_baseline": 1475,
+    "finished_subagent_tokens": 0,
+    "last_event": "goal_created",
+    "last_event_timestamp": "2026-09-16T13:28:29.951295+00:00",
+    "planning": true
+  }
+}

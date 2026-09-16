@@ -426,6 +426,8 @@ export function AgentChatPanel({
     currentPlan,
     backgroundTools,
     subagentTasks,
+    grokGoal,
+    grokWorkflow,
     pendingPermission,
     pendingPermissionMarkdown,
     pendingSessionOp,
@@ -1115,6 +1117,8 @@ export function AgentChatPanel({
             isResumedSession={isResumedSession}
             backgroundTools={backgroundTools}
             subagentTasks={subagentTasks}
+            grokGoal={grokGoal}
+            grokWorkflow={grokWorkflow}
             queuedPrompts={queuedPrompts}
             onRemoveQueuedPrompt={removeQueuedAgentChatPrompt}
             onUpdateQueuedPrompt={(id, prompt) => updateQueuedAgentChatPrompt(id, { prompt })}

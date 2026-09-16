@@ -7,11 +7,13 @@ use std::time::{Duration, Instant};
 use agent::providers::{chat_provider_kind, ChatProviderKind};
 use agent::{
     apply_droid_fast_current_config, apply_droid_mode_permission_current_config,
-    boolean_fast_modes, collapse_droid_fast_models, droid_fast_base, encode_droid_fast_model,
-    fold_droid_composer_options, is_droid_chat_provider, overlay_droid_model_catalog,
+    attach_grok_goal_child, attach_grok_workflow_agent, boolean_fast_modes,
+    collapse_droid_fast_models, droid_fast_base, encode_droid_fast_model,
+    fold_droid_composer_options, is_droid_chat_provider, is_grok_chrome_tool,
+    looks_like_grok_goal_child, merge_grok_goal, merge_grok_workflow, overlay_droid_model_catalog,
     AgentAvailableCommand, AgentEvent, AgentEventEnvelope, AgentMode, AgentModel,
     AgentRuntimeConfigUpdate, AgentRuntimeControl, AgentThinkingSupport, AgentTool, Capability,
-    SessionOpOutcome, TurnStop,
+    GrokGoal, GrokWorkflow, SessionOpOutcome, TurnStop,
 };
 use chrono::Utc;
 use serde::Deserialize;
@@ -354,7 +356,10 @@ pub(super) async fn apply_event(
                 adapter_turn_id.as_deref(),
             )
             .await?;
-            emit(AgentChatPayload::ToolCallStarted { tool_call })?;
+            emit(AgentChatPayload::ToolCallStarted {
+                tool_call: tool_call.clone(),
+            })?;
+            maybe_emit_grok_chrome_from_tool(store, chat_id, &tool_call, &emit_host)?;
         }
         AgentEvent::ToolCallUpdated { tool_call } => {
             persist_tool(
@@ -367,7 +372,10 @@ pub(super) async fn apply_event(
                 adapter_turn_id.as_deref(),
             )
             .await?;
-            emit(AgentChatPayload::ToolCallUpdated { tool_call })?;
+            emit(AgentChatPayload::ToolCallUpdated {
+                tool_call: tool_call.clone(),
+            })?;
+            maybe_emit_grok_chrome_from_tool(store, chat_id, &tool_call, &emit_host)?;
         }
         AgentEvent::ToolCallCompleted { tool_call } => {
             persist_tool(
@@ -380,7 +388,10 @@ pub(super) async fn apply_event(
                 adapter_turn_id.as_deref(),
             )
             .await?;
-            emit(AgentChatPayload::ToolCallCompleted { tool_call })?;
+            emit(AgentChatPayload::ToolCallCompleted {
+                tool_call: tool_call.clone(),
+            })?;
+            maybe_emit_grok_chrome_from_tool(store, chat_id, &tool_call, &emit_host)?;
         }
         AgentEvent::ToolCallFailed { tool_call, error } => {
             persist_tool(
@@ -393,7 +404,19 @@ pub(super) async fn apply_event(
                 adapter_turn_id.as_deref(),
             )
             .await?;
-            emit(AgentChatPayload::ToolCallFailed { tool_call, error })?;
+            emit(AgentChatPayload::ToolCallFailed {
+                tool_call: tool_call.clone(),
+                error,
+            })?;
+            maybe_emit_grok_chrome_from_tool(store, chat_id, &tool_call, &emit_host)?;
+        }
+        AgentEvent::GrokGoalUpdated { goal } => {
+            let grok_goal = persist_grok_goal(store, chat_id, goal)?;
+            emit(AgentChatPayload::GrokGoalUpdated { grok_goal })?;
+        }
+        AgentEvent::GrokWorkflowUpdated { workflow } => {
+            let grok_workflow = persist_grok_workflow(store, chat_id, workflow)?;
+            emit(AgentChatPayload::GrokWorkflowUpdated { grok_workflow })?;
         }
         AgentEvent::PlanUpdated { plan } => {
             flush_open_thinking(store, state, chat_id, &emit_host).await?;
@@ -1279,6 +1302,79 @@ pub(super) fn selected_session_config(
         );
     }
     (None, None, None, None, None, None)
+}
+
+fn persist_grok_goal(
+    store: &AgentChatStore,
+    chat_id: &str,
+    incoming: Option<GrokGoal>,
+) -> Result<Option<GrokGoal>> {
+    let mut stored = None;
+    store.update_meta(chat_id, |meta| {
+        meta.grok_goal = match incoming.clone() {
+            Some(next) => merge_grok_goal(meta.grok_goal.take(), next),
+            None => None,
+        };
+        stored = meta.grok_goal.clone();
+    })?;
+    Ok(stored)
+}
+
+fn persist_grok_workflow(
+    store: &AgentChatStore,
+    chat_id: &str,
+    incoming: Option<GrokWorkflow>,
+) -> Result<Option<GrokWorkflow>> {
+    let mut stored = None;
+    store.update_meta(chat_id, |meta| {
+        meta.grok_workflow = match incoming.clone() {
+            Some(next) => merge_grok_workflow(meta.grok_workflow.take(), next),
+            None => None,
+        };
+        stored = meta.grok_workflow.clone();
+    })?;
+    Ok(stored)
+}
+
+fn maybe_emit_grok_chrome_from_tool(
+    store: &AgentChatStore,
+    chat_id: &str,
+    tool: &AgentTool,
+    emit: &impl Fn(AgentChatPayload) -> Result<()>,
+) -> Result<()> {
+    if !is_grok_chrome_tool(tool) {
+        return Ok(());
+    }
+    let mut goal_changed = false;
+    let mut workflow_changed = false;
+    let mut stored_goal = None;
+    let mut stored_workflow = None;
+    store.update_meta(chat_id, |meta| {
+        let prefer_goal = looks_like_grok_goal_child(tool) || meta.grok_workflow.is_none();
+        if prefer_goal {
+            if let Some(goal) = meta.grok_goal.as_mut() {
+                goal_changed = attach_grok_goal_child(goal, tool);
+                stored_goal = meta.grok_goal.clone();
+            }
+        }
+        if !goal_changed {
+            if let Some(workflow) = meta.grok_workflow.as_mut() {
+                workflow_changed = attach_grok_workflow_agent(workflow, tool);
+                stored_workflow = meta.grok_workflow.clone();
+            }
+        }
+    })?;
+    if goal_changed {
+        emit(AgentChatPayload::GrokGoalUpdated {
+            grok_goal: stored_goal,
+        })?;
+    }
+    if workflow_changed {
+        emit(AgentChatPayload::GrokWorkflowUpdated {
+            grok_workflow: stored_workflow,
+        })?;
+    }
+    Ok(())
 }
 
 async fn persist_tool(
@@ -2337,7 +2433,10 @@ mod tests {
         AgentChatMeta, AgentChatOrigin, AgentChatPayload, CreateAgentChatRequest,
         SessionAdvertisedOption, SessionAdvertisedOptionValue,
     };
-    use agent::{AgentEvent, AgentEventEnvelope};
+    use agent::{
+        AgentEvent, AgentEventEnvelope, AgentTool, AgentToolKind, AgentToolParams, AgentToolStatus,
+        GrokGoal, GrokWorkflow, GROK_CHROME_SUBAGENT_NAME,
+    };
     use chrono::{Duration, Utc};
     use std::collections::HashMap;
     use std::time::Instant;
@@ -2376,6 +2475,8 @@ mod tests {
             pending_session_op: None,
             source: None,
             automation_run_guid: None,
+            grok_goal: None,
+            grok_workflow: None,
         }
     }
 
@@ -3367,5 +3468,252 @@ mod tests {
             Some("opus")
         );
         assert_eq!(updated.applied_model.as_deref(), Some("opus"));
+    }
+
+    #[tokio::test]
+    async fn grok_goal_keeps_sibling_skeptics_and_nested_text_isolated() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = AgentChatStore::new(dir.path().join("chats"));
+        let meta = store
+            .create(CreateAgentChatRequest {
+                workspace_id: None,
+                project_id: None,
+                space_id: None,
+                cwd: "/tmp".into(),
+                origin: AgentChatOrigin::Normal,
+                provider_id: "grok".into(),
+                model: None,
+                thinking: None,
+                mode: None,
+                permission_mode: None,
+                fast: None,
+                context: None,
+                title: None,
+                source: None,
+                automation_run_guid: None,
+            })
+            .unwrap();
+        let (tx, _rx) = broadcast::channel(32);
+        let recent = std::sync::Mutex::new(HashMap::new());
+        let state = Mutex::new(runtime());
+        let apply = |payload: AgentEvent| {
+            apply_event(
+                &meta.id,
+                AgentEventEnvelope::new(Some("turn-1".into()), payload),
+                &store,
+                &state,
+                &tx,
+                &recent,
+            )
+        };
+        apply(AgentEvent::GrokGoalUpdated {
+            goal: Some(GrokGoal {
+                goal_id: "g1".into(),
+                objective: "Explore codebase".into(),
+                status: "active".into(),
+                phase: "executing".into(),
+                planning: true,
+                verifying_completion: false,
+                last_event: Some("goal_created".into()),
+                children: Vec::new(),
+            }),
+        })
+        .await
+        .unwrap();
+
+        let skeptic = |id: &str, desc: &str| AgentTool {
+            tool_call_id: id.into(),
+            parent_tool_call_id: None,
+            name: GROK_CHROME_SUBAGENT_NAME.into(),
+            title: Some(desc.into()),
+            kind: AgentToolKind::Subagent,
+            status: AgentToolStatus::Running,
+            params: AgentToolParams::Subagent {
+                description: desc.into(),
+                agent_type: Some("general-purpose".into()),
+                task_id: Some(id.into()),
+                prompt: None,
+            },
+            result: None,
+        };
+        apply(AgentEvent::ToolCallStarted {
+            tool_call: skeptic("sa-a", "goal achievement skeptic"),
+        })
+        .await
+        .unwrap();
+        apply(AgentEvent::ToolCallStarted {
+            tool_call: skeptic("sa-b", "goal achievement skeptic"),
+        })
+        .await
+        .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &crate::service::agent_chat::types::TranscriptEnvelope::new(
+                    "turn-1",
+                    crate::service::agent_chat::types::TranscriptEvent::AssistantSnapshot {
+                        message_id: "asst".into(),
+                        text: "only-a".into(),
+                        parent_tool_call_id: Some("sa-a".into()),
+                    },
+                ),
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &crate::service::agent_chat::types::TranscriptEnvelope::new(
+                    "turn-1",
+                    crate::service::agent_chat::types::TranscriptEvent::AssistantSnapshot {
+                        message_id: "asst".into(),
+                        text: "only-b".into(),
+                        parent_tool_call_id: Some("sa-b".into()),
+                    },
+                ),
+            )
+            .unwrap();
+
+        let snapshot = store.get_snapshot(&meta.id).unwrap();
+        let goal = snapshot.meta.grok_goal.expect("grok_goal");
+        assert_eq!(
+            goal.children
+                .iter()
+                .map(|child| child.id.as_str())
+                .collect::<Vec<_>>(),
+            ["sa-a", "sa-b"]
+        );
+        assert!(goal
+            .children
+            .iter()
+            .all(|child| child.label == "goal achievement skeptic"));
+        let assistant = snapshot
+            .messages
+            .iter()
+            .find(|message| message.role == "assistant")
+            .expect("assistant");
+        let texts: Vec<_> = assistant
+            .parts
+            .iter()
+            .filter_map(|part| match part {
+                MessagePart::Text {
+                    text,
+                    parent_tool_call_id,
+                } => Some((text.as_str(), parent_tool_call_id.as_deref())),
+                _ => None,
+            })
+            .collect();
+        assert!(texts.contains(&("only-a", Some("sa-a"))));
+        assert!(texts.contains(&("only-b", Some("sa-b"))));
+        assert!(!texts
+            .iter()
+            .any(|(text, parent)| { *text == "only-a" && *parent != Some("sa-a") }));
+    }
+
+    #[tokio::test]
+    async fn cleared_goal_and_workflow_drop_only_their_own_slots() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = AgentChatStore::new(dir.path().join("chats"));
+        let meta = store
+            .create(CreateAgentChatRequest {
+                workspace_id: None,
+                project_id: None,
+                space_id: None,
+                cwd: "/tmp".into(),
+                origin: AgentChatOrigin::Normal,
+                provider_id: "grok".into(),
+                model: None,
+                thinking: None,
+                mode: None,
+                permission_mode: None,
+                fast: None,
+                context: None,
+                title: None,
+                source: None,
+                automation_run_guid: None,
+            })
+            .unwrap();
+        let (tx, mut rx) = broadcast::channel(32);
+        let recent = std::sync::Mutex::new(HashMap::new());
+        let state = Mutex::new(runtime());
+        let apply = |payload: AgentEvent| {
+            apply_event(
+                &meta.id,
+                AgentEventEnvelope::new(Some("turn-1".into()), payload),
+                &store,
+                &state,
+                &tx,
+                &recent,
+            )
+        };
+
+        apply(AgentEvent::GrokGoalUpdated {
+            goal: Some(GrokGoal {
+                goal_id: "g1".into(),
+                objective: "Explore".into(),
+                status: "active".into(),
+                phase: "executing".into(),
+                planning: true,
+                verifying_completion: false,
+                last_event: None,
+                children: Vec::new(),
+            }),
+        })
+        .await
+        .unwrap();
+        apply(AgentEvent::GrokWorkflowUpdated {
+            workflow: Some(GrokWorkflow {
+                run_id: "wf-1".into(),
+                name: "deep-research".into(),
+                objective: "Compare".into(),
+                status: "running".into(),
+                phases: Vec::new(),
+                agents: Vec::new(),
+            }),
+        })
+        .await
+        .unwrap();
+        assert!(store.get_meta(&meta.id).unwrap().grok_goal.is_some());
+        assert!(store.get_meta(&meta.id).unwrap().grok_workflow.is_some());
+
+        apply(AgentEvent::GrokGoalUpdated { goal: None })
+            .await
+            .unwrap();
+        let after_goal = store.get_meta(&meta.id).unwrap();
+        assert!(
+            after_goal.grok_goal.is_none(),
+            "/goal clear must persist None"
+        );
+        assert!(
+            after_goal.grok_workflow.is_some(),
+            "goal clear must not wipe the workflow"
+        );
+
+        apply(AgentEvent::GrokWorkflowUpdated { workflow: None })
+            .await
+            .unwrap();
+        assert!(
+            store.get_meta(&meta.id).unwrap().grok_workflow.is_none(),
+            "workflow clear must persist None"
+        );
+
+        let mut saw_goal_cleared = 0;
+        let mut saw_workflow_cleared = 0;
+        while let Ok(event) = rx.try_recv() {
+            match event.payload {
+                AgentChatPayload::GrokGoalUpdated { grok_goal: None } => saw_goal_cleared += 1,
+                AgentChatPayload::GrokWorkflowUpdated {
+                    grok_workflow: None,
+                } => saw_workflow_cleared += 1,
+                _ => {}
+            }
+        }
+        assert!(
+            saw_goal_cleared >= 1,
+            "goal clear must emit GrokGoalUpdated None, got {saw_goal_cleared}"
+        );
+        assert!(
+            saw_workflow_cleared >= 1,
+            "workflow clear must emit GrokWorkflowUpdated None, got {saw_workflow_cleared}"
+        );
     }
 }

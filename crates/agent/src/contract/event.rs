@@ -204,6 +204,14 @@ pub enum AgentEvent {
     AvailableCommandsUpdated {
         commands: Vec<AgentAvailableCommand>,
     },
+    /// Grok `/goal` snapshot. `None` clears Chat meta `grok_goal` only.
+    GrokGoalUpdated {
+        goal: Option<super::grok::GrokGoal>,
+    },
+    /// Grok workflow / `/deep-research` snapshot. `None` clears `grok_workflow` only.
+    GrokWorkflowUpdated {
+        workflow: Option<super::grok::GrokWorkflow>,
+    },
     Unknown {
         event_type: String,
         payload: serde_json::Value,

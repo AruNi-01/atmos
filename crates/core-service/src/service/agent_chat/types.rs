@@ -105,6 +105,10 @@ pub struct AgentChatMeta {
     pub source: Option<String>,
     #[serde(default)]
     pub automation_run_guid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grok_goal: Option<agent::GrokGoal>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grok_workflow: Option<agent::GrokWorkflow>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -1595,6 +1599,12 @@ pub enum AgentChatPayload {
     AvailableCommandsUpdated {
         commands: Vec<agent::AgentAvailableCommand>,
     },
+    GrokGoalUpdated {
+        grok_goal: Option<agent::GrokGoal>,
+    },
+    GrokWorkflowUpdated {
+        grok_workflow: Option<agent::GrokWorkflow>,
+    },
     ConfigUpdated {
         descriptor: AgentDescriptor,
     },
@@ -1988,6 +1998,8 @@ mod session_config_change_tests {
             pending_session_op: None,
             source: None,
             automation_run_guid: None,
+            grok_goal: None,
+            grok_workflow: None,
         }
     }
 
