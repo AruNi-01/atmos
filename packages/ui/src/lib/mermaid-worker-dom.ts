@@ -1,5 +1,8 @@
 import { parseHTML } from "linkedom";
+import { installMermaidUtf8Btoa } from "./mermaid-utf8-btoa";
 import { mermaidShimBBox, mermaidShimTextLength } from "./mermaid-worker-measure";
+
+installMermaidUtf8Btoa();
 
 class ShimStyleSheet {
   cssRules: { cssText: string }[] = [];

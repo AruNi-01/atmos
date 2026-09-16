@@ -3,7 +3,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
-import { Copy, Download, Paintbrush, Redo2, Save, Undo2, X, ZoomIn, ZoomOut } from "lucide-react";
+import { Copy, Download, PencilSparkles, Redo2, Save, Undo2, X, ZoomIn, ZoomOut } from "lucide-react";
 import { toastManager } from "@workspace/ui";
 import {
   ImageCopyContextMenu,
@@ -12,11 +12,16 @@ import {
 import { copyImageSrcToClipboard, saveImageSrcToDisk } from "@/shared/utils/copy-image";
 
 export const IMAGE_PREVIEW_ZOOM_MS = 320;
-export const IMAGE_PREVIEW_TOOLBAR_SPACE_PX = 48;
+export const IMAGE_PREVIEW_STAGE_RATIO = 0.95;
+export const IMAGE_PREVIEW_TOOLBAR_GAP_PX = 12;
+export const IMAGE_PREVIEW_TOOLBAR_TOP_GAP_PX = 12;
+export const IMAGE_PREVIEW_MIN_EDGE_GAP_PX = 1;
+/** p-1 + size-8 + 1px border. Measured at runtime if the pill size changes. */
+export const IMAGE_PREVIEW_TOOLBAR_HEIGHT_PX = 42;
 const USER_ZOOM_MIN = 0.5;
 const USER_ZOOM_MAX = 3;
 const USER_ZOOM_STEP = 0.25;
-const TOOLBAR_GAP_PX = 8;
+const STAGE_RADIUS_PX = 18;
 const ZOOM_EASE = "cubic-bezier(0.16, 1, 0.3, 1)";
 
 export type ImagePreviewOriginRect = {
@@ -174,33 +179,97 @@ export function imagePreviewOriginRectFromElement(
   };
 }
 
+export function imagePreviewStageRect(
+  viewport: { width: number; height: number },
+  toolbarHeight = IMAGE_PREVIEW_TOOLBAR_HEIGHT_PX,
+): {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  toolbarGap: number;
+} {
+  const width = Math.max(1, Math.round(viewport.width * IMAGE_PREVIEW_STAGE_RATIO));
+  const left = Math.round((viewport.width - width) / 2);
+  const pillHeight = Math.max(1, Math.ceil(toolbarHeight));
+  const minGap = IMAGE_PREVIEW_MIN_EDGE_GAP_PX;
+  let toolbarGap = IMAGE_PREVIEW_TOOLBAR_GAP_PX;
+  let topGap = IMAGE_PREVIEW_TOOLBAR_TOP_GAP_PX;
+  let top = topGap + pillHeight + toolbarGap;
+  let bottomInset = Math.max(
+    0,
+    Math.round(viewport.height * (1 - IMAGE_PREVIEW_STAGE_RATIO) / 2),
+  );
+
+  if (top + bottomInset >= viewport.height) {
+    bottomInset = Math.max(0, viewport.height - top);
+  }
+  if (top >= viewport.height) {
+    toolbarGap = minGap;
+    topGap = minGap;
+    top = topGap + pillHeight + toolbarGap;
+    if (top >= viewport.height) {
+      top = Math.max(minGap, viewport.height - minGap);
+    }
+    bottomInset = 0;
+  }
+
+  const height = Math.max(1, viewport.height - top - bottomInset);
+  return { left, top, width, height, toolbarGap };
+}
+
+/** Display size inside the stage: natural pixels when they fit, otherwise contain. */
+export function imagePreviewContainedSize(
+  natural: { width: number; height: number } | null | undefined,
+  box: { width: number; height: number },
+): { width: number; height: number } {
+  if (!natural || natural.width < 1 || natural.height < 1) {
+    return { width: 0, height: 0 };
+  }
+  if (natural.width <= box.width && natural.height <= box.height) {
+    return { width: natural.width, height: natural.height };
+  }
+  const scale = Math.min(box.width / natural.width, box.height / natural.height);
+  return {
+    width: Math.max(1, Math.round(natural.width * scale)),
+    height: Math.max(1, Math.round(natural.height * scale)),
+  };
+}
+
 export function imagePreviewTargetRect(
   origin: ImagePreviewOriginRect,
   viewport: { width: number; height: number },
-  natural?: { width: number; height: number } | null,
-  toolbarSpace = IMAGE_PREVIEW_TOOLBAR_SPACE_PX,
+  toolbarHeight = IMAGE_PREVIEW_TOOLBAR_HEIGHT_PX,
 ): ImagePreviewOriginRect {
-  const aspect =
-    natural && natural.width > 0 && natural.height > 0
-      ? natural.width / natural.height
-      : origin.naturalWidth && origin.naturalHeight
-        ? origin.naturalWidth / origin.naturalHeight
-        : origin.width / Math.max(origin.height, 1);
-  const maxW = viewport.width * 0.92;
-  const maxH = Math.max(viewport.height * 0.92 - toolbarSpace, 1);
-  let width = maxW;
-  let height = width / aspect;
-  if (height > maxH) {
-    height = maxH;
-    width = height * aspect;
-  }
-  let top = (viewport.height - height) / 2;
-  if (top < toolbarSpace) top = toolbarSpace;
+  const stage = imagePreviewStageRect(viewport, toolbarHeight);
   return {
-    left: (viewport.width - width) / 2,
-    top,
-    width,
-    height,
+    left: stage.left,
+    top: stage.top,
+    width: stage.width,
+    height: stage.height,
+    radius: origin.radius ?? DEFAULT_THUMB_RADIUS_PX,
+  };
+}
+
+export function imagePreviewImageRect(
+  origin: ImagePreviewOriginRect,
+  viewport: { width: number; height: number },
+  natural?: { width: number; height: number } | null,
+  toolbarHeight = IMAGE_PREVIEW_TOOLBAR_HEIGHT_PX,
+): ImagePreviewOriginRect {
+  const stage = imagePreviewStageRect(viewport, toolbarHeight);
+  const size = imagePreviewContainedSize(
+    natural
+    ?? (origin.naturalWidth && origin.naturalHeight
+      ? { width: origin.naturalWidth, height: origin.naturalHeight }
+      : null),
+    stage,
+  );
+  return {
+    left: stage.left + Math.round((stage.width - size.width) / 2),
+    top: stage.top + Math.round((stage.height - size.height) / 2),
+    width: size.width,
+    height: size.height,
     radius: origin.radius ?? DEFAULT_THUMB_RADIUS_PX,
   };
 }
@@ -227,6 +296,19 @@ function transformCss(x: number, y: number, scale: number): string {
 
 function clampUserZoom(value: number): number {
   return Math.min(USER_ZOOM_MAX, Math.max(USER_ZOOM_MIN, value));
+}
+
+function readViewport(): { width: number; height: number } {
+  if (typeof window === "undefined") return { width: 0, height: 0 };
+  return { width: window.innerWidth, height: window.innerHeight };
+}
+
+function originNaturalSize(
+  origin: ImagePreviewOriginRect | null | undefined,
+): { width: number; height: number } | null {
+  if (!origin?.naturalWidth || !origin.naturalHeight) return null;
+  if (origin.naturalWidth < 1 || origin.naturalHeight < 1) return null;
+  return { width: origin.naturalWidth, height: origin.naturalHeight };
 }
 
 export function ImagePreviewOverlay({
@@ -260,8 +342,13 @@ export function ImagePreviewOverlay({
   const dragRef = React.useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const clipRef = React.useRef<HTMLDivElement | null>(null);
+  const toolbarRef = React.useRef<HTMLDivElement | null>(null);
   const annotatingRef = React.useRef(false);
-  const [clipSize, setClipSize] = React.useState({ width: 0, height: 0 });
+  const [viewport, setViewport] = React.useState(() => readViewport());
+  const [toolbarHeight, setToolbarHeight] = React.useState(IMAGE_PREVIEW_TOOLBAR_HEIGHT_PX);
+  const [natural, setNatural] = React.useState<{ width: number; height: number } | null>(() =>
+    originNaturalSize(originRect),
+  );
   const canAnnotate = typeof onSaveAnnotation === "function";
 
   const finishClose = React.useCallback(() => {
@@ -309,30 +396,69 @@ export function ImagePreviewOverlay({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [menu, requestClose]);
 
-  const viewport =
-    typeof window === "undefined"
-      ? { width: 0, height: 0 }
-      : { width: window.innerWidth, height: window.innerHeight };
-  const display = originRect ? imagePreviewTargetRect(originRect, viewport) : null;
-  const fromOrigin =
-    originRect && display
-      ? imagePreviewZoomTransform(originRect, display)
-      : { x: 0, y: 0, scale: 0.96 };
+  React.useEffect(() => {
+    const handleResize = () => setViewport(readViewport());
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  React.useEffect(() => {
+    const next = originNaturalSize(originRect);
+    if (next) setNatural(next);
+  }, [originRect]);
+
+  const stage = imagePreviewStageRect(viewport, toolbarHeight);
+  const imageTarget = imagePreviewImageRect(
+    originRect ?? {
+      left: 0,
+      top: 0,
+      width: 1,
+      height: 1,
+      radius: DEFAULT_THUMB_RADIUS_PX,
+    },
+    viewport,
+    natural,
+    toolbarHeight,
+  );
+  const imageSize = { width: imageTarget.width, height: imageTarget.height };
+  const fromOrigin = originRect
+    ? imagePreviewZoomTransform(originRect, imageTarget)
+    : { x: 0, y: 0, scale: 0.96 };
   const expanded = opened && !closing;
-  const motion = expanded ? { x: 0, y: 0, scale: 1, opacity: 1 } : {
-    x: fromOrigin.x,
-    y: fromOrigin.y,
-    scale: fromOrigin.scale,
-    opacity: originRect ? 1 : closing ? 0 : 1,
-  };
+  const motion = expanded
+    ? { x: 0, y: 0, scale: 1 }
+    : { x: fromOrigin.x, y: fromOrigin.y, scale: fromOrigin.scale };
+  const userTransform = `translate(${pan.x}px, ${pan.y}px) scale(${userZoom})`;
   const visualRadius = Math.max(originRect?.radius ?? DEFAULT_THUMB_RADIUS_PX, DEFAULT_THUMB_RADIUS_PX);
-  const expandedRadius = Math.max(visualRadius, 16);
   const borderRadius = expanded
-    ? expandedRadius
+    ? 0
     : imagePreviewScaledRadius(visualRadius, fromOrigin.scale);
+  const radiusClip = `inset(0 round ${borderRadius}px)`;
   const transition = duration <= 0
     ? "none"
-    : `transform ${duration}ms ${ZOOM_EASE}, opacity ${duration}ms ${ZOOM_EASE}, border-radius ${duration}ms ${ZOOM_EASE}`;
+    : [
+        `transform ${duration}ms ${ZOOM_EASE}`,
+        `opacity ${duration}ms ${ZOOM_EASE}`,
+        `border-radius ${duration}ms ${ZOOM_EASE}`,
+        `clip-path ${duration}ms ${ZOOM_EASE}`,
+      ].join(", ");
+  const stageFade = duration <= 0 ? "none" : `opacity ${duration}ms ${ZOOM_EASE}`;
+
+  React.useLayoutEffect(() => {
+    if (!expanded) return;
+    const el = toolbarRef.current;
+    if (!el) return;
+    const read = () => {
+      const next = Math.ceil(el.getBoundingClientRect().height);
+      if (next < 1) return;
+      setToolbarHeight((current) => (current === next ? current : next));
+    };
+    read();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(read);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [expanded, drawing, canAnnotate]);
 
   const handlePointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
@@ -375,22 +501,25 @@ export function ImagePreviewOverlay({
     }
   }, []);
 
-  const cssSize = display
-    ? { width: display.width, height: display.height }
-    : clipSize;
+  const cssSize = {
+    width: Math.max(0, imageSize.width),
+    height: Math.max(0, imageSize.height),
+  };
+  const mediaReady = cssSize.width >= 1 && cssSize.height >= 1;
+
+  const rememberNaturalSize = React.useCallback((image: HTMLImageElement | null) => {
+    if (!image || image.naturalWidth < 1 || image.naturalHeight < 1) return;
+    setNatural((current) => {
+      if (current && current.width === image.naturalWidth && current.height === image.naturalHeight) {
+        return current;
+      }
+      return { width: image.naturalWidth, height: image.naturalHeight };
+    });
+  }, []);
 
   React.useLayoutEffect(() => {
-    const el = clipRef.current;
-    if (!el) return;
-    const measure = () => {
-      setClipSize({ width: el.clientWidth, height: el.clientHeight });
-    };
-    measure();
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [display?.height, display?.width, expanded]);
+    rememberNaturalSize(imgRef.current);
+  }, [imgRef, rememberNaturalSize, src]);
 
   React.useLayoutEffect(() => {
     const canvas = canvasRef.current;
@@ -523,11 +652,7 @@ export function ImagePreviewOverlay({
       aria-label={alt}
       data-image-preview-overlay=""
       data-image-preview-closing={closing ? "" : undefined}
-      className={
-        display
-          ? "fixed inset-0 z-[2147483647] cursor-zoom-out"
-          : "fixed inset-0 z-[2147483647] flex cursor-zoom-out items-center justify-center"
-      }
+      className="fixed inset-0 z-[2147483647] cursor-zoom-out"
       onClick={() => {
         if (didDragRef.current) {
           didDragRef.current = false;
@@ -554,31 +679,35 @@ export function ImagePreviewOverlay({
         data-image-preview-frame=""
         onClick={(event) => event.stopPropagation()}
         style={{
-          ...(display
-            ? {
-                position: "fixed" as const,
-                top: display.top,
-                left: display.left,
-                width: display.width,
-                height: display.height,
-                transformOrigin: "center center",
-              }
-            : {
-                position: "relative" as const,
-                maxHeight: "92vh",
-                maxWidth: "92vw",
-              }),
-          transform: transformCss(motion.x, motion.y, motion.scale),
-          opacity: motion.opacity,
-          transition,
+          position: "fixed",
+          top: stage.top,
+          left: stage.left,
+          width: stage.width,
+          height: stage.height,
+          borderRadius: STAGE_RADIUS_PX,
+          overflow: "visible",
         }}
         className="z-10 cursor-default"
       >
+        <div
+          aria-hidden="true"
+          data-image-preview-stage=""
+          className="absolute inset-0 bg-white/10 ring-1 ring-inset ring-white/20"
+          style={{
+            borderRadius: STAGE_RADIUS_PX,
+            opacity: expanded ? 1 : 0,
+            transition: stageFade,
+          }}
+        />
         {expanded ? (
           <div
+            ref={toolbarRef}
             data-image-preview-toolbar=""
-            className="absolute right-0 z-20"
-            style={{ bottom: "100%", marginBottom: TOOLBAR_GAP_PX }}
+            className="pointer-events-auto absolute right-0 z-30"
+            style={{
+              bottom: "100%",
+              marginBottom: stage.toolbarGap,
+            }}
             onClick={(event) => event.stopPropagation()}
             onContextMenu={(event) => event.stopPropagation()}
           >
@@ -628,7 +757,7 @@ export function ImagePreviewOverlay({
                   pressed={drawing}
                   onClick={() => setDrawing((value) => !value)}
                 >
-                  <Paintbrush className="size-4" />
+                  <PencilSparkles className="size-4" />
                 </ImagePreviewToolbarButton>
               ) : null}
               <ImagePreviewToolbarButton
@@ -679,48 +808,67 @@ export function ImagePreviewOverlay({
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
           style={{
-            position: "relative",
-            width: "100%",
-            height: "100%",
-            borderRadius,
-            overflow: "hidden",
-            clipPath: `inset(0 round ${borderRadius}px)`,
+            position: "absolute",
+            inset: 0,
+            zIndex: 10,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            overflow: expanded ? "hidden" : "visible",
+            borderRadius: STAGE_RADIUS_PX,
             touchAction: "none",
             cursor: drawing ? "crosshair" : dragging ? "grabbing" : "grab",
-            transition: duration <= 0
-              ? "none"
-              : `border-radius ${duration}ms ${ZOOM_EASE}`,
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element -- previews use local object/data URLs and must not go through Next image optimization. */}
-          <img
-            ref={imgRef}
-            src={src}
-            alt={alt}
-            draggable={false}
-            className="pointer-events-none block h-full w-full select-none object-cover"
+          <div
+            data-image-preview-media=""
             style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${userZoom})`,
+              position: "relative",
+              width: mediaReady ? cssSize.width : "auto",
+              height: mediaReady ? cssSize.height : "auto",
+              maxWidth: "100%",
+              maxHeight: "100%",
+              flexShrink: 0,
+              overflow: "hidden",
+              borderRadius,
+              clipPath: radiusClip,
+              transform: transformCss(motion.x, motion.y, motion.scale),
               transformOrigin: "center center",
+              transition,
             }}
-          />
-          {canAnnotate ? (
-            <canvas
-              ref={canvasRef}
-              data-image-preview-annotate=""
-              className="absolute inset-0"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- previews use local object/data URLs and must not go through Next image optimization. */}
+            <img
+              ref={imgRef}
+              src={src}
+              alt={alt}
+              draggable={false}
+              className="pointer-events-none block h-full w-full select-none object-contain"
               style={{
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${userZoom})`,
+                borderRadius: "inherit",
+                transform: userTransform,
                 transformOrigin: "center center",
-                pointerEvents: drawing ? "auto" : "none",
-                cursor: drawing ? "crosshair" : "inherit",
               }}
-              onPointerDown={handleAnnotatePointerDown}
-              onPointerMove={handleAnnotatePointerMove}
-              onPointerUp={handleAnnotatePointerUp}
-              onPointerCancel={handleAnnotatePointerUp}
+              onLoad={(event) => rememberNaturalSize(event.currentTarget)}
             />
-          ) : null}
+            {canAnnotate ? (
+              <canvas
+                ref={canvasRef}
+                data-image-preview-annotate=""
+                className="absolute inset-0"
+                style={{
+                  transform: userTransform,
+                  transformOrigin: "center center",
+                  pointerEvents: drawing ? "auto" : "none",
+                  cursor: drawing ? "crosshair" : "inherit",
+                }}
+                onPointerDown={handleAnnotatePointerDown}
+                onPointerMove={handleAnnotatePointerMove}
+                onPointerUp={handleAnnotatePointerUp}
+                onPointerCancel={handleAnnotatePointerUp}
+              />
+            ) : null}
+          </div>
         </div>
       </div>
       {menu ? (

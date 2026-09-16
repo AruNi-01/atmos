@@ -22,6 +22,8 @@ export interface FileNavigationTarget {
   column?: number;
   /** 1-based inclusive line ranges to select after opening (normal CM selection). */
   selectRanges?: FileNavigationLineRange[];
+  /** Expand every git gutter hunk when turn line ranges are unreliable. */
+  openGitGutter?: "all";
   /** Open markdown in CodeMirror source instead of the live view. */
   preferMarkdownSource?: boolean;
   reviewCommentGuid?: string;
@@ -67,6 +69,7 @@ export interface EditorStore {
       line?: number;
       column?: number;
       selectRanges?: FileNavigationLineRange[];
+      openGitGutter?: "all";
       preferMarkdownSource?: boolean;
       reviewCommentGuid?: string;
       reviewMessageGuid?: string;

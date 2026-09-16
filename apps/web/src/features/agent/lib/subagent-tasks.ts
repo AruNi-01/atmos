@@ -1,6 +1,7 @@
 import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
 import {
   isActiveToolStatus,
+  isSubagentWaitTool,
   type AgentToolCallPart,
 } from "@/features/agent/lib/agent-tool-kind";
 import { deriveAgentActivity, type AgentActivity } from "@/features/agent/lib/chat-helpers";
@@ -68,9 +69,27 @@ export function formatSubagentTaskLine(
   return summary ? `${type} - ${summary}` : type;
 }
 
+/** Claude/Grok dispatch chrome — not the child's answer. */
+export function isSubagentDispatchAckText(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  return (
+    trimmed.startsWith("Async agent launched successfully.")
+    || trimmed.includes("This tool result is internal metadata")
+    || trimmed.includes("The agent is working in the background.")
+    || trimmed.startsWith("Subagent started in background.")
+    || trimmed.includes("moved to the background to keep the conversation responsive")
+    || trimmed.startsWith("The task is working in the background.")
+  );
+}
+
 export function subagentResultText(part: AgentToolCallPart): string | null {
-  if (part.result?.type === "text" && part.result.text.trim()) return part.result.text;
-  if (part.result?.type === "error" && part.result.message.trim()) return part.result.message;
+  if (part.result?.type === "text" && part.result.text.trim()) {
+    return isSubagentDispatchAckText(part.result.text) ? null : part.result.text;
+  }
+  if (part.result?.type === "error" && part.result.message.trim()) {
+    return isSubagentDispatchAckText(part.result.message) ? null : part.result.message;
+  }
   return null;
 }
 
@@ -149,6 +168,8 @@ export function descendantToolCalls(
     grew = false;
     for (const tool of tools) {
       if (ids.has(tool.tool_call_id)) continue;
+      // Parent wait/poll chrome is not child work, even when parented to the spawn.
+      if (isSubagentWaitTool(tool)) continue;
       if (tool.parent_tool_call_id && ids.has(tool.parent_tool_call_id)) {
         ids.add(tool.tool_call_id);
         grew = true;
@@ -165,6 +186,48 @@ function stripSelectedParent(part: AgentPart, selectedId: string): AgentPart {
   const next = { ...part };
   delete next.parent_tool_call_id;
   return next;
+}
+
+function usableTimestamp(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime()) || date.getUTCFullYear() < 2000) return undefined;
+  return value;
+}
+
+function hostAssistantForTool(
+  messages: AgentMessage[],
+  toolCallId: string,
+): AgentMessage | undefined {
+  for (const message of messages) {
+    if (message.role !== "assistant") continue;
+    if (message.parts.some((part) => part.type === "tool_call" && part.tool_call_id === toolCallId)) {
+      return message;
+    }
+  }
+  return undefined;
+}
+
+function precedingUserCreatedAt(
+  messages: AgentMessage[],
+  host: AgentMessage | undefined,
+): string | undefined {
+  if (!host) return undefined;
+  const index = messages.indexOf(host);
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    const created = usableTimestamp(messages[cursor]?.created_at);
+    if (messages[cursor]?.role === "user" && created) return created;
+  }
+  return undefined;
+}
+
+function nestedThinkingMs(parts: AgentPart[]): number {
+  let total = 0;
+  for (const part of parts) {
+    if (part.type !== "thinking") continue;
+    if (part.duration_ms != null && part.duration_ms > 0) total += part.duration_ms;
+  }
+  return total;
 }
 
 export function messagesForSubagent(
@@ -188,11 +251,13 @@ export function messagesForSubagent(
     for (const part of message.parts) {
       if (part.type === "tool_call") {
         if (part.tool_call_id === toolCallId) continue;
+        if (isSubagentWaitTool(part)) continue;
         if (!descendants.has(part.tool_call_id)) continue;
         parts.push(stripSelectedParent(part, toolCallId));
         continue;
       }
       if ((part.type === "text" || part.type === "thinking") && part.parent_tool_call_id === toolCallId) {
+        if (part.type === "text" && isSubagentDispatchAckText(part.text)) continue;
         parts.push(stripSelectedParent(part, toolCallId));
       }
     }
@@ -200,18 +265,31 @@ export function messagesForSubagent(
 
   if (result) parts.push({ type: "text", text: result });
 
+  const host = hostAssistantForTool(messages, toolCallId);
+  const createdAt = usableTimestamp(host?.created_at) ?? precedingUserCreatedAt(messages, host);
+  const thinkingMs = nestedThinkingMs(parts);
+  const hostWorked = host?.worked_ms != null && host.worked_ms > 0 ? host.worked_ms : undefined;
+  const workedMs = running ? undefined : (thinkingMs > 0 ? thinkingMs : hostWorked);
+  const completedAt = running
+    ? undefined
+    : (usableTimestamp(host?.completed_at) ?? createdAt ?? "completed");
+
   return [
     {
       id: `subagent:${toolCallId}:user`,
       role: "user",
       parts: [{ type: "text", text: prompt }],
+      created_at: createdAt,
     },
     {
       id: `subagent:${toolCallId}:assistant`,
       role: "assistant",
       parts,
       streaming: running,
-      completed_at: running ? undefined : "completed",
+      created_at: createdAt,
+      thinking_ms: thinkingMs > 0 ? thinkingMs : undefined,
+      worked_ms: workedMs,
+      completed_at: completedAt,
     },
   ];
 }
@@ -220,9 +298,10 @@ export function subagentChildActivity(
   messages: AgentMessage[],
   toolCallId: string,
 ): AgentActivity {
-  const projected = messagesForSubagent(messages, toolCallId);
   const parent = findSubagentToolCall(messages, toolCallId);
   const running = parent ? subagentTaskStatus(parent) === "running" : false;
+  if (!running) return { busy: false };
+  const projected = messagesForSubagent(messages, toolCallId);
   if (!projected) return { busy: false };
-  return deriveAgentActivity(projected, running);
+  return deriveAgentActivity(projected, true);
 }

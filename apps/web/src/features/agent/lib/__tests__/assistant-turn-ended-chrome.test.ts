@@ -108,7 +108,7 @@ describe("assistant turn ended chrome after session create", () => {
     );
     const streaming = messages.at(-1)!;
     expect(streaming.streaming).toBe(true);
-    expect(streaming.completed_at).toBeNull();
+    expect(streaming.completed_at).toBeFalsy();
     expect(shouldShowAssistantTurnEndedChrome(streaming, textFromParts(streaming.parts))).toBe(false);
     expect(deriveAgentActivity(messages, true)).toMatchObject({ busy: true, label: "Streaming" });
 

@@ -11,7 +11,8 @@ use crate::map::{
     extract_aspect_ratio, extract_command, extract_cwd, extract_generated_images,
     extract_image_prompt, extract_image_size, extract_links, extract_path, extract_query,
     extract_reference_paths, extract_search_hits, extract_skill, extract_subagent,
-    extract_subagent_prompt, extract_url,
+    extract_subagent_prompt, extract_task_id, extract_url, is_background_spawn_notice,
+    is_subagent_dispatch_ack, subagent_result_text,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -114,6 +115,19 @@ pub(crate) fn map_tool_part(part: &Value) -> Option<ToolMapOut> {
         ClassifiedTool::Call(_) => {}
     }
 
+    let mut status_name = status_name;
+    if matches!(
+        classify_open_code(&name, title, input),
+        ClassifiedTool::Call(crate::contract::AgentToolKind::Subagent)
+    ) {
+        if let Some(output) = output_value(state) {
+            if is_background_spawn_notice(&subagent_result_text(&output))
+                || is_subagent_dispatch_ack(&output)
+            {
+                status_name = "running";
+            }
+        }
+    }
     let (status, event_kind) = match status_name {
         "completed" => (AgentToolStatus::Completed, ToolEventKind::Completed),
         "error" | "failed" => (AgentToolStatus::Failed, ToolEventKind::Failed),
@@ -210,9 +224,16 @@ fn build_tool(
     metadata: Option<&Value>,
     failed: bool,
 ) -> AgentTool {
-    let params = typed_params(kind, input).unwrap_or_else(|| AgentToolParams::Other {
+    let mut params = typed_params(kind, input).unwrap_or_else(|| AgentToolParams::Other {
         value: input.clone(),
     });
+    if let AgentToolParams::Subagent { task_id, .. } = &mut params {
+        if task_id.is_none() {
+            *task_id = output
+                .and_then(extract_task_id)
+                .or_else(|| metadata.and_then(extract_task_id));
+        }
+    }
     let result = match status {
         AgentToolStatus::Pending | AgentToolStatus::Running => None,
         AgentToolStatus::Failed if failed => Some(error_result(output, metadata)),
@@ -290,7 +311,7 @@ fn typed_params(kind: crate::contract::AgentToolKind, input: &Value) -> Option<A
             Some(AgentToolParams::Subagent {
                 description,
                 agent_type,
-                task_id: None,
+                task_id: extract_task_id(input),
                 prompt,
             })
         }
@@ -407,6 +428,12 @@ fn mapped_result(
                 value: value.clone(),
             },
             None => AgentToolResult::Empty,
+        },
+        crate::contract::AgentToolKind::Subagent => AgentToolResult::Text {
+            text: output
+                .map(subagent_result_text)
+                .filter(|text| !text.is_empty())
+                .unwrap_or_else(|| value_text(output)),
         },
         _ => AgentToolResult::Text {
             text: value_text(output),
@@ -538,6 +565,35 @@ mod tests {
         match map_tool_part(&part).expect("mapped") {
             ToolMapOut::Tool { tool, .. } => tool,
             other => panic!("expected tool, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn task_fixture_maps_to_completed_subagent() {
+        let part: Value =
+            serde_json::from_str(include_str!("testdata/subagent_task.json")).unwrap();
+        let tool = match map_tool_part(&part).expect("mapped") {
+            ToolMapOut::Tool { tool, .. } => tool,
+            other => panic!("expected tool, got {other:?}"),
+        };
+        assert_eq!(tool.kind, AgentToolKind::Subagent);
+        assert_eq!(tool.status, AgentToolStatus::Completed);
+        match tool.params {
+            AgentToolParams::Subagent {
+                ref description,
+                agent_type: Some(ref agent_type),
+                task_id: Some(ref task_id),
+                ..
+            } => {
+                assert_eq!(description, "Inspect tests");
+                assert_eq!(agent_type, "explore");
+                assert_eq!(task_id, "child-1");
+            }
+            other => panic!("expected subagent params, got {other:?}"),
+        }
+        match tool.result {
+            Some(AgentToolResult::Text { text }) => assert!(text.contains("All tests pass.")),
+            other => panic!("expected text result, got {other:?}"),
         }
     }
 

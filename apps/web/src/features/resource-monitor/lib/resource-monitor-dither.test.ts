@@ -30,6 +30,10 @@ const sessionNameSrc = readFileSync(
   join(import.meta.dir, "../components/ResourceMonitorSessionName.tsx"),
   "utf8",
 );
+const classesSrc = readFileSync(
+  join(import.meta.dir, "./resource-monitor-classes.ts"),
+  "utf8",
+);
 
 describe("resource monitor dither structure", () => {
   test("UsageBar is a single-stage DitherFunnel without CSS scaleX", () => {
@@ -169,6 +173,11 @@ describe("resource monitor dither structure", () => {
     expect(hierarchySrc).toContain('t("kindTui")');
     expect(hierarchySrc).toContain('t("kindChatUi")');
     expect(hierarchySrc).toContain('t("agentSessions")');
+    expect(hierarchySrc).toContain("RM_CHIP");
+    expect(classesSrc).toContain("bg-foreground/15");
+    expect(classesSrc).toContain("dark:bg-background");
+    expect(classesSrc).not.toMatch(/RM_CHIP[\s\S]*bg-secondary/);
+    expect(classesSrc).not.toMatch(/RM_CHIP[\s\S]*bg-accent/);
   });
 
   test("session rows share one padded hover surface and hide the locate icon", () => {

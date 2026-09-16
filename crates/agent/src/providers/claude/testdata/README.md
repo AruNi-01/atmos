@@ -19,6 +19,8 @@ Agent SDK cross-check (same wire window):
 - TypeScript `PermissionResult` `{ behavior: "allow"|"deny", updatedInput? }`
 - Host → CLI `control_request` keeps `request_id` top-level; CLI → host `control_response` nests `request_id` inside `response`
 
+`subagent_agent_output_completed.json` is the published Agent SDK `AgentOutput` `{status:"completed", agentId, content:[{type:"text",...}]}` shape. One-shot results that are not a dispatch-only `agentId:` resume notice complete the Atmos subagent; `async_launched` / resume-only text stays `running` until `TaskOutput` / `AgentOutput`.
+
 CI does not need a live `claude` binary. Frames follow the published stream-json + stdio control protocol (Agent SDK `_build_command`: **no `--print`**). Chat spawn is duplex `--input-format stream-json` plus `--replay-user-messages`.
 
 Rewind control (host → CLI): `testdata/rewind_files.stdin.json` (`subtype: rewind_files`, `user_message_id`, `dry_run`) and `testdata/rewind_conversation.stdin.json` (`subtype: rewind_conversation`, `target_message_uuid`, `interrupt_if_running: false`). Fork is `--resume=<id> --fork-session` on a new child, not a live control subtype. Live 2.1.252 keeps stdin open (EOF exits before any session frames). `--fork-session` first emits `system/hook_started` `SessionStart:fork` with the new `session_id` and answers host `initialize`; it may never emit `system/init`.

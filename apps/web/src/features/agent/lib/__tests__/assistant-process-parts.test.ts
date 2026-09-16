@@ -56,6 +56,23 @@ describe("assistant process collapse", () => {
     expect(tailParts.map((item) => item.part)).toEqual([{ type: "text", text: "final" }]);
   });
 
+  it("does not treat grok child final text with a parent id as the parent answer", () => {
+    const parts: AgentPart[] = [
+      {
+        type: "tool_call",
+        tool_call_id: "sub",
+        name: "spawn_subagent",
+        kind: "subagent",
+        status: "completed",
+        params: { type: "subagent", description: "Read hello2.txt", agent_type: "explore" },
+        result: { type: "text", text: "hello from child" },
+      },
+      { type: "text", text: "hello from child", parent_tool_call_id: "sub" },
+    ];
+    const { tailParts } = splitAssistantProcessParts(parts);
+    expect(tailParts).toEqual([]);
+  });
+
   it("does not treat nested subagent text as the parent answer", () => {
     const parts: AgentPart[] = [
       {

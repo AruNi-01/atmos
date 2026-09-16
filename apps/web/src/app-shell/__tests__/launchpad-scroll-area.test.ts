@@ -205,7 +205,7 @@ describe("GitHub PR, Issue, and Actions scroll areas", () => {
   });
 
   it("fades commit detail and Actions summary, not the workflow CodeMirror pane", () => {
-    const commit = read("../../features/github/components/CommitDetailView.tsx");
+    const commit = read("../../features/git/components/GitCommitDiffView.tsx");
     const actions = read("../../features/github/components/ActionsDetailView.tsx");
     const jobs = read("../../features/github/components/ActionsJobsList.tsx");
     const create = read("../../features/github/components/PRCreateModal.tsx");

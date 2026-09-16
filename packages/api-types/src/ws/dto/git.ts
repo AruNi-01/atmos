@@ -236,3 +236,46 @@ export type GitHistoryRequest = {
   limit?: number;
   cursor?: number;
 };
+
+export type GitFileBlameKind = "ok" | "binary" | "too_large" | "untracked";
+
+export type GitBlameRange = {
+  start_line: number;
+  end_line: number;
+  commit_hash: string | null;
+};
+
+export type GitBlameCommit = {
+  hash: string;
+  short_hash: string;
+  author_name: string;
+  author_email: string;
+  timestamp: number;
+  subject: string;
+};
+
+export type GitFileBlameRequest = {
+  path: string;
+  file_path: string;
+};
+
+export type GitFileBlameResponse = {
+  file_path: string;
+  blob_id: string | null;
+  kind: GitFileBlameKind;
+  ranges: GitBlameRange[];
+  commits: Record<string, GitBlameCommit>;
+};
+
+export type GitCommitDetailRequest = {
+  path: string;
+  commit_hash: string;
+};
+
+export type GitCommitDetailResponse = {
+  hash: string;
+  body: string | null;
+  files_changed: number;
+  insertions: number;
+  deletions: number;
+};

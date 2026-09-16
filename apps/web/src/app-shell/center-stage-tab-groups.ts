@@ -47,6 +47,7 @@ export function collectDiffGroupTabs(
   extras?: {
     gitHistory?: { visible: boolean; label: string };
     changes?: { visible: boolean; label: string };
+    gitCommits?: Array<{ id: string; value: string; label: string }>;
   },
 ): TabGroupItem[] {
   const diffTabs: TabGroupItem[] = openFiles
@@ -79,6 +80,21 @@ export function collectDiffGroupTabs(
       value: "changes",
       kind: "changes",
     });
+  }
+
+  if (extras?.gitCommits?.length) {
+    const insertAt =
+      (extras.changes?.visible ? 1 : 0) + (extras.gitHistory?.visible ? 1 : 0);
+    diffTabs.splice(
+      insertAt,
+      0,
+      ...extras.gitCommits.map((tab) => ({
+        id: tab.id,
+        label: tab.label,
+        value: tab.value,
+        kind: "git-commit" as const,
+      })),
+    );
   }
 
   return diffTabs;

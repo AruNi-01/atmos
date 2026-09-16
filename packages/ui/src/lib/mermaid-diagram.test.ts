@@ -66,6 +66,7 @@ describe("waitForMermaidSlotReady", () => {
     const source = readFileSync(new URL("./mermaid-diagram.ts", import.meta.url), "utf8");
     expect(source).not.toContain("attempt < 8");
     expect(source).toContain("isPlausibleMermaidSvgSize");
+    expect(source).toContain("installMermaidUtf8Btoa");
     expect(source).toContain("Promise<boolean>");
   });
 });

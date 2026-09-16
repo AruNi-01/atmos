@@ -15,6 +15,7 @@ import {
   LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS,
   LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
   LEFT_SIDEBAR_DIVIDER_GUTTER_PX,
+  LEFT_SIDEBAR_DIVIDER_GUTTER_SCROLLBAR_CLASS,
   CENTER_STAGE_RADIUS_CLASS,
   CENTER_STAGE_RADIUS_CSS,
   SIDEBAR_PEEK_CONTENT_PT_CLASS,
@@ -176,6 +177,7 @@ describe("center-stage chrome", () => {
     expect(LEFT_SIDEBAR_DIVIDER_GUTTER_PX).toBe(CENTER_STAGE_GUTTER_X_PX);
     expect(LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS).toBe("pr-1");
     expect(LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS).toBe("mr-1");
+    expect(LEFT_SIDEBAR_DIVIDER_GUTTER_SCROLLBAR_CLASS).toContain("me-0");
   });
 
   test("left sidebar sits on the same divider gutter as the center card", () => {
@@ -187,6 +189,9 @@ describe("center-stage chrome", () => {
     const projectItem = read("../sidebar/ProjectItem.tsx");
     expect(projectItem).toContain("LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS");
     expect(projectItem).toContain("LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS");
+
+    const sidebar = read("../LeftSidebar.tsx");
+    expect(sidebar).toContain("LEFT_SIDEBAR_DIVIDER_GUTTER_SCROLLBAR_CLASS");
   });
 
   test("resize handles use a pointer-following mark instead of a hover hairline", () => {

@@ -123,7 +123,7 @@ describe("agent prompt composer", () => {
     expect(composer).toContain("showSubagentTasksCard");
     expect(composer).toContain('data-agent-chat-above-composer-overlays=""');
     expect(composer).toContain(
-      '"pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full flex-col gap-2 has-[.pointer-events-auto]:pb-2"',
+      '"pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full min-h-0 flex-col gap-2 has-[.pointer-events-auto]:pb-2"',
     );
     expect(composer).toContain('data-agent-chat-scroll-button-host=""');
     expect(composer).toContain("empty:hidden");

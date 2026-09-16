@@ -1284,6 +1284,7 @@
     },
     "centerStage": {
       "fallbackTerminalTitle": "终端",
+      "fallbackAgentChatTitle": "对话",
       "errors": {
         "failedToCloseTerminal": "关闭终端失败",
         "failedToClosePreviousTerminal": "关闭上一个终端失败",
@@ -1301,6 +1302,10 @@
         "closeTerminalTab": {
           "title": "关闭终端标签页？",
           "description": "{title} 中有正在运行的面板。关闭后会终止这些进程，并移除该标签页中的所有面板。"
+        },
+        "closeAgentChatTab": {
+          "title": "关闭 Agent Chat？",
+          "description": "{title} 仍在运行，或处于需要关注、需要授权状态。确定关闭此标签页吗？"
         }
       },
       "toasts": {
@@ -4539,10 +4544,21 @@
           "breadcrumbsTooltip": "显示当前文件路径。",
           "lineHighlight": "当前行高亮",
           "lineHighlightTooltip": "高亮当前行。",
-          "gitIntegration": "Git 集成",
-          "gitIntegrationTooltip": "在边栏中显示 Git 变更。",
+          "gitIntegration": "Git 变更条",
+          "gitIntegrationTooltip": "在行号旁显示未提交的 Git 变更。",
+          "gitBlame": "Git 追溯",
+          "gitBlameTooltip": "显示当前行最后一次修改对应的提交。",
           "expandToggles": "默认展开折叠块",
           "expandTogglesTooltip": "在实时编辑和预览中默认展开 Markdown 折叠块。"
+        },
+        "gitBlame": {
+          "notCommittedYet": "尚未提交",
+          "filesChanged": "{count} 个文件变更",
+          "insertions": "+{count}",
+          "deletions": "-{count}",
+          "copyHash": "复制提交哈希",
+          "copied": "已复制",
+          "openCommit": "打开提交"
         }
       },
       "searchPanel": {
@@ -5593,7 +5609,7 @@
               "label": "行高亮"
             },
             "gitIntegration": {
-              "label": "Git 集成"
+              "label": "Git 变更条"
             },
             "diff": {
               "label": "Diff"
@@ -6140,8 +6156,12 @@
           "description": "高亮当前行和匹配的选区。"
         },
         "gitIntegration": {
-          "title": "Git 集成",
-          "description": "在编辑器中显示 Git 变更和 diff 信息。"
+          "title": "Git 变更条",
+          "description": "在行号旁显示未提交的 Git 变更。"
+        },
+        "gitBlame": {
+          "title": "Git 追溯",
+          "description": "显示当前行最后一次修改对应的提交。"
         },
         "expandToggles": {
           "title": "默认展开折叠块",
@@ -8811,6 +8831,10 @@
         "commit": "提交"
       },
       "resizeColumn": "调整{column}列宽"
+    },
+    "commitDiff": {
+      "loading": "正在加载提交...",
+      "filesChanged": "{count} 个文件变更"
     }
   },
   "localServices": {

@@ -11,7 +11,7 @@ use crate::map::{
     extract_aspect_ratio, extract_command, extract_cwd, extract_generated_images,
     extract_image_prompt, extract_image_size, extract_links, extract_path, extract_query,
     extract_reference_paths, extract_search_hits, extract_skill, extract_subagent,
-    extract_subagent_prompt, extract_url,
+    extract_subagent_prompt, extract_task_id, extract_url, subagent_result_text,
 };
 
 #[derive(Debug, Clone)]
@@ -135,7 +135,17 @@ fn build_typed(
     if kind == AgentToolKind::Other {
         return None;
     }
-    let params = typed_params(kind, args)?;
+    let mut params = typed_params(kind, args)?;
+    if let AgentToolParams::Subagent { task_id, .. } = &mut params {
+        if task_id.is_none() {
+            *task_id = result
+                .and_then(extract_task_id)
+                .or_else(|| {
+                    result.and_then(|value| string_field(value, &["session_id", "sessionId"]))
+                })
+                .or_else(|| extract_task_id(args));
+        }
+    }
     let result = mapped_result(kind, args, result, status, is_error);
     Some(AgentTool {
         tool_call_id: tool_call_id.to_string(),
@@ -191,8 +201,8 @@ fn typed_params(kind: AgentToolKind, args: &Value) -> Option<AgentToolParams> {
         AgentToolKind::Subagent => {
             let (description, agent_type) = extract_subagent(args).or_else(|| {
                 Some((
-                    string_field(args, &["description", "prompt"]).unwrap_or_default(),
-                    string_field(args, &["subagent_type", "agent_type"]),
+                    string_field(args, &["description", "prompt", "task"]).unwrap_or_default(),
+                    string_field(args, &["subagent_type", "agent_type", "agent"]),
                 ))
             })?;
             if description.is_empty() {
@@ -202,7 +212,7 @@ fn typed_params(kind: AgentToolKind, args: &Value) -> Option<AgentToolParams> {
             Some(AgentToolParams::Subagent {
                 description,
                 agent_type,
-                task_id: None,
+                task_id: extract_task_id(args),
                 prompt,
             })
         }
@@ -292,10 +302,19 @@ fn mapped_result(
                 AgentToolResult::SearchHits { query, hits }
             }
         }
+        AgentToolKind::Subagent => AgentToolResult::Text {
+            text: {
+                let text = subagent_result_text(result);
+                if text.is_empty() {
+                    result_text(result)
+                } else {
+                    text
+                }
+            },
+        },
         AgentToolKind::Delete
         | AgentToolKind::Move
         | AgentToolKind::Skill
-        | AgentToolKind::Subagent
         | AgentToolKind::McpList
         | AgentToolKind::McpCall
         | AgentToolKind::PlanDocument => AgentToolResult::Text {
@@ -477,6 +496,42 @@ mod tests {
 
     fn load_bash() -> Vec<Value> {
         super::super::codec::parse_jsonl(include_str!("testdata/tool-bash.jsonl"))
+    }
+
+    #[test]
+    fn agent_spawn_fixture_maps_to_subagent() {
+        let fixture: Value =
+            serde_json::from_str(include_str!("testdata/subagent_spawn.json")).unwrap();
+        let mapped = map_tool_execution(
+            fixture["tool_call_id"].as_str().unwrap(),
+            fixture["tool_name"].as_str().unwrap(),
+            &fixture["args"],
+            AgentToolStatus::Completed,
+            fixture.get("result"),
+            false,
+        );
+        let ToolMapOut::Tool(tool) = mapped else {
+            panic!("expected tool");
+        };
+        assert_eq!(tool.kind, AgentToolKind::Subagent);
+        assert_eq!(tool.status, AgentToolStatus::Completed);
+        match tool.params {
+            AgentToolParams::Subagent {
+                ref description,
+                agent_type: Some(ref agent_type),
+                task_id: Some(ref task_id),
+                ..
+            } => {
+                assert_eq!(description, "Inspect tests");
+                assert_eq!(agent_type, "explore");
+                assert_eq!(task_id, "child-1");
+            }
+            other => panic!("expected subagent params, got {other:?}"),
+        }
+        match tool.result {
+            Some(AgentToolResult::Text { text }) => assert!(text.contains("All tests pass.")),
+            other => panic!("expected text result, got {other:?}"),
+        }
     }
 
     #[test]

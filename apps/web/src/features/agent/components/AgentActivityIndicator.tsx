@@ -9,6 +9,7 @@ import {
   TextShimmer,
   pickActivityIndicatorStyle,
 } from "@workspace/ui";
+import { cn } from "@/shared/lib/utils";
 import type { AgentActivity } from "../lib/chat-helpers";
 import { formatWorkDuration, workDurationParts } from "../lib/agent-chat-timing";
 
@@ -32,6 +33,39 @@ function DurationUnit({ value, unit }: { value: number; unit: "h" | "m" | "s" })
     <span className="inline-flex items-baseline">
       <SlidingNumber value={value} />
       <span>{unit}</span>
+    </span>
+  );
+}
+
+export function AgentActivityStatusText({
+  activity,
+  className,
+}: {
+  activity: AgentActivity & { busy: true };
+  className?: string;
+}) {
+  const label = activity.trail === "none" ? activity.label : `${activity.label}...`;
+  const reduced = Boolean(useReducedMotion());
+  return (
+    <span className={cn("relative inline-flex h-5 min-w-0 items-center overflow-hidden", className)}>
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.span
+          key={label}
+          initial={reduced ? false : { y: 12, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={reduced ? { opacity: 0 } : { y: -12, opacity: 0 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          className="inline-flex min-w-0 max-w-full items-center overflow-hidden"
+        >
+          <TextShimmer
+            as="span"
+            className="block max-w-full truncate text-sm leading-5"
+            duration={1.5}
+          >
+            {label}
+          </TextShimmer>
+        </motion.span>
+      </AnimatePresence>
     </span>
   );
 }
@@ -70,7 +104,6 @@ export function AgentActivityIndicator({
   elapsedMs?: number;
 }) {
   const thinking = activity.kind === "thinking";
-  const label = activity.trail === "none" ? activity.label : `${activity.label}...`;
   const reduced = Boolean(useReducedMotion());
   const [streamStyle] = useState(() => pickActivityIndicatorStyle(STREAM_ORB_GROUPS));
   const glyphStyle = thinking ? "stars" : streamStyle;
@@ -83,26 +116,7 @@ export function AgentActivityIndicator({
           size={GLYPH_SIZE}
         />
       </span>
-      <span className="relative inline-flex h-5 min-w-0 items-center overflow-hidden">
-        <AnimatePresence mode="popLayout" initial={false}>
-          <motion.span
-            key={label}
-            initial={reduced ? false : { y: 12, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={reduced ? { opacity: 0 } : { y: -12, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="inline-flex min-w-0 max-w-full items-center overflow-hidden"
-          >
-            <TextShimmer
-              as="span"
-              className="block max-w-full truncate text-sm leading-5"
-              duration={1.5}
-            >
-              {label}
-            </TextShimmer>
-          </motion.span>
-        </AnimatePresence>
-      </span>
+      <AgentActivityStatusText activity={activity} />
       <WorkDurationClock elapsedMs={elapsedMs} reduced={reduced} />
     </div>
   );

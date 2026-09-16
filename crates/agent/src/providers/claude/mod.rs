@@ -622,7 +622,8 @@ async fn note_delivered_event(
         AgentEvent::TurnCompleted { .. }
             | AgentEvent::TurnFailed { .. }
             | AgentEvent::TurnCanceled { .. }
-    ) {
+    ) && !map.has_running_subagent()
+    {
         *commands.running_turn.lock().await = None;
         commands.cancel_requested.store(false, Ordering::SeqCst);
     }

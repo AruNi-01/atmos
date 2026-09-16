@@ -16,6 +16,7 @@ const CONTEXT_ENCODED_TAB_PREFIXES = [
   "github-pr:",
   "github-issue:",
   "github-action:",
+  "git-commit:",
   "github-commit:",
   "browser:",
 ] as const;

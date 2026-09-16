@@ -50,6 +50,7 @@ mod tests {
         ToolCallUpdate {
             tool_call_id: "tc_1".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: name.into(),
             description: String::new(),
             acp_kind: Some("other".into()),

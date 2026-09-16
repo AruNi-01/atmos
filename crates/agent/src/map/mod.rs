@@ -24,11 +24,10 @@ pub use extract::{
     extract_generated_images, extract_image_prompt, extract_image_size, extract_links,
     extract_path, extract_query, extract_reference_paths, extract_search_hits, extract_skill,
     extract_subagent, extract_subagent_prompt, extract_task_id, extract_url, human_execute_title,
-    is_human_tool_description, labeled_id_from_text, sanitize_execute_output,
+    is_human_tool_description, sanitize_execute_output,
 };
 pub use subagent::{
     apply_xai_subagent_notice, hold_subagent_open, is_background_spawn_notice,
-    is_subagent_dispatch_ack, is_subagent_spawn_name, is_xai_session_notification_method,
-    parse_subagent_status, parse_xai_subagent_notification, store_subagent_tool,
-    strip_subagent_footers, subagent_result_text, XaiSubagentNotice,
+    is_subagent_dispatch_ack, parse_subagent_status, parse_xai_subagent_notification,
+    store_subagent_tool, strip_subagent_footers, subagent_result_text, XaiSubagentNotice,
 };

@@ -288,8 +288,9 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
         const hasDiffFilePath =
           typeof options?.diffFilePath === 'string' && options.diffFilePath.length > 0;
         const preferMarkdownSource = options?.preferMarkdownSource === true;
+        const openGitGutter = options?.openGitGutter === "all" ? ("all" as const) : undefined;
         const navigationTarget =
-          hasLine || hasSelectRanges || hasDiffFilePath || preferMarkdownSource || options?.reviewCommentGuid || options?.reviewMessageGuid
+          hasLine || hasSelectRanges || hasDiffFilePath || preferMarkdownSource || options?.reviewCommentGuid || options?.reviewMessageGuid || openGitGutter
             ? {
                 ...(hasLine
                   ? {
@@ -302,6 +303,7 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
                     }
                   : {}),
                 ...(hasSelectRanges ? { selectRanges } : {}),
+                ...(openGitGutter ? { openGitGutter } : {}),
                 ...(preferMarkdownSource ? { preferMarkdownSource: true } : {}),
                 reviewCommentGuid: options?.reviewCommentGuid,
                 reviewMessageGuid: options?.reviewMessageGuid,

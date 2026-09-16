@@ -1,6 +1,7 @@
 use super::{
-    remote_branch_fetch_target, show_git_blob_bytes, sync_worktree_local_excludes, DiffContentKind,
-    DiffPreviewKind, GitBlobLocator, GitEngine,
+    clear_file_blame_cache, last_file_blame_was_cache_hit, remote_branch_fetch_target,
+    show_git_blob_bytes, sync_worktree_local_excludes, DiffContentKind, DiffPreviewKind,
+    FileBlameKind, GitBlobLocator, GitEngine,
 };
 
 // Minimal 1x1 PNG
@@ -1106,6 +1107,204 @@ fn commit_history_includes_merge_parents_refs_and_pagination() {
         .map(|commit| commit.hash.clone())
         .collect();
     assert_eq!(paged_hashes, expected_hashes);
+
+    remove_temp_repo(root);
+}
+
+fn setup_local_repo(name: &str) -> (PathBuf, PathBuf) {
+    let root = unique_temp_dir(name);
+    let repo_path = root.join("repo");
+    fs::create_dir_all(&repo_path).expect("repo dir");
+    git(&repo_path, &["init"]);
+    configure_repo(&repo_path);
+    git(&repo_path, &["branch", "-m", "main"]);
+    (root, repo_path)
+}
+
+#[test]
+fn s1_file_blame_ranges_for_two_commits() {
+    let (root, repo_path) = setup_local_repo("blame-two-commits");
+    commit_file(&repo_path, "a.ts", "one\ntwo\nthree\n", "first block");
+    commit_file(
+        &repo_path,
+        "a.ts",
+        "one\ntwo\nthree\nfour\nfive\n",
+        "second block",
+    );
+    let hash_a = git_output(&repo_path, &["rev-parse", "HEAD~1"])
+        .trim()
+        .to_string();
+    let hash_b = git_output(&repo_path, &["rev-parse", "HEAD"])
+        .trim()
+        .to_string();
+
+    let info = GitEngine::new()
+        .file_blame(&repo_path, "a.ts")
+        .expect("blame");
+    assert_eq!(info.kind, FileBlameKind::Ok);
+    assert!(info.blob_id.is_some());
+    assert!(
+        info.ranges.iter().any(|r| r.start_line == 1
+            && r.end_line == 3
+            && r.commit_hash.as_deref() == Some(hash_a.as_str())),
+        "expected lines 1-3 from first commit, got {:?}",
+        info.ranges
+    );
+    assert!(
+        info.ranges.iter().any(|r| r.start_line == 4
+            && r.end_line == 5
+            && r.commit_hash.as_deref() == Some(hash_b.as_str())),
+        "expected lines 4-5 from second commit, got {:?}",
+        info.ranges
+    );
+    assert_eq!(info.commits[&hash_a].subject, "first block");
+    assert_eq!(info.commits[&hash_b].author_name, "Atmos Test");
+
+    remove_temp_repo(root);
+}
+
+#[test]
+fn s12_uncommitted_worktree_line_has_null_hash() {
+    let (root, repo_path) = setup_local_repo("blame-uncommitted");
+    commit_file(&repo_path, "a.ts", "one\n", "base");
+    write_file(&repo_path.join("a.ts"), "one\ntwo\n");
+
+    let info = GitEngine::new()
+        .file_blame(&repo_path, "a.ts")
+        .expect("blame");
+    assert_eq!(info.kind, FileBlameKind::Ok);
+    let uncommitted = info
+        .ranges
+        .iter()
+        .find(|r| r.commit_hash.is_none())
+        .expect("uncommitted range");
+    assert_eq!(uncommitted.start_line, 2);
+    assert!(!info.commits.keys().any(|k| k.bytes().all(|b| b == b'0')));
+
+    remove_temp_repo(root);
+}
+
+#[test]
+fn s13_skip_binary_too_large_and_untracked() {
+    let (root, repo_path) = setup_local_repo("blame-skips");
+    commit_file(&repo_path, "keep.ts", "ok\n", "keep");
+
+    fs::write(repo_path.join("icon.png"), TINY_PNG).expect("png");
+    git(&repo_path, &["add", "icon.png"]);
+    git(&repo_path, &["commit", "-m", "png"]);
+
+    let huge = "a".repeat((1536 * 1024) + 8);
+    write_file(&repo_path.join("huge.txt"), &huge);
+    git(&repo_path, &["add", "huge.txt"]);
+    git(&repo_path, &["commit", "-m", "huge"]);
+
+    write_file(&repo_path.join("scratch.ts"), "nope\n");
+
+    let engine = GitEngine::new();
+    let binary = engine.file_blame(&repo_path, "icon.png").expect("png skip");
+    assert_eq!(binary.kind, FileBlameKind::Binary);
+    assert!(binary.ranges.is_empty());
+
+    let too_large = engine
+        .file_blame(&repo_path, "huge.txt")
+        .expect("size skip");
+    assert_eq!(too_large.kind, FileBlameKind::TooLarge);
+    assert!(too_large.ranges.is_empty());
+
+    let untracked = engine
+        .file_blame(&repo_path, "scratch.ts")
+        .expect("untracked skip");
+    assert_eq!(untracked.kind, FileBlameKind::Untracked);
+    assert!(untracked.ranges.is_empty());
+
+    let many_lines = (0..10_001)
+        .map(|i| format!("l{i}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    write_file(&repo_path.join("lines.txt"), &many_lines);
+    git(&repo_path, &["add", "lines.txt"]);
+    git(&repo_path, &["commit", "-m", "lines"]);
+    let line_cap = engine
+        .file_blame(&repo_path, "lines.txt")
+        .expect("line skip");
+    assert_eq!(line_cap.kind, FileBlameKind::TooLarge);
+
+    remove_temp_repo(root);
+}
+
+#[test]
+fn s18_adjacent_same_sha_coalesces() {
+    let (root, repo_path) = setup_local_repo("blame-coalesce");
+    let content = (1..=10)
+        .map(|i| format!("line {i}"))
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+    commit_file(&repo_path, "a.ts", &content, "ten lines");
+
+    let info = GitEngine::new()
+        .file_blame(&repo_path, "a.ts")
+        .expect("blame");
+    assert_eq!(info.ranges.len(), 1);
+    assert_eq!(info.ranges[0].start_line, 1);
+    assert_eq!(info.ranges[0].end_line, 10);
+
+    remove_temp_repo(root);
+}
+
+#[test]
+fn s3_commit_detail_parses_shortstat_and_body() {
+    let (root, repo_path) = setup_local_repo("blame-detail");
+    commit_file(&repo_path, "a.ts", "one\n", "subject only");
+    write_file(&repo_path.join("a.ts"), "one\ntwo\n");
+    git(&repo_path, &["add", "a.ts"]);
+    git(
+        &repo_path,
+        &["commit", "-m", "subject line", "-m", "body paragraph"],
+    );
+    let hash = git_output(&repo_path, &["rev-parse", "HEAD"])
+        .trim()
+        .to_string();
+
+    let detail = GitEngine::new()
+        .commit_detail(&repo_path, &hash)
+        .expect("detail");
+    assert_eq!(detail.hash, hash);
+    assert_eq!(detail.body.as_deref(), Some("body paragraph"));
+    assert!(detail.files_changed >= 1);
+    assert!(detail.insertions >= 1);
+
+    remove_temp_repo(root);
+}
+
+#[test]
+fn blob_fingerprint_cache_skips_second_porcelain_walk() {
+    let (root, repo_path) = setup_local_repo("blame-cache");
+    commit_file(&repo_path, "a.ts", "one\n", "base");
+    clear_file_blame_cache();
+    let engine = GitEngine::new();
+    let first = engine.file_blame(&repo_path, "a.ts").expect("first");
+    assert!(
+        !last_file_blame_was_cache_hit(),
+        "first blame after clear must walk porcelain"
+    );
+    let second = engine.file_blame(&repo_path, "a.ts").expect("second");
+    assert!(
+        last_file_blame_was_cache_hit(),
+        "unchanged blob must not blame again"
+    );
+
+    assert_eq!(first.blob_id, second.blob_id);
+    assert_eq!(first.ranges, second.ranges);
+
+    write_file(&repo_path.join("a.ts"), "one\nchanged\n");
+    git(&repo_path, &["add", "a.ts"]);
+    git(&repo_path, &["commit", "-m", "changed"]);
+    let _ = engine.file_blame(&repo_path, "a.ts").expect("after change");
+    assert!(
+        !last_file_blame_was_cache_hit(),
+        "new blob must walk porcelain"
+    );
 
     remove_temp_repo(root);
 }

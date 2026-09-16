@@ -136,6 +136,25 @@ export const queryKeys = {
     /** Topological commit history pages for the center-tab graph. */
     gitHistory: (scope: ComputerQueryScope, repoPath: string) =>
       [...queryKeys.computer.git(scope, repoPath), "history"] as const,
+    gitLocalCommit: (
+      scope: ComputerQueryScope,
+      repoPath: string,
+      sha: string,
+    ) => [...queryKeys.computer.git(scope, repoPath), "localCommit", sha] as const,
+    /** Whole-file blame ranges. Do not put hover SHA or caret line in this key. */
+    gitFileBlame: (
+      scope: ComputerQueryScope,
+      repoPath: string,
+      filePath: string,
+    ) =>
+      [...queryKeys.computer.git(scope, repoPath), "fileBlame", filePath] as const,
+    /** Lazy git show --shortstat keyed only by commit SHA. */
+    gitCommitDetail: (
+      scope: ComputerQueryScope,
+      repoPath: string,
+      commitHash: string,
+    ) =>
+      [...queryKeys.computer.git(scope, repoPath), "commitDetail", commitHash] as const,
     /** Prefix for all filesystem queries — used for broad reconnect invalidation. */
     filesRoot: (scope: ComputerQueryScope) =>
       [...queryKeys.computer.root(scope), "files"] as const,

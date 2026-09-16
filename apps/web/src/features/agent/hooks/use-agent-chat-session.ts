@@ -88,6 +88,7 @@ import { useAgentChatUiHandlers } from "./use-agent-chat-ui-handlers";
 import {
   agentChatEventFor,
   currentPlanFromMessages,
+  currentTurnHasRunningSubagent,
   dedupeAgentMessages,
   foldMessagesFromEvent,
 } from "@/features/agent/lib/agent-chat-events";
@@ -372,6 +373,7 @@ export function useAgentChatSession({
   const [elapsedMs, setElapsedMs] = useState(0);
   const consumedPrompts = useRef(new Set<string>());
   const lastSeq = useRef(0);
+  const liveAssistantTurnRef = useRef(false);
   const hydratingRef = useRef(Boolean(chatId) && resumeTranscript);
   const pendingEventsRef = useRef<AgentChatEvent[]>([]);
   const stoppedRef = useRef(false);
@@ -473,10 +475,7 @@ export function useAgentChatSession({
 
   const liveTurn = busy || isLiveAssistantTurn(messages.at(-1));
   useEffect(() => {
-    if (!liveTurn || turnStartedAt == null) {
-      if (!liveTurn) setElapsedMs(0);
-      return;
-    }
+    if (!liveTurn || turnStartedAt == null) return;
     const tick = () => setElapsedMs(Math.max(0, Date.now() - turnStartedAt));
     tick();
     const timer = window.setInterval(tick, 1000);
@@ -924,13 +923,20 @@ export function useAgentChatSession({
         if (event.sequence <= lastSeq.current) return;
         lastSeq.current = event.sequence;
       }
-      setMessages((current) => foldMessagesFromEvent(current, event, activeIdRef.current));
+      setMessages((current) => {
+        const next = foldMessagesFromEvent(current, event, activeIdRef.current);
+        liveAssistantTurnRef.current = isLiveAssistantTurn(next.at(-1))
+          || currentTurnHasRunningSubagent(next);
+        return next;
+      });
       const payload = event.payload;
       if (payload.type === "turn_started") {
         setBusy(true);
         setRunningTurnId(payload.turn_id ?? null);
         const started = payload.created_at ? Date.parse(payload.created_at) : Date.now();
-        setTurnStartedAt(Number.isNaN(started) ? Date.now() : started);
+        const clock = Number.isNaN(started) ? Date.now() : started;
+        setTurnStartedAt(clock);
+        setElapsedMs(Math.max(0, Date.now() - clock));
       }
       if (
         payload.type === "assistant_message_delta"
@@ -942,13 +948,25 @@ export function useAgentChatSession({
       ) {
         // Content after a premature turn_completed must reopen the busy turn.
         setBusy(true);
+        setTurnStartedAt((current) => current ?? Date.now());
+      }
+      if (
+        payload.type === "turn_completed"
+        || payload.type === "tool_call_completed"
+        || payload.type === "tool_call_failed"
+      ) {
+        if (!liveAssistantTurnRef.current) {
+          setBusy(false);
+          setRunningTurnId(null);
+          // Keep Ask / permission chrome until PermissionResolved — Grok may still
+          // be waiting on `_x.ai/ask_user_question` after a premature TurnEnd.
+          setTurnStartedAt(null);
+          if (payload.type === "turn_completed" && payload.worked_ms != null) {
+            setElapsedMs(payload.worked_ms);
+          }
+        }
       }
       if (payload.type === "turn_completed") {
-        setBusy(false);
-        setRunningTurnId(null);
-        // Keep Ask / permission chrome until PermissionResolved — Grok may still
-        // be waiting on `_x.ai/ask_user_question` after a premature TurnEnd.
-        setTurnStartedAt(null);
         const auth = authRequiredFromTurnError(payload.error, providerIdRef.current);
         if (auth) {
           setSelectedAuthMethodId("");

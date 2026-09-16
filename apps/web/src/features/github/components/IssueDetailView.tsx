@@ -66,6 +66,7 @@ import {
   LabelsList,
 } from "@/features/github/lib/pr-detail-sidebar";
 import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
+import { useOpenGitCommitCenterTab } from "@/features/git/hooks/use-open-git-commit-center-tab";
 import { useRepoPrListQuery } from "@/features/github/hooks/use-github-pr-query";
 import { groupConsecutiveTimelineCommits } from "@/features/github/lib/timeline-commits";
 import {
@@ -110,7 +111,7 @@ export function IssueDetailView({
   const t = useTranslations("github.issueDetail");
   const reserveClose = useDrawerCloseReserve();
   const relativeTimeLocale = locale.startsWith("zh") ? zhCN : enUS;
-  const { openCommitTab } = useOpenGithubCenterTab();
+  const { openCommitTab } = useOpenGitCommitCenterTab();
   const { data: issue, loading } = useGithubIssueDetail(
     issueNumber,
     owner,
@@ -708,7 +709,7 @@ function IssueTimelineItem({
   owner: string;
   repo: string;
 }) {
-  const { openCommitTab } = useOpenGithubCenterTab();
+  const { openCommitTab } = useOpenGitCommitCenterTab();
   const login = item.author?.login ?? t("unknownUser");
   const time = item.createdAt
     ? formatDistanceToNow(new Date(item.createdAt), { addSuffix: true, locale })

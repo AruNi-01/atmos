@@ -6,7 +6,10 @@ import { useAppRouter } from '@/shared/hooks/use-app-router';
 import { useQueryState } from 'nuqs';
 import { useContextParams } from '@/shared/hooks/use-context-params';
 import { useSidebarLayout } from '@/app-shell/SidebarLayoutContext';
-import { LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS } from '@/app-shell/sidebar-layout-constants';
+import {
+    LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+    LEFT_SIDEBAR_DIVIDER_GUTTER_SCROLLBAR_CLASS,
+} from '@/app-shell/sidebar-layout-constants';
 import { centerStageParams } from '@/shared/lib/nuqs/searchParams';
 import { cn } from "@workspace/ui";
 import { useAppStorage } from "@atmos/shared";
@@ -1581,7 +1584,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     return (
         <>
-            <aside className="@container flex h-full w-full flex-col select-none bg-sidebar text-sidebar-foreground">
+            <aside
+                className={cn(
+                    "@container flex h-full w-full flex-col select-none bg-sidebar text-sidebar-foreground",
+                    LEFT_SIDEBAR_DIVIDER_GUTTER_SCROLLBAR_CLASS,
+                )}
+            >
                 {/* Launchpad — wait for first load attempt to avoid default-config flash */}
                 {launchpadSettled ? (
                     <LeftSidebarLaunchpadBlock

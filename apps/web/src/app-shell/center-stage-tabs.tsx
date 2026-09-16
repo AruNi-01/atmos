@@ -27,7 +27,10 @@ import {
   useAgentAttentionStore,
 } from "@/features/agent/store/agent-attention-store";
 import { AGENT_STATE, useAgentStatusStore } from "@/features/agent/store/agent-status-store";
-import { chatAttentionLookupIds } from "@/features/agent/lib/agent-status-ack";
+import {
+  resolveAgentChatAttentionReason,
+  shouldConfirmCloseAgentChat,
+} from "@/features/agent/lib/agent-chat-close-confirm";
 import {
   getEditorDisplayPath,
   type OpenFile,
@@ -80,7 +83,7 @@ export type TabGroupItem = {
     | "github-pr"
     | "github-issue"
     | "github-action"
-    | "github-commit"
+    | "git-commit"
     | "github"
     | "browser"
     | "simulator"
@@ -212,17 +215,13 @@ export function TerminalTabAgentIndicatorWithPanes({ contextId, tabId }: { conte
 
 export function AgentChatTabStatusIndicator({ chatId }: { chatId: string }) {
   const state = useAgentStatusStore((s) => s.getAgentStateForChatId(chatId));
-  const attentionReason = useAgentAttentionStore((s) => {
-    let best: AttentionReason | null = null;
-    for (const id of chatAttentionLookupIds(chatId)) {
-      const reason = s.panes.get(id)?.reason;
-      if (!reason) continue;
-      if (reason === "permission_request") return "permission_request" as const;
-      best = reason;
-    }
-    return best;
-  });
+  const attentionReason = useAgentAttentionStore((s) =>
+    resolveAgentChatAttentionReason(chatId, s.panes),
+  );
 
+  if (!shouldConfirmCloseAgentChat({ chatId, occupancy: state, attentionReason })) {
+    return null;
+  }
   if (state !== AGENT_STATE.IDLE) {
     return (
       <AgentStatusIndicator

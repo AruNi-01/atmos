@@ -37,10 +37,12 @@ pub use fs::{
     compensate_path, CompensateStrategy, FileTreeItem, FsEngine, FsEntry, GitValidationResult,
 };
 pub use git::{
+    clear_file_blame_cache, file_blame_compute_count, last_file_blame_was_cache_hit,
     list_ignored_paths, list_ignored_paths_for_many, show_git_blob_bytes,
-    sync_worktree_local_excludes, ChangedFileInfo, ChangedFilesInfo, CommitInfo, DiffContentKind,
-    DiffPreviewKind, FileDiffInfo, GitBlobLocator, GitEngine, GitStatus, HistoryCommit,
-    HistoryPage, HistoryRef, HistoryRefKind, WorktreeInfo,
+    sync_worktree_local_excludes, BlameCommit, BlameRange, ChangedFileInfo, ChangedFilesInfo,
+    CommitDetailInfo, CommitInfo, DiffContentKind, DiffPreviewKind, FileBlameInfo, FileBlameKind,
+    FileDiffInfo, GitBlobLocator, GitEngine, GitStatus, HistoryCommit, HistoryPage, HistoryRef,
+    HistoryRefKind, WorktreeInfo,
 };
 pub use github::GithubEngine;
 pub use host_devices::{

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import {
@@ -29,14 +29,32 @@ import {
 } from '@codemirror/view';
 import { oneDarkHighlightStyle } from '@codemirror/theme-one-dark';
 import { showMinimap } from '@replit/codemirror-minimap';
+import { useQueryClient } from '@tanstack/react-query';
+import { formatDistanceToNow } from 'date-fns';
+import { enUS, zhCN } from 'date-fns/locale';
+import { useLocale, useTranslations } from 'next-intl';
 import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui';
+import { useComputerQueryScope } from '@/api/query/query-scope';
 import { gitApi } from '@/api/ws-api';
+import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
+import { useGitFileBlameQuery } from '@/features/git/hooks/use-git-file-blame-query';
 import { useGitFileDiffQuery } from '@/features/git/hooks/use-git-file-diff-query';
-import type { GitFileDiffParams } from '@/features/git/lib/git-query-options';
+import { useGitStatusQuery } from '@/features/git/hooks/use-git-status-query';
+import { useOpenGitCommitCenterTab } from '@/features/git/hooks/use-open-git-commit-center-tab';
+import {
+  gitCommitDetailQueryOptions,
+  type GitFileDiffParams,
+} from '@/features/git/lib/git-query-options';
 import { loadCodeLanguageSupport } from '@/shared/lib/code-language';
 import { isTauriShell } from '@/shared/lib/desktop-bridge';
-import { createGitChangeGutterExtensions } from '@/shared/lib/codemirror-git-gutter';
+import { createGitBlameExtensions } from '@/shared/lib/codemirror-git-blame';
+import { formatBlameWhen } from '@/shared/lib/codemirror-git-blame-time';
+import {
+  createGitChangeGutterExtensions,
+  openAllGitGutterChunks,
+  openGitGutterChunksForLineRanges,
+} from '@/shared/lib/codemirror-git-gutter';
 import { createSearchExtension } from './codemirror-search-panel';
 
 const EDITOR_AGAINST_INDEX_DIFF_PARAMS: GitFileDiffParams = {
@@ -45,7 +63,7 @@ const EDITOR_AGAINST_INDEX_DIFF_PARAMS: GitFileDiffParams = {
   baseRef: null,
   commitRef: null,
 };
-/** 用于在启用 Git 集成时拉取 `git_file_diff`（仓库根路径 + 相对路径）。 */
+/** 用于在启用 Git 变更条时拉取 `git_file_diff`（仓库根路径 + 相对路径）。 */
 export interface BaseCodeMirrorEditorGitDiffSource {
   repoPath: string;
   fileRelativePath: string;
@@ -63,6 +81,7 @@ export interface BaseCodeMirrorEditorProps {
   breadcrumbs?: boolean;
   lineHighlight?: boolean;
   gitIntegration?: boolean;
+  gitBlame?: boolean;
   /** 提供仓库与文件相对路径时才可显示 git gutter；缺省则关闭。 */
   gitDiffSource?: BaseCodeMirrorEditorGitDiffSource | null;
   /** 变化时重新拉取 `git_file_diff`（index vs 工作区）。 */
@@ -72,6 +91,7 @@ export interface BaseCodeMirrorEditorProps {
     line?: number;
     column?: number;
     selectRanges?: { startLine: number; endLine: number }[];
+    openGitGutter?: "all";
   } | null;
   onChange?: (value: string) => void;
   onCreateEditor?: (view: EditorView) => void;
@@ -577,6 +597,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
   breadcrumbs = true,
   lineHighlight = true,
   gitIntegration = false,
+  gitBlame = false,
   gitDiffSource = null,
   gitDiffRefreshNonce = 0,
   onGitGutterStateChanged,
@@ -588,6 +609,12 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
 }) => {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
+  const locale = useLocale();
+  const blameT = useTranslations('Editor.components.codeMirror.gitBlame');
+  const queryClient = useQueryClient();
+  const queryScope = useComputerQueryScope();
+  const connectionState = useWebSocketStore((s) => s.connectionState);
+  const dateLocale = locale.startsWith('zh') ? zhCN : enUS;
   const rootRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<EditorView | null>(null);
   const initialStateRef = useRef({
@@ -613,12 +640,37 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
   const [breadcrumbsCompartment] = useState(() => new Compartment());
   const [lineHighlightCompartment] = useState(() => new Compartment());
   const [gitIntegrationCompartment] = useState(() => new Compartment());
+  const [gitBlameCompartment] = useState(() => new Compartment());
   const [searchCompartment] = useState(() => new Compartment());
+  const blamedDocRef = useRef(value);
   const onChangeRef = useRef(onChange);
   const onCreateEditorRef = useRef(onCreateEditor);
   const onSaveRef = useRef(onSave);
   const onNavigationTargetAppliedRef = useRef(onNavigationTargetApplied);
   const onGitGutterStateChangedRef = useRef(onGitGutterStateChanged);
+  const pendingGitGutterOpenRef = useRef<
+    | { kind: "all" }
+    | { kind: "ranges"; ranges: { startLine: number; endLine: number }[] }
+    | null
+  >(null);
+  const gitGutterConfigKeyRef = useRef<string | null>(null);
+  const [gutterPinned, setGutterPinned] = useState(false);
+  const gutterEnabled =
+    gitIntegration ||
+    gutterPinned ||
+    Boolean(navigationTarget?.selectRanges?.length) ||
+    navigationTarget?.openGitGutter === "all";
+
+  const tryOpenPendingGitGutterHunks = () => {
+    const view = editorRef.current;
+    const pending = pendingGitGutterOpenRef.current;
+    if (!view || !pending) return;
+    const opened =
+      pending.kind === "all"
+        ? openAllGitGutterChunks(view)
+        : openGitGutterChunksForLineRanges(view, pending.ranges);
+    if (opened) pendingGitGutterOpenRef.current = null;
+  };
 
   useEffect(() => {
     onGitGutterStateChangedRef.current = onGitGutterStateChanged;
@@ -641,23 +693,65 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
   }, [onNavigationTargetApplied]);
 
   const editorGitDiffQuery = useGitFileDiffQuery(
-    gitIntegration ? gitDiffSource?.repoPath : null,
-    gitIntegration ? gitDiffSource?.fileRelativePath : null,
+    gutterEnabled ? gitDiffSource?.repoPath : null,
+    gutterEnabled ? gitDiffSource?.fileRelativePath : null,
     EDITOR_AGAINST_INDEX_DIFF_PARAMS,
+  );
+  const editorGitBlameQuery = useGitFileBlameQuery(
+    gitBlame ? gitDiffSource?.repoPath : null,
+    gitBlame ? gitDiffSource?.fileRelativePath : null,
+    { enabled: gitBlame },
+  );
+  const { openCommitTab } = useOpenGitCommitCenterTab();
+  const editorGitStatusQuery = useGitStatusQuery(
+    gitBlame ? gitDiffSource?.repoPath : null,
   );
 
   useEffect(() => {
-    if (!gitIntegration || !gitDiffSource?.repoPath || !gitDiffSource?.fileRelativePath) {
+    if (editorGitBlameQuery.data) {
+      blamedDocRef.current = value;
+    }
+  }, [editorGitBlameQuery.data]);
+
+  const blameStrings = useMemo(
+    () => ({
+      notCommittedYet: blameT('notCommittedYet'),
+      filesChanged: (count: number) => blameT('filesChanged', { count }),
+      insertions: (count: number) => blameT('insertions', { count }),
+      deletions: (count: number) => blameT('deletions', { count }),
+      copyHash: blameT('copyHash'),
+      copied: blameT('copied'),
+      openCommit: blameT('openCommit'),
+      relativeTime: (timestamp: number) =>
+        formatDistanceToNow(new Date(timestamp * 1000), { addSuffix: true, locale: dateLocale }),
+      when: (timestamp: number) => formatBlameWhen(timestamp, dateLocale),
+    }),
+    [blameT, dateLocale],
+  );
+
+  useEffect(() => {
+    if (navigationTarget?.selectRanges?.length || navigationTarget?.openGitGutter === "all") {
+      setGutterPinned(true);
+    }
+  }, [navigationTarget]);
+
+  useEffect(() => {
+    if (!gutterEnabled || !gitDiffSource?.repoPath || !gitDiffSource?.fileRelativePath) {
       return;
     }
     if (gitDiffRefreshNonce === 0) return;
     void editorGitDiffQuery.refetch();
+    if (gitBlame) {
+      void editorGitBlameQuery.refetch();
+    }
   }, [
+    editorGitBlameQuery.refetch,
     editorGitDiffQuery.refetch,
+    gitBlame,
     gitDiffRefreshNonce,
     gitDiffSource?.fileRelativePath,
     gitDiffSource?.repoPath,
-    gitIntegration,
+    gutterEnabled,
   ]);
 
   useEffect(() => {
@@ -670,6 +764,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
         doc: initialState.value,
         extensions: [
           gitIntegrationCompartment.of([]),
+          gitBlameCompartment.of([]),
           lineNumbers(),
           foldGutter(),
           codeFolding(),
@@ -744,7 +839,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
       editorRef.current = null;
       view.destroy();
     };
-  }, [languageCompartment, lineWrapCompartment, readOnlyCompartment, searchCompartment, themeCompartment, bracketMatchingCompartment, breadcrumbsCompartment, lineHighlightCompartment, gitIntegrationCompartment]);
+  }, [languageCompartment, lineWrapCompartment, readOnlyCompartment, searchCompartment, themeCompartment, bracketMatchingCompartment, breadcrumbsCompartment, lineHighlightCompartment, gitIntegrationCompartment, gitBlameCompartment]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -868,7 +963,8 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
     const view = editorRef.current;
     if (!view) return;
 
-    if (!gitIntegration || !gitDiffSource?.repoPath || !gitDiffSource?.fileRelativePath) {
+    if (!gutterEnabled || !gitDiffSource?.repoPath || !gitDiffSource?.fileRelativePath) {
+      gitGutterConfigKeyRef.current = null;
       view.dispatch({
         effects: gitIntegrationCompartment.reconfigure([]),
       });
@@ -880,6 +976,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
     }
 
     if (!editorGitDiffQuery.data) {
+      gitGutterConfigKeyRef.current = null;
       view.dispatch({
         effects: gitIntegrationCompartment.reconfigure([]),
       });
@@ -888,11 +985,18 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
 
     const diff = editorGitDiffQuery.data;
     if (diff.kind !== "text") {
+      gitGutterConfigKeyRef.current = null;
       view.dispatch({
         effects: gitIntegrationCompartment.reconfigure([]),
       });
       return;
     }
+    const gutterConfigKey = `${gitDiffSource.fileRelativePath}\0${diff.status}\0${diff.old_text ?? ""}`;
+    if (gitGutterConfigKeyRef.current === gutterConfigKey) {
+      tryOpenPendingGitGutterHunks();
+      return;
+    }
+    gitGutterConfigKeyRef.current = gutterConfigKey;
     view.dispatch({
       effects: gitIntegrationCompartment.reconfigure(
         createGitChangeGutterExtensions({
@@ -941,6 +1045,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
         }),
       ),
     });
+    tryOpenPendingGitGutterHunks();
   }, [
     editorGitDiffQuery.data,
     editorGitDiffQuery.isFetching,
@@ -948,8 +1053,68 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
     gitDiffRefreshNonce,
     gitDiffSource?.fileRelativePath,
     gitDiffSource?.repoPath,
-    gitIntegration,
+    gutterEnabled,
     gitIntegrationCompartment,
+  ]);
+
+  useEffect(() => {
+    const view = editorRef.current;
+    if (!view) return;
+
+    if (!gitBlame || !gitDiffSource?.repoPath || !gitDiffSource?.fileRelativePath) {
+      view.dispatch({ effects: gitBlameCompartment.reconfigure([]) });
+      return;
+    }
+    if (editorGitBlameQuery.isLoading || editorGitBlameQuery.isFetching) {
+      return;
+    }
+    const blame = editorGitBlameQuery.data;
+    if (!blame || blame.kind !== "ok") {
+      view.dispatch({ effects: gitBlameCompartment.reconfigure([]) });
+      return;
+    }
+    const repoPath = gitDiffSource.repoPath;
+    view.dispatch({
+      effects: gitBlameCompartment.reconfigure(
+        createGitBlameExtensions({
+          blame,
+          blamedDoc: blamedDocRef.current,
+          fetchDetail: (commitHash) =>
+            queryClient.fetchQuery(
+              gitCommitDetailQueryOptions(queryScope, connectionState, repoPath, commitHash),
+            ),
+          onOpenCommit: (commit) => {
+            openCommitTab({
+              owner: editorGitStatusQuery.data?.github_owner,
+              repo: editorGitStatusQuery.data?.github_repo,
+              repoPath,
+              sha: commit.hash,
+              subject: commit.subject,
+              authorName: commit.author_name,
+              timestamp: commit.timestamp,
+              focusFilePath: gitDiffSource.fileRelativePath,
+            });
+          },
+          strings: blameStrings,
+        }),
+      ),
+    });
+  }, [
+    blameStrings,
+    connectionState,
+    editorGitBlameQuery.data,
+    editorGitBlameQuery.isFetching,
+    editorGitBlameQuery.isLoading,
+    gitBlame,
+    gitBlameCompartment,
+    gitDiffRefreshNonce,
+    editorGitStatusQuery.data?.github_owner,
+    editorGitStatusQuery.data?.github_repo,
+    gitDiffSource?.fileRelativePath,
+    gitDiffSource?.repoPath,
+    openCommitTab,
+    queryClient,
+    queryScope,
   ]);
 
   useEffect(() => {
@@ -976,6 +1141,15 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
     if (!view || !navigationTarget) return;
     const docLines = view.state.doc.lines || 1;
     const selectRanges = navigationTarget.selectRanges ?? [];
+    if (navigationTarget.openGitGutter === "all") {
+      pendingGitGutterOpenRef.current = { kind: "all" };
+      tryOpenPendingGitGutterHunks();
+      onNavigationTargetAppliedRef.current?.();
+      return;
+    }
+    if (selectRanges.length > 0) {
+      pendingGitGutterOpenRef.current = { kind: "ranges", ranges: selectRanges };
+    }
     const cmRanges = selectRanges.flatMap((range) => {
       const startLine = Math.min(Math.max(1, Math.floor(range.startLine)), docLines);
       const endLine = Math.min(Math.max(startLine, Math.floor(range.endLine)), docLines);
@@ -991,26 +1165,34 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
         effects: EditorView.scrollIntoView(selection.main.from, { y: 'center' }),
       });
       view.focus();
+      tryOpenPendingGitGutterHunks();
       onNavigationTargetAppliedRef.current?.();
       return;
     }
 
-    if (navigationTarget.line == null) return;
+    if (navigationTarget.line != null) {
+      const safeLine = Math.min(
+        Math.max(1, navigationTarget.line),
+        docLines
+      );
+      const line = view.state.doc.line(safeLine);
+      const requestedColumn = Math.max(1, navigationTarget.column ?? 1);
+      const anchor = Math.min(line.from + requestedColumn - 1, line.to);
 
-    const safeLine = Math.min(
-      Math.max(1, navigationTarget.line),
-      docLines
-    );
-    const line = view.state.doc.line(safeLine);
-    const requestedColumn = Math.max(1, navigationTarget.column ?? 1);
-    const anchor = Math.min(line.from + requestedColumn - 1, line.to);
+      view.dispatch({
+        selection: EditorSelection.single(anchor),
+        effects: EditorView.scrollIntoView(anchor, { y: 'center' }),
+      });
+      view.focus();
+    }
 
-    view.dispatch({
-      selection: EditorSelection.single(anchor),
-      effects: EditorView.scrollIntoView(anchor, { y: 'center' }),
-    });
-    view.focus();
-    onNavigationTargetAppliedRef.current?.();
+    tryOpenPendingGitGutterHunks();
+    if (
+      navigationTarget.openGitGutter === "all" ||
+      navigationTarget.line != null
+    ) {
+      onNavigationTargetAppliedRef.current?.();
+    }
   }, [navigationTarget]);
 
   return (

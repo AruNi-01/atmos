@@ -8,6 +8,8 @@ Spawn argv: `codex app-server` (default `--listen stdio://`). Codec is JSON-RPC 
 
 Also probed `/Users/aarynlu/.codex/plugins/.plugin-appserver/codex` (`codex-cli 0.150.0-alpha.12.2`). Same kebab-case enums and omitted `jsonrpc`. Differences vs 0.144.5: default `historyMode` is `"paginated"`; `thread/revert` exists; `thread/rollback` is rejected on paginated threads; notifications may carry sibling `emittedAtMs`. Adapter follows `historyMode` from `thread/start` (legacy → `thread/rollback`, paginated → `thread/revert`).
 
+`subagent_collab.jsonl` is spawn (`collabAgentToolCall` / `spawn_agent`) + `subAgentActivity` progress/complete + `wait` sharing one Atmos subagent card via `receiverThreadIds` / `agentThreadId`.
+
 Do **not** substitute another binary when PATH `codex` is the Homebrew OpenCodex shim (`codex.opencodex-real` missing). Fail with that path so the user can repair or reinstall the official CLI.
 
 Live PATH on 2026-09-03: `/opt/homebrew/bin/codex` → `codex-cli 0.153.0`. `codex app-server` spawn, slash inject (`fork`/`rewind`), and session-op `/fork` `/rewind` work on main `/ws`. Chat `thread/start` still sends kebab-case `approvalPolicy` / `sandbox: workspace-write` (not the user’s `config.toml` `never` / `danger-full-access`) so Atmos can show permission chrome when a turn actually reaches tools. Auto ("Approve for me") is `approvalPolicy: on-request` + `approvalsReviewer: auto_review`; Ask always keeps `approvalsReviewer: user`. `turn/start` (and `thread/start` when the CLI validates it) require `model`; handshake fills sticky `model` / first listed effort from `model/list` when spawn config omitted them.

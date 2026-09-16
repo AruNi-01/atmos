@@ -312,6 +312,10 @@ pub enum WsAction {
     GitLog,
     /// 获取带 parent/ref 的拓扑历史（center-tab graph）
     GitHistory,
+    /// Per-file git blame ranges (APP-074)
+    GitFileBlame,
+    /// Lazy git show --shortstat for a blamed SHA (APP-074)
+    GitCommitDetail,
 
     // ===== Usage 操作 =====
     /// 获取 usage 概览

@@ -101,11 +101,11 @@ pub(super) fn remember(tool: &AgentTool, grok_tasks: &mut HashMap<String, AgentT
                 grok_tasks.insert(tool.tool_call_id.clone(), tool.clone());
             }
         }
-        AgentToolParams::Subagent {
-            task_id: Some(task_id),
-            ..
-        } => {
-            grok_tasks.insert(task_id.clone(), tool.clone());
+        AgentToolParams::Subagent { task_id, .. } => {
+            crate::map::store_subagent_tool(grok_tasks, tool);
+            if let Some(task_id) = task_id {
+                grok_tasks.insert(task_id.clone(), tool.clone());
+            }
         }
         _ => {}
     }
@@ -274,6 +274,7 @@ mod tests {
         ToolCallUpdate {
             tool_call_id: "tc_1".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: name.into(),
             description: String::new(),
             acp_kind: Some("other".into()),
@@ -366,6 +367,7 @@ mod tests {
         let started = ToolCallUpdate {
             tool_call_id: fixture["started"]["tool_call_id"].as_str().unwrap().into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: fixture["started"]["name"].as_str().unwrap().into(),
             description: String::new(),
             acp_kind: Some("other".into()),
@@ -393,6 +395,7 @@ mod tests {
                 .unwrap()
                 .into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: fixture["taskoutput"]["name"].as_str().unwrap().into(),
             description: String::new(),
             acp_kind: Some("other".into()),
@@ -426,6 +429,7 @@ mod tests {
             ToolCallUpdate {
                 tool_call_id: "tc_subagent".into(),
                 parent_tool_call_id: None,
+                session_id: None,
                 tool: "Tool".into(),
                 description: "spawn_subagent".into(),
                 acp_kind: Some("other".into()),
@@ -451,6 +455,7 @@ mod tests {
         let poll = ToolCallUpdate {
             tool_call_id: "tc_poll".into(),
             parent_tool_call_id: None,
+            session_id: None,
             tool: "TaskOutput".into(),
             description: String::new(),
             acp_kind: Some("other".into()),

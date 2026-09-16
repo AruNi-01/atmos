@@ -78,11 +78,12 @@ describe("git history panel structural", () => {
     expect(src).toContain("label.scrollWidth > label.clientWidth + 1");
   });
 
-  it("opens the existing commit view in the task GitHub drawer and does not drive sidebar diffs", () => {
+  it("opens the generic git commit diff tab and does not drive sidebar diffs", () => {
     const panel = read("apps/web/src/features/git/components/GitHistoryPanel.tsx");
-    expect(panel).toContain("TaskGithubDrawerHost");
-    expect(panel).toContain("openCommit");
-    expect(panel).toContain("commitDrawerKey");
+    expect(panel).toContain("useOpenGitCommitCenterTab");
+    expect(panel).toContain("openCommitTab");
+    expect(panel).toContain("repoPath");
+    expect(panel).not.toContain("TaskGithubDrawerHost");
     expect(panel).toContain("onSelect={() => openCommitDrawer(commit)}");
 
     const changesPanel = read("apps/web/src/features/git/components/ChangesPanel.tsx");
@@ -93,7 +94,7 @@ describe("git history panel structural", () => {
       "apps/web/src/features/task/components/task-github-drawer/TaskGithubDrawerHost.tsx",
     );
     expect(drawer).toContain("openCommit: (entry: Extract<TaskGithubDrawerEntry, { kind: \"commit\" }>) => void");
-    expect(drawer).toContain("CommitDetailView");
+    expect(drawer).toContain("GitCommitDiffView");
   });
 
   it("splits graph chrome, SVG, and rows out of the panel shell", () => {

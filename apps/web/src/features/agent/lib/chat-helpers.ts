@@ -365,11 +365,17 @@ function toolKindHeadlineLabel(kind: AgentToolKind): string {
   }
 }
 
+/** Nested wait/poll tools are parent-process chrome, not child work. */
+function isNestedChildWork(part: AgentPart): boolean {
+  if (!isNestedSubagentChild(part)) return false;
+  return part.type !== "tool_call" || !isSubagentWaitTool(part);
+}
+
 function runningWaitToolCount(message: AgentMessage): number {
   let count = 0;
   for (const part of message.parts) {
     if (part.type !== "tool_call") continue;
-    if (isNestedSubagentChild(part)) continue;
+    if (isNestedChildWork(part)) continue;
     if (!isSubagentWaitTool(part)) continue;
     if (toolStatusIsActive(part.status)) count += 1;
   }
@@ -389,6 +395,12 @@ function waitingForBackgroundAgentsActivity(count: number): AgentActivity {
       { count: n },
     );
   return { busy: true, label, kind: "working", trail: "none" };
+}
+
+function isParentProcessTool(part: Extract<AgentPart, { type: "tool_call" }>): boolean {
+  if (isSubagentWaitTool(part)) return false;
+  if (part.kind === "subagent") return false;
+  return true;
 }
 
 function activityForToolPart(
@@ -461,7 +473,32 @@ export function deriveAgentActivity(messages: AgentMessage[], turnOpen: boolean)
 
   for (let i = last.parts.length - 1; i >= 0; i--) {
     const part = last.parts[i];
-    if (isNestedSubagentChild(part)) continue;
+    if (isNestedChildWork(part)) continue;
+    if (
+      part.type === "tool_call"
+      && toolStatusIsActive(part.status)
+      && !isLiveBackgroundToolCall(part)
+      && isParentProcessTool(part)
+    ) {
+      return activityForToolPart(part, last);
+    }
+  }
+
+  for (let i = last.parts.length - 1; i >= 0; i--) {
+    const part = last.parts[i];
+    if (isNestedChildWork(part)) continue;
+    if (
+      part.type === "tool_call"
+      && toolStatusIsActive(part.status)
+      && isSubagentWaitTool(part)
+    ) {
+      return activityForToolPart(part, last);
+    }
+  }
+
+  for (let i = last.parts.length - 1; i >= 0; i--) {
+    const part = last.parts[i];
+    if (isNestedChildWork(part)) continue;
     if (
       part.type === "tool_call"
       && toolStatusIsActive(part.status)
@@ -474,7 +511,7 @@ export function deriveAgentActivity(messages: AgentMessage[], turnOpen: boolean)
   if (last.streaming) {
     for (let i = last.parts.length - 1; i >= 0; i--) {
       const part = last.parts[i];
-      if (isNestedSubagentChild(part)) continue;
+      if (isNestedChildWork(part)) continue;
       if (part.type === "tool_call") {
         if (isLiveBackgroundToolCall(part)) continue;
         if (isSubagentWaitTool(part) && !toolStatusIsActive(part.status)) continue;

@@ -33,7 +33,7 @@ describe("drawer close chrome", () => {
 
   it("keeps drawer headers from sliding under the overlay close", () => {
     const commit = read(
-      "apps/web/src/features/github/components/CommitDetailView.tsx",
+      "apps/web/src/features/git/components/GitCommitDiffView.tsx",
     );
     expect(commit).toContain("useDrawerCloseReserve");
     expect(commit).toContain("drawerCloseReserveClass");

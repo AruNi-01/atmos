@@ -151,7 +151,9 @@ describe("close returns to the tab that opened the closed tab", () => {
     expect(stage).toContain("activateNextAfterClosingRef.current(file.path, { paneId })");
     expect(stage).toContain("activateNextAfterClosing(tab, { paneId })");
     expect(stage).toContain("const handleCloseAgentChatTab");
+    expect(stage).toContain("performCloseAgentChatCenterTab");
     expect(stage).toContain("activateNextAfterClosing(value, { paneId })");
+    expect(stage).toContain("agentChatNeedsCloseConfirm");
   });
 
   test("agent chat tab close uses the generic MRU path instead of jumping to terminal", () => {

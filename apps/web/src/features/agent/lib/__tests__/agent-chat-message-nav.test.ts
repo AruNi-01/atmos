@@ -5,15 +5,7 @@ import {
   nextUserMessageIndex,
   previousUserMessageIndex,
   resolveActiveUserMessageIndex,
-  resolveStickyOverlayIndex,
-  resolveStickyUserMessageIndex,
-  shouldHideStickyUserFade,
-  shouldPinStickyUserMessage,
   stepUserMessageIndex,
-  stickyUserMessagePushPx,
-  stickyUserPinLayout,
-  stickyUserPushLayout,
-  stickyUserTranslateY,
   TIMELINE_RAIL_ITEM_SIZE_MAX,
   TIMELINE_RAIL_ITEM_SIZE_MIN,
   timelineRailItemSize,
@@ -73,56 +65,6 @@ describe("resolveActiveUserMessageIndex", () => {
       ],
       { height: 600, scrollTop: 1180, scrollHeight: 1800 },
     )).toBe(6);
-  });
-});
-
-describe("resolveStickyUserMessageIndex", () => {
-  const measurements = [
-    { start: 16, size: 80 },
-    { start: 108, size: 400 },
-    { start: 520, size: 80 },
-    { start: 612, size: 400 },
-    { start: 1024, size: 80 },
-  ];
-
-  it("pins the last user prompt whose natural top has reached the scrollport", () => {
-    expect(resolveStickyUserMessageIndex([0, 2, 4], measurements, 16)).toBe(0);
-    expect(resolveStickyUserMessageIndex([0, 2, 4], measurements, 400)).toBe(0);
-    expect(resolveStickyUserMessageIndex([0, 2, 4], measurements, 520)).toBe(2);
-    expect(resolveStickyUserMessageIndex([0, 2, 4], measurements, 2000)).toBe(4);
-  });
-
-  it("returns null until a user prompt has reached the top", () => {
-    expect(resolveStickyUserMessageIndex([0, 2, 4], measurements, 0)).toBeNull();
-    expect(resolveStickyUserMessageIndex([2, 4], measurements, 16)).toBeNull();
-    expect(resolveStickyUserMessageIndex([], measurements, 100)).toBeNull();
-  });
-});
-
-describe("shouldPinStickyUserMessage", () => {
-  it("waits until the original row has left the top before cloning it", () => {
-    expect(shouldPinStickyUserMessage(520, 520)).toBe(false);
-    expect(shouldPinStickyUserMessage(520, 521)).toBe(false);
-    expect(shouldPinStickyUserMessage(520, 600)).toBe(true);
-  });
-});
-
-describe("resolveStickyOverlayIndex", () => {
-  const measurements = [
-    { start: 16, size: 80 },
-    { start: 108, size: 400 },
-    { start: 520, size: 80 },
-    { start: 612, size: 400 },
-  ];
-
-  it("does not clone the prompt that is still sitting at the top", () => {
-    expect(resolveStickyOverlayIndex([0, 2], measurements, 520)).toBeNull();
-    expect(resolveStickyOverlayIndex([0, 2], measurements, 521)).toBeNull();
-  });
-
-  it("pins the current prompt only after its original row has left the top", () => {
-    expect(resolveStickyOverlayIndex([0, 2], measurements, 400)).toBe(0);
-    expect(resolveStickyOverlayIndex([0, 2], measurements, 600)).toBe(2);
   });
 });
 
@@ -224,82 +166,6 @@ describe("timelineRailItemSize", () => {
   });
 });
 
-describe("shouldHideStickyUserFade", () => {
-  it("hides the fade before the next user prompt enters it", () => {
-    expect(shouldHideStickyUserFade(200, 80, 32)).toBe(false);
-    expect(shouldHideStickyUserFade(100, 80, 32)).toBe(true);
-    expect(shouldHideStickyUserFade(80, 80, 32)).toBe(true);
-  });
-});
-
-describe("stickyUserMessagePushPx", () => {
-  it("stays put while the next prompt is still below the sticky header", () => {
-    expect(stickyUserMessagePushPx(120, 80)).toBe(0);
-    expect(stickyUserMessagePushPx(92, 80, 12)).toBe(0);
-  });
-
-  it("pushes the sticky header up as the next prompt arrives", () => {
-    expect(stickyUserMessagePushPx(50, 80)).toBe(-30);
-  });
-
-  it("starts pushing a gap earlier so the two user bubbles do not kiss", () => {
-    expect(stickyUserMessagePushPx(80, 80, 12)).toBe(-12);
-    expect(stickyUserMessagePushPx(50, 80, 12)).toBe(-42);
-  });
-});
-
-describe("stickyUserTranslateY", () => {
-  it("pins at the scrollport while the next prompt is still below", () => {
-    expect(stickyUserTranslateY(200, 16, 80, 520, 12)).toBe(184);
-    expect(stickyUserTranslateY(200, 16, 80, null, 12)).toBe(184);
-  });
-
-  it("pushes by the overlap once the next prompt reaches the pinned height", () => {
-    expect(stickyUserTranslateY(450, 16, 80, 520, 12)).toBe(412);
-  });
-
-  it("tracks the natural row offset for adjacent user prompts during the push", () => {
-    const start = 16;
-    const size = 80;
-    const gap = 12;
-    const scrollMargin = 16;
-    const nextStart = start + size + gap;
-    const natural = start - scrollMargin;
-    for (const scrollTop of [16, 40, 70, 100, 108]) {
-      expect(stickyUserTranslateY(scrollTop, scrollMargin, size, nextStart, gap)).toBe(natural);
-    }
-  });
-});
-
-describe("stickyUserPinLayout", () => {
-  it("hides the fade once the next prompt would enter it", () => {
-    expect(stickyUserPinLayout(200, 16, 80, 520, 12, 0, 32)).toEqual({
-      translateY: 184,
-      hideFade: false,
-    });
-    expect(stickyUserPinLayout(450, 16, 80, 520, 12, 0, 32)).toEqual({
-      translateY: 412,
-      hideFade: true,
-    });
-  });
-});
-
-describe("stickyUserPushLayout", () => {
-  it("keeps top at 0 until the next prompt overlaps the pinned height", () => {
-    expect(stickyUserPushLayout(200, 80, 520, 12, 0, 32)).toEqual({
-      pushPx: 0,
-      hideFade: false,
-    });
-  });
-
-  it("returns the negative top offset used to push a CSS-sticky overlay out", () => {
-    expect(stickyUserPushLayout(450, 80, 520, 12, 0, 32)).toEqual({
-      pushPx: -22,
-      hideFade: true,
-    });
-  });
-});
-
 describe("userMessageRectsFromMeasurements", () => {
   it("maps cached virtual items into viewport-relative rects", () => {
     expect(userMessageRectsFromMeasurements(
@@ -345,9 +211,22 @@ describe("AgentMessageTimelineNav", () => {
     expect(timelineNav).toContain("TooltipTrigger");
     expect(timelineNav).toContain("TooltipContent");
     expect(timelineNav).toContain("hover:bg-muted");
+    expect(timelineNav).toContain("const TIMELINE_STEP_BUTTON_PX = 24");
+    expect(timelineNav).toContain("inline-flex size-6 items-center justify-center rounded-full");
     expect(timelineNav).not.toContain("bg-muted/75");
     expect(timelineNav).not.toContain("group/timeline-step");
     expect(timelineNav).not.toContain("group-hover/timeline-step:flex");
+  });
+
+  it("centers rail ticks under the previous/next step buttons", () => {
+    expect(timelineNav).toContain("[&_[data-slot=preview-rail-item]]:justify-center");
+    expect(timelineNav).not.toContain("justify-start");
+  });
+
+  it("expands hovered ticks right from a fixed left edge", () => {
+    expect(timelineNav).toContain("[&_[data-slot=preview-rail-tick]]:!origin-left");
+    expect(timelineNav).not.toContain("origin-center");
+    expect(timelineNav).not.toContain("origin-right");
   });
 
   it("steps previous/next from the highlighted catalog item", () => {

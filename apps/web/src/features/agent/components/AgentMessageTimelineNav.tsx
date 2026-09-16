@@ -39,7 +39,7 @@ interface MessageTimelineItem {
   isStreaming: boolean;
 }
 
-const TIMELINE_STEP_BUTTON_PX = 32;
+const TIMELINE_STEP_BUTTON_PX = 24;
 const TIMELINE_CLUSTER_GAP_PX = 4;
 const TIMELINE_RAIL_CHROME_PX = TIMELINE_STEP_BUTTON_PX * 2 + TIMELINE_CLUSTER_GAP_PX * 2;
 
@@ -193,8 +193,8 @@ export function AgentMessageTimelineNav({
           onItemSelect={(item) => onSelectMessage(Number(item.id))}
           className={cn(
             "relative flex h-fit w-4 min-h-0 items-center overflow-visible",
-            "[&_[data-slot=preview-rail-tick]]:origin-left [&_[data-slot=preview-rail-tick]]:rounded-full [&_[data-slot=preview-rail-tick]]:!w-3.5",
-            "[&_[data-slot=preview-rail-item]]:!w-4 [&_[data-slot=preview-rail-item]]:justify-start",
+            "[&_[data-slot=preview-rail-tick]]:!origin-left [&_[data-slot=preview-rail-tick]]:rounded-full [&_[data-slot=preview-rail-tick]]:!w-3.5",
+            "[&_[data-slot=preview-rail-item]]:!w-4 [&_[data-slot=preview-rail-item]]:justify-center",
           )}
           railClassName="w-4"
           previewContainerClassName="inset-y-0 left-full right-auto ml-3 w-[min(22rem,calc(100vw-4rem))]"
@@ -284,7 +284,7 @@ function TimelineStepButton({
           aria-label={label}
           data-agent-chat-timeline-step={direction}
           onClick={onClick}
-          className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+          className="inline-flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
         >
           <Icon className="size-4" />
         </button>

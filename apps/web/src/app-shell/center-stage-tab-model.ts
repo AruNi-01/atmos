@@ -15,7 +15,7 @@ export type CenterTabKind =
   | "github-pr"
   | "github-issue"
   | "github-action"
-  | "github-commit"
+  | "git-commit"
   | "github"
   | "browser"
   | "simulator"
@@ -66,8 +66,7 @@ export function isGithubCenterTabKind(kind: CenterTabKind): boolean {
   return (
     kind === "github-pr" ||
     kind === "github-issue" ||
-    kind === "github-action" ||
-    kind === "github-commit"
+    kind === "github-action"
   );
 }
 

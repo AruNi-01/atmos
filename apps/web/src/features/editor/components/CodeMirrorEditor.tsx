@@ -84,11 +84,13 @@ function markdownJumpWantsSource(target: {
   preferMarkdownSource?: boolean;
   selectRanges?: { startLine: number; endLine: number }[];
   line?: number;
+  openGitGutter?: "all";
 } | null | undefined): boolean {
   return Boolean(
     target?.preferMarkdownSource ||
     (target?.selectRanges?.length ?? 0) > 0 ||
-    target?.line != null,
+    target?.line != null ||
+    target?.openGitGutter === "all",
   );
 }
 
@@ -142,6 +144,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     minimap,
     lineHighlight,
     gitIntegration,
+    gitBlame,
     mdToggleDefaultOpen,
     loaded: editorSettingsLoaded,
     loadSettings,
@@ -151,6 +154,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     setMinimap,
     setLineHighlight,
     setGitIntegration,
+    setGitBlame,
     setMdToggleDefaultOpen,
   } = useEditorSettingsStore(
     useShallow((s) => ({
@@ -160,6 +164,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
       minimap: s.minimap,
       lineHighlight: s.lineHighlight,
       gitIntegration: s.gitIntegration,
+      gitBlame: s.gitBlame,
       mdToggleDefaultOpen: s.mdToggleDefaultOpen,
       loaded: s.loaded,
       loadSettings: s.loadSettings,
@@ -169,6 +174,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
       setMinimap: s.setMinimap,
       setLineHighlight: s.setLineHighlight,
       setGitIntegration: s.setGitIntegration,
+      setGitBlame: s.setGitBlame,
       setMdToggleDefaultOpen: s.setMdToggleDefaultOpen,
     })),
   );
@@ -480,7 +486,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     if (!navigationTarget || !markdownJumpWantsSource(navigationTarget)) return;
     const hasCmTarget =
       (navigationTarget.selectRanges?.length ?? 0) > 0 ||
-      navigationTarget.line != null;
+      navigationTarget.line != null ||
+      navigationTarget.openGitGutter === "all";
     setMarkdownView('source');
     setPreviewFilePath((current) => (current === file.path ? null : current));
     if (!hasCmTarget) {
@@ -848,6 +855,29 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
           />
         </div>
 
+        <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
+                  {t('codeMirror.settings.gitBlame')}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
+                {t('codeMirror.settings.gitBlameTooltip')}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <Switch
+            checked={gitBlame}
+            onCheckedChange={(checked) => {
+              void setGitBlame(!!checked);
+            }}
+            className="shrink-0"
+          />
+        </div>
+
         {isLiveEligible ? (
           <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
             <TooltipProvider delayDuration={150}>
@@ -1035,15 +1065,19 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                   breadcrumbs={true}
                   lineHighlight={lineHighlight}
                   gitIntegration={gitIntegration}
+                  gitBlame={gitBlame}
                   gitDiffSource={editorGitDiffSource}
                   gitDiffRefreshNonce={gitDiffRefreshNonce}
                   onGitGutterStateChanged={handleGitGutterStateChanged}
                   navigationTarget={
-                    navigationTarget?.selectRanges?.length || navigationTarget?.line != null
+                    navigationTarget?.selectRanges?.length ||
+                    navigationTarget?.line != null ||
+                    navigationTarget?.openGitGutter === "all"
                       ? {
                           line: navigationTarget.line,
                           column: navigationTarget.column,
                           selectRanges: navigationTarget.selectRanges,
+                          openGitGutter: navigationTarget.openGitGutter,
                         }
                       : null
                   }

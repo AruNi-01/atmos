@@ -1741,6 +1741,38 @@ mod tests {
     }
 
     #[test]
+    fn async_agent_launched_notice_keeps_the_subagent_running() {
+        let mut tools = HashMap::new();
+        let _ = map_tool_use(
+            "Agent",
+            "tu_agent",
+            &json!({"description":"Explore atmos monorepo","subagent_type":"Explore"}),
+            &mut tools,
+        );
+        let dispatched = match map_tool_result(
+            "tu_agent",
+            &json!([{
+                "type": "text",
+                "text": "Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.) agentId: a827867c2504be0f1 (internal ID - do not mention to user.) The agent is working in the background."
+            }]),
+            false,
+            &mut tools,
+        ) {
+            ToolMapOut::Tool(tool) => tool,
+            other => panic!("expected dispatch ack, got {other:?}"),
+        };
+        assert_eq!(dispatched.status, AgentToolStatus::Running);
+        assert_eq!(dispatched.result, None);
+        match dispatched.params {
+            AgentToolParams::Subagent {
+                task_id: Some(task_id),
+                ..
+            } => assert_eq!(task_id, "a827867c2504be0f1"),
+            other => panic!("expected stored agent id, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn agent_id_text_result_keeps_the_subagent_running() {
         let mut tools = HashMap::new();
         let _ = map_tool_use(

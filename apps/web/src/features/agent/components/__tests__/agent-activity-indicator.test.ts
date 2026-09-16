@@ -9,6 +9,8 @@ const source = readFileSync(
 
 describe("agent activity indicator", () => {
   it("swaps status copy with a vertical exit/enter while keeping shimmer", () => {
+    expect(source).toContain("export function AgentActivityStatusText");
+    expect(source).toContain("<AgentActivityStatusText activity={activity} />");
     expect(source).toContain("AnimatePresence");
     expect(source).toContain('mode="popLayout"');
     expect(source).toContain("y: 12");
@@ -40,7 +42,7 @@ describe("agent activity indicator", () => {
       'className="inline-flex min-w-0 max-w-full items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground"',
     );
     expect(source).toContain(
-      'className="relative inline-flex h-5 min-w-0 items-center overflow-hidden"',
+      'cn("relative inline-flex h-5 min-w-0 items-center overflow-hidden", className)',
     );
     expect(source).not.toContain("flex-1");
     expect(source).not.toContain("flex w-full");

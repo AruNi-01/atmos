@@ -22,7 +22,7 @@ use crate::policy::{
     option_support_for_provider,
 };
 
-use super::event_map::{map_event, EventMapState};
+use super::event_map::{map_event, map_xai_subagent, EventMapState};
 
 pub struct AcpProviderParams {
     pub provider_id: String,
@@ -207,6 +207,13 @@ impl AgentRuntime for AcpMappedSession {
                     // Grok ACP registry agents (`grok-build`): same catalog as native.
                     if is_grok_models_update(&method) {
                         self.map.load_model_context_windows(&params);
+                    }
+                    if self.map.replaying {
+                        continue;
+                    }
+                    let turn_id = self.commands.running_turn.lock().await.clone();
+                    if let Some(event) = map_xai_subagent(&mut self.map, turn_id, &method, params) {
+                        return Some(event);
                     }
                 }
             }

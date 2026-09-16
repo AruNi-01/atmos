@@ -6,6 +6,7 @@ use std::process::Command;
 use crate::error::{EngineError, Result};
 
 mod actions;
+mod blame;
 mod changes;
 mod commits;
 mod excludes;
@@ -15,11 +16,12 @@ mod refs;
 mod types;
 mod worktrees;
 
+pub use blame::{clear_file_blame_cache, file_blame_compute_count, last_file_blame_was_cache_hit};
 pub use excludes::{list_ignored_paths, list_ignored_paths_for_many, sync_worktree_local_excludes};
 pub use types::{
-    ChangedFileInfo, ChangedFilesInfo, CommitInfo, DiffContentKind, DiffPreviewKind, FileDiffInfo,
-    GitBlobLocator, GitStatus, HistoryCommit, HistoryPage, HistoryRef, HistoryRefKind,
-    WorktreeInfo,
+    BlameCommit, BlameRange, ChangedFileInfo, ChangedFilesInfo, CommitDetailInfo, CommitInfo,
+    DiffContentKind, DiffPreviewKind, FileBlameInfo, FileBlameKind, FileDiffInfo, GitBlobLocator,
+    GitStatus, HistoryCommit, HistoryPage, HistoryRef, HistoryRefKind, WorktreeInfo,
 };
 pub(crate) use worktrees::is_linked_worktree;
 

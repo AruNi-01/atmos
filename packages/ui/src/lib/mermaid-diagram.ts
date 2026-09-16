@@ -1,4 +1,5 @@
 import type { MermaidWorkerRequest, MermaidWorkerResponse } from "./mermaid-diagram-worker-protocol";
+import { installMermaidUtf8Btoa } from "./mermaid-utf8-btoa";
 
 export type MermaidDiagramTheme = "light" | "dark";
 
@@ -323,6 +324,7 @@ async function getMermaid(theme: MermaidDiagramTheme) {
 }
 
 async function renderMermaidSvgOnMain(code: string, theme: MermaidDiagramTheme): Promise<string> {
+  installMermaidUtf8Btoa();
   const mermaid = await getMermaid(theme);
   mermaidId += 1;
   const id = `atmos-mermaid-${mermaidId}`;

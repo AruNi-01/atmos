@@ -195,7 +195,7 @@ const SETTINGS_TOPIC_KEYWORDS: Record<string, readonly string[]> = {
     "bracket matching",
     "minimap",
     "line highlight",
-    "git integration",
+    "git gutter",
     "layout",
     "side by side",
     "unified",
@@ -660,7 +660,7 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
       keywords: ["current line", "matching selections"],
     }),
     settingsModalSearchItem("editor.gitIntegration", {
-      keywords: ["git changes", "diff information"],
+      keywords: ["git gutter", "git changes", "uncommitted", "变更条", "行号"],
     }),
     settingsModalSearchItem("editor.diff", {
       keywords: ["default diff layout", "toolbar view options"],

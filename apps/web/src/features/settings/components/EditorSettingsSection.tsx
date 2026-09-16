@@ -119,6 +119,7 @@ export function EditorSettingsSection() {
     minimap,
     lineHighlight,
     gitIntegration,
+    gitBlame,
     mdToggleDefaultOpen,
     loadSettings,
     setAutoSave,
@@ -127,6 +128,7 @@ export function EditorSettingsSection() {
     setMinimap,
     setLineHighlight,
     setGitIntegration,
+    setGitBlame,
     setMdToggleDefaultOpen,
   } = useEditorSettingsStore();
   const {
@@ -201,6 +203,15 @@ export function EditorSettingsSection() {
           <Switch
             checked={gitIntegration}
             onCheckedChange={(checked) => void setGitIntegration(!!checked)}
+          />
+        </SettingsGroupRow>
+        <SettingsGroupRow
+          title={t('rows.gitBlame.title')}
+          description={t('rows.gitBlame.description')}
+        >
+          <Switch
+            checked={gitBlame}
+            onCheckedChange={(checked) => void setGitBlame(!!checked)}
           />
         </SettingsGroupRow>
         <SettingsGroupRow

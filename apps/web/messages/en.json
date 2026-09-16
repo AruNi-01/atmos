@@ -1284,6 +1284,7 @@
     },
     "centerStage": {
       "fallbackTerminalTitle": "Term",
+      "fallbackAgentChatTitle": "Chat",
       "errors": {
         "failedToCloseTerminal": "Failed to close terminal",
         "failedToClosePreviousTerminal": "Failed to close previous terminal",
@@ -1301,6 +1302,10 @@
         "closeTerminalTab": {
           "title": "Close terminal tab?",
           "description": "{title} has running panes. Closing will stop them and remove all panes in this tab."
+        },
+        "closeAgentChatTab": {
+          "title": "Close Agent Chat?",
+          "description": "{title} is still running or waiting for attention or permission. Close this tab anyway?"
         }
       },
       "toasts": {
@@ -4539,10 +4544,21 @@
           "breadcrumbsTooltip": "Show the current file path.",
           "lineHighlight": "Active line highlight",
           "lineHighlightTooltip": "Highlight the current line.",
-          "gitIntegration": "Git integration",
-          "gitIntegrationTooltip": "Show git changes in the gutter.",
+          "gitIntegration": "Git gutter",
+          "gitIntegrationTooltip": "Show uncommitted git changes in the gutter.",
+          "gitBlame": "Git blame",
+          "gitBlameTooltip": "Show the commit that last changed the current line.",
           "expandToggles": "Expand toggles",
           "expandTogglesTooltip": "Open markdown toggle blocks by default in Live and preview."
+        },
+        "gitBlame": {
+          "notCommittedYet": "Not committed yet",
+          "filesChanged": "{count} files changed",
+          "insertions": "+{count}",
+          "deletions": "-{count}",
+          "copyHash": "Copy commit hash",
+          "copied": "Copied",
+          "openCommit": "Open commit"
         }
       },
       "searchPanel": {
@@ -5593,7 +5609,7 @@
               "label": "Line Highlight"
             },
             "gitIntegration": {
-              "label": "Git Integration"
+              "label": "Git gutter"
             },
             "diff": {
               "label": "Diff"
@@ -6140,8 +6156,12 @@
           "description": "Highlight the current line and matching selections."
         },
         "gitIntegration": {
-          "title": "Git Integration",
-          "description": "Show git changes and diff information in the editor."
+          "title": "Git gutter",
+          "description": "Show uncommitted git changes in the editor gutter."
+        },
+        "gitBlame": {
+          "title": "Git blame",
+          "description": "Show the commit that last changed the current line."
         },
         "expandToggles": {
           "title": "Expand toggles",
@@ -8811,6 +8831,10 @@
         "commit": "Commit"
       },
       "resizeColumn": "Resize {column} column"
+    },
+    "commitDiff": {
+      "loading": "Loading commit...",
+      "filesChanged": "{count} files changed"
     }
   },
   "localServices": {

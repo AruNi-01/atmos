@@ -7,9 +7,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
   MatrixOrb,
-  TextShimmer,
 } from "@workspace/ui";
-import { ChevronDown, XCircle } from "lucide-react";
+import { BotMessageSquare, XCircle } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
@@ -18,6 +17,8 @@ import {
   subagentChildActivity,
   subagentTaskStatus,
 } from "@/features/agent/lib/subagent-tasks";
+import { AgentActivityStatusText } from "./AgentActivityIndicator";
+import { ComposerCollapseGlyph } from "./composer-collapse-glyph";
 import { useSubagentOverlay } from "./subagent-overlay-context";
 
 function SubagentTaskGlyph({
@@ -71,27 +72,21 @@ export function SubagentTasksPanel({
       className="w-full rounded-3xl border border-border bg-background p-3 shadow-none"
     >
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <div className={cn("flex items-center justify-between gap-2", isOpen && "mb-2")}>
-          <div className="min-w-0 text-sm font-medium text-foreground">{t("title")}</div>
-          <div className="flex shrink-0 items-center gap-1">
-            <span className="text-xs text-muted-foreground">{countLabel}</span>
-            <CollapsibleTrigger asChild>
-              <button
-                type="button"
-                aria-label={isOpen ? t("collapseAria") : t("expandAria")}
-                className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <ChevronDown
-                  className={cn(
-                    "size-3.5 transition-transform duration-200",
-                    !isOpen && "-rotate-90",
-                  )}
-                  aria-hidden="true"
-                />
-              </button>
-            </CollapsibleTrigger>
-          </div>
-        </div>
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            aria-expanded={isOpen}
+            aria-label={isOpen ? t("collapseAria") : t("expandAria")}
+            className={cn(
+              "group flex w-full cursor-pointer items-center gap-2 rounded-xl px-1 py-0.5 text-left hover:bg-muted/10",
+              isOpen && "mb-2",
+            )}
+          >
+            <ComposerCollapseGlyph icon={BotMessageSquare} collapsed={!isOpen} />
+            <span className="min-w-0 text-sm font-medium text-foreground">{t("title")}</span>
+            <span className="ml-auto shrink-0 text-sm text-muted-foreground">{countLabel}</span>
+          </button>
+        </CollapsibleTrigger>
         <CollapsibleContent className="motion-reduce:data-[state=closed]:animate-none motion-reduce:data-[state=open]:animate-none">
           <ul className="space-y-0.5">
             {tools.map((part) => {
@@ -115,35 +110,26 @@ export function SubagentTasksPanel({
                     <span className="flex size-5 shrink-0 items-center justify-center">
                       <SubagentTaskGlyph seed={part.tool_call_id} status={status} />
                     </span>
-                    {status === "running" ? (
-                      <TextShimmer
-                        as="span"
-                        duration={1.5}
-                        className="min-w-0 flex-1 truncate text-sm font-medium text-foreground"
-                      >
-                        {line}
-                      </TextShimmer>
-                    ) : (
+                    <span className="flex min-w-0 flex-1 items-center gap-1.5">
                       <span
                         className={cn(
-                          "min-w-0 flex-1 truncate text-sm",
-                          status === "failed"
-                            ? "text-destructive"
-                            : "text-muted-foreground",
+                          "min-w-0 truncate text-sm",
+                          status === "running"
+                            ? "font-medium text-foreground"
+                            : status === "failed"
+                              ? "text-destructive"
+                              : "text-muted-foreground",
                         )}
                       >
                         {line}
                       </span>
-                    )}
-                    {activity.busy ? (
-                      <TextShimmer
-                        as="span"
-                        duration={1.5}
-                        className="min-w-0 max-w-[40%] truncate text-xs text-muted-foreground"
-                      >
-                        {activity.label}
-                      </TextShimmer>
-                    ) : null}
+                      {activity.busy ? (
+                        <AgentActivityStatusText
+                          activity={activity}
+                          className="min-w-0 shrink-0 text-muted-foreground"
+                        />
+                      ) : null}
+                    </span>
                   </button>
                 </li>
               );

@@ -16,6 +16,16 @@ describe("approval-card selected contrast", () => {
     );
   });
 
+  it("question options stay put on select (background/shadow only)", () => {
+    expect(css).not.toMatch(
+      /\.option:active:not\(\[data-other="true"\]\)\s*\{\s*transform:\s*scale/,
+    );
+    expect(css).toMatch(/\.option\s*\{[\s\S]*?transform:\s*none/);
+    expect(css).toMatch(
+      /html\.dark\) \.option\[data-selected="true"\][\s\S]*?border:\s*0/,
+    );
+  });
+
   it("dark unselected options have no border (hover is background-only)", () => {
     expect(css).toMatch(
       /html\.dark\) \.option:not\(\[data-selected="true"\]\)[\s\S]*?border:\s*0/,

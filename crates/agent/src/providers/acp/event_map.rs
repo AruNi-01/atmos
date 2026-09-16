@@ -5,11 +5,13 @@ use crate::acp_client::client::{AcpSessionEvent, AcpTurnStop};
 use crate::acp_client::types::{AgentConfigOption, StreamDelta, ToolCallUpdate};
 use crate::contract::AgentPersistenceHandle;
 use crate::contract::AgentTool;
+use crate::contract::AgentToolKind;
 use crate::contract::{AgentCurrentConfig, AgentIdentity, AgentSupportedOptions, Capability};
 use crate::contract::{AgentDescriptor, TurnStop};
 use crate::contract::{
     AgentEvent, AgentEventEnvelope, AgentPermissionOption, AgentPermissionRequest,
 };
+use crate::map::{apply_xai_subagent_notice, parse_xai_subagent_notification, XaiSubagentNotice};
 use crate::options::{
     is_mode_config_id, is_permission_mode_config_id, probe_result_from_config_options,
 };
@@ -147,7 +149,11 @@ pub(crate) fn map_event(
         }
         AcpSessionEvent::Stream(delta) => map_stream(state, turn_id, delta),
         AcpSessionEvent::ToolCall(update) => {
-            let update = merge_stored_tool(state, update);
+            let mut update = merge_stored_tool(state, update);
+            if update.parent_tool_call_id.is_none() {
+                update.parent_tool_call_id =
+                    parent_tool_call_for_session(state, update.session_id.as_deref());
+            }
             match map_tool_call(&state.provider_id, &update, &mut state.overlay) {
                 ToolMapOut::FoldThinking { text, done } => {
                     let event = fold_thinking(state, turn_id.clone(), text, done);
@@ -230,8 +236,13 @@ pub(crate) fn map_event(
             ),
         )),
         AcpSessionEvent::TurnEnd(stop) => {
-            state.overlay.grok_tasks.clear();
-            state.tools.clear();
+            if !state.is_grok_family() {
+                state.overlay.grok_tasks.clear();
+                state.tools.clear();
+            }
+            // Grok-build ACP: session/prompt TurnEnd arrives while spawn_subagent
+            // children are still running. Keep grok_tasks/tools so
+            // subagent_finished and child sessionId updates stay on the spawn.
             let turn_id = turn_id?;
             let event = match stop {
                 AcpTurnStop::Canceled => AgentEvent::TurnCanceled {
@@ -381,11 +392,68 @@ fn map_stream(
     }
 }
 
+fn parent_tool_call_for_session(state: &EventMapState, session_id: Option<&str>) -> Option<String> {
+    let sid = session_id?.trim();
+    if sid.is_empty() {
+        return None;
+    }
+    if state
+        .persistence
+        .as_ref()
+        .is_some_and(|handle| handle.as_str() == sid)
+    {
+        return None;
+    }
+    state
+        .overlay
+        .grok_tasks
+        .get(sid)
+        .filter(|tool| tool.kind == AgentToolKind::Subagent)
+        .map(|tool| tool.tool_call_id.clone())
+}
+
+pub(crate) fn map_xai_subagent(
+    state: &mut EventMapState,
+    turn_id: Option<String>,
+    method: &str,
+    params: serde_json::Value,
+) -> Option<AgentEventEnvelope> {
+    if !state.is_grok_family() {
+        return None;
+    }
+    let notice = parse_xai_subagent_notification(method, &params)?;
+    let tool = apply_xai_subagent_notice(&mut state.overlay.grok_tasks, &notice)?;
+    let kind = match notice {
+        XaiSubagentNotice::Finished { status, .. } => match status {
+            crate::contract::AgentToolStatus::Completed => ToolEventKind::Completed,
+            crate::contract::AgentToolStatus::Failed => ToolEventKind::Failed,
+            _ => ToolEventKind::Updated,
+        },
+        _ => ToolEventKind::Updated,
+    };
+    Some(complete_before_thinking(
+        state,
+        turn_id.clone(),
+        wrap(turn_id, tool_event(tool, kind)),
+    ))
+}
+
 fn map_thinking_stream(
     state: &mut EventMapState,
     turn_id: Option<String>,
     delta: StreamDelta,
 ) -> AgentEventEnvelope {
+    if let Some(parent) = parent_tool_call_for_session(state, delta.session_id.as_deref()) {
+        let message_id = format!("subagent-think:{parent}");
+        return wrap(
+            turn_id,
+            AgentEvent::ThinkingDelta {
+                message_id,
+                delta: delta.delta,
+                parent_tool_call_id: Some(parent),
+            },
+        );
+    }
     fold_thinking(state, turn_id, delta.delta, delta.done)
 }
 
@@ -434,6 +502,17 @@ fn map_assistant_stream(
     turn_id: Option<String>,
     delta: StreamDelta,
 ) -> AgentEventEnvelope {
+    if let Some(parent) = parent_tool_call_for_session(state, delta.session_id.as_deref()) {
+        let message_id = format!("subagent-text:{parent}");
+        return wrap(
+            turn_id,
+            AgentEvent::AssistantMessageDelta {
+                message_id,
+                delta: delta.delta,
+                parent_tool_call_id: Some(parent),
+            },
+        );
+    }
     let message_id = state
         .assistant_message_id
         .get_or_insert_with(|| uuid::Uuid::new_v4().to_string())
@@ -841,6 +920,7 @@ mod tests {
                 delta: "x".into(),
                 done: false,
                 usage: None,
+                session_id: None,
             })
         ));
         assert!(!should_drop_replay(false, &AcpSessionEvent::LoadCompleted));
@@ -874,6 +954,7 @@ mod tests {
                 delta: "replay".into(),
                 done: false,
                 usage: None,
+                session_id: None,
             }),
         );
         assert!(events.is_empty());
@@ -1049,6 +1130,7 @@ mod tests {
             AcpSessionEvent::ToolCall(ToolCallUpdate {
                 tool_call_id: "tc_1".into(),
                 parent_tool_call_id: None,
+                session_id: None,
                 tool: "Bash".into(),
                 description: String::new(),
                 acp_kind: None,
@@ -1082,7 +1164,44 @@ mod tests {
     }
 
     #[test]
-    fn subagent_dispatch_stays_started_until_taskoutput_is_terminal() {
+    fn cursor_nested_parent_tool_use_id_stays_on_the_child() {
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("testdata/cursor_nested_parent_tool.json")).unwrap();
+        let parent = fixture["toolCall"]["_meta"]["claudeCode"]["parentToolUseId"]
+            .as_str()
+            .unwrap();
+        let mut state = EventMapState::new("cursor".into(), AgentCurrentConfig::default(), false);
+        let envelope = map_event(
+            &mut state,
+            Some("turn-1".into()),
+            AcpSessionEvent::ToolCall(ToolCallUpdate {
+                tool_call_id: "child_read".into(),
+                parent_tool_call_id: Some(parent.to_string()),
+                session_id: None,
+                tool: "Read".into(),
+                description: "Read README.md".into(),
+                acp_kind: Some("read".into()),
+                status: ToolCallStatus::Completed,
+                raw_input: Some(serde_json::json!({ "path": "README.md" })),
+                content: Vec::new(),
+                locations: Vec::new(),
+                raw_output: None,
+                detail: None,
+            }),
+        )
+        .expect("nested read");
+        let AgentEvent::ToolCallCompleted { tool_call } = envelope.payload else {
+            panic!("expected completed nested read, got {:?}", envelope.payload);
+        };
+        assert_eq!(
+            tool_call.parent_tool_call_id.as_deref(),
+            Some("parent_task")
+        );
+        assert_eq!(tool_call.kind, AgentToolKind::Read);
+    }
+
+    #[test]
+    fn grok_background_subagent_survives_parent_turn_end() {
         let mut state =
             EventMapState::new("grok-build".into(), AgentCurrentConfig::default(), false);
         let dispatch = map_event(
@@ -1091,6 +1210,7 @@ mod tests {
             AcpSessionEvent::ToolCall(ToolCallUpdate {
                 tool_call_id: "tc_sub".into(),
                 parent_tool_call_id: None,
+                session_id: None,
                 tool: "spawn_subagent".into(),
                 description: "Inspect test coverage".into(),
                 acp_kind: None,
@@ -1102,7 +1222,7 @@ mod tests {
                 content: Vec::new(),
                 locations: Vec::new(),
                 raw_output: Some(serde_json::json!({
-                    "task_id": "child-1",
+                    "task_id": "sa-1",
                     "status": "running"
                 })),
                 detail: None,
@@ -1113,15 +1233,98 @@ mod tests {
             panic!("expected started dispatch, got {:?}", dispatch.payload);
         };
         assert_eq!(tool_call.status, AgentToolStatus::Running);
-        assert!(state.overlay.grok_tasks.contains_key("child-1"));
+        assert!(state.overlay.grok_tasks.contains_key("sa-1"));
 
-        let _ = map_event(
+        state.persistence = Some(crate::contract::AgentPersistenceHandle::new("sess_parent"));
+        let turn_end = map_event(
             &mut state,
             Some("turn-1".into()),
             AcpSessionEvent::TurnEnd(AcpTurnStop::Completed),
         );
-        assert!(state.overlay.grok_tasks.is_empty());
-        assert!(state.tools.is_empty());
+        assert!(matches!(
+            turn_end.as_ref().map(|event| &event.payload),
+            Some(AgentEvent::TurnCompleted { .. })
+        ));
+        assert!(state.overlay.grok_tasks.contains_key("sa-1"));
+        assert!(state.overlay.grok_tasks.contains_key("tc_sub"));
+
+        let spawned: serde_json::Value =
+            serde_json::from_str(include_str!("../grok/testdata/subagent_spawned.json")).unwrap();
+        map_xai_subagent(
+            &mut state,
+            Some("turn-1".into()),
+            "_x.ai/session_notification",
+            spawned,
+        )
+        .expect("spawned after TurnEnd");
+
+        let child_text = map_event(
+            &mut state,
+            Some("turn-1".into()),
+            AcpSessionEvent::Stream(StreamDelta {
+                role: "assistant".into(),
+                kind: "message".into(),
+                delta: "hello from child".into(),
+                done: false,
+                usage: None,
+                session_id: Some("sa-1".into()),
+            }),
+        )
+        .expect("child stream after TurnEnd");
+        let AgentEvent::AssistantMessageDelta {
+            parent_tool_call_id,
+            ..
+        } = child_text.payload
+        else {
+            panic!("expected parented child text, got {:?}", child_text.payload);
+        };
+        assert_eq!(parent_tool_call_id.as_deref(), Some("tc_sub"));
+
+        let child_tool = map_event(
+            &mut state,
+            Some("turn-1".into()),
+            AcpSessionEvent::ToolCall(ToolCallUpdate {
+                tool_call_id: "child_read".into(),
+                parent_tool_call_id: None,
+                session_id: Some("sa-1".into()),
+                tool: "Read".into(),
+                description: "hello2.txt".into(),
+                acp_kind: Some("read".into()),
+                status: ToolCallStatus::Completed,
+                raw_input: Some(serde_json::json!({ "path": "hello2.txt" })),
+                content: Vec::new(),
+                locations: Vec::new(),
+                raw_output: None,
+                detail: None,
+            }),
+        )
+        .expect("child tool after TurnEnd");
+        let child_call = match child_tool.payload {
+            AgentEvent::ToolCallCompleted { tool_call }
+            | AgentEvent::ToolCallStarted { tool_call }
+            | AgentEvent::ToolCallUpdated { tool_call } => tool_call,
+            other => panic!("expected child tool event, got {other:?}"),
+        };
+        assert_eq!(child_call.parent_tool_call_id.as_deref(), Some("tc_sub"));
+
+        let finished: serde_json::Value =
+            serde_json::from_str(include_str!("../grok/testdata/subagent_finished.json")).unwrap();
+        let done = map_xai_subagent(
+            &mut state,
+            Some("turn-1".into()),
+            "_x.ai/session_notification",
+            finished,
+        )
+        .expect("finished after TurnEnd");
+        let AgentEvent::ToolCallCompleted { tool_call } = done.payload else {
+            panic!("expected completed spawn, got {:?}", done.payload);
+        };
+        assert_eq!(tool_call.tool_call_id, "tc_sub");
+        assert_eq!(tool_call.status, AgentToolStatus::Completed);
+        match tool_call.result {
+            Some(AgentToolResult::Text { text }) => assert_eq!(text, "hello from child"),
+            other => panic!("expected child output on the spawn, got {other:?}"),
+        }
     }
 
     #[test]
@@ -1135,6 +1338,7 @@ mod tests {
             AcpSessionEvent::ToolCall(ToolCallUpdate {
                 tool_call_id: "tc_dsh".into(),
                 parent_tool_call_id: None,
+                session_id: None,
                 tool: "Search".into(),
                 description: "Check LLM providers, DB backend, app names".into(),
                 acp_kind: Some("search".into()),
@@ -1158,6 +1362,7 @@ mod tests {
             AcpSessionEvent::ToolCall(ToolCallUpdate {
                 tool_call_id: "tc_dsh".into(),
                 parent_tool_call_id: None,
+                session_id: None,
                 tool: "Tool".into(),
                 description: String::new(),
                 acp_kind: Some("other".into()),
@@ -1258,6 +1463,7 @@ mod tests {
             AcpSessionEvent::ToolCall(ToolCallUpdate {
                 tool_call_id: raw["toolCallId"].as_str().unwrap().into(),
                 parent_tool_call_id: None,
+                session_id: None,
                 tool: "Tool".into(),
                 description: raw["title"].as_str().unwrap_or("").into(),
                 acp_kind: Some("other".into()),
@@ -1306,6 +1512,7 @@ mod tests {
             AcpSessionEvent::ToolCall(ToolCallUpdate {
                 tool_call_id: todo_raw["toolCallId"].as_str().unwrap().into(),
                 parent_tool_call_id: None,
+                session_id: None,
                 tool: "Tool".into(),
                 description: todo_raw["title"].as_str().unwrap_or("").into(),
                 acp_kind: Some("other".into()),

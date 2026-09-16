@@ -110,7 +110,7 @@ import {
   getCenterStageSurfaceTabVariant,
 } from "@/app-shell/center-stage-shared-tabs";
 import { attentionTabClass } from "@/features/agent/components/AgentAttentionIndicator";
-import { chatAttentionLookupIds } from "@/features/agent/lib/agent-status-ack";
+import { resolveAgentChatAttentionReason } from "@/features/agent/lib/agent-chat-close-confirm";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import { useTerminalCenterTabPresentation } from "@/features/terminal/hooks/use-terminal-center-tab-presentation";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
@@ -127,6 +127,7 @@ import {
 } from "@/app-shell/center-stage-tab-model";
 import { pinOverviewFront } from "@/app-shell/center-pane/center-pane-layout";
 import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
+import type { GitCommitCenterTab } from "@/features/git/store/use-git-commit-center-tabs";
 import type { BrowserCenterTab } from "@/features/browser/store/use-browser-center-tabs";
 import {
   getActivePreviewBrowserFaviconUrl,
@@ -147,6 +148,7 @@ interface CenterStageTabBarProps {
   codeReviewTabVisible: boolean;
   effectiveContextId: string;
   githubTabs: GithubCenterTab[];
+  gitCommitTabs: GitCommitCenterTab[];
   openFiles: OpenFile[];
   orderedGroupedTabItems: Array<{ key: string; label: string; tabs: TabGroupItem[] }>;
   previewBrowserPrefs: PreviewBrowserPrefs;
@@ -171,6 +173,7 @@ interface CenterStageTabBarProps {
   handleCloseFile: (file: OpenFile) => void;
   handleCloseAgentChatTab: (value: string) => void;
   handleCloseGithubTab: (value: string) => void;
+  handleCloseGitCommitTab: (value: string) => void;
   handleCloseTerminalCenterTab: (tabId: string) => void;
   handleCreateBrowserCenterTab: () => void;
   handleCreateSimulatorCenterTab: () => void;
@@ -235,6 +238,7 @@ export function CenterStageTabBar({
   codeReviewTabVisible,
   effectiveContextId,
   githubTabs,
+  gitCommitTabs,
   openFiles,
   orderedGroupedTabItems,
   previewBrowserPrefs,
@@ -260,6 +264,7 @@ export function CenterStageTabBar({
   handleCloseFile,
   handleCloseAgentChatTab,
   handleCloseGithubTab,
+  handleCloseGitCommitTab,
   handleCloseTerminalCenterTab,
   handleCreateBrowserCenterTab,
   handleCreateSimulatorCenterTab,
@@ -350,6 +355,7 @@ export function CenterStageTabBar({
     Array<
       | { type: "file"; openedAt: number; file: OpenFile }
       | { type: "github"; openedAt: number; tab: GithubCenterTab }
+      | { type: "git-commit"; openedAt: number; tab: GitCommitCenterTab }
       | { type: "browser"; openedAt: number; tab: BrowserCenterTab }
     >
   >(() => {
@@ -360,12 +366,15 @@ export function CenterStageTabBar({
       ...githubTabs.map(
         (tab) => ({ type: "github" as const, openedAt: tab.openedAt, tab }),
       ),
+      ...gitCommitTabs.map(
+        (tab) => ({ type: "git-commit" as const, openedAt: tab.openedAt, tab }),
+      ),
       ...browserTabs.map(
         (tab) => ({ type: "browser" as const, openedAt: tab.openedAt, tab }),
       ),
     ];
     return items.sort((left, right) => left.openedAt - right.openedAt);
-  }, [browserTabs, githubTabs, openFiles]);
+  }, [browserTabs, gitCommitTabs, githubTabs, openFiles]);
 
   // Fallback visual order when the user has never dragged the strip:
   // terminals → special terminals → surface tabs by open time.
@@ -517,6 +526,16 @@ export function CenterStageTabBar({
           value: item.tab.value,
           kind: "browser",
           label,
+        });
+        continue;
+      }
+
+      if (item.type === "git-commit") {
+        descriptors.push({
+          id: item.tab.value,
+          value: item.tab.value,
+          kind: "git-commit",
+          label: item.tab.label,
         });
         continue;
       }
@@ -884,6 +903,28 @@ export function CenterStageTabBar({
           tooltip={label}
           value={browserTab.value}
           variant="browser"
+        />
+      );
+    }
+
+    const gitCommitTab = gitCommitTabs.find((item) => item.value === tab.value);
+    if (gitCommitTab) {
+      const ownerRepo =
+        gitCommitTab.owner && gitCommitTab.repo
+          ? `${gitCommitTab.owner}/${gitCommitTab.repo}`
+          : null;
+      return (
+        <CenterStageSurfaceContentTab
+          key={tab.id}
+          closeLabel={t("centerStageTabBar.closeTab", { tab: gitCommitTab.label })}
+          name={gitCommitTab.label}
+          onClose={() => handleCloseGitCommitTab(gitCommitTab.value)}
+          onContextMenu={(event) => openContextMenu(event, tab)}
+          path={ownerRepo ?? gitCommitTab.sha.substring(0, 7)}
+          shortcutDigit={shortcutDigit}
+          tooltip={gitCommitTab.description || ownerRepo || gitCommitTab.subject}
+          value={gitCommitTab.value}
+          variant="git-commit"
         />
       );
     }
@@ -2137,16 +2178,9 @@ function AgentChatCenterTab({
   chatId?: string;
   contextId: string;
 } & React.ComponentProps<typeof SpecialTerminalTab>) {
-  const attentionReason = useAgentAttentionStore((s) => {
-    let best: "permission_request" | "task_complete" | null = null;
-    for (const id of chatAttentionLookupIds(chatId)) {
-      const reason = s.panes.get(id)?.reason;
-      if (!reason) continue;
-      if (reason === "permission_request") return "permission_request" as const;
-      best = reason;
-    }
-    return best;
-  });
+  const attentionReason = useAgentAttentionStore((s) =>
+    resolveAgentChatAttentionReason(chatId, s.panes),
+  );
   return (
     <SpecialTerminalTab
       {...props}

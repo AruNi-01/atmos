@@ -380,6 +380,7 @@ describe("warm multi-pane active retention", () => {
       visibleTerminalTabs: undefined,
       openFiles: undefined,
       githubTabs: undefined,
+      gitCommitTabs: undefined,
       browserTabs: undefined,
       currentView: undefined,
       currentProject: undefined,
@@ -405,6 +406,7 @@ describe("warm multi-pane active retention", () => {
       handleCreateTerminalCenterTab: undefined,
       handleTerminalPaneClosed: undefined,
       handleCloseGithubTab: undefined,
+      handleCloseGitCommitTab: undefined,
       onGithubPullRequestChanged: undefined,
     };
     expect(

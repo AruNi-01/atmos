@@ -11,6 +11,18 @@ function count(source: string, snippet: string) {
 }
 
 describe("left sidebar workspace list scroll areas", () => {
+  it("keeps overlay thumbs in the divider gutter with the resize mark", () => {
+    const constants = read("../sidebar-layout-constants.ts");
+    const sidebar = read("../LeftSidebar.tsx");
+    const scrollArea = read("../../../../../packages/ui/src/components/ui/scroll-area.tsx");
+    expect(constants).toContain("LEFT_SIDEBAR_DIVIDER_GUTTER_SCROLLBAR_CLASS");
+    expect(constants).toContain(
+      "[&_[data-slot=scroll-area-scrollbar][data-orientation=vertical]]:me-0",
+    );
+    expect(sidebar).toContain("LEFT_SIDEBAR_DIVIDER_GUTTER_SCROLLBAR_CLASS");
+    expect(scrollArea).toContain("absolute m-1 w-1.5");
+  });
+
   it("fades the one-column grouped list in the same viewport as sticky titles", () => {
     const source = read("../left-sidebar-controls.tsx");
     expect(source).toContain("<ScrollArea scrollFade className=\"h-full\">");

@@ -82,6 +82,71 @@ describe("deriveAgentActivity", () => {
     ], true)).toMatchObject({ busy: true, kind: "working", label: "Generating" });
   });
 
+  it("follows later parent execute instead of a stuck subagent or wait Tool", () => {
+    const activity = deriveAgentActivity([
+      assistant([
+        {
+          type: "tool_call",
+          tool_call_id: "sub",
+          name: "Task",
+          kind: "subagent",
+          status: "running",
+          params: { type: "subagent", description: "Inspect tests", agent_type: "explore" },
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "wait",
+          name: "TaskOutput",
+          kind: "other",
+          status: "running",
+          params: { type: "other", value: { task_id: "child1" } },
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "bash",
+          name: "Bash",
+          kind: "execute",
+          status: "running",
+          params: { type: "execute", command: "ls", background: false },
+        },
+      ], { streaming: true }),
+    ], true);
+    expect(activity).toMatchObject({ busy: true, kind: "working", label: "Execute ls" });
+  });
+
+  it("omits nested child tools from parent activity", () => {
+    const activity = deriveAgentActivity([
+      assistant([
+        {
+          type: "tool_call",
+          tool_call_id: "sub",
+          name: "spawn_subagent",
+          kind: "subagent",
+          status: "completed",
+          params: { type: "subagent", description: "Read hello", agent_type: "explore" },
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "child-read",
+          name: "Read",
+          kind: "read",
+          status: "running",
+          parent_tool_call_id: "sub",
+          params: { type: "read", path: "hello2.txt" },
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "bash",
+          name: "Bash",
+          kind: "execute",
+          status: "running",
+          params: { type: "execute", command: "pwd", background: false },
+        },
+      ], { streaming: true }),
+    ], true);
+    expect(activity).toMatchObject({ busy: true, kind: "working", label: "Execute pwd" });
+  });
+
   it("lets a running tool take precedence over earlier thought", () => {
     const activity = deriveAgentActivity([
       assistant([
@@ -421,6 +486,101 @@ describe("deriveAgentActivity", () => {
       busy: true,
       kind: "working",
       label: "Waiting for 1 background agent to finish",
+    });
+  });
+
+  it("maps an active wait-poll even when parent_tool_call_id points at the spawn", () => {
+    const activity = deriveAgentActivity([
+      assistant([
+        {
+          type: "tool_call",
+          tool_call_id: "parent",
+          name: "spawn_subagent",
+          kind: "subagent",
+          status: "running",
+          params: {
+            type: "subagent",
+            description: "Explore files",
+            agent_type: "explore",
+          },
+        },
+        {
+          type: "thinking",
+          text: "child thought",
+          parent_tool_call_id: "parent",
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "child-read",
+          name: "Read",
+          kind: "read",
+          status: "running",
+          parent_tool_call_id: "parent",
+          params: { type: "read", path: "hello2.txt" },
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "wait",
+          name: "get_command_or_subagent_output",
+          kind: "other",
+          status: "running",
+          parent_tool_call_id: "parent",
+          params: { type: "other", value: { task_id: "parent" } },
+        },
+      ], { streaming: true }),
+    ], true);
+    expect(activity).toMatchObject({
+      busy: true,
+      kind: "working",
+      label: "Waiting for 1 background agent to finish",
+    });
+    expect(JSON.stringify(activity)).not.toContain("hello2.txt");
+  });
+
+  it("counts two nested wait-poll tools as two background agents", () => {
+    const activity = deriveAgentActivity([
+      assistant([
+        {
+          type: "tool_call",
+          tool_call_id: "one",
+          name: "Task",
+          kind: "subagent",
+          status: "running",
+          params: { type: "subagent", description: "Explore files", agent_type: "explore" },
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "two",
+          name: "Agent",
+          kind: "subagent",
+          status: "running",
+          params: { type: "subagent", description: "Write summary", agent_type: "generalPurpose" },
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "wait-1",
+          name: "TaskOutput",
+          kind: "other",
+          status: "running",
+          parent_tool_call_id: "one",
+          params: { type: "other", value: null },
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "wait-2",
+          name: "AgentOutput",
+          kind: "other",
+          status: "running",
+          title: "get_command_or_subagent_output",
+          parent_tool_call_id: "two",
+          params: { type: "other", value: null },
+        },
+      ], { streaming: true }),
+    ], true);
+    expect(activity).toMatchObject({
+      busy: true,
+      kind: "working",
+      label: "Waiting for 2 background agents to finish",
     });
   });
 

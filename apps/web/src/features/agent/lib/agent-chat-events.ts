@@ -82,6 +82,24 @@ function lastUserIndex(messages: AgentMessage[]): number {
   return -1;
 }
 
+export function currentTurnHasRunningSubagent(messages: AgentMessage[]): boolean {
+  const start = lastUserIndex(messages) + 1;
+  for (let index = start; index < messages.length; index += 1) {
+    const message = messages[index];
+    if (message?.role !== "assistant") continue;
+    for (const part of message.parts) {
+      if (
+        part.type === "tool_call"
+        && part.kind === "subagent"
+        && isActiveToolStatus(part.status)
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function currentTurnAssistant(
   messages: AgentMessage[],
   preferredId?: string,
@@ -107,10 +125,15 @@ function reopenAssistantStreaming(message: AgentMessage, patch: Partial<AgentMes
     ...message,
     ...patch,
     streaming: true,
-    // A premature turn_completed can stamp completed_at on chrome-only rows;
-    // clear it when real content resumes so the ended footer does not stick.
-    completed_at: null,
   };
+}
+
+function hasActiveForegroundWork(parts: AgentPart[]): boolean {
+  return parts.some((part) => {
+    if (part.type !== "tool_call") return false;
+    if (!isActiveToolStatus(part.status)) return false;
+    return !isLiveBackgroundToolCall(part);
+  });
 }
 
 function patchCurrentTurnAssistant(
@@ -372,6 +395,22 @@ function foldAgentChatEvent(
   }
 
   if (payload.type === "turn_completed") {
+    if (currentTurnHasRunningSubagent(messages) && payload.status !== "failed") {
+      const current = currentTurnAssistant(messages);
+      if (!current) return messages;
+      return messages.map((item, index) =>
+        index === current.index
+          ? {
+              ...item,
+              streaming: true,
+              completed_at: payload.completed_at ?? item.completed_at ?? payload.turn_id,
+              worked_ms: payload.worked_ms ?? item.worked_ms,
+              thinking_ms: payload.thinking_ms ?? item.thinking_ms,
+              usage: payload.usage ?? item.usage,
+            }
+          : item,
+      );
+    }
     const errorMessage = payload.error?.trim();
     const failed = payload.status === "failed" && Boolean(errorMessage);
     const settled = messages.map((item) =>
@@ -457,6 +496,13 @@ function foldAgentChatEvent(
         parts[existing] = mergeToolPart(parts[existing], part);
       } else {
         parts.push(part);
+      }
+      if (!hasActiveForegroundWork(parts) && message.completed_at) {
+        return {
+          ...message,
+          parts: settleOrphanToolCalls(parts),
+          streaming: false,
+        };
       }
       return reopenAssistantStreaming(message, { parts });
     });

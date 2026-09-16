@@ -9,7 +9,7 @@ import {
 } from "@/api/query/query-keys";
 import { wsQueryOptions, wsInfiniteQueryOptions } from "@/api/query/computer-query-options";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
-import { gitApi, type GitStatusResponse, type GitChangedFilesResponse, type GitFileDiffResponse, type GitHistoryPage } from "@/api/ws-api";
+import { gitApi, type GitStatusResponse, type GitChangedFilesResponse, type GitFileDiffResponse, type GitFileBlameResponse, type GitCommitDetailResponse, type GitHistoryPage } from "@/api/ws-api";
 
 export type { GitCompareParams, GitFileDiffParams };
 export { GIT_WORKTREE_PARAMS };
@@ -113,6 +113,44 @@ export function gitChangedFilesQueryOptions(
         baseRef: params.baseRef,
         commitRef: params.commitRef,
       }),
+    staleTime: GIT_LIST_STALE_MS,
+    gcTime: GIT_LIST_GC_MS,
+  });
+}
+
+const GIT_BLAME_STALE_MS = 5 * 60_000;
+
+export function gitFileBlameQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  repoPath: string,
+  filePath: string,
+  options?: { enabled?: boolean },
+) {
+  return wsQueryOptions<GitFileBlameResponse>({
+    scope,
+    connectionState,
+    enabled: (options?.enabled ?? true) && Boolean(repoPath) && Boolean(filePath),
+    queryKey: queryKeys.computer.gitFileBlame(scope, repoPath, filePath),
+    queryFn: () => gitApi.getFileBlame(repoPath, filePath),
+    staleTime: GIT_BLAME_STALE_MS,
+    gcTime: GIT_LIST_GC_MS,
+  });
+}
+
+export function gitCommitDetailQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  repoPath: string,
+  commitHash: string,
+  options?: { enabled?: boolean },
+) {
+  return wsQueryOptions<GitCommitDetailResponse>({
+    scope,
+    connectionState,
+    enabled: (options?.enabled ?? true) && Boolean(repoPath) && Boolean(commitHash),
+    queryKey: queryKeys.computer.gitCommitDetail(scope, repoPath, commitHash),
+    queryFn: () => gitApi.getCommitDetail(repoPath, commitHash),
     staleTime: GIT_LIST_STALE_MS,
     gcTime: GIT_LIST_GC_MS,
   });

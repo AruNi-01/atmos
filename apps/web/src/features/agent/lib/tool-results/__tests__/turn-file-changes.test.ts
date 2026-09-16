@@ -144,11 +144,16 @@ describe("assistant turn file changes wiring", () => {
     expect(card).toContain("TooltipContent");
     expect(card).toContain("font-mono text-xs");
     expect(card).toContain("openWorkspacePath");
-    expect(card).toContain("selectRangesForTurnFile");
+    expect(card).toContain('openGitGutter: "all"');
+    expect(card).not.toContain("selectRangesForTurnFile");
     expect(card).toContain("includeRanges: false");
     expect(card).toContain("isDir: false");
     expect(card).toContain("PREVIEW_COUNT = 3");
-    expect(card).toContain('expanded && "max-h-44 overflow-y-auto"');
+    expect(card).toContain("<ScrollArea");
+    expect(card).toContain("scrollFade");
+    expect(card).toContain('className="h-auto max-h-44"');
+    expect(card).toContain('viewportClassName="h-auto max-h-44"');
+    expect(card).not.toContain("overflow-y-auto");
     expect(card).toContain("CollapsibleContent");
     expect(card).toContain("motion-reduce:data-[state=closed]:animate-none");
     expect(card).toContain("motion-reduce:data-[state=open]:animate-none");

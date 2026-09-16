@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use serde::Serialize;
@@ -137,6 +138,55 @@ pub struct HistoryPage {
     pub next_cursor: Option<usize>,
     pub total_count: Option<usize>,
     pub head_commit_count: Option<usize>,
+}
+
+/// Why `file_blame` did not produce ranges.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FileBlameKind {
+    Ok,
+    Binary,
+    TooLarge,
+    Untracked,
+}
+
+/// Inclusive 1-based line span with the same blame SHA (or uncommitted).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct BlameRange {
+    pub start_line: u32,
+    pub end_line: u32,
+    pub commit_hash: Option<String>,
+}
+
+/// Compact commit summary from `git blame` porcelain (no `--stat`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct BlameCommit {
+    pub hash: String,
+    pub short_hash: String,
+    pub author_name: String,
+    pub author_email: String,
+    pub timestamp: i64,
+    pub subject: String,
+}
+
+/// Whole-file blame map. `kind != ok` ⇒ empty ranges/commits.
+#[derive(Debug, Clone, Serialize)]
+pub struct FileBlameInfo {
+    pub file_path: String,
+    pub blob_id: Option<String>,
+    pub kind: FileBlameKind,
+    pub ranges: Vec<BlameRange>,
+    pub commits: HashMap<String, BlameCommit>,
+}
+
+/// Lazy hover card payload from `git show --shortstat`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CommitDetailInfo {
+    pub hash: String,
+    pub body: Option<String>,
+    pub files_changed: u32,
+    pub insertions: u32,
+    pub deletions: u32,
 }
 
 /// Information about a single git commit

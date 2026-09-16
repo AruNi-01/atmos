@@ -3,6 +3,7 @@ import {
   isEmptyToolJson,
   isGenericToolLabel,
   isPlaceholderToolParams,
+  isSubagentWaitTool,
 } from "@/features/agent/lib/agent-tool-kind";
 
 describe("isGenericToolLabel", () => {
@@ -15,6 +16,32 @@ describe("isGenericToolLabel", () => {
     expect(isGenericToolLabel("commandExecution")).toBe(true);
     expect(isGenericToolLabel("command_execution")).toBe(true);
     expect(isGenericToolLabel("ReadFile")).toBe(false);
+  });
+});
+
+describe("isSubagentWaitTool", () => {
+  it("treats Grok's child-labeled TaskOutput poll as wait chrome", () => {
+    expect(isSubagentWaitTool({
+      name: "Tool",
+      title: "[subagent:general-purpose] Fix overlay UI layout (01a0a960)",
+      params: {
+        type: "other",
+        value: {
+          task_ids: ["01a0a960-5042-7bf0-99d4-a284b33e03e3"],
+          timeout_ms: 180000,
+          variant: "TaskOutput",
+        },
+      },
+    })).toBe(true);
+    expect(isSubagentWaitTool({
+      name: "get_command_or_subagent_output",
+      title: "TaskOutput",
+    })).toBe(true);
+    expect(isSubagentWaitTool({
+      name: "Read",
+      title: "AgentPromptComposer.tsx",
+      params: { type: "read", path: "a.ts" },
+    })).toBe(false);
   });
 });
 
