@@ -159,6 +159,7 @@ function isNonFileExplorerCenterTab(tabId: string): boolean {
     tabId.startsWith("github-pr:") ||
     tabId.startsWith("github-issue:") ||
     tabId.startsWith("github-action:") ||
+    tabId.startsWith("git-commit:") ||
     tabId.startsWith("github-commit:") ||
     tabId.startsWith("browser:") ||
     tabId.startsWith("agent-chat:")

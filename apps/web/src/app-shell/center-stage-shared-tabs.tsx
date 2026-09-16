@@ -165,7 +165,7 @@ export type CenterStageSurfaceTabVariant =
   | "github-pr"
   | "github-issue"
   | "github-action"
-  | "github-commit"
+  | "git-commit"
   | "browser";
 
 export function CenterStageTabList({
@@ -449,7 +449,7 @@ export function CenterStageSurfaceContentTab({
               <Circle className="size-3.5 shrink-0" />
             ) : variant === "github-action" ? (
               <Workflow className="size-3.5 shrink-0" />
-            ) : variant === "github-commit" ? (
+            ) : variant === "git-commit" ? (
               <GitCommitHorizontal className="size-3.5 shrink-0" />
             ) : variant === "browser" ? (
               <BrowserTabFavicon faviconUrl={faviconUrl} />
@@ -608,7 +608,7 @@ export function CenterStageTabGroupItemContent({
     );
   }
 
-  if (tab.kind === "github-pr" || tab.kind === "github-issue" || tab.kind === "github-action" || tab.kind === "github-commit") {
+  if (tab.kind === "github-pr" || tab.kind === "github-issue" || tab.kind === "github-action" || tab.kind === "git-commit") {
     return (
       <>
         {leading(

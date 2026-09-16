@@ -62,6 +62,8 @@ interface PRFilesTabProps {
   url?: string | null;
   agentFixContext?: AgentFixContextRef | null;
   onCodeViewTopBoundaryWheel?: (deltaY: number) => void;
+  /** Scroll the file list to this path once the diff viewer is ready. */
+  focusFilePath?: string | null;
 }
 
 function groupCommentsByPath(comments: ReviewComment[]): Map<string, ReviewComment[][]> {
@@ -234,12 +236,14 @@ export function PRFilesTab({
   reviewComments = [],
   title,
   url,
+  focusFilePath,
 }: PRFilesTabProps) {
   const t = useTranslations('github.prFilesTab');
   const { resolvedTheme } = useTheme();
   const workerPoolReady = useDiffWorkerPoolReady();
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [viewerMounted, setViewerMounted] = useState(false);
+  const scrolledFocusRef = useRef<string | null>(null);
   const {
     diffStyle,
     showBackgrounds,
@@ -549,6 +553,24 @@ export function PRFilesTab({
     },
     [],
   );
+
+  useEffect(() => {
+    if (!focusFilePath) return;
+    if (!orderedFiles.some((file) => file.filename === focusFilePath)) return;
+    setSelectedPath(focusFilePath);
+  }, [focusFilePath, orderedFiles]);
+
+  useEffect(() => {
+    if (!viewerMounted || !focusFilePath) return;
+    if (!itemIds.includes(focusFilePath)) return;
+    const scrollKey = `${codeViewMountKey}:${focusFilePath}`;
+    if (scrolledFocusRef.current === scrollKey) return;
+    const frame = requestAnimationFrame(() => {
+      scrollCodeViewToItem(codeViewRef.current, focusFilePath, { behavior: 'smooth' });
+      scrolledFocusRef.current = scrollKey;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [codeViewMountKey, focusFilePath, itemIds, viewerMounted]);
 
   useEffect(() => {
     const instance = codeViewRef.current?.getInstance();

@@ -10,6 +10,7 @@ import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 import type { TerminalPaneProps } from "@/features/terminal/types/index";
 import type { Project, Workspace } from "@/shared/types/domain";
 import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
+import type { GitCommitCenterTab } from "@/features/git/store/use-git-commit-center-tabs";
 import type { BrowserCenterTab } from "@/features/browser/store/use-browser-center-tabs";
 import type { MountPlan } from "@/app-shell/workspace-surface-policies";
 import type { TerminalGridHandle } from "@/features/terminal/components/TerminalGrid";
@@ -57,6 +58,7 @@ export type WorkspaceCenterFrameProps = {
   visibleTerminalTabs: TerminalCenterTab[] | undefined;
   openFiles: OpenFile[] | undefined;
   githubTabs: GithubCenterTab[] | undefined;
+  gitCommitTabs: GitCommitCenterTab[] | undefined;
   browserTabs: BrowserCenterTab[] | undefined;
   currentView: string | undefined;
   currentProject: Project | undefined;
@@ -89,6 +91,7 @@ export type WorkspaceCenterFrameProps = {
       }) => void)
     | undefined;
   handleCloseGithubTab: ((value: string) => void) | undefined;
+  handleCloseGitCommitTab: ((value: string) => void) | undefined;
   onGithubPullRequestChanged: (() => void) | undefined;
 };
 
@@ -145,6 +148,7 @@ export function workspaceCenterFramePropsAreEqual(
     prev.visibleTerminalTabs === next.visibleTerminalTabs &&
     prev.openFiles === next.openFiles &&
     prev.githubTabs === next.githubTabs &&
+    prev.gitCommitTabs === next.gitCommitTabs &&
     prev.browserTabs === next.browserTabs &&
     prev.currentView === next.currentView &&
     prev.currentProject === next.currentProject &&

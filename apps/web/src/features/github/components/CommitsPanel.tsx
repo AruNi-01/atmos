@@ -8,7 +8,7 @@ import { cn } from '@/shared/lib/utils';
 import type { GitCommit } from '@/features/github/hooks/use-github';
 import { fromUnixTime } from 'date-fns';
 import { CommitList, type CommitListItem } from './CommitList';
-import { useOpenGithubCenterTab } from '@/features/github/hooks/use-open-github-center-tab';
+import { useOpenGitCommitCenterTab } from '@/features/git/hooks/use-open-git-commit-center-tab';
 
 interface CommitsPanelProps {
   commits: GitCommit[];
@@ -46,7 +46,7 @@ export function CommitsPanel({
   repo,
 }: CommitsPanelProps) {
   const t = useTranslations('github.commitsPanel');
-  const { openCommitTab } = useOpenGithubCenterTab();
+  const { openCommitTab } = useOpenGitCommitCenterTab();
   const items = useMemo(() => commits.map(c => toCommitListItem(c, owner, repo)), [commits, owner, repo]);
 
   const handleCommitClick = useCallback((commit: CommitListItem) => {

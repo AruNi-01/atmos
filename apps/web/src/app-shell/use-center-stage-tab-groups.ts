@@ -24,6 +24,7 @@ import {
   type GroupedTabColumn,
 } from "@/app-shell/center-stage-tab-groups";
 import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
+import type { GitCommitCenterTab } from "@/features/git/store/use-git-commit-center-tabs";
 import type { BrowserCenterTab } from "@/features/browser/store/use-browser-center-tabs";
 import {
   DEFAULT_PREVIEW_BROWSER_PREFS,
@@ -182,6 +183,7 @@ export function useCenterStageTabGroups({
   simulatorTabVisible = false,
   overviewVisible = false,
   githubTabs,
+  gitCommitTabs = [],
   openFiles,
   previewBrowserPrefs = DEFAULT_PREVIEW_BROWSER_PREFS,
   projectWikiTabVisible = false,
@@ -201,6 +203,7 @@ export function useCenterStageTabGroups({
   simulatorTabVisible?: boolean;
   overviewVisible?: boolean;
   githubTabs: GithubCenterTab[];
+  gitCommitTabs?: GitCommitCenterTab[];
   openFiles: OpenFile[];
   previewBrowserPrefs?: PreviewBrowserPrefs;
   projectWikiTabVisible?: boolean;
@@ -331,6 +334,11 @@ export function useCenterStageTabGroups({
         visible: changesTabVisible,
         label: tabBarT("changes"),
       },
+      gitCommits: gitCommitTabs.map((tab) => ({
+        id: tab.id,
+        value: tab.value,
+        label: tab.label,
+      })),
     });
     if (diffTabs.length > 0) {
       groups.push({ key: "diff", label: t("groups.diff"), tabs: diffTabs });
@@ -481,6 +489,7 @@ export function useCenterStageTabGroups({
     gitHistoryTabVisible,
     githubHubTabVisible,
     githubTabs,
+    gitCommitTabs,
     openFiles,
     previewBrowserPrefs,
     projectWikiTabVisible,

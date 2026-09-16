@@ -36,6 +36,7 @@ export interface FunctionSettings {
     breadcrumbs?: boolean;
     line_highlight?: boolean;
     git_integration?: boolean;
+    git_blame?: boolean;
     md_toggle_default_open?: boolean;
   };
   diff?: {

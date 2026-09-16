@@ -45,6 +45,8 @@ export const WS_ACTIONS = [
   "git_sync",
   "git_log",
   "git_history",
+  "git_file_blame",
+  "git_commit_detail",
   "quota_get_overview",
   "quota_set_provider_switch",
   "quota_set_provider_footer_carousel",

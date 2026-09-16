@@ -36,7 +36,7 @@ import { useAgentFixContext } from '@/features/agent-fix/hooks/use-agent-fix-con
 import { AgentFixButton } from '@/features/agent-fix/components/AgentFixButton';
 import type { AgentFixPromptSource } from '@/features/agent-fix/types';
 import { buildPrReviewFixPrompt, buildPrReviewThreadFixPrompt } from '@/features/github/lib/agent-fix-prompts';
-import { useOpenGithubCenterTab } from '@/features/github/hooks/use-open-github-center-tab';
+import { useOpenGitCommitCenterTab } from '@/features/git/hooks/use-open-git-commit-center-tab';
 import { CommitList } from './CommitList';
 import { TimelineCommitsGroup } from './TimelineCommitsGroup';
 import { TimelineReferencesEvent } from './TimelineReferencesEvent';
@@ -90,7 +90,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
   const reserveClose = useDrawerCloseReserve();
   const relativeTimeLocale = locale.startsWith('zh') ? zhCN : enUS;
   const agentFixContext = useAgentFixContext();
-  const { openCommitTab } = useOpenGithubCenterTab();
+  const { openCommitTab } = useOpenGitCommitCenterTab();
   const { data: pr, loading, fetch } = useGithubPRDetail(prNumber, owner, repo, active);
   const { data: sidebarData, loading: sidebarLoading } = useGithubPRDetailSidebar(prNumber, owner, repo, active);
   const [activeMainTab, setActiveMainTab] = React.useState<PRMainTab>(

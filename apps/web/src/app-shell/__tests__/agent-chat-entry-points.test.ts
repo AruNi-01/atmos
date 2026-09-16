@@ -58,6 +58,9 @@ describe("S2 Agent Chat entry points", () => {
     expect(centerStage).not.toContain("agentChatApi.create");
     expect(centerStage).toContain("agentChatTabs");
     expect(centerStage).toContain('tab.kind === "agent-chat"');
+    expect(centerStage).toContain("agentChatNeedsCloseConfirm");
+    expect(centerStage).toContain("dialogs.closeAgentChatTab");
+    expect(centerStage).toContain("handleConfirmCloseAgentChatCenterTab");
 
     const tabGroups = readFileSync(join(ROOT, "use-center-stage-tab-groups.ts"), "utf8");
     expect(tabGroups).toContain("collectAgentChatGroupTabs");
@@ -101,7 +104,7 @@ describe("S2 Agent Chat entry points", () => {
     expect(tabBar).not.toContain("truncate text-pretty");
     expect(tabBar).toContain("AgentChatCenterTab");
     expect(tabBar).toContain("attentionTabClass");
-    expect(tabBar).toContain("chatAttentionLookupIds");
+    expect(tabBar).toContain("resolveAgentChatAttentionReason");
 
     const header = readFileSync(
       join(ROOT, "../features/agent/components/AgentChatHeader.tsx"),

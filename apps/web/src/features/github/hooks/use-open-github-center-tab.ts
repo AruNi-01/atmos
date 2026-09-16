@@ -25,9 +25,6 @@ export function useOpenGithubCenterTab() {
   const openActionRun = useGithubCenterTabsStore(
     (state) => state.openActionRun,
   );
-  const openCommit = useGithubCenterTabsStore(
-    (state) => state.openCommit,
-  );
 
   /**
    * Activate a center tab on `contextId`. Cross-workspace hops pass `tab` as a
@@ -143,50 +140,6 @@ export function useOpenGithubCenterTab() {
     [activateTab, drawerNav, openActionRun, resolveContextId, t],
   );
 
-  const openCommitTab = React.useCallback(
-    ({
-      owner,
-      repo,
-      sha,
-      subject,
-      authorName,
-      contextId,
-    }: {
-      owner: string;
-      repo: string;
-      sha: string;
-      subject: string;
-      authorName: string;
-      contextId?: string | null;
-    }) => {
-      if (drawerNav?.active) {
-        return drawerNav.openCommit({
-          owner,
-          repo,
-          sha,
-          subject,
-          authorName,
-          contextId,
-        });
-      }
-      const targetContextId = resolveContextId(contextId);
-      if (!targetContextId) return false;
-      const shortSha = sha.substring(0, 7);
-      const tab = openCommit(targetContextId, {
-        label: `${shortSha} ${subject}`.substring(0, 60),
-        owner,
-        repo,
-        sha,
-        subject,
-        authorName,
-        description: subject,
-      });
-      activateTab(tab.value, targetContextId);
-      return true;
-    },
-    [activateTab, drawerNav, openCommit, resolveContextId],
-  );
-
   const openIssueTab = React.useCallback(
     ({
       owner,
@@ -225,5 +178,5 @@ export function useOpenGithubCenterTab() {
     [activateTab, drawerNav, openIssue, resolveContextId, t],
   );
 
-  return { openActionRunTab, openPullRequestTab, openIssueTab, openCommitTab };
+  return { openActionRunTab, openPullRequestTab, openIssueTab };
 }

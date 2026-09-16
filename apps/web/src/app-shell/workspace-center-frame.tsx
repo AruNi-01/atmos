@@ -54,6 +54,8 @@ import {
 } from "@/app-shell/workspace-surface-policies";
 import { DiscardableHeavySurface } from "@/app-shell/discardable-github-surface";
 import { GithubKeptSurface } from "@/app-shell/keep-alive-center-views";
+import { GitCommitKeptSurface } from "@/app-shell/keep-alive-git-commit-view";
+import { useGitCommitCenterTabsStore } from "@/features/git/store/use-git-commit-center-tabs";
 import {
   readCenterStageLastTab,
   recordCenterFileRecents,
@@ -344,6 +346,7 @@ function WorkspaceCenterFrameImpl({
   visibleTerminalTabs,
   openFiles,
   githubTabs,
+  gitCommitTabs,
   browserTabs,
   currentView,
   currentProject,
@@ -369,6 +372,7 @@ function WorkspaceCenterFrameImpl({
   handleCreateTerminalCenterTab,
   handleTerminalPaneClosed,
   handleCloseGithubTab,
+  handleCloseGitCommitTab,
   onGithubPullRequestChanged,
 }: WorkspaceCenterFrameProps) {
   const [explorerLayout, explorerLayoutActions] = useCenterExplorerLayout();
@@ -380,6 +384,9 @@ function WorkspaceCenterFrameImpl({
     (s) => s.workspaceStates[contextId]?.openFiles,
   );
   const storeGithubTabs = useGithubCenterTabsStore(
+    (s) => s.tabsByContext[contextId],
+  );
+  const storeGitCommitTabs = useGitCommitCenterTabsStore(
     (s) => s.tabsByContext[contextId],
   );
   const storeBrowserTabs = useBrowserCenterTabsStore(
@@ -420,6 +427,9 @@ function WorkspaceCenterFrameImpl({
   const contextGithubTabs = isUrlSyncedActive
     ? (githubTabs ?? [])
     : (storeGithubTabs ?? []);
+  const contextGitCommitTabs = isUrlSyncedActive
+    ? (gitCommitTabs ?? [])
+    : (storeGitCommitTabs ?? []);
   const contextBrowserTabs = isUrlSyncedActive
     ? (browserTabs ?? [])
     : (storeBrowserTabs ?? []);
@@ -432,6 +442,7 @@ function WorkspaceCenterFrameImpl({
     ...tabs.map((tab) => tab.id),
     ...contextOpenFiles.map((f) => f.path),
     ...contextGithubTabs.map((tab) => tab.value),
+    ...contextGitCommitTabs.map((tab) => tab.value),
     ...contextBrowserTabs.map((tab) => tab.value),
     ...contextAgentChatTabs.map((tab) => tab.value),
     "overview",
@@ -583,6 +594,17 @@ function WorkspaceCenterFrameImpl({
     for (const value of [...keptGithubTabValuesRef.current]) {
       if (!openGithubTabValues.has(value)) {
         keptGithubTabValuesRef.current.delete(value);
+      }
+    }
+  }
+  const keptGitCommitTabValuesRef = React.useRef<Set<string>>(new Set());
+  {
+    const openGitCommitTabValues = new Set(
+      contextGitCommitTabs.map((tab) => tab.value),
+    );
+    for (const value of [...keptGitCommitTabValuesRef.current]) {
+      if (!openGitCommitTabValues.has(value)) {
+        keptGitCommitTabValuesRef.current.delete(value);
       }
     }
   }
@@ -850,6 +872,36 @@ function WorkspaceCenterFrameImpl({
                 showFilesExplorerToggle
               />
             )}
+          </div>
+          );
+        });
+      })}
+
+      {contextGitCommitTabs.map((tab) => {
+        const hosts = hostedPaneIds(tab.value);
+        const commitVisible = hosts.some((paneId) => panelVisible(tab.value, paneId));
+        if (commitVisible) keptGitCommitTabValuesRef.current.add(tab.value);
+        const shouldMount =
+          commitVisible || keptGitCommitTabValuesRef.current.has(tab.value);
+        if (!shouldMount) return null;
+        return hosts.map((paneId) => {
+          const paneVisible = panelVisible(tab.value, paneId);
+          return (
+          <div
+            key={`${contextId}-${tab.value}-${paneId ?? "root"}`}
+            data-center-pane-owner={paneId ?? paneOwner(tab.value)}
+            aria-hidden={!paneVisible}
+            inert={!paneVisible ? true : undefined}
+            className={cn(githubKeepAlivePanelClass(paneVisible), interactivePaneClass(paneVisible))}
+          style={panelStyle(tab.value, paneVisible, paneId)}
+          >
+            <DiscardableHeavySurface active={isActiveContext && paneVisible}>
+            <GitCommitKeptSurface
+              tab={tab}
+              active={isActiveContext}
+              onCloseTab={isUrlSyncedActive ? handleCloseGitCommitTab : undefined}
+            />
+            </DiscardableHeavySurface>
           </div>
           );
         });

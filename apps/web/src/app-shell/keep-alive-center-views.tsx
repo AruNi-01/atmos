@@ -29,13 +29,6 @@ const ActionsDetailView = dynamic(
     ),
   { ssr: false },
 );
-const CommitDetailView = dynamic(
-  () =>
-    import("@/features/github/components/CommitDetailView").then(
-      (mod) => mod.CommitDetailView,
-    ),
-  { ssr: false },
-);
 
 function GithubKeptSurfaceImpl({
   tab,
@@ -83,21 +76,11 @@ function GithubKeptSurfaceImpl({
       />
     );
   }
-  return (
-    <CommitDetailView
-      active={active}
-      onRequestClose={onRequestClose}
-      owner={tab.owner}
-      repo={tab.repo}
-      sha={tab.sha}
-      subject={tab.subject}
-      authorName={tab.authorName}
-    />
-  );
+  return null;
 }
 
 /**
- * Loaded PR/CI/issue/commit trees. Memo skips when the center hop only
+ * Loaded PR/CI/issue trees. Memo skips when the center hop only
  * toggles wrapper opacity — `active` stays workspace-scoped so queries
  * do not disable/re-enable (that re-render is the post-load hitch).
  */

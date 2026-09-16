@@ -18,6 +18,10 @@ import type {
   GitGetStatusBatchRequest,
   GitGetStatusBatchResponse,
   GitGetStatusRequest,
+  GitCommitDetailRequest,
+  GitCommitDetailResponse,
+  GitFileBlameRequest,
+  GitFileBlameResponse,
   GitHistoryPage,
   GitHistoryRequest,
   GitListBranchesRequest,
@@ -83,4 +87,9 @@ export type GitContract = {
   git_sync: { input: GitPathRequest; output: WsSuccess };
   git_log: { input: GitLogRequest; output: GitLogPage };
   git_history: { input: GitHistoryRequest; output: GitHistoryPage };
+  git_file_blame: { input: GitFileBlameRequest; output: GitFileBlameResponse };
+  git_commit_detail: {
+    input: GitCommitDetailRequest;
+    output: GitCommitDetailResponse;
+  };
 };

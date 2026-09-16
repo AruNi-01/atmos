@@ -444,6 +444,10 @@ impl WsMessageService {
             WsAction::GitSync => self.handle_git_sync(parse_request(request.data)?),
             WsAction::GitLog => self.handle_git_log(parse_request(request.data)?),
             WsAction::GitHistory => self.handle_git_history(parse_request(request.data)?),
+            WsAction::GitFileBlame => self.handle_git_file_blame(parse_request(request.data)?),
+            WsAction::GitCommitDetail => {
+                self.handle_git_commit_detail(parse_request(request.data)?)
+            }
 
             // Usage
             WsAction::QuotaGetOverview => {

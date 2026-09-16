@@ -43,6 +43,7 @@ function isEncodedContextTab(tab: string): boolean {
     tab.startsWith("github-pr:") ||
     tab.startsWith("github-issue:") ||
     tab.startsWith("github-action:") ||
+    tab.startsWith("git-commit:") ||
     tab.startsWith("github-commit:") ||
     tab.startsWith("browser:") ||
     isAgentChatTabValue(tab)

@@ -41,6 +41,13 @@ export const SIDEBAR_PEEK_CONTENT_PT_CLASS = "pt-2.5";
 export const LEFT_SIDEBAR_DIVIDER_GUTTER_PX = CENTER_STAGE_GUTTER_X_PX;
 export const LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS = "pr-1";
 export const LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS = "mr-1";
+/**
+ * Overlay vertical thumbs sit in the same `pr-1`/`mr-1` strip as the
+ * sidebar↔center resize mark. Default ScrollBar `m-1` would inset the thumb
+ * onto the rows and leave that gutter empty for the mark alone.
+ */
+export const LEFT_SIDEBAR_DIVIDER_GUTTER_SCROLLBAR_CLASS =
+  "[&_[data-slot=scroll-area-scrollbar][data-orientation=vertical]]:me-0";
 
 /**
  * One-column workspace group titles stick to the list scrollport while that

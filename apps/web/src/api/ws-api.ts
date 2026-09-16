@@ -55,9 +55,14 @@ export type {
   FsSearchDirsResponse,
   FsValidateGitPathResponse,
   FsWriteFileResponse,
+  GitBlameCommit,
+  GitBlameRange,
   GitChangedFile,
   GitChangedFilesResponse,
+  GitCommitDetailResponse,
   GitCommitResponse,
+  GitFileBlameKind,
+  GitFileBlameResponse,
   GitFileDiffResponse,
   GitFilesDiffResponse,
   GitFilesDiffResult,
@@ -378,6 +383,20 @@ export const gitApi = {
       path,
       cursor: options?.cursor ?? 0,
       limit: options?.limit ?? 1000,
+    });
+  },
+
+  getFileBlame: async (path: string, filePath: string) => {
+    return wsRequest("git_file_blame", {
+      path,
+      file_path: filePath,
+    });
+  },
+
+  getCommitDetail: async (path: string, commitHash: string) => {
+    return wsRequest("git_commit_detail", {
+      path,
+      commit_hash: commitHash,
     });
   },
 

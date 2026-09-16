@@ -21,6 +21,7 @@ import type { Project, Workspace } from "@/shared/types/domain";
 import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
 import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
+import type { GitCommitCenterTab } from "@/features/git/store/use-git-commit-center-tabs";
 import type { BrowserCenterTab } from "@/features/browser/store/use-browser-center-tabs";
 import {
   pruneStickyLeavingContexts,
@@ -35,6 +36,7 @@ import { scheduleIdle } from "@/app-shell/workspace-surface-switch";
 import { readCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useGithubCenterTabsStore } from "@/features/github/store/use-github-center-tabs";
+import { useGitCommitCenterTabsStore } from "@/features/git/store/use-git-commit-center-tabs";
 import { useBrowserCenterTabsStore } from "@/features/browser/store/use-browser-center-tabs";
 import {
   buildPaneActiveTabById,
@@ -129,7 +131,9 @@ interface CenterStagePanelsProps {
    */
   paintContextId: string;
   githubTabs: GithubCenterTab[];
+  gitCommitTabs: GitCommitCenterTab[];
   handleCloseGithubTab: (value: string) => void;
+  handleCloseGitCommitTab: (value: string) => void;
   handleCreateTerminalCenterTab: () => void;
   handleTerminalPaneClosed: (event: {
     paneId: string;
@@ -186,7 +190,9 @@ export function CenterStagePanels({
   effectiveContextId,
   paintContextId,
   githubTabs,
+  gitCommitTabs,
   handleCloseGithubTab,
+  handleCloseGitCommitTab,
   handleCreateTerminalCenterTab,
   handleTerminalPaneClosed,
 
@@ -244,6 +250,7 @@ export function CenterStagePanels({
   });
   const getOpenFiles = useEditorStore((s) => s.getOpenFiles);
   const githubTabsByContext = useGithubCenterTabsStore((s) => s.tabsByContext);
+  const gitCommitTabsByContext = useGitCommitCenterTabsStore((s) => s.tabsByContext);
   const browserTabsByContext = useBrowserCenterTabsStore((s) => s.tabsByContext);
   const layoutsByContext = useCenterPaneLayoutStore((s) => s.byContext);
   const layoutMapsCacheRef = React.useRef(new Map<string, LayoutMaps>());
@@ -340,6 +347,7 @@ export function CenterStagePanels({
           ...tabs.map((tab) => tab.id),
           ...files.map((f) => f.path),
           ...((githubTabsByContext[contextId] ?? []).map((tab) => tab.value)),
+          ...((gitCommitTabsByContext[contextId] ?? []).map((tab) => tab.value)),
           ...((browserTabsByContext[contextId] ?? []).map((b) => b.value)),
           "overview",
           "wiki",
@@ -387,6 +395,15 @@ export function CenterStagePanels({
         // GitHub center tabs are light surfaces — pane-active / last-active ids enter mount plan.
         const ghTabs = githubTabsByContext[contextId] ?? [];
         for (const tab of ghTabs) {
+          if (
+            preferKeepIds.includes(tab.value) ||
+            (isActive && activeValue === tab.value)
+          ) {
+            lightIds.push(tab.value);
+          }
+        }
+        const commitTabs = gitCommitTabsByContext[contextId] ?? [];
+        for (const tab of commitTabs) {
           if (
             preferKeepIds.includes(tab.value) ||
             (isActive && activeValue === tab.value)
@@ -450,6 +467,7 @@ export function CenterStagePanels({
     contextIdsToRender.join(","),
     getOpenFiles,
     githubTabsByContext,
+    gitCommitTabsByContext,
     mountedTerminalTabsByContext,
     // Structure only — titles/agent fields must not appear here.
     terminalPaneStructureKey,
@@ -569,6 +587,7 @@ export function CenterStagePanels({
             visibleTerminalTabs={isUrlSyncedActive ? visibleTerminalTabs : undefined}
             openFiles={isUrlSyncedActive ? openFiles : undefined}
             githubTabs={isUrlSyncedActive ? githubTabs : undefined}
+            gitCommitTabs={isUrlSyncedActive ? gitCommitTabs : undefined}
             browserTabs={isUrlSyncedActive ? browserTabs : undefined}
             currentView={isUrlSyncedActive ? currentView : undefined}
             currentProject={isUrlSyncedActive ? currentProject : undefined}
@@ -604,6 +623,7 @@ export function CenterStagePanels({
               isUrlSyncedActive ? handleTerminalPaneClosed : undefined
             }
             handleCloseGithubTab={isUrlSyncedActive ? handleCloseGithubTab : undefined}
+            handleCloseGitCommitTab={isUrlSyncedActive ? handleCloseGitCommitTab : undefined}
             onGithubPullRequestChanged={
               isUrlSyncedActive ? onGithubPullRequestChanged : undefined
             }

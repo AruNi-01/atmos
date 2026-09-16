@@ -25,6 +25,24 @@ export function chunkDocLineRange(chunk: Chunk, doc: Text): { from: number; to: 
   return { from: ln, to: ln };
 }
 
+export function gitChunkIndicesForLineRanges(
+  chunks: readonly Chunk[],
+  doc: Text,
+  ranges: readonly { startLine: number; endLine: number }[],
+): number[] {
+  if (ranges.length === 0 || chunks.length === 0) return [];
+  const indices: number[] = [];
+  for (let i = 0; i < chunks.length; i++) {
+    const lineRange = chunkDocLineRange(chunks[i]!, doc);
+    if (!lineRange) continue;
+    const hit = ranges.some(
+      (range) => range.startLine <= lineRange.to && range.endLine >= lineRange.from,
+    );
+    if (hit) indices.push(i);
+  }
+  return indices;
+}
+
 export function classifyChunkKind(chunk: Chunk): GitChunkKind {
   const oldEmpty = chunk.fromA === chunk.toA;
   const newEmpty = chunk.fromB === chunk.toB;

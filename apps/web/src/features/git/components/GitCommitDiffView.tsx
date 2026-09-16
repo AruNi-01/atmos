@@ -5,7 +5,7 @@ import { useTranslations, useLocale } from "next-intl";
 import dynamic from "next/dynamic";
 import { Loader2, GitCommit, Copy, Check } from "lucide-react";
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, fromUnixTime } from "date-fns";
 import { enUS, zhCN } from "date-fns/locale";
 import {
   Avatar,
@@ -18,38 +18,48 @@ import {
 } from "@workspace/ui";
 import { useGithubCommitDetail } from "@/features/github/hooks/use-github";
 import type { PrFile } from "@/features/github/hooks/use-github";
-import { PRFilesTab } from "./PRFilesTab";
-import { usePrContextHeader } from "./use-pr-context-header";
+import { useLocalCommitView } from "@/features/git/hooks/use-local-commit-view";
+import { resolveCommitDiffFocusFile } from "@/features/git/lib/commit-diff-focus-file";
+import { PRFilesTab } from "@/features/github/components/PRFilesTab";
+import { usePrContextHeader } from "@/features/github/components/use-pr-context-header";
 
 const MarkdownRenderer = dynamic(
   () => import("@/shared/components/markdown/MarkdownRenderer").then((m) => m.MarkdownRenderer),
   { ssr: false },
 );
 
-interface CommitDetailViewProps {
-  owner: string;
-  repo: string;
+export interface GitCommitDiffViewProps {
   sha: string;
   subject: string;
   authorName: string;
   active: boolean;
   onRequestClose: () => void;
+  repoPath?: string | null;
+  timestamp?: number | null;
+  owner?: string | null;
+  repo?: string | null;
+  focusFilePath?: string | null;
 }
 
-export function CommitDetailView({
-  owner,
-  repo,
+export function GitCommitDiffView({
   sha,
   subject,
   authorName,
   active,
-  onRequestClose,
-}: CommitDetailViewProps) {
-  const t = useTranslations("github.commitDetail");
+  onRequestClose: _onRequestClose,
+  repoPath,
+  timestamp,
+  owner,
+  repo,
+  focusFilePath,
+}: GitCommitDiffViewProps) {
+  const t = useTranslations("git.commitDiff");
   const locale = useLocale();
   const reserveClose = useDrawerCloseReserve();
   const dateLocale = locale.startsWith("zh") ? zhCN : enUS;
   const [copied, setCopied] = React.useState(false);
+  const ownerName = owner?.trim() ?? "";
+  const repoName = repo?.trim() ?? "";
 
   const {
     handleFilesCodeViewTopBoundaryWheel,
@@ -78,35 +88,65 @@ export function CommitDetailView({
     resetPrContext();
   }, [sha, resetPrContext]);
 
-  const { data: detail, loading } = useGithubCommitDetail(
-    owner,
-    repo,
-    active ? sha : undefined,
-    active,
+  const useLocal = Boolean(repoPath);
+  const githubQuery = useGithubCommitDetail(
+    ownerName,
+    repoName,
+    active && !useLocal ? sha : undefined,
+    active && !useLocal && Boolean(ownerName && repoName),
   );
+  const localQuery = useLocalCommitView(repoPath, sha, active && useLocal);
 
+  const detail = githubQuery.data;
   const commit = detail?.commit;
   const author = detail?.author;
-  const files: PrFile[] = React.useMemo(
-    () => (Array.isArray(detail?.files) ? (detail.files as PrFile[]) : []),
-    [detail],
-  );
+  const files: PrFile[] = React.useMemo(() => {
+    if (useLocal) return localQuery.data?.files ?? [];
+    return Array.isArray(detail?.files) ? (detail.files as PrFile[]) : [];
+  }, [detail, localQuery.data?.files, useLocal]);
+
+  const loading = useLocal ? localQuery.isLoading : githubQuery.loading;
+  const hasData = useLocal ? Boolean(localQuery.data) : Boolean(detail);
 
   const commitDate = React.useMemo(() => {
+    if (typeof timestamp === "number" && timestamp > 0) {
+      return fromUnixTime(timestamp);
+    }
     const dateStr = commit?.author?.date ?? commit?.committer?.date;
     return dateStr ? new Date(dateStr) : null;
-  }, [commit]);
+  }, [commit, timestamp]);
 
-  const fullMessage = commit?.message ?? subject;
+  const fullMessage = useLocal
+    ? [subject, localQuery.data?.body].filter(Boolean).join("\n\n")
+    : (commit?.message ?? subject);
   const messageParts = React.useMemo(() => {
     const idx = fullMessage.indexOf("\n\n");
     if (idx < 0) return { headline: fullMessage, body: "" };
     return { headline: fullMessage.slice(0, idx), body: fullMessage.slice(idx + 2) };
   }, [fullMessage]);
 
-  const githubUrl = `https://github.com/${owner}/${repo}/commit/${sha}`;
-  const totalAdditions = files.reduce((sum, f) => sum + (f.additions ?? 0), 0);
-  const totalDeletions = files.reduce((sum, f) => sum + (f.deletions ?? 0), 0);
+  const githubUrl =
+    ownerName && repoName
+      ? `https://github.com/${ownerName}/${repoName}/commit/${sha}`
+      : null;
+  const totalAdditions = useLocal
+    ? (localQuery.data?.insertions ?? files.reduce((sum, f) => sum + (f.additions ?? 0), 0))
+    : files.reduce((sum, f) => sum + (f.additions ?? 0), 0);
+  const totalDeletions = useLocal
+    ? (localQuery.data?.deletions ?? files.reduce((sum, f) => sum + (f.deletions ?? 0), 0))
+    : files.reduce((sum, f) => sum + (f.deletions ?? 0), 0);
+  const resolvedFocusFile = React.useMemo(
+    () => resolveCommitDiffFocusFile(files, focusFilePath),
+    [files, focusFilePath],
+  );
+
+  React.useEffect(() => {
+    if (!resolvedFocusFile || loading) return;
+    const scrollRoot = mainScrollRef.current;
+    const titleHeight = titleRef.current?.offsetHeight ?? 0;
+    if (!scrollRoot || titleHeight <= 0) return;
+    scrollRoot.scrollTop = titleHeight;
+  }, [loading, mainScrollRef, resolvedFocusFile]);
 
   const handleCopyHash = () => {
     navigator.clipboard.writeText(sha).then(() => {
@@ -115,7 +155,7 @@ export function CommitDetailView({
     });
   };
 
-  if (loading && !detail) {
+  if (loading && !hasData) {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
@@ -154,14 +194,16 @@ export function CommitDetailView({
                 {copied ? <Check className="size-3 text-green-500" /> : <Copy className="size-3" />}
                 {sha.substring(0, 7)}
               </button>
-              <a
-                href={githubUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                <Github className="size-3.5" />
-              </a>
+              {githubUrl ? (
+                <a
+                  href={githubUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <Github className="size-3.5" />
+                </a>
+              ) : null}
             </div>
           </div>
 
@@ -191,9 +233,11 @@ export function CommitDetailView({
                 </div>
                 <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
                   <span className="font-mono">{sha.substring(0, 7)}</span>
-                  <span className="text-muted-foreground/60">
-                    {owner}/{repo}
-                  </span>
+                  {ownerName && repoName ? (
+                    <span className="text-muted-foreground/60">
+                      {ownerName}/{repoName}
+                    </span>
+                  ) : null}
                   <span className="flex items-center gap-1">
                     <span className="text-emerald-600">{totalAdditions}+</span>
                     <span className="text-red-600">{totalDeletions}-</span>
@@ -225,10 +269,11 @@ export function CommitDetailView({
           <PRFilesTab
             files={files}
             loading={loading}
-            owner={owner}
-            repo={repo}
+            owner={ownerName}
+            repo={repoName}
             title={messageParts.headline}
             url={githubUrl}
+            focusFilePath={resolvedFocusFile}
             onCodeViewTopBoundaryWheel={handleFilesCodeViewTopBoundaryWheel}
           />
         </div>

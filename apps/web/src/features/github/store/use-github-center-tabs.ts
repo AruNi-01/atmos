@@ -7,7 +7,6 @@ import type { ActionRun } from "@/features/github/components/ActionsPanel";
 const GITHUB_PR_TAB_PREFIX = "github-pr:";
 const GITHUB_ISSUE_TAB_PREFIX = "github-issue:";
 const GITHUB_ACTION_TAB_PREFIX = "github-action:";
-const GITHUB_COMMIT_TAB_PREFIX = "github-commit:";
 
 type GithubCenterTabBase = {
   id: string;
@@ -39,18 +38,10 @@ export type GithubActionCenterTab = GithubCenterTabBase & {
   run: ActionRun | null;
 };
 
-export type GithubCommitCenterTab = GithubCenterTabBase & {
-  kind: "github-commit";
-  sha: string;
-  subject: string;
-  authorName: string;
-};
-
 export type GithubCenterTab =
   | GithubPullRequestCenterTab
   | GithubIssueCenterTab
-  | GithubActionCenterTab
-  | GithubCommitCenterTab;
+  | GithubActionCenterTab;
 
 type GithubCenterTabsStore = {
   tabsByContext: Record<string, GithubCenterTab[]>;
@@ -66,15 +57,11 @@ type GithubCenterTabsStore = {
     contextId: string,
     params: Omit<GithubActionCenterTab, "contextId" | "id" | "kind" | "value" | "openedAt">,
   ) => GithubActionCenterTab;
-  openCommit: (
-    contextId: string,
-    params: Omit<GithubCommitCenterTab, "contextId" | "id" | "kind" | "value" | "openedAt">,
-  ) => GithubCommitCenterTab;
   closeTab: (contextId: string, value: string) => void;
 };
 
 function buildGithubCenterTabValue(
-  kind: "github-pr" | "github-issue" | "github-action" | "github-commit",
+  kind: "github-pr" | "github-issue" | "github-action",
   contextId: string,
   itemId: string,
 ) {
@@ -83,9 +70,7 @@ function buildGithubCenterTabValue(
       ? GITHUB_PR_TAB_PREFIX
       : kind === "github-issue"
         ? GITHUB_ISSUE_TAB_PREFIX
-      : kind === "github-action"
-        ? GITHUB_ACTION_TAB_PREFIX
-        : GITHUB_COMMIT_TAB_PREFIX;
+        : GITHUB_ACTION_TAB_PREFIX;
   return `${prefix}${encodeURIComponent(contextId)}:${itemId}`;
 }
 
@@ -104,13 +89,6 @@ export function buildGithubActionTabValue(contextId: string, runId: number) {
   return buildGithubCenterTabValue("github-action", contextId, String(runId));
 }
 
-export function buildGithubCommitTabValue(
-  contextId: string,
-  sha: string,
-) {
-  return buildGithubCenterTabValue("github-commit", contextId, sha);
-}
-
 export function isGithubCenterTabValue(
   value: string | null | undefined,
 ): value is string {
@@ -118,8 +96,7 @@ export function isGithubCenterTabValue(
     !!value &&
     (value.startsWith(GITHUB_PR_TAB_PREFIX) ||
       value.startsWith(GITHUB_ISSUE_TAB_PREFIX) ||
-      value.startsWith(GITHUB_ACTION_TAB_PREFIX) ||
-      value.startsWith(GITHUB_COMMIT_TAB_PREFIX))
+      value.startsWith(GITHUB_ACTION_TAB_PREFIX))
   );
 }
 
@@ -127,7 +104,7 @@ export function parseGithubCenterTabValue(
   value: string | null | undefined,
 ):
   | {
-      kind: "github-pr" | "github-issue" | "github-action" | "github-commit";
+      kind: "github-pr" | "github-issue" | "github-action";
       contextId: string;
       itemId: string;
     }
@@ -138,17 +115,13 @@ export function parseGithubCenterTabValue(
     ? "github-pr"
     : value.startsWith(GITHUB_ISSUE_TAB_PREFIX)
       ? "github-issue"
-    : value.startsWith(GITHUB_ACTION_TAB_PREFIX)
-      ? "github-action"
-      : "github-commit";
+      : "github-action";
   const prefix =
     kind === "github-pr"
       ? GITHUB_PR_TAB_PREFIX
       : kind === "github-issue"
         ? GITHUB_ISSUE_TAB_PREFIX
-      : kind === "github-action"
-        ? GITHUB_ACTION_TAB_PREFIX
-        : GITHUB_COMMIT_TAB_PREFIX;
+        : GITHUB_ACTION_TAB_PREFIX;
   const separatorIndex = value.lastIndexOf(":");
   if (separatorIndex <= prefix.length) return null;
 
@@ -261,24 +234,6 @@ export const useGithubCenterTabsStore = create<GithubCenterTabsStore>()(
         }));
         return tab;
       },
-      openCommit: (contextId, params) => {
-        const value = buildGithubCommitTabValue(contextId, params.sha);
-        const tab: GithubCommitCenterTab = {
-          ...params,
-          contextId,
-          id: value,
-          kind: "github-commit",
-          value,
-          openedAt: Date.now(),
-        };
-        set((state) => ({
-          tabsByContext: {
-            ...state.tabsByContext,
-            [contextId]: upsertTab(state.tabsByContext[contextId] ?? [], tab),
-          },
-        }));
-        return tab;
-      },
       closeTab: (contextId, value) =>
         set((state) => {
           const tabs = state.tabsByContext[contextId] ?? [];
@@ -298,6 +253,24 @@ export const useGithubCenterTabsStore = create<GithubCenterTabsStore>()(
       partialize: (state) => ({
         tabsByContext: stripTransientRunData(state.tabsByContext),
       }),
+      merge: (persisted, current) => {
+        const incoming = persisted as Partial<GithubCenterTabsStore> | undefined;
+        const tabsByContext = incoming?.tabsByContext ?? current.tabsByContext;
+        const next: Record<string, GithubCenterTab[]> = {};
+        for (const [contextId, tabs] of Object.entries(tabsByContext)) {
+          next[contextId] = (tabs ?? []).filter(
+            (tab) =>
+              tab.kind === "github-pr" ||
+              tab.kind === "github-issue" ||
+              tab.kind === "github-action",
+          );
+        }
+        return {
+          ...current,
+          ...incoming,
+          tabsByContext: next,
+        };
+      },
     },
   ),
 );

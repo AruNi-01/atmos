@@ -37,11 +37,7 @@ import type { GitHistoryCommit } from "@/api/ws-api-types";
 import { useGitHistory } from "@/features/git/hooks/use-git-history";
 import { useGitHistoryCenterTabStore } from "@/features/git/store/use-git-history-center-tab";
 import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
-import {
-  TaskGithubDrawerHost,
-  type TaskGithubDrawerController,
-} from "@/features/task/components/task-github-drawer/TaskGithubDrawerHost";
-import { commitDrawerKey } from "@/features/task/components/task-github-drawer/types";
+import { useOpenGitCommitCenterTab } from "@/features/git/hooks/use-open-git-commit-center-tab";
 import {
   HISTORY_ROW_HEIGHT,
   historyGraphWidth,
@@ -80,7 +76,7 @@ export function GitHistoryPanel({
   const statusQuery = useGitStatusQuery(repoPath);
   const githubOwner = statusQuery.data?.github_owner ?? null;
   const githubRepo = statusQuery.data?.github_repo ?? null;
-  const drawerControllerRef = useRef<TaskGithubDrawerController | null>(null);
+  const { openCommitTab } = useOpenGitCommitCenterTab();
   const selectedHash = useGitHistoryCenterTabStore(
     (state) => state.selectedCommitByContext[contextId] ?? null,
   );
@@ -195,19 +191,18 @@ export function GitHistoryPanel({
   const openCommitDrawer = useCallback(
     (commit: GitHistoryCommit) => {
       selectCommit(contextId, commit.hash);
-      if (!githubOwner || !githubRepo) return;
-      drawerControllerRef.current?.openCommit({
-        kind: "commit",
-        key: commitDrawerKey(githubOwner, githubRepo, commit.hash),
+      openCommitTab({
         owner: githubOwner,
         repo: githubRepo,
+        repoPath,
         sha: commit.hash,
         subject: commit.subject,
         authorName: commit.author_name,
-        projectId: contextId,
+        timestamp: commit.timestamp,
+        contextId,
       });
     },
-    [contextId, githubOwner, githubRepo, selectCommit],
+    [contextId, githubOwner, githubRepo, openCommitTab, repoPath, selectCommit],
   );
 
   useLayoutEffect(() => {
@@ -438,7 +433,6 @@ export function GitHistoryPanel({
           </div>
         </div>
       </ScrollArea>
-      <TaskGithubDrawerHost controllerRef={drawerControllerRef} />
     </div>
   );
 }

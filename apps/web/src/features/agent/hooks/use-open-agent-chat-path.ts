@@ -62,6 +62,7 @@ export function useOpenAgentChatWorkspacePath() {
       preview?: boolean;
       isDir?: boolean;
       selectRanges?: DiffLineRange[];
+      openGitGutter?: "all";
     },
   ) => {
     if (!paintContextId) return;
@@ -96,13 +97,19 @@ export function useOpenAgentChatWorkspacePath() {
       }
     }
 
-    const selectRanges = options?.selectRanges?.filter(
-      (range) => range.endLine >= range.startLine,
-    );
+    const openAllGutter = options?.openGitGutter === "all";
+    const selectRanges = openAllGutter
+      ? undefined
+      : options?.selectRanges?.filter((range) => range.endLine >= range.startLine);
     void openFile(openable.path, paintContextId, {
       preview: options?.preview ?? false,
-      line: selectRanges?.length ? undefined : options?.line ?? openable.line,
+      line: openAllGutter
+        ? undefined
+        : selectRanges?.length
+          ? undefined
+          : options?.line ?? openable.line,
       selectRanges,
+      openGitGutter: options?.openGitGutter,
     });
     activateCenterChromeTab(paintContextId, openable.path, { placement: "focused" });
   }, [
