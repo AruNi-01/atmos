@@ -1,0 +1,22 @@
+apps/docs/package.json
+  h_5be255725524c8 26
+apps/landing/package.json
+  h_5be255725524c8 30
+apps/web/package.json
+  h_5be255725524c8 100
+package.json
+  h_5be255725524c8 39,66
+packages/i18n/package.json
+  h_5be255725524c8 27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5ee41ca8dd2e8f8bec88f21dc17ab622fbef8b25",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
