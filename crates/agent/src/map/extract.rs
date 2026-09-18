@@ -179,10 +179,23 @@ pub fn extract_url(value: &Value) -> Option<String> {
 }
 
 pub fn extract_query(value: &Value) -> Option<String> {
-    first_string(
+    if let Some(query) = first_string(
         value,
         &["query", "q", "search_term", "pattern", "glob_pattern"],
-    )
+    ) {
+        return Some(query);
+    }
+    for object in walk_objects(value) {
+        let Some(items) = object.get("queries").and_then(Value::as_array) else {
+            continue;
+        };
+        for item in items {
+            if let Some(text) = item.as_str().map(str::trim).filter(|text| !text.is_empty()) {
+                return Some(text.to_string());
+            }
+        }
+    }
+    None
 }
 
 /// Human-facing tool blurb (Grok `run_terminal_command.description`), not stdout.
@@ -750,6 +763,42 @@ fn labeled_after(text: &str, marker: &str) -> Option<String> {
     take_id_token(&text[pos + marker.len()..])
 }
 
+fn xml_tagged_id(text: &str) -> Option<String> {
+    for tag in ["task-id", "task_id", "agent-id", "agentId"] {
+        let open = format!("<{tag}>");
+        let close = format!("</{tag}>");
+        if let Some(start) = text.find(&open) {
+            let rest = &text[start + open.len()..];
+            if let Some(end) = rest.find(&close) {
+                let id = rest[..end].trim();
+                if !id.is_empty() {
+                    return Some(id.to_string());
+                }
+            }
+        }
+    }
+    xml_attr_id(text, "task", "id")
+}
+
+fn xml_attr_id(text: &str, tag: &str, attr: &str) -> Option<String> {
+    let needle = format!("<{tag} ");
+    let start = text.find(&needle)?;
+    let rest = &text[start..];
+    let end = rest.find('>')?;
+    let attrs = &rest[..end];
+    let key = format!("{attr}=");
+    let pos = attrs.find(&key)?;
+    let after = attrs[pos + key.len()..].trim_start();
+    let quote = after.chars().next()?;
+    if quote != '"' && quote != '\'' {
+        return take_id_token(after);
+    }
+    let inner = after.get(1..)?;
+    let close = inner.find(quote)?;
+    let id = inner[..close].trim();
+    (!id.is_empty()).then(|| id.to_string())
+}
+
 fn take_id_token(rest: &str) -> Option<String> {
     let rest = rest.trim_start();
     let end = rest
@@ -765,7 +814,7 @@ fn take_id_token(rest: &str) -> Option<String> {
 
 pub fn extract_task_id(value: &Value) -> Option<String> {
     if let Some(text) = value.as_str() {
-        if let Some(id) = labeled_id_from_text(text) {
+        if let Some(id) = labeled_id_from_text(text).or_else(|| xml_tagged_id(text)) {
             return Some(id);
         }
     }
@@ -775,7 +824,7 @@ pub fn extract_task_id(value: &Value) -> Option<String> {
                 return Some(id);
             }
             if let Some(text) = item.get("text").and_then(Value::as_str) {
-                if let Some(id) = labeled_id_from_text(text) {
+                if let Some(id) = labeled_id_from_text(text).or_else(|| xml_tagged_id(text)) {
                     return Some(id);
                 }
             }
@@ -808,7 +857,7 @@ pub fn extract_task_id(value: &Value) -> Option<String> {
         }
         for nested in object.values() {
             if let Some(text) = nested.as_str() {
-                if let Some(id) = labeled_id_from_text(text) {
+                if let Some(id) = labeled_id_from_text(text).or_else(|| xml_tagged_id(text)) {
                     return Some(id);
                 }
             }
@@ -818,7 +867,8 @@ pub fn extract_task_id(value: &Value) -> Option<String> {
                         .as_str()
                         .or_else(|| item.get("text").and_then(Value::as_str))
                     {
-                        if let Some(id) = labeled_id_from_text(text) {
+                        if let Some(id) = labeled_id_from_text(text).or_else(|| xml_tagged_id(text))
+                        {
                             return Some(id);
                         }
                     }
@@ -834,8 +884,11 @@ pub fn extract_skill(value: &Value) -> Option<String> {
 }
 
 pub fn extract_subagent(value: &Value) -> Option<(String, Option<String>)> {
-    let description = first_string(value, &["description"])?;
-    let agent_type = first_string(value, &["subagent_type", "agent_type"]);
+    let description = first_string(
+        value,
+        &["description", "message", "title", "task", "prompt"],
+    )?;
+    let agent_type = first_string(value, &["subagent_type", "agent_type", "agentType"]);
     Some((description, agent_type))
 }
 
@@ -1321,6 +1374,27 @@ mod tests {
             }]))
             .as_deref(),
             Some("child1")
+        );
+        assert_eq!(
+            extract_task_id(&serde_json::json!("<task id=\"child-xml\">Explore</task>")).as_deref(),
+            Some("child-xml")
+        );
+        assert_eq!(
+            extract_task_id(&serde_json::json!("<task-id>child-tag</task-id>")).as_deref(),
+            Some("child-tag")
+        );
+        assert_eq!(
+            extract_subagent(&serde_json::json!({"message": "Explore the repo"}))
+                .map(|(description, _)| description)
+                .as_deref(),
+            Some("Explore the repo")
+        );
+        assert_eq!(
+            extract_query(&serde_json::json!({
+                "action": { "type": "search", "queries": ["rust hashmap"] }
+            }))
+            .as_deref(),
+            Some("rust hashmap")
         );
     }
 

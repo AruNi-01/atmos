@@ -243,7 +243,6 @@ impl AgentChatService {
     }
 
     pub async fn get(&self, id: &str) -> Result<AgentChatSnapshot> {
-        let mut snapshot = self.store.get_snapshot(id)?;
         let state = {
             let map = self.runtimes.lock().await;
             map.get(id).and_then(|runtime| {
@@ -255,9 +254,11 @@ impl AgentChatService {
         };
         if let Some(state) = state {
             let state = state.lock().await;
+            let mut snapshot = self.store.get_snapshot(id)?;
             overlay_live_state(&mut snapshot, &state);
+            return Ok(snapshot);
         }
-        Ok(snapshot)
+        self.store.get_snapshot(id)
     }
 
     pub fn rename(&self, id: &str, title: &str) -> Result<AgentChatMeta> {
@@ -1394,6 +1395,7 @@ impl AgentChatService {
             thinking_ms: 0,
             last_thinking_segment_ms: 0,
             turn_usage: None,
+            last_stream_seq: 0,
         }));
         let generation = self.generations.fetch_add(1, Ordering::SeqCst);
         let root_pid = Arc::new(AtomicU32::new(0));

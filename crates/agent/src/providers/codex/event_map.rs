@@ -9,6 +9,7 @@ use crate::contract::{AgentCurrentConfig, AgentIdentity, AgentSupportedOptions};
 use crate::contract::{AgentDescriptor, TurnStop};
 use crate::contract::{AgentEvent, AgentEventEnvelope};
 use crate::contract::{AgentTool, AgentToolKind, AgentToolParams, AgentToolStatus};
+use crate::map::plan_from_tool_input;
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
 
 use super::tool_map::{
@@ -138,10 +139,7 @@ fn map_one(
         "turn/started" => None,
         "turn/completed" => map_turn_completed(state, turn_id, params),
         "turn/plan/updated" => {
-            let plan = params
-                .get("plan")
-                .cloned()
-                .unwrap_or_else(|| params.clone());
+            let plan = atmos_plan_payload(params);
             Some(complete_before_thinking(
                 state,
                 turn_id.clone(),
@@ -158,14 +156,16 @@ fn map_one(
         }
         "item/reasoning/summaryPartAdded" => None,
         "item/plan/delta" => {
-            let delta = params
-                .get("delta")
-                .cloned()
-                .unwrap_or_else(|| params.clone());
+            let delta = params.get("delta").unwrap_or(params);
             Some(complete_before_thinking(
                 state,
                 turn_id.clone(),
-                wrap(turn_id, AgentEvent::PlanUpdated { plan: delta }),
+                wrap(
+                    turn_id,
+                    AgentEvent::PlanUpdated {
+                        plan: atmos_plan_payload(delta),
+                    },
+                ),
             ))
         }
         "item/commandExecution/outputDelta" => map_output_delta(state, turn_id, params),
@@ -189,11 +189,23 @@ fn map_item_lifecycle(
         "agentMessage" => map_agent_message_item(state, turn_id, item, phase),
         "reasoning" => map_reasoning_item(state, turn_id, item, phase),
         "plan" => {
-            let plan = item.get("text").cloned().unwrap_or_else(|| item.clone());
+            let plan = item
+                .get("text")
+                .and_then(|text| {
+                    text.as_str()
+                        .filter(|value| !value.trim().is_empty())
+                        .map(|value| serde_json::json!({ "plan": value }))
+                })
+                .unwrap_or_else(|| item.clone());
             Some(complete_before_thinking(
                 state,
                 turn_id.clone(),
-                wrap(turn_id, AgentEvent::PlanUpdated { plan }),
+                wrap(
+                    turn_id,
+                    AgentEvent::PlanUpdated {
+                        plan: atmos_plan_payload(&plan),
+                    },
+                ),
             ))
         }
         _ => map_tool_item(state, turn_id, item, phase),
@@ -659,6 +671,10 @@ fn reasoning_text(item: &Value) -> String {
     }
 }
 
+fn atmos_plan_payload(value: &Value) -> Value {
+    plan_from_tool_input(Some(value)).unwrap_or_else(|| value.clone())
+}
+
 fn wrap(turn_id: Option<String>, payload: AgentEvent) -> AgentEventEnvelope {
     AgentEventEnvelope::new(turn_id, payload)
 }
@@ -739,9 +755,13 @@ mod tests {
             event,
             AgentEvent::ThinkingDelta { .. } | AgentEvent::ThinkingCompleted { .. }
         )));
-        assert!(events
-            .iter()
-            .any(|event| matches!(event, AgentEvent::PlanUpdated { .. })));
+        assert!(events.iter().any(|event| match event {
+            AgentEvent::PlanUpdated { plan } =>
+                plan.pointer("/entries/0/content")
+                    .and_then(|item| item.as_str())
+                    == Some("Run tests"),
+            _ => false,
+        }));
         let kinds: Vec<AgentToolKind> = events
             .iter()
             .filter_map(|event| match event {

@@ -1,0 +1,3 @@
+{"role": "user", "message": {"content": [{"type": "text", "text": "<user_query>Child work now please inspect /tmp/c.txt</user_query>"}]}}
+{"role": "assistant", "message": {"content": [{"type": "text", "text": "Reading the file."}, {"type": "tool_use", "name": "Read", "input": {"path": "/tmp/c.txt"}}]}}
+{"role": "assistant", "message": {"content": [{"type": "text", "text": "Child finished."}]}}

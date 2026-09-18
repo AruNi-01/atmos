@@ -5,6 +5,7 @@ import type { CanvasContract } from "./contract/canvas";
 import type { CenterLayoutContract } from "./contract/center-layout";
 import type { AgentChatContract } from "./contract/agent-chat";
 import type { DiskAnalyzerContract } from "./contract/disk-analyzer";
+import type { HostSessionContract } from "./contract/host-session";
 import type { FsContract } from "./contract/fs";
 import type { GitContract } from "./contract/git";
 import type { GithubContract } from "./contract/github";
@@ -42,6 +43,7 @@ export type WsContract = FsContract &
   SkillsContract &
   AgentContract &
   AgentChatContract &
+  HostSessionContract &
   AutomationContract &
   SettingsContract &
   LocalServicesContract &

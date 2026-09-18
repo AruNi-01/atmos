@@ -12,6 +12,7 @@ pub mod device_preview;
 pub mod disk_analyzer;
 pub mod git_commit_message;
 pub mod group;
+pub mod host_session;
 pub mod linear;
 pub mod linear_credentials;
 pub mod llm_text_generation;

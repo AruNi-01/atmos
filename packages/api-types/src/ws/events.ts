@@ -36,6 +36,7 @@ export const WS_EVENTS = [
   "resource_monitor_updated",
   "agent_chat_event",
   "agent_options_updated",
+  "host_session_index_updated",
 ] as const;
 
 export type WsEvent = (typeof WS_EVENTS)[number];

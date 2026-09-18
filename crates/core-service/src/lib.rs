@@ -74,6 +74,12 @@ pub use service::device_preview::{
 };
 pub use service::disk_analyzer::{DiskAnalyzerScanEvent, DiskAnalyzerService};
 pub use service::group::{GroupDto, GroupMemberDto, GroupService};
+pub use service::host_session::{
+    HostSessionGetResult, HostSessionIndexUpdated, HostSessionListFilter, HostSessionListItem,
+    HostSessionListResult, HostSessionResumeChatResult, HostSessionResumeSupport,
+    HostSessionResumeTuiResult, HostSessionSearchHit, HostSessionSearchStatus, HostSessionService,
+    HostSessionTag,
+};
 pub use service::linear::{
     parse_list_options, parse_oauth_shell, LinearImportPayload, LinearLinkDto, LinearService,
     LinearStatusDto,

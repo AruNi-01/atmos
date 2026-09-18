@@ -44,6 +44,11 @@ mod m20260813_000037_add_project_trusted_scripts_hash;
 mod m20260826_000038_drop_terminal_layout;
 mod m20260909_000039_add_project_last_visited_at;
 mod m20260912_000040_add_automation_execute_mode;
+mod m20260917_000041_create_host_session_tables;
+mod m20260917_000042_add_host_session_parent;
+mod m20260917_000043_create_host_session_search;
+mod m20260918_000044_add_host_session_byte_size;
+mod m20260918_000045_add_host_session_scan_fingerprint;
 
 pub struct Migrator;
 
@@ -90,6 +95,11 @@ impl MigratorTrait for Migrator {
             Box::new(m20260826_000038_drop_terminal_layout::Migration),
             Box::new(m20260909_000039_add_project_last_visited_at::Migration),
             Box::new(m20260912_000040_add_automation_execute_mode::Migration),
+            Box::new(m20260917_000041_create_host_session_tables::Migration),
+            Box::new(m20260917_000042_add_host_session_parent::Migration),
+            Box::new(m20260917_000043_create_host_session_search::Migration),
+            Box::new(m20260918_000044_add_host_session_byte_size::Migration),
+            Box::new(m20260918_000045_add_host_session_scan_fingerprint::Migration),
         ]
     }
 }

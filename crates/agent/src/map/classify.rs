@@ -1,6 +1,6 @@
 use crate::contract::AgentToolKind;
 use crate::contract::{AgentPlanDocumentTodo, AgentToolParams};
-use crate::map::ask::{is_ask_user_tool, is_exit_plan_tool};
+use crate::map::ask::{is_ask_user_tool, is_enter_plan_tool, is_exit_plan_tool};
 
 /// How a vendor tool name should fold into an `AgentPart`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -34,9 +34,11 @@ pub fn classify_tool(
     if is_ask_user_tool(&name) || (!title.is_empty() && is_ask_user_tool(&title)) {
         return ClassifiedTool::Hide;
     }
-    // ExitPlanMode approval is PermissionRequested + ApprovalCard plan; hide the raw tool
-    // card. Claude native still SyncModes via classify_claude_name before this helper.
-    if is_exit_plan_tool(&name) || (!title.is_empty() && is_exit_plan_tool(&title)) {
+    // Enter/Exit plan: composer mode picker + ExitPlan ApprovalCard. Never a tool card.
+    if is_enter_plan_tool(&name)
+        || is_exit_plan_tool(&name)
+        || (!title.is_empty() && (is_enter_plan_tool(&title) || is_exit_plan_tool(&title)))
+    {
         return ClassifiedTool::Hide;
     }
     // Cursor-only plan-phase tools (createPlan / updatePlan). Match by tool name/title
@@ -50,6 +52,8 @@ pub fn classify_tool(
         || title.starts_with("update_todos")
         || title.contains("update_todos")
         || is_task_tool_label(&name)
+        || is_execution_plan_label(&name)
+        || is_execution_plan_label(&title)
         || plan_from_tool_input(input).is_some()
     {
         return ClassifiedTool::Plan;
@@ -74,7 +78,7 @@ pub fn classify_tool(
         // never Hide. Providers emit ConfigChanged; the tool card is Other.
         return ClassifiedTool::Call(AgentToolKind::Other);
     }
-    if is_hidden_poll_output_label(&name) {
+    if is_hidden_poll_output_label(&name) || is_cursor_dynamic_tools_label(&name) {
         return ClassifiedTool::Hide;
     }
     if is_subagent_wait_poll_label(&name) {
@@ -264,10 +268,13 @@ pub fn plan_from_tool_input(input: Option<&serde_json::Value>) -> Option<serde_j
             }]
         }));
     }
+    let empty = Vec::new();
     let todos = value
         .get("todos")
         .and_then(|item| item.as_array())
-        .or_else(|| value.as_array())?;
+        .or_else(|| value.get("plan").and_then(|item| item.as_array()))
+        .or_else(|| value.as_array())
+        .unwrap_or(&empty);
     let entries: Vec<serde_json::Value> = todos
         .iter()
         .filter_map(|item| {
@@ -276,6 +283,7 @@ pub fn plan_from_tool_input(input: Option<&serde_json::Value>) -> Option<serde_j
                 .or_else(|| item.get("subject"))
                 .or_else(|| item.get("activeForm"))
                 .or_else(|| item.get("text"))
+                .or_else(|| item.get("step"))
                 .and_then(|value| value.as_str())
                 .filter(|text| !text.trim().is_empty())?;
             Some(serde_json::json!({
@@ -490,6 +498,10 @@ pub fn mcp_ref_from_name(name: &str) -> Option<crate::contract::AgentMcpRef> {
     None
 }
 
+fn is_cursor_dynamic_tools_label(value: &str) -> bool {
+    matches!(value, "getdynamictools" | "get_dynamic_tools")
+}
+
 fn is_hidden_poll_output_label(value: &str) -> bool {
     matches!(
         value,
@@ -497,6 +509,12 @@ fn is_hidden_poll_output_label(value: &str) -> bool {
             | "bash_output"
             | "get_command_or_subagent_output"
             | "kill_command_or_subagent"
+            | "wait_agent"
+            | "waitagent"
+            | "close_agent"
+            | "closeagent"
+            | "list_agents"
+            | "listagents"
     )
 }
 
@@ -576,16 +594,20 @@ fn has_plan_markdown(input: Option<&serde_json::Value>) -> bool {
 }
 
 /// Cursor createPlan / updatePlan (and synonyms). Name/title only — not input shape.
+///
+/// `update_plan` (underscore) is Codex's execution-plan tool and must stay
+/// `ClassifiedTool::Plan`, not PlanDocument. Cursor's camelCase `updatePlan`
+/// normalizes to `updateplan`.
 pub fn is_plan_document_label(value: &str) -> bool {
     matches!(
         normalize_label(value).as_str(),
-        "createplan"
-            | "create_plan"
-            | "updateplan"
-            | "update_plan"
-            | "create_plan_request"
-            | "update_plan_request"
+        "createplan" | "create_plan" | "updateplan" | "create_plan_request" | "update_plan_request"
     )
+}
+
+/// Codex `update_plan` (underscore) — execution todos, not Cursor PlanDocument.
+fn is_execution_plan_label(value: &str) -> bool {
+    matches!(value, "update_plan")
 }
 
 /// Extract Cursor createPlan / updatePlan fields into typed tool params.
@@ -782,6 +804,40 @@ mod tests {
         );
         assert_eq!(
             classify_tool(
+                "updatePlan",
+                None,
+                Some(&serde_json::json!({
+                    "plan": "# Keep going",
+                    "todos": [{"content": "Ship", "status": "pending"}]
+                }))
+            ),
+            ClassifiedTool::PlanDocument
+        );
+        assert_eq!(
+            classify_tool(
+                "update_plan",
+                None,
+                Some(&serde_json::json!({
+                    "explanation": "Next",
+                    "plan": [{ "step": "Run tests", "status": "completed" }]
+                }))
+            ),
+            ClassifiedTool::Plan
+        );
+        assert_eq!(
+            plan_from_tool_input(Some(&serde_json::json!({
+                "plan": [{ "step": "Run tests", "status": "completed" }]
+            }))),
+            Some(serde_json::json!({
+                "entries": [{
+                    "content": "Run tests",
+                    "priority": "medium",
+                    "status": "completed"
+                }]
+            }))
+        );
+        assert_eq!(
+            classify_tool(
                 "Tool",
                 None,
                 Some(&serde_json::json!({
@@ -840,11 +896,19 @@ mod tests {
             ClassifiedTool::Hide
         );
         assert_eq!(
+            classify_tool("GetDynamicTools", None, None),
+            ClassifiedTool::Hide
+        );
+        assert_eq!(
             classify_tool("Tool", Some("AskQuestion: pick a color"), None),
             ClassifiedTool::Hide
         );
         assert_eq!(
             classify_tool("ExitPlanMode", None, None),
+            ClassifiedTool::Hide
+        );
+        assert_eq!(
+            classify_tool("EnterPlanMode", None, None),
             ClassifiedTool::Hide
         );
         assert_eq!(
@@ -953,6 +1017,18 @@ mod tests {
         );
         assert_eq!(
             classify_tool("BashOutput", None, None),
+            ClassifiedTool::Hide
+        );
+        assert_eq!(
+            classify_tool("wait_agent", None, None),
+            ClassifiedTool::Hide
+        );
+        assert_eq!(
+            classify_tool("list_agents", None, None),
+            ClassifiedTool::Hide
+        );
+        assert_eq!(
+            classify_tool("close_agent", None, None),
             ClassifiedTool::Hide
         );
         assert_eq!(

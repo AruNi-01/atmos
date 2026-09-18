@@ -1,0 +1,1 @@
+{"type":"user","uuid":"child-1","timestamp":"2026-04-01T10:00:06.000Z","cwd":"/tmp/fixture-app","sessionId":"agent-child","message":{"role":"user","content":"Subagent work"}}

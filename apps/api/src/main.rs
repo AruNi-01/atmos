@@ -756,6 +756,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         WsEvent::LocalServicesUpdated,
         "local services",
     );
+    spawn_ws_forwarder(
+        ws_message_service
+            .host_session_service()
+            .subscribe_index_updates(),
+        Arc::clone(&ws_manager),
+        WsEvent::HostSessionIndexUpdated,
+        "host session index",
+    );
     ws_message_service
         .local_services_service()
         .start_auto_refresh(Arc::clone(&jobs))

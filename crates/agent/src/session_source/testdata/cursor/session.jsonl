@@ -1,0 +1,5 @@
+{"role": "user", "message": {"content": [{"type": "text", "text": "<timestamp>2024-01-02T03:04:05Z</timestamp>\n<user_query>List the files</user_query>"}]}}
+{"role": "assistant", "message": {"content": [{"type": "text", "text": "I'll list them."}, {"type": "tool_use", "id": "tool-1", "name": "Glob", "input": {"glob_pattern": "*.rs", "target_directory": "/tmp/demo"}}]}}
+{"role": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": "tool-1", "content": "src/main.rs"}]}}
+{"role": "assistant", "message": {"content": [{"type": "text", "text": "Found one file."}]}}
+{"type": "turn_ended", "status": "success"}

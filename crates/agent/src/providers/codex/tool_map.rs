@@ -36,7 +36,12 @@ pub fn map_item(item: &Value, phase: ItemPhase) -> ItemMapOut {
         "webSearch" => ItemMapOut::Tools(vec![map_web_search(item, phase)]),
         "imageView" => ItemMapOut::Tools(vec![map_image_view(item, phase)]),
         "collabAgentToolCall" | "collabToolCall" => {
-            ItemMapOut::Tools(vec![map_collab(item, phase)])
+            let collab_tool = item.get("tool").and_then(Value::as_str).unwrap_or("");
+            if is_collab_list_poll(collab_tool) {
+                ItemMapOut::Hide
+            } else {
+                ItemMapOut::Tools(vec![map_collab(item, phase)])
+            }
         }
         "subAgentActivity" => ItemMapOut::Tools(vec![map_subagent_activity(item, phase)]),
         "mcpToolCall" | "dynamicToolCall" => {
@@ -736,6 +741,16 @@ fn value_text(content: &Value) -> String {
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string()
+}
+
+fn is_collab_list_poll(tool: &str) -> bool {
+    matches!(
+        tool.trim()
+            .to_ascii_lowercase()
+            .replace([' ', '-'], "_")
+            .as_str(),
+        "list_agents" | "listagents"
+    )
 }
 
 fn map_collab(item: &Value, phase: ItemPhase) -> AgentTool {
@@ -1497,6 +1512,24 @@ mod tests {
                 );
             }
             ItemMapOut::Hide => panic!("subAgentActivity must be a tool"),
+        }
+    }
+
+    #[test]
+    fn collab_list_agents_is_hidden() {
+        let item = serde_json::json!({
+            "type": "collabAgentToolCall",
+            "id": "collab_list",
+            "tool": "list_agents",
+            "status": "completed",
+            "receiverThreadIds": ["child-1"],
+            "agentsStates": {}
+        });
+        match map_item(&item, ItemPhase::Completed) {
+            ItemMapOut::Hide => {}
+            ItemMapOut::Tools(tools) => {
+                panic!("list_agents must not be a subagent card, got {tools:?}")
+            }
         }
     }
 

@@ -33,5 +33,6 @@
   "simulator_devices_changed",
   "resource_monitor_updated",
   "agent_chat_event",
-  "agent_options_updated"
+  "agent_options_updated",
+  "host_session_index_updated"
 ]

@@ -6,6 +6,7 @@ pub mod models;
 pub mod options;
 pub(crate) mod policy;
 pub mod providers;
+pub mod session_source;
 
 #[cfg(any(test, feature = "test-support"))]
 pub mod testing;
@@ -68,3 +69,7 @@ pub use providers::grok::{
 };
 pub use providers::opencode::OpenCodeNativeProvider;
 pub use providers::pi::PiNativeProvider;
+pub use session_source::{
+    default_roster, enrich_host_session_stats, source_byte_size, source_fingerprint, HostId,
+    HostSessionRef, SessionSource, TuiResumePlan,
+};

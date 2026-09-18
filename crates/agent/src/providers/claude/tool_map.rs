@@ -24,10 +24,11 @@ pub(crate) enum ToolMapOut {
     FoldPlan {
         plan: Value,
     },
-    /// Mode enter/exit: sync Mode UI via ConfigChanged; also surface a readable Other card.
     SyncMode {
         mode: String,
-        tool: AgentTool,
+        /// When set, also surface a transcript tool card. Enter/Exit plan omit this —
+        /// the composer mode picker and ExitPlan ApprovalCard already own that chrome.
+        tool: Option<AgentTool>,
     },
     Hide,
     Merge {
@@ -108,11 +109,17 @@ pub(crate) fn map_tool_use_nested(
             if is_poll_output_name(name) {
                 merge_hidden_output(name, tool_use_id, input, None, tools)
             } else {
-                // AskUserQuestion: permission chrome owns the card.
+                // AskUser / EnterPlan / ExitPlan: permission or mode chrome owns the card.
                 tools.insert(
                     tool_use_id.to_string(),
                     folded_away_marker(name, tool_use_id, parent_tool_call_id.clone()),
                 );
+                if let Some(mode) = mode_from_claude_name(name) {
+                    return ToolMapOut::SyncMode {
+                        mode: mode.into(),
+                        tool: None,
+                    };
+                }
                 ToolMapOut::Hide
             }
         }
@@ -122,7 +129,7 @@ pub(crate) fn map_tool_use_nested(
                 tools.insert(tool_use_id.to_string(), tool.clone());
                 return ToolMapOut::SyncMode {
                     mode: mode.into(),
-                    tool,
+                    tool: Some(tool),
                 };
             }
             // Reconstruct Diff from Edit/Write/NotebookEdit input so the UI can
@@ -260,8 +267,8 @@ fn classify_claude_name(name: &str, input: &Value) -> ClassifiedTool {
         "TodoWrite" | "TaskCreate" | "TaskUpdate" | "TaskGet" | "TaskList" => ClassifiedTool::Plan,
         // AskUser lives in permission chrome (can_use_tool → PermissionRequested).
         "AskUserQuestion" => ClassifiedTool::Hide,
-        // Mode enter/exit: SyncMode + Other card (not Hide).
-        "EnterPlanMode" | "ExitPlanMode" => ClassifiedTool::Call(AgentToolKind::Other),
+        // Mode enter/exit: ConfigChanged for the picker; no transcript tool card.
+        "EnterPlanMode" | "ExitPlanMode" => ClassifiedTool::Hide,
         // Scheduler / wait / peer / LSP symbol: visible Other (not Hide / not fake Read).
         "CronCreate" | "CronDelete" | "CronList" | "Sleep" | "Wait" | "Monitor" | "ListAgents"
         | "LSP" => ClassifiedTool::Call(AgentToolKind::Other),
@@ -293,7 +300,14 @@ fn is_poll_output_name(name: &str) -> bool {
 fn is_folded_away_name(name: &str) -> bool {
     matches!(
         name,
-        "AskUserQuestion" | "TodoWrite" | "TaskCreate" | "TaskUpdate" | "TaskGet" | "TaskList"
+        "AskUserQuestion"
+            | "TodoWrite"
+            | "TaskCreate"
+            | "TaskUpdate"
+            | "TaskGet"
+            | "TaskList"
+            | "EnterPlanMode"
+            | "ExitPlanMode"
     )
 }
 
@@ -1221,11 +1235,11 @@ mod tests {
         ));
         assert!(matches!(
             map_tool_use("EnterPlanMode", "tu_enter", &json!({}), &mut tools),
-            ToolMapOut::SyncMode { mode, .. } if mode == "plan"
+            ToolMapOut::SyncMode { mode, tool } if mode == "plan" && tool.is_none()
         ));
         assert!(matches!(
             map_tool_use("ExitPlanMode", "tu_exit", &json!({}), &mut tools),
-            ToolMapOut::SyncMode { mode, .. } if mode == "default"
+            ToolMapOut::SyncMode { mode, tool } if mode == "default" && tool.is_none()
         ));
     }
 

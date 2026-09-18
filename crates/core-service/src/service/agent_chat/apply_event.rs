@@ -70,6 +70,10 @@ pub(super) struct RuntimeState {
     pub(super) thinking_ms: u64,
     pub(super) last_thinking_segment_ms: u64,
     pub(super) turn_usage: Option<super::types::TurnUsage>,
+    /// Sequence of the last stream delta that mutated `assistant_text` /
+    /// `thinking_text`. `get()` stamps this onto `meta.last_event_seq` so a
+    /// refresh subscribe does not replay chunks already in the overlay.
+    pub(super) last_stream_seq: u64,
 }
 
 impl RuntimeState {
@@ -95,6 +99,12 @@ impl RuntimeState {
             .or_else(|| adapter_turn_id.and_then(usable))
             .or_else(|| self.last_turn_id.as_deref().and_then(usable))
             .unwrap_or_else(|| UNKNOWN.to_string())
+    }
+
+    fn note_stream_seq(&mut self, seq: u64) {
+        if seq > self.last_stream_seq {
+            self.last_stream_seq = seq;
+        }
     }
 
     fn ensure_turn_clock(&mut self) {
@@ -223,45 +233,55 @@ pub(super) async fn apply_event(
             parent_tool_call_id,
         } => {
             flush_open_thinking(store, state, chat_id, &emit_host).await?;
-            {
-                let snapshot = {
-                    let mut state = state.lock().await;
-                    state.close_thinking();
-                    let turn_id = state.persist_turn_id(adapter_turn_id.as_deref());
-                    let key = text_stream_key(message_id.as_str(), parent_tool_call_id.as_deref());
-                    {
-                        let entry = state.assistant_text.entry(key.clone()).or_insert_with(|| {
-                            (turn_id, String::new(), parent_tool_call_id.clone())
-                        });
-                        entry.1.push_str(&delta);
-                    }
-                    if state.last_snapshot.elapsed() >= ASSISTANT_SNAPSHOT_INTERVAL {
-                        let snapshot = state.assistant_text.get(&key).cloned();
-                        state.last_snapshot = Instant::now();
-                        snapshot
-                    } else {
-                        None
-                    }
-                };
-                if let Some((turn_id, text, parent)) = snapshot {
-                    store.append_record(
-                        chat_id,
-                        &TranscriptEnvelope::new(
-                            turn_id,
-                            TranscriptEvent::AssistantSnapshot {
-                                message_id: message_id.clone(),
-                                text,
-                                parent_tool_call_id: parent,
-                            },
-                        ),
-                    )?;
+            let (sequence, snapshot) = {
+                let mut state = state.lock().await;
+                state.close_thinking();
+                let turn_id = state.persist_turn_id(adapter_turn_id.as_deref());
+                let key = text_stream_key(message_id.as_str(), parent_tool_call_id.as_deref());
+                {
+                    let entry = state
+                        .assistant_text
+                        .entry(key.clone())
+                        .or_insert_with(|| (turn_id, String::new(), parent_tool_call_id.clone()));
+                    entry.1.push_str(&delta);
                 }
+                let snapshot = if state.last_snapshot.elapsed() >= ASSISTANT_SNAPSHOT_INTERVAL {
+                    state.last_snapshot = Instant::now();
+                    state.assistant_text.get(&key).cloned()
+                } else {
+                    None
+                };
+                let sequence = store.next_seq(chat_id)?;
+                state.note_stream_seq(sequence);
+                (sequence, snapshot)
+            };
+            if let Some((turn_id, text, parent)) = snapshot {
+                store.append_record(
+                    chat_id,
+                    &TranscriptEnvelope::new(
+                        turn_id,
+                        TranscriptEvent::AssistantSnapshot {
+                            message_id: message_id.clone(),
+                            text,
+                            parent_tool_call_id: parent,
+                        },
+                    ),
+                )?;
             }
-            emit(AgentChatPayload::AssistantMessageDelta {
-                message_id,
-                delta,
-                parent_tool_call_id,
-            })?;
+            emit_with_seq(
+                chat_id,
+                AgentChatPayload::AssistantMessageDelta {
+                    message_id,
+                    delta,
+                    parent_tool_call_id,
+                },
+                store,
+                events,
+                recent_events,
+                Some(adapter_event_id.clone()),
+                adapter_turn_id.clone(),
+                Some(sequence),
+            )?;
         }
         AgentEvent::AssistantMessageCompleted { message_id } => {
             if let Some((turn_id, text, parent)) =
@@ -287,7 +307,7 @@ pub(super) async fn apply_event(
             delta,
             parent_tool_call_id,
         } => {
-            {
+            let sequence = {
                 let mut state = state.lock().await;
                 state.mark_thinking(previous_activity);
                 let turn_id = state.persist_turn_id(adapter_turn_id.as_deref());
@@ -298,12 +318,24 @@ pub(super) async fn apply_event(
                     .or_insert_with(|| (turn_id, String::new(), parent_tool_call_id.clone()))
                     .1
                     .push_str(&delta);
-            }
-            emit(AgentChatPayload::ThinkingDelta {
-                message_id,
-                delta,
-                parent_tool_call_id,
-            })?;
+                let sequence = store.next_seq(chat_id)?;
+                state.note_stream_seq(sequence);
+                sequence
+            };
+            emit_with_seq(
+                chat_id,
+                AgentChatPayload::ThinkingDelta {
+                    message_id,
+                    delta,
+                    parent_tool_call_id,
+                },
+                store,
+                events,
+                recent_events,
+                Some(adapter_event_id.clone()),
+                adapter_turn_id.clone(),
+                Some(sequence),
+            )?;
         }
         AgentEvent::ThinkingCompleted { message_id } => {
             let snapshot = {
@@ -1585,6 +1617,9 @@ enum LiveOverlay {
 /// Splice in-memory assistant/thinking text that has not been flushed to jsonl
 /// onto a disk snapshot. Same `message_id` updates in place; a live id that is
 /// not on disk lands on the current-turn assistant instead of a second row.
+///
+/// Also raises `last_event_seq` to `last_stream_seq` so a page reload's
+/// `subscribe(after_sequence)` does not replay deltas already merged here.
 pub(super) fn overlay_live_state(snapshot: &mut AgentChatSnapshot, state: &RuntimeState) {
     for (key, (_turn, text, parent)) in &state.thinking_text {
         overlay_live_part(
@@ -1615,6 +1650,9 @@ pub(super) fn overlay_live_state(snapshot: &mut AgentChatSnapshot, state: &Runti
             .pending_session_op
             .as_ref()
             .map(|pending| pending.request.clone());
+    }
+    if state.last_stream_seq > snapshot.meta.last_event_seq {
+        snapshot.meta.last_event_seq = state.last_stream_seq;
     }
 }
 
@@ -1785,7 +1823,33 @@ pub(super) fn emit_live_ids(
     event_id: Option<String>,
     turn_id: Option<String>,
 ) -> Result<()> {
-    let sequence = store.next_seq(chat_id)?;
+    emit_with_seq(
+        chat_id,
+        payload,
+        store,
+        events,
+        recent_events,
+        event_id,
+        turn_id,
+        None,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn emit_with_seq(
+    chat_id: &str,
+    payload: AgentChatPayload,
+    store: &AgentChatStore,
+    events: &broadcast::Sender<AgentChatEvent>,
+    recent_events: &std::sync::Mutex<HashMap<String, VecDeque<AgentChatEvent>>>,
+    event_id: Option<String>,
+    turn_id: Option<String>,
+    assigned_seq: Option<u64>,
+) -> Result<()> {
+    let sequence = match assigned_seq {
+        Some(seq) => seq,
+        None => store.next_seq(chat_id)?,
+    };
     let persist = !matches!(
         payload,
         AgentChatPayload::AssistantMessageDelta { .. } | AgentChatPayload::ThinkingDelta { .. }
@@ -2518,6 +2582,7 @@ mod tests {
             thinking_ms: 0,
             last_thinking_segment_ms: 0,
             turn_usage: None,
+            last_stream_seq: 0,
         }
     }
 
@@ -2630,6 +2695,19 @@ mod tests {
             }
             other => panic!("unexpected parts: {other:?}"),
         }
+    }
+
+    #[test]
+    fn overlay_stamps_stream_seq_onto_snapshot() {
+        let mut state = runtime();
+        state.last_stream_seq = 42;
+        state
+            .assistant_text
+            .insert("a1".into(), ("t1".into(), "live".into(), None));
+        let mut snapshot = snapshot_with_assistant();
+        snapshot.meta.last_event_seq = 10;
+        overlay_live_state(&mut snapshot, &state);
+        assert_eq!(snapshot.meta.last_event_seq, 42);
     }
 
     #[test]
@@ -3515,6 +3593,8 @@ mod tests {
                 planning: true,
                 verifying_completion: false,
                 last_event: Some("goal_created".into()),
+                tokens_used: 0,
+                elapsed_ms: 0,
                 children: Vec::new(),
             }),
         })
@@ -3655,6 +3735,8 @@ mod tests {
                 planning: true,
                 verifying_completion: false,
                 last_event: None,
+                tokens_used: 0,
+                elapsed_ms: 0,
                 children: Vec::new(),
             }),
         })

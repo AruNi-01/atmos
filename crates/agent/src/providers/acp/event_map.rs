@@ -19,7 +19,7 @@ use crate::policy::{
     boolean_fast_modes, capabilities_for_provider, is_droid_chat_provider, is_fast_on,
     option_support_for_provider,
 };
-use crate::providers::grok::map_xai_ext_events;
+use crate::providers::grok::{append_grok_child_prompt, map_xai_ext_events};
 
 use super::overlays::OverlayState;
 use super::tool_map::{map_tool_call, merge_tool_call_patch, ToolEventKind, ToolMapOut};
@@ -392,6 +392,17 @@ fn map_stream(
     } else if delta.role == "assistant" {
         let event = map_assistant_stream(state, turn_id.clone(), delta);
         Some(complete_before_thinking(state, turn_id, event))
+    } else if delta.role == "user" {
+        let tool = append_grok_child_prompt(
+            &mut state.overlay.grok_tasks,
+            state.persistence.as_ref().map(|handle| handle.as_str()),
+            delta.session_id.as_deref(),
+            &delta.delta,
+        )?;
+        Some(wrap(
+            turn_id,
+            AgentEvent::ToolCallUpdated { tool_call: tool },
+        ))
     } else {
         None
     }

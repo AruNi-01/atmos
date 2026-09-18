@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use super::action::SessionOpKind;
@@ -26,14 +27,25 @@ pub enum TurnStop {
 pub struct AgentEventEnvelope {
     pub event_id: String,
     pub turn_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timestamp: Option<DateTime<Utc>>,
     pub payload: AgentEvent,
 }
 
 impl AgentEventEnvelope {
     pub fn new(turn_id: Option<String>, payload: AgentEvent) -> Self {
+        Self::at(turn_id, None, payload)
+    }
+
+    pub fn at(
+        turn_id: Option<String>,
+        timestamp: Option<DateTime<Utc>>,
+        payload: AgentEvent,
+    ) -> Self {
         Self {
             event_id: uuid::Uuid::new_v4().to_string(),
             turn_id,
+            timestamp,
             payload,
         }
     }

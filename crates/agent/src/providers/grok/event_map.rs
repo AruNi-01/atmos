@@ -16,7 +16,7 @@ use crate::options::{
 };
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
 
-use super::chrome::map_xai_ext_events;
+use super::chrome::{append_grok_child_prompt, map_xai_ext_events};
 use crate::contract::{GrokGoal, GrokWorkflow};
 
 use super::tool_map::{map_tool_call, merge_tool_call_patch, ToolEventKind, ToolMapOut};
@@ -340,6 +340,17 @@ fn map_stream(
     } else if delta.role == "assistant" {
         let event = map_assistant_stream(state, turn_id.clone(), delta);
         Some(complete_before_thinking(state, turn_id, event))
+    } else if delta.role == "user" {
+        let tool = append_grok_child_prompt(
+            &mut state.grok_tasks,
+            state.persistence.as_ref().map(|handle| handle.as_str()),
+            delta.session_id.as_deref(),
+            &delta.delta,
+        )?;
+        Some(wrap(
+            turn_id,
+            AgentEvent::ToolCallUpdated { tool_call: tool },
+        ))
     } else {
         None
     }
@@ -1538,6 +1549,51 @@ mod tests {
             state.grok_goal.is_some(),
             "workflow update must not wipe the live goal"
         );
+    }
+
+    #[test]
+    fn child_user_message_chunk_updates_spawn_prompt() {
+        let mut state = state();
+        state.persistence = Some(crate::contract::AgentPersistenceHandle::new(
+            "01a0aaff-523e-78e0-8e5d-0637d1aced60",
+        ));
+        let spawned: serde_json::Value =
+            serde_json::from_str(include_str!("testdata/subagent_spawned_plan_writer.json"))
+                .unwrap();
+        map_xai_subagent(
+            &mut state,
+            Some("turn-1".into()),
+            "_x.ai/session/update",
+            spawned,
+        )
+        .expect("spawn");
+        let event = map_event(
+            &mut state,
+            Some("turn-1".into()),
+            AcpSessionEvent::Stream(StreamDelta {
+                role: "user".into(),
+                kind: "message".into(),
+                delta: "You are the Goal Plan Writer for the xAI Grok Build harness.".into(),
+                done: false,
+                usage: None,
+                session_id: Some("01a0aa67-9404-7771-b043-b2101c138e4f".into()),
+            }),
+        )
+        .expect("prompt update");
+        let AgentEvent::ToolCallUpdated { tool_call } = event.payload else {
+            panic!("expected ToolCallUpdated, got {:?}", event.payload);
+        };
+        match tool_call.params {
+            AgentToolParams::Subagent {
+                prompt,
+                description,
+                ..
+            } => {
+                assert!(prompt.as_deref().unwrap().contains("Goal Plan Writer"));
+                assert_eq!(description, "goal plan writer");
+            }
+            other => panic!("expected subagent params, got {other:?}"),
+        }
     }
 
     #[test]

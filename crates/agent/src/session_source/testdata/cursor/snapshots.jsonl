@@ -1,0 +1,8 @@
+{"role": "user", "message": {"content": [{"type": "text", "text": "<user_query>Hello</user_query>"}]}}
+{"role": "assistant", "message": {"content": [{"type": "text", "text": "Hi"}, {"type": "tool_use", "name": "GetDynamicTools", "input": {"query": "browser"}}, {"type": "tool_use", "name": "Read", "input": {"path": "/tmp/a.txt"}}]}}
+{"role": "assistant", "message": {"content": [{"type": "tool_use", "name": "Grep", "input": {"pattern": "fn main", "path": "/tmp"}}]}}
+{"role": "assistant", "message": {"content": [{"type": "text", "text": "Hello there"}]}}
+{"role": "user", "message": {"content": [{"type": "text", "text": "<user_query>Hello</user_query>"}]}}
+{"role": "assistant", "message": {"content": [{"type": "text", "text": "Hello there, done."}]}}
+{"role": "user", "message": {"content": [{"type": "text", "text": "<user_query>Next</user_query>"}]}}
+{"role": "assistant", "message": {"content": [{"type": "text", "text": "Next reply"}]}}

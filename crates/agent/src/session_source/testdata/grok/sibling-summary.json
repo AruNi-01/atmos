@@ -1,0 +1,14 @@
+{
+  "info": {
+    "id": "eeeeeeee-eeee-4ccc-8ddd-ffffffffffff",
+    "cwd": "/tmp/demo"
+  },
+  "generated_title": "Sibling subagent",
+  "session_summary": "Child session living beside the parent",
+  "parent_session_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+  "session_kind": "subagent",
+  "created_at": "2024-01-01T00:07:00Z",
+  "updated_at": "2024-01-01T00:08:00Z",
+  "current_model_id": "grok-4.6",
+  "num_messages": 2
+}

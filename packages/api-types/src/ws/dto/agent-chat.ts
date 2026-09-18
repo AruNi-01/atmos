@@ -1,4 +1,4 @@
-export type AgentChatOrigin = "quick" | "normal";
+export type AgentChatOrigin = "quick" | "normal" | "imported";
 
 export type AgentChatFavoriteModel = {
   agent_id: string;
@@ -256,6 +256,8 @@ export type GrokGoal = {
   planning?: boolean;
   verifying_completion?: boolean;
   last_event?: string | null;
+  tokens_used?: number;
+  elapsed_ms?: number;
   children: GrokGoalChild[];
 };
 
@@ -482,6 +484,19 @@ export type AgentPart =
       type: "session_hint";
       tone: SessionHintTone;
       kind: string;
+    }
+  | {
+      type: "permission";
+      request: {
+        request_id: string;
+        tool: string;
+        description: string;
+        content_markdown?: string | null;
+        options?: Array<{ option_id: string; name: string; kind?: string }>;
+        questions?: Array<{ id: string; prompt: string; options?: string[] }>;
+        plan_todos?: Array<{ id?: string | null; content: string; status?: string }>;
+        status: string;
+      };
     };
 
 export type AgentMessage = {

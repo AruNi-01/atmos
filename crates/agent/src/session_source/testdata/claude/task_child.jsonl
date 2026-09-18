@@ -1,0 +1,2 @@
+{"type":"user","uuid":"child-user","timestamp":"2026-04-01T11:00:02.500Z","cwd":"/tmp/fixture-app","sessionId":"a827867c2504be0f1","message":{"role":"user","content":"Explore the repo"}}
+{"type":"assistant","uuid":"child-asst","timestamp":"2026-04-01T11:00:03.000Z","cwd":"/tmp/fixture-app","sessionId":"a827867c2504be0f1","message":{"role":"assistant","content":[{"type":"text","text":"This is a monorepo with crates and apps."}]}}

@@ -401,9 +401,11 @@ fn map_assistant(state: &mut EventMapState, turn_id: Option<String>, frame: &Val
                             wrap(turn_id.clone(), AgentEvent::ConfigChanged { config }),
                         );
                         push(state, &mut first, config_event);
-                        let tool_event =
-                            wrap(turn_id.clone(), tool_event(tool, AgentToolStatus::Running));
-                        push(state, &mut first, tool_event);
+                        if let Some(tool) = tool {
+                            let tool_event =
+                                wrap(turn_id.clone(), tool_event(tool, AgentToolStatus::Running));
+                            push(state, &mut first, tool_event);
+                        }
                     }
                     ToolMapOut::Hide => {}
                     ToolMapOut::CompleteWait { wait, parent } => {

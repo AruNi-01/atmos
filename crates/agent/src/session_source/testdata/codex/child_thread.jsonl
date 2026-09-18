@@ -1,0 +1,5 @@
+{"timestamp":"2026-04-06T14:48:47.000Z","type":"session_meta","payload":{"id":"019d6344-cccc-7ec0-aae0-b24916d4e999","cwd":"/tmp/fixture-app","source":{"subagent":{"thread_spawn":{"parent_thread_id":"019d6344-42fe-7ec0-aae0-b24916d4e28e"}}},"thread_source":"subagent"}}
+{"timestamp":"2026-04-06T14:48:48.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Explore the child thread"}]}}
+{"timestamp":"2026-04-06T14:48:49.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Nested child answer."}]}}
+{"timestamp":"2026-04-06T14:48:50.000Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":"{\"cmd\":\"ls\",\"workdir\":\"/tmp/fixture-app\"}","call_id":"call-child-ls"}}
+{"timestamp":"2026-04-06T14:48:51.000Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call-child-ls","output":"README.md"}}

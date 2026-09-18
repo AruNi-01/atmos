@@ -5,7 +5,10 @@ pub mod queue;
 pub mod utils;
 
 pub use db::{
-    DatabaseConnection, DbConnection, Migrator, TerminalSideChatRepo, TestMessageRepo,
+    host_session_fts_match_query, host_session_root_key, DatabaseConnection, DbConnection,
+    HostSessionIndexPage, HostSessionIndexQuery, HostSessionIndexRow, HostSessionRepo,
+    HostSessionSearchCursor, HostSessionSearchDoc, HostSessionSearchMatch, HostSessionSortField,
+    HostSessionSortOrder, Migrator, TerminalSideChatRepo, TestMessageRepo,
     UpsertTerminalSideChatInput,
 };
 pub use error::{InfraError, Result};

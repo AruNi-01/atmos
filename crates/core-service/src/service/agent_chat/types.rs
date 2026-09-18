@@ -243,6 +243,7 @@ pub enum AgentChatOrigin {
     #[default]
     Normal,
     Quick,
+    Imported,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -854,6 +855,9 @@ pub enum MessagePart {
         tone: SessionHintTone,
         kind: String,
     },
+    Permission {
+        request: PendingPermission,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -908,6 +912,8 @@ pub struct FoldedTurn {
     pub thinking_ended_at: Option<DateTime<Utc>>,
     #[serde(default)]
     pub completed_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_event_at: Option<DateTime<Utc>>,
     #[serde(default)]
     pub worked_ms: Option<u64>,
     #[serde(default)]
@@ -926,6 +932,7 @@ impl Default for FoldedTurn {
             thinking_started_at: None,
             thinking_ended_at: None,
             completed_at: None,
+            last_event_at: None,
             worked_ms: None,
             thinking_ms: None,
             usage: None,
@@ -991,6 +998,7 @@ pub fn flatten_messages_at(
     let mut running_turn_id = None;
     let mut running_turn_started_at = None;
     let mut running = false;
+    let mut last_user_at = None;
     for turn in turns {
         if matches!(
             turn.status,
@@ -1000,7 +1008,10 @@ pub fn flatten_messages_at(
             running_turn_started_at = Some(turn.created_at);
             running = true;
         }
-        let timing = turn_timing(&turn, now);
+        if let Some(user) = turn.messages.iter().find(|message| message.role == "user") {
+            last_user_at = Some(user.created_at);
+        }
+        let timing = turn_timing(&turn, now, last_user_at);
         let mut assistant_index = None;
         for message in turn.messages {
             if message.role == "assistant" {
@@ -1178,17 +1189,34 @@ pub(crate) fn elapsed_ms(start: DateTime<Utc>, end: DateTime<Utc>) -> u64 {
     u64::try_from((end - start).num_milliseconds().max(0)).unwrap_or(0)
 }
 
-fn turn_timing(turn: &FoldedTurn, now: DateTime<Utc>) -> TurnTiming {
+fn turn_prompt_at(turn: &FoldedTurn, fallback: Option<DateTime<Utc>>) -> DateTime<Utc> {
+    turn.messages
+        .iter()
+        .find(|message| message.role == "user")
+        .map(|message| message.created_at)
+        .or(fallback)
+        .unwrap_or(turn.created_at)
+}
+
+fn turn_timing(
+    turn: &FoldedTurn,
+    now: DateTime<Utc>,
+    prompt_fallback: Option<DateTime<Utc>>,
+) -> TurnTiming {
     let live = matches!(
         turn.status,
         TurnStatus::Running | TurnStatus::WaitingPermission
     );
-    let completed_at = turn.completed_at;
+    let prompt_at = turn_prompt_at(turn, prompt_fallback);
+    let completed_at = turn
+        .completed_at
+        .or_else(|| if live { None } else { turn.last_event_at });
     let worked_ms = turn.worked_ms.or_else(|| {
         if let Some(end) = completed_at {
-            Some(elapsed_ms(turn.created_at, end))
+            let ms = elapsed_ms(prompt_at, end);
+            (ms > 0).then_some(ms)
         } else if live {
-            Some(elapsed_ms(turn.created_at, now))
+            Some(elapsed_ms(prompt_at, now))
         } else {
             None
         }

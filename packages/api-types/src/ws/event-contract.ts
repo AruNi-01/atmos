@@ -21,6 +21,7 @@ import type {
   AgentOptionsUpdated,
   AgentChatEvent,
 } from "./dto/agent-chat";
+import type { HostSessionIndexUpdated } from "./dto/host-session";
 import type {
   SimulatorDevicesChanged,
   SimulatorDownloadProgress,
@@ -70,6 +71,7 @@ export type WsEventContract = {
   resource_monitor_updated: { payload: ResourceMonitorSnapshot };
   agent_chat_event: { payload: AgentChatEvent };
   agent_options_updated: { payload: AgentOptionsUpdated };
+  host_session_index_updated: { payload: HostSessionIndexUpdated };
 };
 
 export type MappedWsEvent = keyof WsEventContract & WsEvent;

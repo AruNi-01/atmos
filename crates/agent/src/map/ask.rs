@@ -24,6 +24,16 @@ pub fn is_ask_user_tool(name: &str) -> bool {
         || n.contains("askuser")
 }
 
+/// EnterPlanMode — composer mode picker owns this; never a transcript tool card.
+pub fn is_enter_plan_tool(name: &str) -> bool {
+    let n = normalize(name);
+    matches!(
+        n.as_str(),
+        "enterplanmode" | "enter_plan_mode" | "enter_plan" | "enterplan"
+    ) || n.contains("enter_plan")
+        || n.contains("enterplan")
+}
+
 /// ExitPlanMode / plan-approve permission tools.
 pub fn is_exit_plan_tool(name: &str) -> bool {
     let n = normalize(name);
@@ -396,6 +406,10 @@ mod tests {
         assert!(is_exit_plan_tool("ExitPlanMode"));
         assert!(is_exit_plan_tool("exit_plan_mode"));
         assert!(!is_exit_plan_tool("EnterPlanMode"));
+        assert!(is_enter_plan_tool("EnterPlanMode"));
+        assert!(is_enter_plan_tool("enter_plan_mode"));
+        assert!(!is_enter_plan_tool("ExitPlanMode"));
+        assert!(!is_enter_plan_tool("update_plan"));
     }
 
     #[test]

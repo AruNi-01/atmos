@@ -13,6 +13,7 @@ mod git;
 mod github;
 mod github_job_log_split;
 mod group;
+mod host_session;
 mod linear;
 mod link_preview;
 mod local_model;
@@ -51,8 +52,8 @@ use core_service::{
     builtin_options_probe_plans, default_agent_data_dir, default_chats_dir, options_probe_dir,
     AgentChatService, AgentChatStore, AgentService, AgentServiceOptionsResolver, AutomationService,
     DefaultAgentProviderFactory, DeviceControlService, DevicePreviewService, DiskAnalyzerService,
-    GroupService, LinearService, LocalServicesService, NotificationService, OptionsPrefetchWorker,
-    ProjectService, ResourceMonitorService, ReviewService, TerminalService,
+    GroupService, HostSessionService, LinearService, LocalServicesService, NotificationService,
+    OptionsPrefetchWorker, ProjectService, ResourceMonitorService, ReviewService, TerminalService,
     WorkspaceProjectOwnerLookup, WorkspaceService, PREFETCH_POLL,
 };
 use core_service::{Result, ServiceError};
@@ -87,6 +88,7 @@ pub struct WsMessageService {
     simulator: Arc<DevicePreviewService>,
     device_control: Arc<DeviceControlService>,
     agent_chat_service: Arc<AgentChatService>,
+    host_session_service: Arc<HostSessionService>,
     options_worker: Arc<OptionsPrefetchWorker>,
     agent_chat_subs: Arc<RwLock<HashMap<String, HashSet<String>>>>,
 }
@@ -127,6 +129,13 @@ impl WsMessageService {
             Arc::new(AgentChatStore::new(default_chats_dir())),
             Arc::new(DefaultAgentProviderFactory::new(Arc::clone(&agent_service))),
         ));
+        let host_session_service = Arc::new(
+            HostSessionService::with_defaults(
+                AgentChatStore::new(default_chats_dir()),
+                Arc::clone(&db),
+            )
+            .with_workspace_lookup(Arc::clone(&project_service), Arc::clone(&workspace_service)),
+        );
         resource_monitor_service.set_chat_service(Arc::clone(&agent_chat_service));
         let options_worker = Arc::new(
             OptionsPrefetchWorker::with_plans(
@@ -182,6 +191,7 @@ impl WsMessageService {
             simulator,
             device_control,
             agent_chat_service,
+            host_session_service,
             options_worker,
             agent_chat_subs: Arc::new(RwLock::new(HashMap::new())),
         }
@@ -193,6 +203,10 @@ impl WsMessageService {
 
     pub fn local_services_service(&self) -> Arc<LocalServicesService> {
         Arc::clone(&self.local_services_service)
+    }
+
+    pub fn host_session_service(&self) -> Arc<HostSessionService> {
+        Arc::clone(&self.host_session_service)
     }
 
     pub fn set_ws_manager(&self, manager: Arc<WsManager>) -> Result<()> {
@@ -982,6 +996,26 @@ impl WsMessageService {
             WsAction::AgentChatPrefsGet => self.handle_agent_chat_prefs_get(),
             WsAction::AgentChatPrefsSet => {
                 self.handle_agent_chat_prefs_set(parse_request(request.data)?)
+            }
+            WsAction::HostSessionList => {
+                let req = if request.data.is_null() {
+                    HostSessionListRequest::default()
+                } else {
+                    parse_request(request.data)?
+                };
+                self.handle_host_session_list(req).await
+            }
+            WsAction::HostSessionGet => {
+                self.handle_host_session_get(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::HostSessionResumeChat => {
+                self.handle_host_session_resume_chat(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::HostSessionResumeTui => {
+                self.handle_host_session_resume_tui(parse_request(request.data)?)
+                    .await
             }
 
             // Automation

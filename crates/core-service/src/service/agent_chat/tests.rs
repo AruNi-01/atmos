@@ -2557,6 +2557,65 @@ async fn get_overlays_unpersisted_live_text_without_duplicate_ids() {
     }
 }
 
+#[tokio::test]
+async fn get_stream_seq_covers_overlaid_deltas() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    provider.set_auto_complete(false);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+
+    timeout(Duration::from_secs(2), async {
+        loop {
+            if provider.events_ready().await {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("runtime event channel");
+
+    let assistant_id = uuid::Uuid::new_v4().to_string();
+    provider
+        .push_event(AgentEvent::AssistantMessageDelta {
+            message_id: assistant_id.clone(),
+            delta: "Hello".into(),
+            parent_tool_call_id: None,
+        })
+        .await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    provider
+        .push_event(AgentEvent::AssistantMessageDelta {
+            message_id: assistant_id,
+            delta: " world".into(),
+            parent_tool_call_id: None,
+        })
+        .await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
+
+    let live = service.get(&meta.id).await.unwrap();
+    assert!(
+        assistant_texts(&live).contains("Hello world"),
+        "overlay should include live stream text: {}",
+        assistant_texts(&live)
+    );
+    let missed = service.events_after(&meta.id, live.meta.last_event_seq);
+    let replayed: Vec<&str> = missed
+        .iter()
+        .filter_map(|event| match &event.payload {
+            AgentChatPayload::AssistantMessageDelta { delta, .. } => Some(delta.as_str()),
+            AgentChatPayload::ThinkingDelta { delta, .. } => Some(delta.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        replayed.is_empty(),
+        "subscribe after get() must not replay overlaid stream chunks: {replayed:?} seq={}",
+        live.meta.last_event_seq
+    );
+}
+
 fn execute_tool(id: &str, status: agent::AgentToolStatus) -> agent::AgentTool {
     agent::AgentTool {
         tool_call_id: id.into(),

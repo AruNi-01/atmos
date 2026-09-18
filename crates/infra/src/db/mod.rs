@@ -19,5 +19,10 @@ pub use migration::Migrator;
 pub use repo::ProjectRepo;
 pub use repo::ReviewRepo;
 pub use repo::TestMessageRepo;
-pub use repo::{TerminalSideChatRepo, UpsertTerminalSideChatInput};
+pub use repo::{
+    host_session_fts_match_query, host_session_root_key, HostSessionIndexPage,
+    HostSessionIndexQuery, HostSessionIndexRow, HostSessionRepo, HostSessionSearchCursor,
+    HostSessionSearchDoc, HostSessionSearchMatch, HostSessionSortField, HostSessionSortOrder,
+    TerminalSideChatRepo, UpsertTerminalSideChatInput,
+};
 pub use sea_orm::DatabaseConnection;

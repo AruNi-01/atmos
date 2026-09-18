@@ -31,6 +31,10 @@ pub struct GrokGoal {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_event: Option<String>,
     #[serde(default)]
+    pub tokens_used: i64,
+    #[serde(default)]
+    pub elapsed_ms: u64,
+    #[serde(default)]
     pub children: Vec<GrokGoalChild>,
 }
 

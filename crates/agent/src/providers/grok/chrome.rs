@@ -30,6 +30,8 @@ pub fn parse_grok_goal_updated(method: &str, params: &Value) -> Option<GrokGoal>
         planning: bool_flag(update, "planning"),
         verifying_completion: bool_flag(update, "verifying_completion"),
         last_event: first_string(update, &["last_event"]),
+        tokens_used: int_field(update, "tokens_used"),
+        elapsed_ms: uint_field(update, "elapsed_ms"),
         children: Vec::new(),
     })
 }
@@ -224,7 +226,7 @@ pub fn looks_like_grok_goal_child(tool: &AgentTool) -> bool {
     label.contains("plan writer")
         || (label.contains("plan") && label.contains("writer"))
         || label.contains("skeptic")
-        || label.contains("verifier")
+        || (label.contains("verifier") && !label.contains("evidence"))
         || label.contains("summar")
 }
 
@@ -379,6 +381,22 @@ fn bool_flag(update: &Value, key: &str) -> bool {
     }
 }
 
+fn int_field(update: &Value, key: &str) -> i64 {
+    match update.get(key) {
+        Some(Value::Number(value)) => value.as_i64().unwrap_or(0),
+        Some(Value::String(value)) => value.parse().unwrap_or(0),
+        _ => 0,
+    }
+}
+
+fn uint_field(update: &Value, key: &str) -> u64 {
+    match update.get(key) {
+        Some(Value::Number(value)) => value.as_u64().unwrap_or(0),
+        Some(Value::String(value)) => value.parse().unwrap_or(0),
+        _ => 0,
+    }
+}
+
 fn chrome_id(update: &Value, keys: &[&str], status: &str) -> Option<String> {
     let id = first_string(update, keys).unwrap_or_default();
     if id.is_empty() && !status.eq_ignore_ascii_case("cleared") {
@@ -405,13 +423,53 @@ fn goal_role_from_label(label: &str) -> String {
     let lower = label.to_ascii_lowercase();
     if lower.contains("plan writer") || (lower.contains("plan") && lower.contains("writer")) {
         "planning".into()
-    } else if lower.contains("skeptic") || lower.contains("verifier") {
+    } else if lower.contains("skeptic")
+        || (lower.contains("verifier") && !lower.contains("evidence"))
+    {
         "verifying".into()
     } else if lower.contains("summar") {
         "summarizing".into()
+    } else if lower.contains("implement") || lower.contains("worker") {
+        "implementing".into()
     } else {
-        "planning".into()
+        "implementing".into()
     }
+}
+
+/// Fold a child-session `user_message_chunk` onto the synthesized spawn's prompt.
+pub fn append_grok_child_prompt(
+    tools: &mut std::collections::HashMap<String, AgentTool>,
+    persistence: Option<&str>,
+    session_id: Option<&str>,
+    chunk: &str,
+) -> Option<AgentTool> {
+    let sid = session_id.map(str::trim).filter(|id| !id.is_empty())?;
+    if persistence.is_some_and(|handle| handle == sid) {
+        return None;
+    }
+    let chunk = chunk.trim();
+    if chunk.is_empty() {
+        return None;
+    }
+    let tool = tools.get_mut(sid)?;
+    if tool.kind != AgentToolKind::Subagent {
+        return None;
+    }
+    let AgentToolParams::Subagent { prompt, .. } = &mut tool.params else {
+        return None;
+    };
+    match prompt {
+        Some(existing) => {
+            if !existing.is_empty() && !existing.ends_with('\n') {
+                existing.push('\n');
+            }
+            existing.push_str(chunk);
+        }
+        None => *prompt = Some(chunk.to_string()),
+    }
+    let updated = tool.clone();
+    crate::map::subagent::store_subagent_tool(tools, &updated);
+    Some(updated)
 }
 
 pub fn phase_id_from_title(title: &str) -> String {
@@ -487,6 +545,8 @@ mod tests {
             planning: true,
             verifying_completion: false,
             last_event: Some("goal_created".into()),
+            tokens_used: 0,
+            elapsed_ms: 0,
             children: Vec::new(),
         }
     }
@@ -511,6 +571,7 @@ mod tests {
         assert_eq!(goal.status, "active");
         assert!(goal.planning);
         assert!(!goal.verifying_completion);
+        assert_eq!(goal.elapsed_ms, 1);
     }
 
     #[test]
@@ -571,6 +632,42 @@ mod tests {
     }
 
     #[test]
+    fn evidence_verifier_is_not_a_goal_child() {
+        let tool = AgentTool {
+            tool_call_id: "ev-1".into(),
+            parent_tool_call_id: None,
+            name: "spawn_subagent".into(),
+            title: None,
+            kind: AgentToolKind::Subagent,
+            status: AgentToolStatus::Running,
+            params: AgentToolParams::Subagent {
+                description: "evidence-verifier-1".into(),
+                agent_type: Some("general-purpose".into()),
+                task_id: None,
+                prompt: None,
+            },
+            result: None,
+        };
+        assert!(!looks_like_grok_goal_child(&tool));
+        let goal = AgentTool {
+            tool_call_id: "gv-1".into(),
+            parent_tool_call_id: None,
+            name: "spawn_subagent".into(),
+            title: None,
+            kind: AgentToolKind::Subagent,
+            status: AgentToolStatus::Running,
+            params: AgentToolParams::Subagent {
+                description: "goal verifier".into(),
+                agent_type: Some("general-purpose".into()),
+                task_id: None,
+                prompt: None,
+            },
+            result: None,
+        };
+        assert!(looks_like_grok_goal_child(&goal));
+    }
+
+    #[test]
     fn acp_named_goal_child_is_stamped_grok_chrome() {
         let mut tools = std::collections::HashMap::new();
         let acp = AgentTool {
@@ -613,6 +710,39 @@ mod tests {
                 .collect::<Vec<_>>(),
             ["01a0aa73-2fd5-7dd3-82d6-32cd809cc95a"]
         );
+    }
+
+    #[test]
+    fn child_user_message_chunk_becomes_spawn_prompt() {
+        let mut tools = std::collections::HashMap::new();
+        let child = "01a0aaff-547e-7f31-b6df-568891199a0c";
+        let tool = goal_tool(child, "goal plan writer");
+        tools.insert(child.to_string(), tool);
+        let updated = append_grok_child_prompt(
+            &mut tools,
+            Some("01a0aaff-523e-78e0-8e5d-0637d1aced60"),
+            Some(child),
+            "You are the Goal Plan Writer for the xAI Grok Build harness.",
+        )
+        .expect("child prompt");
+        match updated.params {
+            AgentToolParams::Subagent {
+                prompt,
+                description,
+                ..
+            } => {
+                assert!(prompt.as_deref().unwrap().contains("Goal Plan Writer"));
+                assert_eq!(description, "goal plan writer");
+            }
+            other => panic!("expected subagent params, got {other:?}"),
+        }
+        assert!(append_grok_child_prompt(
+            &mut tools,
+            Some("01a0aaff-523e-78e0-8e5d-0637d1aced60"),
+            Some("01a0aaff-523e-78e0-8e5d-0637d1aced60"),
+            "parent prompt",
+        )
+        .is_none());
     }
 
     #[test]

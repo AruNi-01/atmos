@@ -50,7 +50,8 @@ the ACP `_` prefix. `InboundExtMethod::matches_method` must accept that name
 (see `acp_client/runner.rs`); handler logic lives in `AtmosAcpClient::ext_method`.
 Companion `session/update` `plan` entries during plan phase are **not** execution
 todos — `event_map` suppresses them while mode=`plan` or a PlanDocument tool is
-active; `updateTodos` still folds to `PlanUpdated`.
+active; `updateTodos` still folds to `PlanUpdated`. Codex `update_plan` (underscore)
+and `turn/plan/*` stay `ClassifiedTool::Plan` / `PlanUpdated`.
 
 ---
 
@@ -67,6 +68,8 @@ surfaces. Do **not** fold them into a shared orchestrator type.
 - Persist: Chat meta `grok_goal` and `grok_workflow` are independent slots.
   Clearing one must not wipe the other.
 - Mapper lives in `providers/grok/chrome.rs` (ACP Grok-family only).
+  Host session disk parse (`session_source/adapters/grok.rs`) reuses the same
+  `map_xai_ext_events` so `/goal` and `/deep-research` preview match live Chat.
 - Synthesized child tools use name `grok_chrome` (`GROK_CHROME_SUBAGENT_NAME`)
   so the parent transcript can hide them; overlay still keys by `child_session_id`.
 - UI: `GrokGoalPanel` / `GrokWorkflowPanel` in the composer overlay slot.

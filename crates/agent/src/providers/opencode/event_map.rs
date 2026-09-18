@@ -5,12 +5,12 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use serde_json::Value;
 
 use crate::contract::AgentPersistenceHandle;
-use crate::contract::AgentTool;
 use crate::contract::{AgentCurrentConfig, AgentIdentity, AgentSupportedOptions};
 use crate::contract::{AgentDescriptor, TurnStop};
 use crate::contract::{
     AgentEvent, AgentEventEnvelope, AgentPermissionOption, AgentPermissionRequest,
 };
+use crate::contract::{AgentTool, AgentToolKind, AgentToolParams, AgentToolStatus};
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
 
 use super::codec::{is_heartbeat, BusEvent};
@@ -325,7 +325,13 @@ fn map_part_updated(
             }
             map_tool(state, turn_id, part)
         }
-        "step-start" | "step-finish" | "file" | "patch" | "snapshot" => first_mapped(first),
+        "patch" => {
+            if let Some(event) = first {
+                state.pending.push_back(event);
+            }
+            map_patch(state, turn_id, part)
+        }
+        "step-start" | "step-finish" | "file" | "snapshot" => first_mapped(first),
         _ => first_mapped(first),
     }
 }
@@ -444,6 +450,46 @@ fn complete_before_opposite(
     } else {
         complete_before_thinking(state, turn_id.clone(), wrap(turn_id, payload))
     }
+}
+
+fn map_patch(state: &mut EventMapState, turn_id: Option<String>, part: &Value) -> MapOut {
+    let hash = part.get("hash").and_then(Value::as_str).unwrap_or("patch");
+    let Some(files) = part.get("files").and_then(Value::as_array) else {
+        return MapOut::Skip;
+    };
+    let mut first = None;
+    for (index, file) in files.iter().enumerate() {
+        let Some(path) = file.as_str().map(str::trim).filter(|path| !path.is_empty()) else {
+            continue;
+        };
+        mark_work(state);
+        let tool = AgentTool {
+            tool_call_id: format!("{hash}-{index}"),
+            parent_tool_call_id: None,
+            name: "edit".into(),
+            title: None,
+            kind: AgentToolKind::Edit,
+            status: AgentToolStatus::Completed,
+            params: AgentToolParams::Edit {
+                path: path.to_string(),
+            },
+            result: None,
+        };
+        let event = complete_before_thinking(
+            state,
+            turn_id.clone(),
+            wrap(
+                turn_id.clone(),
+                AgentEvent::ToolCallCompleted { tool_call: tool },
+            ),
+        );
+        if first.is_none() {
+            first = Some(event);
+        } else {
+            state.pending.push_back(event);
+        }
+    }
+    first_mapped(first)
 }
 
 fn map_tool(state: &mut EventMapState, turn_id: Option<String>, part: &Value) -> MapOut {
@@ -1620,5 +1666,39 @@ mod tests {
         let (events, _) = drain_mapped(&mut state, Some("turn-1".into()), retry);
         assert!(events.is_empty());
         assert!(state.closed_turn.is_none());
+    }
+
+    #[test]
+    fn patch_part_maps_to_edit_tools() {
+        let mut state = EventMapState::new("ses_test".into(), AgentCurrentConfig::default());
+        let (events, _) = drain_mapped(
+            &mut state,
+            Some("turn-1".into()),
+            BusEvent {
+                id: None,
+                event_type: "message.part.updated".into(),
+                properties: serde_json::json!({
+                    "sessionID": "ses_test",
+                    "part": {
+                        "type": "patch",
+                        "hash": "abc",
+                        "files": ["/tmp/fixture-proj/README.md"]
+                    }
+                }),
+            },
+        );
+        let tool = events.iter().find_map(|event| match &event.payload {
+            AgentEvent::ToolCallCompleted { tool_call } => Some(tool_call),
+            _ => None,
+        });
+        let tool = tool.expect("patch edit");
+        assert_eq!(tool.name, "edit");
+        assert_eq!(tool.kind, AgentToolKind::Edit);
+        assert_eq!(
+            tool.params,
+            AgentToolParams::Edit {
+                path: "/tmp/fixture-proj/README.md".into()
+            }
+        );
     }
 }

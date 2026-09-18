@@ -203,14 +203,40 @@ pub fn subagent_result_text(value: &Value) -> String {
 }
 
 pub fn strip_subagent_footers(text: &str) -> String {
-    let mut out = text;
+    let mut out = unwrap_xml_block(text, "task_result");
     if let Some(idx) = out.find("<subagent_meta>") {
-        out = out[..idx].trim_end();
+        out = out[..idx].trim_end().to_string();
     }
     if let Some(idx) = out.find("<subagent_result>") {
-        out = out[..idx].trim_end();
+        out = out[..idx].trim_end().to_string();
     }
     out.trim().to_string()
+}
+
+fn unwrap_xml_block(text: &str, tag: &str) -> String {
+    let open = format!("<{tag}>");
+    let close = format!("</{tag}>");
+    if let Some(start) = text.find(&open) {
+        let inner_start = start + open.len();
+        if let Some(end) = text[inner_start..].find(&close) {
+            let before = text[..start].trim_end();
+            let inner = text[inner_start..inner_start + end].trim();
+            let after = text[inner_start + end + close.len()..].trim_start();
+            return [before, inner, after]
+                .into_iter()
+                .filter(|part| !part.is_empty())
+                .collect::<Vec<_>>()
+                .join("\n\n");
+        }
+        return format!(
+            "{}{}",
+            text[..start].trim_end(),
+            text[inner_start..].trim_start()
+        )
+        .trim()
+        .to_string();
+    }
+    text.replace(&close, "").trim().to_string()
 }
 
 pub fn hold_subagent_open(input: Option<&Value>, output: Option<&Value>) -> bool {
@@ -513,6 +539,22 @@ mod tests {
     use super::*;
     use crate::map::extract::labeled_id_from_text;
     use serde_json::json;
+
+    #[test]
+    fn strip_unwraps_task_result_and_drops_orphan_close_tags() {
+        assert_eq!(
+            strip_subagent_footers("<task_result>README looks good.</task_result>"),
+            "README looks good."
+        );
+        assert_eq!(
+            strip_subagent_footers("README looks good.</task_result>"),
+            "README looks good."
+        );
+        assert_eq!(
+            strip_subagent_footers("prefix\n\n<task_result>done</task_result>"),
+            "prefix\n\ndone"
+        );
+    }
 
     #[test]
     fn spawn_names_cover_vendor_tools() {

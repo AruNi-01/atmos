@@ -102,7 +102,7 @@ pub fn map_event(
             }
             None
         }
-        "thinking_level_changed" => None,
+        "thinking_level_changed" => map_thinking_level_changed(turn_id, frame),
         "queue_update" => {
             let _ = frame.get("steering");
             let _ = frame.get("followUp");
@@ -437,6 +437,25 @@ fn tool_event(tool: &AgentTool, status: AgentToolStatus, is_error: bool) -> Agen
             tool_call: tool.clone(),
         },
     }
+}
+
+fn map_thinking_level_changed(
+    turn_id: Option<String>,
+    frame: &Value,
+) -> Option<AgentEventEnvelope> {
+    let level = frame
+        .get("level")
+        .or_else(|| frame.get("thinkingLevel"))
+        .or_else(|| frame.get("thinking_level"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|text| !text.is_empty())?;
+    Some(wrap(
+        turn_id,
+        AgentEvent::ConfigChanged {
+            config: serde_json::json!({ "thinking": level }),
+        },
+    ))
 }
 
 fn map_ui_request(
@@ -843,6 +862,21 @@ mod tests {
         assert!(!events
             .iter()
             .any(|event| matches!(event, AgentEvent::UserMessage { .. })));
+    }
+
+    #[test]
+    fn thinking_level_changed_emits_config_changed() {
+        let events = map_jsonl(
+            r#"{"type":"thinking_level_changed","level":"high"}
+{"type":"agent_settled"}
+"#,
+            "t1",
+        );
+        assert!(events.iter().any(|event| matches!(
+            event,
+            AgentEvent::ConfigChanged { config }
+                if config.get("thinking").and_then(|item| item.as_str()) == Some("high")
+        )));
     }
 
     #[test]

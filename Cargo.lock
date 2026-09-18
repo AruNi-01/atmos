@@ -56,6 +56,7 @@ dependencies = [
  "keyring",
  "regex",
  "reqwest 0.12.28",
+ "rusqlite",
  "serde",
  "serde_json",
  "tar",
@@ -1389,6 +1390,7 @@ dependencies = [
  "tracing-subscriber",
  "urlencoding",
  "uuid",
+ "which",
 ]
 
 [[package]]

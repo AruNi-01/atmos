@@ -4,7 +4,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::error::{Result, ServiceError};
@@ -13,11 +13,14 @@ use crate::utils::path_boundary::{path_or_existing_parent_within_root, path_with
 use super::types::{
     apply_assistant_text_part_nested, apply_rewind_view, chat_descriptor, flatten_messages,
     AgentChatIndexEntry, AgentChatMeta, AgentChatOrigin, AgentChatSnapshot, CreateAgentChatRequest,
-    FoldedMessage, FoldedTurn, MessagePart, QueueItem, RuntimeStatus, SessionHintTone,
-    SessionLifecycleAction, SessionLifecycleStatus, TranscriptEnvelope, TranscriptEvent,
-    TurnStatus,
+    FoldedMessage, FoldedTurn, MessagePart, PendingPermission, QueueItem, RuntimeStatus,
+    SessionHintTone, SessionLifecycleAction, SessionLifecycleStatus, TranscriptEnvelope,
+    TranscriptEvent, TurnStatus,
 };
-use agent::{AgentCurrentConfig, AgentTool, AgentToolKind, AgentToolParams};
+use agent::{
+    AgentCurrentConfig, AgentEvent, AgentEventEnvelope, AgentPermissionRequest, AgentTool,
+    AgentToolKind, AgentToolParams,
+};
 
 pub struct AgentChatStore {
     root: PathBuf,
@@ -534,6 +537,231 @@ pub fn fold_transcript(path: &Path) -> Result<Vec<FoldedTurn>> {
     Ok(turns)
 }
 
+pub fn fold_envelopes(envelopes: impl IntoIterator<Item = TranscriptEnvelope>) -> Vec<FoldedTurn> {
+    let mut turns = Vec::new();
+    for envelope in envelopes {
+        apply_record(&mut turns, envelope);
+    }
+    turns
+}
+
+/// Fold host `AgentEvent` envelopes with the same `apply_record` path as jsonl.
+pub fn fold_agent_events(envelopes: &[AgentEventEnvelope]) -> Vec<FoldedTurn> {
+    fold_envelopes(agent_events_to_transcript(envelopes))
+}
+
+struct AgentStreamAcc {
+    message_id: String,
+    parent_tool_call_id: Option<String>,
+    text: String,
+    turn_id: Option<String>,
+    event_id: String,
+    timestamp: DateTime<Utc>,
+}
+
+fn agent_stream_key(message_id: &str, parent_tool_call_id: Option<&str>) -> String {
+    match parent_tool_call_id
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+    {
+        Some(parent) => format!("{message_id}\u{1e}{parent}"),
+        None => message_id.to_string(),
+    }
+}
+
+fn envelope_time(envelope: &AgentEventEnvelope) -> DateTime<Utc> {
+    envelope.timestamp.unwrap_or_else(Utc::now)
+}
+
+fn transcript_from_agent(
+    envelope: &AgentEventEnvelope,
+    turn_id: Option<String>,
+    event: TranscriptEvent,
+) -> TranscriptEnvelope {
+    TranscriptEnvelope {
+        event_id: envelope.event_id.clone(),
+        turn_id,
+        timestamp: envelope_time(envelope),
+        event,
+    }
+}
+
+fn flush_agent_stream(
+    buf: &mut HashMap<String, AgentStreamAcc>,
+    message_id: Option<&str>,
+    assistant: bool,
+    out: &mut Vec<TranscriptEnvelope>,
+) {
+    let keys: Vec<String> = buf
+        .iter()
+        .filter(|(_, acc)| message_id.is_none_or(|id| acc.message_id == id))
+        .map(|(key, _)| key.clone())
+        .collect();
+    let mut keys = keys;
+    keys.sort();
+    for key in keys {
+        let Some(acc) = buf.remove(&key) else {
+            continue;
+        };
+        if acc.text.is_empty() {
+            continue;
+        }
+        let event = if assistant {
+            TranscriptEvent::AssistantSnapshot {
+                message_id: acc.message_id,
+                text: acc.text,
+                parent_tool_call_id: acc.parent_tool_call_id,
+            }
+        } else {
+            TranscriptEvent::ThinkingSnapshot {
+                message_id: acc.message_id,
+                text: acc.text,
+                started_at: None,
+                duration_ms: None,
+                parent_tool_call_id: acc.parent_tool_call_id,
+            }
+        };
+        out.push(TranscriptEnvelope {
+            event_id: acc.event_id,
+            turn_id: acc.turn_id,
+            timestamp: acc.timestamp,
+            event,
+        });
+    }
+}
+
+pub(crate) fn agent_events_to_transcript(
+    envelopes: &[AgentEventEnvelope],
+) -> Vec<TranscriptEnvelope> {
+    let mut out = Vec::new();
+    let mut assistant: HashMap<String, AgentStreamAcc> = HashMap::new();
+    let mut thinking: HashMap<String, AgentStreamAcc> = HashMap::new();
+    for envelope in envelopes {
+        let turn_id = envelope.turn_id.clone();
+        match &envelope.payload {
+            AgentEvent::UserMessage {
+                turn_id: user_turn,
+                message_id,
+                kind,
+                text,
+                attachments,
+            } => {
+                let turn = turn_id.clone().unwrap_or_else(|| user_turn.clone());
+                out.push(transcript_from_agent(
+                    envelope,
+                    Some(turn),
+                    TranscriptEvent::UserMessage {
+                        message_id: message_id.clone(),
+                        kind: *kind,
+                        text: text.clone(),
+                        attachments: attachments.clone(),
+                    },
+                ));
+            }
+            AgentEvent::AssistantMessageDelta {
+                message_id,
+                delta,
+                parent_tool_call_id,
+            } => {
+                let key = agent_stream_key(message_id, parent_tool_call_id.as_deref());
+                let acc = assistant.entry(key).or_insert_with(|| AgentStreamAcc {
+                    message_id: message_id.clone(),
+                    parent_tool_call_id: parent_tool_call_id.clone(),
+                    text: String::new(),
+                    turn_id: turn_id.clone(),
+                    event_id: envelope.event_id.clone(),
+                    timestamp: envelope_time(envelope),
+                });
+                acc.text.push_str(delta);
+                acc.turn_id = turn_id.clone().or_else(|| acc.turn_id.clone());
+                acc.event_id = envelope.event_id.clone();
+                if let Some(ts) = envelope.timestamp {
+                    acc.timestamp = ts;
+                }
+            }
+            AgentEvent::AssistantMessageCompleted { message_id } => {
+                flush_agent_stream(&mut assistant, Some(message_id), true, &mut out);
+            }
+            AgentEvent::ThinkingDelta {
+                message_id,
+                delta,
+                parent_tool_call_id,
+            } => {
+                let key = agent_stream_key(message_id, parent_tool_call_id.as_deref());
+                let acc = thinking.entry(key).or_insert_with(|| AgentStreamAcc {
+                    message_id: message_id.clone(),
+                    parent_tool_call_id: parent_tool_call_id.clone(),
+                    text: String::new(),
+                    turn_id: turn_id.clone(),
+                    event_id: envelope.event_id.clone(),
+                    timestamp: envelope_time(envelope),
+                });
+                acc.text.push_str(delta);
+                acc.turn_id = turn_id.clone().or_else(|| acc.turn_id.clone());
+                acc.event_id = envelope.event_id.clone();
+                if let Some(ts) = envelope.timestamp {
+                    acc.timestamp = ts;
+                }
+            }
+            AgentEvent::ThinkingCompleted { message_id } => {
+                flush_agent_stream(&mut thinking, Some(message_id), false, &mut out);
+            }
+            AgentEvent::ToolCallStarted { tool_call }
+            | AgentEvent::ToolCallUpdated { tool_call }
+            | AgentEvent::ToolCallCompleted { tool_call }
+            | AgentEvent::ToolCallFailed { tool_call, .. } => {
+                out.push(transcript_from_agent(
+                    envelope,
+                    turn_id,
+                    TranscriptEvent::ToolCall {
+                        tool: tool_call.clone(),
+                    },
+                ));
+            }
+            AgentEvent::PlanUpdated { plan } => {
+                out.push(transcript_from_agent(
+                    envelope,
+                    turn_id,
+                    TranscriptEvent::Plan { plan: plan.clone() },
+                ));
+            }
+            AgentEvent::PermissionRequested { request } => {
+                flush_agent_stream(&mut thinking, None, false, &mut out);
+                flush_agent_stream(&mut assistant, None, true, &mut out);
+                out.push(transcript_from_agent(
+                    envelope,
+                    turn_id,
+                    TranscriptEvent::Permission {
+                        request: pending_from_agent_request(request, "pending"),
+                    },
+                ));
+            }
+            AgentEvent::PermissionResolved { request_id, .. } => {
+                out.push(transcript_from_agent(
+                    envelope,
+                    turn_id,
+                    TranscriptEvent::Permission {
+                        request: PendingPermission {
+                            request_id: request_id.clone(),
+                            tool: String::new(),
+                            description: String::new(),
+                            content_markdown: None,
+                            options: Vec::new(),
+                            questions: Vec::new(),
+                            plan_todos: Vec::new(),
+                            status: "resolved".into(),
+                        },
+                    },
+                ));
+            }
+            _ => {}
+        }
+    }
+    flush_agent_stream(&mut assistant, None, true, &mut out);
+    flush_agent_stream(&mut thinking, None, false, &mut out);
+    out
+}
+
 fn apply_record(turns: &mut Vec<FoldedTurn>, envelope: TranscriptEnvelope) {
     let turn_id = envelope.turn_id.clone().unwrap_or_else(|| "unknown".into());
     let created_at = envelope.timestamp;
@@ -541,10 +769,11 @@ fn apply_record(turns: &mut Vec<FoldedTurn>, envelope: TranscriptEnvelope) {
         TranscriptEvent::TurnStarted => {
             if !turns.iter().any(|turn| turn.id == turn_id) {
                 turns.push(FoldedTurn {
-                    id: turn_id,
+                    id: turn_id.clone(),
                     status: TurnStatus::Running,
                     messages: Vec::new(),
                     created_at,
+                    last_event_at: Some(created_at),
                     ..Default::default()
                 });
             }
@@ -662,13 +891,11 @@ fn apply_record(turns: &mut Vec<FoldedTurn>, envelope: TranscriptEnvelope) {
             apply_plan(turn, plan, created_at);
         }
         TranscriptEvent::Permission { request } => {
-            if let Some(turn) = turns.iter_mut().find(|turn| turn.id == turn_id) {
-                turn.status = if request.status == "pending" {
-                    TurnStatus::WaitingPermission
-                } else {
-                    turn.status
-                };
+            let turn = upsert_turn(turns, &turn_id, created_at);
+            if request.status == "pending" {
+                turn.status = TurnStatus::WaitingPermission;
             }
+            apply_permission(turn, request, created_at);
         }
         TranscriptEvent::TurnCompleted {
             status,
@@ -744,6 +971,12 @@ fn apply_record(turns: &mut Vec<FoldedTurn>, envelope: TranscriptEnvelope) {
             apply_session_hint(turn, message_id, tone, kind, created_at);
         }
         TranscriptEvent::Unknown { .. } => {}
+    }
+    if let Some(turn) = turns.iter_mut().rev().find(|turn| turn.id == turn_id) {
+        turn.last_event_at = Some(
+            turn.last_event_at
+                .map_or(created_at, |prev| prev.max(created_at)),
+        );
     }
 }
 
@@ -1083,6 +1316,67 @@ fn apply_session_hint(
     );
 }
 
+fn pending_from_agent_request(request: &AgentPermissionRequest, status: &str) -> PendingPermission {
+    PendingPermission {
+        request_id: request.request_id.clone(),
+        tool: request.tool.clone(),
+        description: request.description.clone(),
+        content_markdown: request.content_markdown.clone(),
+        options: request.options.clone(),
+        questions: request.questions.clone(),
+        plan_todos: request.plan_todos.clone(),
+        status: status.into(),
+    }
+}
+
+fn apply_permission(
+    turn: &mut FoldedTurn,
+    request: PendingPermission,
+    created_at: chrono::DateTime<Utc>,
+) {
+    let request_id = request.request_id.clone();
+    if let Some(message) = turn
+        .messages
+        .iter_mut()
+        .rev()
+        .find(|message| message.role == "assistant")
+    {
+        if let Some(existing) = message.parts.iter_mut().find_map(|part| match part {
+            MessagePart::Permission { request: current } if current.request_id == request_id => {
+                Some(current)
+            }
+            _ => None,
+        }) {
+            if !request.tool.is_empty() {
+                existing.tool = request.tool;
+                existing.description = request.description;
+                existing.content_markdown = request.content_markdown;
+                existing.options = request.options;
+                existing.questions = request.questions;
+                existing.plan_todos = request.plan_todos;
+            }
+            if !request.status.is_empty() {
+                existing.status = request.status;
+            }
+            return;
+        }
+        message.parts.push(MessagePart::Permission { request });
+        return;
+    }
+    upsert_message(
+        turn,
+        FoldedMessage {
+            id: format!("permission-{}", turn.id),
+            role: "assistant".into(),
+            kind: agent::UserMessageKind::Normal,
+            parts: vec![MessagePart::Permission { request }],
+            created_at,
+            streaming: false,
+            ..Default::default()
+        },
+    );
+}
+
 fn apply_plan(turn: &mut FoldedTurn, plan: serde_json::Value, created_at: chrono::DateTime<Utc>) {
     let part = MessagePart::Plan { plan };
     if let Some(message) = turn
@@ -1226,8 +1520,8 @@ mod tests {
         SessionConfigValueChange, TranscriptEnvelope, TranscriptEvent,
     };
     use agent::{
-        AgentTool, AgentToolKind, AgentToolParams, AgentToolResult, AgentToolStatus,
-        UserMessageKind,
+        AgentAskQuestion, AgentEvent, AgentEventEnvelope, AgentPermissionRequest, AgentTool,
+        AgentToolKind, AgentToolParams, AgentToolResult, AgentToolStatus, UserMessageKind,
     };
 
     fn rec(turn_id: impl Into<String>, event: TranscriptEvent) -> TranscriptEnvelope {
@@ -1666,6 +1960,98 @@ mod tests {
             })
             .collect();
         assert_eq!(kinds, ["looking", "tool", "final"]);
+    }
+
+    #[test]
+    fn fold_agent_events_keeps_ask_permission_parts() {
+        let turns = fold_agent_events(&[
+            AgentEventEnvelope::new(
+                Some("t1".into()),
+                AgentEvent::PermissionRequested {
+                    request: AgentPermissionRequest {
+                        request_id: "ask-1".into(),
+                        tool: "AskUserQuestion".into(),
+                        description: "Next?".into(),
+                        content_markdown: None,
+                        options: Vec::new(),
+                        questions: vec![AgentAskQuestion {
+                            id: "q1".into(),
+                            prompt: "Next?".into(),
+                            options: vec!["Plan".into(), "Skill".into()],
+                        }],
+                        plan_todos: Vec::new(),
+                    },
+                },
+            ),
+            AgentEventEnvelope::new(
+                Some("t1".into()),
+                AgentEvent::PermissionResolved {
+                    request_id: "ask-1".into(),
+                    option_id: "Plan".into(),
+                },
+            ),
+        ]);
+        let (messages, _, _) = flatten_messages(turns);
+        let permission = messages
+            .iter()
+            .find_map(|message| {
+                message.parts.iter().find_map(|part| match part {
+                    MessagePart::Permission { request } => Some(request),
+                    _ => None,
+                })
+            })
+            .expect("permission part");
+        assert_eq!(permission.request_id, "ask-1");
+        assert_eq!(permission.tool, "AskUserQuestion");
+        assert_eq!(permission.status, "resolved");
+        assert_eq!(permission.questions[0].prompt, "Next?");
+    }
+
+    #[test]
+    fn fold_agent_events_uses_prompt_to_complete_timing() {
+        let start = chrono::DateTime::parse_from_rfc3339("2026-04-01T10:00:01Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let end = chrono::DateTime::parse_from_rfc3339("2026-04-01T10:00:09Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let turns = fold_agent_events(&[
+            AgentEventEnvelope::at(
+                Some("t1".into()),
+                Some(start),
+                AgentEvent::UserMessage {
+                    turn_id: "t1".into(),
+                    message_id: "u1".into(),
+                    kind: UserMessageKind::Normal,
+                    text: "hi".into(),
+                    attachments: Vec::new(),
+                },
+            ),
+            AgentEventEnvelope::at(
+                Some("t1".into()),
+                Some(end),
+                AgentEvent::AssistantMessageDelta {
+                    message_id: "a1".into(),
+                    delta: "hello".into(),
+                    parent_tool_call_id: None,
+                },
+            ),
+            AgentEventEnvelope::at(
+                Some("t1".into()),
+                Some(end),
+                AgentEvent::AssistantMessageCompleted {
+                    message_id: "a1".into(),
+                },
+            ),
+        ]);
+        let (messages, _, _) = flatten_messages(turns);
+        let assistant = messages
+            .iter()
+            .find(|message| message.role == "assistant")
+            .expect("assistant");
+        assert_eq!(assistant.worked_ms, Some(8_000));
+        assert_eq!(assistant.completed_at, Some(end));
+        assert_eq!(messages[0].created_at, start);
     }
 
     #[test]

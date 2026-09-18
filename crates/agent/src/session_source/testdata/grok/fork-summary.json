@@ -1,0 +1,14 @@
+{
+  "info": {
+    "id": "ffffffff-ffff-4ccc-8ddd-ffffffffffff",
+    "cwd": "/tmp/demo"
+  },
+  "generated_title": "Forked sibling chat",
+  "session_summary": "User fork of the parent session",
+  "parent_session_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+  "session_kind": "fork",
+  "created_at": "2024-01-01T00:09:00Z",
+  "updated_at": "2024-01-01T00:10:00Z",
+  "current_model_id": "grok-4.6",
+  "num_messages": 2
+}

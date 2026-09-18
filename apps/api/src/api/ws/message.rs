@@ -19,6 +19,7 @@ mod disk_analyzer;
 mod fs;
 mod git;
 mod github;
+mod host_session;
 mod linear;
 mod link_preview;
 mod resource_monitor;
@@ -33,6 +34,7 @@ pub use disk_analyzer::*;
 pub use fs::*;
 pub use git::*;
 pub use github::*;
+pub use host_session::*;
 pub use linear::*;
 pub use link_preview::*;
 pub use resource_monitor::*;
@@ -607,6 +609,10 @@ pub enum WsAction {
     AgentOptionsGet,
     AgentChatPrefsGet,
     AgentChatPrefsSet,
+    HostSessionList,
+    HostSessionGet,
+    HostSessionResumeChat,
+    HostSessionResumeTui,
 
     // ===== Automation 操作 =====
     AutomationList,
@@ -960,6 +966,7 @@ pub enum WsEvent {
     ResourceMonitorUpdated,
     AgentChatEvent,
     AgentOptionsUpdated,
+    HostSessionIndexUpdated,
 }
 
 /// 项目删除进度通知数据
