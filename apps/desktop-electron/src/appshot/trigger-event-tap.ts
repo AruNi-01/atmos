@@ -3,7 +3,7 @@
  *
  * Preferred path (control engine installed):
  *   Host inject inside Atmos Desktop Use serve — same Accessibility TCC as
- *   capture/control. Chord events arrive on a Unix socket.
+ *   capture/control. Window capture runs in-process; Electron stages the PNG.
  *
  * Fallback (engine not installed / inject unavailable):
  *   ELECTRON_RUN_AS_NODE helper under Atmos.app identity (legacy).
@@ -17,11 +17,21 @@ import { app } from "electron";
 import { mainLog } from "../main-log.js";
 import {
   ensureHostShiftReady,
+  restartHostForStaleChord,
   startHostShiftSocketListener,
+  type HostShiftCapturedPayload,
   type HostShiftHandle,
 } from "./host-shift.js";
 
 export type TapHandle = { stop: () => void; mode?: "host-inject" | "electron-helper" };
+
+export type ShiftTapCallbacks = {
+  onElectronChord: () => void;
+  onHostCaptured?: (payload: HostShiftCapturedPayload) => void;
+  onNeedGrant?: (missing: string[]) => void;
+  onIgnored?: (reason: string) => void;
+  onHostReady?: (info: { ax: boolean; tap: boolean }) => void;
+};
 
 function resolveHelperScript(): string | null {
   const candidates: string[] = [];
@@ -205,7 +215,7 @@ async function hostEngineInstalled(): Promise<boolean> {
  * Sync signature kept for call sites; host path arms asynchronously and returns
  * a handle that becomes live once the socket connects.
  */
-export function startShiftFlagsEventTap(onChord: () => void): TapHandle | null {
+export function startShiftFlagsEventTap(callbacks: ShiftTapCallbacks): TapHandle | null {
   if (process.platform !== "darwin") return null;
 
   // Synchronous fallback immediately; host path upgrades when ready.
@@ -242,9 +252,18 @@ export function startShiftFlagsEventTap(onChord: () => void): TapHandle | null {
       const ready = await ensureHostShiftReady();
       if (stopped) return;
       if (ready) {
-        const h = await startHostShiftSocketListener(onChord, {
-          timeoutMs: 10_000,
-        });
+        const h = await startHostShiftSocketListener(
+          () => {
+            void restartHostForStaleChord();
+          },
+          {
+            timeoutMs: 10_000,
+            onCaptured: callbacks.onHostCaptured,
+            onNeedGrant: callbacks.onNeedGrant,
+            onIgnored: callbacks.onIgnored,
+            onReady: callbacks.onHostReady,
+          },
+        );
         if (stopped) {
           h?.stop();
           return;
@@ -263,7 +282,7 @@ export function startShiftFlagsEventTap(onChord: () => void): TapHandle | null {
       }
     }
     if (stopped) return;
-    electronHandle = startElectronShiftHelper(onChord);
+    electronHandle = startElectronShiftHelper(callbacks.onElectronChord);
     if (electronHandle) {
       active = electronHandle;
       composite.mode = "electron-helper";

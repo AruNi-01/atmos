@@ -511,8 +511,26 @@ export async function desktopUseDriverStop(timeoutMs = 8_000): Promise<unknown> 
   return runDesktopUseJson(["driver", "stop"], timeoutMs);
 }
 
+let driverRestartInFlight: Promise<unknown> | null = null;
+let driverRestartStartedAt = 0;
+const DRIVER_RESTART_DEBOUNCE_MS = 5_000;
+
+/**
+ * Restart the Desktop Use host. Coalesces overlapping grant/stale-inject
+ * restarts so the daemon does not flap. Settings → Restart still works after
+ * the debounce window.
+ */
 export async function desktopUseDriverRestart(): Promise<unknown> {
-  return runDesktopUseJson(["driver", "restart"], 30_000);
+  const now = Date.now();
+  if (
+    driverRestartInFlight &&
+    now - driverRestartStartedAt < DRIVER_RESTART_DEBOUNCE_MS
+  ) {
+    return driverRestartInFlight;
+  }
+  driverRestartStartedAt = now;
+  driverRestartInFlight = runDesktopUseJson(["driver", "restart"], 30_000);
+  return driverRestartInFlight;
 }
 
 export async function desktopUseDriverCheck(): Promise<unknown> {

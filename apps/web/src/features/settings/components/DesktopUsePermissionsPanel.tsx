@@ -114,6 +114,12 @@ export function DesktopUsePermissionsPanel({
           } catch {
             /* overlay optional */
           }
+          try {
+            await desktopInvoke("desktop_use_driver_restart");
+          } catch {
+            /* host restart is best-effort; inject reconnects */
+          }
+          invalidateDesktopUseReadinessCache();
         }
       } catch (e) {
         if (mountedRef.current) {

@@ -46,5 +46,7 @@ describe("desktop-use quit lifecycle", () => {
     expect(client).toMatch(
       /desktopUseDriverStop\([^)]*timeoutMs = 8_000/,
     );
+    expect(client).toContain("DRIVER_RESTART_DEBOUNCE_MS");
+    expect(client).toContain("driverRestartInFlight");
   });
 });

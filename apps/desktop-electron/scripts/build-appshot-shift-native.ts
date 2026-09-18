@@ -15,6 +15,10 @@ import { fileURLToPath } from "node:url";
 
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const src = join(appRoot, "native/appshot-shift/appshot_shift.c");
+const captureSrc = join(
+  appRoot,
+  "native/appshot-shift/appshot_window_capture.m",
+);
 const hostShortcutsSrc = join(
   appRoot,
   "native/host-shortcuts/host_shortcuts.c",
@@ -129,14 +133,19 @@ function main(): void {
     "@rpath/libatmos_host_shortcuts.dylib",
   ]);
 
-  // Host inject — dual-shift inside Atmos Desktop Use serve process
+  if (!existsSync(captureSrc)) {
+    throw new Error(`missing capture source: ${captureSrc}`);
+  }
+  // Host inject — dual-shift + window capture inside Atmos Desktop Use serve
   buildDylib(outInject, [
     "-dynamiclib",
     "-O2",
+    "-fobjc-arc",
     "-DATMOS_APPSHOT_SHIFT_HOST_INJECT=1",
     "-o",
     outInject,
     src,
+    captureSrc,
     "-framework",
     "ApplicationServices",
     "-framework",
@@ -147,6 +156,8 @@ function main(): void {
     "AppKit",
     "-framework",
     "Foundation",
+    "-weak_framework",
+    "ScreenCaptureKit",
     "-install_name",
     "@rpath/libatmos_appshot_shift_inject.dylib",
   ]);

@@ -137,6 +137,8 @@ describe("os-reserved shortcuts", () => {
     expect(inject).toContain("shot_frontmost_is_atmos");
     expect(inject).toContain('\\"digit\\":%d');
     expect(inject).toContain("shot_tap_callback");
+    expect(inject).toContain("atmos_appshot_host_capture_now");
+    expect(inject).toContain("kCGEventFlagMaskCommand");
   });
 
   it("main process installs the guard at boot", () => {

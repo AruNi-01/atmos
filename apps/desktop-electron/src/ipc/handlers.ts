@@ -827,20 +827,52 @@ export function createAllHandlers(
       return client.desktopUseDoctor();
     },
     async desktop_use_grant_permissions(args) {
-      const client = await import("../desktop-use/client.js");
       const raw =
         typeof args?.target === "string" ? args.target.trim().toLowerCase() : "all";
       const target =
         raw === "accessibility" || raw === "screen_recording" || raw === "all"
           ? raw
           : "all";
-      const result = (await client.desktopUseGrantPermissions(target)) as {
-        ok?: boolean;
-        host_app_path?: string | null;
-        host_app_name?: string | null;
-        accessibility_pane?: boolean;
-        [key: string]: unknown;
-      };
+      const locale =
+        typeof args?.locale === "string"
+          ? args.locale
+          : typeof args?.lang === "string"
+            ? args.lang
+            : undefined;
+      const {
+        GRANT_PANEL_HEIGHT,
+        GRANT_PANEL_WIDTH,
+      } = await import("../desktop-use/grant-overlay.js");
+      const {
+        grantOverlaySourceOriginFromAnchor,
+        parseViewportAnchor,
+      } = await import("../macos-app-permissions.js");
+      const { openDesktopUseGrantFlow } = await import(
+        "../desktop-use/host-grant.js"
+      );
+      const anchor = parseViewportAnchor(args?.anchor);
+      let sourceOrigin: { x: number; y: number } | undefined;
+      if (anchor) {
+        const host = await hostWindowFromArgs(args, state);
+        if (host && !host.isDestroyed()) {
+          try {
+            const cb = host.getContentBounds();
+            sourceOrigin = grantOverlaySourceOriginFromAnchor(
+              cb,
+              anchor,
+              GRANT_PANEL_WIDTH,
+              GRANT_PANEL_HEIGHT,
+            );
+          } catch {
+            /* overlay picks Atmos window center */
+          }
+        }
+      }
+      const result = await openDesktopUseGrantFlow({
+        target,
+        locale,
+        sourceOrigin,
+      });
 
       // Re-arm AppShot dual-shift after host grant (inject listens on host AX).
       if (process.platform === "darwin") {
@@ -850,70 +882,6 @@ export function createAllHandlers(
         } catch {
           /* non-fatal */
         }
-      }
-
-      // Same drag-to-list fly overlay for Accessibility and Screen Recording
-      // (only the System Settings privacy pane differs).
-      const wantsDrag =
-        target === "accessibility" ||
-        target === "screen_recording" ||
-        target === "all" ||
-        result?.accessibility_pane === true;
-      const hostPath =
-        typeof result?.host_app_path === "string" ? result.host_app_path : "";
-      if (wantsDrag && hostPath && process.platform === "darwin") {
-        const {
-          GRANT_PANEL_HEIGHT,
-          GRANT_PANEL_WIDTH,
-          showAccessibilityGrantOverlay,
-        } = await import("../desktop-use/grant-overlay.js");
-        const {
-          grantOverlaySourceOriginFromAnchor,
-          parseViewportAnchor,
-        } = await import("../macos-app-permissions.js");
-        const locale =
-          typeof args?.locale === "string"
-            ? args.locale
-            : typeof args?.lang === "string"
-              ? args.lang
-              : undefined;
-        const anchor = parseViewportAnchor(args?.anchor);
-        let sourceOrigin: { x: number; y: number } | undefined;
-        if (anchor) {
-          const host = await hostWindowFromArgs(args, state);
-          if (host && !host.isDestroyed()) {
-            try {
-              const cb = host.getContentBounds();
-              sourceOrigin = grantOverlaySourceOriginFromAnchor(
-                cb,
-                anchor,
-                GRANT_PANEL_WIDTH,
-                GRANT_PANEL_HEIGHT,
-              );
-            } catch {
-              /* fall through — overlay picks Atmos window center */
-            }
-          }
-        }
-        // "all" ends on Accessibility (screen recording pane is opened first).
-        const purpose =
-          target === "screen_recording"
-            ? "screen_recording"
-            : "accessibility";
-        const overlay = showAccessibilityGrantOverlay({
-          hostAppPath: hostPath,
-          hostAppName:
-            typeof result?.host_app_name === "string"
-              ? result.host_app_name
-              : undefined,
-          locale,
-          purpose,
-          sourceOrigin,
-        });
-        return {
-          ...result,
-          drag_overlay: overlay,
-        };
       }
       return result;
     },

@@ -180,8 +180,9 @@ describe("Desktop Use settings wiring", () => {
     // Per-permission grant buttons (not one bulk button)
     expect(panel).toContain('t("permissions.grant")');
     expect(panel).toContain("PERMISSION_ICONS");
-    expect(panel).toContain("desktop_use_grant_permissions");
-    expect(panel).toContain("anchor");
+    expect(panel).toContain("desktop_use_close_grant_overlay");
+    expect(panel).toContain("desktop_use_driver_restart");
+    expect(panel).toContain("invalidateDesktopUseReadinessCache");
     expect(panel).toContain("openGrant(name, e.currentTarget)");
     // Refresh published to Permissions group header (not per-row).
     expect(panel).toContain("actions.refresh");

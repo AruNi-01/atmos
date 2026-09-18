@@ -70,6 +70,9 @@ describe("macos app permissions", () => {
     expect(service).not.toContain("isTrustedAccessibilityClient(true)");
     expect(service).not.toContain("requestElectronAccessibilityPrompt");
     expect(service).toContain("grantAtmosAppPermission");
+    expect(service).toContain("openDesktopUseGrantFlow");
+    expect(service).toContain("stageHostCapturedPreview");
+    expect(service).not.toContain("CGRequestScreenCaptureAccess");
     const host = readFileSync(join(here, "host-shortcuts.ts"), "utf8");
     expect(host).not.toContain("isTrustedAccessibilityClient(true)");
     expect(host).toContain("grantAtmosAppPermission");
