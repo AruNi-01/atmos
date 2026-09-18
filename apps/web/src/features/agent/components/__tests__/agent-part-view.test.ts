@@ -35,4 +35,14 @@ describe("agent part markdown rendering", () => {
     expect(view).toContain("failedDetail");
     expect(view).toContain("${label}: ${failedDetail}");
   });
+
+  it("renders historic permission parts as read-only cards", () => {
+    expect(view).toContain("useHistoricPermissionParts");
+    expect(view).toContain("readOnly");
+    expect(view).toContain('onRespond={() => {}}');
+  });
+
+  it("hides live plan-mode chrome that already lives above the composer", () => {
+    expect(view).toContain("isHiddenTranscriptChromePart");
+  });
 });

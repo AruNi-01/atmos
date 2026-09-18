@@ -8,6 +8,7 @@ import {
   thinkingBlockDurationMs,
   thinkingDurationSeconds,
   workDurationParts,
+  promptToCompleteMs,
 } from "@/features/agent/lib/agent-chat-timing";
 
 describe("workDurationParts", () => {
@@ -141,5 +142,17 @@ describe("formatUserMessageTime", () => {
     expect(formatUserMessageTime(value, "zh")).toMatch(/29/);
     expect(formatUserMessageTime("not-a-date", "en")).toBeNull();
     expect(formatUserMessageTime("1970-01-01T00:00:00.000Z", "en")).toBeNull();
+  });
+});
+
+describe("promptToCompleteMs", () => {
+  it("returns the span from prompt send to reply complete", () => {
+    expect(
+      promptToCompleteMs("2026-04-01T10:00:01.000Z", "2026-04-01T10:00:09.000Z"),
+    ).toBe(8_000);
+    expect(
+      promptToCompleteMs("2026-04-01T10:00:09.000Z", "2026-04-01T10:00:01.000Z"),
+    ).toBeUndefined();
+    expect(promptToCompleteMs(null, "2026-04-01T10:00:01.000Z")).toBeUndefined();
   });
 });

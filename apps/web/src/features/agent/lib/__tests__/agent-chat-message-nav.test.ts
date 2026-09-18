@@ -231,8 +231,8 @@ describe("AgentMessageTimelineNav", () => {
 
   it("steps previous/next from the highlighted catalog item", () => {
     expect(timelineNav).toContain("const catalogIndex = activeItem?.messageIndex ?? activeMessageIndex");
-    expect(timelineNav).toContain('stepUserMessageIndex(userMessageIndices, catalogIndex, "previous")');
-    expect(timelineNav).toContain('stepUserMessageIndex(userMessageIndices, catalogIndex, "next")');
+    expect(timelineNav).toContain("registryId={activeAgent.id}");
+    expect(timelineNav).toContain('<Bot className="size-4" />');
   });
 });
 

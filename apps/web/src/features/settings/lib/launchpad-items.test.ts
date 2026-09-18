@@ -14,7 +14,7 @@ import {
 } from "./launchpad-items";
 
 describe("launchpad item placement helpers", () => {
-  it("defaults always-on items enabled; skills/automations/token-usage/canvas/tasks/new-workspace outside, rest inside; terminals/agents off", () => {
+  it("defaults always-on items enabled; skills/automations/token-usage/canvas/tasks/new-workspace/agent-sessions outside, rest inside; terminals/agents off", () => {
     const items = createDefaultLaunchpadItems();
     expect(items.workspaces).toEqual({ enabled: true, placement: "inside", order: 0 });
     expect(items.skills).toEqual({ enabled: true, placement: "outside", order: 1 });
@@ -24,6 +24,7 @@ describe("launchpad item placement helpers", () => {
     expect(items["pt-design"]).toEqual({ enabled: true, placement: "outside", order: 8 });
     expect(items.tasks).toEqual({ enabled: true, placement: "outside", order: 9 });
     expect(items["new-workspace"]).toEqual({ enabled: true, placement: "outside", order: 10 });
+    expect(items["agent-sessions"]).toEqual({ enabled: true, placement: "outside", order: 11 });
     expect(items.terminals).toEqual({ enabled: false, placement: "inside", order: 2 });
     expect(items.agents).toEqual({ enabled: false, placement: "inside", order: 3 });
     expect(items.automations).toEqual({ enabled: true, placement: "outside", order: 4 });
@@ -46,6 +47,7 @@ describe("launchpad item placement helpers", () => {
       "pt-design",
       "tasks",
       "new-workspace",
+      "agent-sessions",
     ]);
     expect(selectLaunchpadItemsByPlacement(items, "inside")).toEqual([
       "terminals",
@@ -59,6 +61,7 @@ describe("launchpad item placement helpers", () => {
     expect(items.agents).toEqual({ enabled: false, placement: "inside", order: 3 });
     expect(items.automations).toEqual({ enabled: true, placement: "outside", order: 4 });
     expect(items.workspaces).toEqual({ enabled: true, placement: "inside", order: 0 });
+    expect(items["agent-sessions"]).toEqual({ enabled: true, placement: "outside", order: 11 });
   });
 
   it("merges persisted launchpad_items over defaults", () => {
@@ -73,6 +76,7 @@ describe("launchpad item placement helpers", () => {
     expect(items.agents).toEqual({ enabled: true, placement: "outside", order: 3 });
     expect(items.automations).toEqual({ enabled: true, placement: "outside", order: 4 });
     expect(items.workspaces).toEqual({ enabled: false, placement: "inside", order: 0 });
+    expect(items["agent-sessions"]).toEqual({ enabled: true, placement: "outside", order: 11 });
   });
 
   it("sorts enabled items by persisted order", () => {

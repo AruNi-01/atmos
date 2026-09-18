@@ -69,6 +69,23 @@ export function estimateTranscriptTotalSize(
   return size;
 }
 
+export function estimateTranscriptOffsetToIndex(
+  roles: readonly string[],
+  index: number,
+  gap = AGENT_CHAT_TRANSCRIPT_GAP,
+  mermaidFlags?: readonly boolean[],
+): number {
+  if (roles.length === 0 || index <= 0) return 0;
+  const last = Math.min(index, roles.length - 1);
+  let size = 0;
+  for (let i = 0; i < last; i += 1) {
+    if (i > 0) size += gap;
+    size += estimateAgentChatMessageSize(roles[i]!, mermaidFlags?.[i] === true);
+  }
+  if (last > 0) size += gap;
+  return Math.max(0, size);
+}
+
 export function estimateTranscriptInitialOffset(
   roles: readonly string[],
   viewportHeight: number,
@@ -79,6 +96,16 @@ export function estimateTranscriptInitialOffset(
     0,
     estimateTranscriptTotalSize(roles, gap, mermaidFlags) - Math.max(0, viewportHeight),
   );
+}
+
+/** Slack for “already at the bottom” while row estimates catch up to measured height. */
+export const TRANSCRIPT_END_SLACK_PX = 24;
+
+export function isTranscriptScrolledToEnd(
+  scroll: Pick<HTMLElement, "scrollHeight" | "scrollTop" | "clientHeight">,
+  slackPx = TRANSCRIPT_END_SLACK_PX,
+): boolean {
+  return scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight <= slackPx;
 }
 
 export function findAgentChatScrollElement(root: ParentNode | null): HTMLElement | null {
@@ -132,5 +159,16 @@ export function mergeMermaidKeepAliveRange(
   const extra = kept.filter((index) => !seen.has(index));
   const range = extra.length === 0 ? [...base] : [...base, ...extra].sort((a, b) => a - b);
   return { range, kept };
+}
+
+/** Keep find-hit rows mounted so FindPanel can highlight off-screen matches. */
+export function mergeIndexKeepAliveRange(
+  base: readonly number[],
+  keepIndexes: readonly number[],
+): number[] {
+  if (keepIndexes.length === 0) return [...base];
+  const seen = new Set(base);
+  const extra = keepIndexes.filter((index) => Number.isInteger(index) && index >= 0 && !seen.has(index));
+  return extra.length === 0 ? [...base] : [...base, ...extra].sort((a, b) => a - b);
 }
 

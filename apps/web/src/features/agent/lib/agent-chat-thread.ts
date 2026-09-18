@@ -1658,25 +1658,49 @@ export function normalizePlanEntry(
 }
 
 export function parsePlan(value: unknown): AgentPlan | null {
-  if (!value || typeof value !== "object") return null;
-  const record = value as { entries?: unknown };
-  if (!Array.isArray(record.entries)) return null;
-  const entries = record.entries
-    .map((entry) => {
-      if (!entry || typeof entry !== "object") return null;
-      const item = entry as { content?: unknown; priority?: unknown; status?: unknown };
-      if (typeof item.content !== "string") return null;
-      const normalized = normalizePlanEntry(
-        item.content,
-        typeof item.status === "string" ? item.status : "pending",
-      );
-      return {
-        content: normalized.content,
-        priority: typeof item.priority === "string" ? item.priority : "medium",
-        status: normalized.status,
-      };
-    })
+  const records = planEntryRecords(value);
+  if (!records) return null;
+  const entries = records
+    .map((entry) => parsePlanEntry(entry))
     .filter((entry): entry is AgentPlan["entries"][number] => entry !== null);
   if (entries.length === 0) return null;
   return { entries };
+}
+
+function planEntryRecords(value: unknown): unknown[] | null {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== "object") return null;
+  const record = value as { entries?: unknown; plan?: unknown };
+  if (Array.isArray(record.entries)) return record.entries;
+  if (Array.isArray(record.plan)) return record.plan;
+  return null;
+}
+
+function parsePlanEntry(entry: unknown): AgentPlan["entries"][number] | null {
+  if (!entry || typeof entry !== "object") return null;
+  const item = entry as {
+    content?: unknown;
+    step?: unknown;
+    text?: unknown;
+    priority?: unknown;
+    status?: unknown;
+  };
+  const content =
+    typeof item.content === "string"
+      ? item.content
+      : typeof item.step === "string"
+        ? item.step
+        : typeof item.text === "string"
+          ? item.text
+          : null;
+  if (content === null) return null;
+  const normalized = normalizePlanEntry(
+    content,
+    typeof item.status === "string" ? item.status : "pending",
+  );
+  return {
+    content: normalized.content,
+    priority: typeof item.priority === "string" ? item.priority : "medium",
+    status: normalized.status,
+  };
 }

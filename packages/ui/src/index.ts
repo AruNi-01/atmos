@@ -161,6 +161,17 @@ export {
 export * from "./components/ui/accordion";
 export * from "./components/ui/expandable-screen";
 export { Calendar, CalendarDayButton } from "./components/ui/calendar";
+export {
+  DateRangePicker,
+  DateRangePickerPanel,
+  DATE_RANGE_PRESET_IDS,
+} from "./components/ui/date-picker/date-range-picker";
+export type {
+  DateRangePickerProps,
+  DateRangePickerLabels,
+  DateRangePresetId,
+  DateRangeValue,
+} from "./components/ui/date-picker/date-range-picker";
 export * from "./components/ui/flow-button";
 export * from "./components/ui/border-beam";
 export { ShineBorder } from "./components/ui/shine-border";
@@ -409,6 +420,8 @@ export { FilledBellIcon } from "./components/icons/filled-bell-icon";
 export type { AnimatedIconHandle, AnimatedIconProps } from "./components/icons/filled-bell-icon";
 export { BotMessageSquareIcon } from "./components/icons/bot-message-square";
 export type { BotMessageSquareHandle } from "./components/icons/bot-message-square";
+export { LayersIcon } from "./components/icons/layers-icon";
+export type { LayersIconHandle } from "./components/icons/layers-icon";
 export { GithubIcon } from "./components/icons/github-icon";
 export type { GithubIconHandle } from "./components/icons/github-icon";
 export { Github, Gitlab } from "./components/icons/lucide-brand-icons";

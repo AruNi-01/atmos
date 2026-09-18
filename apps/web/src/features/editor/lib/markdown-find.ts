@@ -81,21 +81,42 @@ export function compileMarkdownFindPattern(
   }
 }
 
-function shouldSkipSearchNode(node: Text): boolean {
+export type MarkdownFindOptions = {
+  scopeSelector?: string;
+};
+
+/** User messages and final assistant answers in chat/transcript views. */
+export const TRANSCRIPT_FIND_SCOPE = "[data-transcript-find]";
+
+function shouldSkipSearchNode(node: Text, scopeSelector?: string): boolean {
   const parent = node.parentElement;
   if (!parent) return true;
   if (SKIP_TAGS.has(parent.tagName)) return true;
   if (parent.closest("[data-markdown-find-panel]")) return true;
   if (parent.closest("[data-markdown-find-highlight]")) return true;
   if (parent.closest("[data-markdown-toc]")) return true;
+  if (scopeSelector && !parent.closest(scopeSelector)) return true;
   return !node.textContent;
 }
 
-export function collectMarkdownFindTextNodes(root: ParentNode): Text[] {
-  return collectMarkdownFindStream(root).spans.map((span) => span.node);
+export function collectMarkdownFindTextNodes(
+  root: ParentNode,
+  options?: MarkdownFindOptions,
+): Text[] {
+  return collectMarkdownFindStream(root, options?.scopeSelector).spans.map((span) => span.node);
 }
 
-function collectMarkdownFindStream(root: ParentNode): {
+function isOutsideFindScope(element: Element, scopeSelector?: string): boolean {
+  if (!scopeSelector) return false;
+  if (element.closest(scopeSelector)) return false;
+  if (element.querySelector(scopeSelector)) return false;
+  return true;
+}
+
+function collectMarkdownFindStream(
+  root: ParentNode,
+  scopeSelector?: string,
+): {
   text: string;
   spans: TextSpan[];
   separators: number[];
@@ -143,7 +164,7 @@ function collectMarkdownFindStream(root: ParentNode): {
   const visit = (node: ChildNode) => {
     if (node.nodeName === "#text") {
       const textNode = node as Text;
-      if (shouldSkipSearchNode(textNode)) return;
+      if (shouldSkipSearchNode(textNode, scopeSelector)) return;
       flushBreaks();
       const chunk = textNode.textContent ?? "";
       const start = text.length;
@@ -157,6 +178,7 @@ function collectMarkdownFindStream(root: ParentNode): {
     if (element.hasAttribute("data-markdown-find-panel")) return;
     if (element.hasAttribute("data-markdown-find-highlight")) return;
     if (element.hasAttribute("data-markdown-toc")) return;
+    if (isOutsideFindScope(element, scopeSelector)) return;
     if (element.tagName === "BR" || element.tagName === "HR") {
       markSoftBreak();
       return;
@@ -230,11 +252,15 @@ function locateEnd(spans: TextSpan[], offset: number): TextSpan & { local: numbe
 export function findMarkdownHits(
   root: ParentNode,
   query: MarkdownFindQuery,
+  options?: MarkdownFindOptions,
 ): { hits: MarkdownFindHit[]; invalid: boolean } {
   const { pattern, invalid } = compileMarkdownFindPattern(query);
   if (!pattern) return { hits: [], invalid };
 
-  const { text, spans, separators } = collectMarkdownFindStream(root);
+  const { text, spans, separators } = collectMarkdownFindStream(
+    root,
+    options?.scopeSelector,
+  );
   if (spans.length === 0) return { hits: [], invalid: false };
 
   const hits: MarkdownFindHit[] = [];
@@ -277,6 +303,35 @@ export function markdownFindCounter(activeIndex: number, total: number): string 
   if (!total) return "";
   if (activeIndex < 0) return `0/${total}`;
   return `${activeIndex + 1}/${total}`;
+}
+
+export type FindHighlightBox = {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+  current: boolean;
+};
+
+/** Map a client rect into a highlight layer, clipped to the visible search root. */
+export function clipFindHighlightRect(
+  rect: { top: number; left: number; right: number; bottom: number },
+  clip: { top: number; left: number; right: number; bottom: number },
+  origin: { top: number; left: number },
+): Omit<FindHighlightBox, "current"> | null {
+  const top = Math.max(rect.top, clip.top);
+  const left = Math.max(rect.left, clip.left);
+  const bottom = Math.min(rect.bottom, clip.bottom);
+  const right = Math.min(rect.right, clip.right);
+  const width = right - left;
+  const height = bottom - top;
+  if (width < 1 || height < 1) return null;
+  return {
+    top: top - origin.top,
+    left: left - origin.left,
+    width,
+    height,
+  };
 }
 
 export function scrollMarkdownFindHitIntoView(

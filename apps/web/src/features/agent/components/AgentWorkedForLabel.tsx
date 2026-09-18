@@ -19,10 +19,21 @@ export function AgentWorkedForLabel({
   const t = useTranslations("Agent.components.chatPanel");
   const locale = useLocale();
   const [hovered, setHovered] = useState(false);
+  const hasDuration = workedMs > 0;
   const duration = formatWorkDuration(workedMs);
   const clock = formatWorkedAt(completedAt, locale);
   const durationLabel = t("workedFor", { duration });
-  const swapOnHover = reveal === "timestamp" && Boolean(clock);
+  const swapOnHover = reveal === "timestamp" && Boolean(clock) && hasDuration;
+  if (!hasDuration) {
+    if (reveal === "timestamp" && clock) {
+      return (
+        <span className={cn("inline-grid min-h-6 items-center text-xs text-muted-foreground", className)}>
+          <span className="whitespace-nowrap">{clock}</span>
+        </span>
+      );
+    }
+    return null;
+  }
   const showDuration = !swapOnHover || hovered;
 
   return (

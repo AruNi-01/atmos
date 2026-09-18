@@ -429,6 +429,18 @@ export function buildGlobalSearchItems({
       },
     },
     {
+      id: "launchpad-agent-sessions",
+      type: "launchpad",
+      title: globalSearchItemsT("launchpad.agentSessions.title"),
+      description: globalSearchItemsT("launchpad.agentSessions.description"),
+      keywords: ["launchpad", "agent", "sessions", "host", "transcript", "cli"],
+      icon: <Layers className="size-4 text-muted-foreground" />,
+      action: () => {
+        router.push("/agent-sessions");
+        setGlobalSearchOpen(false);
+      },
+    },
+    {
       id: "open-tasks-view",
       type: "launchpad",
       title: globalSearchItemsT("tasks.title"),

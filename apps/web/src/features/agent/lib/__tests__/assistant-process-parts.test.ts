@@ -288,5 +288,24 @@ describe("assistant process collapse", () => {
         parts: [{ type: "text", text: "only answer" }],
       } as AgentMessage),
     ).toBe(false);
+    expect(
+      hasCollapsibleAssistantProcess({
+        id: "m3",
+        role: "assistant",
+        streaming: false,
+        completed_at: "2026-08-29T00:00:00.000Z",
+        worked_ms: 4_000,
+        parts: [
+          {
+            type: "tool_call",
+            tool_call_id: "t1",
+            name: "Read",
+            kind: "read",
+            status: "completed",
+            params: { type: "read", path: "a.ts" },
+          },
+        ],
+      } as AgentMessage),
+    ).toBe(true);
   });
 });

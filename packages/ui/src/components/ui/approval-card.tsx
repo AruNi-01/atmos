@@ -47,6 +47,84 @@ const ADVANCE_MS = 320;
 const ROLL_MS = 400;
 const DEFAULT_PLAN_PREVIEW = 3;
 
+function OtherOption({
+  question,
+  active,
+  readOnly,
+  otherOn,
+  draft,
+  inputRef,
+  onSelect,
+  onDraftChange,
+  onCommit,
+}: {
+  question: ApprovalQuestion;
+  active: boolean;
+  readOnly: boolean;
+  otherOn: boolean;
+  draft: string;
+  inputRef: (el: HTMLInputElement | null) => void;
+  onSelect: () => void;
+  onDraftChange: (value: string) => void;
+  onCommit: (value: string) => void;
+}) {
+  const otherLetter = String.fromCharCode(65 + question.options.length);
+  return (
+    <div
+      role="radio"
+      aria-checked={otherOn}
+      tabIndex={active && !readOnly ? 0 : -1}
+      className={styles.option}
+      data-selected={otherOn ? "true" : undefined}
+      data-other="true"
+      onClick={(e) => {
+        e.preventDefault();
+        if (!active || readOnly) return;
+        onSelect();
+      }}
+      onKeyDown={(e) => {
+        if (!active || readOnly) return;
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+    >
+      <span className={styles.key} aria-hidden>
+        {otherLetter}
+      </span>
+      <input
+        ref={inputRef}
+        className={styles.optionInput}
+        type="text"
+        value={draft}
+        placeholder="Something else…"
+        tabIndex={active && otherOn && !readOnly ? 0 : -1}
+        aria-label={`Custom answer for: ${question.prompt}`}
+        readOnly={readOnly}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!active || readOnly) return;
+          onSelect();
+        }}
+        onChange={(e) => {
+          if (!active || readOnly) return;
+          onDraftChange(e.target.value);
+        }}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (!active || readOnly) return;
+          if (e.key === "Enter") {
+            e.preventDefault();
+            onCommit(e.currentTarget.value);
+          }
+        }}
+      />
+    </div>
+  );
+}
+
 function RollingDigits({ value }: { value: string }) {
   const prevRef = useRef(value);
   const [oldVal, setOldVal] = useState(value);
@@ -185,6 +263,17 @@ export interface ApprovalCardProps {
   /** Fired for `actions` entries (and preferred over onApprove/onReject when set). */
   onAction?: (actionId: string) => void;
   onDownloadPlan?: () => void;
+  /**
+   * Transcript / history: no Skip/Continue/Approve footer, and option radios
+   * are display-only. Step nav stays for multi-question Ask.
+   */
+  readOnly?: boolean;
+  /**
+   * Extra free-text “Other” radio after the last lettered option.
+   * Off by default — Claude AskUserQuestion (and most hosts) only accept the
+   * listed choices.
+   */
+  allowCustom?: boolean;
   className?: string;
 }
 
@@ -208,6 +297,8 @@ export function ApprovalCard({
   onReject,
   onAction,
   onDownloadPlan,
+  readOnly = false,
+  allowCustom = false,
   className,
 }: ApprovalCardProps) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -220,6 +311,7 @@ export function ApprovalCard({
   const planPaneReady = useRef(false);
   const [planPaneAnimate, setPlanPaneAnimate] = useState(false);
   const autoEnabled =
+    !readOnly &&
     variant === "plan" &&
     typeof autoApproveSeconds === "number" &&
     autoApproveSeconds > 0;
@@ -462,6 +554,9 @@ export function ApprovalCard({
     setStep(Math.min(Math.max(next, 0), questions.length - 1));
   };
 
+  const showFooter =
+    !readOnly || (variant === "questions" && questions.length > 1);
+
   const Icon =
     variant === "questions"
       ? MessageCircleQuestion
@@ -473,7 +568,9 @@ export function ApprovalCard({
     <div
       className={`${styles.card}${className ? ` ${className}` : ""}`}
       data-variant={variant}
+      data-readonly={readOnly ? "true" : undefined}
       onKeyDown={(e) => {
+        if (readOnly) return;
         if (e.key !== "Enter") return;
         if (variant !== "questions") return;
         if (safeStep !== questions.length - 1 || !canContinue) return;
@@ -554,12 +651,13 @@ export function ApprovalCard({
                             type="button"
                             role="radio"
                             aria-checked={selected}
-                            tabIndex={active ? 0 : -1}
+                            tabIndex={active && !readOnly ? 0 : -1}
                             className={styles.option}
                             data-selected={selected ? "true" : undefined}
+                            aria-disabled={readOnly ? true : undefined}
                             onClick={(e) => {
                               e.preventDefault();
-                              if (!active) return;
+                              if (!active || readOnly) return;
                               selectOption(q.id, opt);
                             }}
                           >
@@ -570,76 +668,29 @@ export function ApprovalCard({
                           </button>
                         );
                       })}
-                      {(() => {
-                        const otherLetter = String.fromCharCode(
-                          65 + q.options.length,
-                        );
-                        const otherOn = isOtherChoice(q);
-                        const customAnswer = answers[q.id];
-                        const draft =
-                          customDraft[q.id]
-                          ?? (otherOn
-                            && customAnswer
-                            && !q.options.includes(customAnswer)
-                            ? customAnswer
-                            : "")
-                          ?? "";
-                        return (
-                          <div
-                            role="radio"
-                            aria-checked={otherOn}
-                            tabIndex={active ? 0 : -1}
-                            className={styles.option}
-                            data-selected={otherOn ? "true" : undefined}
-                            data-other="true"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              if (!active) return;
-                              selectOther(q.id);
-                            }}
-                            onKeyDown={(e) => {
-                              if (!active) return;
-                              if (e.target !== e.currentTarget) return;
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                selectOther(q.id);
-                              }
-                            }}
-                          >
-                            <span className={styles.key} aria-hidden>
-                              {otherLetter}
-                            </span>
-                            <input
-                              ref={(el) => {
-                                customInputRefs.current[q.id] = el;
-                              }}
-                              className={styles.optionInput}
-                              type="text"
-                              value={draft ?? ""}
-                              placeholder="Something else…"
-                              tabIndex={active && otherOn ? 0 : -1}
-                              aria-label={`Custom answer for: ${q.prompt}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (!active) return;
-                                selectOther(q.id);
-                              }}
-                              onChange={(e) => {
-                                if (!active) return;
-                                updateCustom(q.id, e.target.value);
-                              }}
-                              onKeyDown={(e) => {
-                                e.stopPropagation();
-                                if (!active) return;
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  commitCustom(q.id, e.currentTarget.value);
-                                }
-                              }}
-                            />
-                          </div>
-                        );
-                      })()}
+                      {allowCustom ? (
+                        <OtherOption
+                          question={q}
+                          active={active}
+                          readOnly={readOnly}
+                          otherOn={isOtherChoice(q)}
+                          draft={
+                            customDraft[q.id]
+                            ?? (isOtherChoice(q)
+                              && answers[q.id]
+                              && !q.options.includes(answers[q.id])
+                              ? answers[q.id]
+                              : "")
+                            ?? ""
+                          }
+                          inputRef={(el) => {
+                            customInputRefs.current[q.id] = el;
+                          }}
+                          onSelect={() => selectOther(q.id)}
+                          onDraftChange={(value) => updateCustom(q.id, value)}
+                          onCommit={(value) => commitCustom(q.id, value)}
+                        />
+                      ) : null}
                     </div>
                   </div>
                 );
@@ -793,6 +844,7 @@ export function ApprovalCard({
         )}
       </div>
 
+      {showFooter ? (
       <div className={styles.actions}>
         {variant === "questions" ? (
           <div
@@ -902,6 +954,7 @@ export function ApprovalCard({
         ) : (
           <span className={styles.actionsSpacer} aria-hidden />
         )}
+        {readOnly ? null : (
         <div className={styles.actionBtns}>
           {actions && actions.length > 0 ? (
             actions.map((action) => {
@@ -962,7 +1015,9 @@ export function ApprovalCard({
             </>
           )}
         </div>
+        )}
       </div>
+      ) : null}
     </div>
   );
 }

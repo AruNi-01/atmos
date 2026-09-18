@@ -5,6 +5,8 @@ import {
   currentTurnSubagentTasks,
   displaySubagentType,
   formatSubagentTaskLine,
+  inlineSubagentTasksByMessageId,
+  isClaudeTaskNotificationText,
   isSubagentDispatchAckText,
   messagesForSubagent,
   subagentChildActivity,
@@ -107,6 +109,23 @@ describe("currentTurnSubagentTasks", () => {
     expect(tasks.items.map((item) => item.tool_call_id)).toEqual(["new"]);
   });
 
+  it("does not treat a Claude task-notification user turn as a new prompt", () => {
+    const parent = subagent({
+      tool_call_id: "call_task_1",
+      status: "completed",
+      params: { type: "subagent", description: "Explore atmos monorepo", agent_type: "Explore" },
+    });
+    const notice = "<task-notification>\n<task-id>a827867c2504be0f1</task-id>\n<tool-use-id>call_task_1</tool-use-id>\n</task-notification>";
+    expect(isClaudeTaskNotificationText(notice)).toBe(true);
+    const tasks = currentTurnSubagentTasks([
+      { id: "u1", role: "user", parts: [{ type: "text", text: "启动一个 subagent" }] },
+      assistant([parent]),
+      { id: "u2", role: "user", parts: [{ type: "text", text: notice }] },
+      assistant([{ type: "text", text: "探索完成" }]),
+    ]);
+    expect(tasks.items.map((item) => item.tool_call_id)).toEqual(["call_task_1"]);
+  });
+
   it("returns empty when the current turn has no subagents", () => {
     expect(currentTurnSubagentTasks([
       { id: "u1", role: "user", parts: [{ type: "text", text: "hi" }] },
@@ -159,6 +178,59 @@ describe("currentTurnSubagentTasks", () => {
         { followUpPending: true },
       ),
     ).toEqual({ items: [], tools: [] });
+  });
+});
+
+describe("inlineSubagentTasksByMessageId", () => {
+  it("keeps previous-turn cards in live mode and inlines every turn in transcript mode", () => {
+    const previous = subagent({
+      tool_call_id: "old",
+      status: "completed",
+      params: { type: "subagent", description: "First", agent_type: "explore" },
+    });
+    const current = subagent({
+      tool_call_id: "new",
+      params: { type: "subagent", description: "Now", agent_type: "explore" },
+    });
+    const messages: AgentMessage[] = [
+      { id: "u1", role: "user", parts: [{ type: "text", text: "first" }] },
+      assistant([previous], { id: "a-old" }),
+      { id: "u2", role: "user", parts: [{ type: "text", text: "next" }] },
+      assistant([current], { id: "a-new" }),
+    ];
+    const live = inlineSubagentTasksByMessageId(messages, { mode: "live" });
+    expect([...live.keys()]).toEqual(["a-old"]);
+    expect(live.get("a-old")?.map((part) => part.tool_call_id)).toEqual(["old"]);
+    const transcript = inlineSubagentTasksByMessageId(messages, { mode: "transcript" });
+    expect([...transcript.keys()]).toEqual(["a-old", "a-new"]);
+    expect(transcript.get("a-new")?.map((part) => part.tool_call_id)).toEqual(["new"]);
+  });
+
+  it("does not put nested or grok chrome subagents on the host message card", () => {
+    const parent = subagent({ tool_call_id: "parent" });
+    const nested = subagent({
+      tool_call_id: "child-sub",
+      parent_tool_call_id: "parent",
+      params: { type: "subagent", description: "Nested", agent_type: "explore" },
+    });
+    const grok = subagent({
+      tool_call_id: "sa-plan",
+      params: { type: "subagent", description: "goal plan writer", agent_type: "general-purpose" },
+    });
+    const messages: AgentMessage[] = [
+      { id: "u1", role: "user", parts: [{ type: "text", text: "go" }] },
+      assistant([parent, nested, grok], { id: "a1" }),
+    ];
+    const live = inlineSubagentTasksByMessageId(messages, {
+      mode: "live",
+      excludeIds: ["sa-plan"],
+    });
+    expect(live.size).toBe(0);
+    const transcript = inlineSubagentTasksByMessageId(messages, {
+      mode: "transcript",
+      excludeIds: ["sa-plan"],
+    });
+    expect(transcript.get("a1")?.map((part) => part.tool_call_id)).toEqual(["parent"]);
   });
 });
 
@@ -237,11 +309,11 @@ describe("messagesForSubagent", () => {
       ],
       "parent",
     );
-    expect(projected![0]?.created_at).toBe("2026-09-15T15:06:03.000Z");
+    expect(projected![0]?.created_at).toBe("2026-09-15T15:05:58.000Z");
     expect(projected![1]).toMatchObject({
       created_at: "2026-09-15T15:06:03.000Z",
       thinking_ms: 4000,
-      worked_ms: 4000,
+      worked_ms: 175_000,
       completed_at: "2026-09-15T15:08:53.000Z",
       streaming: false,
     });

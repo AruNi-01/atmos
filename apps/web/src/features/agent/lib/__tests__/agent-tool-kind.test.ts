@@ -3,6 +3,7 @@ import {
   isEmptyToolJson,
   isGenericToolLabel,
   isPlaceholderToolParams,
+  isPlanModeChromeTool,
   isSubagentWaitTool,
 } from "@/features/agent/lib/agent-tool-kind";
 
@@ -51,5 +52,15 @@ describe("empty ACP other payloads", () => {
     expect(isEmptyToolJson(null)).toBe(true);
     expect(isPlaceholderToolParams({ type: "other", value: {} })).toBe(true);
     expect(isPlaceholderToolParams({ type: "search", query: "foo" })).toBe(false);
+  });
+});
+
+describe("plan mode chrome", () => {
+  it("hides enter/exit plan tools but keeps update_plan / plan documents", () => {
+    expect(isPlanModeChromeTool({ name: "EnterPlanMode" })).toBe(true);
+    expect(isPlanModeChromeTool({ name: "ExitPlanMode" })).toBe(true);
+    expect(isPlanModeChromeTool({ name: "Tool", title: "Exit plan mode" })).toBe(true);
+    expect(isPlanModeChromeTool({ name: "update_plan" })).toBe(false);
+    expect(isPlanModeChromeTool({ name: "updatePlan" })).toBe(false);
   });
 });

@@ -54,6 +54,8 @@ describe("composer config defer-until-send", () => {
     const body = session.slice(start, end);
     expect(body).toContain("const keepComposerChrome = loadedMessages.length === 0");
     expect(body).toContain("applyDescriptor(meta.descriptor, { keepComposerChrome })");
+    expect(session).toContain("keepPendingUserEchoes");
+    expect(session).toContain("insertPendingUserMessage");
   });
 
   it("does not write last New Chat config from eager tab create", () => {

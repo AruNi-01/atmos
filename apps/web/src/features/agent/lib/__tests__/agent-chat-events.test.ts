@@ -169,6 +169,28 @@ describe("agent chat fold stays on AgentMessage", () => {
     expect(foldMessagesFromEvent([], event, "chat-1")).toEqual([]);
   });
 
+  it("replaces a pending user echo with the persisted user_message id", () => {
+    const pending = {
+      id: "pending:local",
+      role: "user" as const,
+      parts: [{ type: "text" as const, text: "hello-s16" }],
+      created_at: "2026-01-01T00:00:00.000Z",
+    };
+    const event = chatEvent("chat-1", 1, {
+      type: "user_message",
+      turn_id: "t1",
+      message_id: "msg-1",
+      text: "hello-s16",
+    });
+    const folded = foldMessagesFromEvent([pending], event, "chat-1");
+    expect(folded).toHaveLength(1);
+    expect(folded[0]).toMatchObject({
+      id: "msg-1",
+      role: "user",
+      created_at: "2026-01-01T00:00:00.000Z",
+    });
+  });
+
   it("two subscribers fold the same send into the same message id", () => {
     const event = chatEvent("chat-1", 1, {
       type: "user_message",
@@ -1202,6 +1224,46 @@ describe("agent chat fold stays on AgentMessage", () => {
     expect(messages.map((item) => item.id)).toEqual(["u1", "a1"]);
     expect(textFromParts(messages[1]!.parts)).toBe("Hello");
     expect(messages[1]?.streaming).toBe(true);
+  });
+
+  it("does not append a delta that already matches the hydrated snapshot", () => {
+    const persisted: AgentMessage[] = [
+      { id: "u1", role: "user", parts: [{ type: "text", text: "hi" }] },
+      { id: "a1", role: "assistant", parts: [{ type: "text", text: "Hello world" }], streaming: true },
+    ];
+    const messages = hydrateAgentChatMessages(
+      persisted,
+      [
+        chatEvent("chat-1", 10, {
+          type: "assistant_message_delta",
+          message_id: "a1",
+          delta: "Hello world",
+        }),
+      ],
+      "chat-1",
+      9,
+    );
+    expect(textFromParts(messages[1]!.parts)).toBe("Hello world");
+  });
+
+  it("treats a cumulative stream snapshot as replacement instead of append", () => {
+    const persisted: AgentMessage[] = [
+      { id: "u1", role: "user", parts: [{ type: "text", text: "hi" }] },
+      { id: "a1", role: "assistant", parts: [{ type: "text", text: "Hel" }], streaming: true },
+    ];
+    const messages = hydrateAgentChatMessages(
+      persisted,
+      [
+        chatEvent("chat-1", 10, {
+          type: "assistant_message_delta",
+          message_id: "a1",
+          delta: "Hello",
+        }),
+      ],
+      "chat-1",
+      9,
+    );
+    expect(textFromParts(messages[1]!.parts)).toBe("Hello");
   });
 
   it("dedupes a snapshot that already contains the live assistant id", () => {

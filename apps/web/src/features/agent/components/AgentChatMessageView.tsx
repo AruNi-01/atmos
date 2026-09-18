@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Message, MessageContent } from "@workspace/ui";
+import { Message, MessageContent, cn } from "@workspace/ui";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import { assistantCopyText, textFromParts } from "@/features/agent/lib/agent-chat-events";
 import { formatUserMessageTime } from "@/features/agent/lib/agent-chat-timing";
@@ -19,14 +19,21 @@ import { AssistantTurnFileChanges } from "./AssistantTurnFileChanges";
 import { MessageTurnUsageBadge } from "./UsageBadges";
 import { AgentComposerAttachmentList } from "./AgentComposerAttachments";
 import { UserMessageBody } from "./UserMessageBody";
+import { SubagentTasksPanel } from "./SubagentTasksDock";
+import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
+import { isPendingUserEcho } from "@/features/agent/lib/agent-chat-pending-echo";
 import "./user-message-meta.css";
 
 export const AgentChatMessageView = React.memo(function AgentChatMessageView({
   message,
   index,
+  inlineSubagentTools,
+  subagentMessages,
 }: {
   message: AgentMessage;
   index: number;
+  inlineSubagentTools?: AgentToolCallPart[];
+  subagentMessages?: AgentMessage[];
 }) {
   const t = useTranslations("Agent.components.chatPanel");
   const locale = useLocale();
@@ -74,7 +81,11 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
       className="w-full min-w-0"
     >
       {message.role === "user" ? (
-        <div className="group relative w-full" data-user-message-chrome="">
+        <div
+          className={cn("group relative w-full", isPendingUserEcho(message) && "opacity-[0.65]")}
+          data-user-message-chrome=""
+          data-agent-chat-pending-echo={isPendingUserEcho(message) ? "" : undefined}
+        >
           <Message from="user" className="gap-0">
             <MessageContent rounded="2xl">
               {files.length > 0 || userText ? (
@@ -137,10 +148,10 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
                     />
                   ) : null}
                   {message.usage ? <MessageTurnUsageBadge usage={message.usage} /> : null}
-                  {message.completed_at && message.worked_ms != null && message.worked_ms > 0 ? (
+                  {message.completed_at ? (
                     <AgentWorkedForLabel
                       reveal="timestamp"
-                      workedMs={message.worked_ms}
+                      workedMs={message.worked_ms ?? 0}
                       completedAt={message.completed_at}
                     />
                   ) : null}
@@ -152,6 +163,14 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
             parts={message.parts}
             visible={shouldShowAssistantTurnEndedChrome(message, assistantText)}
           />
+          {inlineSubagentTools && inlineSubagentTools.length > 0 && subagentMessages ? (
+            <div className="mt-2">
+              <SubagentTasksPanel
+                tools={inlineSubagentTools}
+                messages={subagentMessages}
+              />
+            </div>
+          ) : null}
         </div>
       )}
     </div>

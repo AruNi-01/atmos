@@ -8,6 +8,7 @@ import type {
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 
 export const GROK_CHROME_SUBAGENT_NAME = "grok_chrome";
+export const GROK_IMPLEMENTER_ID = "grok_implementer";
 
 export function isGrokChromeSubagent(
   part: Pick<AgentToolCallPart, "kind" | "name">,
@@ -53,8 +54,58 @@ export type GrokChromePhaseSection = {
   agents: AgentToolCallPart[];
 };
 
+export function formatGrokTokens(tokens: number): string {
+  const sign = tokens < 0 ? "-" : "";
+  const abs = Math.abs(tokens);
+  if (abs < 1000) return `${sign}${abs}`;
+  if (abs < 1_000_000) {
+    return `${sign}${(abs / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+  }
+  return `${sign}${(abs / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+}
+
+export function formatGrokElapsed(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(total / 3600);
+  const mins = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+  if (hours > 0) return `${hours}h${String(mins).padStart(2, "0")}m`;
+  if (mins > 0) return `${mins}m${String(secs).padStart(2, "0")}s`;
+  return `${secs}s`;
+}
+
+export function grokGoalStatusKey(goal: GrokGoal): {
+  status: string;
+  phase: string | null;
+} {
+  const status = (goal.status || "active").toLowerCase();
+  if (status === "complete" || status === "cleared") {
+    return { status: "complete", phase: null };
+  }
+  if (
+    status === "user_paused"
+    || status === "back_off_paused"
+    || status === "no_progress_paused"
+    || status === "infra_paused"
+    || status === "blocked"
+    || status === "failed"
+    || status === "interrupted"
+    || status === "budget_limited"
+  ) {
+    return { status, phase: null };
+  }
+  if (goal.verifying_completion) return { status: "active", phase: "verifying" };
+  if (goal.planning) return { status: "active", phase: "planning" };
+  const phase = (goal.phase || "executing").toLowerCase();
+  if (phase === "idle" || phase === "planning" || phase === "executing") {
+    return { status: "active", phase };
+  }
+  return { status: "active", phase: "executing" };
+}
+
 const GOAL_PHASES = [
   { id: "planning", title: "Plan" },
+  { id: "implementing", title: "Implement" },
   { id: "verifying", title: "Verify" },
   { id: "summarizing", title: "Summarize" },
 ] as const;
@@ -67,11 +118,20 @@ function grokGoalPhaseState(goal: GrokGoal, phaseId: string): string {
     if (
       complete
       || goal.verifying_completion
+      || goal.phase === "executing"
       || last.includes("worker")
       || last.includes("goal_completed")
     ) {
       return "completed";
     }
+    return "pending";
+  }
+  if (phaseId === "implementing") {
+    if (goal.verifying_completion || last.includes("verify") || last.includes("classifier")) {
+      return "completed";
+    }
+    if (complete || last.includes("goal_completed") || last.includes("summar")) return "completed";
+    if (goal.phase === "executing" && !goal.planning) return "running";
     return "pending";
   }
   if (phaseId === "verifying") {
@@ -142,13 +202,19 @@ export function grokGoalPhaseSections(
   const byId = new Map(tools.map((tool) => [tool.tool_call_id, tool]));
   return GOAL_PHASES.map((phase) => {
     const state = grokGoalPhaseState(goal, phase.id);
+    const agents = goal.children
+      .filter((child) => child.role === phase.id)
+      .map((child) => resolveAgent(byId, child.id, child.label, state, child.agent_type));
+    if (phase.id === "implementing") {
+      agents.unshift(
+        stubAgent(GROK_IMPLEMENTER_ID, "Implementer", state, "general-purpose"),
+      );
+    }
     return {
       id: phase.id,
       title: phase.title,
       state,
-      agents: goal.children
-        .filter((child) => child.role === phase.id)
-        .map((child) => resolveAgent(byId, child.id, child.label, state, child.agent_type)),
+      agents,
     };
   });
 }

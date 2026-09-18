@@ -76,6 +76,7 @@ export function UserMessageBody({
     <div
       ref={rootRef}
       data-user-message-body=""
+      data-transcript-find="user"
       data-user-message-collapsed={collapsed ? "" : undefined}
       className={[
         collapsed ? "cursor-pointer" : "",

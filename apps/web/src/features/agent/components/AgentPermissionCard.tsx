@@ -59,12 +59,15 @@ export function AgentPermissionCard({
   /** Structured plan-intent steps only (e.g. Codex). Never pass live TodoWrite execution. */
   planIntent = null,
   planFilePath = null,
+  readOnly = false,
   onRespond,
 }: {
   permission: PendingPermission;
   markdown: string | null;
   planIntent?: AgentPlan | null;
   planFilePath?: string | null;
+  /** Historic transcript: display the card, no Skip/Continue/Approve. */
+  readOnly?: boolean;
   onRespond: (optionId: string) => void;
 }) {
   const t = useTranslations("Agent.components.chatPanel");
@@ -183,13 +186,19 @@ export function AgentPermissionCard({
           variant="questions"
           title={t("askUserTitle")}
           questions={questions}
+          allowCustom={false}
+          readOnly={readOnly}
           approveLabel={t("continue")}
           rejectLabel={t("skip")}
-          onApprove={(payload) => {
-            const answers = payload?.answers ?? {};
-            onRespond(`answers:${JSON.stringify(answers)}`);
-          }}
-          onReject={() => onRespond("reject_once")}
+          onApprove={
+            readOnly
+              ? undefined
+              : (payload) => {
+                  const answers = payload?.answers ?? {};
+                  onRespond(`answers:${JSON.stringify(answers)}`);
+                }
+          }
+          onReject={readOnly ? undefined : () => onRespond("reject_once")}
         />
       </div>
     );
@@ -208,19 +217,21 @@ export function AgentPermissionCard({
         <ApprovalCard
           variant="plan"
           title={t("planApprovalTitle")}
+          readOnly={readOnly}
           planTitle={planTitle}
           planSummary={showPlanPreview ? undefined : planSummary}
           plan={planSteps}
           planView={showPlanPreview ? "body" : "todos"}
           planBody={
             // Keep body mounted whenever todos exist so View plan ↔ todos can crossfade.
-            hasTodos || showPlanPreview ? (
+            // Historic empty ExitPlan (`{}` input) has no markdown — omit the empty hint.
+            hasTodos || overviewMarkdown || (!readOnly && showPlanPreview) ? (
               <div data-agent-plan-viewer="">
                 {overviewMarkdown ? (
                   <MarkdownRenderer className={PLAN_MARKDOWN_CLASS}>
                     {overviewMarkdown}
                   </MarkdownRenderer>
-                ) : (
+                ) : readOnly ? null : (
                   <p className="px-1 py-2 text-sm text-muted-foreground">
                     {t("planViewerEmpty")}
                   </p>
@@ -228,14 +239,18 @@ export function AgentPermissionCard({
               </div>
             ) : undefined
           }
-          actions={planActions}
-          onAction={(actionId) => {
-            if (actionId === VIEW_PLAN_ACTION_ID) {
-              setViewingPlan((open) => !open);
-              return;
-            }
-            onRespond(actionId);
-          }}
+          actions={readOnly ? undefined : planActions}
+          onAction={
+            readOnly
+              ? undefined
+              : (actionId) => {
+                  if (actionId === VIEW_PLAN_ACTION_ID) {
+                    setViewingPlan((open) => !open);
+                    return;
+                  }
+                  onRespond(actionId);
+                }
+          }
         />
       </div>
     );
@@ -247,12 +262,13 @@ export function AgentPermissionCard({
         variant="command"
         title={t("permissionRequested")}
         command={command || description || permission.tool || "command"}
-        actions={commandActions.length > 0 ? commandActions : undefined}
+        readOnly={readOnly}
+        actions={readOnly || commandActions.length === 0 ? undefined : commandActions}
         approveLabel={t("allow")}
         rejectLabel={t("deny")}
-        onAction={(optionId) => onRespond(optionId)}
-        onApprove={() => onRespond(defaultAllowOptionId(permission))}
-        onReject={() => onRespond(defaultRejectOptionId(permission))}
+        onAction={readOnly ? undefined : (optionId) => onRespond(optionId)}
+        onApprove={readOnly ? undefined : () => onRespond(defaultAllowOptionId(permission))}
+        onReject={readOnly ? undefined : () => onRespond(defaultRejectOptionId(permission))}
       />
     </div>
   );

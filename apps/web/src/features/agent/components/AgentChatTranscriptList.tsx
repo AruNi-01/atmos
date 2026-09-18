@@ -37,11 +37,22 @@ import {
   agentMessageHasMermaid,
   estimateAgentChatMessageSize,
   estimateTranscriptInitialOffset,
+  estimateTranscriptOffsetToIndex,
   findAgentChatScrollElement,
+  isTranscriptScrolledToEnd,
   measureTranscriptScrollMargin,
   mergeMermaidKeepAliveRange,
+  mergeIndexKeepAliveRange,
 } from "@/features/agent/lib/agent-chat-transcript-window";
 import { AgentChatMessageView } from "./AgentChatMessageView";
+import { useAgentChatOwnSendRefs } from "./agent-chat-own-send-context";
+import { isPendingUserEcho } from "@/features/agent/lib/agent-chat-pending-echo";
+import {
+  inlineSubagentTasksByMessageId,
+  type SubagentCardMode,
+} from "@/features/agent/lib/subagent-tasks";
+
+const EMPTY_KEEP_INDEXES: readonly number[] = [];
 
 /**
  * Captures StickToBottom.stopScroll without subscribing the virtualizer to
@@ -72,6 +83,11 @@ export function AgentChatTranscriptList({
   scrollToIndexRef,
   belowCountStore = null,
   activityStatus = null,
+  subagentCardMode = "live",
+  excludeSubagentIds,
+  keepMessageIndexes,
+  initialScrollIndex = null,
+  pinToEnd = false,
 }: {
   messages: AgentMessage[];
   registryId: string;
@@ -87,13 +103,36 @@ export function AgentChatTranscriptList({
    * paint over a sibling that sits after the virtual list.
    */
   activityStatus?: React.ReactNode;
+  subagentCardMode?: SubagentCardMode;
+  excludeSubagentIds?: Iterable<string>;
+  keepMessageIndexes?: readonly number[];
+  initialScrollIndex?: number | null;
+  /** Historic transcripts: keep pinning to the last row until the user scrolls away. */
+  pinToEnd?: boolean;
 }) {
   const listRef = useRef<HTMLDivElement | null>(null);
   const mermaidKeepRef = useRef<number[]>([]);
   const stopStickRef = useRef<(() => void) | null>(null);
+  const didAnchorToEndRef = useRef(false);
+  const didInitialTargetScrollRef = useRef<number | null>(null);
+  const stayPinnedToEndRef = useRef(true);
+  const keepIndexes = keepMessageIndexes ?? EMPTY_KEEP_INDEXES;
+  const ownSendRefs = useAgentChatOwnSendRefs();
+  const pendingFirstSend = isPendingUserEcho(messages.at(-1))
+    && messages.filter((item) => item.role === "user").length === 1;
+  if (pendingFirstSend && ownSendRefs) {
+    ownSendRefs.skipEndAnchorRef.current = true;
+  }
   const [scrollMargin, setScrollMargin] = useState(0);
   const roles = messages.map((message) => message.role);
   const mermaidFlags = useMemo(() => messages.map(agentMessageHasMermaid), [messages]);
+  const inlineSubagentTools = useMemo(
+    () => inlineSubagentTasksByMessageId(messages, {
+      mode: subagentCardMode,
+      excludeIds: excludeSubagentIds,
+    }),
+    [excludeSubagentIds, messages, subagentCardMode],
+  );
 
   const getScrollElement = useCallback(
     () => findAgentChatScrollElement(transcriptRef.current),
@@ -102,6 +141,9 @@ export function AgentChatTranscriptList({
 
   useEffect(() => {
     mermaidKeepRef.current = [];
+    didAnchorToEndRef.current = false;
+    didInitialTargetScrollRef.current = null;
+    stayPinnedToEndRef.current = true;
   }, [registryId]);
 
   const rangeExtractor = useCallback(
@@ -114,9 +156,9 @@ export function AgentChatTranscriptList({
         AGENT_CHAT_MERMAID_KEEPALIVE,
       );
       mermaidKeepRef.current = merged.kept;
-      return merged.range;
+      return mergeIndexKeepAliveRange(merged.range, keepIndexes);
     },
-    [mermaidFlags],
+    [keepIndexes, mermaidFlags],
   );
 
   const virtualizer = useVirtualizer({
@@ -129,24 +171,36 @@ export function AgentChatTranscriptList({
     gap: AGENT_CHAT_TRANSCRIPT_GAP,
     scrollMargin,
     rangeExtractor,
-    initialOffset: () =>
-      estimateTranscriptInitialOffset(
+    initialOffset: () => {
+      if (initialScrollIndex != null && initialScrollIndex >= 0) {
+        return estimateTranscriptOffsetToIndex(
+          roles,
+          initialScrollIndex,
+          AGENT_CHAT_TRANSCRIPT_GAP,
+          mermaidFlags,
+        );
+      }
+      return estimateTranscriptInitialOffset(
         roles,
         getScrollElement()?.clientHeight ?? 0,
         AGENT_CHAT_TRANSCRIPT_GAP,
         mermaidFlags,
-      ),
+      );
+    },
     useAnimationFrameWithResizeObserver: true,
     // measureElement runs during commit; flushSync there warns and can stall React 19.
     useFlushSync: false,
   });
 
   const virtualItems = virtualizer.getVirtualItems();
+  const totalSize = virtualizer.getTotalSize();
   const syncActiveRef = useRef<() => void>(() => undefined);
-  const didAnchorToEndRef = useRef(false);
 
   useLayoutEffect(() => {
-    if (didAnchorToEndRef.current || messages.length === 0) return;
+    if (messages.length === 0) return;
+    if (didAnchorToEndRef.current && !pinToEnd) return;
+    const skipEnd = Boolean(ownSendRefs?.skipEndAnchorRef.current)
+      || (initialScrollIndex != null && initialScrollIndex >= 0);
     const list = listRef.current;
     const scroll = getScrollElement();
     if (list && scroll) {
@@ -156,9 +210,34 @@ export function AgentChatTranscriptList({
         return;
       }
     }
-    didAnchorToEndRef.current = true;
+    if (skipEnd) {
+      didAnchorToEndRef.current = true;
+      stayPinnedToEndRef.current = false;
+      return;
+    }
+    if (pinToEnd && !stayPinnedToEndRef.current) return;
     virtualizer.scrollToIndex(messages.length - 1, { align: "end", behavior: "auto" });
-  }, [getScrollElement, messages.length, scrollMargin, virtualizer]);
+    didAnchorToEndRef.current = true;
+  }, [
+    getScrollElement,
+    initialScrollIndex,
+    messages.length,
+    ownSendRefs,
+    pinToEnd,
+    scrollMargin,
+    totalSize,
+    virtualizer,
+  ]);
+
+  useLayoutEffect(() => {
+    if (initialScrollIndex == null || initialScrollIndex < 0) return;
+    if (messages.length === 0) return;
+    if (didInitialTargetScrollRef.current === initialScrollIndex) return;
+    didInitialTargetScrollRef.current = initialScrollIndex;
+    didAnchorToEndRef.current = true;
+    stopStickRef.current?.();
+    virtualizer.scrollToIndex(initialScrollIndex, { align: "start", behavior: "auto" });
+  }, [initialScrollIndex, messages.length, virtualizer]);
 
   useLayoutEffect(() => {
     const list = listRef.current;
@@ -252,8 +331,14 @@ export function AgentChatTranscriptList({
 
   useEffect(() => {
     const scroll = getScrollElement();
-    if (!scroll || !onUserScrollIntent) return;
-    const onIntent = () => onUserScrollIntent();
+    if (!scroll || (!onUserScrollIntent && !pinToEnd)) return;
+    const onIntent = () => {
+      if (pinToEnd && !isTranscriptScrolledToEnd(scroll)) {
+        stayPinnedToEndRef.current = false;
+        stopStickRef.current?.();
+      }
+      onUserScrollIntent?.();
+    };
     scroll.addEventListener("wheel", onIntent, { passive: true });
     scroll.addEventListener("touchmove", onIntent, { passive: true });
     scroll.addEventListener("pointerdown", onIntent);
@@ -262,7 +347,7 @@ export function AgentChatTranscriptList({
       scroll.removeEventListener("touchmove", onIntent);
       scroll.removeEventListener("pointerdown", onIntent);
     };
-  }, [getScrollElement, onUserScrollIntent]);
+  }, [getScrollElement, onUserScrollIntent, pinToEnd]);
 
   const lastIndex = messages.length - 1;
   const listScrollMargin = virtualizer.options.scrollMargin;
@@ -280,6 +365,9 @@ export function AgentChatTranscriptList({
           const message = messages[item.index];
           if (!message) return null;
           const showActivityFooter = activityStatus != null && item.index === lastIndex;
+          const invertPx = item.index === ownSendRefs?.anchorIndexRef.current
+            ? ownSendRefs.invertPxRef.current
+            : 0;
           return (
             <div
               key={item.key}
@@ -289,12 +377,15 @@ export function AgentChatTranscriptList({
               }}
               className="absolute top-0 left-0 w-full"
               style={{
-                transform: `translateY(${item.start - listScrollMargin}px)`,
+                transform: `translateY(${item.start - listScrollMargin + invertPx}px)`,
               }}
+              data-own-send-invert={invertPx || undefined}
             >
               <AgentChatMessageView
                 message={message}
                 index={item.index}
+                inlineSubagentTools={inlineSubagentTools.get(message.id)}
+                subagentMessages={messages}
               />
               {showActivityFooter ? (
                 <div

@@ -91,6 +91,19 @@ describe("agent chat helpers", () => {
     expect(parsePlan({ entries: [] })).toBeNull();
   });
 
+  it("parses Codex execution plan steps into composer plan entries", () => {
+    expect(
+      parsePlan({
+        plan: [{ step: "Run tests", status: "completed" }],
+      }),
+    ).toEqual({
+      entries: [{ content: "Run tests", priority: "medium", status: "completed" }],
+    });
+    expect(parsePlan([{ step: "Inspect", status: "in_progress" }])).toEqual({
+      entries: [{ content: "Inspect", priority: "medium", status: "in_progress" }],
+    });
+  });
+
   it("strips Droid status prefixes from plan content and infers completed", () => {
     const plan = parsePlan({
       entries: [

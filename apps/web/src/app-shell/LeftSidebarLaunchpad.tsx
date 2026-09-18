@@ -40,11 +40,13 @@ import {
   Presentation,
   Puzzle,
   ListTodo,
+  Layers,
   SquareTerminal,
   Timer,
   Trash2,
 } from "lucide-react";
 import { BotIcon } from "@workspace/ui/components/icons/bot-icon";
+import { LayersIcon } from "@workspace/ui/components/icons/layers-icon";
 import CanvasIcon from "@workspace/ui/components/icons/canvas-icon";
 import { ChartColumnBigIcon } from "@workspace/ui/components/icons/chart-column-big-icon";
 import { FolderKanbanIcon } from "@workspace/ui/components/icons/folder-kanban-icon";
@@ -160,6 +162,7 @@ const ITEM_DEF_BY_ID: Record<LaunchpadItemId, LaunchpadItemDef> = {
   "pt-design": { id: "pt-design", labelKey: "launchpad.items.ptDesign", icon: PencilRuler, path: "/pt-design" },
   tasks: { id: "tasks", labelKey: "launchpad.items.tasks", icon: ListTodo, path: "/tasks" },
   "new-workspace": { id: "new-workspace", labelKey: "launchpad.items.newWorkspace", icon: Plus, kind: "new-workspace" },
+  "agent-sessions": { id: "agent-sessions", labelKey: "launchpad.items.agentSessions", icon: Layers, path: "/agent-sessions" },
 };
 
 type LaunchpadSharedProps = {
@@ -655,6 +658,7 @@ function LaunchpadOutsideIcon({
   if (itemId === "canvas") return <CanvasIcon ref={iconRef} className={className} size={size} />;
   if (itemId === "pt-design") return <PencilRulerIcon ref={iconRef} className={className} size={size} />;
   if (itemId === "tasks") return <ListTodoIcon ref={iconRef} className={className} size={size} />;
+  if (itemId === "agent-sessions") return <LayersIcon ref={iconRef} className={className} size={size} />;
   return <PlusIcon ref={iconRef} className={className} size={size} />;
 }
 

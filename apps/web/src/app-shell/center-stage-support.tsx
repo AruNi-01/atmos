@@ -12,6 +12,7 @@ import { TerminalsView } from "@/features/terminal/components/TerminalsView";
 import { HostedWelcomeGate } from "@/features/welcome/components/HostedWelcomeGate";
 import { WorkspacesManagementView } from "@/features/workspace/components/WorkspacesManagementView";
 import { TaskManagementView } from "@/features/task/components/TaskManagementView";
+import { HostSessionCenterView } from "@/features/agent-sessions/components/HostSessionCenterView";
 import { TokenUsagePage } from "@/app-shell/TokenUsagePage";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
 import type { TerminalCenterTab } from "@/features/terminal/store/use-terminal-store";
@@ -77,6 +78,7 @@ export function CenterStageNoContextView({
     if (currentView === "disk-analyzer") return <DiskAnalyzerPage />;
     if (currentView === "token-usage") return <TokenUsagePage />;
     if (currentView === "tasks") return <TaskManagementView />;
+    if (currentView === "agent-sessions") return <HostSessionCenterView />;
     return (
       <HostedWelcomeGate onAddProject={onAddProject} onConnectAgent={onConnectAgent} />
     );
@@ -84,7 +86,13 @@ export function CenterStageNoContextView({
 
   return (
     <CenterStageSurface
-      data-testid={currentView === "pt-design" || ptDesignOpen ? "pt-design-standalone" : undefined}
+      data-testid={
+        currentView === "pt-design" || ptDesignOpen
+          ? "pt-design-standalone"
+          : currentView === "agent-sessions"
+            ? "agent-sessions-standalone"
+            : undefined
+      }
     >
       {body}
     </CenterStageSurface>

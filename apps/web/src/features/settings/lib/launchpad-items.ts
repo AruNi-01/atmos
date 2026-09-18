@@ -9,7 +9,8 @@ export type LaunchpadItemId =
   | 'canvas'
   | 'pt-design'
   | 'tasks'
-  | 'new-workspace';
+  | 'new-workspace'
+  | 'agent-sessions';
 
 export type LaunchpadPlacement = 'inside' | 'outside';
 
@@ -33,6 +34,7 @@ export const LAUNCHPAD_ITEM_IDS: LaunchpadItemId[] = [
   'pt-design',
   'tasks',
   'new-workspace',
+  'agent-sessions',
 ];
 
 export const LAUNCHPAD_DROP_INSIDE = 'launchpad-drop-inside';
@@ -52,6 +54,7 @@ const ALWAYS_ON_DEFAULT_IDS: LaunchpadItemId[] = [
   'pt-design',
   'tasks',
   'new-workspace',
+  'agent-sessions',
 ];
 
 /** Default to Outside (full-width list under Launchpad header) rather than Inside grid. */
@@ -63,6 +66,7 @@ const DEFAULT_OUTSIDE_PLACEMENT_IDS: LaunchpadItemId[] = [
   'pt-design',
   'tasks',
   'new-workspace',
+  'agent-sessions',
 ];
 
 export function isLaunchpadItemId(value: string): value is LaunchpadItemId {

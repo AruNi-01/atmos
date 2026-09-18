@@ -13,13 +13,14 @@ import {
   messagesForSubagent,
   findSubagentToolCall,
   subagentChildActivity,
+  subagentElapsedMs,
 } from "@/features/agent/lib/subagent-tasks";
 
 export function SubagentConversationOverlay({
   messages,
   toolCallId,
   cwd,
-  elapsedMs = 0,
+  elapsedMs,
   onClose,
 }: {
   messages: AgentMessage[];
@@ -32,6 +33,7 @@ export function SubagentConversationOverlay({
   const parent = findSubagentToolCall(messages, toolCallId);
   const projected = messagesForSubagent(messages, toolCallId);
   const activity = subagentChildActivity(messages, toolCallId);
+  const clock = elapsedMs ?? subagentElapsedMs(projected);
 
   useEffect(() => {
     if (!parent) onClose();
@@ -84,7 +86,7 @@ export function SubagentConversationOverlay({
                     data-agent-chat-activity-status=""
                     className="mx-auto mt-2 w-[calc(100%-1rem)]"
                   >
-                    <AgentActivityIndicator activity={activity} elapsedMs={elapsedMs} />
+                    <AgentActivityIndicator activity={activity} elapsedMs={clock} />
                   </div>
                 ) : null}
               </div>

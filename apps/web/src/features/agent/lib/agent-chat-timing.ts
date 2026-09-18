@@ -80,6 +80,19 @@ export function clockFromElapsedMs(elapsedMs: number, now = Date.now()): number 
   return now - Math.max(0, elapsedMs);
 }
 
+/** User prompt sent → agent reply complete. Ignores missing or inverted clocks. */
+export function promptToCompleteMs(
+  start?: string | null,
+  end?: string | null,
+): number | undefined {
+  if (!start || !end) return undefined;
+  const from = Date.parse(start);
+  const to = Date.parse(end);
+  if (Number.isNaN(from) || Number.isNaN(to)) return undefined;
+  const ms = to - from;
+  return ms > 0 ? ms : undefined;
+}
+
 /** Compact hover timestamp under a user bubble, e.g. "Jul 29, 9:23 AM". */
 export function formatUserMessageTime(
   value: string | null | undefined,

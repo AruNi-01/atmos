@@ -14,13 +14,12 @@ const composer = readFileSync(
 describe("background commands dock", () => {
   it("sits in the in-flow composer stack with plan and queue, not the floating overlay", () => {
     expect(composer).toContain("<BackgroundCommandsDock");
-    const overlayAt = composer.indexOf("data-agent-chat-above-composer-overlays");
-    const overlayClose = composer.indexOf("{aboveInputOverlay}");
+    const overlayAt = composer.indexOf("<AgentChatAboveComposerOverlays");
     const dockAt = composer.indexOf("<BackgroundCommandsDock");
     const queueAt = composer.indexOf("<MessageQueueDock");
     const promptAt = composer.indexOf("<PromptInputProvider>");
     expect(overlayAt).toBeGreaterThan(-1);
-    expect(dockAt).toBeGreaterThan(overlayClose);
+    expect(dockAt).toBeGreaterThan(overlayAt);
     expect(queueAt).toBeGreaterThan(dockAt);
     expect(promptAt).toBeGreaterThan(queueAt);
     expect(composer).toContain("hasBackgroundTools");

@@ -113,6 +113,10 @@ function otherParamsLookLikeWaitPoll(params: AgentToolCallPart["params"] | undef
   return Array.isArray(value.task_ids) && value.task_ids.length > 0;
 }
 
+function normalizeLabel(value?: string | null): string {
+  return (value || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+}
+
 const GENERIC_TOOL_LABELS = new Set([
   "",
   "tool",
@@ -139,8 +143,31 @@ const GENERIC_TOOL_LABELS = new Set([
   "command_execution",
 ]);
 
-function normalizeLabel(value?: string | null): string {
-  return (value || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+export function isPlanModeChromeTool(
+  part: Pick<AgentToolCallPart, "name" | "title">,
+): boolean {
+  const blob = `${normalizeLabel(part.name)} ${normalizeLabel(part.title)}`;
+  if (blob.includes("update_plan") || blob.includes("updateplan")) return false;
+  return (
+    blob.includes("enter_plan")
+    || blob.includes("enterplan")
+    || blob.includes("exit_plan")
+    || blob.includes("exitplan")
+    || blob.includes("approve_plan")
+    || blob.includes("approveplan")
+  );
+}
+
+/** Composer overlays own these — never extra transcript cards. */
+export function isHiddenTranscriptChromePart(part: AgentPart): boolean {
+  if (part.type === "plan" || part.type === "attachment") return true;
+  if (part.type === "tool_call" && isPlanModeChromeTool(part)) return true;
+  if (part.type === "session_config_change") {
+    const hasModel = Boolean(part.model?.to?.trim());
+    const hasMode = Boolean(part.mode?.to?.trim());
+    return hasMode && !hasModel;
+  }
+  return false;
 }
 
 /** ACP kind titles and empty labels — not rich enough to hide path/command/query. */

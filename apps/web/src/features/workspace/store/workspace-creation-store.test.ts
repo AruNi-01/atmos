@@ -161,6 +161,19 @@ describe("workspace creation store", () => {
     ).toBeNull();
   });
 
+  test("queueAgentRun keeps reuseIdlePane so TUI resume does not steal a shell", () => {
+    useWorkspaceCreationStore.getState().queueAgentRun({
+      workspaceId: "ws-1",
+      prompt: "",
+      command: "cd '/src/atmos' && 'codex' 'resume' 'abc'",
+      reuseIdlePane: false,
+    });
+    expect(useWorkspaceCreationStore.getState().pendingAgentRun?.reuseIdlePane).toBe(false);
+    expect(useWorkspaceCreationStore.getState().consumeAgentRun("ws-1")?.command).toBe(
+      "cd '/src/atmos' && 'codex' 'resume' 'abc'",
+    );
+  });
+
   test("drops a job once that workspace is opened", () => {
     const id = useWorkspaceCreationStore.getState().startCreating({
       originKey: "view:welcome",

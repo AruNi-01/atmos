@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useCallback, useState, useEffect, useLayoutEffect, useRef } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import {
   PromptInputAddAttachmentsButton,
@@ -38,12 +37,9 @@ import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import { PlanBlockView } from "./PlanBlockView";
 import { BackgroundCommandsDock } from "./BackgroundCommandsDock";
 import { MessageQueueDock } from "./MessageQueueDock";
-import { SubagentTasksPanel } from "./SubagentTasksDock";
-import { GrokGoalPanel } from "./grok/GrokGoalPanel";
-import { GrokWorkflowPanel } from "./grok/GrokWorkflowPanel";
+import { AgentChatAboveComposerOverlays } from "./AgentChatAboveComposerOverlays";
 import { useSubagentOverlay } from "./subagent-overlay-context";
 import type { CurrentTurnSubagentTasks } from "@/features/agent/lib/subagent-tasks";
-import { subagentOverlayFrameHeight } from "@/features/agent/lib/subagent-overlay-layout";
 import { useAgentComposerPopovers } from "../hooks/use-agent-composer-popovers";
 import type { AgentChatSlashCommand } from "../hooks/use-agent-chat-session";
 import {
@@ -52,10 +48,7 @@ import {
 } from "../lib/agent-chat-thread";
 import { AgentChatWorkingDirectoryPicker } from "./AgentChatWorkingDirectoryPicker";
 import { AgentComposerAttachments } from "./AgentComposerAttachments";
-import {
-  ContextUsageDetailsPanel,
-  ContextWindowUsageControl,
-} from "./UsageBadges";
+import { ContextWindowUsageControl } from "./UsageBadges";
 import { contextWindowStats } from "@/features/agent/lib/context-window-usage";
 import type { AgentChatWorkingDirectory } from "@/features/agent/lib/agent-chat-working-directory";
 import type { Project } from "@/shared/types/domain";
@@ -602,7 +595,6 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   const persistedDraftRef = useRef(localDraft);
   const composerRef = useRef<ComposerHandle | null>(null);
   const composerSurfaceRef = useRef<HTMLDivElement | null>(null);
-  const overlayLaneRef = useRef<HTMLDivElement | null>(null);
   const [editingQueueId, setEditingQueueId] = useState<string | null>(null);
   const [contextUsageOpen, setContextUsageOpen] = useState(false);
   const { close: closeSubagentOverlay } = useSubagentOverlay();
@@ -611,18 +603,13 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     : null;
   const showStop = Boolean(agentActivity.busy && !localDraft.trim() && !editingItem);
   const contextStats = contextWindowStats(sessionUsage);
-  const showContextUsageCard = contextUsageOpen && contextStats != null;
-  const hasSubagentTasks = subagentTasks.items.length > 0;
   const showGrokGoalCard = Boolean(grokGoal && grokGoal.status !== "cleared");
-  const showGrokWorkflowCard = Boolean(grokWorkflow && grokWorkflow.status !== "cleared");
   const hasBackgroundTools = backgroundTools.length > 0;
   const hasQueuedPrompts = queuedPrompts.length > 0;
-  const showSubagentTasksCard = hasSubagentTasks;
   const hasUpperComposerCards =
-    Boolean(currentPlan)
+    Boolean(currentPlan && !showGrokGoalCard)
     || hasBackgroundTools
     || hasQueuedPrompts;
-  const reduceOverlayMotion = Boolean(useReducedMotion());
 
   useEffect(() => {
     if (!editingQueueId) return;
@@ -635,38 +622,6 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     setContextUsageOpen(false);
   }, [contextStats, contextUsageOpen]);
 
-  const setOverlayLaneNode = useCallback((node: HTMLDivElement | null) => {
-    overlayLaneRef.current = node;
-    onAboveComposerOverlaysNodeChange?.(node);
-  }, [onAboveComposerOverlaysNodeChange]);
-
-  useEffect(() => {
-    return () => onAboveComposerOverlaysNodeChange?.(null);
-  }, [onAboveComposerOverlaysNodeChange]);
-
-  const overlayOpen = Boolean(subagentOverlay);
-
-  useLayoutEffect(() => {
-    const lane = overlayLaneRef.current;
-    const surface = composerSurfaceRef.current;
-    if (!overlayOpen || !lane || !surface) {
-      lane?.style.removeProperty("height");
-      return;
-    }
-    const column = surface.closest("[data-agent-chat-column]");
-    if (!(column instanceof HTMLElement)) return;
-    const apply = () => {
-      const next = `${subagentOverlayFrameHeight(column.clientHeight, surface.clientHeight)}px`;
-      if (lane.style.height !== next) lane.style.height = next;
-    };
-    apply();
-    const observer = new ResizeObserver(apply);
-    observer.observe(column);
-    observer.observe(surface);
-    return () => {
-      observer.disconnect();
-    };
-  }, [overlayOpen]);
   const modeOption = configOptions.find((option) => configKindMatches(option.id, option.category, "mode")) ?? null;
   const permissionOption =
     configOptions.find((option) =>
@@ -799,6 +754,10 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
       }}
       onKeyDownCapture={(event) => {
         if (event.key !== "Escape") return;
+        if (event.target instanceof Element && event.target.closest("[data-markdown-find-panel]")) {
+          return;
+        }
+        if (document.querySelector("[data-markdown-find-panel]")) return;
         if (subagentOverlay) {
           event.preventDefault();
           closeSubagentOverlay();
@@ -809,149 +768,28 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
       }}
     >
       <div ref={composerSurfaceRef} className="relative">
-        <div
-          ref={setOverlayLaneNode}
-          data-agent-chat-above-composer-overlays=""
-          className={cn(
-            "pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full min-h-0 flex-col gap-2 has-[.pointer-events-auto]:pb-2",
-            subagentOverlay && "overflow-hidden",
-          )}
-        >
-          <div
-            data-agent-chat-scroll-button-host=""
-            className="flex justify-center empty:hidden"
-          />
-          <div
-            className={cn(
-              "flex min-h-0 w-full flex-col gap-2 empty:hidden",
-              subagentOverlay && "h-full min-h-0 flex-1 overflow-hidden",
-              hasUpperComposerCards && "px-6",
-            )}
-          >
-            <AnimatePresence initial={false}>
-              {showContextUsageCard ? (
-                <motion.div
-                  key="agent-context-usage"
-                  className={cn(
-                    "pointer-events-auto w-full",
-                    subagentOverlay && "hidden",
-                  )}
-                  initial={false}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{
-                    opacity: 0,
-                    y: 10,
-                    position: "absolute",
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    transition: reduceOverlayMotion
-                      ? { duration: 0 }
-                      : { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
-                  }}
-                >
-                  <ContextUsageDetailsPanel
-                    usage={sessionUsage}
-                    providerId={registryId}
-                    onClose={() => setContextUsageOpen(false)}
-                  />
-                </motion.div>
-              ) : null}
-              {subagentOverlay ? (
-                <div
-                  data-agent-subagent-overlay=""
-                  className="pointer-events-auto relative z-30 flex h-full min-h-0 min-w-0 w-full flex-1 select-text flex-col overflow-hidden"
-                >
-                  {subagentOverlay}
-                </div>
-              ) : null}
-              {showGrokGoalCard && grokGoal ? (
-                <motion.div
-                  key="agent-grok-goal"
-                  className={cn(
-                    "pointer-events-auto w-full",
-                    subagentOverlay && "hidden",
-                  )}
-                  initial={false}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{
-                    opacity: 0,
-                    y: 10,
-                    position: "absolute",
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    transition: reduceOverlayMotion
-                      ? { duration: 0 }
-                      : { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
-                  }}
-                >
-                  <GrokGoalPanel goal={grokGoal} messages={messages} />
-                </motion.div>
-              ) : null}
-              {showGrokWorkflowCard && grokWorkflow ? (
-                <motion.div
-                  key="agent-grok-workflow"
-                  className={cn(
-                    "pointer-events-auto w-full",
-                    subagentOverlay && "hidden",
-                  )}
-                  initial={false}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{
-                    opacity: 0,
-                    y: 10,
-                    position: "absolute",
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    transition: reduceOverlayMotion
-                      ? { duration: 0 }
-                      : { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
-                  }}
-                >
-                  <GrokWorkflowPanel workflow={grokWorkflow} messages={messages} />
-                </motion.div>
-              ) : null}
-              {showSubagentTasksCard ? (
-                <motion.div
-                  key="agent-subagent-tasks"
-                  className={cn(
-                    "pointer-events-auto w-full",
-                    subagentOverlay && "hidden",
-                  )}
-                  initial={false}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{
-                    opacity: 0,
-                    y: 10,
-                    position: "absolute",
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    transition: reduceOverlayMotion
-                      ? { duration: 0 }
-                      : { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
-                  }}
-                >
-                  <SubagentTasksPanel
-                    tools={subagentTasks.items}
-                    messages={messages}
-                  />
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-            {aboveInputOverlay ? (
-              <div className={cn(subagentOverlay && "hidden")}>{aboveInputOverlay}</div>
-            ) : null}
-          </div>
-        </div>
+        <AgentChatAboveComposerOverlays
+          composerSurfaceRef={composerSurfaceRef}
+          messages={messages}
+          grokGoal={grokGoal}
+          grokWorkflow={grokWorkflow}
+          currentPlan={currentPlan}
+          subagentTasks={subagentTasks}
+          subagentOverlay={subagentOverlay}
+          aboveInputOverlay={aboveInputOverlay}
+          sessionUsage={sessionUsage}
+          registryId={registryId}
+          contextUsageOpen={contextUsageOpen}
+          onContextUsageClose={() => setContextUsageOpen(false)}
+          hasUpperComposerCards={hasUpperComposerCards}
+          onLaneNodeChange={onAboveComposerOverlaysNodeChange}
+        />
         {hasUpperComposerCards ? (
           <div
             data-agent-composer-upper-cards=""
             className="relative z-[1] mx-6 overflow-hidden rounded-t-3xl border border-b-0 border-foreground/10 bg-foreground/[0.04]"
           >
-            {currentPlan ? (
+            {currentPlan && !showGrokGoalCard ? (
               <div className={
                 hasBackgroundTools || hasQueuedPrompts
                   ? "border-b border-foreground/10"

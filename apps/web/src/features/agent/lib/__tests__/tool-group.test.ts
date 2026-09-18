@@ -132,6 +132,30 @@ describe("segmentAssistantParts", () => {
     )).toEqual(["parent", "read"]);
   });
 
+  it("hides enter/exit plan tools and mode-only config from transcript cards", () => {
+    const parts: AgentPart[] = [
+      { type: "session_config_change", mode: { to: "plan" } },
+      tool({
+        tool_call_id: "enter",
+        kind: "other",
+        name: "EnterPlanMode",
+      }),
+      tool({
+        tool_call_id: "read",
+        kind: "read",
+        name: "Read",
+      }),
+      { type: "session_config_change", model: { to: "opus" }, mode: { to: "plan" } },
+    ];
+    expect(segmentAssistantParts(parts, "standard").map((segment) =>
+      segment.type === "part" ? segment.part.type : segment.type,
+    )).toEqual(["tool_call", "session_config_change"]);
+    const remaining = segmentAssistantParts(parts, "standard")[0];
+    expect(remaining?.type === "part" && remaining.part.type === "tool_call"
+      ? remaining.part.tool_call_id
+      : null).toBe("read");
+  });
+
   it("keeps every process row after extracting answer text", () => {
     const parts: AgentPart[] = [
       { type: "thinking", text: "hmm" },

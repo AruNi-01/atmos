@@ -22,8 +22,13 @@ import {
 } from "@/features/agent/lib/agent-chat-message-nav";
 import { AgentIcon } from "./AgentIcon";
 
+type TimelineAgent = Pick<RegistryAgent, "id" | "name"> & {
+  icon?: string | null;
+  install_method?: string;
+};
+
 interface AgentMessageTimelineNavProps {
-  activeAgent: RegistryAgent | null;
+  activeAgent: TimelineAgent | null;
   messages: AgentMessage[];
   userMessageIndices: number[];
   activeMessageIndex: number;

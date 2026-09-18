@@ -48,6 +48,7 @@ export interface PendingWorkspaceAgentRun {
   projectId?: string | null;
   prompt: string;
   command?: string;
+  reuseIdlePane?: boolean;
   agentRunConfig?: TerminalAgentRunConfigInput | null;
   agent?: {
     id: string;
@@ -134,13 +135,14 @@ export const useWorkspaceCreationStore = create<WorkspaceCreationState>((set) =>
     set({
       autoOpenedWorkspaceId: workspaceId,
     }),
-  queueAgentRun: ({ workspaceId, projectId, prompt, command, agent, agentRunConfig }) =>
+  queueAgentRun: ({ workspaceId, projectId, prompt, command, reuseIdlePane, agent, agentRunConfig }) =>
     set({
       pendingAgentRun: {
         workspaceId,
         projectId,
         prompt,
         command,
+        reuseIdlePane,
         agent,
         agentRunConfig,
         createdAt: Date.now(),

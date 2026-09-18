@@ -12,12 +12,15 @@ import {
   AGENT_CHAT_TRANSCRIPT_GAP,
   AGENT_CHAT_TRANSCRIPT_OVERSCAN,
   AGENT_CHAT_USER_ROW_ESTIMATE,
+  TRANSCRIPT_END_SLACK_PX,
   agentMessageHasMermaid,
   estimateAgentChatMessageSize,
   estimateTranscriptInitialOffset,
   estimateTranscriptTotalSize,
+  isTranscriptScrolledToEnd,
   measureTranscriptScrollMargin,
   mergeMermaidKeepAliveRange,
+  mergeIndexKeepAliveRange,
   transcriptBottomPadPx,
   transcriptBottomPadStyle,
 } from "@/features/agent/lib/agent-chat-transcript-window";
@@ -67,6 +70,16 @@ describe("estimateTranscriptTotalSize", () => {
     const total = estimateTranscriptTotalSize(roles);
     expect(estimateTranscriptInitialOffset(roles, 600)).toBe(total - 600);
     expect(estimateTranscriptInitialOffset(["user"], 800)).toBe(0);
+  });
+
+  it("treats a remaining pixel gap within slack as already at the end", () => {
+    expect(
+      isTranscriptScrolledToEnd({ scrollHeight: 4000, scrollTop: 3400, clientHeight: 600 }),
+    ).toBe(true);
+    expect(
+      isTranscriptScrolledToEnd({ scrollHeight: 4000, scrollTop: 2000, clientHeight: 600 }),
+    ).toBe(false);
+    expect(TRANSCRIPT_END_SLACK_PX).toBe(24);
   });
 
   it("uses the taller mermaid estimate when a turn contains a diagram", () => {
@@ -126,6 +139,12 @@ describe("transcript virtual list wiring", () => {
     expect(list).toContain("AGENT_CHAT_TRANSCRIPT_OVERSCAN");
     expect(list).toContain("AGENT_CHAT_TRANSCRIPT_GAP");
     expect(list).toContain("mergeMermaidKeepAliveRange");
+    expect(list).toContain("mergeIndexKeepAliveRange");
+    expect(list).toContain("keepMessageIndexes");
+    expect(list).toContain("initialScrollIndex");
+    expect(list).toContain("pinToEnd");
+    expect(list).toContain("isTranscriptScrolledToEnd");
+    expect(list).toContain("stayPinnedToEndRef");
     expect(list).toContain("mermaidFlags[index] === true");
     expect(list).toContain("findAgentChatScrollElement");
     expect(list).toContain("activityStatus");
@@ -144,10 +163,11 @@ describe("transcript virtual list wiring", () => {
     expect(list).not.toContain("invisible pointer-events-none");
     expect(list).not.toContain("stickyUserPinLayout");
     expect(list).not.toContain("pin?.translateY");
-    expect(panel).toContain("relative min-h-0 overflow-hidden");
+    expect(panel).toContain("relative min-h-0 flex-1 overflow-hidden");
     expect(panel).toContain("data-agent-chat-composer-fade");
     expect(panel).toContain("AGENT_CHAT_COMPOSER_FADE_CLASS");
     expect(list).toContain("StickToBottomStop");
+    expect(list).toContain("skipEndAnchorRef");
     expect(list).not.toContain('from "use-stick-to-bottom"');
     expect(panel).toContain("activityStatus=");
     expect(panel).toContain("<AgentActivityIndicator");
@@ -204,5 +224,12 @@ describe("mergeMermaidKeepAliveRange", () => {
     expect(second.kept).toEqual([3, 1]);
     expect(second.range).toEqual([1, 3, 4, 5]);
     expect(AGENT_CHAT_MERMAID_KEEPALIVE).toBeGreaterThan(0);
+  });
+});
+
+describe("mergeIndexKeepAliveRange", () => {
+  it("keeps find-hit rows mounted outside the default range", () => {
+    expect(mergeIndexKeepAliveRange([8, 9, 10], [1, 9, 12])).toEqual([1, 8, 9, 10, 12]);
+    expect(mergeIndexKeepAliveRange([0, 1], [])).toEqual([0, 1]);
   });
 });

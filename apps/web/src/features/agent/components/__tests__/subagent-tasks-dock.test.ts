@@ -10,6 +10,10 @@ const composer = readFileSync(
   join(import.meta.dir, "../AgentPromptComposer.tsx"),
   "utf8",
 );
+const overlays = readFileSync(
+  join(import.meta.dir, "../AgentChatAboveComposerOverlays.tsx"),
+  "utf8",
+);
 const panel = readFileSync(
   join(import.meta.dir, "../AgentChatPanel.tsx"),
   "utf8",
@@ -22,31 +26,42 @@ const session = readFileSync(
   join(import.meta.dir, "../../hooks/use-agent-chat-session.ts"),
   "utf8",
 );
+const messageView = readFileSync(
+  join(import.meta.dir, "../AgentChatMessageView.tsx"),
+  "utf8",
+);
+const list = readFileSync(
+  join(import.meta.dir, "../AgentChatTranscriptList.tsx"),
+  "utf8",
+);
+const hostDetail = readFileSync(
+  join(import.meta.dir, "../../../agent-sessions/components/HostSessionDetailView.tsx"),
+  "utf8",
+);
 
 describe("subagent tasks panel", () => {
   it("floats in the context-usage overlay lane, not the plan/queue stack", () => {
-    expect(composer).toContain("<SubagentTasksPanel");
-    expect(composer).toContain("showSubagentTasksCard");
-    expect(composer).toContain('key="agent-subagent-tasks"');
+    expect(composer).toContain("<AgentChatAboveComposerOverlays");
+    expect(overlays).toContain("<SubagentTasksPanel");
+    expect(overlays).toContain("showSubagentTasksCard");
+    expect(overlays).toContain('key="agent-subagent-tasks"');
     expect(composer).not.toContain("<SubagentTasksDock");
-    const overlayAt = composer.indexOf("data-agent-chat-above-composer-overlays");
-    const panelAt = composer.indexOf("<SubagentTasksPanel");
+    const overlayAt = overlays.indexOf("data-agent-chat-above-composer-overlays");
+    const panelAt = overlays.indexOf("<SubagentTasksPanel");
     const stackAt = composer.indexOf("data-agent-composer-upper-cards");
     const queueAt = composer.indexOf("<MessageQueueDock");
     expect(overlayAt).toBeGreaterThan(-1);
     expect(panelAt).toBeGreaterThan(overlayAt);
-    expect(stackAt).toBeGreaterThan(panelAt);
+    expect(stackAt).toBeGreaterThan(-1);
     expect(queueAt).toBeGreaterThan(stackAt);
-    expect(composer).toContain(
-      "Boolean(currentPlan)\n    || hasBackgroundTools\n    || hasQueuedPrompts",
-    );
+    expect(composer).toContain("currentPlan && !showGrokGoalCard");
     expect(composer).not.toContain("|| hasSubagentTasks\n    || hasBackgroundTools");
   });
 
   it("uses a matrix orb while running and opens the shared overlay", () => {
-    expect(dock).toContain("w-full rounded-3xl border border-border bg-background p-3 shadow-none");
+    expect(dock).toContain("flex min-h-0 w-full flex-col overflow-hidden rounded-3xl border border-border bg-background p-3 shadow-none");
     expect(dock).toContain("data-agent-subagent-tasks-panel");
-    expect(dock).toContain("Collapsible");
+    expect(dock).toContain("overflow-y-auto overscroll-contain");
     expect(dock).toContain("ComposerCollapseGlyph");
     expect(dock).toContain("BotMessageSquare");
     expect(dock).toContain("collapsed={!isOpen}");
@@ -73,23 +88,27 @@ describe("subagent tasks panel", () => {
   });
 
   it("covers the tasks card with a column-capped detail overlay", () => {
-    expect(composer).toContain('data-agent-subagent-overlay=""');
-    expect(composer).toContain("subagentOverlayFrameHeight");
-    expect(composer).toContain('closest("[data-agent-chat-column]")');
-    expect(composer).toContain("const overlayOpen = Boolean(subagentOverlay)");
-    expect(composer).toContain("new ResizeObserver(apply)");
-    expect(composer).toContain("if (lane.style.height !== next) lane.style.height = next");
-    expect(composer).toContain("}, [overlayOpen]");
-    expect(composer).not.toContain("}, [subagentOverlay]");
-    expect(composer).toContain('subagentOverlay && "overflow-hidden"');
-    expect(composer).toContain('subagentOverlay && "h-full min-h-0 flex-1 overflow-hidden"');
-    expect(composer).toContain("pointer-events-auto relative z-30 flex h-full min-h-0 min-w-0 w-full flex-1 select-text flex-col overflow-hidden");
-    expect(composer).not.toContain("h-[70cqh] max-h-[70cqh]");
-    expect(composer).not.toContain("h-[80cqh] max-h-[80cqh]");
-    expect(composer).not.toContain("max-h-[min(70cqh,calc(100cqh-100%-0.5rem))]");
-    expect(composer).not.toContain("max-h-[40%] overflow-y-auto");
-    expect(composer).toContain('key="agent-subagent-tasks"');
-    expect(composer).toContain("subagentOverlay && \"hidden\"");
+    expect(overlays).toContain('data-agent-subagent-overlay=""');
+    expect(overlays).toContain("subagentOverlayFrameHeight");
+    expect(overlays).toContain('closest("[data-agent-chat-column]")');
+    expect(overlays).toContain('closest("[data-agent-chat-composer]")');
+    expect(overlays).toContain("const overlayOpen = Boolean(subagentOverlay)");
+    expect(overlays).toContain("new ResizeObserver(apply)");
+    expect(overlays).toContain("if (lane.style.height !== next) lane.style.height = next");
+    expect(overlays).toContain("}, [capOverlayLane, composerSurfaceRef, laneNode, overlayOpen]");
+    expect(overlays).toContain("capOverlayLane");
+    expect(overlays).toContain("OVERLAY_CARD_MAX_HEIGHT_VAR");
+    expect(overlays).toContain("OVERLAY_CARD_MAX_HEIGHT_CLASS");
+    expect(overlays).toContain('capOverlayLane && "overflow-hidden"');
+    expect(overlays).not.toContain("}, [subagentOverlay]");
+    expect(overlays).toContain('subagentOverlay && "h-full min-h-0 flex-1 overflow-hidden"');
+    expect(overlays).toContain("pointer-events-auto relative z-30 flex h-full min-h-0 min-w-0 w-full flex-1 select-text flex-col overflow-hidden");
+    expect(overlays).not.toContain("h-[70cqh] max-h-[70cqh]");
+    expect(overlays).not.toContain("h-[80cqh] max-h-[80cqh]");
+    expect(overlays).not.toContain("max-h-[min(70cqh,calc(100cqh-100%-0.5rem))]");
+    expect(overlays).not.toContain("max-h-[40%] overflow-y-auto");
+    expect(overlays).toContain('key="agent-subagent-tasks"');
+    expect(overlays).toContain("subagentOverlay && \"hidden\"");
     expect(overlay).toContain("AgentChatMessageView");
     expect(overlay).toContain("<AgentActivityIndicator");
     expect(overlay).toContain("elapsedMs");
@@ -117,5 +136,12 @@ describe("subagent tasks panel", () => {
     expect(session).toContain("currentTurnSubagentTasks(messages, {");
     expect(session).toContain("subagentTasks");
     expect(panel).toContain("subagentTasks={subagentTasks}");
+    expect(panel).toContain('subagentCardMode="live"');
+    expect(list).toContain("inlineSubagentTasksByMessageId");
+    expect(list).toContain("inlineSubagentTools={inlineSubagentTools.get(message.id)}");
+    expect(messageView).toContain("<SubagentTasksPanel");
+    expect(hostDetail).toContain('subagentCardMode="transcript"');
+    expect(hostDetail).toContain("subagentTasks={{ items: [], tools: [] }}");
+    expect(hostDetail).not.toContain("currentTurnSubagentTasks");
   });
 });

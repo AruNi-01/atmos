@@ -6,6 +6,10 @@ const composerFile = readFileSync(
   join(import.meta.dir, "../AgentPromptComposer.tsx"),
   "utf8",
 );
+const overlays = readFileSync(
+  join(import.meta.dir, "../AgentChatAboveComposerOverlays.tsx"),
+  "utf8",
+);
 const configInput = readFileSync(
   join(import.meta.dir, "../ChatAgentConfigInput.tsx"),
   "utf8",
@@ -119,17 +123,18 @@ describe("agent prompt composer", () => {
     expect(composer).not.toContain("onFlySend");
     expect(composer).toContain("data-agent-composer-upper-cards");
     expect(composer).toContain("<BackgroundCommandsDock tools={backgroundTools} />");
-    expect(composer).toContain("<SubagentTasksPanel");
-    expect(composer).toContain("showSubagentTasksCard");
-    expect(composer).toContain('data-agent-chat-above-composer-overlays=""');
-    expect(composer).toContain(
+    expect(composerFile).toContain("<AgentChatAboveComposerOverlays");
+    expect(overlays).toContain("<SubagentTasksPanel");
+    expect(overlays).toContain("showSubagentTasksCard");
+    expect(overlays).toContain('data-agent-chat-above-composer-overlays=""');
+    expect(overlays).toContain(
       '"pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full min-h-0 flex-col gap-2 has-[.pointer-events-auto]:pb-2"',
     );
-    expect(composer).toContain('data-agent-chat-scroll-button-host=""');
-    expect(composer).toContain("empty:hidden");
-    expect(composer).toContain('hasUpperComposerCards && "px-6"');
-    expect(composer.indexOf("data-agent-chat-scroll-button-host")).toBeLessThan(
-      composer.indexOf("data-agent-composer-upper-cards"),
+    expect(overlays).toContain('data-agent-chat-scroll-button-host=""');
+    expect(overlays).toContain("empty:hidden");
+    expect(overlays).toContain('hasUpperComposerCards && "px-6"');
+    expect(composerFile.indexOf("<AgentChatAboveComposerOverlays")).toBeLessThan(
+      composerFile.indexOf("data-agent-composer-upper-cards"),
     );
     expect(composer).toContain("modelsLocked={modelsLocked}");
     expect(composer).toContain("modesLocked={modesLocked}");

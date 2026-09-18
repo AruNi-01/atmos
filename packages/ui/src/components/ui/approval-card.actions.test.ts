@@ -43,4 +43,14 @@ describe("approval-card dynamic actions", () => {
     expect(card).toContain("resolvedReject");
     expect(card).toContain("resolvedApprove");
   });
+
+  it("readOnly hides footer actions and allowCustom is off by default", () => {
+    expect(card).toContain("readOnly?: boolean");
+    expect(card).toContain("allowCustom?: boolean");
+    expect(card).toContain("allowCustom = false");
+    expect(card).toContain('data-readonly={readOnly ? "true" : undefined}');
+    expect(card).toContain("{allowCustom ? (");
+    expect(card).toContain("showFooter");
+    expect(card).toContain("{readOnly ? null : (");
+  });
 });

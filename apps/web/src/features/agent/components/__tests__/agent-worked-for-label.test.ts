@@ -11,7 +11,7 @@ describe("agent worked-for label", () => {
   it("keeps duration static unless timestamp reveal is requested", () => {
     expect(label).toContain('reveal = "duration"');
     expect(label).toContain('reveal?: "duration" | "timestamp"');
-    expect(label).toContain('const swapOnHover = reveal === "timestamp" && Boolean(clock)');
+    expect(label).toContain('const swapOnHover = reveal === "timestamp" && Boolean(clock) && hasDuration');
     expect(label).toContain("formatWorkedAt");
     expect(label).toContain("formatWorkDuration");
   });

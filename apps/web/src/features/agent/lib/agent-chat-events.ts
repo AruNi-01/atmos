@@ -4,6 +4,7 @@ import type {
   AgentMessage,
   AgentPart,
 } from "@atmos/api-types/ws/dto/agent-chat";
+import { settlePendingUserMessage } from "@/features/agent/lib/agent-chat-pending-echo";
 import {
   defaultToolParams,
   isActiveToolStatus,
@@ -170,6 +171,14 @@ function patchCurrentTurnAssistant(
   ];
 }
 
+function mergeStreamDelta(existing: string, delta: string): string {
+  if (!delta) return existing;
+  if (!existing) return delta;
+  if (delta === existing) return existing;
+  if (delta.startsWith(existing)) return delta;
+  return `${existing}${delta}`;
+}
+
 function appendTextPart(
   parts: AgentPart[],
   type: "text" | "thinking",
@@ -183,9 +192,10 @@ function appendTextPart(
     ? last.parent_tool_call_id?.trim() || undefined
     : undefined;
   if (last && last.type === type && lastParent === parent) {
+    const text = mergeStreamDelta(last.text ?? "", delta);
     next[next.length - 1] = parent
-      ? { ...last, type, text: `${last.text ?? ""}${delta}`, parent_tool_call_id: parent }
-      : { ...last, type, text: `${last.text ?? ""}${delta}` };
+      ? { ...last, type, text, parent_tool_call_id: parent }
+      : { ...last, type, text };
     return next;
   }
   next.push(parent ? { type, text: delta, parent_tool_call_id: parent } : { type, text: delta });
@@ -361,7 +371,7 @@ function foldAgentChatEvent(
         name: path.split(/[\\/]/).at(-1) ?? path,
       });
     }
-    return upsertMessage(messages, {
+    return settlePendingUserMessage(messages, {
       id: payload.message_id,
       role: "user",
       kind: payload.kind,

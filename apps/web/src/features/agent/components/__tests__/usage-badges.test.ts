@@ -7,6 +7,10 @@ const composer = readFileSync(
   join(import.meta.dir, "../AgentPromptComposer.tsx"),
   "utf8",
 );
+const overlays = readFileSync(
+  join(import.meta.dir, "../AgentChatAboveComposerOverlays.tsx"),
+  "utf8",
+);
 
 describe("context window usage control", () => {
   it("uses theme foreground for normal tone and keeps warning yellow", () => {
@@ -25,33 +29,35 @@ describe("context window usage control", () => {
     expect(badges).not.toContain("PopoverTrigger");
     expect(badges).not.toContain("contextWindowUsesInlinePanel");
     expect(badges).not.toContain("inlinePanel");
-    expect(composer).toContain("<ContextUsageDetailsPanel");
-    expect(composer).toContain("showContextUsageCard");
-    expect(composer).toContain('data-agent-chat-above-composer-overlays=""');
-    expect(composer).toContain(
-      '"pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full flex-col gap-2 has-[.pointer-events-auto]:pb-2"',
+    expect(composer).toContain("<AgentChatAboveComposerOverlays");
+    expect(overlays).toContain("<ContextUsageDetailsPanel");
+    expect(overlays).toContain("showContextUsageCard");
+    expect(overlays).toContain('data-agent-chat-above-composer-overlays=""');
+    expect(overlays).toContain(
+      '"pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full min-h-0 flex-col gap-2 has-[.pointer-events-auto]:pb-2"',
     );
-    expect(composer).toContain("AnimatePresence");
-    expect(composer).toContain('key="agent-context-usage"');
-    expect(composer).toContain('position: "absolute"');
+    expect(overlays).toContain("AnimatePresence");
+    expect(overlays).toContain('key="agent-context-usage"');
+    expect(overlays).toContain('position: "absolute"');
     // Floating cards match the prompt lane. When plan/queue/background docks
     // are present they stay inset (mx-6) and the overlay uses px-6 to align.
-    expect(composer).toContain('"pointer-events-auto w-full"');
-    expect(composer).not.toContain("pointer-events-auto mx-6\">\n                <ContextUsageDetailsPanel");
-    expect(composer).toContain('hasUpperComposerCards && "px-6"');
+    expect(overlays).toContain("OVERLAY_CARD_MAX_HEIGHT_CLASS");
+    expect(overlays).toContain("pointer-events-auto flex min-h-0 w-full flex-col overflow-hidden");
+    expect(overlays).not.toContain("pointer-events-auto mx-6\">\n                <ContextUsageDetailsPanel");
+    expect(overlays).toContain('hasUpperComposerCards && "px-6"');
     expect(composer).not.toContain("showComposerCardStack");
     expect(composer).not.toContain("contextWindowUsesInlinePanel");
     expect(composer).not.toContain("contextUsageInlinePanel");
-    expect(composer).not.toContain("<ContextUsageDetailsPanel\n              usage={sessionUsage}\n              providerId={registryId}\n              embedded");
+    expect(overlays).not.toContain("<ContextUsageDetailsPanel\n              usage={sessionUsage}\n              providerId={registryId}\n              embedded");
     // Context usage / approvals float above the input with a gap. Plan and
     // queue sit in-flow, inset, and flush against the prompt chrome.
-    const overlayAt = composer.indexOf("data-agent-chat-above-composer-overlays");
-    const panelAt = composer.indexOf("<ContextUsageDetailsPanel");
+    const overlayAt = overlays.indexOf("data-agent-chat-above-composer-overlays");
+    const panelAt = overlays.indexOf("<ContextUsageDetailsPanel");
     const queueAt = composer.indexOf("<MessageQueueDock");
     const promptAt = composer.indexOf("<PromptInputProvider>");
     expect(overlayAt).toBeGreaterThan(-1);
     expect(panelAt).toBeGreaterThan(overlayAt);
-    expect(queueAt).toBeGreaterThan(panelAt);
+    expect(queueAt).toBeGreaterThan(composer.indexOf("<AgentChatAboveComposerOverlays"));
     expect(promptAt).toBeGreaterThan(queueAt);
     expect(composer).toContain(
       "relative z-[1] mx-6 overflow-hidden rounded-t-3xl border border-b-0 border-foreground/10 bg-foreground/[0.04]",

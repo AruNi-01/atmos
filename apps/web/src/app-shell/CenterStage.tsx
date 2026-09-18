@@ -1854,6 +1854,7 @@ const CenterStage: React.FC = () => {
         command: plan.launchCommand,
         tuiFollowUpPrompt: plan.tuiFollowUpPrompt,
         agent: selectedAgent.agent,
+        reuseIdlePane: pending.reuseIdlePane,
       });
     }, 40);
   }, [

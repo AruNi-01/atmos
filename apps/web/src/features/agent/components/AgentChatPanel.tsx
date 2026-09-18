@@ -9,7 +9,6 @@ import {
   ConversationEmptyState,
   cn,
 } from "@workspace/ui";
-import LogoSvg from "@workspace/ui/components/logo-svg";
 import { Loader2, MessageSquare, X } from "lucide-react";
 import { useAgentChatLayoutStore } from "@/features/agent/store/agent-chat-layout-store";
 import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/features/agent/types/index";
@@ -37,13 +36,20 @@ import {
 } from "./AgentChatHistorySidebarFrame";
 import { AgentChatScrollToBottomButton } from "./AgentChatScrollToBottom";
 import { AgentChatTranscriptList } from "./AgentChatTranscriptList";
+import { AgentChatComposerDock } from "./AgentChatComposerDock";
+import { AgentChatOwnSendRuntime } from "./AgentChatOwnSendRuntime";
+import { AgentChatOwnSendRefsProvider } from "./agent-chat-own-send-context";
+import { FindPanel, useFindPanel } from "@/features/editor/components/FindPanel";
+import { TRANSCRIPT_FIND_SCOPE, type MarkdownFindQuery } from "@/features/editor/lib/markdown-find";
+import { grokChromeAgentIds } from "@/features/agent/lib/grok-chrome";
+import { transcriptFindMessageIndexes } from "@/features/agent/lib/transcript-find";
 import { createMessagesBelowCountStore } from "../lib/agent-chat-below-count";
 import { AgentChatCwdProvider } from "./agent-chat-cwd-context";
 import { openAgentChatWindow } from "../lib/desktop-agent-chat-window";
 import { ackAgentChatAttention } from "../lib/agent-status-ack";
 import { isAgentNewChatLanding } from "../lib/agent-composer-placeholder";
 import { findSubagentToolCall } from "../lib/subagent-tasks";
-import { useReducedMotion } from "motion/react";
+import { useReducedMotion, motion } from "motion/react";
 import {
   AGENT_CHAT_COMPOSER_FADE_CLASS,
   AGENT_CHAT_OVERLAY_PAD_SHRINK_MS,
@@ -52,6 +58,10 @@ import {
   transcriptBottomPadPx,
   transcriptBottomPadStyle,
 } from "../lib/agent-chat-transcript-window";
+import {
+  composerDockMotion,
+  composerTranscriptChrome,
+} from "../lib/agent-chat-composer-dock";
 import { useAgentChatHistorySidebarLayout } from "../hooks/use-agent-chat-history-sidebar-layout";
 import {
   closeCurrentStandaloneWindow,
@@ -513,10 +523,36 @@ export function AgentChatPanel({
   } = session;
 
   const [selectedSubagentId, setSelectedSubagentId] = useState<string | null>(null);
+  const [findRoot, setFindRoot] = useState<HTMLElement | null>(null);
+  const [findQuery, setFindQuery] = useState<MarkdownFindQuery>({
+    search: "",
+    caseSensitive: false,
+    wholeWord: false,
+    regexp: false,
+  });
+  const { open: findOpen, setOpen: setFindOpen, focusNonce: findFocusNonce } = useFindPanel(
+    active && messages.length > 0,
+  );
+  const handleFindQueryChange = useCallback((query: MarkdownFindQuery) => {
+    setFindQuery(query);
+  }, []);
+  const keepMessageIndexes = useMemo(
+    () => (findOpen ? transcriptFindMessageIndexes(messages, findQuery) : []),
+    [findOpen, findQuery, messages],
+  );
+  const grokChromeIds = useMemo(
+    () => grokChromeAgentIds(grokGoal, grokWorkflow),
+    [grokGoal, grokWorkflow],
+  );
 
   useEffect(() => {
     setSelectedSubagentId(null);
-  }, [liveChatId, chatId]);
+    setFindOpen(false);
+  }, [liveChatId, chatId, setFindOpen]);
+
+  useLayoutEffect(() => {
+    setFindRoot(findAgentChatScrollElement(transcriptRef.current) ?? transcriptRef.current);
+  }, [liveChatId, chatId, messages.length, transcriptRef]);
 
   useEffect(() => {
     if (!selectedSubagentId) return;
@@ -712,6 +748,7 @@ export function AgentChatPanel({
   const [aboveComposerOverlayPadPx, setAboveComposerOverlayPadPx] = useState(0);
   const aboveComposerOverlayPadPxRef = useRef(0);
   const [overlayPadShrinkMotion, setOverlayPadShrinkMotion] = useState(false);
+  const [ownSendRunwayPx, setOwnSendRunwayPx] = useState(0);
   const reduceOverlayPadMotion = Boolean(useReducedMotion());
 
   useEffect(() => {
@@ -785,7 +822,9 @@ export function AgentChatPanel({
     return () => window.clearTimeout(hold);
   }, [aboveComposerOverlayPadPx, reduceOverlayPadMotion, transcriptRef]);
 
-  const transcriptBottomPad = transcriptBottomPadPx(aboveComposerOverlayPadPx);
+  const transcriptBottomPad = transcriptBottomPadPx(aboveComposerOverlayPadPx) + ownSendRunwayPx;
+  const transcriptChrome = composerTranscriptChrome(!isNewChatLanding, reduceOverlayPadMotion);
+  const dockMotion = composerDockMotion(!isNewChatLanding, reduceOverlayPadMotion);
 
   // Host `active`, not pause-gated session.isPanelOpen (that returned null before the placeholder).
   if (!active || (variant === "modal" && !layoutLoaded)) return null;
@@ -982,17 +1021,12 @@ export function AgentChatPanel({
         ) : null}
 
       <div
-        className={cn(
-          /* size container so permission cards can use 50cqh ≈ half of this column */
-          "flex min-h-0 flex-1 flex-col [container-type:size] [container-name:agent-chat]",
-          isNewChatLanding ? "justify-center overflow-y-auto pb-20" : "overflow-hidden",
-        )}
+        className="flex min-h-0 flex-1 flex-col overflow-hidden [container-type:size] [container-name:agent-chat]"
         data-agent-chat-landing={isNewChatLanding ? "true" : undefined}
         data-agent-chat-column=""
       >
-      <div
-        className={cn("flex min-h-0 w-full pr-1", !isNewChatLanding && "flex-1")}
-      >
+      <AgentChatOwnSendRefsProvider>
+      <div className="flex min-h-0 w-full flex-1 pr-1">
         {showTimelineNav ? (
           <div
             data-agent-chat-timeline-nav=""
@@ -1008,12 +1042,17 @@ export function AgentChatPanel({
           </div>
         ) : null}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div
+      <motion.div
         ref={transcriptRef}
-        className={cn(
-          "relative min-h-0 overflow-hidden",
-          isNewChatLanding ? "hidden" : "flex-1",
-        )}
+        className="relative min-h-0 flex-1 overflow-hidden"
+        initial={false}
+        animate={{ opacity: transcriptChrome.opacity, y: transcriptChrome.y }}
+        transition={{
+          duration: transcriptChrome.duration,
+          delay: transcriptChrome.delay,
+          ease: dockMotion.ease,
+        }}
+        style={isNewChatLanding && messages.length === 0 ? { pointerEvents: "none" } : undefined}
       >
         <AgentChatCwdProvider
           cwd={sessionCwd || localPath}
@@ -1061,6 +1100,9 @@ export function AgentChatPanel({
                 onUserScrollIntent={releaseTimelineNavLock}
                 scrollToIndexRef={scrollToIndexRef}
                 belowCountStore={messagesBelowCountStore}
+                subagentCardMode="live"
+                excludeSubagentIds={grokChromeIds}
+                keepMessageIndexes={keepMessageIndexes}
                 activityStatus={
                   agentActivity.busy ? (
                     <AgentActivityIndicator activity={agentActivity} elapsedMs={elapsedMs} />
@@ -1091,8 +1133,29 @@ export function AgentChatPanel({
             host={aboveComposerOverlaysNode}
             belowCountStore={messagesBelowCountStore}
           />
+          <AgentChatOwnSendRuntime
+            messages={messages}
+            transcriptRef={transcriptRef}
+            runwayPx={ownSendRunwayPx}
+            onRunwayPxChange={setOwnSendRunwayPx}
+            reduceMotion={reduceOverlayPadMotion}
+            enabled={!isRestoringTranscript}
+            resetKey={liveChatId || chatId || "draft"}
+          />
           </Conversation>
         </AgentChatCwdProvider>
+        {messages.length > 0 ? (
+          <FindPanel
+            open={findOpen}
+            root={findRoot}
+            resetKey={liveChatId || chatId || "draft"}
+            focusNonce={findFocusNonce}
+            seedFromSelection
+            scopeSelector={TRANSCRIPT_FIND_SCOPE}
+            onQueryChange={handleFindQueryChange}
+            onClose={() => setFindOpen(false)}
+          />
+        ) : null}
         {messages.length > 0 ? (
           <div
             data-agent-chat-composer-fade=""
@@ -1100,17 +1163,13 @@ export function AgentChatPanel({
             className={AGENT_CHAT_COMPOSER_FADE_CLASS}
           />
         ) : null}
-      </div>
+      </motion.div>
 
       <div className="relative flex min-h-0 w-full shrink-0 flex-col">
-        {isNewChatLanding ? (
-          <div className={cn("px-3 pb-14", wideContentClassName)}>
-            <div className="flex justify-center" aria-hidden="true">
-              <LogoSvg className="h-20 w-auto text-foreground" />
-            </div>
-          </div>
-        ) : null}
-        <div className={cn("relative z-10 shrink-0", wideContentClassName)}>
+        <AgentChatComposerDock
+          landing={isNewChatLanding}
+          wideContentClassName={wideContentClassName}
+        >
           <AgentPromptComposer
             key={queueKey}
             currentPlan={currentPlan}
@@ -1222,10 +1281,11 @@ export function AgentChatPanel({
               ) : null
             }
           />
-        </div>
+        </AgentChatComposerDock>
       </div>
         </div>
       </div>
+      </AgentChatOwnSendRefsProvider>
       </div>
       <AgentAuthDialog
         authRequest={authRequest}

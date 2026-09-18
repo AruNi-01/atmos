@@ -94,9 +94,15 @@ import {
   dedupeAgentMessages,
   foldMessagesFromEvent,
 } from "@/features/agent/lib/agent-chat-events";
+import {
+  createPendingUserMessage,
+  insertPendingUserMessage,
+  keepPendingUserEchoes,
+  removePendingUserMessage,
+} from "@/features/agent/lib/agent-chat-pending-echo";
+import { routeBusySubmit, resolveFollowupPolicy } from "@/features/agent/lib/followup-policy";
 import { grokChromeAgentIds } from "@/features/agent/lib/grok-chrome";
 import { currentTurnSubagentTasks } from "@/features/agent/lib/subagent-tasks";
-import { routeBusySubmit, resolveFollowupPolicy } from "@/features/agent/lib/followup-policy";
 import { isLiveAgentRuntimeStatus } from "@/features/agent/lib/agent-composer-placeholder";
 import {
   clockFromElapsedMs,
@@ -579,7 +585,7 @@ export function useAgentChatSession({
     );
     const keepComposerChrome = loadedMessages.length === 0;
     applyDescriptor(meta.descriptor, { keepComposerChrome });
-    setMessages(loadedMessages);
+    setMessages((current) => keepPendingUserEchoes(loadedMessages, current));
     if (loadedMessages.length > 0) {
       onUpdatedRef.current?.(id, { hasMessages: true });
     }
@@ -1593,6 +1599,23 @@ export function useAgentChatSession({
     const files = message.files ?? [];
     if (!text && files.length === 0) return;
     setSendError(null);
+    const willQueue = busy && routeBusySubmit({
+      policy,
+      oneShot: options?.oneShot ?? null,
+      supportsSteer,
+    }) === "queue";
+    const pendingEcho = willQueue
+      ? null
+      : createPendingUserMessage({
+          text,
+          attachments: files.map((file) => ({
+            path: file.filename || file.url || "file",
+            name: file.filename || "file",
+          })),
+        });
+    if (pendingEcho) {
+      setMessages((current) => insertPendingUserMessage(current, pendingEcho));
+    }
     try {
       const selected = composerSelection();
       if (messages.length === 0) {
@@ -1660,7 +1683,12 @@ export function useAgentChatSession({
           supportsSteer,
         });
         if (action === "steer") {
-          if (!supportsSteer || !runningTurnId) return;
+          if (!supportsSteer || !runningTurnId) {
+            if (pendingEcho) {
+              setMessages((current) => removePendingUserMessage(current, pendingEcho.id));
+            }
+            return;
+          }
           await agentChatApi.steer(id, runningTurnId, text);
           return;
         }
@@ -1672,6 +1700,9 @@ export function useAgentChatSession({
         await agentChatApi.send(id, text, attachmentPaths);
       }
     } catch (error) {
+      if (pendingEcho) {
+        setMessages((current) => removePendingUserMessage(current, pendingEcho.id));
+      }
       const message = error instanceof Error ? error.message : "Could not send that message";
       const auth = authRequiredFromTurnError(message, providerIdRef.current);
       if (auth) {

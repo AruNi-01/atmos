@@ -49,8 +49,10 @@ describe("agent permission card", () => {
   it("command actions render agent-advertised options dynamically", () => {
     expect(card).toContain("permissionCommandActions");
     expect(card).toContain("preferredPrimaryOptionId");
-    expect(card).toContain("actions={commandActions.length > 0 ? commandActions : undefined}");
-    expect(card).toContain("onAction={(optionId) => onRespond(optionId)}");
+    expect(card).toContain(
+      "actions={readOnly || commandActions.length === 0 ? undefined : commandActions}",
+    );
+    expect(card).toContain("onAction={readOnly ? undefined : (optionId) => onRespond(optionId)}");
     expect(card).toContain("isAllowOnceOption");
   });
 
@@ -70,13 +72,13 @@ describe("agent permission card", () => {
     expect(card).toContain('t("viewTodos")');
     expect(card).toContain('label: t("approve")');
     expect(card).toContain("VIEW_PLAN_ACTION_ID");
-    expect(card).toContain("actions={planActions}");
+    expect(card).toContain("actions={readOnly ? undefined : planActions}");
     expect(card).toContain("hasTodos");
     expect(card).toContain("if (hasTodos)");
     expect(card).toContain("showPlanPreview");
     expect(card).toContain('planView={showPlanPreview ? "body" : "todos"}');
     expect(card).toContain("plan={planSteps}");
-    expect(card).toContain("hasTodos || showPlanPreview");
+    expect(card).toContain("hasTodos || overviewMarkdown || (!readOnly && showPlanPreview)");
     expect(card).toContain("setViewingPlan((open) => !open)");
     expect(card).toContain('viewingPlan ? t("viewTodos") : t("viewPlan")');
     expect(card).toContain("max-h-[70cqh]");
@@ -109,5 +111,14 @@ describe("agent permission card", () => {
     expect(card).not.toContain("28cqh");
     expect(card).not.toContain("max-h-[min(70vh,36rem)]");
     expect(card).not.toContain("min-h-[16rem]");
+  });
+
+  it("historic transcript cards are read-only: no Skip/Continue/Other, no empty ExitPlan hint", () => {
+    expect(card).toContain("readOnly = false");
+    expect(card).toContain("readOnly={readOnly}");
+    expect(card).toContain("allowCustom={false}");
+    expect(card).toContain("actions={readOnly ? undefined : planActions}");
+    expect(card).toContain("hasTodos || overviewMarkdown || (!readOnly && showPlanPreview)");
+    expect(card).toContain(": readOnly ? null :");
   });
 });

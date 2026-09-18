@@ -1,11 +1,12 @@
 import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
-import { isGrokChromeRosterSubagent } from "@/features/agent/lib/grok-chrome";
+import { isGrokChromeRosterSubagent, isGrokChromeSubagent } from "@/features/agent/lib/grok-chrome";
 import {
   isActiveToolStatus,
   isSubagentWaitTool,
   type AgentToolCallPart,
 } from "@/features/agent/lib/agent-tool-kind";
 import { deriveAgentActivity, type AgentActivity } from "@/features/agent/lib/chat-helpers";
+import { promptToCompleteMs } from "@/features/agent/lib/agent-chat-timing";
 import { isNestedSubagentChild } from "@/features/agent/lib/tool-group";
 
 export type SubagentTaskStatus = "running" | "completed" | "failed";
@@ -19,9 +20,24 @@ const EMPTY_TASKS: CurrentTurnSubagentTasks = { items: [], tools: [] };
 
 function lastUserIndex(messages: AgentMessage[]): number {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
-    if (messages[index]?.role === "user") return index;
+    const message = messages[index];
+    if (message?.role !== "user") continue;
+    if (isClaudeTaskNotificationText(userMessageText(message))) continue;
+    return index;
   }
   return -1;
+}
+
+function userMessageText(message: AgentMessage): string {
+  return message.parts
+    .flatMap((part) => (part.type === "text" ? [part.text] : []))
+    .join("\n");
+}
+
+/** Claude injects this as a real user turn when a Task finishes; it is not a new prompt. */
+export function isClaudeTaskNotificationText(text: string): boolean {
+  const trimmed = text.trim();
+  return trimmed.startsWith("<task-notification>") || trimmed.includes("<task-notification>");
 }
 
 export function subagentDescription(part: AgentToolCallPart): string {
@@ -101,6 +117,51 @@ export function subagentTaskStatus(part: AgentToolCallPart): SubagentTaskStatus 
   return "completed";
 }
 
+export type SubagentCardMode = "live" | "transcript";
+
+function topLevelSubagentItems(
+  tools: AgentToolCallPart[],
+  allTools: AgentToolCallPart[],
+  excludeIds?: Iterable<string>,
+): AgentToolCallPart[] {
+  return tools.filter(
+    (part) =>
+      part.kind === "subagent"
+      && !isNestedSubagentChild(part, allTools)
+      && !isGrokChromeRosterSubagent(part, excludeIds),
+  );
+}
+
+/** Cards that sit under an assistant message. Live current-turn rows stay in the overlay. */
+export function inlineSubagentTasksByMessageId(
+  messages: AgentMessage[],
+  options?: { mode?: SubagentCardMode; excludeIds?: Iterable<string> },
+): Map<string, AgentToolCallPart[]> {
+  const mode = options?.mode ?? "live";
+  const lastUser = lastUserIndex(messages);
+  const allTools = collectToolCalls(messages);
+  const out = new Map<string, AgentToolCallPart[]>();
+
+  for (let index = 0; index < messages.length; index += 1) {
+    const message = messages[index];
+    if (message?.role !== "assistant") continue;
+    if (mode === "live" && index > lastUser) continue;
+
+    const turnTools: AgentToolCallPart[] = [];
+    const seen = new Set<string>();
+    for (const part of message.parts) {
+      if (part.type !== "tool_call") continue;
+      if (seen.has(part.tool_call_id)) continue;
+      seen.add(part.tool_call_id);
+      turnTools.push(part);
+    }
+    const items = topLevelSubagentItems(turnTools, allTools, options?.excludeIds);
+    if (items.length === 0) continue;
+    out.set(message.id, items);
+  }
+  return out;
+}
+
 export function currentTurnSubagentTasks(
   messages: AgentMessage[],
   options?: { followUpPending?: boolean; excludeIds?: Iterable<string> },
@@ -124,9 +185,7 @@ export function currentTurnSubagentTasks(
 
   if (tools.length === 0) return EMPTY_TASKS;
 
-  const items = tools.filter(
-    (part) => part.kind === "subagent" && !isNestedSubagentChild(part, tools),
-  );
+  const items = topLevelSubagentItems(tools, tools, excludeIds);
   if (items.length === 0) return EMPTY_TASKS;
   // A queued/next-round prompt dismisses finished rows. Running ones stay until they settle.
   const visible = options?.followUpPending
@@ -243,8 +302,9 @@ export function messagesForSubagent(
   const descendants = new Set(
     descendantToolCalls(collectToolCalls(messages), toolCallId).map((tool) => tool.tool_call_id),
   );
-  const prompt =
-    subagentPrompt(parent) || subagentDescription(parent) || subagentTaskSummary(parent);
+  const prompt = isGrokChromeSubagent(parent)
+    ? subagentPrompt(parent)
+    : (subagentPrompt(parent) || subagentDescription(parent) || subagentTaskSummary(parent));
   const result = subagentResultText(parent);
   const running = subagentTaskStatus(parent) === "running";
   const parts: AgentPart[] = [];
@@ -266,35 +326,62 @@ export function messagesForSubagent(
     }
   }
 
-  if (result) parts.push({ type: "text", text: result });
+  if (result) {
+    const already = parts.some(
+      (part) => part.type === "text" && part.text.trim() === result.trim(),
+    );
+    if (!already) parts.push({ type: "text", text: result });
+  }
 
   const host = hostAssistantForTool(messages, toolCallId);
-  const createdAt = usableTimestamp(host?.created_at) ?? precedingUserCreatedAt(messages, host);
+  const userAt = precedingUserCreatedAt(messages, host);
+  const createdAt = usableTimestamp(host?.created_at) ?? userAt;
   const thinkingMs = nestedThinkingMs(parts);
-  const hostWorked = host?.worked_ms != null && host.worked_ms > 0 ? host.worked_ms : undefined;
-  const workedMs = running ? undefined : (thinkingMs > 0 ? thinkingMs : hostWorked);
   const completedAt = running
     ? undefined
     : (usableTimestamp(host?.completed_at) ?? createdAt ?? "completed");
+  const spanMs = running ? undefined : promptToCompleteMs(userAt ?? createdAt, completedAt);
+  const hostWorked = host?.worked_ms != null && host.worked_ms > 0 ? host.worked_ms : undefined;
+  const workedMs = running
+    ? undefined
+    : (spanMs ?? (thinkingMs > 0 ? thinkingMs : hostWorked));
 
-  return [
-    {
+  const projected: AgentMessage[] = [];
+  if (prompt.trim()) {
+    projected.push({
       id: `subagent:${toolCallId}:user`,
       role: "user",
       parts: [{ type: "text", text: prompt }],
-      created_at: createdAt,
-    },
-    {
-      id: `subagent:${toolCallId}:assistant`,
-      role: "assistant",
-      parts,
-      streaming: running,
-      created_at: createdAt,
-      thinking_ms: thinkingMs > 0 ? thinkingMs : undefined,
-      worked_ms: workedMs,
-      completed_at: completedAt,
-    },
-  ];
+      created_at: userAt ?? createdAt,
+    });
+  }
+  projected.push({
+    id: `subagent:${toolCallId}:assistant`,
+    role: "assistant",
+    parts,
+    streaming: running,
+    created_at: createdAt,
+    thinking_ms: thinkingMs > 0 ? thinkingMs : undefined,
+    worked_ms: workedMs,
+    completed_at: completedAt,
+  });
+  return projected;
+}
+
+export function subagentElapsedMs(
+  projected: AgentMessage[] | null | undefined,
+  now = Date.now(),
+): number {
+  if (!projected?.length) return 0;
+  const user = projected.find((message) => message.role === "user");
+  const assistant = projected.find((message) => message.role === "assistant");
+  if (assistant?.streaming) {
+    const start = Date.parse(user?.created_at ?? assistant.created_at ?? "");
+    if (!Number.isNaN(start) && start > 0) return Math.max(0, now - start);
+    return 0;
+  }
+  if (assistant?.worked_ms != null && assistant.worked_ms > 0) return assistant.worked_ms;
+  return promptToCompleteMs(user?.created_at, assistant?.completed_at) ?? 0;
 }
 
 export function subagentChildActivity(

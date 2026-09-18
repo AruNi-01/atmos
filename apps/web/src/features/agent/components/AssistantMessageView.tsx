@@ -21,6 +21,7 @@ import {
 } from "./AgentChatMarkdownFile";
 import { useAgentChatCwd, useAgentChatPathRoots } from "./agent-chat-cwd-context";
 import {
+  isAssistantAnswerTextPart,
   hasCollapsibleAssistantProcess,
   shouldAutoCollapseProcessOnSettle,
 } from "@/features/agent/lib/assistant-process-parts";
@@ -205,7 +206,7 @@ export function AssistantMessageView({
     />
   );
 
-  const renderSegment = (segment: AssistantSegment) => {
+  const renderSegment = (segment: AssistantSegment, searchable: boolean) => {
     if (segment.type === "tool_group") {
       const key = toolGroupKey(segment);
       return (
@@ -223,11 +224,23 @@ export function AssistantMessageView({
         />
       );
     }
-    return (
+    const part = (
       <AgentStreamReveal key={segment.origIndex} enabled={streaming}>
         {renderPart(segment.part, segment.origIndex)}
       </AgentStreamReveal>
     );
+    if (
+      searchable
+      && segment.type === "part"
+      && isAssistantAnswerTextPart(segment.part)
+    ) {
+      return (
+        <div key={`find-${segment.origIndex}`} data-transcript-find="answer">
+          {part}
+        </div>
+      );
+    }
+    return part;
   };
 
   if (canCollapse) {
@@ -259,7 +272,7 @@ export function AssistantMessageView({
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-2 pt-1">
             {stepsExpanded
-              ? processSegments.map((segment) => renderSegment(segment))
+              ? processSegments.map((segment) => renderSegment(segment, false))
               : null}
           </CollapsibleContent>
           <ProcessCollapseRail
@@ -268,14 +281,16 @@ export function AssistantMessageView({
             collapseLabel={t("assistantTurn.process.collapseLabel")}
           />
         </Collapsible>
-        {tailSegments.map((segment) => renderSegment(segment))}
+        {tailSegments.map((segment) => renderSegment(segment, true))}
       </AssistantProcessInspectProvider>
     );
   }
 
   return (
     <AssistantProcessInspectProvider onInspect={markInspecting}>
-      {segments.map((segment) => renderSegment(segment))}
+      {segments.map((segment) =>
+        renderSegment(segment, tailSegments.includes(segment)),
+      )}
     </AssistantProcessInspectProvider>
   );
 }

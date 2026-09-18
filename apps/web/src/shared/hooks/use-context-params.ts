@@ -20,6 +20,7 @@ export type CurrentView =
   | "token-usage"
   | "tasks"
   | "pt-design"
+  | "agent-sessions"
   | "settings";
 
 interface ContextParams {
@@ -102,6 +103,7 @@ export function parseContextParams(
   if (firstSegment === "token-usage") return { ...EMPTY, currentView: "token-usage" };
   if (firstSegment === "tasks") return { ...EMPTY, currentView: "tasks" };
   if (firstSegment === "pt-design") return { ...EMPTY, currentView: "pt-design" };
+  if (firstSegment === "agent-sessions") return { ...EMPTY, currentView: "agent-sessions" };
   if (firstSegment === "settings") return { ...EMPTY, currentView: "settings" };
 
   return { ...EMPTY, currentView: "welcome" };
@@ -139,6 +141,7 @@ function parseContextParamsFromHref(href: string): ContextParams | null {
  *   /token-usage             → token usage dashboard
  *   /tasks                   → task surface
  *   /pt-design               → Prototype Design overview (saved boards)
+ *   /agent-sessions          → Agent Sessions (host CLI transcripts)
  *   /settings                → settings (shell uses return-path underlay)
  */
 export function useContextParams(): ContextParams {

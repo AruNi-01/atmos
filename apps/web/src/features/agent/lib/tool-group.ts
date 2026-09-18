@@ -1,5 +1,6 @@
 import type { AgentPart, AgentToolKind } from "@atmos/api-types/ws/dto/agent-chat";
 import {
+  isHiddenTranscriptChromePart,
   isSubagentWaitTool,
   type AgentToolCallPart,
 } from "@/features/agent/lib/agent-tool-kind";
@@ -91,11 +92,12 @@ function isSessionChromePart(part: AgentPart): boolean {
     part.type === "session_lifecycle"
     || part.type === "session_config_change"
     || part.type === "session_hint"
+    || part.type === "permission"
   );
 }
 
 function isRenderedNonToolPart(part: AgentPart): boolean {
-  if (part.type === "plan" || part.type === "attachment") return false;
+  if (isHiddenTranscriptChromePart(part)) return false;
   if (part.type === "text") return Boolean(part.text);
   if (part.type === "thinking") return Boolean(part.text);
   if (part.type === "error") return Boolean(part.message);
@@ -103,7 +105,7 @@ function isRenderedNonToolPart(part: AgentPart): boolean {
 }
 
 function isFoldableProcessPart(part: AgentPart): boolean {
-  if (part.type === "plan" || part.type === "attachment" || isVisibleTextPart(part)) return false;
+  if (isHiddenTranscriptChromePart(part) || isVisibleTextPart(part)) return false;
   if (isSessionChromePart(part)) return false;
   if (part.type === "tool_call") return true;
   return isRenderedNonToolPart(part);
@@ -153,6 +155,7 @@ export function segmentAssistantParts(
 
   parts.forEach((part, origIndex) => {
     if (isNestedSubagentChild(part, parts)) return;
+    if (isHiddenTranscriptChromePart(part)) return;
     if (part.type === "tool_call" && isSubagentWaitTool(part)) return;
     if (density === "compact") {
       if (isFoldableProcessPart(part)) {

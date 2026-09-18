@@ -1253,6 +1253,10 @@
         "ptDesign": {
           "title": "Prototype Design",
           "description": "Open saved Prototype Design boards"
+        },
+        "agentSessions": {
+          "title": "Agent Sessions",
+          "description": "Open the Agent Sessions list of local CLI transcripts"
         }
       },
       "tasks": {
@@ -1809,7 +1813,8 @@
           "newWorkspace": "New Workspace",
           "diskAnalyzer": "Disk Analyzer",
           "tokenUsage": "Token Usage",
-          "tasks": "Task"
+          "tasks": "Task",
+          "agentSessions": "Agent Sessions"
         }
       },
       "projectItem": {
@@ -3265,7 +3270,37 @@
         "collapseAria": "Collapse goal agents",
         "expandAria": "Expand goal agents",
         "panelAria": "Grok goal agents",
-        "fallbackType": "Agent"
+        "fallbackType": "Agent",
+        "implementer": "Implementer",
+        "statusLine": "Status: {status}",
+        "tokensLine": "{tokens} tokens",
+        "elapsedLine": "Elapsed {elapsed}",
+        "emptyVerify": "Verification agents start after implement finishes.",
+        "emptySummarize": "The summarizer starts after verification.",
+        "status": {
+          "active": "Active",
+          "complete": "Complete",
+          "user_paused": "User paused",
+          "back_off_paused": "Back-off paused",
+          "no_progress_paused": "No-progress paused",
+          "infra_paused": "Infra paused",
+          "blocked": "Blocked",
+          "failed": "Failed",
+          "interrupted": "Interrupted",
+          "budget_limited": "Budget limited"
+        },
+        "phaseLabel": {
+          "idle": "Idle",
+          "planning": "Planning",
+          "executing": "Executing",
+          "verifying": "Verifying"
+        },
+        "phases": {
+          "planning": "Plan",
+          "implementing": "Implement",
+          "verifying": "Verify",
+          "summarizing": "Summarize"
+        }
       },
       "grokWorkflow": {
         "title": "Research",
@@ -6685,6 +6720,10 @@
           "tasks": {
             "title": "Task",
             "description": "Browse Atmos workspaces and GitHub issues/PRs in one task surface."
+          },
+          "agentSessions": {
+            "title": "Agent Sessions",
+            "description": "Browse local CLI sessions and preview transcripts without converting them."
           }
         }
       }
@@ -9398,6 +9437,90 @@
         "desktopOnly": "Appshots are only available in Atmos Desktop.",
         "desktopRequired": "Appshots require Atmos Desktop."
       }
+    }
+  },
+  "agentSessions": {
+    "title": "Agent Sessions",
+    "description": "Browse local CLI sessions and resume them in Chat or TUI.",
+    "emptyList": "No host sessions match the current filters.",
+    "emptyListTitle": "No sessions",
+    "emptyHomes": "No v1 CLI homes were found.",
+    "emptyHomesTitle": "No CLI sessions yet",
+    "emptySearchTitle": "No matching sessions",
+    "errorTitle": "Could not load sessions",
+    "retry": "Try again",
+    "clearSearch": "Clear search",
+    "emptyPreview": "Select a session to preview its transcript.",
+    "emptyTranscript": "This session has no messages to preview.",
+    "emptySearch": "No sessions match that search.",
+    "loading": "Loading sessions",
+    "loadingTranscript": "Loading transcript",
+    "refresh": "Refresh",
+    "searchPlaceholder": "Search titles and messages",
+    "indexing": "Indexing messages",
+    "backToList": "Back to list",
+    "close": "Close",
+    "unknownProject": "Unknown project",
+    "atmosChatTag": "Atmos Chat",
+    "resume": "Resume",
+    "resumeChat": "Chat",
+    "resumeTui": "TUI",
+    "resumeChatFailed": "Could not resume in Chat",
+    "resumeTuiFailed": "Could not resume in TUI",
+    "resumeTuiNoWorkspace": "No matching workspace. Copy the command and run it in a terminal.",
+    "previewError": "Could not load this transcript.",
+    "error": "Could not load sessions.",
+    "tuiCommand": "Resume command",
+    "tuiCommandHint": "Run this in a terminal at {cwd}",
+    "copyCommand": "Copy command",
+    "copied": "Copied",
+    "copyFailed": "Could not copy command",
+    "listAria": "Host sessions",
+    "messageCount": "{count, plural, one {# message} other {# messages}}",
+    "tabs": {
+      "agent": "Agent",
+      "project": "Project"
+    },
+    "filter": {
+      "trigger": "Filter",
+      "section": "Filter",
+      "groupBy": "Group by",
+      "groupAll": "All",
+      "agent": "Agent",
+      "project": "Project",
+      "allAgents": "All agents",
+      "allProjects": "All projects",
+      "date": "Date",
+      "quickRange": "Quick range",
+      "allTime": "All time",
+      "placeholder": "Select date range",
+      "cancel": "Cancel",
+      "apply": "Apply",
+      "startDate": "Start date",
+      "endDate": "End date",
+      "daysSelected": "{count, plural, one {# day selected} other {# days selected}}",
+      "quick": {
+        "today": "Today",
+        "yesterday": "Yesterday",
+        "lastWeek": "Last week",
+        "thisMonth": "This month",
+        "lastMonth": "Last month",
+        "thisYear": "This year",
+        "lastYear": "Last year"
+      },
+      "clear": "Clear filters",
+      "reset": "Reset"
+    },
+    "sort": {
+      "trigger": "Sort",
+      "section": "Sort",
+      "created": "Created time",
+      "modified": "Modified time",
+      "fileSize": "File size",
+      "order": "Order",
+      "ascending": "Ascending",
+      "descending": "Descending",
+      "reset": "Reset"
     }
   },
   "skills": {

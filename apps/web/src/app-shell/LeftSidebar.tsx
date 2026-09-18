@@ -268,7 +268,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         JSON.stringify(serializeWorkspaceSidebarFilters(EMPTY_WORKSPACE_KANBAN_FILTERS)),
     );
     const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(
-        currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents' || currentView === 'automations' || currentView === 'disk-analyzer' || currentView === 'token-usage' || currentView === 'tasks' || currentView === 'pt-design'
+        currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents' || currentView === 'automations' || currentView === 'disk-analyzer' || currentView === 'token-usage' || currentView === 'tasks' || currentView === 'pt-design' || currentView === 'agent-sessions'
     );
     const [isPinnedSectionCollapsed, setIsPinnedSectionCollapsed] = useState(false);
     const [isPinnedDividerHovered, setIsPinnedDividerHovered] = useState(false);

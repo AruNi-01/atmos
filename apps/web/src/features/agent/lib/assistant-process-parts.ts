@@ -1,5 +1,6 @@
 import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
 import { isHiddenGrokChromePart } from "@/features/agent/lib/grok-chrome";
+import { isHiddenTranscriptChromePart } from "@/features/agent/lib/agent-tool-kind";
 
 export function isAssistantAnswerTextPart(part: AgentPart): boolean {
   return part.type === "text" && Boolean(part.text) && !part.parent_tool_call_id;
@@ -96,7 +97,7 @@ export function splitAssistantProcessParts(parts: AgentPart[]): {
   );
   const layout = layoutAssistantAnswer(
     items,
-    (item) => isAssistantAnswerTextPart(item.part),
+    (item) => isAssistantAnswerTextPart(item.part) || item.part.type === "permission",
     (item) => isSoftAssistantProcessPart(item.part),
   );
   return {
@@ -115,9 +116,9 @@ export function shouldCollapseAssistantProcess(
   message: Pick<AgentMessage, "streaming" | "completed_at" | "worked_ms">,
   hasRunningTool: boolean,
   hasProcess: boolean,
-  hasAnswer: boolean,
+  _hasAnswer: boolean,
 ): boolean {
-  if (!hasProcess || !hasAnswer || hasRunningTool) return false;
+  if (!hasProcess || hasRunningTool) return false;
   return isAssistantTurnSettled(message);
 }
 
@@ -127,7 +128,7 @@ export function shouldAutoCollapseProcessOnSettle(userInspecting: boolean): bool
 }
 
 function isVisibleProcessPart(part: AgentPart): boolean {
-  if (part.type === "plan" || part.type === "attachment") return false;
+  if (isHiddenTranscriptChromePart(part)) return false;
   if (part.type === "text") return Boolean(part.text);
   if (part.type === "thinking") return Boolean(part.text);
   if (part.type === "error") return Boolean(part.message);

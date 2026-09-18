@@ -18,7 +18,10 @@ import {
   thinkingDurationSeconds,
 } from "@/features/agent/lib/agent-chat-timing";
 import { isNestedSubagentChild } from "@/features/agent/lib/tool-group";
+import { isHiddenTranscriptChromePart } from "@/features/agent/lib/agent-tool-kind";
 import { ToolView } from "./ToolView";
+import { AgentPermissionCard } from "./AgentPermissionCard";
+import { useHistoricPermissionParts } from "./agent-permission-history-context";
 
 const CONVERSATION_LINK_SAFETY = { enabled: false } as const;
 
@@ -43,7 +46,8 @@ export function AgentPartView({
   toolResultOpen?: boolean;
 }) {
   const t = useTranslations("Agent.components.chatPanel");
-  if (part.type === "plan" || part.type === "attachment") return null;
+  const historicPermissions = useHistoricPermissionParts();
+  if (isHiddenTranscriptChromePart(part)) return null;
   if (part.type === "text" && !part.text) return null;
   if (part.type === "thinking" && !part.text) return null;
 
@@ -116,6 +120,29 @@ export function AgentPartView({
 
   if (part.type === "session_hint") {
     return <SessionHintView part={part} />;
+  }
+
+  if (part.type === "permission") {
+    if (part.request.status === "pending" && !historicPermissions) return null;
+    return (
+      <div className="min-w-0 py-1">
+        <AgentPermissionCard
+          permission={{
+            request_id: part.request.request_id,
+            tool: part.request.tool,
+            description: part.request.description,
+            content_markdown: part.request.content_markdown ?? undefined,
+            plan_todos: part.request.plan_todos,
+            risk_level: "",
+            options: part.request.options ?? [],
+            questions: part.request.questions,
+          }}
+          markdown={part.request.content_markdown ?? null}
+          readOnly
+          onRespond={() => {}}
+        />
+      </div>
+    );
   }
 
   if (part.type === "tool_call") {
@@ -243,7 +270,7 @@ function SessionHintView({
 }
 
 export function isRenderedPart(part: AgentPart): boolean {
-  if (part.type === "plan" || part.type === "attachment") return false;
+  if (isHiddenTranscriptChromePart(part)) return false;
   if (part.type === "text") return Boolean(part.text);
   if (part.type === "thinking") return Boolean(part.text);
   if (part.type === "error") return Boolean(part.message);

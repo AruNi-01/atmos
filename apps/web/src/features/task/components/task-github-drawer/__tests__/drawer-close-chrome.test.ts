@@ -22,6 +22,7 @@ describe("drawer close chrome", () => {
       "apps/web/src/features/task/components/task-github-drawer/TaskGithubDrawerHost.tsx",
       "apps/web/src/features/task/components/TaskLinearDrawer.tsx",
       "apps/web/src/features/automations/components/AutomationRunDrawer.tsx",
+      "apps/web/src/features/agent-sessions/components/HostSessionDrawer.tsx",
     ];
     for (const rel of hosts) {
       const src = read(rel);
@@ -56,5 +57,11 @@ describe("drawer close chrome", () => {
       "apps/web/src/features/task/components/TaskLinearDrawer.tsx",
     );
     expect(linear).toContain("drawerCloseReserveClass");
+
+    const session = read(
+      "apps/web/src/features/agent-sessions/components/HostSessionDetailView.tsx",
+    );
+    expect(session).toContain("useDrawerCloseReserve");
+    expect(session).toContain("drawerCloseReserveClass");
   });
 });

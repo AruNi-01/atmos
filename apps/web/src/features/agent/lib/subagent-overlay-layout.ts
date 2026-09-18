@@ -1,9 +1,12 @@
-/** Cap the detail overlay at 80% of the agent-chat column. */
+/** Cap above-composer overlay cards and the detail overlay at 80% of the column. */
 export const SUBAGENT_OVERLAY_MAX_RATIO = 0.8;
 /** Keep a small gap under the column top so the close control stays reachable. */
 export const SUBAGENT_OVERLAY_TOP_GAP_PX = 8;
+export const OVERLAY_CARD_MAX_HEIGHT_VAR = "--agent-overlay-card-max-height";
+export const OVERLAY_CARD_MAX_HEIGHT_CLASS =
+  "max-h-[var(--agent-overlay-card-max-height,80cqh)]";
 
-/** Frame height for the subagent detail overlay above the composer. */
+/** Frame height for overlay cards / subagent detail above the composer. */
 export function subagentOverlayFrameHeight(
   columnHeight: number,
   composerHeight: number,
