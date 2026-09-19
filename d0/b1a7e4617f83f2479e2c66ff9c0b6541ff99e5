@@ -1,0 +1,76 @@
+apps/web/src/app-shell/CenterStage.tsx
+  h_5be255725524c8 263,403,410,452-457,723-740,808,833,837,841,845,849,851,1015,1018,1130-1136,1156,1176,1180,1196-1208,1210-1211,1214-1220,1277-1280,1297-1298,1303-1304,1542,1554,1585,1717-1721,1753-1755,1758,1760,1762,1768,1933-1934,1936,1940,1945-1952,1964-1965,1975,1979,1985,1988-1989,2022,2043,2063-2066,2081,2890-2906,2951-2952,2977,3304,3329-3336
+apps/web/src/app-shell/CenterStagePanels.tsx
+  h_5be255725524c8 640,645,649,676-679
+apps/web/src/app-shell/CenterStageTabBar.tsx
+  h_5be255725524c8 150-151,242,989-991
+apps/web/src/app-shell/GlobalSearch.tsx
+  h_5be255725524c8 510-512,517-518,520
+apps/web/src/app-shell/__tests__/agent-chat-entry-points.test.ts
+  h_5be255725524c8 53-54,61-63,105-106,108
+apps/web/src/app-shell/__tests__/center-pane-defects.test.ts
+  h_5be255725524c8 543-551
+apps/web/src/app-shell/__tests__/center-pane-isolation.test.ts
+  h_5be255725524c8 91-94,267-277
+apps/web/src/app-shell/__tests__/center-space-switcher.test.ts
+  h_5be255725524c8 118
+apps/web/src/app-shell/__tests__/center-space-url.test.ts
+  h_5be255725524c8 187-253
+apps/web/src/app-shell/__tests__/center-space.test.ts
+  h_5be255725524c8 30-33,119-124
+apps/web/src/app-shell/__tests__/center-stage-tab-activation-stack.test.ts
+  h_5be255725524c8 121-131
+apps/web/src/app-shell/center-pane/center-pane-open-tab-hydration.ts
+  h_5be255725524c8 12,18
+apps/web/src/app-shell/center-space/center-space-cleanup.ts
+  h_5be255725524c8 25,107-109
+apps/web/src/app-shell/center-space/center-space-url.ts
+  h_5be255725524c8 125-132,210-214,219-228
+apps/web/src/app-shell/center-stage-activate.ts
+  h_5be255725524c8 21,37,78-103,131,133-136
+apps/web/src/app-shell/center-stage-project-context.ts
+  h_5be255725524c8 28-41
+apps/web/src/app-shell/workspace-center-frame.tsx
+  h_5be255725524c8 1046
+apps/web/src/features/agent/hooks/use-agent-chat-session.ts
+  h_5be255725524c8 48,279-296,303-304,379-382,640-643,704-705,721-722,837-838,929-930,939-940,2358-2370,2487-2488
+apps/web/src/features/agent/lib/__tests__/agent-chat-sessions.test.ts
+  h_5be255725524c8 7,11,160-183,191-192,194
+apps/web/src/features/agent/lib/agent-chat-sessions.ts
+  h_5be255725524c8 7,9,205-246,258-262,292-293,297-302
+apps/web/src/features/agent/store/use-agent-chat-center-tabs.test.ts
+  h_5be255725524c8 3,72-118
+apps/web/src/features/agent/store/use-agent-chat-center-tabs.ts
+  h_5be255725524c8 110-132,141
+apps/web/src/features/canvas/components/CanvasWidgetCard.tsx
+  h_5be255725524c8 145-147,155,161,163,167,174,181
+apps/web/src/features/editor/components/CodeMirrorEditor.tsx
+  h_5be255725524c8 40,126-127
+apps/web/src/features/files/components/FileTree.tsx
+  h_5be255725524c8 39,139-140
+apps/web/src/features/git/hooks/use-open-git-commit-center-tab.ts
+  h_5be255725524c8 12-13,17,29,32
+apps/web/src/features/github/hooks/use-open-github-center-tab.ts
+  h_5be255725524c8 14-15,20,42,45
+apps/web/src/features/local-services/components/LocalServicesFooterItem.tsx
+  h_5be255725524c8 20,23-24,35-36,70-71,76-79,81-83,85
+apps/web/src/features/md-live/embeds/open-embed.ts
+  h_5be255725524c8 5-7,11-14,56-60
+apps/web/src/features/terminal/store/__tests__/extra-space-tmux-isolation.test.ts
+  h_5be255725524c8 2-3,15,20,32-40,91-110,195-200
+apps/web/src/features/terminal/store/terminal-store-helpers.ts
+  h_5be255725524c8 21,223-225,263-274,360-373,415,698-699,783,788,793,798,819,824,900,905
+apps/web/src/features/terminal/store/use-terminal-store.ts
+  h_5be255725524c8 37,664-667
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "d0b1a7e4617f83f2479e2c66ff9c0b6541ff99e5",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
