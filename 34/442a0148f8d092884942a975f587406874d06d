@@ -1,0 +1,18 @@
+apps/web/src/features/settings/lib/launchpad-items.test.ts
+  h_5be255725524c8 17,21-23,25-28,30,51,53-55,61-62,65-69,84,114-115,117,146
+apps/web/src/features/settings/lib/launchpad-items.ts
+  h_5be255725524c8 46,50-51,62
+apps/web/src/features/settings/store/experiment-settings-store.test.ts
+  h_5be255725524c8 64,69-75,84,90-97,99-106,116-117
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "34442a0148f8d092884942a975f587406874d06d",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
