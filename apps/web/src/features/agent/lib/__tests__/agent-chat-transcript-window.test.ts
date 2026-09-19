@@ -163,11 +163,13 @@ describe("transcript virtual list wiring", () => {
     expect(list).not.toContain("invisible pointer-events-none");
     expect(list).not.toContain("stickyUserPinLayout");
     expect(list).not.toContain("pin?.translateY");
-    expect(panel).toContain("relative min-h-0 flex-1 overflow-hidden");
+    expect(panel).toContain("relative z-0 min-h-0 flex-1 overflow-hidden data-[agent-chat-own-send]:z-20");
     expect(panel).toContain("data-agent-chat-composer-fade");
     expect(panel).toContain("AGENT_CHAT_COMPOSER_FADE_CLASS");
     expect(list).toContain("StickToBottomStop");
     expect(list).toContain("skipEndAnchorRef");
+    expect(list).toContain("itemKeyRef");
+    expect(list).toContain("data-own-send-layer");
     expect(list).not.toContain('from "use-stick-to-bottom"');
     expect(panel).toContain("activityStatus=");
     expect(panel).toContain("<AgentActivityIndicator");

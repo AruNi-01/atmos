@@ -62,6 +62,10 @@ import {
   composerDockMotion,
   composerTranscriptChrome,
 } from "../lib/agent-chat-composer-dock";
+import {
+  OWN_SEND_DRAFT_KEY,
+  shouldResetOwnSend,
+} from "../lib/agent-chat-own-send";
 import { useAgentChatHistorySidebarLayout } from "../hooks/use-agent-chat-history-sidebar-layout";
 import {
   closeCurrentStandaloneWindow,
@@ -748,8 +752,17 @@ export function AgentChatPanel({
   const [aboveComposerOverlayPadPx, setAboveComposerOverlayPadPx] = useState(0);
   const aboveComposerOverlayPadPxRef = useRef(0);
   const [overlayPadShrinkMotion, setOverlayPadShrinkMotion] = useState(false);
-  const [ownSendRunwayPx, setOwnSendRunwayPx] = useState(0);
   const reduceOverlayPadMotion = Boolean(useReducedMotion());
+  const chatIdentity = liveChatId || chatId || OWN_SEND_DRAFT_KEY;
+  const conversationEpochRef = useRef(0);
+  const conversationIdentityRef = useRef(chatIdentity);
+  if (chatIdentity !== conversationIdentityRef.current) {
+    if (shouldResetOwnSend(conversationIdentityRef.current, chatIdentity)) {
+      conversationEpochRef.current += 1;
+    }
+    conversationIdentityRef.current = chatIdentity;
+  }
+  const ownSendResetKey = String(conversationEpochRef.current);
 
   useEffect(() => {
     if (isRestoringTranscript) {
@@ -822,7 +835,7 @@ export function AgentChatPanel({
     return () => window.clearTimeout(hold);
   }, [aboveComposerOverlayPadPx, reduceOverlayPadMotion, transcriptRef]);
 
-  const transcriptBottomPad = transcriptBottomPadPx(aboveComposerOverlayPadPx) + ownSendRunwayPx;
+  const transcriptBottomPad = transcriptBottomPadPx(aboveComposerOverlayPadPx);
   const transcriptChrome = composerTranscriptChrome(!isNewChatLanding, reduceOverlayPadMotion);
   const dockMotion = composerDockMotion(!isNewChatLanding, reduceOverlayPadMotion);
 
@@ -1044,7 +1057,7 @@ export function AgentChatPanel({
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <motion.div
         ref={transcriptRef}
-        className="relative min-h-0 flex-1 overflow-hidden"
+        className="relative z-0 min-h-0 flex-1 overflow-hidden data-[agent-chat-own-send]:z-20"
         initial={false}
         animate={{ opacity: transcriptChrome.opacity, y: transcriptChrome.y }}
         transition={{
@@ -1091,7 +1104,7 @@ export function AgentChatPanel({
             )}
             {messages.length > 0 ? (
               <AgentChatTranscriptList
-                key={liveChatId || chatId || "draft"}
+                key={ownSendResetKey}
                 messages={messages}
                 registryId={registryId}
                 transcriptRef={transcriptRef}
@@ -1136,11 +1149,9 @@ export function AgentChatPanel({
           <AgentChatOwnSendRuntime
             messages={messages}
             transcriptRef={transcriptRef}
-            runwayPx={ownSendRunwayPx}
-            onRunwayPxChange={setOwnSendRunwayPx}
             reduceMotion={reduceOverlayPadMotion}
             enabled={!isRestoringTranscript}
-            resetKey={liveChatId || chatId || "draft"}
+            resetKey={ownSendResetKey}
           />
           </Conversation>
         </AgentChatCwdProvider>

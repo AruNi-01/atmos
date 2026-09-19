@@ -2,6 +2,7 @@ import {
   isBrowserPreviewableImageFilename,
   isBrowserPreviewableImageMediaType,
 } from "@/shared/lib/composer-image";
+import { displayTextForSentMessage } from "@/shared/lib/composer-paste";
 
 export type ComposerAttachmentFile = {
   id: string;
@@ -47,6 +48,20 @@ export function queuedPromptEditText(item: {
   prompt: string;
 }): string {
   return item.displayPrompt ?? item.prompt;
+}
+
+/** Composer text for editing a queued prompt. Restores paste/url chips. */
+export function queuedPromptComposerText(item: {
+  displayPrompt?: string;
+  prompt: string;
+}): string {
+  if (
+    typeof item.displayPrompt === "string" &&
+    item.displayPrompt !== item.prompt
+  ) {
+    return item.displayPrompt;
+  }
+  return displayTextForSentMessage(item.prompt);
 }
 
 export function attachmentFilename(path: string): string {

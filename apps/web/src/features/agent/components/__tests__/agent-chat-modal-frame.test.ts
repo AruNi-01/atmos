@@ -187,13 +187,24 @@ describe("agent chat modal frame", () => {
     );
     expect(panel).toContain("isAgentNewChatLanding");
     expect(panel).toContain("flex min-h-0 flex-1 flex-col overflow-hidden");
-    expect(panel).toContain("relative min-h-0 flex-1 overflow-hidden");
+    expect(panel).toContain("relative z-0 min-h-0 flex-1 overflow-hidden data-[agent-chat-own-send]:z-20");
     expect(panel).toContain("flex min-h-0 w-full flex-1 pr-1");
     expect(panel).toContain("AgentChatComposerDock");
     expect(panel).toContain("landing={isNewChatLanding}");
     expect(panel).toContain("AgentChatOwnSendRuntime");
-    expect(panel).toContain("ownSendRunwayPx");
-    expect(panel).toContain("resetKey={liveChatId || chatId || \"draft\"}");
+    expect(panel).toContain("ownSendResetKey");
+    expect(panel).toContain("shouldResetOwnSend");
+    expect(panel).not.toContain("ownSendRunwayPx");
+    const ownSend = readFileSync(
+      join(import.meta.dir, "../AgentChatOwnSendRuntime.tsx"),
+      "utf8",
+    );
+    expect(ownSend).toContain("ownSendInvertPx");
+    expect(ownSend).toContain("findSendOrigin");
+    expect(ownSend).not.toContain("stopScroll");
+    expect(ownSend).not.toContain("targetScrollTop");
+    expect(ownSend).not.toContain("ownSendRunwayPx");
+    expect(ownSend).not.toContain("firstSendInvertPx");
     expect(panel).not.toContain("justify-center overflow-y-auto pb-20");
     expect(panel).not.toContain('isNewChatLanding ? "hidden" : "flex-1"');
     expect(dock).toContain("LogoSvg");
