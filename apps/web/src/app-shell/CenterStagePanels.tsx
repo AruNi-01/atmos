@@ -637,15 +637,16 @@ export function CenterStagePanels({
         display:none when inactive is fine: wiki has no xterm WebGL keep-alive need.
       */}
       {wikiCenterEligible &&
+        paintContextId === effectiveContextId &&
         (tabHostPaneIds?.wiki?.length
           ? tabHostPaneIds.wiki
           : tabToPaneId?.wiki
             ? [tabToPaneId.wiki]
-            : [undefined]
+            : []
         ).map((wikiPaneId) => {
           const wikiVisible = wikiPaneId
             ? paneActiveTabById?.[wikiPaneId] === "wiki"
-            : activeValue === "wiki" || Boolean(activeTabIds?.includes("wiki"));
+            : false;
           const wikiBox = wikiPaneId ? paneSlotBoxes?.[wikiPaneId] : undefined;
           return (
         <div
@@ -672,8 +673,10 @@ export function CenterStagePanels({
           }
         >
           <WikiTab
-            contextId={effectiveContextId}
-            effectivePath={currentProject?.mainFilePath || ""}
+            contextId={paintContextId || effectiveContextId}
+            effectivePath={
+              currentWorkspace?.localPath || currentProject?.mainFilePath || ""
+            }
             projectName={currentProject?.name}
             refreshTrigger={wikiRefreshTrigger}
             terminalGridRef={terminalGridRef}

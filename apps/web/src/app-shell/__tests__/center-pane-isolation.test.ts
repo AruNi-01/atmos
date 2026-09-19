@@ -88,10 +88,10 @@ describe("center pane tab isolation", () => {
     expect(stage).not.toContain("skipLayoutRemove");
     expect(stage).not.toContain("dismissCenterTabInPane");
     expect(activate).toContain("placement: opts?.placement");
-    expect(stage).toContain("appendTabToStripOrder(nextTab.id)");
-    expect(stage).toContain("appendTabToStripOrder(tab.value)");
-    expect(stage).toContain("appendTabToStripOrder(SIMULATOR_TAB_VALUE)");
-    expect(stage).toContain("appendTabToStripOrder(tab)");
+    expect(stage).toContain("appendTabToStripOrder(nextTab.id, contextId)");
+    expect(stage).toContain("appendTabToStripOrder(tab.value, contextId)");
+    expect(stage).toContain("appendTabToStripOrder(SIMULATOR_TAB_VALUE, contextId)");
+    expect(stage).toContain("appendTabToStripOrder(tab, contextId)");
     expect(stage).toContain("changeTab(tab.value)");
   });
 
@@ -262,6 +262,17 @@ describe("center pane tab isolation", () => {
         slotBox: undefined,
       }),
     ).toBe(false);
+  });
+
+  it("does not treat the wiki experiment as open membership on every paint", () => {
+    const stage = readSibling("CenterStage.tsx");
+    const panels = readSibling("CenterStagePanels.tsx");
+    expect(stage).toContain("mosaicHasWiki");
+    expect(stage).toContain("storedLastTab === \"wiki\"");
+    expect(stage).toContain("honorUrlTab && tabFromUrl === \"wiki\"");
+    expect(panels).toContain("paintContextId === effectiveContextId");
+    expect(panels).toContain("currentWorkspace?.localPath || currentProject?.mainFilePath");
+    expect(panels).not.toContain(": [undefined]");
   });
 
   it("does not default-open overview in host center chrome", () => {

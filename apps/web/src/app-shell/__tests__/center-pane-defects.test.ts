@@ -540,6 +540,15 @@ describe("hydration-safe reconcile", () => {
         layoutHydrated: true,
       }),
     ).toBe(true);
+    expect(
+      areOpenTabIdListSourcesHydrated({
+        editorHydrated: true,
+        githubHydrated: true,
+        browserHydrated: true,
+        layoutHydrated: true,
+        agentChatHydrated: false,
+      }),
+    ).toBe(false);
 
     const stage = readFileSync(join(import.meta.dir, "../CenterStage.tsx"), "utf8");
     expect(stage).toContain("React.useLayoutEffect(() => {\n    hydratePaneLayout();");

@@ -4,7 +4,9 @@ import type { AgentChatIndexEntry } from "@atmos/api-types/ws/dto/agent-chat";
 import { parseUTCDate } from "@atmos/shared";
 import {
   DEFAULT_CENTER_SPACE_ID,
+  hostIdFromCenterKey,
   makeCenterSpaceKey,
+  parseCenterSpaceKey,
 } from "@/app-shell/center-space/center-space";
 import {
   commitLocatedPaneNavigation,
@@ -200,6 +202,48 @@ export function routeKindForAgentChatContext(
   return "workspace";
 }
 
+/**
+ * Resolve the project/workspace ids a center chat session should persist.
+ * Paint context wins so keep-alive frames do not inherit the URL of the
+ * currently visible host.
+ */
+export function hostScopeFromPaintContext(
+  paintContextId: string | null | undefined,
+  projects: Project[],
+  url?: { workspaceId?: string | null; projectId?: string | null },
+): { workspaceId: string | null; projectId: string | null } {
+  const hostId = paintContextId?.trim()
+    ? hostIdFromCenterKey(paintContextId.trim())
+    : "";
+  if (!hostId) {
+    return {
+      workspaceId: url?.workspaceId?.trim() || null,
+      projectId: url?.projectId?.trim() || null,
+    };
+  }
+  if (url?.projectId?.trim() === hostId) {
+    return { workspaceId: null, projectId: hostId };
+  }
+  if (url?.workspaceId?.trim() === hostId) {
+    return { workspaceId: hostId, projectId: null };
+  }
+  return routeKindForAgentChatContext(hostId, projects) === "project"
+    ? { workspaceId: null, projectId: hostId }
+    : { workspaceId: hostId, projectId: null };
+}
+
+export function buildAgentChatCenterHref(
+  hostId: string,
+  projects: Project[],
+  tabValue: string,
+): string {
+  const params = new URLSearchParams();
+  params.set("id", hostId);
+  params.set("tab", tabValue);
+  const kind = routeKindForAgentChatContext(hostId, projects);
+  return `${kind === "project" ? "/project" : "/workspace"}?${params.toString()}`;
+}
+
 export function buildAgentChatHistoryHref(
   entry: Pick<AgentChatIndexEntry, "id" | "workspace_id" | "project_id">,
   projects: Project[],
@@ -211,11 +255,11 @@ export function buildAgentChatHistoryHref(
     params.set("chatId", entry.id);
     return `/agent-chat?${params.toString()}`;
   }
-  const params = new URLSearchParams();
-  params.set("id", contextId);
-  params.set("tab", tabValue?.trim() || buildAgentChatTabValue(entry.id));
-  const kind = routeKindForAgentChatContext(contextId, projects);
-  return `${kind === "project" ? "/project" : "/workspace"}?${params.toString()}`;
+  return buildAgentChatCenterHref(
+    contextId,
+    projects,
+    tabValue?.trim() || buildAgentChatTabValue(entry.id),
+  );
 }
 
 export async function openAgentChatHistoryRow(
@@ -245,10 +289,15 @@ export async function openAgentChatHistoryRow(
   const { activateCenterChromeTab } = await import("@/app-shell/center-stage-activate");
   activateCenterChromeTab(tab.contextId, tab.value);
 
+  const tabHost = hostIdFromCenterKey(tab.contextId);
+  const tabSpace = parseCenterSpaceKey(tab.contextId).spaceId;
   const { useCenterSpaceStore } = await import("@/app-shell/center-space/center-space-store");
   const centerStore = useCenterSpaceStore.getState();
   if (!centerStore.hydrated) centerStore.hydrate();
-  centerStore.ensureHost(contextId);
-  centerStore.setActiveSpace(contextId, spaceId);
-  commitLocatedPaneNavigation(router, buildAgentChatHistoryHref(entry, projects, tab.value));
+  centerStore.ensureHost(tabHost);
+  centerStore.setActiveSpace(tabHost, tabSpace);
+  commitLocatedPaneNavigation(
+    router,
+    buildAgentChatCenterHref(tabHost, projects, tab.value),
+  );
 }

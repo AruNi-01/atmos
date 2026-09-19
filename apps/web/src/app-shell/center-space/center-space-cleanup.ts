@@ -22,6 +22,7 @@ import {
 import { useOverviewCenterTabStore } from "@/app-shell/center-overview-tab";
 import { markCenterLayoutDirty } from "@/app-shell/center-layout/center-layout-persist";
 import { useAgentChatCenterTabsStore } from "@/features/agent/store/use-agent-chat-center-tabs";
+import { useGitCommitCenterTabsStore } from "@/features/git/store/use-git-commit-center-tabs";
 import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
 
 function omitContextKey<T>(
@@ -101,6 +102,9 @@ export function cleanupCenterSpaceContext(paintContextId: string): void {
     tabsByContext: omitContextKey(state.tabsByContext, paintContextId),
   }));
   useAgentChatCenterTabsStore.setState((state) => ({
+    tabsByContext: omitContextKey(state.tabsByContext, paintContextId),
+  }));
+  useGitCommitCenterTabsStore.setState((state) => ({
     tabsByContext: omitContextKey(state.tabsByContext, paintContextId),
   }));
 

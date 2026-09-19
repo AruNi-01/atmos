@@ -118,6 +118,17 @@ describe("center-stage-tab-activation-stack", () => {
     expect(open.has("browser:x")).toBe(true);
   });
 
+  test("buildOpenCenterTabValues omits wiki unless wikiEnabled", () => {
+    const open = buildOpenCenterTabValues({
+      openFilePaths: [],
+      terminalTabIds: ["terminal"],
+      githubTabValues: [],
+      browserTabValues: [],
+      wikiEnabled: false,
+    });
+    expect(open.has("wiki")).toBe(false);
+  });
+
   test("buildOpenCenterTabValues only includes overview when opted in", () => {
     const open = buildOpenCenterTabValues({
       openFilePaths: [],

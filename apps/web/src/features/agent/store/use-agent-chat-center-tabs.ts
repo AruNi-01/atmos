@@ -107,6 +107,29 @@ export function findAgentChatCenterTab(
   return undefined;
 }
 
+/**
+ * Whether `tab` may be materialized on `contextId`.
+ * Foreign chats/drafts must stay on the paint context that already owns them.
+ */
+export function agentChatTabActivationOnContext(
+  tabsByContext: Record<string, readonly AgentChatCenterTab[]>,
+  contextId: string,
+  tab: string,
+): { ignore: boolean; existing: AgentChatCenterTab | null } {
+  const parsed = parseAgentChatTabValue(tab);
+  if (!parsed) return { ignore: false, existing: null };
+  if (parsed.startsWith("draft:")) {
+    const local =
+      (tabsByContext[contextId] ?? []).find((item) => item.value === tab) ?? null;
+    return { ignore: !local, existing: local };
+  }
+  const existing = findAgentChatCenterTab(tabsByContext, parsed, contextId) ?? null;
+  if (existing && existing.contextId !== contextId) {
+    return { ignore: true, existing };
+  }
+  return { ignore: false, existing };
+}
+
 export const useAgentChatCenterTabsStore = create<AgentChatCenterTabsStore>()(
   persist(
     (set, get) => ({
@@ -115,9 +138,7 @@ export const useAgentChatCenterTabsStore = create<AgentChatCenterTabsStore>()(
       pendingNewChat: 0,
       openTab: ({ contextId, chatId, title, cwd, providerId }) => {
         const value = buildAgentChatTabValue(chatId);
-        const existing = (get().tabsByContext[contextId] ?? []).find((tab) =>
-          tabMatchesAgentChatId(tab, chatId),
-        );
+        const existing = findAgentChatCenterTab(get().tabsByContext, chatId, contextId);
         if (existing) return existing;
         const tab: AgentChatCenterTab = {
           id: value,

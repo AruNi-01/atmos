@@ -122,7 +122,14 @@ export function shouldKeepExplicitTabOnHostHop(input: {
   }
 
   if (!input.current?.contextId) return true;
-  if (input.current.contextId === input.destHostId) return true;
+  if (input.current.contextId === input.destHostId) {
+    // Same host URL, but extra-space paint must not keep leftover generic chrome
+    // (`?tab=terminal` / `files`) from the default space.
+    if (input.destPaintId && input.destPaintId !== input.destHostId) {
+      return tabValueBelongsToPaintContext(tab, input.destPaintId);
+    }
+    return true;
+  }
   if (input.current.tabParam === tab) return false;
   return true;
 }
@@ -200,11 +207,25 @@ export function shouldHonorUrlTabForPaintContext(input: {
     return tabValueBelongsToPaintContext(tab, input.paintId);
   }
 
+  // Chat values do not encode paint. Honor only when dest already owns that tab.
+  if (tab.startsWith("agent-chat:")) {
+    return input.lastTab === tab;
+  }
+
   if (input.blockedUrlTab && tab === input.blockedUrlTab) {
     return input.lastTab === tab;
   }
 
-  if (!paintChanged) return true;
+  // Same-paint URL edits (clicking a tool while already here) keep the token.
+  // First paint / restored session URLs look the same as "no previous paint" —
+  // only honor a generic leftover if dest last-tab already matches, or dest
+  // has no last-tab yet (true deep link onto an empty host).
+  if (!paintChanged) {
+    if (!input.previousPaintId) {
+      return !input.lastTab || input.lastTab === tab;
+    }
+    return true;
+  }
   return input.lastTab === tab;
 }
 

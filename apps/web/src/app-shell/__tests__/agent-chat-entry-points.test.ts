@@ -50,12 +50,17 @@ describe("S2 Agent Chat entry points", () => {
     expect(session).toContain('origin: isolatedModal ? "quick" : "normal"');
     expect(session).toContain("spaceIdForChatCreate");
     expect(session).toContain("ensureCreatedChat");
+    expect(session).toContain("hostScopeFromPaintContext");
+    expect(session).toContain("initialHostScopeRef");
     expect(session).toContain('variant !== "center"');
     expect(session).toContain("if (activeChatId) return");
 
     const centerStage = readFileSync(join(ROOT, "CenterStage.tsx"), "utf8");
     expect(centerStage).toContain("openDraftTab");
     expect(centerStage).not.toContain("agentChatApi.create");
+    expect(centerStage).toContain("agentChatTabsHydrated");
+    expect(centerStage).toContain("agentChatHydrated: agentChatTabsHydrated");
+    expect(centerStage).toContain("...agentChatTabs.map((tab) => ({ id: tab.value, openedAt: tab.openedAt }))");
     expect(centerStage).toContain("agentChatTabs");
     expect(centerStage).toContain('tab.kind === "agent-chat"');
     expect(centerStage).toContain("agentChatNeedsCloseConfirm");
@@ -97,7 +102,10 @@ describe("S2 Agent Chat entry points", () => {
 
     const activate = readFileSync(join(ROOT, "center-stage-activate.ts"), "utf8");
     expect(activate).toContain("isAgentChatTabValue");
+    expect(activate).toContain("agentChatTabActivationOnContext");
+    expect(activate).toContain("if (activation.ignore) return");
     expect(activate).toContain("openTab({ contextId, chatId: parsedChatId })");
+    expect(activate).toContain("if (opened.contextId !== contextId) return");
     expect(activate).toContain("notifyPaneFocused(`chat:${boundChatId}`");
 
     expect(tabBar).toContain("max-w-[180px] truncate whitespace-nowrap");

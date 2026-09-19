@@ -142,8 +142,9 @@ function CanvasWidgetCardInner({ shape }: { shape: CanvasWidgetShape }) {
       const source = shape.props.source;
       const context = source.context;
       const rawId = context.contextScope === "project" ? context.projectId : context.workspaceId;
-      const id = rawId ? hostIdFromCenterKey(rawId) : rawId;
-      if (!id) {
+      const paintId = rawId?.trim() || null;
+      const hostId = paintId ? hostIdFromCenterKey(paintId) : null;
+      if (!paintId || !hostId) {
         return;
       }
       if (source.type === "center") {
@@ -151,33 +152,33 @@ function CanvasWidgetCardInner({ shape }: { shape: CanvasWidgetShape }) {
           source.tabs.find((tab) => tab.id === source.activeTabId) ?? source.tabs[0] ?? null;
         if (activeTab) {
           if (activeTab.kind === "file") {
-            void openFile(activeTab.path, id, {
+            void openFile(activeTab.path, paintId, {
               preview: false,
               line: activeTab.line,
               column: activeTab.column,
             });
           } else if (activeTab.kind === "changes-group") {
-            void openFile(activeTab.groupPath, id, { preview: false });
+            void openFile(activeTab.groupPath, paintId, { preview: false });
           } else if (activeTab.kind === "changes-file") {
-            void openFile(activeTab.filePath, id, { preview: false });
+            void openFile(activeTab.filePath, paintId, { preview: false });
           } else if (activeTab.kind === "review-group") {
             void openFile(
               activeTab.groupPath || `${EDITOR_REVIEW_GROUP_PREFIX}${activeTab.revisionGuid ?? ""}`,
-              id,
+              paintId,
               { preview: false },
             );
           } else if (activeTab.kind === "review-file") {
             void openFile(
               activeTab.originalPath ||
                 `${EDITOR_REVIEW_DIFF_PREFIX}${activeTab.revisionGuid ?? ""}/${activeTab.filePath}`,
-              id,
+              paintId,
               { preview: false },
             );
           }
         }
       }
       const params = new URLSearchParams();
-      params.set("id", id);
+      params.set("id", hostId);
       router.push(`/${context.contextScope}?${params.toString()}`);
     },
     [openFile, router, shape.props.source],

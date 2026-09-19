@@ -11,10 +11,13 @@ import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
 import { resolveCenterOpenContextId } from "@/app-shell/center-space/center-open-context";
 import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
 import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
+import { buildCenterHostTabHref } from "@/app-shell/center-stage-project-context";
+import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 
 export function useOpenGithubCenterTab() {
   const t = useTranslations("github.centerTabs");
   const router = useAppRouter();
+  const projects = useProjects();
   const { effectiveContextId: hostContextId } = useContextParams();
   const paintContextId = useCenterPaintContextId();
   const drawerNav = useTaskGithubDrawerNav();
@@ -36,12 +39,10 @@ export function useOpenGithubCenterTab() {
       const targetHost = hostIdFromCenterKey(contextId);
       const currentHost = hostContextId ? hostIdFromCenterKey(hostContextId) : "";
       if (targetHost && targetHost !== currentHost) {
-        router.push(
-          `/workspace?id=${encodeURIComponent(targetHost)}&tab=${encodeURIComponent(value)}`,
-        );
+        router.push(buildCenterHostTabHref(targetHost, projects, value));
       }
     },
-    [hostContextId, router],
+    [hostContextId, projects, router],
   );
 
   const resolveContextId = React.useCallback(

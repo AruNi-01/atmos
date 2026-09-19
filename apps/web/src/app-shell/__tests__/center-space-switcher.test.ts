@@ -115,6 +115,7 @@ describe("center space switcher open path", () => {
     expect(cleanup).toContain("clearCenterTabActivationStack");
     expect(cleanup).toContain("forgetContext");
     expect(cleanup).toContain("useAgentChatCenterTabsStore");
+    expect(cleanup).toContain("useGitCommitCenterTabsStore");
     expect(cleanup).toContain("useOverviewCenterTabStore");
     expect(cleanup).toContain("markCenterLayoutDirty");
     expect(cleanup).toContain('freeze(paintContextId, "manual")');
