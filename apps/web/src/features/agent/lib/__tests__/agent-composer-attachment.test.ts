@@ -8,8 +8,14 @@ import {
   filesFromQueuedPrompt,
   isImageComposerAttachment,
   mediaTypeFromFilename,
+  queuedPromptComposerText,
   queuedPromptEditText,
 } from "@/features/agent/lib/agent-composer-attachment";
+import {
+  __resetComposerPasteForTests,
+  expandPasteTokens,
+  registerComposerPaste,
+} from "@/shared/lib/composer-paste";
 
 describe("isImageComposerAttachment", () => {
   it("treats image media types with a url as previews", () => {
@@ -101,6 +107,34 @@ describe("queued prompt composer files", () => {
       queuedPromptEditText({ prompt: "stored", displayPrompt: "shown" }),
     ).toBe("shown");
     expect(queuedPromptEditText({ prompt: "stored" })).toBe("stored");
+  });
+
+  it("restores paste chips when loading a queued prompt into the composer", () => {
+    __resetComposerPasteForTests();
+    const body = Array.from({ length: 12 }, (_, i) => `paste line ${i + 1}`).join("\n");
+    const token = registerComposerPaste(body);
+    const composerText = `please review\n${token}`;
+    const expanded = expandPasteTokens(composerText);
+    expect(expanded).toBe(`please review\n${body}`);
+    expect(
+      queuedPromptComposerText({
+        prompt: expanded,
+        displayPrompt: expanded,
+      }),
+    ).toBe(composerText);
+    expect(
+      queuedPromptComposerText({ prompt: expanded }),
+    ).toBe(composerText);
+    expect(
+      queuedPromptComposerText({
+        prompt: expanded,
+        displayPrompt: composerText,
+      }),
+    ).toBe(composerText);
+    expect(
+      queuedPromptComposerText({ prompt: "stored", displayPrompt: "shown" }),
+    ).toBe("shown");
+    __resetComposerPasteForTests();
   });
 
   it("reads the filename and media type from an attachment path", () => {

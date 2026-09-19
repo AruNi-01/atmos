@@ -8,7 +8,6 @@ import { useTranslations } from 'next-intl';
 import { cn, Loader2, Folder, toastManager } from '@workspace/ui';
 import { FileTreeNode, fsApi } from '@/api/ws-api';
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
-import { useContextParams } from "@/shared/hooks/use-context-params";
 import {
   buildFallbackFileTreeItem,
   buildDuplicateName,
@@ -37,6 +36,7 @@ import {
   waitForFileTreeRowLayout,
 } from '../lib/file-tree-reveal';
 import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
+import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
 import { FileTreeBranch } from './FileTreeBranch';
 import { FileTreeContextMenu } from './FileTreeContextMenu';
 import { FileTreeRow } from './FileTreeRow';
@@ -136,8 +136,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
   onOpenFile,
 }) => {
   const t = useTranslations('files.components');
-  const { effectiveContextId } = useContextParams();
-  const editorContextId = contextId ?? effectiveContextId;
+  const paintContextId = useCenterPaintContextId();
+  const editorContextId = contextId ?? paintContextId;
   const openFile = useEditorStore((s) => s.openFile);
   const pinFile = useEditorStore((s) => s.pinFile);
   const storeActiveFilePath = useEditorStore((s) =>

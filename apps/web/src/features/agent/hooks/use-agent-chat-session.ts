@@ -45,6 +45,7 @@ import {
   readAgentChatLastSessions,
   resolveRestoredAgentChat,
 } from "@/features/agent/lib/agent-chat-last-session";
+import { hostScopeFromPaintContext } from "@/features/agent/lib/agent-chat-sessions";
 import { mergeContextUsageUpdate } from "@/features/agent/lib/context-window-usage";
 import {
   lastNewChatConfigForAgent,
@@ -275,14 +276,32 @@ export function useAgentChatSession({
   const chatMode = mode;
   const isolatedModal = variant === "modal";
   const lastSessionPrefKey = isolatedModal ? FOOTER_MODAL_CHAT_PREF_KEY : undefined;
+  const initialHostScopeRef = useRef(
+    isolatedModal
+      ? { workspaceId: null as string | null, projectId: null as string | null }
+      : hostScopeFromPaintContext(paintContextId, [], {
+          workspaceId: urlWorkspaceId,
+          projectId: urlProjectId,
+        }),
+  );
+  const paintHostScope = useMemo(
+    () =>
+      isolatedModal
+        ? { workspaceId: null as string | null, projectId: null as string | null }
+        : hostScopeFromPaintContext(paintContextId, projects, {
+            workspaceId: urlWorkspaceId,
+            projectId: urlProjectId,
+          }),
+    [isolatedModal, paintContextId, projects, urlProjectId, urlWorkspaceId],
+  );
   const composerSeed = useMemo(
     () =>
       seedNewChatComposer({
         chatId,
         instanceKey,
         isolatedModal,
-        urlWorkspaceId,
-        urlProjectId,
+        urlWorkspaceId: initialHostScopeRef.current.workspaceId,
+        urlProjectId: initialHostScopeRef.current.projectId,
         chatMode,
         lastSessionPrefKey,
       }),
@@ -357,9 +376,11 @@ export function useAgentChatSession({
     composerSeed.lastRegistryId || composerSeed.providerId,
   );
   const [workspaceId, setWorkspaceId] = useState<string | null>(
-    isolatedModal ? null : urlWorkspaceId,
+    isolatedModal ? null : initialHostScopeRef.current.workspaceId,
   );
-  const [projectId, setProjectId] = useState<string | null>(isolatedModal ? null : urlProjectId);
+  const [projectId, setProjectId] = useState<string | null>(
+    isolatedModal ? null : initialHostScopeRef.current.projectId,
+  );
   const [cwd, setCwd] = useState("");
   const [title, setTitle] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -616,8 +637,10 @@ export function useAgentChatSession({
         ? (current || meta.provider_id || "claude")
         : (meta.provider_id || "claude"),
     );
-    setWorkspaceId(meta.workspace_id ?? (isolatedModal ? null : urlWorkspaceId));
-    setProjectId(meta.project_id ?? (isolatedModal ? null : urlProjectId));
+    setWorkspaceId(
+      meta.workspace_id ?? (isolatedModal ? null : paintHostScope.workspaceId),
+    );
+    setProjectId(meta.project_id ?? (isolatedModal ? null : paintHostScope.projectId));
     setCwd(isolatedModal && !meta.workspace_id && !meta.project_id ? "" : (meta.cwd ?? ""));
     const commands = normalizeAgentSlashCommands(meta.available_commands);
     setSessionCommands(commands);
@@ -678,8 +701,8 @@ export function useAgentChatSession({
     }
     lastSeq.current = Number(meta.last_event_seq ?? 0);
     persistAgentChatLastSession({
-      workspaceId: meta.workspace_id ?? (isolatedModal ? null : urlWorkspaceId),
-      projectId: meta.project_id ?? (isolatedModal ? null : urlProjectId),
+      workspaceId: meta.workspace_id ?? (isolatedModal ? null : paintHostScope.workspaceId),
+      projectId: meta.project_id ?? (isolatedModal ? null : paintHostScope.projectId),
       mode: chatMode,
       instanceKey,
       registryId: meta.provider_id || providerIdRef.current,
@@ -695,8 +718,8 @@ export function useAgentChatSession({
     instanceKey,
     isolatedModal,
     lastSessionPrefKey,
-    urlProjectId,
-    urlWorkspaceId,
+    paintHostScope.projectId,
+    paintHostScope.workspaceId,
     variant,
     applyDescriptor,
   ]);
@@ -811,8 +834,8 @@ export function useAgentChatSession({
     if (restoreAttemptedRef.current) return;
     restoreAttemptedRef.current = true;
     const stored = readAgentChatLastSessions({
-      workspaceId: isolatedModal ? null : urlWorkspaceId,
-      projectId: isolatedModal ? null : urlProjectId,
+      workspaceId: isolatedModal ? null : initialHostScopeRef.current.workspaceId,
+      projectId: isolatedModal ? null : initialHostScopeRef.current.projectId,
       mode: chatMode,
       instanceKey,
       prefKey: lastSessionPrefKey,
@@ -852,8 +875,6 @@ export function useAgentChatSession({
     isolatedModal,
     lastSessionPrefKey,
     onOpenChat,
-    urlProjectId,
-    urlWorkspaceId,
   ]);
 
   useEffect(() => {
@@ -905,8 +926,8 @@ export function useAgentChatSession({
     void agentChatApi.list(
       agentChatHistoryListRequest({
         variant,
-        workspaceId: workspaceId ?? urlWorkspaceId,
-        projectId: projectId ?? urlProjectId,
+        workspaceId: workspaceId ?? paintHostScope.workspaceId,
+        projectId: projectId ?? paintHostScope.projectId,
       }),
     ).then((listed) => {
       setHistorySessions(chatsToHistoryRows(listed.items ?? []));
@@ -915,10 +936,10 @@ export function useAgentChatSession({
     });
   }, [
     activeChatId,
+    paintHostScope.projectId,
+    paintHostScope.workspaceId,
     prefsRestored,
     projectId,
-    urlProjectId,
-    urlWorkspaceId,
     variant,
     workspaceId,
     wsConnected,
@@ -2334,8 +2355,19 @@ export function useAgentChatSession({
     () =>
       isolatedModal
         ? cwd || null
-        : cwd || resolveAgentChatLocalPath(projects, effectiveContextId),
-    [cwd, effectiveContextId, isolatedModal, projects],
+        : cwd ||
+          resolveAgentChatLocalPath(
+            projects,
+            paintHostScope.workspaceId || paintHostScope.projectId || effectiveContextId,
+          ),
+    [
+      cwd,
+      effectiveContextId,
+      isolatedModal,
+      paintHostScope.projectId,
+      paintHostScope.workspaceId,
+      projects,
+    ],
   );
   const exportableMessages = useMemo(() => buildAgentChatExportableMessages(messages), [messages]);
   const ui = useAgentChatUiHandlers({
@@ -2452,8 +2484,8 @@ export function useAgentChatSession({
         const listed = await agentChatApi.list(
           agentChatHistoryListRequest({
             variant,
-            workspaceId: workspaceId ?? urlWorkspaceId,
-            projectId: projectId ?? urlProjectId,
+            workspaceId: workspaceId ?? paintHostScope.workspaceId,
+            projectId: projectId ?? paintHostScope.projectId,
           }),
         );
         setHistorySessions(chatsToHistoryRows(listed.items ?? []));

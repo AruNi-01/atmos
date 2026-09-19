@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { EASE_OUT } from "@workspace/ui/lib/ease";
 import { cn } from "@/shared/lib/utils";
 import type {
   AgentMessage,
@@ -20,6 +21,43 @@ import { ContextUsageDetailsPanel } from "./UsageBadges";
 import { GrokGoalPanel } from "./grok/GrokGoalPanel";
 import { GrokWorkflowPanel } from "./grok/GrokWorkflowPanel";
 import { SubagentTasksPanel } from "./SubagentTasksDock";
+
+/** Fade only. Do not animate y, scale, or position: those made the card slide,
+ *  flash wider, then shrink-wrap over the message-queue inset. */
+const OVERLAY_CARD_FADE_HIDDEN = { opacity: 0 } as const;
+const OVERLAY_CARD_FADE_SHOWN = { opacity: 1 } as const;
+
+function overlayCardFadeTransition(reduceMotion: boolean) {
+  return reduceMotion ? { duration: 0 } : { duration: 0.18, ease: EASE_OUT };
+}
+
+const OverlayFadeCard = React.forwardRef<
+  HTMLDivElement,
+  {
+    reduceMotion: boolean;
+    className?: string;
+    children: React.ReactNode;
+  }
+>(function OverlayFadeCard({ reduceMotion, className, children }, ref) {
+  return (
+    <motion.div
+      ref={ref}
+      className={cn(
+        "pointer-events-auto flex min-h-0 w-full max-w-full flex-col overflow-hidden",
+        OVERLAY_CARD_MAX_HEIGHT_CLASS,
+        className,
+      )}
+      initial={OVERLAY_CARD_FADE_HIDDEN}
+      animate={OVERLAY_CARD_FADE_SHOWN}
+      exit={OVERLAY_CARD_FADE_HIDDEN}
+      transition={overlayCardFadeTransition(reduceMotion)}
+      style={{ width: "100%" }}
+    >
+      {children}
+    </motion.div>
+  );
+});
+OverlayFadeCard.displayName = "OverlayFadeCard";
 
 export function AgentChatAboveComposerOverlays({
   composerSurfaceRef,
@@ -142,33 +180,17 @@ export function AgentChatAboveComposerOverlays({
       >
         <AnimatePresence initial={false}>
           {showContextUsageCard ? (
-            <motion.div
+            <OverlayFadeCard
               key="agent-context-usage"
-              className={cn(
-                "pointer-events-auto flex min-h-0 w-full flex-col overflow-hidden",
-                OVERLAY_CARD_MAX_HEIGHT_CLASS,
-                subagentOverlay && "hidden",
-              )}
-              initial={false}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{
-                opacity: 0,
-                y: 10,
-                position: "absolute",
-                left: 0,
-                right: 0,
-                bottom: 0,
-                transition: reduceOverlayMotion
-                  ? { duration: 0 }
-                  : { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
-              }}
+              reduceMotion={reduceOverlayMotion}
+              className={subagentOverlay ? "hidden" : undefined}
             >
               <ContextUsageDetailsPanel
                 usage={sessionUsage}
                 providerId={registryId}
                 onClose={() => onContextUsageClose?.()}
               />
-            </motion.div>
+            </OverlayFadeCard>
           ) : null}
           {subagentOverlay ? (
             <div
@@ -179,26 +201,10 @@ export function AgentChatAboveComposerOverlays({
             </div>
           ) : null}
           {showGrokGoalCard && grokGoal ? (
-            <motion.div
+            <OverlayFadeCard
               key="agent-grok-goal"
-              className={cn(
-                "pointer-events-auto flex min-h-0 w-full flex-col overflow-hidden",
-                OVERLAY_CARD_MAX_HEIGHT_CLASS,
-                subagentOverlay && "hidden",
-              )}
-              initial={false}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{
-                opacity: 0,
-                y: 10,
-                position: "absolute",
-                left: 0,
-                right: 0,
-                bottom: 0,
-                transition: reduceOverlayMotion
-                  ? { duration: 0 }
-                  : { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
-              }}
+              reduceMotion={reduceOverlayMotion}
+              className={subagentOverlay ? "hidden" : undefined}
             >
               <GrokGoalPanel
                 goal={grokGoal}
@@ -206,69 +212,43 @@ export function AgentChatAboveComposerOverlays({
                 plan={currentPlan}
                 defaultOpen={grokCardsDefaultOpen}
               />
-            </motion.div>
+            </OverlayFadeCard>
           ) : null}
           {showGrokWorkflowCard && grokWorkflow ? (
-            <motion.div
+            <OverlayFadeCard
               key="agent-grok-workflow"
-              className={cn(
-                "pointer-events-auto flex min-h-0 w-full flex-col overflow-hidden",
-                OVERLAY_CARD_MAX_HEIGHT_CLASS,
-                subagentOverlay && "hidden",
-              )}
-              initial={false}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{
-                opacity: 0,
-                y: 10,
-                position: "absolute",
-                left: 0,
-                right: 0,
-                bottom: 0,
-                transition: reduceOverlayMotion
-                  ? { duration: 0 }
-                  : { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
-              }}
+              reduceMotion={reduceOverlayMotion}
+              className={subagentOverlay ? "hidden" : undefined}
             >
               <GrokWorkflowPanel
                 workflow={grokWorkflow}
                 messages={messages}
                 defaultOpen={grokCardsDefaultOpen}
               />
-            </motion.div>
+            </OverlayFadeCard>
           ) : null}
           {showSubagentTasksCard ? (
-            <motion.div
+            <OverlayFadeCard
               key="agent-subagent-tasks"
-              className={cn(
-                "pointer-events-auto flex min-h-0 w-full flex-col overflow-hidden",
-                OVERLAY_CARD_MAX_HEIGHT_CLASS,
-                subagentOverlay && "hidden",
-              )}
-              initial={false}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{
-                opacity: 0,
-                y: 10,
-                position: "absolute",
-                left: 0,
-                right: 0,
-                bottom: 0,
-                transition: reduceOverlayMotion
-                  ? { duration: 0 }
-                  : { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
-              }}
+              reduceMotion={reduceOverlayMotion}
+              className={subagentOverlay ? "hidden" : undefined}
             >
               <SubagentTasksPanel
                 tools={subagentTasks.items}
                 messages={messages}
               />
-            </motion.div>
+            </OverlayFadeCard>
+          ) : null}
+          {aboveInputOverlay ? (
+            <OverlayFadeCard
+              key="agent-above-input-overlay"
+              reduceMotion={reduceOverlayMotion}
+              className={subagentOverlay ? "hidden" : undefined}
+            >
+              {aboveInputOverlay}
+            </OverlayFadeCard>
           ) : null}
         </AnimatePresence>
-        {aboveInputOverlay ? (
-          <div className={cn(subagentOverlay && "hidden")}>{aboveInputOverlay}</div>
-        ) : null}
       </div>
     </div>
   );

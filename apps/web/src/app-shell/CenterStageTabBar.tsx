@@ -147,6 +147,8 @@ interface CenterStageTabBarProps {
   browserTabs: BrowserCenterTab[];
   codeReviewTabVisible: boolean;
   effectiveContextId: string;
+  /** Live paint id for creates. Falls back to `effectiveContextId` during hops. */
+  writeContextId?: string | null;
   githubTabs: GithubCenterTab[];
   gitCommitTabs: GitCommitCenterTab[];
   openFiles: OpenFile[];
@@ -237,6 +239,7 @@ export function CenterStageTabBar({
   browserTabs,
   codeReviewTabVisible,
   effectiveContextId,
+  writeContextId,
   githubTabs,
   gitCommitTabs,
   openFiles,
@@ -983,7 +986,9 @@ export function CenterStageTabBar({
             onCreateAgentChat={handleCreateAgentChatCenterTab}
             markdownLabel={t("centerStageTabBar.newMarkdown")}
             onCreateMarkdownNote={() => {
-              const path = useEditorStore.getState().openUntitledMarkdown(effectiveContextId);
+              const path = useEditorStore.getState().openUntitledMarkdown(
+                writeContextId || effectiveContextId,
+              );
               if (path) handleCenterStageTabChange(path);
             }}
             overviewLabel={t("centerStageTabBar.overview")}

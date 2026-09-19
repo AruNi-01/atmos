@@ -190,6 +190,7 @@ export function AgentToolWebSearchBody({
                     <AgentTreeBranch
                       isFirst={index === 0}
                       isLast={index === links.length - 1}
+                      animate={open}
                     >
                       <a
                         href={link.url}

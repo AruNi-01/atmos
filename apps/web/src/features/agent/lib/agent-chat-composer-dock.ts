@@ -1,15 +1,15 @@
-import { EASE_OUT } from "@workspace/ui/lib/ease";
+import { EASE_OUT, EASE_OUT_CSS } from "@workspace/ui/lib/ease";
 
 /** Center → dock. Critically damped feel, no bounce. */
 export const COMPOSER_DOCK_MS = 420;
 /** Dock → center. Slightly longer so chrome leaves first. */
 export const COMPOSER_UNDOCK_MS = 470;
 export const COMPOSER_DOCK_EASE = EASE_OUT;
+export const COMPOSER_DOCK_EASE_CSS = EASE_OUT_CSS;
 /** Hero rest is a few pixels below true center. */
 export const COMPOSER_HERO_Y_BIAS = 8;
 
 /** Dock progress 0..1 windows for staged chrome (send / center → bottom). */
-export const DOCK_TRANSCRIPT = { start: 0.2, end: 0.65 } as const;
 export const DOCK_LOGO = { start: 0.55, end: 0.78 } as const;
 /** Return trip windows (bottom → center). */
 export const UNDOCK_TRANSCRIPT = { start: 0, end: 0.25 } as const;
@@ -84,12 +84,13 @@ export function composerTranscriptChrome(docked: boolean, reduceMotion: boolean)
   if (reduceMotion) {
     return { opacity: docked ? 1 : 0, y: 0, delay: 0, duration: 0 };
   }
-  const tween = docked
-    ? rangeTween(DOCK_TRANSCRIPT, COMPOSER_DOCK_MS)
-    : rangeTween(UNDOCK_TRANSCRIPT, COMPOSER_UNDOCK_MS);
+  if (docked) {
+    return { opacity: 1, y: 0, delay: 0, duration: 0 };
+  }
+  const tween = rangeTween(UNDOCK_TRANSCRIPT, COMPOSER_UNDOCK_MS);
   return {
-    opacity: docked ? 1 : 0,
-    y: docked ? 0 : 8,
+    opacity: 0,
+    y: 8,
     delay: tween.delay,
     duration: tween.duration,
   };

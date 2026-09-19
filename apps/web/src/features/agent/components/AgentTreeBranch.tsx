@@ -1,132 +1,87 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useReducedMotion } from "motion/react";
 import {
   TREE_BRANCH_FIRST_START_Y,
+  TREE_BRANCH_GUTTER,
   TREE_BRANCH_MID_Y,
   TREE_BRANCH_RADIUS,
-  TREE_BRANCH_WIDTH,
-  TREE_CLIP_FULL,
-  TREE_CLIP_VERTICAL_FULL,
-  TREE_CLIP_VERTICAL_ONLY,
+  TREE_BRANCH_TRUNK_X,
+  TREE_DRAW_MS,
   TREE_EASE,
-  TREE_LINE_MS,
-  TREE_TRUNK_MS,
+  TREE_LINE_WIDTH,
+  treeReachPath,
 } from "@/features/agent/lib/agent-tree-branch";
-import { AgentStreamReveal } from "./AgentStreamReveal";
+import { useTreeDrawIn } from "@/features/agent/hooks/use-tree-draw-in";
 
-function useDrawIn(skip: boolean): boolean {
-  const [drawn, setDrawn] = useState(skip);
-
-  useEffect(() => {
-    if (skip) {
-      if (!drawn) setDrawn(true);
-      return;
-    }
-    if (drawn) return;
-    let frame2 = 0;
-    const frame1 = window.requestAnimationFrame(() => {
-      frame2 = window.requestAnimationFrame(() => setDrawn(true));
-    });
-    return () => {
-      window.cancelAnimationFrame(frame1);
-      window.cancelAnimationFrame(frame2);
+function strokeStyle(drawn: boolean, skip: boolean, durationMs: number, delayMs = 0) {
+  if (skip || !drawn) {
+    return {
+      strokeDasharray: 1,
+      strokeDashoffset: skip ? 0 : 1,
+      transition: "none",
     };
-  }, [drawn, skip]);
-
-  return drawn;
+  }
+  return {
+    strokeDasharray: 1,
+    strokeDashoffset: 0,
+    transition: `stroke-dashoffset ${durationMs}ms ${TREE_EASE} ${delayMs}ms`,
+  };
 }
 
-function BranchTrunk({ skip, durationMs }: { skip: boolean; durationMs: number }) {
-  const grown = useDrawIn(skip);
-
-  return (
-    <span
-      data-tree-trunk=""
-      className="absolute bottom-0 left-2 w-px bg-background motion-reduce:transition-none"
-      style={{
-        top: TREE_BRANCH_MID_Y - TREE_BRANCH_RADIUS,
-        backgroundImage: "linear-gradient(var(--border), var(--border))",
-        transform: grown ? "scaleY(1)" : "scaleY(0)",
-        transformOrigin: "top",
-        transition: skip ? undefined : `transform ${durationMs}ms ${TREE_EASE}`,
-      }}
-    />
-  );
-}
-
-function BranchElbow({
+function BranchSvg({
   isFirst,
+  isLast,
   skip,
   durationMs,
 }: {
   isFirst: boolean;
+  isLast: boolean;
   skip: boolean;
   durationMs: number;
 }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const played = useRef(skip);
-  const [drawn, setDrawn] = useState(skip);
-  const originY = isFirst ? TREE_BRANCH_FIRST_START_Y : 0;
-  const height = TREE_BRANCH_MID_Y - originY;
-
-  useEffect(() => {
-    if (skip) {
-      played.current = true;
-      setDrawn(true);
-      return;
-    }
-    if (played.current) return;
-    const el = ref.current;
-    if (!el) return;
-    const anim = el.animate(
-      [
-        { clipPath: TREE_CLIP_VERTICAL_ONLY },
-        { clipPath: TREE_CLIP_VERTICAL_FULL, offset: 0.55 },
-        { clipPath: TREE_CLIP_FULL },
-      ],
-      { duration: durationMs, easing: TREE_EASE, fill: "forwards" },
-    );
-    const timer = window.setTimeout(() => {
-      played.current = true;
-      setDrawn(true);
-    }, durationMs);
-    return () => {
-      window.clearTimeout(timer);
-      // Element may already be unmounted (virtualized list / HMR); commitStyles
-      // then throws InvalidStateError: "Target element is not rendered".
-      try {
-        const target = ref.current;
-        if (target?.isConnected && anim.playState !== "idle") {
-          anim.commitStyles();
-        }
-        anim.cancel();
-      } catch {
-        try {
-          anim.cancel();
-        } catch {
-          // ignore
-        }
-      }
-    };
-  }, [skip]);
+  const elbowDrawn = useTreeDrawIn(skip);
+  const trunkDrawn = useTreeDrawIn(skip || isLast);
+  const elbow = treeReachPath(isFirst ? TREE_BRANCH_FIRST_START_Y : 0, TREE_BRANCH_MID_Y);
 
   return (
-    <span
-      ref={ref}
-      data-tree-elbow=""
-      className="absolute left-2 z-[1] box-border border-border bg-background"
-      style={{
-        top: originY,
-        width: TREE_BRANCH_WIDTH,
-        height,
-        borderLeftWidth: 1,
-        borderBottomWidth: 1,
-        borderBottomLeftRadius: TREE_BRANCH_RADIUS,
-        clipPath: skip || drawn ? TREE_CLIP_FULL : TREE_CLIP_VERTICAL_ONLY,
-      }}
-    />
+    <svg
+      data-tree-lines=""
+      className="pointer-events-none absolute inset-0 overflow-visible"
+      width={TREE_BRANCH_GUTTER}
+      height="100%"
+      aria-hidden="true"
+    >
+      {!isLast ? (
+        <line
+          key="trunk"
+          data-tree-stroke="trunk"
+          x1={TREE_BRANCH_TRUNK_X}
+          y1={TREE_BRANCH_MID_Y - TREE_BRANCH_RADIUS}
+          x2={TREE_BRANCH_TRUNK_X}
+          y2="100%"
+          fill="none"
+          stroke="var(--border)"
+          strokeWidth={TREE_LINE_WIDTH}
+          strokeLinecap="round"
+          pathLength={1}
+          style={strokeStyle(trunkDrawn, skip, durationMs)}
+        />
+      ) : null}
+      <path
+        key="elbow"
+        data-tree-stroke="elbow"
+        fill="none"
+        stroke="var(--border)"
+        strokeWidth={TREE_LINE_WIDTH}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d={elbow}
+        pathLength={1}
+        style={strokeStyle(elbowDrawn, skip, durationMs)}
+      />
+    </svg>
   );
 }
 
@@ -134,7 +89,7 @@ export function AgentTreeBranch({
   isLast,
   isFirst = false,
   animate = false,
-  durationMs = TREE_LINE_MS,
+  durationMs = TREE_DRAW_MS,
   children,
 }: {
   isLast: boolean;
@@ -145,17 +100,18 @@ export function AgentTreeBranch({
 }) {
   const reduced = useReducedMotion();
   const skip = !animate || Boolean(reduced);
-  const trunkMs = Math.round(durationMs * (TREE_TRUNK_MS / TREE_LINE_MS));
 
   return (
-    <AgentStreamReveal enabled={animate}>
-      <div className="relative flex min-h-6 min-w-0">
-        <div className="relative w-7 shrink-0 self-stretch overflow-visible" aria-hidden="true">
-          {!isLast ? <BranchTrunk key="trunk" skip={skip} durationMs={trunkMs} /> : null}
-          <BranchElbow key="elbow" isFirst={isFirst} skip={skip} durationMs={durationMs} />
-        </div>
-        <div className="min-w-0 flex-1">{children}</div>
+    <div className="relative flex min-h-6 min-w-0">
+      <div className="relative w-7 shrink-0 self-stretch overflow-visible" aria-hidden="true">
+        <BranchSvg
+          isFirst={isFirst}
+          isLast={isLast}
+          skip={skip}
+          durationMs={durationMs}
+        />
       </div>
-    </AgentStreamReveal>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
   );
 }

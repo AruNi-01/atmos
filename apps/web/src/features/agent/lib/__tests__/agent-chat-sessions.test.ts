@@ -4,9 +4,11 @@ import { join } from "node:path";
 import type { AgentChatIndexEntry } from "@atmos/api-types/ws/dto/agent-chat";
 import type { Project } from "@/shared/types/domain";
 import {
+  buildAgentChatCenterHref,
   buildAgentChatHistoryHref,
   chatMatchesSessionScope,
   groupAgentChatSessionsByTime,
+  hostScopeFromPaintContext,
   resolveAgentChatLocationLabel,
   routeKindForAgentChatContext,
   sameStringSet,
@@ -155,6 +157,30 @@ describe("agent chat sessions helpers", () => {
     ).toBe("/agent-chat?chatId=chat-1");
     expect(routeKindForAgentChatContext("proj-1", projects)).toBe("project");
     expect(sameStringSet(["a", "b"], ["b", "a"])).toBe(true);
+    expect(buildAgentChatCenterHref("proj-1", projects, "agent-chat:chat-1")).toBe(
+      "/project?id=proj-1&tab=agent-chat%3Achat-1",
+    );
+  });
+
+  it("keeps center chat sessions on the painted host, not the URL host", () => {
+    expect(
+      hostScopeFromPaintContext("proj-1", projects, {
+        workspaceId: "ws-1",
+        projectId: null,
+      }),
+    ).toEqual({ workspaceId: null, projectId: "proj-1" });
+    expect(
+      hostScopeFromPaintContext("ws-1", projects, {
+        workspaceId: null,
+        projectId: "proj-1",
+      }),
+    ).toEqual({ workspaceId: "ws-1", projectId: null });
+    expect(
+      hostScopeFromPaintContext("proj-1", projects, {
+        workspaceId: null,
+        projectId: "proj-1",
+      }),
+    ).toEqual({ workspaceId: null, projectId: "proj-1" });
   });
 
   it("activates the dest paint context before the history hop so leftover URL cannot clone the chat", () => {
@@ -162,8 +188,10 @@ describe("agent chat sessions helpers", () => {
     expect(src).toContain("activateCenterChromeTab(tab.contextId, tab.value)");
     expect(src).toContain("findAgentChatCenterTab(");
     expect(src).toContain("makeCenterSpaceKey(contextId, spaceId)");
+    expect(src).toContain("hostIdFromCenterKey(tab.contextId)");
+    expect(src).toContain("buildAgentChatCenterHref(tabHost, projects, tab.value)");
     const activateAt = src.indexOf("activateCenterChromeTab(tab.contextId, tab.value)");
-    const navAt = src.indexOf("commitLocatedPaneNavigation(router,");
+    const navAt = src.indexOf("commitLocatedPaneNavigation(");
     expect(activateAt).toBeGreaterThan(0);
     expect(navAt).toBeGreaterThan(activateAt);
   });

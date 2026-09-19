@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  acpOnboardingProvisionTargets,
   acpProvisionTargets,
   type AcpProvisionCandidate,
 } from "../acp-provision-targets";
@@ -127,5 +128,30 @@ describe("acpProvisionTargets", () => {
     ];
 
     expect(acpProvisionTargets(agents, ["gemini", "cursor"])).toEqual([]);
+  });
+});
+
+describe("acpOnboardingProvisionTargets", () => {
+  test("binds native CLIs and never queues adapter downloads", () => {
+    const agents = [
+      agent({
+        id: "claude-acp",
+        name: "Claude Agent",
+        provision_kind: "adapter",
+        terminal_agent_id: "claude",
+        installed: false,
+      }),
+      agent({
+        id: "gemini",
+        name: "Gemini CLI",
+        provision_kind: "native",
+        terminal_agent_id: "gemini",
+        installed: true,
+      }),
+    ];
+
+    expect(acpOnboardingProvisionTargets(agents, ["claude", "gemini"]).map((item) => item.id)).toEqual(
+      ["gemini"],
+    );
   });
 });

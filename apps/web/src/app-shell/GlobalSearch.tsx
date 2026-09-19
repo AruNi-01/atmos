@@ -507,16 +507,17 @@ export function GlobalSearch() {
   }, [globalSearchTab, searchQuery, isGlobalSearchOpen, firstAppItemId, firstFilePath, firstCodeValue]);
 
   const handleFileSelect = (path: string) => {
-    // Search results open in pinned mode since user explicitly searched for them
-    openFile(path, currentWorkspaceId ?? undefined, { preview: false });
+    const contextId = centerContextId;
+    if (!contextId) return;
+    openFile(path, contextId, { preview: false });
     setGlobalSearchOpen(false);
   };
 
   const handleCodeResultSelect = (match: SearchMatch) => {
-    if (currentEffectivePath) {
+    const contextId = centerContextId;
+    if (currentEffectivePath && contextId) {
       const fullPath = `${currentEffectivePath}/${match.file_path}`;
-      // Search results open in pinned mode since user explicitly searched for them
-      openFile(fullPath, currentWorkspaceId ?? undefined, { preview: false });
+      openFile(fullPath, contextId, { preview: false });
       setGlobalSearchOpen(false);
     }
   };

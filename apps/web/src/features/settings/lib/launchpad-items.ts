@@ -43,10 +43,12 @@ export const LAUNCHPAD_DROP_HIDE = 'launchpad-drop-hide';
 
 const LAUNCHPAD_ITEM_ID_SET = new Set<string>(LAUNCHPAD_ITEM_IDS);
 
-/** Items that default enabled in Launchpad. */
+/** Items that default enabled in Launchpad on a first-run (no persisted layout). */
 const ALWAYS_ON_DEFAULT_IDS: LaunchpadItemId[] = [
   'workspaces',
   'skills',
+  'terminals',
+  'agents',
   'automations',
   'disk-analyzer',
   'token-usage',
@@ -57,16 +59,11 @@ const ALWAYS_ON_DEFAULT_IDS: LaunchpadItemId[] = [
   'agent-sessions',
 ];
 
-/** Default to Outside (full-width list under Launchpad header) rather than Inside grid. */
+/** Default to Outside (full-width list under Launchpad header). Others default Inside (grid). */
 const DEFAULT_OUTSIDE_PLACEMENT_IDS: LaunchpadItemId[] = [
   'skills',
   'automations',
-  'token-usage',
-  'canvas',
-  'pt-design',
-  'tasks',
   'new-workspace',
-  'agent-sessions',
 ];
 
 export function isLaunchpadItemId(value: string): value is LaunchpadItemId {

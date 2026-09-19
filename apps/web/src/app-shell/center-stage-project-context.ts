@@ -25,3 +25,17 @@ export function resolveCenterStageProjectContext(
   const project = projects.find((row) => row.id === hostId);
   return { currentProject: project, currentWorkspace: undefined };
 }
+
+/** `/project` vs `/workspace` href for a center host + one-shot tab deep link. */
+export function buildCenterHostTabHref(
+  hostId: string,
+  projects: Project[],
+  tabValue: string,
+): string {
+  const { currentWorkspace } = resolveCenterStageProjectContext(projects, hostId);
+  const kind = currentWorkspace ? "workspace" : "project";
+  const params = new URLSearchParams();
+  params.set("id", hostId);
+  params.set("tab", tabValue);
+  return `/${kind}?${params.toString()}`;
+}

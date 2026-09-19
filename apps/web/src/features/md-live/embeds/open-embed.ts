@@ -2,10 +2,16 @@ import { parseMdLiveGithubTarget, type MdLiveEmbedSpec } from "@atmos/md-live";
 import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
 import { useGithubCenterTabsStore } from "@/features/github/store/use-github-center-tabs";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
+import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
+import { resolveCenterOpenContextId } from "@/app-shell/center-space/center-open-context";
+import { paintContextIdForHost } from "@/app-shell/center-space/center-space-url";
 import { mdLiveCopy } from "../lib/md-live-copy";
 
 function resolveContextId(): string | null {
-  return useEditorStore.getState().currentWorkspaceId;
+  const editorId = useEditorStore.getState().currentWorkspaceId;
+  if (!editorId) return null;
+  const hostId = hostIdFromCenterKey(editorId);
+  return resolveCenterOpenContextId(hostId, hostId, paintContextIdForHost(hostId));
 }
 
 function openGithubNative(spec: MdLiveEmbedSpec): boolean {
@@ -47,7 +53,11 @@ export function openMdLiveEmbed(spec: MdLiveEmbedSpec): void {
       : root
         ? `${root.replace(/\/+$/, "")}/${path.replace(/^\.\//, "")}`
         : path;
-    void useEditorStore.getState().openFile(full);
+    const contextId = resolveContextId();
+    void useEditorStore.getState().openFile(full, contextId ?? undefined);
+    if (contextId) {
+      activateCenterChromeTab(contextId, full, { placement: "focused" });
+    }
     return;
   }
 

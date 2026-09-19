@@ -260,6 +260,7 @@ import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-s
 import { useAgentStatusStore } from "@/features/agent/store/agent-status-store";
 import {
   EMPTY_AGENT_CHAT_TABS,
+  isAgentChatTabValue,
   parseAgentChatTabValue,
   useAgentChatCenterTabsStore,
 } from "@/features/agent/store/use-agent-chat-center-tabs";
@@ -399,12 +400,14 @@ const CenterStage: React.FC = () => {
   const githubTabsHydrated = useZustandPersistHydrated(useGithubCenterTabsStore.persist);
   const gitCommitTabsHydrated = useZustandPersistHydrated(useGitCommitCenterTabsStore.persist);
   const browserTabsHydrated = useZustandPersistHydrated(useBrowserCenterTabsStore.persist);
+  const agentChatTabsHydrated = useZustandPersistHydrated(useAgentChatCenterTabsStore.persist);
   const paneLayoutHydrated = useCenterPaneLayoutStore((s) => s.hydrated);
   const openTabSourcesHydrated = areOpenTabIdListSourcesHydrated({
     editorHydrated: isEditorHydrated,
     githubHydrated: githubTabsHydrated,
     gitCommitHydrated: gitCommitTabsHydrated,
     browserHydrated: browserTabsHydrated,
+    agentChatHydrated: agentChatTabsHydrated,
     layoutHydrated: paneLayoutHydrated,
   });
 
@@ -445,6 +448,12 @@ const CenterStage: React.FC = () => {
     }
     const layout = s.byContext[liveCenterContextId];
     return !layout || isFreshEmptyCenterLayout(layout);
+  });
+  const mosaicHasWiki = useCenterPaneLayoutStore((s) => {
+    const id = liveCenterContextId;
+    if (!id) return false;
+    const layout = s.byContext[id];
+    return Boolean(layout?.panes.some((pane) => pane.tabIds.includes("wiki")));
   });
   // IMP-013: heavy tab/file/terminal rebind follows deferred IDs.
   // Live IDs stay for promote + paint so the left sidebar's urgent
@@ -711,6 +720,24 @@ const CenterStage: React.FC = () => {
     if (isExtraCenterSpaceKey(effectiveContextId) && liveExtraSpaceEmpty) return;
     const last = readCenterStageLastTab(effectiveContextId);
     if (!last) return;
+    if (
+      !FIXED_TABS.has(last) &&
+      !isTerminalCenterTabValue(last) &&
+      !isAgentChatTabValue(last) &&
+      !last.startsWith("github-") &&
+      !last.startsWith("git-commit:") &&
+      !last.startsWith("browser:")
+    ) {
+      const files = useEditorStore.getState().getOpenFiles(effectiveContextId);
+      if (!files.some((file) => file.path === last)) {
+        if (fallbackCenterTab) {
+          activateCenterChromeTab(effectiveContextId, fallbackCenterTab, {
+            attach: false,
+          });
+        }
+        return;
+      }
+    }
     // Overview is opt-in. A leftover last-tab of "overview" from when it was
     // always-open must not reopen it on the default space's first pane.
     if (
@@ -778,7 +805,7 @@ const CenterStage: React.FC = () => {
   const overviewVisibleByContext = useOverviewCenterTabStore((s) => s.visibleByContext);
   const overviewTabVisible =
     Boolean(effectiveContextId && overviewVisibleByContext[effectiveContextId]) ||
-    tabFromUrl === OVERVIEW_TAB_ID;
+    (honorUrlTab && tabFromUrl === OVERVIEW_TAB_ID);
   const changesTabVisible =
     !hideStandaloneGitChrome &&
     (Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.changes) ||
@@ -803,22 +830,25 @@ const CenterStage: React.FC = () => {
 
   React.useEffect(() => {
     if (!effectiveContextId || !storedLastTab) return;
+    if (isExtraCenterSpaceKey(effectiveContextId) && liveExtraSpaceEmpty) return;
     if (storedLastTab === SIMULATOR_TAB_VALUE) {
       openSimulatorTab(effectiveContextId);
     }
-  }, [effectiveContextId, openSimulatorTab, storedLastTab]);
+  }, [effectiveContextId, liveExtraSpaceEmpty, openSimulatorTab, storedLastTab]);
 
   React.useEffect(() => {
     if (!effectiveContextId || !storedLastTab) return;
+    if (isExtraCenterSpaceKey(effectiveContextId) && liveExtraSpaceEmpty) return;
     if (storedLastTab === GIT_HISTORY_TAB_VALUE) {
       openGitHistoryTab(effectiveContextId);
     }
-  }, [effectiveContextId, openGitHistoryTab, storedLastTab]);
+  }, [effectiveContextId, liveExtraSpaceEmpty, openGitHistoryTab, storedLastTab]);
 
   React.useEffect(() => {
     if (!effectiveContextId || !isCenterToolTabValue(storedLastTab)) return;
+    if (isExtraCenterSpaceKey(effectiveContextId) && liveExtraSpaceEmpty) return;
     openToolTab(effectiveContextId, storedLastTab);
-  }, [effectiveContextId, openToolTab, storedLastTab]);
+  }, [effectiveContextId, liveExtraSpaceEmpty, openToolTab, storedLastTab]);
 
   /** Until experiment prefs load, preserve a wiki last-tab / deep link so we do not strip it. */
   const wikiCenterEligible = React.useMemo(() => {
@@ -982,10 +1012,10 @@ const CenterStage: React.FC = () => {
         // Remove from this pane with MRU next — do not snap to visual neighbor
         // first. Shareable editor tabs may still live on a sibling pane.
         activateNextAfterClosingRef.current(file.path, { paneId });
-        closeSurfaceIfUnowned(contextId, file.path, () => closeFile(file.path));
+        closeSurfaceIfUnowned(contextId, file.path, () => closeFile(file.path, contextId));
         return;
       }
-      closeFile(file.path);
+      closeFile(file.path, liveCenterContextId ?? effectiveContextId ?? undefined);
       activateNextAfterClosingRef.current(file.path);
     }
   }, [closeFile, effectiveContextId, liveCenterContextId]);
@@ -1097,10 +1127,13 @@ const CenterStage: React.FC = () => {
   }, [effectiveContextId]);
 
   const handleTabStripOrderChange = React.useCallback(
-    (order: string[]) => {
-      if (effectiveContextId) {
-        setTabStripState({ contextId: effectiveContextId, order });
-        writeCenterStageTabStripOrder(effectiveContextId, order);
+    (order: string[], writeContextId?: string | null) => {
+      const id = writeContextId || effectiveContextId;
+      if (id) {
+        writeCenterStageTabStripOrder(id, order);
+        if (id === effectiveContextId) {
+          setTabStripState({ contextId: id, order });
+        }
         return;
       }
       setTabStripState({ contextId: null, order });
@@ -1120,9 +1153,7 @@ const CenterStage: React.FC = () => {
       ...githubTabs.map((tab) => ({ id: tab.value, openedAt: tab.openedAt })),
       ...gitCommitTabs.map((tab) => ({ id: tab.value, openedAt: tab.openedAt })),
       ...browserTabs.map((tab) => ({ id: tab.value, openedAt: tab.openedAt })),
-      ...(useAgentChatCenterTabsStore.getState().tabsByContext[effectiveContextId ?? ""] ?? []).map(
-        (tab) => ({ id: tab.value, openedAt: tab.openedAt }),
-      ),
+      ...agentChatTabs.map((tab) => ({ id: tab.value, openedAt: tab.openedAt })),
     ]
       .sort((left, right) => left.openedAt - right.openedAt)
       .map((item) => item.id);
@@ -1142,9 +1173,11 @@ const CenterStage: React.FC = () => {
       surfaceTabIds,
     });
   }, [
+    agentChatTabs,
     browserTabs,
     changesTabVisible,
     codeReviewTabVisible,
+    effectiveContextId,
     filesTabVisible,
     gitHistoryTabVisible,
     githubHubTabVisible,
@@ -1160,16 +1193,31 @@ const CenterStage: React.FC = () => {
   ]);
 
   const appendTabToStripOrder = React.useCallback(
-    (tabId: string) => {
+    (tabId: string, writeContextId?: string | null) => {
+      const id = writeContextId || liveCenterContextId || effectiveContextId;
+      if (!id) {
+        handleTabStripOrderChange(
+          appendCenterTabToStripOrder([], defaultStripTabIds, tabId),
+        );
+        return;
+      }
+      const current =
+        id === (tabStripState.contextId ?? effectiveContextId)
+          ? [...contextStripOrderRef.current]
+          : readCenterStageTabStripOrder(id);
+      const visual = id === effectiveContextId ? defaultStripTabIds : current;
       handleTabStripOrderChange(
-        appendCenterTabToStripOrder(
-          [...contextStripOrderRef.current],
-          defaultStripTabIds,
-          tabId,
-        ),
+        appendCenterTabToStripOrder(current, visual, tabId),
+        id,
       );
     },
-    [defaultStripTabIds, handleTabStripOrderChange],
+    [
+      defaultStripTabIds,
+      effectiveContextId,
+      handleTabStripOrderChange,
+      liveCenterContextId,
+      tabStripState.contextId,
+    ],
   );
 
   // activeValue 优先使用打开的文件路径，否则使用当前 center tab
@@ -1226,7 +1274,10 @@ const CenterStage: React.FC = () => {
             Boolean(effectiveContextId) &&
             isExtraCenterSpaceKey(effectiveContextId) &&
             liveExtraSpaceEmpty
-          ),
+          ) &&
+          (mosaicHasWiki ||
+            storedLastTab === "wiki" ||
+            (honorUrlTab && tabFromUrl === "wiki")),
         fixedAlwaysOpen:
           overviewTabVisible &&
           !(
@@ -1243,10 +1294,14 @@ const CenterStage: React.FC = () => {
       centerWikiTabEnabled,
       extraOpenCenterTabValues,
       githubTabs,
+      honorUrlTab,
+      mosaicHasWiki,
       openFiles,
       effectiveContextId,
       liveExtraSpaceEmpty,
       overviewTabVisible,
+      storedLastTab,
+      tabFromUrl,
       visibleTerminalTabs,
     ],
   );
@@ -1484,7 +1539,7 @@ const CenterStage: React.FC = () => {
     const tab = openBrowserCenterTab(contextId);
     requestBrowserContextUrlFocus(tab.browserContextId);
     activateCenterChromeTab(contextId, tab.value, { placement: "focused" });
-    appendTabToStripOrder(tab.value);
+    appendTabToStripOrder(tab.value, contextId);
   }, [
     appendTabToStripOrder,
     effectiveContextId,
@@ -1496,7 +1551,7 @@ const CenterStage: React.FC = () => {
     const contextId = liveCenterContextId ?? effectiveContextId;
     if (!contextId) return;
     activateCenterChromeTab(contextId, SIMULATOR_TAB_VALUE, { placement: "focused" });
-    appendTabToStripOrder(SIMULATOR_TAB_VALUE);
+    appendTabToStripOrder(SIMULATOR_TAB_VALUE, contextId);
   }, [
     appendTabToStripOrder,
     effectiveContextId,
@@ -1527,7 +1582,7 @@ const CenterStage: React.FC = () => {
     const contextId = liveCenterContextId ?? effectiveContextId;
     if (!contextId) return;
     activateCenterChromeTab(contextId, tab, { placement: "focused" });
-    appendTabToStripOrder(tab);
+    appendTabToStripOrder(tab, contextId);
   }, [
     appendTabToStripOrder,
     effectiveContextId,
@@ -1659,10 +1714,11 @@ const CenterStage: React.FC = () => {
   const { defaultAgentId, terminalQuickOpenAgents } = useCenterStageTerminalAgents(isSetupBlocking);
 
   const ensureRunnableTerminalTab = React.useCallback(() => {
-    if (!effectiveContextId) return null;
-    const existingTab = useTerminalStore.getState().getTerminalTabs(effectiveContextId)[0];
-    return existingTab?.id ?? createTerminalTab(effectiveContextId).id;
-  }, [createTerminalTab, effectiveContextId]);
+    const contextId = liveCenterContextId ?? effectiveContextId;
+    if (!contextId) return null;
+    const existingTab = useTerminalStore.getState().getTerminalTabs(contextId)[0];
+    return existingTab?.id ?? createTerminalTab(contextId).id;
+  }, [createTerminalTab, effectiveContextId, liveCenterContextId]);
 
   const runWhenTerminalGridReady = React.useCallback((
     targetTerminalTabId: string,
@@ -1694,21 +1750,22 @@ const CenterStage: React.FC = () => {
 
   React.useEffect(() => {
     return subscribeMdLiveTerminalGridMount(() => {
-      if (!effectiveContextId) return;
-      const tabs = useTerminalStore.getState().getTerminalTabs(effectiveContextId);
+      const contextId = liveCenterContextId ?? effectiveContextId;
+      if (!contextId) return;
+      const tabs = useTerminalStore.getState().getTerminalTabs(contextId);
       const tabId = tabs.some((tab) => tab.id === FIXED_TERMINAL_TAB_VALUE)
         ? FIXED_TERMINAL_TAB_VALUE
-        : (tabs[0]?.id ?? createTerminalTab(effectiveContextId).id);
+        : (tabs[0]?.id ?? createTerminalTab(contextId).id);
       setMountedTerminalTabsByContext((current) => {
-        const ids = current[effectiveContextId] ?? [];
+        const ids = current[contextId] ?? [];
         if (ids.includes(tabId)) return current;
-        return { ...current, [effectiveContextId]: [...ids, tabId] };
+        return { ...current, [contextId]: [...ids, tabId] };
       });
       runWhenTerminalGridReady(tabId, (grid) => {
         registerMdLiveTerminalGrid(grid);
       }, 40);
     });
-  }, [createTerminalTab, effectiveContextId, runWhenTerminalGridReady]);
+  }, [createTerminalTab, effectiveContextId, liveCenterContextId, runWhenTerminalGridReady]);
 
   // Try to focus pane by tmux window name across all terminal tabs
   const focusPaneByTmuxAcrossAllTabs = React.useCallback((tmuxWindowName: string) => {
@@ -1873,18 +1930,26 @@ const CenterStage: React.FC = () => {
 
   const handleRunReviewInTerminal = React.useCallback(
     (command: string, label: string) => {
-      if (!effectiveContextId) return;
+      const contextId = liveCenterContextId ?? effectiveContextId;
+      if (!contextId) return;
       if (activeFilePath) {
-        setActiveFile(null, effectiveContextId);
+        setActiveFile(null, contextId);
       }
       const targetTerminalTabId = ensureRunnableTerminalTab();
       if (!targetTerminalTabId) return;
-      activateCenterChromeTab(effectiveContextId, targetTerminalTabId);
+      activateCenterChromeTab(contextId, targetTerminalTabId);
       runWhenTerminalGridReady(targetTerminalTabId, (grid) => {
         void grid.createAndRunTerminal({ label, command });
       });
     },
-    [activeFilePath, effectiveContextId, ensureRunnableTerminalTab, runWhenTerminalGridReady, setActiveFile],
+    [
+      activeFilePath,
+      effectiveContextId,
+      ensureRunnableTerminalTab,
+      liveCenterContextId,
+      runWhenTerminalGridReady,
+      setActiveFile,
+    ],
   );
 
   React.useEffect(() => {
@@ -1896,7 +1961,8 @@ const CenterStage: React.FC = () => {
 
   const handleRunAgentFixInTerminal = React.useCallback(
     async (request: ResolvedAgentFixLaunchRequest) => {
-      if (!effectiveContextId || effectiveContextId !== request.context.contextId) {
+      const contextId = liveCenterContextId ?? effectiveContextId;
+      if (!contextId || contextId !== request.context.contextId) {
         throw new Error("Agent Fix context is no longer active.");
       }
       if (
@@ -1906,21 +1972,21 @@ const CenterStage: React.FC = () => {
         throw new Error("Agent Fix must run in its source workspace or project.");
       }
       if (activeFilePath) {
-        setActiveFile(null, effectiveContextId);
+        setActiveFile(null, contextId);
       }
 
       const { currentProject: fixProject, currentWorkspace: fixWorkspace } =
-        resolveCenterStageProjectContext(projects, effectiveContextId);
+        resolveCenterStageProjectContext(projects, contextId);
       const launchPrompt = await resolveAgentFixLaunchPrompt(
         request.prompt,
         fixWorkspace?.localPath || fixProject?.mainFilePath,
       );
 
-      const nextTab = createTerminalTab(effectiveContextId, {
+      const nextTab = createTerminalTab(contextId, {
         title: request.terminalTabTitle,
       });
-      appendTabToStripOrder(nextTab.id);
-      activateCenterChromeTab(effectiveContextId, nextTab.id, { placement: "focused" });
+      appendTabToStripOrder(nextTab.id, contextId);
+      activateCenterChromeTab(contextId, nextTab.id, { placement: "focused" });
 
       const plan = buildInteractiveAgentRunPlan({
         agentId: request.agent.id,
@@ -1953,6 +2019,7 @@ const CenterStage: React.FC = () => {
       createTerminalTab,
       currentView,
       effectiveContextId,
+      liveCenterContextId,
       projects,
       runWhenTerminalGridReady,
       setActiveFile,
@@ -1973,7 +2040,7 @@ const CenterStage: React.FC = () => {
       contextId,
       title: tabBarT("newAgentChat"),
     });
-    appendTabToStripOrder(tab.value);
+    appendTabToStripOrder(tab.value, contextId);
     activateCenterChromeTab(contextId, tab.value, { placement: "focused" });
     return tab.value;
   }, [
@@ -1993,7 +2060,10 @@ const CenterStage: React.FC = () => {
 
   React.useEffect(() => {
     if (!pendingAgentChatActivate) return;
-    appendTabToStripOrder(pendingAgentChatActivate.value);
+    appendTabToStripOrder(
+      pendingAgentChatActivate.value,
+      pendingAgentChatActivate.contextId,
+    );
     activateCenterChromeTab(pendingAgentChatActivate.contextId, pendingAgentChatActivate.value, {
       placement: "focused",
     });
@@ -2008,7 +2078,7 @@ const CenterStage: React.FC = () => {
       existingTabs.length === 0
         ? ensureFixedTerminalTab(contextId)
         : createTerminalTab(contextId);
-    appendTabToStripOrder(nextTab.id);
+    appendTabToStripOrder(nextTab.id, contextId);
     activateCenterChromeTab(contextId, nextTab.id, { placement: "focused" });
     runWhenTerminalGridReady(nextTab.id, (grid) => {
       grid.focusActivePane();
@@ -2817,6 +2887,23 @@ const CenterStage: React.FC = () => {
     void syncCenterLayoutFromDisk();
   }, [hydrateOverviewTabs, hydratePaneLayout, hydrateSavedLayouts]);
 
+  React.useEffect(() => {
+    if (!paneLayoutHydrated) return;
+    const mosaics = useCenterPaneLayoutStore.getState().byContext;
+    const tools = useToolCenterTabsStore.getState();
+    const simulator = useSimulatorCenterTabStore.getState();
+    const gitHistory = useGitHistoryCenterTabStore.getState();
+    for (const [contextId, layout] of Object.entries(mosaics)) {
+      for (const pane of layout.panes) {
+        for (const tabId of pane.tabIds) {
+          if (isCenterToolTabValue(tabId)) tools.open(contextId, tabId);
+          if (tabId === SIMULATOR_TAB_VALUE) simulator.open(contextId);
+          if (tabId === GIT_HISTORY_TAB_VALUE) gitHistory.open(contextId);
+        }
+      }
+    }
+  }, [paneLayoutHydrated]);
+
   // Content-stable key so array identity churn from open-file lists cannot loop effects.
   const openTabIdKey = React.useMemo(() => {
     const ids = Array.from(collectOpenCenterTabValues());
@@ -2861,6 +2948,8 @@ const CenterStage: React.FC = () => {
     // Launchpad has no host; keep-alive frames must not reconcile against
     // the overlay's empty membership list.
     if (isLaunchpadCenter) return;
+    // Deferred membership still belongs to the previous paint during a hop.
+    if (!isCenterContextSettled) return;
     const existingLayout = useCenterPaneLayoutStore.getState().getLayout(renderContextId);
     if (existingLayout && isFreshEmptyCenterLayout(existingLayout)) {
       if (openTabIdList.length === 0) return;
@@ -2885,6 +2974,7 @@ const CenterStage: React.FC = () => {
     activeValue,
     contextStripOrder,
     ensurePaneLayout,
+    isCenterContextSettled,
     isLaunchpadCenter,
     openTabIdKey,
     openTabIdList,
@@ -3211,7 +3301,7 @@ const CenterStage: React.FC = () => {
             );
             return;
           }
-          handleTabStripOrderChange(order);
+          handleTabStripOrderChange(order, mosaicWriteContextId);
           const singlePaneId =
             layoutPaneId ??
             (resolvedPaneLayout.order.length === 1 ? resolvedPaneLayout.order[0] : undefined);
@@ -3236,7 +3326,14 @@ const CenterStage: React.FC = () => {
         sessionDisplay={sessionDisplay}
         tabGroupDndSensors={tabGroupDndSensors}
         visibleTerminalTabs={filterIds(visibleTerminalTabs, (tab) => tab.id)}
-        wikiCenterEligible={wikiCenterEligible && has("wiki")}
+        wikiCenterEligible={
+          wikiCenterEligible &&
+          !liveExtraSpaceEmpty &&
+          (has("wiki") ||
+            !isMultiPane ||
+            layoutPaneId === resolvedPaneLayout.focusedPaneId)
+        }
+        writeContextId={liveCenterContextId ?? effectiveContextId}
         wikiRefreshing={wikiRefreshing}
         overviewVisible={has(OVERVIEW_TAB_ID)}
         handleCenterStageTabChange={changeTab}

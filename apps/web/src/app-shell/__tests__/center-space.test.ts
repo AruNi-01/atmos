@@ -27,7 +27,10 @@ import {
 } from "@/app-shell/center-pane/center-pane-layout";
 import { useCenterPaneLayoutStore } from "@/app-shell/center-pane/center-pane-layout-store";
 import { getWorkspaceTerminalTabs } from "@/features/terminal/store/terminal-store-helpers";
-import { resolveCenterStageProjectContext } from "@/app-shell/center-stage-project-context";
+import {
+  buildCenterHostTabHref,
+  resolveCenterStageProjectContext,
+} from "@/app-shell/center-stage-project-context";
 import { globalKey, readJson } from "@/shared/lib/browser-store";
 
 const dir = join(import.meta.dir, "..");
@@ -113,6 +116,12 @@ describe("center space keys", () => {
       "/Users/me/atmos/worktrees/blastoise",
     );
     expect(fromSpace.currentProject?.id).toBe(fromHost.currentProject?.id);
+    expect(buildCenterHostTabHref("ws-1", projects, "files")).toBe(
+      "/workspace?id=ws-1&tab=files",
+    );
+    expect(buildCenterHostTabHref("proj-1", projects, "files")).toBe(
+      "/project?id=proj-1&tab=files",
+    );
   });
 
   it("does not allocate a new spaces array on empty host reads", () => {

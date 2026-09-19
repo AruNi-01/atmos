@@ -34,6 +34,7 @@ import {
   hydratePersistedTab,
   isAutomationTmuxWindowName,
   isTerminalWorkspaceScopeKeyForWorkspace,
+  tmuxWindowsForPaintContext,
   normalizeCustomName,
   normalizeStoredDynamicTitle,
   nextOscTitleFromIncoming,
@@ -660,7 +661,10 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
   fetchTmuxWindows: async (workspaceId, isProjectContext) => {
     try {
       const response = await systemApi.listTmuxWindows(hostIdFromCenterKey(workspaceId));
-      const windows = response.windows || [];
+      const windows = tmuxWindowsForPaintContext(
+        workspaceId,
+        response.windows || [],
+      );
       const resolvedIsProjectContext = isProjectContext ?? get().workspaceContexts[workspaceId] ?? false;
       const workspaceScopeKey = getTerminalWorkspaceScopeKey(
         workspaceId,

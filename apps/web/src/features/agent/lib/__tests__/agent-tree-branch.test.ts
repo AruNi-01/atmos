@@ -5,10 +5,21 @@ import {
   countedRevealDelay,
   nextTreeRevealDelay,
   shouldPlayTreeTitleEnter,
+  treeElbowRadius,
+  treeReachLength,
+  treeReachPath,
+  treeEnterDelayMs,
+  treeSegmentDelayMs,
   treeTitleRevealMs,
+  treeTrunkPath,
+  TREE_BRANCH_END_X,
+  TREE_BRANCH_RADIUS,
+  TREE_BRANCH_TRUNK_X,
   TREE_CONTENT_DELAY_MS,
+  TREE_DRAW_MS,
   TREE_LINE_MS,
   TREE_START_MS,
+  TREE_STEP_MS,
   TREE_TITLE_SEGMENT_MS,
   TREE_TITLE_STAGGER_MS,
   WEBSEARCH_EXPAND_MS,
@@ -20,10 +31,11 @@ describe("nextTreeRevealDelay", () => {
     expect(nextTreeRevealDelay(0, 4)).toBe(TREE_START_MS);
   });
 
-  it("waits for each elbow to finish, even when a large batch is pending", () => {
-    expect(nextTreeRevealDelay(1, 3)).toBe(TREE_LINE_MS);
-    expect(nextTreeRevealDelay(1, 9)).toBe(TREE_LINE_MS);
-    expect(nextTreeRevealDelay(1, 17)).toBe(TREE_LINE_MS);
+  it("starts the next stroke before the previous draw finishes", () => {
+    expect(nextTreeRevealDelay(1, 3)).toBe(TREE_STEP_MS);
+    expect(nextTreeRevealDelay(1, 9)).toBe(TREE_STEP_MS);
+    expect(nextTreeRevealDelay(1, 17)).toBe(TREE_STEP_MS);
+    expect(TREE_STEP_MS).toBeLessThan(TREE_DRAW_MS);
   });
 });
 
@@ -42,45 +54,81 @@ describe("websearch expand timing", () => {
   });
 });
 
-describe("agent tree wiring", () => {
-  it("masks the elbow with an opaque background so the trunk cannot double-paint", () => {
-    const branch = readFileSync(
-      join(import.meta.dir, "../../components/AgentTreeBranch.tsx"),
-      "utf8",
-    );
-    expect(branch).toContain("bg-background");
-    expect(branch).toContain("border-border");
-    expect(branch).toContain("z-[1]");
-    expect(branch).toContain("linear-gradient(var(--border), var(--border))");
-    expect(branch).not.toContain("bg-border");
+describe("tree reach geometry", () => {
+  it("drops vertically, arcs, then arms to the row", () => {
+    const path = treeReachPath(0, 24);
+    expect(path).toContain(`M ${TREE_BRANCH_TRUNK_X} 0`);
+    expect(path).toContain(`A ${TREE_BRANCH_RADIUS} ${TREE_BRANCH_RADIUS} 0 0 0`);
+    expect(path).toContain(`H ${TREE_BRANCH_END_X}`);
+    expect(treeElbowRadius(24, 0)).toBe(TREE_BRANCH_RADIUS);
+    expect(treeElbowRadius(4, 0)).toBe(2);
+    expect(treeReachLength(0, 24)).toBeGreaterThan(TREE_BRANCH_END_X - TREE_BRANCH_TRUNK_X);
   });
 
-  it("reveals tools one at a time while streaming, drawing each elbow down then right", () => {
+  it("only draws a trunk when there is room below the elbow", () => {
+    expect(treeTrunkPath(12, 12)).toBe(`M ${TREE_BRANCH_TRUNK_X} 12`);
+    expect(treeTrunkPath(12, 40)).toBe(`M ${TREE_BRANCH_TRUNK_X} 12 V 40`);
+  });
+
+  it("overlaps stroke starts without shortening the draw", () => {
+    expect(treeSegmentDelayMs(0)).toBe(0);
+    expect(treeSegmentDelayMs(1)).toBe(TREE_STEP_MS);
+    expect(treeSegmentDelayMs(20)).toBe(20 * TREE_STEP_MS);
+    expect(treeEnterDelayMs(0, 0, 5)).toBe(0);
+    expect(treeEnterDelayMs(2, 0, 5)).toBe(2 * TREE_STEP_MS);
+    expect(treeEnterDelayMs(2, 2, 3)).toBe(0);
+    expect(treeEnterDelayMs(0, 0, 1)).toBe(0);
+  });
+});
+
+describe("agent tree wiring", () => {
+  it("draws rounded strokes instead of clipping a CSS elbow", () => {
     const branch = readFileSync(
       join(import.meta.dir, "../../components/AgentTreeBranch.tsx"),
       "utf8",
     );
+    expect(branch).toContain("pathLength={1}");
+    expect(branch).toContain("strokeDashoffset");
+    expect(branch).toContain("treeReachPath");
+    expect(branch).toContain('data-tree-stroke="trunk"');
+    expect(branch).toContain('data-tree-stroke="elbow"');
+    expect(branch).not.toContain("clipPath");
+    expect(branch).not.toContain("el.animate");
+    expect(branch).not.toContain("bg-background");
+    expect(branch).not.toContain("linear-gradient(var(--border), var(--border))");
+  });
+
+  it("reveals tools one at a time while streaming, drawing the group from the parent down", () => {
     const group = readFileSync(
       join(import.meta.dir, "../../components/AgentToolGroupView.tsx"),
       "utf8",
     );
-    expect(branch).toContain("clipPath");
-    expect(branch).toContain("el.animate");
-    expect(branch).toContain('key="trunk"');
-    expect(branch).toContain('key="elbow"');
-    expect(branch).toContain("AgentStreamReveal");
+    const network = readFileSync(
+      join(import.meta.dir, "../../components/AgentTreeNetwork.tsx"),
+      "utf8",
+    );
     expect(group).toContain("useSequentialReveal");
     expect(group).toContain("parts.slice(0, shown)");
     expect(group).toContain("AgentTreeRevealProvider");
     expect(group).toContain("AgentToolDiffStats");
     expect(group).toContain("sumToolGroupDiffStats");
     expect(group).toContain("renderPart");
+    expect(group).toContain("AgentTreeNetwork");
+    expect(group).toContain("animate={autoOpen}");
+    expect(group).not.toContain("animate={open}");
+    expect(group).toContain('data-tree-row=""');
+    expect(group).not.toContain("AgentTreeBranch");
+    expect(network).toContain("treeReachPath");
+    expect(network).toContain("strokeDashoffset");
+    expect(network).toContain("pathLength={1}");
+    expect(network).toContain("treeEnterDelayMs");
     const delays = readFileSync(
       join(import.meta.dir, "../agent-tree-branch.ts"),
       "utf8",
     );
-    expect(delays).toContain("return TREE_LINE_MS");
+    expect(delays).toContain("return TREE_STEP_MS");
     expect(delays).not.toContain("pending > 16");
+    expect(TREE_LINE_MS).toBe(TREE_DRAW_MS);
     const reveal = readFileSync(
       join(import.meta.dir, "../../components/AgentStreamReveal.tsx"),
       "utf8",
@@ -103,6 +151,7 @@ describe("agent tree wiring", () => {
     expect(body).toContain("grid-template-columns");
     expect(body).toContain("layoutId");
     expect(body).toContain("inert={!open ? true : undefined}");
+    expect(body).toContain("animate={open}");
     expect(body).not.toContain("useCountedReveal");
     expect(body).not.toContain("stackedRemaining");
     expect(body).not.toContain("WEBSEARCH_LINE_MS");

@@ -166,7 +166,12 @@ export function AgentChatTranscriptList({
     getScrollElement,
     estimateSize: (index) =>
       estimateAgentChatMessageSize(messages[index]?.role ?? "assistant", mermaidFlags[index] === true),
-    getItemKey: (index) => messages[index]?.id ?? index,
+    getItemKey: (index) => {
+      if (ownSendRefs?.anchorIndexRef.current === index && ownSendRefs.itemKeyRef.current) {
+        return ownSendRefs.itemKeyRef.current;
+      }
+      return messages[index]?.id ?? index;
+    },
     overscan: AGENT_CHAT_TRANSCRIPT_OVERSCAN,
     gap: AGENT_CHAT_TRANSCRIPT_GAP,
     scrollMargin,
@@ -365,9 +370,6 @@ export function AgentChatTranscriptList({
           const message = messages[item.index];
           if (!message) return null;
           const showActivityFooter = activityStatus != null && item.index === lastIndex;
-          const invertPx = item.index === ownSendRefs?.anchorIndexRef.current
-            ? ownSendRefs.invertPxRef.current
-            : 0;
           return (
             <div
               key={item.key}
@@ -377,24 +379,25 @@ export function AgentChatTranscriptList({
               }}
               className="absolute top-0 left-0 w-full"
               style={{
-                transform: `translateY(${item.start - listScrollMargin + invertPx}px)`,
+                transform: `translateY(${item.start - listScrollMargin}px)`,
               }}
-              data-own-send-invert={invertPx || undefined}
             >
-              <AgentChatMessageView
-                message={message}
-                index={item.index}
-                inlineSubagentTools={inlineSubagentTools.get(message.id)}
-                subagentMessages={messages}
-              />
-              {showActivityFooter ? (
-                <div
-                  data-agent-chat-activity-status=""
-                  className="mx-auto mt-2 w-[calc(100%-1rem)]"
-                >
-                  {activityStatus}
-                </div>
-              ) : null}
+              <div data-own-send-layer="">
+                <AgentChatMessageView
+                  message={message}
+                  index={item.index}
+                  inlineSubagentTools={inlineSubagentTools.get(message.id)}
+                  subagentMessages={messages}
+                />
+                {showActivityFooter ? (
+                  <div
+                    data-agent-chat-activity-status=""
+                    className="mx-auto mt-2 w-[calc(100%-1rem)]"
+                  >
+                    {activityStatus}
+                  </div>
+                ) : null}
+              </div>
             </div>
           );
         })}

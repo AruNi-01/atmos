@@ -222,6 +222,8 @@ describe("agent prompt composer", () => {
     expect(composer).toContain('data-queue-editing={editingItem ? "true" : undefined}');
     expect(composer).toContain("if (editingItem) {");
     expect(composer).toContain("onUpdateQueuedPrompt(editingItem.id, composed)");
+    expect(composer).toContain("queuedPromptComposerText");
+    expect(composer).not.toContain("queuedPromptEditText");
     expect(composer).not.toContain("onUpdatePrompt={onUpdateQueuedPrompt}");
   });
 });

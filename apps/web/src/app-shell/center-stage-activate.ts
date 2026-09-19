@@ -18,6 +18,7 @@ import { GIT_HISTORY_TAB_VALUE } from "@/features/git/types";
 import { useSimulatorCenterTabStore } from "@/features/simulator/store/use-simulator-center-tab";
 import { SIMULATOR_TAB_VALUE } from "@/features/simulator/types";
 import {
+  agentChatTabActivationOnContext,
   isAgentChatTabValue,
   parseAgentChatTabValue,
   useAgentChatCenterTabsStore,
@@ -33,6 +34,7 @@ import {
 } from "@/features/terminal/store/use-terminal-store";
 import { automationWindowNameFromTerminalTabId } from "@/features/terminal/store/terminal-store-helpers";
 import { setCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
+import { tabValueBelongsToPaintContext } from "@/app-shell/center-space/center-space-url";
 
 function isTerminalTab(tab: string): boolean {
   return tab === FIXED_TERMINAL_TAB_VALUE || tab.startsWith(TERMINAL_TAB_VALUE_PREFIX);
@@ -73,15 +75,32 @@ export function activateCenterChromeTab(
   const parsedChatId = parseAgentChatTabValue(tab);
   let resolvedTab = tab;
   let boundChatId: string | null = null;
-  if (parsedChatId && !parsedChatId.startsWith("draft:")) {
-    const opened = chatStore.openTab({ contextId, chatId: parsedChatId });
-    resolvedTab = opened.value;
-    boundChatId = opened.chatId ?? parsedChatId;
-  } else if (parsedChatId) {
-    boundChatId =
-      (chatStore.tabsByContext[contextId] ?? [])
-        .find((item) => item.value === tab)
-        ?.chatId?.trim() || null;
+  if (parsedChatId) {
+    const activation = agentChatTabActivationOnContext(
+      chatStore.tabsByContext,
+      contextId,
+      tab,
+    );
+    if (activation.ignore) return;
+    if (parsedChatId.startsWith("draft:")) {
+      boundChatId = activation.existing?.chatId?.trim() || null;
+    } else {
+      const opened =
+        activation.existing ??
+        chatStore.openTab({ contextId, chatId: parsedChatId });
+      if (opened.contextId !== contextId) return;
+      resolvedTab = opened.value;
+      boundChatId = opened.chatId ?? parsedChatId;
+    }
+  }
+
+  if (
+    (resolvedTab.startsWith("github-") ||
+      resolvedTab.startsWith("git-commit:") ||
+      resolvedTab.startsWith("browser:")) &&
+    !tabValueBelongsToPaintContext(resolvedTab, contextId)
+  ) {
+    return;
   }
 
   setCenterStageLastTab(contextId, resolvedTab);
@@ -109,11 +128,12 @@ export function activateCenterChromeTab(
           windowName: automationWindow,
         });
         if (ensured) resolvedTab = ensured.id;
-      } else {
+      } else if (resolvedTab === FIXED_TERMINAL_TAB_VALUE) {
         const ensured = terminalStore.ensureFixedTerminalTab(contextId);
-        if (resolvedTab === FIXED_TERMINAL_TAB_VALUE || existingTabs.length === 0) {
-          resolvedTab = ensured.id;
-        }
+        resolvedTab = ensured.id;
+      } else {
+        // Foreign `terminal-tab:{uuid}` — do not mint Term or attach it here.
+        return;
       }
     }
     terminalStore.setActiveTerminalTab(contextId, resolvedTab);

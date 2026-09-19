@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import {
+  agentChatTabActivationOnContext,
   findAgentChatCenterTab,
   normalizeAgentChatCenterTab,
   useAgentChatCenterTabsStore,
@@ -66,6 +67,53 @@ describe("agent chat center tabs", () => {
     expect(bound?.title).toBe("Fix auth");
     expect(bound?.providerId).toBe("grok-build");
     expect(bound?.hasMessages).toBe(false);
+  });
+
+  it("does not clone a chat onto another project or workspace", () => {
+    useAgentChatCenterTabsStore.getState().openTab({
+      contextId: "project-1",
+      chatId: "conv-shared",
+      title: "On project",
+    });
+    const opened = useAgentChatCenterTabsStore.getState().openTab({
+      contextId: "workspace-caterpie",
+      chatId: "conv-shared",
+      title: "Should not clone",
+    });
+    expect(opened.contextId).toBe("project-1");
+    expect(
+      useAgentChatCenterTabsStore.getState().tabsByContext["workspace-caterpie"],
+    ).toBeUndefined();
+    expect(
+      agentChatTabActivationOnContext(
+        useAgentChatCenterTabsStore.getState().tabsByContext,
+        "workspace-caterpie",
+        "agent-chat:conv-shared",
+      ),
+    ).toEqual({
+      ignore: true,
+      existing: expect.objectContaining({ contextId: "project-1", chatId: "conv-shared" }),
+    });
+  });
+
+  it("ignores leftover draft chrome that belongs to another context", () => {
+    const draft = useAgentChatCenterTabsStore.getState().openDraftTab({
+      contextId: "project-1",
+    });
+    expect(
+      agentChatTabActivationOnContext(
+        useAgentChatCenterTabsStore.getState().tabsByContext,
+        "workspace-caterpie",
+        draft.value,
+      ),
+    ).toEqual({ ignore: true, existing: null });
+    expect(
+      agentChatTabActivationOnContext(
+        useAgentChatCenterTabsStore.getState().tabsByContext,
+        "project-1",
+        draft.value,
+      ).ignore,
+    ).toBe(false);
   });
 
   it("reuses a bound draft tab instead of opening a second chat tab", () => {

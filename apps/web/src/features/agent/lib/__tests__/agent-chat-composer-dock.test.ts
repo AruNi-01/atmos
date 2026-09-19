@@ -1,10 +1,11 @@
 import { describe, expect, it } from "bun:test";
+import { EASE_OUT_CSS } from "@workspace/ui/lib/ease";
 import {
+  COMPOSER_DOCK_EASE_CSS,
   COMPOSER_DOCK_MS,
   COMPOSER_HERO_Y_BIAS,
   COMPOSER_UNDOCK_MS,
   DOCK_LOGO,
-  DOCK_TRANSCRIPT,
   UNDOCK_LOGO,
   UNDOCK_TRANSCRIPT,
   composerDockDurationMs,
@@ -34,6 +35,7 @@ describe("heroComposerOffset", () => {
 
 describe("composer dock chrome", () => {
   it("docks faster than it returns, and reduced motion snaps", () => {
+    expect(COMPOSER_DOCK_EASE_CSS).toBe(EASE_OUT_CSS);
     expect(composerDockDurationMs(true)).toBe(COMPOSER_DOCK_MS);
     expect(composerDockDurationMs(false)).toBe(COMPOSER_UNDOCK_MS);
     expect(composerDockMotion(true, false).duration).toBe(COMPOSER_DOCK_MS / 1000);
@@ -42,12 +44,13 @@ describe("composer dock chrome", () => {
     expect(composerDockMotion(false, true).duration).toBe(0);
   });
 
-  it("fades the logo after the transcript starts on send", () => {
+  it("shows the transcript immediately on send so the first bubble can leave the composer", () => {
     const logo = composerLogoChrome(true, false);
     const transcript = composerTranscriptChrome(true, false);
     expect(logo.opacity).toBe(0);
     expect(transcript.opacity).toBe(1);
-    expect(transcript.delay).toBe((DOCK_TRANSCRIPT.start * COMPOSER_DOCK_MS) / 1000);
+    expect(transcript.delay).toBe(0);
+    expect(transcript.duration).toBe(0);
     expect(logo.delay).toBe((DOCK_LOGO.start * COMPOSER_DOCK_MS) / 1000);
     expect(logo.delay).toBeGreaterThan(transcript.delay);
   });

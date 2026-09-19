@@ -184,6 +184,73 @@ describe("center space URL isolation", () => {
     ).toBe(true);
   });
 
+  it("does not honor leftover generic tabs on a cold load when dest last-tab differs", () => {
+    expect(
+      shouldHonorUrlTabForPaintContext({
+        tabFromUrl: "files",
+        paintId: "ws-b",
+        lastTab: "terminal",
+      }),
+    ).toBe(false);
+    expect(
+      shouldHonorUrlTabForPaintContext({
+        tabFromUrl: "files",
+        paintId: "ws-b",
+      }),
+    ).toBe(true);
+  });
+
+  it("does not keep leftover generic chrome when hopping onto an extra space", () => {
+    const extra = makeCenterSpaceKey("ws-b", "space-2");
+    expect(
+      shouldKeepExplicitTabOnHostHop({
+        destHostId: "ws-b",
+        destPaintId: extra,
+        dest: {
+          contextId: "ws-b",
+          tabParam: "terminal",
+          hasTabParam: true,
+          terminalTmux: null,
+          sideChat: null,
+        },
+        current: {
+          contextId: "ws-b",
+          tabParam: "terminal",
+          hasTabParam: true,
+          terminalTmux: null,
+          sideChat: null,
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it("does not honor leftover agent-chat tabs on a dest without that last tab", () => {
+    expect(
+      shouldHonorUrlTabForPaintContext({
+        tabFromUrl: "agent-chat:chat-1",
+        paintId: "ws-b",
+        previousPaintId: undefined,
+        lastTab: undefined,
+      }),
+    ).toBe(false);
+    expect(
+      shouldHonorUrlTabForPaintContext({
+        tabFromUrl: "agent-chat:chat-1",
+        paintId: "ws-b",
+        previousPaintId: "ws-a",
+        lastTab: "files",
+      }),
+    ).toBe(false);
+    expect(
+      shouldHonorUrlTabForPaintContext({
+        tabFromUrl: "agent-chat:chat-1",
+        paintId: "ws-b",
+        previousPaintId: undefined,
+        lastTab: "agent-chat:chat-1",
+      }),
+    ).toBe(true);
+  });
+
   it("does not honor leftover tool tabs after a paint-context change", () => {
     expect(
       shouldHonorUrlTabForPaintContext({

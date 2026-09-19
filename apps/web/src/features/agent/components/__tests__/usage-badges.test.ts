@@ -38,11 +38,18 @@ describe("context window usage control", () => {
     );
     expect(overlays).toContain("AnimatePresence");
     expect(overlays).toContain('key="agent-context-usage"');
-    expect(overlays).toContain('position: "absolute"');
+    expect(overlays).toContain("OVERLAY_CARD_FADE_HIDDEN");
+    expect(overlays).toContain("opacity: 0");
+    expect(overlays).toContain("opacity: 1");
+    expect(overlays).toContain('width: "100%"');
+    expect(overlays).not.toContain("scale:");
+    expect(overlays).not.toContain('position: "absolute"');
+    expect(overlays).not.toContain("y: 10");
+    expect(overlays).not.toContain("originY");
     // Floating cards match the prompt lane. When plan/queue/background docks
     // are present they stay inset (mx-6) and the overlay uses px-6 to align.
     expect(overlays).toContain("OVERLAY_CARD_MAX_HEIGHT_CLASS");
-    expect(overlays).toContain("pointer-events-auto flex min-h-0 w-full flex-col overflow-hidden");
+    expect(overlays).toContain("pointer-events-auto flex min-h-0 w-full max-w-full flex-col overflow-hidden");
     expect(overlays).not.toContain("pointer-events-auto mx-6\">\n                <ContextUsageDetailsPanel");
     expect(overlays).toContain('hasUpperComposerCards && "px-6"');
     expect(composer).not.toContain("showComposerCardStack");

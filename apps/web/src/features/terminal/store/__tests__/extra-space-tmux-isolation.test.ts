@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   DEFAULT_CENTER_SPACE_ID,
   makeCenterSpaceKey,
@@ -10,10 +12,12 @@ import {
   createTerminalPane,
   extraCenterSpaceTmuxWindowPrefix,
   isExtraCenterSpaceTmuxWindowName,
+  isTerminalRuntimeScopeForPaint,
   namespacedTmuxWindowName,
   findWorkspacePaneIdsByTmuxWindowName,
   spaceIdFromTmuxWindowName,
   stableAgentPaneId,
+  tmuxWindowsForPaintContext,
 } from "../terminal-store-helpers";
 import {
   getTerminalWorkspaceScopeKey,
@@ -24,6 +28,15 @@ const initialState = useTerminalStore.getInitialState();
 
 describe("extra-space tmux window isolation", () => {
   const extra = makeCenterSpaceKey("ws-1", "space-abc");
+
+  it("does not treat extra-space paint ids as host terminal tab scopes", () => {
+    expect(isTerminalRuntimeScopeForPaint("ws-1", "ws-1")).toBe(true);
+    expect(isTerminalRuntimeScopeForPaint("ws-1::terminal-tab:abc", "ws-1")).toBe(true);
+    expect(isTerminalRuntimeScopeForPaint(extra, "ws-1")).toBe(false);
+    expect(isTerminalRuntimeScopeForPaint(`${extra}::terminal-tab:abc`, "ws-1")).toBe(false);
+    expect(isTerminalRuntimeScopeForPaint(extra, extra)).toBe(true);
+    expect(isTerminalRuntimeScopeForPaint(`${extra}::terminal-tab:abc`, extra)).toBe(true);
+  });
 
   it("keeps host windows unprefixed and namespaces extra-space windows", () => {
     expect(namespacedTmuxWindowName("ws-1", "1")).toBe("1");
@@ -72,6 +85,26 @@ describe("extra-space tmux window isolation", () => {
     expect(pane.tmuxWindowName).toBe("cs__space-abc__1");
     expect(createTerminalPane("ws-1", "1", { isNewPane: true }).tmuxWindowName).toBe(
       "1",
+    );
+  });
+
+  it("filters host tmux windows away from extra-space paint contexts", () => {
+    const extra = makeCenterSpaceKey("ws-1", "space-abc");
+    const windows = [
+      { index: 0, name: "1" },
+      { index: 1, name: "auto-abcd1234" },
+      { index: 2, name: "cs__space-abc__1" },
+      { index: 3, name: "cs__other__1" },
+    ];
+    expect(tmuxWindowsForPaintContext("ws-1", windows).map((win) => win.name)).toEqual([
+      "1",
+      "auto-abcd1234",
+    ]);
+    expect(tmuxWindowsForPaintContext(extra, windows).map((win) => win.name)).toEqual([
+      "cs__space-abc__1",
+    ]);
+    expect(tmuxWindowsForPaintContext(extra, windows.filter((win) => win.name !== "cs__space-abc__1"))).toEqual(
+      [],
     );
   });
 
@@ -158,5 +191,11 @@ describe("createTerminalTab extra-space panes", () => {
     expect(useTerminalStore.getState().workspaceTerminalTabs["ws-1"]?.map((tab) => tab.id)).toEqual([
       "terminal",
     ]);
+  });
+
+  it("filters fetched tmux windows to the paint before extra-space hydrate", () => {
+    const source = readFileSync(join(import.meta.dir, "../use-terminal-store.ts"), "utf8");
+    expect(source).toContain("tmuxWindowsForPaintContext(");
+    expect(source).toContain("terminalTabsAfterUnpersistedHydrate(");
   });
 });

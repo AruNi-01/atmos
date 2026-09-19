@@ -1,39 +1,17 @@
 import type { useTranslations } from "next-intl";
 import { toastManager } from "@workspace/ui";
-import {
-  enableChatForOnboardingAgents,
-  type OnboardingChatSetupProgress,
-} from "@/features/agent/lib/enable-chat-for-onboarding-agents";
+import { enableChatForOnboardingAgents } from "@/features/agent/lib/enable-chat-for-onboarding-agents";
 
 type OnboardingT = ReturnType<typeof useTranslations>;
 
 let setupGeneration = 0;
 
-function progressRatio(progress: OnboardingChatSetupProgress): number {
-  if (progress.total <= 0) return 1;
-  return Math.min(1, Math.max(0, progress.current / progress.total));
-}
-
-function applyLoadingToast(
-  toastId: string,
-  t: OnboardingT,
-  progress: OnboardingChatSetupProgress,
-) {
-  toastManager.update(toastId, {
-    title: t("agents.provisioning"),
-    description: t("agents.provisioningProgress", {
-      current: progress.current,
-      total: progress.total,
-    }),
-    type: "loading",
-    timeout: 0,
-    data: { progress: progressRatio(progress) },
-  });
-}
-
 /**
  * Enable Agent Chat providers in the background. Onboarding continue must not
  * await this — persist prefs, then fire this and move to the next step.
+ *
+ * Loading toast is indeterminate on purpose: the last step used to report
+ * "2 of 2" with a full bar while ACP/npm work was still running.
  */
 export async function startOnboardingChatSetup(options: {
   selectedTerminalIds: Iterable<string>;
@@ -44,26 +22,16 @@ export async function startOnboardingChatSetup(options: {
   const generation = ++setupGeneration;
   const isCurrent = () => generation === setupGeneration;
 
-  const total = options.enableDeepSeek ? 3 : 2;
   const toastId = toastManager.add({
     title: t("agents.provisioning"),
-    description: t("agents.provisioningProgress", {
-      current: 1,
-      total,
-    }),
     type: "loading",
     timeout: 0,
-    data: { progress: 1 / total },
   });
 
   try {
     const { acpFailed, deepseekFailed } = await enableChatForOnboardingAgents({
       selectedTerminalIds: options.selectedTerminalIds,
       enableDeepSeek: options.enableDeepSeek,
-      onProgress: (progress) => {
-        if (!isCurrent()) return;
-        applyLoadingToast(toastId, t, progress);
-      },
     });
 
     if (!isCurrent()) return;

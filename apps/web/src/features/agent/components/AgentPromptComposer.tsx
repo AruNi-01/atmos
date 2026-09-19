@@ -62,7 +62,7 @@ import {
   composerFileUrlFromPath,
   filesFromComposerParts,
   filesFromQueuedPrompt,
-  queuedPromptEditText,
+  queuedPromptComposerText,
 } from "@/features/agent/lib/agent-composer-attachment";
 
 function AttachmentFileInput() {
@@ -303,7 +303,7 @@ function ComposerPromptInput({
         };
       }
       if (cancelled) return;
-      const text = queuedPromptEditText(item);
+      const text = queuedPromptComposerText(item);
       applyDraft(text, []);
       const files = await filesFromQueuedItem(item);
       if (cancelled) return;

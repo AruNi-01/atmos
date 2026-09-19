@@ -62,11 +62,11 @@ describe("startOnboardingChatSetup", () => {
     expect(add).toHaveBeenCalledTimes(1);
     expect(add.mock.calls[0]?.[0]).toMatchObject({
       title: "Setting up Chat mode…",
-      description: "1 of 2",
       type: "loading",
       timeout: 0,
-      data: { progress: 0.5 },
     });
+    expect(add.mock.calls[0]?.[0]).not.toHaveProperty("description");
+    expect((add.mock.calls[0]?.[0] as { data?: unknown }).data).toBeUndefined();
     expect(enableChatForOnboardingAgents).toHaveBeenCalledTimes(1);
     const lastUpdate = update.mock.calls.at(-1)?.[1] as { type?: string; title?: string };
     expect(lastUpdate).toMatchObject({
@@ -96,7 +96,7 @@ describe("startOnboardingChatSetup", () => {
     expect(lastUpdate?.description).toContain("Codex");
   });
 
-  it("forwards onProgress into toast updates", async () => {
+  it("does not show a step count or progress bar while setup is running", async () => {
     enableChatForOnboardingAgents.mockImplementation(async (options: {
       onProgress?: (progress: {
         step: "native" | "acp" | "deepseek";
@@ -122,7 +122,9 @@ describe("startOnboardingChatSetup", () => {
     const loadingUpdates = update.mock.calls
       .map((call) => call[1] as { type?: string; description?: string; data?: { progress?: number } })
       .filter((payload) => payload.type === "loading");
-    expect(loadingUpdates.some((payload) => payload.description === "1 of 2")).toBe(true);
-    expect(loadingUpdates.some((payload) => payload.data?.progress === 1)).toBe(true);
+    expect(loadingUpdates).toEqual([]);
+    expect(add.mock.calls[0]?.[0]).not.toMatchObject({
+      description: "1 of 2",
+    });
   });
 });

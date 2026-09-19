@@ -61,19 +61,18 @@ describe("experiment settings load across computer switch", () => {
     useExperimentSettingsStore.getState().resetForConnectionChange();
     expect(useExperimentSettingsStore.getState().loaded).toBe(false);
     expect(useExperimentSettingsStore.getState().launchpadItems.terminals).toEqual({
-      enabled: false,
+      enabled: true,
       placement: "inside",
       order: 2,
     });
 
-    // New Computer hydrates with a distinct config.
-    loadMock.mockImplementationOnce(async () => ({
-      experiments: {
-        launchpad_items: {
-          terminals: { enabled: true, placement: "outside" },
-        },
-      },
-    }));
+    // New Computer hydrates with a distinct config — keep it pending so the
+    // stale outgoing response cannot be confused with a completed incoming load.
+    let resolveIncoming: ((value: unknown) => void) | null = null;
+    const incomingLoad = new Promise((resolve) => {
+      resolveIncoming = resolve;
+    });
+    loadMock.mockImplementationOnce(() => incomingLoad);
     const incomingPromise = useExperimentSettingsStore.getState().loadSettings();
 
     // Outgoing response arrives after the switch — must not win.
@@ -82,14 +81,29 @@ describe("experiment settings load across computer switch", () => {
         launchpad_items: {
           terminals: { enabled: true, placement: "inside" },
           agents: { enabled: true, placement: "inside" },
+          workspaces: { enabled: false, placement: "inside" },
         },
       },
     });
     await outgoingPromise;
 
-    // Still defaults (or not the stale agents=true) until the new load commits.
-    expect(useExperimentSettingsStore.getState().launchpadAgentsEnabled).toBe(false);
+    // Still first-run defaults until the new load commits.
+    expect(useExperimentSettingsStore.getState().launchpadAgentsEnabled).toBe(true);
+    expect(useExperimentSettingsStore.getState().launchpadItems.workspaces.enabled).toBe(true);
+    expect(useExperimentSettingsStore.getState().launchpadItems.terminals).toEqual({
+      enabled: true,
+      placement: "inside",
+      order: 2,
+    });
 
+    resolveIncoming?.({
+      experiments: {
+        launchpad_items: {
+          terminals: { enabled: true, placement: "outside" },
+          agents: { enabled: false, placement: "inside" },
+        },
+      },
+    });
     await incomingPromise;
 
     const state = useExperimentSettingsStore.getState();
@@ -99,7 +113,8 @@ describe("experiment settings load across computer switch", () => {
       placement: "outside",
       order: 2,
     });
-    // Stale agents:true from the outgoing Computer must not leak.
+    // Stale workspaces:false / agents:true from the outgoing Computer must not leak.
+    expect(state.launchpadItems.workspaces.enabled).toBe(true);
     expect(state.launchpadItems.agents).toEqual({
       enabled: false,
       placement: "inside",

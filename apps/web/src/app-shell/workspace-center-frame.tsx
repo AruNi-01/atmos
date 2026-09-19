@@ -1043,11 +1043,7 @@ function WorkspaceCenterFrameImpl({
         >
           <DiscardableHeavySurface active={isActiveContext && visible}>
           <KeptSimulatorPanel
-            workspaceId={
-              isUrlSyncedActive && currentView === "workspace"
-                ? (currentWorkspace?.id ?? contextId)
-                : contextId
-            }
+            workspaceId={contextId}
             active={isActiveContext}
           />
           </DiscardableHeavySurface>
