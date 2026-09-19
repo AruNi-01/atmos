@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
@@ -20,6 +21,7 @@ pub(crate) const ACP_REGISTRY_URL: &str =
 pub(crate) const ACP_REGISTRY_CACHE_REL_PATH: &str = ".atmos/config/agent/acp_registry.json";
 
 const REGISTRY_CACHE_TTL_SECS: i64 = 12 * 60 * 60; // 12 hours
+const ACP_REGISTRY_FETCH_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub(crate) struct RegistryRoot {
@@ -64,7 +66,10 @@ pub(crate) fn acp_registry_cache_path() -> Result<std::path::PathBuf> {
 }
 
 pub(crate) async fn fetch_acp_registry_from_url() -> Result<RegistryRoot> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(ACP_REGISTRY_FETCH_TIMEOUT)
+        .build()
+        .map_err(|e| AgentError::Command(format!("failed to create ACP registry client: {}", e)))?;
     let response = client
         .get(ACP_REGISTRY_URL)
         .send()
@@ -84,37 +89,56 @@ pub(crate) async fn fetch_acp_registry_from_url() -> Result<RegistryRoot> {
         .map_err(|e| AgentError::Command(format!("failed to parse ACP registry: {}", e)))
 }
 
+fn read_registry_cache(path: &Path) -> Option<RegistryRoot> {
+    let data = fs::read_to_string(path).ok()?;
+    if let Ok(cache) = serde_json::from_str::<RegistryCache>(&data) {
+        return Some(cache.registry);
+    }
+    serde_json::from_str::<RegistryRoot>(&data).ok()
+}
+
+fn registry_cache_is_fresh(path: &Path, now: i64) -> bool {
+    let data = match fs::read_to_string(path) {
+        Ok(data) => data,
+        Err(_) => return false,
+    };
+    if let Ok(cache) = serde_json::from_str::<RegistryCache>(&data) {
+        let cache_age = now.saturating_sub(cache.cached_at);
+        return cache_age < REGISTRY_CACHE_TTL_SECS;
+    }
+    // Legacy cache files without `cached_at` stay valid until rewritten.
+    serde_json::from_str::<RegistryRoot>(&data).is_ok()
+}
+
 pub(crate) async fn fetch_acp_registry(force_refresh: bool) -> Result<RegistryRoot> {
     let path = acp_registry_cache_path()?;
     let now = chrono::Utc::now().timestamp();
+    let cached = read_registry_cache(&path);
 
-    if path.exists() && !force_refresh {
-        if let Ok(data) = fs::read_to_string(&path) {
-            if let Ok(cache) = serde_json::from_str::<RegistryCache>(&data) {
-                let cache_age = now.saturating_sub(cache.cached_at);
-                if cache_age < REGISTRY_CACHE_TTL_SECS {
-                    return Ok(cache.registry);
-                }
-            } else if let Ok(registry) = serde_json::from_str::<RegistryRoot>(&data) {
-                return Ok(registry);
-            }
+    if !force_refresh && path.exists() && registry_cache_is_fresh(&path, now) {
+        if let Some(registry) = cached {
+            return Ok(registry);
         }
     }
 
-    let registry = fetch_acp_registry_from_url().await?;
-    if let Some(parent) = path.parent() {
-        let _ = fs::create_dir_all(parent);
-    }
+    match fetch_acp_registry_from_url().await {
+        Ok(registry) => {
+            if let Some(parent) = path.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
 
-    let cache = RegistryCache {
-        registry,
-        cached_at: now,
-    };
-    if let Ok(data) = serde_json::to_string_pretty(&cache) {
-        let _ = fs::write(&path, data);
-    }
+            let cache = RegistryCache {
+                registry: registry.clone(),
+                cached_at: now,
+            };
+            if let Ok(data) = serde_json::to_string_pretty(&cache) {
+                let _ = fs::write(&path, data);
+            }
 
-    Ok(cache.registry)
+            Ok(registry)
+        }
+        Err(err) => cached.ok_or(err),
+    }
 }
 
 pub(crate) async fn list_registry_agents_impl(
@@ -308,4 +332,47 @@ pub(crate) async fn list_registry_agents_impl(
     }
 
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn expired_cache_is_not_fresh() {
+        let dir =
+            std::env::temp_dir().join(format!("atmos-acp-registry-cache-{}", std::process::id()));
+        let _ = fs::create_dir_all(&dir);
+        let path = dir.join("acp_registry.json");
+        let cache = RegistryCache {
+            registry: RegistryRoot { agents: vec![] },
+            cached_at: 1,
+        };
+        fs::write(&path, serde_json::to_string(&cache).expect("cache json")).expect("write cache");
+        assert!(!registry_cache_is_fresh(
+            &path,
+            chrono::Utc::now().timestamp()
+        ));
+        let _ = fs::remove_file(&path);
+        let _ = fs::remove_dir(&dir);
+    }
+
+    #[test]
+    fn stale_cache_is_still_readable_for_fallback() {
+        let dir = std::env::temp_dir().join(format!(
+            "atmos-acp-registry-fallback-{}",
+            std::process::id()
+        ));
+        let _ = fs::create_dir_all(&dir);
+        let path = dir.join("acp_registry.json");
+        let cache = RegistryCache {
+            registry: RegistryRoot { agents: vec![] },
+            cached_at: 1,
+        };
+        fs::write(&path, serde_json::to_string(&cache).expect("cache json")).expect("write cache");
+        let parsed = read_registry_cache(&path).expect("stale cache");
+        assert!(parsed.agents.is_empty());
+        let _ = fs::remove_file(&path);
+        let _ = fs::remove_dir(&dir);
+    }
 }

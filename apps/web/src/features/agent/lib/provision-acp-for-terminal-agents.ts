@@ -1,13 +1,20 @@
 import { agentApi } from "@/api/ws-api";
-import { acpProvisionTargets } from "./acp-provision-targets";
+import { acpOnboardingProvisionTargets } from "./acp-provision-targets";
 
-export { acpProvisionTargets } from "./acp-provision-targets";
+export { acpOnboardingProvisionTargets, acpProvisionTargets } from "./acp-provision-targets";
 
 export async function provisionAcpForTerminalAgents(
   selectedTerminalIds: Iterable<string>,
 ): Promise<{ failed: string[] }> {
+  const selected = [...selectedTerminalIds];
+  // Native Chat already covered these families — don't pay for `npm list -g`
+  // inside agent_registry_list.
+  if (selected.length === 0) {
+    return { failed: [] };
+  }
+
   const { agents } = await agentApi.listRegistry();
-  const targets = acpProvisionTargets(agents, selectedTerminalIds);
+  const targets = acpOnboardingProvisionTargets(agents, selected);
   const results = await Promise.allSettled(
     targets.map(async (agent) => {
       const result = await agentApi.installRegistry(agent.id);

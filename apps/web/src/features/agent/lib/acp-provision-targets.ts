@@ -29,3 +29,17 @@ export function acpProvisionTargets<T extends AcpProvisionCandidate>(
     return !agent.installed;
   });
 }
+
+/**
+ * Onboarding Chat setup only binds native ACP CLIs already on PATH.
+ * Missing adapter packages (`npm install -g`) can take minutes and belong in
+ * Agents settings, not the first-run continue path.
+ */
+export function acpOnboardingProvisionTargets<T extends AcpProvisionCandidate>(
+  agents: T[],
+  selectedTerminalIds: Iterable<string>,
+): T[] {
+  return acpProvisionTargets(agents, selectedTerminalIds).filter(
+    (agent) => agent.provision_kind === "native",
+  );
+}

@@ -26,11 +26,11 @@ export type OnboardingChatSetupProgress = {
 /**
  * Onboarding → Chat enable pipeline:
  * 1. Native Chat hosts for selected terminal families (switch on)
- * 2. ACP registry bind/download via existing provision guards
- * 3. Optional DeepSeek Harness custom switch (+ preload)
+ * 2. Bind native ACP CLIs already on PATH (no adapter npm downloads)
+ * 3. Optional DeepSeek Harness custom switch; npx preload runs in the background
  *
  * Skip-download for official ACP-capable CLIs stays in
- * `acpProvisionTargets` / backend `install_registry_agent`.
+ * `acpOnboardingProvisionTargets` / backend `install_registry_agent`.
  */
 export async function enableChatForOnboardingAgents(options: {
   selectedTerminalIds: Iterable<string>;
@@ -38,12 +38,12 @@ export async function enableChatForOnboardingAgents(options: {
   onProgress?: (progress: OnboardingChatSetupProgress) => void;
 }): Promise<EnableChatForOnboardingResult> {
   const includeDeepSeek = Boolean(options.enableDeepSeek);
-  const total = includeDeepSeek ? 3 : 2;
-  const report = (step: OnboardingChatSetupStep, current: number) => {
+  let current = 0;
+  const report = (step: OnboardingChatSetupStep, total: number) => {
+    current += 1;
     options.onProgress?.({ step, current, total });
   };
 
-  report("native", 1);
   const wantedNativeHosts = nativeChatHostsForTerminalSelection(
     options.selectedTerminalIds,
   );
@@ -53,7 +53,14 @@ export async function enableChatForOnboardingAgents(options: {
   const nativeHostsWithCli = wantedNativeHosts.filter((id) =>
     listedNatives.agents.some((agent) => agent.id === id && agent.cli_present),
   );
+  const remainingAcpIds = acpOnboardingTerminalIds(
+    options.selectedTerminalIds,
+    nativeHostsWithCli,
+  );
+  const total =
+    1 + (remainingAcpIds.length > 0 ? 1 : 0) + (includeDeepSeek ? 1 : 0);
 
+  report("native", total);
   const nativeResults = await Promise.allSettled(
     nativeHostsWithCli.map((id) => agentApi.setNativeChatAgentEnabled(id, true)),
   );
@@ -62,21 +69,25 @@ export async function enableChatForOnboardingAgents(options: {
   );
   const enabledNativeHosts = nativeHostsWithCli.filter((id) => !nativeFailed.includes(id));
 
-  report("acp", 2);
-  const { failed: acpFailed } = await provisionAcpForTerminalAgents(
-    acpOnboardingTerminalIds(options.selectedTerminalIds, enabledNativeHosts),
+  const acpIds = acpOnboardingTerminalIds(
+    options.selectedTerminalIds,
+    enabledNativeHosts,
   );
+  let acpFailed: string[] = [];
+  if (acpIds.length > 0) {
+    report("acp", total);
+    const provisioned = await provisionAcpForTerminalAgents(acpIds);
+    acpFailed = provisioned.failed;
+  }
 
   let deepseekFailed = false;
   if (includeDeepSeek) {
-    report("deepseek", 3);
+    report("deepseek", total);
     try {
       await agentApi.setCustomAgentEnabled(DEEPSEEK_HARNESS_ID, true);
-      try {
-        await agentApi.preloadCustomAgent(DEEPSEEK_HARNESS_ID);
-      } catch {
-        // Preload is best-effort (npx warm); Chat enable already succeeded.
-      }
+      // Warm npx without blocking the onboarding toast; first Chat use is slow
+      // if this never runs.
+      void agentApi.preloadCustomAgent(DEEPSEEK_HARNESS_ID).catch(() => {});
     } catch {
       deepseekFailed = true;
     }

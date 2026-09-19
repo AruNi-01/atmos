@@ -1,5 +1,10 @@
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
+
 use anyhow::Context;
 use tokio::process::Command;
+use tokio::time::timeout;
 
 use crate::models::{AgentInstallResult, KnownAgent, RegistryInstallResult};
 
@@ -7,49 +12,83 @@ use super::manifest::{load_install_manifest, upsert_manifest_entry, with_manifes
 use super::registry::{fetch_acp_registry, RegistryEntry, RegistryPackageDistribution};
 use super::{AgentError, Result};
 
-pub(crate) async fn is_npm_package_installed_globally(package_spec: &str) -> Result<bool> {
-    let pkg_name = normalize_npm_package_name(package_spec);
-    let output = Command::new("npm")
-        .arg("list")
-        .arg("-g")
-        .arg("--depth=0")
-        .arg("--json")
-        .output()
-        .await
-        .map_err(|e| AgentError::Command(format!("failed to run npm list -g: {}", e)))?;
+const NPM_LIST_TIMEOUT: Duration = Duration::from_secs(8);
+const NPM_LIST_CACHE_TTL: Duration = Duration::from_secs(30);
 
-    if !output.status.success() {
-        return Ok(false);
-    }
-
-    let value: serde_json::Value = serde_json::from_slice(&output.stdout)
-        .map_err(|e| AgentError::Command(format!("failed to parse npm list output: {}", e)))?;
-    if let Some(map) = value.get("dependencies").and_then(|v| v.as_object()) {
-        if map.contains_key(&pkg_name) {
-            return Ok(true);
-        }
-    }
-    Ok(false)
+struct NpmListCache {
+    fetched_at: Instant,
+    packages: HashMap<String, String>,
 }
 
-pub(crate) async fn list_global_npm_packages() -> Result<std::collections::HashMap<String, String>>
-{
-    let output = Command::new("npm")
-        .arg("list")
+fn npm_list_cache() -> &'static Mutex<Option<NpmListCache>> {
+    static CACHE: OnceLock<Mutex<Option<NpmListCache>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(None))
+}
+
+fn cached_npm_packages() -> Option<HashMap<String, String>> {
+    let guard = npm_list_cache().lock().ok()?;
+    let cache = guard.as_ref()?;
+    if cache.fetched_at.elapsed() < NPM_LIST_CACHE_TTL {
+        Some(cache.packages.clone())
+    } else {
+        None
+    }
+}
+
+fn store_npm_packages(packages: HashMap<String, String>) {
+    if let Ok(mut guard) = npm_list_cache().lock() {
+        *guard = Some(NpmListCache {
+            fetched_at: Instant::now(),
+            packages,
+        });
+    }
+}
+
+pub(crate) async fn is_npm_package_installed_globally(package_spec: &str) -> Result<bool> {
+    let pkg_name = normalize_npm_package_name(package_spec);
+    match list_global_npm_packages().await {
+        Ok(map) => Ok(map.contains_key(&pkg_name)),
+        Err(_) => Ok(false),
+    }
+}
+
+pub(crate) async fn list_global_npm_packages() -> Result<HashMap<String, String>> {
+    if let Some(cached) = cached_npm_packages() {
+        return Ok(cached);
+    }
+    let packages = list_global_npm_packages_uncached().await?;
+    store_npm_packages(packages.clone());
+    Ok(packages)
+}
+
+async fn list_global_npm_packages_uncached() -> Result<HashMap<String, String>> {
+    let mut cmd = Command::new("npm");
+    cmd.arg("list")
         .arg("-g")
         .arg("--depth=0")
         .arg("--json")
-        .output()
-        .await
-        .map_err(|e| AgentError::Command(format!("failed to run npm list -g: {}", e)))?;
+        .kill_on_drop(true);
+
+    let output = match timeout(NPM_LIST_TIMEOUT, cmd.output()).await {
+        Ok(Ok(output)) => output,
+        Ok(Err(e)) => {
+            return Err(AgentError::Command(format!(
+                "failed to run npm list -g: {}",
+                e
+            )));
+        }
+        Err(_) => {
+            return Err(AgentError::Command("npm list -g timed out".to_string()));
+        }
+    };
 
     if !output.status.success() {
-        return Ok(std::collections::HashMap::new());
+        return Ok(HashMap::new());
     }
 
     let value: serde_json::Value = serde_json::from_slice(&output.stdout)
         .map_err(|e| AgentError::Command(format!("failed to parse npm list output: {}", e)))?;
-    let mut map = std::collections::HashMap::new();
+    let mut map = HashMap::new();
     if let Some(deps) = value.get("dependencies").and_then(|v| v.as_object()) {
         for (key, dep) in deps {
             if let Some(version) = dep.get("version").and_then(|v| v.as_str()) {
