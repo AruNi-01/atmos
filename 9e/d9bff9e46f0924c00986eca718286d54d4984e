@@ -1,0 +1,30 @@
+apps/web/src/features/agent/hooks/use-tree-draw-in.ts
+  s_37b3d7ce1cb96b::t_6e4abcecbc563d 1-35
+apps/web/src/features/agent/components/__tests__/agent-tree-branch.dom.test.tsx
+  s_37b3d7ce1cb96b::t_3bc4620d98c5d3 31,33-38,43-44,49-51,61-63,66,99,113
+apps/web/src/features/agent/components/AgentTreeNetwork.tsx
+  s_37b3d7ce1cb96b::t_98f4145a0ed096 1-131
+apps/web/src/features/agent/components/AgentTreeBranch.tsx
+  s_37b3d7ce1cb96b::t_80eba456dbc8c9 3,18-23,25-30,53,56-69,72-79,81-82,106
+  s_37b3d7ce1cb96b::t_ab6f9a27769b6f 7,10-11,13-14,16,33,35,40,44-46,49-52,54-55,70-71,80,83-84,92,105,107-112,114-115
+apps/web/src/features/agent/lib/__tests__/agent-tree-branch.test.ts
+  s_37b3d7ce1cb96b::t_dd0983ace54e4c 8-12,14-17,19,22,34-38,57-83,85,90-98,101,106-109,116-124,129,131,154
+apps/web/src/features/agent/lib/agent-tree-branch.ts
+  s_37b3d7ce1cb96b::t_767d761bdb03cb 4-6,8-9,11-14,16-17,21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "9ed9bff9e46f0924c00986eca718286d54d4984e",
+  "prompts": {},
+  "sessions": {
+    "s_37b3d7ce1cb96b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0b85e-8bb6-7981-98f1-0d005003013a",
+        "model": "unknown"
+      },
+      "human_author": null
+    }
+  }
+}
