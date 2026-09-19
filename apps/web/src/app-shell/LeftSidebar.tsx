@@ -208,7 +208,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         markProjectVisited,
         reorderProjects,
         reorderWorkspaces,
-        setupProgress,
     } = useProjectStore(
         useShallow(s => ({
             deleteProject: s.deleteProject,
@@ -229,7 +228,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             markProjectVisited: s.markProjectVisited,
             reorderProjects: s.reorderProjects,
             reorderWorkspaces: s.reorderWorkspaces,
-            setupProgress: s.setupProgress,
         }))
     );
 
@@ -513,9 +511,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const currentSidebarRouteKey = `${currentView}:${currentProjectId ?? ''}:${currentWorkspaceId ?? ''}`;
     const currentWorkspace = currentProject?.workspaces.find(w => w.id === currentWorkspaceId);
     const currentEffectivePath = currentWorkspace?.localPath ?? currentProject?.mainFilePath ?? null;
-    const isSettingUp = isWorkspaceSetupBlocking(
-        currentWorkspaceId ? setupProgress[currentWorkspaceId] : null,
+    const currentSetupProgress = useProjectStore((s) =>
+        currentWorkspaceId ? s.setupProgress[currentWorkspaceId] ?? null : null,
     );
+    const isSettingUp = isWorkspaceSetupBlocking(currentSetupProgress);
     const startCreating = useWorkspaceCreationStore((s) => s.startCreating);
     const bindWorkspace = useWorkspaceCreationStore((s) => s.bindWorkspace);
     const failCreating = useWorkspaceCreationStore((s) => s.failCreating);

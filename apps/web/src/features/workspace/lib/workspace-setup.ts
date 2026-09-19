@@ -69,6 +69,34 @@ export function isWorkspaceSetupBlocking(
   return getWorkspaceSetupCurrentStepKey(progress) === "create_worktree";
 }
 
+export function setupProgressUiEqual(
+  a: Record<string, WorkspaceSetupProgress>,
+  b: Record<string, WorkspaceSetupProgress>,
+): boolean {
+  if (a === b) return true;
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  for (const key of aKeys) {
+    const left = a[key];
+    const right = b[key];
+    if (!left || !right) return false;
+    if (
+      left.status !== right.status ||
+      left.stepKey !== right.stepKey ||
+      left.lastStepKey !== right.lastStepKey ||
+      left.failedStepKey !== right.failedStepKey ||
+      left.stepTitle !== right.stepTitle ||
+      left.success !== right.success ||
+      left.requiresConfirmation !== right.requiresConfirmation ||
+      left.requiresScriptTrust !== right.requiresScriptTrust
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function getWorkspaceSetupSteps(
   progress: WorkspaceSetupProgress,
 ): WorkspaceSetupStepSummary[] {

@@ -40,6 +40,13 @@ impl WorkspaceSetupStep {
 }
 
 #[derive(Debug, Clone)]
+pub(super) struct WorkspaceSetupCreateExtras {
+    pub attachments: Vec<WorkspaceAttachmentPayload>,
+    pub github_pr: Option<GithubPrPayload>,
+    pub worktree_path: String,
+}
+
+#[derive(Debug, Clone)]
 pub(super) struct WorkspaceSetupPlan {
     pub(super) steps: Vec<WorkspaceSetupStep>,
     context: WorkspaceSetupContextNotification,
@@ -234,6 +241,7 @@ impl WsMessageService {
         auto_extract_todos: bool,
         start_step: Option<WorkspaceSetupStep>,
         cached_plan: Option<WorkspaceSetupPlan>,
+        create_extras: Option<WorkspaceSetupCreateExtras>,
     ) {
         let plan = if let Some(p) = cached_plan {
             p
@@ -362,6 +370,56 @@ impl WsMessageService {
                         )
                         .await;
                         return;
+                    }
+
+                    if let Some(extras) = create_extras.as_ref() {
+                        if !extras.attachments.is_empty() {
+                            if let Err(error) = workspace_service
+                                .write_workspace_attachments(
+                                    workspace_id.clone(),
+                                    extras.attachments.clone(),
+                                )
+                                .await
+                            {
+                                tracing::warn!(
+                                    "[execute_setup_state_machine] Failed to write attachments for {}: {}",
+                                    workspace_id,
+                                    error
+                                );
+                            }
+                        }
+
+                        if github_issue.is_some()
+                            || extras.github_pr.is_some()
+                            || initial_requirement
+                                .as_deref()
+                                .map(str::trim)
+                                .is_some_and(|value| !value.is_empty())
+                        {
+                            if let Err(error) = workspace_service
+                                .write_workspace_requirement(
+                                    workspace_id.clone(),
+                                    initial_requirement.clone(),
+                                    github_issue.clone(),
+                                    extras.github_pr.clone(),
+                                )
+                                .await
+                            {
+                                tracing::warn!(
+                                    "[execute_setup_state_machine] Failed to pre-fill requirement.md for {}: {}",
+                                    workspace_id,
+                                    error
+                                );
+                            }
+                        }
+
+                        Self::spawn_workspace_gitignore_compensation(
+                            manager.clone(),
+                            project_service.clone(),
+                            workspace_id.clone(),
+                            project_guid.clone(),
+                            extras.worktree_path.clone(),
+                        );
                     }
                 }
                 WorkspaceSetupStep::WriteRequirement => {
@@ -759,30 +817,64 @@ set -x
         });
 
         let mut wait_handle = tokio::task::spawn_blocking(move || child.wait());
+        let mut pending_output = String::new();
+        let mut flush_interval = tokio::time::interval(Duration::from_millis(50));
+        flush_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+        async fn flush_setup_output(
+            manager: &Arc<WsManager>,
+            conn_id: &str,
+            workspace_id: &str,
+            pending_output: &mut String,
+        ) {
+            if pending_output.is_empty() {
+                return;
+            }
+            let output = std::mem::take(pending_output);
+            WsMessageService::send_workspace_setup_progress(
+                manager,
+                conn_id,
+                WorkspaceSetupProgressNotification {
+                    workspace_id: workspace_id.to_string(),
+                    status: "setting_up".to_string(),
+                    step_key: Some("run_setup_script".to_string()),
+                    failed_step_key: None,
+                    step_title: "Running Setup Script".to_string(),
+                    output: Some(output),
+                    replace_output: false,
+                    requires_confirmation: false,
+                    requires_script_trust: false,
+                    script_project_guid: None,
+                    script_hash: None,
+                    success: true,
+                    countdown: None,
+                    setup_context: None,
+                },
+            )
+            .await;
+        }
 
         let exit_status = loop {
             tokio::select! {
                 biased;
                 Some(output) = rx.recv() => {
-                    Self::send_workspace_setup_progress(
+                    pending_output.push_str(&output);
+                    if pending_output.len() >= 16 * 1024 {
+                        flush_setup_output(
+                            &manager_clone,
+                            &conn_id_clone,
+                            &workspace_id_clone,
+                            &mut pending_output,
+                        )
+                        .await;
+                    }
+                }
+                _ = flush_interval.tick() => {
+                    flush_setup_output(
                         &manager_clone,
                         &conn_id_clone,
-                        WorkspaceSetupProgressNotification {
-                            workspace_id: workspace_id_clone.clone(),
-                            status: "setting_up".to_string(),
-                            step_key: Some("run_setup_script".to_string()),
-                            failed_step_key: None,
-                            step_title: "Running Setup Script".to_string(),
-                            output: Some(output),
-                            replace_output: false,
-                            requires_confirmation: false,
-                            requires_script_trust: false,
-                            script_project_guid: None,
-                            script_hash: None,
-                            success: true,
-                            countdown: None,
-                            setup_context: None,
-                        },
+                        &workspace_id_clone,
+                        &mut pending_output,
                     )
                     .await;
                 }
@@ -799,32 +891,17 @@ set -x
                 break;
             }
             match tokio::time::timeout(remaining, rx.recv()).await {
-                Ok(Some(output)) => {
-                    Self::send_workspace_setup_progress(
-                        &manager_clone,
-                        &conn_id_clone,
-                        WorkspaceSetupProgressNotification {
-                            workspace_id: workspace_id_clone.clone(),
-                            status: "setting_up".to_string(),
-                            step_key: Some("run_setup_script".to_string()),
-                            failed_step_key: None,
-                            step_title: "Running Setup Script".to_string(),
-                            output: Some(output),
-                            replace_output: false,
-                            requires_confirmation: false,
-                            requires_script_trust: false,
-                            script_project_guid: None,
-                            script_hash: None,
-                            success: true,
-                            countdown: None,
-                            setup_context: None,
-                        },
-                    )
-                    .await;
-                }
+                Ok(Some(output)) => pending_output.push_str(&output),
                 Ok(None) | Err(_) => break,
             }
         }
+        flush_setup_output(
+            &manager_clone,
+            &conn_id_clone,
+            &workspace_id_clone,
+            &mut pending_output,
+        )
+        .await;
 
         if !exit_status.success() {
             anyhow::bail!("Script exited with status {}", exit_status);

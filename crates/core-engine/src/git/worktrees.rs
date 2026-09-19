@@ -7,8 +7,8 @@ use jwalk::WalkDir;
 use crate::error::{EngineError, Result};
 
 use super::{
-    fetch_remote_branch, remote_branch_fetch_target, run_git, try_run_git,
-    types::parse_worktree_list, GitEngine, WorktreeInfo,
+    fetch_remote_branch, git_ref_exists, remote_branch_fetch_target, resolve_worktree_base_ref,
+    run_git, try_run_git, types::parse_worktree_list, GitEngine, WorktreeInfo,
 };
 
 /// Directories that are almost never git repo roots and are expensive to walk.
@@ -120,14 +120,7 @@ impl GitEngine {
             )));
         }
 
-        // Fetch only the requested base branch. A plain `git fetch origin` can
-        // pull every remote branch in shallow CI checkouts and stall workspace
-        // creation, even though this refresh is non-fatal.
-        if let Err(e) = fetch_remote_branch(repo_path, base_branch) {
-            tracing::warn!("Git fetch warning for {}: {}", base_branch, e);
-        }
-
-        let base_ref = self.resolve_remote_branch_ref(repo_path, base_branch)?;
+        let base_ref = resolve_worktree_base_ref(repo_path, base_branch)?;
 
         let worktree_str = worktree_path
             .to_str()
@@ -187,8 +180,14 @@ impl GitEngine {
 
         let remote_target = remote_branch_fetch_target(repo_path, remote_branch)?
             .ok_or_else(|| EngineError::Git("Remote branch name cannot be empty".to_string()))?;
-        if let Err(e) = fetch_remote_branch(repo_path, remote_branch) {
-            tracing::warn!("Git fetch warning for {}: {}", remote_branch, e);
+        let remote_ref = format!(
+            "refs/remotes/{}/{}",
+            remote_target.remote, remote_target.branch
+        );
+        if !git_ref_exists(repo_path, &remote_ref) {
+            if let Err(e) = fetch_remote_branch(repo_path, remote_branch) {
+                tracing::warn!("Git fetch warning for {}: {}", remote_branch, e);
+            }
         }
 
         let worktree_str = worktree_path

@@ -945,6 +945,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     const jobId = startCreating({
       originKey,
       label: name.trim() || null,
+      blocking: true,
     });
 
     try {

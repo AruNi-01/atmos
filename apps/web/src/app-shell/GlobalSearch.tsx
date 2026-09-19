@@ -145,7 +145,9 @@ export function GlobalSearch() {
 
   const projects = useProjects();
   const quickAddWorkspace = useProjectStore(s => s.quickAddWorkspace);
-  const setupProgress = useProjectStore(s => s.setupProgress);
+  const currentSetupProgress = useProjectStore((s) =>
+    currentWorkspaceId ? s.setupProgress[currentWorkspaceId] ?? null : null,
+  );
   const openFile = useEditorStore(s => s.openFile);
 
   // URL-param driven modals
@@ -339,9 +341,7 @@ export function GlobalSearch() {
     }
   }, [selectedValue]);
 
-  const isSettingUp = isWorkspaceSetupBlocking(
-    currentWorkspaceId ? setupProgress[currentWorkspaceId] : null,
-  );
+  const isSettingUp = isWorkspaceSetupBlocking(currentSetupProgress);
   const startCreating = useWorkspaceCreationStore((s) => s.startCreating);
   const bindWorkspace = useWorkspaceCreationStore((s) => s.bindWorkspace);
   const failCreating = useWorkspaceCreationStore((s) => s.failCreating);

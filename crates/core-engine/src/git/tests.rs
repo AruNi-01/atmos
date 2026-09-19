@@ -1,7 +1,8 @@
 use super::{
-    clear_file_blame_cache, last_file_blame_was_cache_hit, remote_branch_fetch_target,
-    show_git_blob_bytes, sync_worktree_local_excludes, DiffContentKind, DiffPreviewKind,
-    FileBlameKind, GitBlobLocator, GitEngine,
+    clear_file_blame_cache, git_ref_exists, last_file_blame_was_cache_hit,
+    remote_branch_fetch_target, resolve_worktree_base_ref, show_git_blob_bytes,
+    sync_worktree_local_excludes, DiffContentKind, DiffPreviewKind, FileBlameKind, GitBlobLocator,
+    GitEngine,
 };
 
 // Minimal 1x1 PNG
@@ -1305,6 +1306,43 @@ fn blob_fingerprint_cache_skips_second_porcelain_walk() {
         !last_file_blame_was_cache_hit(),
         "new blob must walk porcelain"
     );
+
+    remove_temp_repo(root);
+}
+
+#[test]
+fn resolve_worktree_base_ref_uses_local_origin_without_fetch() {
+    let (root, origin_path) = setup_remote_repo("wt-base-local");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+    git(
+        &repo_path,
+        &[
+            "remote",
+            "set-url",
+            "origin",
+            "https://127.0.0.1:1/invalid.git",
+        ],
+    );
+
+    assert!(git_ref_exists(&repo_path, "refs/remotes/origin/main"));
+    let resolved = resolve_worktree_base_ref(&repo_path, "main").expect("local origin/main");
+    assert_eq!(resolved, "origin/main");
+
+    remove_temp_repo(root);
+}
+
+#[test]
+fn resolve_worktree_base_ref_falls_back_to_local_branch() {
+    let root = unique_temp_dir("wt-base-local-only");
+    let repo_path = root.join("repo");
+    fs::create_dir_all(&repo_path).unwrap();
+    git(&repo_path, &["init"]);
+    configure_repo(&repo_path);
+    git(&repo_path, &["branch", "-m", "main"]);
+    commit_file(&repo_path, "README.md", "hi\n", "init");
+
+    let resolved = resolve_worktree_base_ref(&repo_path, "main").expect("local main");
+    assert_eq!(resolved, "main");
 
     remove_temp_repo(root);
 }

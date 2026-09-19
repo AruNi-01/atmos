@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import {
   getWorkspaceCreateOriginKey,
+  selectAutoOpenJob,
   selectAutoOpenWorkspaceId,
   useWorkspaceCreationStore,
   type WorkspaceCreateJob,
@@ -13,6 +14,7 @@ function job(overrides: Partial<WorkspaceCreateJob> & Pick<WorkspaceCreateJob, "
     originKey: "workspace:origin",
     phase: "creating",
     createdAt: 1,
+    blocking: false,
     ...overrides,
   };
 }
@@ -118,6 +120,17 @@ describe("workspace creation store", () => {
       autoOpenedWorkspaceId: null,
       pendingAgentRun: null,
     });
+  });
+
+  test("marks New Workspace creates as blocking", () => {
+    const id = useWorkspaceCreationStore.getState().startCreating({
+      originKey: "view:welcome",
+      blocking: true,
+    });
+    expect(selectAutoOpenJob({
+      jobs: useWorkspaceCreationStore.getState().jobs,
+      latestJobId: id,
+    })?.blocking).toBe(true);
   });
 
   test("keeps the newest create as the auto-open candidate", () => {

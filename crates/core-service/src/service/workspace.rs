@@ -47,6 +47,125 @@ fn apply_workspace_branch_prefix(branch: String, branch_prefix: Option<&str>) ->
     }
 }
 
+fn worktree_dir_has_files(path: &Path) -> bool {
+    path.exists()
+        && std::fs::read_dir(path)
+            .map(|mut entries| entries.next().is_some())
+            .unwrap_or(false)
+}
+
+fn create_linked_worktree(
+    git_engine: &GitEngine,
+    repo_path: &Path,
+    workspace_name: &str,
+    branch: &str,
+    stored_base_branch: &str,
+    is_pr_linked: bool,
+) -> Result<()> {
+    tracing::info!(
+        "[ensure_worktree_ready] Starting for workspace: {}, branch: {}",
+        workspace_name,
+        branch
+    );
+
+    let worktree_path = git_engine.get_worktree_path(workspace_name)?;
+    tracing::info!(
+        "[ensure_worktree_ready] Worktree path: {}",
+        worktree_path.display()
+    );
+
+    if worktree_dir_has_files(&worktree_path) {
+        tracing::info!(
+            "[ensure_worktree_ready] Worktree already exists and has files, skipping creation"
+        );
+        return Ok(());
+    }
+
+    if worktree_path.exists() {
+        tracing::warn!(
+            "[ensure_worktree_ready] Worktree directory exists but is empty, will attempt to remove and recreate"
+        );
+        if let Err(e) = std::fs::remove_dir(&worktree_path) {
+            tracing::error!(
+                "[ensure_worktree_ready] Failed to remove empty worktree directory: {}",
+                e
+            );
+        }
+    }
+
+    let base_branch = if stored_base_branch.trim().is_empty() {
+        git_engine
+            .get_default_branch(repo_path)
+            .unwrap_or(None)
+            .unwrap_or_else(|| "main".to_string())
+    } else {
+        stored_base_branch.to_string()
+    };
+
+    tracing::info!("[ensure_worktree_ready] Base branch: {base_branch}");
+
+    if !is_pr_linked && git_engine.has_local_branch(repo_path, branch) {
+        return Err(ServiceError::Validation(format!(
+            "Branch `{branch}` already exists. Please choose a different branch name."
+        )));
+    }
+
+    let create_result = if is_pr_linked {
+        git_engine.create_worktree_from_remote_branch(repo_path, workspace_name, branch)
+    } else {
+        git_engine.create_worktree(repo_path, workspace_name, branch, &base_branch)
+    };
+
+    match create_result {
+        Ok(created_path) => {
+            tracing::info!(
+                "[ensure_worktree_ready] Successfully created worktree at: {}",
+                created_path.display()
+            );
+
+            if !created_path.exists() {
+                return Err(ServiceError::Validation(format!(
+                    "Worktree was reported as created but directory does not exist: {}",
+                    created_path.display()
+                )));
+            }
+
+            if !worktree_dir_has_files(&created_path) {
+                return Err(ServiceError::Validation(format!(
+                    "Worktree directory was created but is empty: {}",
+                    created_path.display()
+                )));
+            }
+
+            Ok(())
+        }
+        Err(e) => {
+            let err_msg = e.to_string();
+
+            if err_msg.contains("already exists") {
+                let worktree_path = git_engine.get_worktree_path(workspace_name)?;
+                if worktree_dir_has_files(&worktree_path) {
+                    tracing::warn!(
+                        "[ensure_worktree_ready] Worktree already exists and is ready, treating as success. Details: {}",
+                        err_msg
+                    );
+                    return Ok(());
+                }
+                tracing::error!(
+                    "[ensure_worktree_ready] Worktree reported as 'already exists' but directory is missing or empty: {}",
+                    err_msg
+                );
+                return Err(ServiceError::Validation(format!(
+                    "Worktree conflict: {err_msg}. Try deleting the workspace and recreating it."
+                )));
+            }
+
+            tracing::error!("[ensure_worktree_ready] Failed to create worktree: {err_msg}");
+            Err(e.into())
+        }
+    }
+}
+
 impl WorkspaceService {
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
         Self {
@@ -316,19 +435,11 @@ impl WorkspaceService {
             .filter(|value| !value.is_empty())
             .map(ToOwned::to_owned);
         let resolved_base_branch = if let Some(base_branch) = requested_base_branch {
-            let remote_branches =
-                self.git_engine
-                    .list_remote_branches(repo_path)
-                    .map_err(|error| {
-                        ServiceError::Validation(format!(
-                            "Failed to load remote branches for base branch selection: {error}"
-                        ))
-                    })?;
-
-            if !remote_branches.iter().any(|branch| branch == &base_branch) {
+            if !self.git_engine.has_remote_branch(repo_path, &base_branch)
+                && !self.git_engine.has_local_branch(repo_path, &base_branch)
+            {
                 return Err(ServiceError::Validation(format!(
-                    "Remote branch `origin/{}` does not exist.",
-                    base_branch
+                    "Remote branch `origin/{base_branch}` does not exist."
                 )));
             }
 
@@ -571,151 +682,27 @@ impl WorkspaceService {
                 ServiceError::NotFound(format!("Project {} not found", workspace.project_guid))
             })?;
 
-        let repo_path = Path::new(&project.main_file_path);
-
-        tracing::info!(
-            "[ensure_worktree_ready] Starting for workspace: {}, branch: {}",
-            workspace.name,
-            workspace.branch
-        );
-
-        // Get the worktree path
-        let worktree_path = self.git_engine.get_worktree_path(&workspace.name)?;
-        tracing::info!(
-            "[ensure_worktree_ready] Worktree path: {}",
-            worktree_path.display()
-        );
-
-        // Check if worktree directory already exists and has content
-        if worktree_path.exists() {
-            let has_files = std::fs::read_dir(&worktree_path)
-                .map(|mut entries| entries.next().is_some())
-                .unwrap_or(false);
-
-            if has_files {
-                tracing::info!(
-                    "[ensure_worktree_ready] Worktree already exists and has files, skipping creation"
-                );
-                return Ok(());
-            } else {
-                tracing::warn!(
-                    "[ensure_worktree_ready] Worktree directory exists but is empty, will attempt to remove and recreate"
-                );
-                // Try to remove the empty directory
-                if let Err(e) = std::fs::remove_dir(&worktree_path) {
-                    tracing::error!(
-                        "[ensure_worktree_ready] Failed to remove empty worktree directory: {}",
-                        e
-                    );
-                }
-            }
-        }
-
-        let existing_branches = self.git_engine.list_branches(repo_path)?;
-        let base_branch = if workspace.base_branch.trim().is_empty() {
-            self.git_engine
-                .get_default_branch(repo_path)
-                .unwrap_or(None)
-                .unwrap_or_else(|| "main".to_string())
-        } else {
-            workspace.base_branch.clone()
-        };
-
-        tracing::info!(
-            "[ensure_worktree_ready] Base branch: {}, existing branches count: {}",
-            base_branch,
-            existing_branches.len()
-        );
-
-        // PR-linked workspaces reuse the existing PR head branch directly.
+        let repo_path = std::path::PathBuf::from(project.main_file_path);
+        let workspace_name = workspace.name.clone();
+        let branch = workspace.branch.clone();
+        let base_branch = workspace.base_branch.clone();
         let is_pr_linked = workspace.github_pr_data.is_some();
+        let git_engine = GitEngine::new();
 
-        if !is_pr_linked && existing_branches.contains(&workspace.branch) {
-            return Err(ServiceError::Validation(format!(
-                "Branch `{}` already exists. Please choose a different branch name.",
-                workspace.branch
-            )));
-        }
-
-        let create_result = if is_pr_linked {
-            self.git_engine.create_worktree_from_remote_branch(
-                repo_path,
-                &workspace.name,
-                &workspace.branch,
-            )
-        } else {
-            self.git_engine.create_worktree(
-                repo_path,
-                &workspace.name,
-                &workspace.branch,
+        tokio::task::spawn_blocking(move || {
+            create_linked_worktree(
+                &git_engine,
+                &repo_path,
+                &workspace_name,
+                &branch,
                 &base_branch,
+                is_pr_linked,
             )
-        };
-
-        match create_result {
-            Ok(created_path) => {
-                tracing::info!(
-                    "[ensure_worktree_ready] Successfully created worktree at: {}",
-                    created_path.display()
-                );
-
-                // Verify the worktree was actually created with files
-                if !created_path.exists() {
-                    return Err(ServiceError::Validation(format!(
-                        "Worktree was reported as created but directory does not exist: {}",
-                        created_path.display()
-                    )));
-                }
-
-                let has_files = std::fs::read_dir(&created_path)
-                    .map(|mut entries| entries.next().is_some())
-                    .unwrap_or(false);
-
-                if !has_files {
-                    return Err(ServiceError::Validation(format!(
-                        "Worktree directory was created but is empty: {}",
-                        created_path.display()
-                    )));
-                }
-
-                Ok(())
-            }
-            Err(e) => {
-                let err_msg = e.to_string();
-
-                // If it already exists, verify it's actually ready
-                if err_msg.contains("already exists") {
-                    let worktree_path = self.git_engine.get_worktree_path(&workspace.name)?;
-                    let has_files = worktree_path.exists()
-                        && std::fs::read_dir(&worktree_path)
-                            .map(|mut entries| entries.next().is_some())
-                            .unwrap_or(false);
-
-                    if has_files {
-                        tracing::warn!(
-                            "[ensure_worktree_ready] Worktree already exists and is ready, treating as success. Details: {}",
-                            err_msg
-                        );
-                        return Ok(());
-                    } else {
-                        tracing::error!(
-                            "[ensure_worktree_ready] Worktree reported as 'already exists' but directory is missing or empty: {}",
-                            err_msg
-                        );
-                        return Err(ServiceError::Validation(format!(
-                            "Worktree conflict: {}. Try deleting the workspace and recreating it.",
-                            err_msg
-                        )));
-                    }
-                }
-
-                tracing::error!(
-                    "[ensure_worktree_ready] Failed to create worktree: {}",
-                    err_msg
-                );
-                Err(e.into())
-            }
-        }
+        })
+        .await
+        .map_err(|error| {
+            ServiceError::Processing(format!("Worktree task failed to join: {error}"))
+        })?
     }
 
     pub async fn write_workspace_attachments(

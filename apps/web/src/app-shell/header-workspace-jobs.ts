@@ -59,13 +59,8 @@ export function isHeaderWorkspaceSetupReadyToOpen(item: HeaderWorkspaceSetupItem
 
 export function visibleHeaderWorkspaceSetupItems(
   items: HeaderWorkspaceSetupItem[],
-  currentWorkspaceId: string | null,
 ): HeaderWorkspaceSetupItem[] {
-  if (items.length <= 1) return items;
-  return items.filter(
-    (item) =>
-      !(item.workspaceId === currentWorkspaceId && isHeaderWorkspaceSetupReadyToOpen(item)),
-  );
+  return items.filter((item) => !isHeaderWorkspaceSetupReadyToOpen(item));
 }
 
 export const WORKSPACE_AUTO_ENTER_DELAY_MS = 5_000;

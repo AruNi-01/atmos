@@ -2889,6 +2889,7 @@
       },
       "setupProgress": {
         "stepTitles": {
+          "creatingWorkspace": "正在创建工作区",
           "extractingInitialTodos": "正在提取初始 TODO",
           "runningSetupScript": "正在运行初始化脚本",
           "readyToBuild": "已准备开始构建"

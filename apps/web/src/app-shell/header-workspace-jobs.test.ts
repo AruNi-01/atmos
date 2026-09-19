@@ -20,6 +20,7 @@ function job(
     originKey: "workspace:origin",
     phase: "creating",
     createdAt: 1,
+    blocking: false,
     ...overrides,
   };
 }
@@ -129,7 +130,7 @@ describe("isHeaderWorkspaceSetupReadyToOpen", () => {
 });
 
 describe("visibleHeaderWorkspaceSetupItems", () => {
-  test("hides the current ready workspace from a group after it was opened", () => {
+  test("hides ready workspaces from the header even when they are not current", () => {
     const items = collectHeaderWorkspaceSetupItems({
       jobs: [
         job({ id: "a", workspaceId: "ws-1", phase: "bound" }),
@@ -139,9 +140,19 @@ describe("visibleHeaderWorkspaceSetupItems", () => {
         "ws-2": progress("ws-2"),
       },
     });
-    expect(visibleHeaderWorkspaceSetupItems(items, "ws-1").map((item) => item.workspaceId)).toEqual([
+    expect(visibleHeaderWorkspaceSetupItems(items).map((item) => item.workspaceId)).toEqual([
       "ws-2",
     ]);
+  });
+
+  test("hides a completed setup even if it is the only header item", () => {
+    const items = collectHeaderWorkspaceSetupItems({
+      jobs: [job({ id: "a", workspaceId: "ws-1", phase: "bound" })],
+      setupProgress: {
+        "ws-1": { ...progress("ws-1", "Ready to Build"), status: "completed" },
+      },
+    });
+    expect(visibleHeaderWorkspaceSetupItems(items)).toEqual([]);
   });
 });
 

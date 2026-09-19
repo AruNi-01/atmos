@@ -544,8 +544,9 @@ const CenterStage: React.FC = () => {
     if (!effectiveContextId) return null;
     return state.getActiveTerminalTabId(effectiveContextId);
   });
-  const setupProgressMap = useProjectStore((s) => s.setupProgress);
-  const currentSetupProgress = workspaceId ? setupProgressMap[workspaceId] : null;
+  const currentSetupProgress = useProjectStore((s) =>
+    workspaceId ? s.setupProgress[workspaceId] ?? null : null,
+  );
   const isSetupBlocking = isWorkspaceSetupBlocking(currentSetupProgress);
   const visibleTerminalTabs = React.useMemo(() => {
     if (Array.isArray(terminalTabs)) return terminalTabs;

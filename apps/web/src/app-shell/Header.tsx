@@ -75,7 +75,9 @@ const Header: React.FC = () => {
 
   const projects = useProjects();
   const updateWorkspaceBranch = useProjectStore(s => s.updateWorkspaceBranch);
-  const setupProgress = useProjectStore(s => s.setupProgress);
+  const currentSetupProgress = useProjectStore((s) =>
+    currentWorkspaceId ? s.setupProgress[currentWorkspaceId] ?? null : null,
+  );
   const { setGlobalSearchOpen, setHeaderHasOpenOverlay } = useDialogStore();
   const t = useTranslations("header");
   const showHeaderQuickOpen = useLayoutSettingsStore((s) => s.showHeaderQuickOpen);
@@ -112,9 +114,7 @@ const Header: React.FC = () => {
   const currentProjectIdForContext = currentProject?.id ?? null;
   const currentProjectMainFilePath = currentProject?.mainFilePath ?? null;
   const currentWorkspaceLocalPath = currentWorkspace?.localPath ?? null;
-  const isSettingUp = isWorkspaceSetupBlocking(
-    currentWorkspaceId ? setupProgress[currentWorkspaceId] : null,
-  );
+  const isSettingUp = isWorkspaceSetupBlocking(currentSetupProgress);
 
   const headerRepoPath = currentWorkspaceLocalPath || currentProjectMainFilePath || editorRepoPath || null;
 

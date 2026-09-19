@@ -5,10 +5,11 @@ import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import {
   getWorkspaceCreateOriginKey,
+  selectAutoOpenJob,
   selectAutoOpenWorkspaceId,
   useWorkspaceCreationStore,
 } from "@/features/workspace/store/workspace-creation-store";
-import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
+import { isWorkspaceSetupBlocking, setupProgressUiEqual } from "@/features/workspace/lib/workspace-setup";
 import { WORKSPACE_AUTO_ENTER_DELAY_MS } from "./header-workspace-jobs";
 import { usePausedDeadlineCountdown } from "./use-paused-deadline-countdown";
 
@@ -20,7 +21,9 @@ export function useWorkspaceCreateAutoOpen(input: {
   const jobs = useWorkspaceCreationStore((state) => state.jobs);
   const latestJobId = useWorkspaceCreationStore((state) => state.latestJobId);
   const autoOpenedWorkspaceId = useWorkspaceCreationStore((state) => state.autoOpenedWorkspaceId);
-  const setupProgress = useProjectStore((state) => state.setupProgress);
+  const setupProgress = useProjectStore((state) => state.setupProgress, setupProgressUiEqual);
+  const latestJob = selectAutoOpenJob({ jobs, latestJobId });
+  const enterImmediately = latestJob?.blocking === true;
   const currentOriginKey = getWorkspaceCreateOriginKey({
     currentView,
     workspaceId,
@@ -48,8 +51,8 @@ export function useWorkspaceCreateAutoOpen(input: {
 
   const countdown = usePausedDeadlineCountdown({
     sessionKey: candidateId,
-    durationMs: WORKSPACE_AUTO_ENTER_DELAY_MS,
-    paused: Boolean(candidateId && input.paused),
+    durationMs: enterImmediately ? 0 : WORKSPACE_AUTO_ENTER_DELAY_MS,
+    paused: Boolean(candidateId && input.paused && !enterImmediately),
     onComplete: () => {
       if (candidateId) input.onAutoEnter(candidateId);
     },

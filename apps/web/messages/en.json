@@ -2889,6 +2889,7 @@
       },
       "setupProgress": {
         "stepTitles": {
+          "creatingWorkspace": "Creating Workspace",
           "extractingInitialTodos": "Extracting Initial TODOs",
           "runningSetupScript": "Running Setup Script",
           "readyToBuild": "Ready to Build"

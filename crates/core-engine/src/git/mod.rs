@@ -186,6 +186,17 @@ pub(super) fn is_shallow_repository(repo_path: &Path) -> bool {
         .is_some_and(|stdout| stdout.trim() == "true")
 }
 
+pub(super) fn git_ref_exists(repo_path: &Path, git_ref: &str) -> bool {
+    let git_ref = git_ref.trim();
+    if git_ref.is_empty() || git_ref.starts_with('-') {
+        return false;
+    }
+    try_run_git(repo_path, &["rev-parse", "--verify", "--quiet", git_ref])
+        .ok()
+        .flatten()
+        .is_some()
+}
+
 pub(super) fn fetch_remote_branch(repo_path: &Path, branch: &str) -> Result<()> {
     let Some(target) = remote_branch_fetch_target(repo_path, branch)? else {
         return Ok(());
@@ -201,6 +212,44 @@ pub(super) fn fetch_remote_branch(repo_path: &Path, branch: &str) -> Result<()> 
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
 
     run_git(repo_path, &args).map(|_| ())
+}
+
+/// Resolve a local commit-ish for `git worktree add` without a network round-trip
+/// when `origin/<branch>` or the local branch already exists.
+pub(super) fn resolve_worktree_base_ref(repo_path: &Path, base_branch: &str) -> Result<String> {
+    let normalized = base_branch
+        .trim()
+        .trim_start_matches("origin/")
+        .trim_start_matches("refs/heads/")
+        .trim_start_matches("refs/remotes/origin/");
+    if normalized.is_empty() {
+        return Err(EngineError::Git("Base branch cannot be empty".to_string()));
+    }
+
+    let origin_ref = format!("refs/remotes/origin/{normalized}");
+    if git_ref_exists(repo_path, &origin_ref) {
+        return Ok(format!("origin/{normalized}"));
+    }
+
+    let local_ref = format!("refs/heads/{normalized}");
+    if git_ref_exists(repo_path, &local_ref) {
+        return Ok(normalized.to_string());
+    }
+
+    if let Err(error) = fetch_remote_branch(repo_path, normalized) {
+        tracing::warn!("Git fetch warning for {normalized}: {error}");
+    }
+
+    if git_ref_exists(repo_path, &origin_ref) {
+        return Ok(format!("origin/{normalized}"));
+    }
+    if git_ref_exists(repo_path, &local_ref) {
+        return Ok(normalized.to_string());
+    }
+
+    Err(EngineError::Git(format!(
+        "Remote branch origin/{normalized} does not exist"
+    )))
 }
 
 /// Like `try_run_git` but also returns stderr on failure.

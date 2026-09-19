@@ -26,6 +26,7 @@ import {
 } from "@/app-shell/sidebar-layout-constants";
 import { resizeFollowSeamAt } from "@/app-shell/resize-follow-mark";
 import { NewWorkspaceWelcomeOverlay } from "@/app-shell/NewWorkspaceWelcomeOverlay";
+import { WorkspaceSetupBlockingOverlay } from "@/app-shell/WorkspaceSetupBlockingOverlay";
 import { ensureBrowserAgentTabListener } from "@/features/browser/hooks/use-browser-agent-tab-bridge";
 import { registerBrowserHostChrome } from "@/features/browser/lib/ensure-browser-surface";
 
@@ -304,6 +305,7 @@ export function PanelLayout({
         </Panel>
       </PanelGroup>
 
+      <WorkspaceSetupBlockingOverlay />
       <NewWorkspaceWelcomeOverlay />
     </div>
   );

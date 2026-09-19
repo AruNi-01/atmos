@@ -13,6 +13,8 @@ export interface WorkspaceCreateJob {
   originKey: string;
   phase: WorkspaceCreateJobPhase;
   createdAt: number;
+  /** Full New Workspace / Welcome create — block with the setup dialog, then jump. */
+  blocking: boolean;
 }
 
 export function getWorkspaceCreateOriginKey(input: {
@@ -43,6 +45,13 @@ export function selectAutoOpenWorkspaceId(input: {
   return latest.workspaceId;
 }
 
+export function selectAutoOpenJob(input: {
+  jobs: WorkspaceCreateJob[];
+  latestJobId: string | null;
+}): WorkspaceCreateJob | null {
+  return input.jobs.find((job) => job.id === input.latestJobId) ?? null;
+}
+
 export interface PendingWorkspaceAgentRun {
   workspaceId?: string | null;
   projectId?: string | null;
@@ -65,7 +74,11 @@ interface WorkspaceCreationState {
   latestJobId: string | null;
   autoOpenedWorkspaceId: string | null;
   pendingAgentRun: PendingWorkspaceAgentRun | null;
-  startCreating: (input: { originKey: string; label?: string | null }) => string;
+  startCreating: (input: {
+    originKey: string;
+    label?: string | null;
+    blocking?: boolean;
+  }) => string;
   bindWorkspace: (jobId: string, workspaceId: string, label?: string | null) => void;
   failCreating: (jobId: string) => void;
   markOpened: (workspaceId: string) => void;
@@ -86,7 +99,7 @@ export const useWorkspaceCreationStore = create<WorkspaceCreationState>((set) =>
   latestJobId: null,
   autoOpenedWorkspaceId: null,
   pendingAgentRun: null,
-  startCreating: ({ originKey, label }) => {
+  startCreating: ({ originKey, label, blocking = false }) => {
     const id = createJobId();
     set((state) => ({
       jobs: [
@@ -98,6 +111,7 @@ export const useWorkspaceCreationStore = create<WorkspaceCreationState>((set) =>
           originKey,
           phase: "creating",
           createdAt: Date.now(),
+          blocking,
         },
       ],
       latestJobId: id,
