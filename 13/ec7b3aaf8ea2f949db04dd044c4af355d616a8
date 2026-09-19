@@ -1,0 +1,30 @@
+apps/web/src/features/agent/lib/__tests__/enable-chat-for-onboarding-agents-progress.test.ts
+  h_5be255725524c8 39-41,43,48,51,59,61-62,66-77,86-87,91-129
+apps/web/src/features/agent/lib/__tests__/provision-acp-for-terminal-agents.test.ts
+  h_5be255725524c8 3,133-157
+apps/web/src/features/agent/lib/acp-provision-targets.ts
+  h_5be255725524c8 32-45
+apps/web/src/features/agent/lib/enable-chat-for-onboarding-agents.ts
+  h_5be255725524c8 29-30,33,41-43,56-61,63,72-74,76-81,85,88-90
+apps/web/src/features/agent/lib/provision-acp-for-terminal-agents.ts
+  h_5be255725524c8 2,4,9-15,17
+apps/web/src/features/welcome/lib/__tests__/start-onboarding-chat-setup.test.ts
+  h_5be255725524c8 68-69,99,125-128
+apps/web/src/features/welcome/lib/start-onboarding-chat-setup.ts
+  h_5be255725524c8 3,12-14
+crates/agent/src/manager/npm.rs
+  h_5be255725524c8 1-4,7,15-46,49-51,53,55-57,59-61,64-66,70-83,86,91
+crates/agent/src/manager/registry.rs
+  h_5be255725524c8 4,24,69-72,92-112,116,118-120,124-128,130-136,138-141,336-378
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "13ec7b3aaf8ea2f949db04dd044c4af355d616a8",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
