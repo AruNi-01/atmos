@@ -26,7 +26,7 @@ import { useSequentialReveal } from "@/features/agent/hooks/use-sequential-revea
 import { AgentTreeRevealProvider } from "./agent-tree-reveal-context";
 import { useMarkAssistantProcessInspecting } from "./assistant-process-inspect-context";
 import { AgentToolDiffStats } from "./tool-results/AgentToolCard";
-import { AgentTreeBranch } from "./AgentTreeBranch";
+import { AgentTreeNetwork } from "./AgentTreeNetwork";
 
 export function AgentToolGroupView({
   parts,
@@ -115,6 +115,7 @@ export function AgentToolGroupView({
       <CollapsibleContent className="data-[state=open]:overflow-visible">
         <AgentTreeRevealProvider reveal={autoOpen}>
           <div className="relative">
+            <AgentTreeNetwork animate={autoOpen} />
             {visibleParts
               .map((part, index) => {
                 const origIndex = origIndexes[index] ?? index;
@@ -123,19 +124,18 @@ export function AgentToolGroupView({
                 return { part, origIndex, rendered };
               })
               .filter((row): row is NonNullable<typeof row> => row != null)
-              .map((row, index, rows) => {
+              .map((row, index) => {
                 const itemKey = row.part.type === "tool_call"
                   ? row.part.tool_call_id || `${row.part.name}-${index}`
                   : `${row.part.type}-${row.origIndex}`;
                 return (
-                  <AgentTreeBranch
+                  <div
                     key={itemKey}
-                    isFirst={index === 0}
-                    isLast={index === rows.length - 1}
-                    animate={autoOpen}
+                    data-tree-row=""
+                    className="relative min-h-6 min-w-0 pl-7"
                   >
                     {row.rendered}
-                  </AgentTreeBranch>
+                  </div>
                 );
               })}
           </div>

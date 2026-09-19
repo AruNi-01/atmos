@@ -28,38 +28,27 @@ describe("AgentTreeBranch", () => {
     cleanupDom();
   });
 
-  it("paints the elbow over an opaque fill so the trunk cannot double-blend", () => {
+  it("draws the elbow and trunk as rounded SVG strokes", () => {
     const container = renderBranch({ isFirst: true, isLast: false, animate: false });
-    const trunk = container.querySelector("[data-tree-trunk]");
-    const elbow = container.querySelector("[data-tree-elbow]");
-    expect(trunk?.className).toContain("bg-background");
-    expect(trunk?.className).toContain("w-px");
-    expect((trunk as HTMLElement | null)?.style.backgroundImage).toContain("var(--border)");
-    expect(elbow?.className).toContain("bg-background");
-    expect(elbow?.className).toContain("border-border");
-    expect(elbow?.className).toContain("z-[1]");
+    const trunk = container.querySelector('[data-tree-stroke="trunk"]');
+    const elbow = container.querySelector('[data-tree-stroke="elbow"]');
+    expect(trunk?.tagName.toLowerCase()).toBe("line");
+    expect(elbow?.tagName.toLowerCase()).toBe("path");
+    expect(elbow?.getAttribute("d") ?? "").toContain("A ");
+    expect(elbow?.getAttribute("pathLength") ?? elbow?.getAttribute("pathlength")).toBe("1");
   });
 
   it("omits the continuing trunk on the last child", () => {
     const container = renderBranch({ isFirst: false, isLast: true, animate: false });
-    expect(container.querySelector("[data-tree-trunk]")).toBeNull();
-    expect(container.querySelector("[data-tree-elbow]")).not.toBeNull();
+    expect(container.querySelector('[data-tree-stroke="trunk"]')).toBeNull();
+    expect(container.querySelector('[data-tree-stroke="elbow"]')).not.toBeNull();
   });
 
   it("does not restart the elbow draw when a sibling is added below", () => {
-    const calls: unknown[] = [];
-    const stub = {
-      animate(this: unknown, keyframes: unknown, options?: unknown) {
-        calls.push({ keyframes, options });
-        return { cancel() {}, commitStyles() {} };
-      },
-    };
-    (window.HTMLElement.prototype as unknown as { animate: typeof stub.animate }).animate = stub.animate;
-    (window.Element.prototype as unknown as { animate: typeof stub.animate }).animate = stub.animate;
-
     const container = renderBranch({ isFirst: true, isLast: true, animate: true });
-    expect(calls).toHaveLength(1);
-    const elbow = container.querySelector("[data-tree-elbow]");
+    const elbow = container.querySelector('[data-tree-stroke="elbow"]') as SVGPathElement | null;
+    expect(elbow).not.toBeNull();
+    if (elbow) elbow.dataset.mark = "kept";
 
     act(() => {
       root?.render(
@@ -69,32 +58,12 @@ describe("AgentTreeBranch", () => {
       );
     });
 
-    expect(calls).toHaveLength(1);
-    expect(container.querySelector("[data-tree-elbow]")).toBe(elbow);
-    expect(container.querySelector("[data-tree-trunk]")).not.toBeNull();
+    const nextElbow = container.querySelector('[data-tree-stroke="elbow"]') as HTMLElement | null;
+    expect(nextElbow?.dataset.mark).toBe("kept");
+    expect(container.querySelector('[data-tree-stroke="trunk"]')).not.toBeNull();
   });
 
-  it("cleanup after unmount does not throw when commitStyles cannot target the elbow", () => {
-    const cancelCalls: string[] = [];
-    const stub = {
-      animate() {
-        return {
-          playState: "running" as const,
-          commitStyles() {
-            throw new DOMException(
-              "Failed to execute 'commitStyles' on 'Animation': Target element is not rendered",
-              "InvalidStateError",
-            );
-          },
-          cancel() {
-            cancelCalls.push("cancel");
-          },
-        };
-      },
-    };
-    (window.HTMLElement.prototype as unknown as { animate: typeof stub.animate }).animate = stub.animate;
-    (window.Element.prototype as unknown as { animate: typeof stub.animate }).animate = stub.animate;
-
+  it("unmount does not throw while a draw is pending", () => {
     renderBranch({ isFirst: true, isLast: true, animate: true });
     expect(() => {
       act(() => {
@@ -102,7 +71,6 @@ describe("AgentTreeBranch", () => {
         root = null;
       });
     }).not.toThrow();
-    expect(cancelCalls.length).toBeGreaterThan(0);
   });
 });
 
@@ -128,6 +96,7 @@ function installDom(): void {
   setGlobal("navigator", win.navigator);
   setGlobal("HTMLElement", win.HTMLElement);
   setGlobal("Element", win.Element);
+  setGlobal("SVGElement", win.SVGElement);
   setGlobal("Node", win.Node);
   setGlobal("Text", win.Text);
   setGlobal("Event", win.Event);
@@ -141,6 +110,7 @@ function cleanupDom(): void {
     "navigator",
     "HTMLElement",
     "Element",
+    "SVGElement",
     "Node",
     "Text",
     "Event",
