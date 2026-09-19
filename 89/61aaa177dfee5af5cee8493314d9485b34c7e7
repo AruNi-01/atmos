@@ -1,0 +1,20 @@
+apps/web/src/app-shell/WorkspaceSetupBlockingOverlay.tsx
+  s_e2d94434a57316::t_f40fa64540b1e7 1-90
+  s_e2d94434a57316::t_e6d5ab92c119dd 91-93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8961aaa177dfee5af5cee8493314d9485b34c7e7",
+  "prompts": {},
+  "sessions": {
+    "s_e2d94434a57316": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0b8c7-4179-7813-a1ac-cd86d1515f4f",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
