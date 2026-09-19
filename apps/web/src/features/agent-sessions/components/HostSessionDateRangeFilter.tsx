@@ -94,7 +94,6 @@ export function HostSessionDateMenuItem({
       <DropdownMenuSubContent
         sideOffset={8}
         className="w-auto overflow-visible rounded-3xl p-0"
-        onCloseAutoFocus={(event) => event.preventDefault()}
       >
         <DateRangePickerPanel
           value={value}

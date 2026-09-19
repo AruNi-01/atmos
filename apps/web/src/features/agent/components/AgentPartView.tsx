@@ -134,7 +134,11 @@ export function AgentPartView({
             content_markdown: part.request.content_markdown ?? undefined,
             plan_todos: part.request.plan_todos,
             risk_level: "",
-            options: part.request.options ?? [],
+            options: (part.request.options ?? []).map((option) => ({
+              option_id: option.option_id,
+              name: option.name,
+              kind: option.kind || option.option_id,
+            })),
             questions: part.request.questions,
           }}
           markdown={part.request.content_markdown ?? null}

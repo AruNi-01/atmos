@@ -56,7 +56,7 @@ describe("agent chat fold stays on AgentMessage", () => {
     expect(textFromParts(messages[1]!.parts)).toBe("partial");
     messages = foldMessagesFromEvent(messages, failed, "chat-1");
     expect(messages[1]?.parts).toEqual([
-      { type: "text", text: "partial" },
+      { type: "text", text: "partial", message_id: "a1" },
       { type: "error", message: "401 Unauthorized" },
     ]);
   });
@@ -300,9 +300,9 @@ describe("agent chat fold stays on AgentMessage", () => {
     messages = foldMessagesFromEvent(messages, nested, "chat-1");
     messages = foldMessagesFromEvent(messages, moreParent, "chat-1");
     expect(messages[1]?.parts).toEqual([
-      { type: "text", text: "parent " },
-      { type: "text", text: "nested", parent_tool_call_id: "sub-1" },
-      { type: "text", text: "reply" },
+      { type: "text", text: "parent ", message_id: "a1" },
+      { type: "text", text: "nested", parent_tool_call_id: "sub-1", message_id: "a1" },
+      { type: "text", text: "reply", message_id: "a1" },
     ]);
     expect(textFromParts(messages[1]!.parts)).toBe("parent \nreply");
   });
@@ -1128,8 +1128,8 @@ describe("agent chat fold stays on AgentMessage", () => {
       thinking_ms: 13000,
     });
     expect(messages[1]?.parts.filter((part) => part.type === "thinking")).toEqual([
-      { type: "thinking", text: "first", duration_ms: 5000 },
-      { type: "thinking", text: "second", duration_ms: 8000 },
+      { type: "thinking", text: "first", duration_ms: 5000, message_id: "a1" },
+      { type: "thinking", text: "second", duration_ms: 8000, message_id: "a1" },
     ]);
   });
 
@@ -1325,6 +1325,46 @@ describe("agent chat fold stays on AgentMessage", () => {
     expect(parts.map((part) => part.type)).toEqual(["text", "tool_call", "text"]);
     expect(parts[0]).toMatchObject({ type: "text", text: "looking" });
     expect(parts[2]).toMatchObject({ type: "text", text: "final" });
+  });
+
+  it("updates the same stream id after tools instead of opening a new text block", () => {
+    const user = chatEvent("chat-1", 1, {
+      type: "user_message",
+      turn_id: "t1",
+      message_id: "u1",
+      text: "hi",
+    });
+    let messages = foldMessagesFromEvent([], user, "chat-1");
+    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 2, {
+      type: "assistant_message_delta",
+      turn_id: "t1",
+      message_id: "a1",
+      delta: "先从 tabs 看创建、关闭和重启后恢复时有",
+    }), "chat-1");
+    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 3, {
+      type: "tool_call_started",
+      turn_id: "t1",
+      tool_call: {
+        tool_call_id: "tool-1",
+        name: "Read",
+        kind: "read",
+        status: "running",
+        params: { type: "read", path: "a.ts" },
+      },
+    }), "chat-1");
+    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 4, {
+      type: "assistant_message_delta",
+      turn_id: "t1",
+      message_id: "a1",
+      delta: "没有串数据。",
+    }), "chat-1");
+    const parts = messages[1]?.parts ?? [];
+    expect(parts.map((part) => part.type)).toEqual(["text", "tool_call"]);
+    expect(parts[0]).toMatchObject({
+      type: "text",
+      text: "先从 tabs 看创建、关闭和重启后恢复时有没有串数据。",
+      message_id: "a1",
+    });
   });
 
   it("merges same-id snapshots without collapsing interleaved text into the first part", () => {

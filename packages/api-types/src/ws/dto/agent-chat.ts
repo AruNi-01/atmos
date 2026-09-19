@@ -456,13 +456,20 @@ export type SessionConfigValueChange = {
 };
 
 export type AgentPart =
-  | { type: "text"; text: string; parent_tool_call_id?: string | null }
+  | {
+      type: "text";
+      text: string;
+      parent_tool_call_id?: string | null;
+      /** Provider stream id; same id updates one block across tools. */
+      message_id?: string | null;
+    }
   | {
       type: "thinking";
       text: string;
       tool_call_id?: string;
       duration_ms?: number | null;
       parent_tool_call_id?: string | null;
+      message_id?: string | null;
     }
   | ({ type: "tool_call" } & AgentTool)
   | { type: "plan"; plan: unknown }

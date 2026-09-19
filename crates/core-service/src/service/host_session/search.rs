@@ -333,6 +333,7 @@ mod tests {
                     vec![MessagePart::Text {
                         text: "hello from host".into(),
                         parent_tool_call_id: None,
+                        message_id: None,
                     }],
                 ),
                 message(
@@ -348,6 +349,7 @@ mod tests {
                         MessagePart::Text {
                             text: "hi there 你好世界".into(),
                             parent_tool_call_id: None,
+                            message_id: None,
                         },
                     ],
                 ),
@@ -358,6 +360,7 @@ mod tests {
                         text: "<task-notification>\n<task-id>x</task-id>\n</task-notification>"
                             .into(),
                         parent_tool_call_id: None,
+                        message_id: None,
                     }],
                 ),
             ],
@@ -383,6 +386,7 @@ mod tests {
                     vec![MessagePart::Text {
                         text: "hello from host".into(),
                         parent_tool_call_id: None,
+                        message_id: None,
                     }],
                 ),
                 message(
@@ -398,6 +402,7 @@ mod tests {
                         MessagePart::Text {
                             text: "hi there 你好世界".into(),
                             parent_tool_call_id: None,
+                            message_id: None,
                         },
                     ],
                 ),
@@ -408,6 +413,7 @@ mod tests {
                         text: "<task-notification>\n<task-id>x</task-id>\n</task-notification>"
                             .into(),
                         parent_tool_call_id: None,
+                        message_id: None,
                     }],
                 ),
             ]),
@@ -429,6 +435,7 @@ mod tests {
                 vec![MessagePart::Text {
                     text,
                     parent_tool_call_id: None,
+                    message_id: None,
                 }],
             )],
         );

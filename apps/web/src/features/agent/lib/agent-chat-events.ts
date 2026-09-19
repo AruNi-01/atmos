@@ -179,26 +179,93 @@ function mergeStreamDelta(existing: string, delta: string): string {
   return `${existing}${delta}`;
 }
 
+function mergeGrowingText(existing: string, next: string): string {
+  if (next.startsWith(existing)) return next;
+  if (existing.startsWith(next)) return existing;
+  return next.length >= existing.length ? next : existing;
+}
+
+function partParentId(part: AgentPart): string | undefined {
+  return "parent_tool_call_id" in part
+    ? part.parent_tool_call_id?.trim() || undefined
+    : undefined;
+}
+
+function partStreamId(part: AgentPart): string | undefined {
+  return "message_id" in part ? part.message_id?.trim() || undefined : undefined;
+}
+
+function isStreamChromePart(part: AgentPart): boolean {
+  return (
+    part.type === "tool_call"
+    || part.type === "session_lifecycle"
+    || part.type === "session_config_change"
+    || part.type === "session_hint"
+    || part.type === "permission"
+  );
+}
+
+function withStreamText(
+  part: Extract<AgentPart, { type: "text" | "thinking" }>,
+  type: "text" | "thinking",
+  text: string,
+  parent: string | undefined,
+  streamId: string | undefined,
+): AgentPart {
+  return {
+    ...part,
+    type,
+    text,
+    ...(parent ? { parent_tool_call_id: parent } : {}),
+    ...(streamId ? { message_id: streamId } : {}),
+  };
+}
+
 function appendTextPart(
   parts: AgentPart[],
   type: "text" | "thinking",
   delta: string,
   parentToolCallId?: string | null,
+  streamMessageId?: string | null,
 ): AgentPart[] {
   const next = [...parts];
-  const last = next[next.length - 1];
   const parent = parentToolCallId?.trim() || undefined;
-  const lastParent = last && "parent_tool_call_id" in last
-    ? last.parent_tool_call_id?.trim() || undefined
-    : undefined;
-  if (last && last.type === type && lastParent === parent) {
+  const streamId = streamMessageId?.trim() || undefined;
+  // Same provider stream id continues one text block across tools/session chrome.
+  // Stop at another text/thinking part so nested child prose stays separate.
+  if (streamId && type === "text") {
+    for (let index = next.length - 1; index >= 0; index -= 1) {
+      const part = next[index];
+      if (!part) continue;
+      if (isStreamChromePart(part)) continue;
+      if (part.type === type && partParentId(part) === parent && partStreamId(part) === streamId) {
+        next[index] = withStreamText(
+          part,
+          type,
+          mergeStreamDelta(part.text ?? "", delta),
+          parent,
+          streamId,
+        );
+        return next;
+      }
+      break;
+    }
+  }
+  const last = next[next.length - 1];
+  if (last && last.type === type && partParentId(last) === parent) {
     const text = mergeStreamDelta(last.text ?? "", delta);
-    next[next.length - 1] = parent
-      ? { ...last, type, text, parent_tool_call_id: parent }
-      : { ...last, type, text };
+    next[next.length - 1] = withStreamText(last, type, text, parent, streamId ?? partStreamId(last));
     return next;
   }
-  next.push(parent ? { type, text: delta, parent_tool_call_id: parent } : { type, text: delta });
+  next.push(
+    withStreamText(
+      { type, text: delta },
+      type,
+      delta,
+      parent,
+      streamId,
+    ),
+  );
   return next;
 }
 
@@ -256,12 +323,6 @@ export function dedupeAgentMessages(messages: AgentMessage[]): AgentMessage[] {
   return result;
 }
 
-function mergeGrowingText(existing: string, next: string): string {
-  if (next.startsWith(existing)) return next;
-  if (existing.startsWith(next)) return existing;
-  return next.length >= existing.length ? next : existing;
-}
-
 function nthTextPartIndex(parts: AgentPart[], n: number): number {
   let seen = 0;
   for (let index = 0; index < parts.length; index += 1) {
@@ -281,6 +342,7 @@ function mergeSameIdMessages(previous: AgentMessage, incoming: AgentMessage): Ag
       textCursor += 1;
       if (index >= 0 && parts[index]?.type === "text") {
         parts[index] = {
+          ...parts[index],
           type: "text",
           text: mergeGrowingText(parts[index].text ?? "", part.text ?? ""),
         };
@@ -387,7 +449,13 @@ function foldAgentChatEvent(
     const delta = payload.delta ?? "";
     return patchCurrentTurnAssistant(messages, payload.message_id, (message) => reopenAssistantStreaming(message, {
       role: "assistant",
-      parts: appendTextPart(message.parts, partType, delta, payload.parent_tool_call_id),
+      parts: appendTextPart(
+        message.parts,
+        partType,
+        delta,
+        payload.parent_tool_call_id,
+        payload.message_id,
+      ),
     }));
   }
 

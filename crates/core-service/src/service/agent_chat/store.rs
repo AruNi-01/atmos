@@ -788,6 +788,7 @@ fn apply_record(turns: &mut Vec<FoldedTurn>, envelope: TranscriptEnvelope) {
             let mut parts = vec![MessagePart::Text {
                 text,
                 parent_tool_call_id: None,
+                message_id: None,
             }];
             for path in attachments {
                 parts.push(MessagePart::Attachment { path, name: None });
@@ -832,12 +833,13 @@ fn apply_record(turns: &mut Vec<FoldedTurn>, envelope: TranscriptEnvelope) {
                 upsert_message(
                     turn,
                     FoldedMessage {
-                        id: message_id,
+                        id: message_id.clone(),
                         role: "assistant".into(),
                         kind: agent::UserMessageKind::Normal,
                         parts: vec![MessagePart::Text {
                             text,
                             parent_tool_call_id,
+                            message_id: Some(message_id),
                         }],
                         created_at,
                         streaming: false,
@@ -1960,6 +1962,90 @@ mod tests {
             })
             .collect();
         assert_eq!(kinds, ["looking", "tool", "final"]);
+    }
+
+    #[test]
+    fn assistant_snapshot_prefix_growth_after_tools_does_not_duplicate() {
+        let (_dir, store) = store();
+        let meta = create(&store, "/tmp/a");
+        let turn_id = "t1";
+        store
+            .append_record(&meta.id, &rec(turn_id, TranscriptEvent::TurnStarted))
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &rec(
+                    turn_id,
+                    TranscriptEvent::SessionLifecycle {
+                        message_id: "session-1".into(),
+                        action: SessionLifecycleAction::Create,
+                        status: SessionLifecycleStatus::Running,
+                        duration_ms: None,
+                        error: None,
+                    },
+                ),
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &rec(
+                    turn_id,
+                    TranscriptEvent::AssistantSnapshot {
+                        message_id: "a1".into(),
+                        text: "先从 tabs 看创建、关闭和重启后恢复时有".into(),
+                        parent_tool_call_id: None,
+                    },
+                ),
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &rec(
+                    turn_id,
+                    TranscriptEvent::ToolCall {
+                        tool: read_tool(
+                            "tool-1",
+                            AgentToolStatus::Completed,
+                            AgentToolParams::Read {
+                                path: String::new(),
+                                offset: None,
+                                limit: None,
+                            },
+                            None,
+                        ),
+                    },
+                ),
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &rec(
+                    turn_id,
+                    TranscriptEvent::AssistantSnapshot {
+                        message_id: "a1".into(),
+                        text: "先从 tabs 看创建、关闭和重启后恢复时有没有串数据。".into(),
+                        parent_tool_call_id: None,
+                    },
+                ),
+            )
+            .unwrap();
+        let snapshot = store.get_snapshot(&meta.id).unwrap();
+        let texts: Vec<&str> = snapshot.messages[0]
+            .parts
+            .iter()
+            .filter_map(|part| match part {
+                MessagePart::Text { text, .. } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            texts,
+            ["先从 tabs 看创建、关闭和重启后恢复时有没有串数据。"]
+        );
     }
 
     #[test]

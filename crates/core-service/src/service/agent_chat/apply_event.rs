@@ -1744,6 +1744,7 @@ fn overlay_live_part(messages: &mut Vec<FoldedMessage>, message_id: &str, part: 
         } => vec![MessagePart::Text {
             text: text.clone(),
             parent_tool_call_id: parent_tool_call_id.clone(),
+            message_id: Some(message_id.to_string()),
         }],
         LiveOverlay::Thinking {
             text,
@@ -2718,6 +2719,7 @@ mod tests {
             MessagePart::Text {
                 text: "looking".into(),
                 parent_tool_call_id: None,
+                message_id: Some("a1".into()),
             },
             MessagePart::Thinking {
                 text: "hmm".into(),
@@ -3678,6 +3680,7 @@ mod tests {
                 MessagePart::Text {
                     text,
                     parent_tool_call_id,
+                    ..
                 } => Some((text.as_str(), parent_tool_call_id.as_deref())),
                 _ => None,
             })

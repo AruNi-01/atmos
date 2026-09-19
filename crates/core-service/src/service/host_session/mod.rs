@@ -1741,6 +1741,7 @@ mod tests {
                         MessagePart::Text {
                             text: "done".into(),
                             parent_tool_call_id: None,
+                            message_id: None,
                         },
                     ],
                     ..Default::default()
@@ -1795,6 +1796,7 @@ mod tests {
                         parts: vec![MessagePart::Text {
                             text: "one".into(),
                             parent_tool_call_id: None,
+                            message_id: None,
                         }],
                         ..Default::default()
                     },
@@ -1857,6 +1859,7 @@ mod tests {
                         MessagePart::Text {
                             text: "done".into(),
                             parent_tool_call_id: None,
+                            message_id: None,
                         },
                     ],
                     ..Default::default()

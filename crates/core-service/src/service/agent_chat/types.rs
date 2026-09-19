@@ -802,6 +802,9 @@ pub enum MessagePart {
         text: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         parent_tool_call_id: Option<String>,
+        /// Provider stream id. Same id updates this block even after tools.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        message_id: Option<String>,
     },
     Thinking {
         text: String,
@@ -1119,8 +1122,21 @@ fn split_trailing_answer(mut parts: Vec<MessagePart>) -> (Vec<MessagePart>, Vec<
     (parts, Vec::new())
 }
 
-/// Apply a snapshot/delta text block. Same `message_id` updates that block;
-/// a new id after tools/thinking starts a new text part instead of overwriting.
+fn assistant_text_part(
+    text: String,
+    parent_tool_call_id: Option<String>,
+    message_id: &str,
+) -> MessagePart {
+    MessagePart::Text {
+        text,
+        parent_tool_call_id,
+        message_id: Some(message_id.to_string()),
+    }
+}
+
+/// Apply a snapshot/delta text block. Same stream `message_id` updates that
+/// block even when tools sit in between and session chrome owns the row id.
+/// A new id after tools/thinking starts a new text part instead of overwriting.
 /// Nested subagent prose (`parent_tool_call_id`) never merges with parent text.
 pub fn apply_assistant_text_part(message: &mut FoldedMessage, message_id: &str, text: String) {
     apply_assistant_text_part_nested(message, message_id, text, None);
@@ -1139,6 +1155,30 @@ pub fn apply_assistant_text_part_nested(
         } => existing == &parent_tool_call_id,
         _ => false,
     };
+    let same_stream = |part: &MessagePart| match part {
+        MessagePart::Text {
+            message_id: Some(id),
+            parent_tool_call_id: existing,
+            ..
+        } => id == message_id && existing == &parent_tool_call_id,
+        _ => false,
+    };
+    for index in (0..message.parts.len()).rev() {
+        match &message.parts[index] {
+            MessagePart::ToolCall { .. }
+            | MessagePart::SessionLifecycle { .. }
+            | MessagePart::SessionConfigChange { .. }
+            | MessagePart::SessionHint { .. }
+            | MessagePart::Permission { .. } => continue,
+            part if same_stream(part) => {
+                if let MessagePart::Text { text: existing, .. } = &mut message.parts[index] {
+                    *existing = text;
+                }
+                return;
+            }
+            _ => break,
+        }
+    }
     let last_is_text = matches!(message.parts.last(), Some(MessagePart::Text { .. }))
         && message.parts.last().is_some_and(same_parent);
     if last_is_text {
@@ -1150,32 +1190,45 @@ pub fn apply_assistant_text_part_nested(
                 _ => false,
             });
         if same_block {
-            if let Some(MessagePart::Text { text: existing, .. }) = message.parts.last_mut() {
+            if let Some(MessagePart::Text {
+                text: existing,
+                message_id: stream_id,
+                ..
+            }) = message.parts.last_mut()
+            {
                 *existing = text;
+                if stream_id.is_none() {
+                    *stream_id = Some(message_id.to_string());
+                }
             }
             return;
         }
-        message.parts.push(MessagePart::Text {
-            text,
-            parent_tool_call_id,
-        });
+        message
+            .parts
+            .push(assistant_text_part(text, parent_tool_call_id, message_id));
         return;
     }
     if message.id == message_id {
-        if let Some(MessagePart::Text { text: existing, .. }) = message
+        if let Some(MessagePart::Text {
+            text: existing,
+            message_id: stream_id,
+            ..
+        }) = message
             .parts
             .iter_mut()
             .rev()
             .find(|part| matches!(part, MessagePart::Text { .. }) && same_parent(part))
         {
             *existing = text;
+            if stream_id.is_none() {
+                *stream_id = Some(message_id.to_string());
+            }
             return;
         }
     }
-    message.parts.push(MessagePart::Text {
-        text,
-        parent_tool_call_id,
-    });
+    message
+        .parts
+        .push(assistant_text_part(text, parent_tool_call_id, message_id));
 }
 
 struct TurnTiming {
@@ -1691,11 +1744,21 @@ mod assistant_part_order_tests {
         apply_assistant_text_part, apply_assistant_text_part_nested, order_assistant_parts,
         FoldedMessage, MessagePart,
     };
+    use agent::{AgentToolKind, AgentToolParams, AgentToolStatus};
 
     fn text(value: &str) -> MessagePart {
         MessagePart::Text {
             text: value.to_string(),
             parent_tool_call_id: None,
+            message_id: None,
+        }
+    }
+
+    fn text_stream(message_id: &str, value: &str) -> MessagePart {
+        MessagePart::Text {
+            text: value.to_string(),
+            parent_tool_call_id: None,
+            message_id: Some(message_id.to_string()),
         }
     }
 
@@ -1708,6 +1771,23 @@ mod assistant_part_order_tests {
         }
     }
 
+    fn tool() -> MessagePart {
+        MessagePart::ToolCall {
+            tool_call_id: "tool-1".into(),
+            parent_tool_call_id: None,
+            name: "Read".into(),
+            title: None,
+            kind: AgentToolKind::Read,
+            status: AgentToolStatus::Completed,
+            params: AgentToolParams::Read {
+                path: String::new(),
+                offset: None,
+                limit: None,
+            },
+            result: None,
+        }
+    }
+
     #[test]
     fn moves_leading_answer_after_process() {
         let ordered = order_assistant_parts(vec![text("final"), thinking("hmm")]);
@@ -1715,6 +1795,7 @@ mod assistant_part_order_tests {
             [MessagePart::Thinking { text: think, .. }, MessagePart::Text {
                 text: answer,
                 parent_tool_call_id: None,
+                ..
             }] => {
                 assert_eq!(think, "hmm");
                 assert_eq!(answer, "final");
@@ -1730,9 +1811,11 @@ mod assistant_part_order_tests {
             [MessagePart::Text {
                 text: mid,
                 parent_tool_call_id: None,
+                ..
             }, MessagePart::Thinking { .. }, MessagePart::Text {
                 text: answer,
                 parent_tool_call_id: None,
+                ..
             }] => {
                 assert_eq!(mid, "mid");
                 assert_eq!(answer, "final");
@@ -1755,14 +1838,46 @@ mod assistant_part_order_tests {
             [MessagePart::Text {
                 text: mid,
                 parent_tool_call_id: None,
+                ..
             }, MessagePart::Thinking { .. }, MessagePart::Text {
                 text: answer,
                 parent_tool_call_id: None,
+                ..
             }] => {
                 assert_eq!(mid, "looking");
                 assert_eq!(answer, "final");
             }
             other => panic!("unexpected parts: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn same_stream_id_after_process_updates_even_when_row_id_differs() {
+        let mut message = FoldedMessage {
+            id: "session-1".into(),
+            role: "assistant".into(),
+            parts: vec![
+                text_stream("a1", "先从 tabs 看创建、关闭和重启后恢复时有"),
+                tool(),
+            ],
+            created_at: chrono::Utc::now(),
+            ..Default::default()
+        };
+        apply_assistant_text_part(
+            &mut message,
+            "a1",
+            "先从 tabs 看创建、关闭和重启后恢复时有没有串数据。".into(),
+        );
+        match &message.parts[..] {
+            [MessagePart::Text {
+                text: mid,
+                parent_tool_call_id: None,
+                message_id: Some(stream_id),
+            }, MessagePart::ToolCall { .. }] => {
+                assert_eq!(mid, "先从 tabs 看创建、关闭和重启后恢复时有没有串数据。");
+                assert_eq!(stream_id, "a1");
+            }
+            other => panic!("expected in-place stream update, got {other:?}"),
         }
     }
 
@@ -1780,9 +1895,11 @@ mod assistant_part_order_tests {
             [MessagePart::Text {
                 text: parent,
                 parent_tool_call_id: None,
+                ..
             }, MessagePart::Text {
                 text: child,
                 parent_tool_call_id: Some(parent_id),
+                ..
             }] => {
                 assert_eq!(parent, "parent");
                 assert_eq!(child, "child");
@@ -1800,9 +1917,11 @@ mod assistant_part_order_tests {
             [MessagePart::Text {
                 text: parent,
                 parent_tool_call_id: None,
+                ..
             }, MessagePart::Text {
                 text: child,
                 parent_tool_call_id: Some(_),
+                ..
             }] => {
                 assert_eq!(parent, "parent");
                 assert_eq!(child, "child more");
@@ -1817,6 +1936,7 @@ mod assistant_part_order_tests {
             MessagePart::Text {
                 text: "nested".into(),
                 parent_tool_call_id: Some("sub-1".into()),
+                message_id: None,
             },
             thinking("hmm"),
             text("final"),
@@ -1825,9 +1945,11 @@ mod assistant_part_order_tests {
             [MessagePart::Text {
                 text: nested,
                 parent_tool_call_id: Some(_),
+                ..
             }, MessagePart::Thinking { .. }, MessagePart::Text {
                 text: answer,
                 parent_tool_call_id: None,
+                ..
             }] => {
                 assert_eq!(nested, "nested");
                 assert_eq!(answer, "final");

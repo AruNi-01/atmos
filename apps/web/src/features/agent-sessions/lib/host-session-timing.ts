@@ -21,7 +21,7 @@ function completeOpenHostTools(parts: AgentPart[]): AgentPart[] {
     const status = part.status?.toLowerCase();
     if (status !== "running" && status !== "pending") return part;
     changed = true;
-    return { ...part, status: "completed" };
+    return { ...part, status: "completed" as const };
   });
   return changed ? next : parts;
 }
