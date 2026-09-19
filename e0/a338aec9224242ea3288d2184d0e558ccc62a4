@@ -1,0 +1,18 @@
+apps/web/src/features/agent/components/AgentChatAboveComposerOverlays.tsx
+  h_5be255725524c8 5,25-61,183,185-186,193,204,206-207,215,218,220-221,228,231,233-234,240-249
+apps/web/src/features/agent/components/__tests__/subagent-tasks-dock.test.ts
+  h_5be255725524c8 111
+apps/web/src/features/agent/components/__tests__/usage-badges.test.ts
+  h_5be255725524c8 41-48,52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e0a338aec9224242ea3288d2184d0e558ccc62a4",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
