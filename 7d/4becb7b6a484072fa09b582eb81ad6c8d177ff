@@ -1,0 +1,14 @@
+apps/web/src/features/browser/components/BrowserFavoritesListPopover.tsx
+  h_5be255725524c8 62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "7d4becb7b6a484072fa09b582eb81ad6c8d177ff",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
