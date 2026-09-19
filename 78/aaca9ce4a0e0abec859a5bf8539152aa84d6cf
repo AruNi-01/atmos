@@ -1,0 +1,32 @@
+apps/web/src/features/agent-sessions/lib/host-session-timing.ts
+  h_5be255725524c8 24
+apps/web/src/features/agent/components/AgentPartView.tsx
+  h_5be255725524c8 137-141
+apps/web/src/features/agent/lib/__tests__/agent-chat-events.test.ts
+  h_5be255725524c8 59,303-305,1131-1132,1330-1369
+apps/web/src/features/agent/lib/agent-chat-events.ts
+  h_5be255725524c8 182-223,229,233-255,257,260-268,345,452-458
+crates/core-service/src/service/agent_chat/apply_event.rs
+  h_5be255725524c8 1747,2722,3683
+crates/core-service/src/service/agent_chat/store.rs
+  h_5be255725524c8 791,836,842,1967-2050
+crates/core-service/src/service/agent_chat/types.rs
+  h_5be255725524c8 805-807,1125-1139,1158-1181,1193-1198,1200-1202,1206-1208,1212-1216,1223-1225,1229-1231,1747,1753-1761,1774-1790,1798,1814,1818,1841,1845,1854-1883,1898,1902,1920,1924,1939,1948,1952
+crates/core-service/src/service/host_session/mod.rs
+  h_5be255725524c8 1744,1799,1862
+crates/core-service/src/service/host_session/search.rs
+  h_5be255725524c8 336,352,363,389,405,416,438
+packages/api-types/src/ws/dto/agent-chat.ts
+  h_5be255725524c8 459-465,472
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "78aaca9ce4a0e0abec859a5bf8539152aa84d6cf",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
