@@ -108,7 +108,7 @@ describe("subagent tasks panel", () => {
     expect(overlays).not.toContain("max-h-[min(70cqh,calc(100cqh-100%-0.5rem))]");
     expect(overlays).not.toContain("max-h-[40%] overflow-y-auto");
     expect(overlays).toContain('key="agent-subagent-tasks"');
-    expect(overlays).toContain("subagentOverlay && \"hidden\"");
+    expect(overlays).toContain('className={subagentOverlay ? "hidden" : undefined}');
     expect(overlay).toContain("AgentChatMessageView");
     expect(overlay).toContain("<AgentActivityIndicator");
     expect(overlay).toContain("elapsedMs");
