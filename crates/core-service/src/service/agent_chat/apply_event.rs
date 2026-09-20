@@ -1,4 +1,4 @@
-//! Apply inbound `AgentEvent`s onto `transcript.jsonl` and live `AgentChatEvent`s.
+//! Apply inbound `AgentEvent`s onto `transcript.jsonl` / `live.jsonl` and live `AgentChatEvent`s.
 //! This is the chat ingest path — not Atmos Project.
 
 use std::collections::{HashMap, VecDeque};
@@ -13,7 +13,7 @@ use agent::{
     looks_like_grok_goal_child, merge_grok_goal, merge_grok_workflow, overlay_droid_model_catalog,
     AgentAvailableCommand, AgentEvent, AgentEventEnvelope, AgentMode, AgentModel,
     AgentRuntimeConfigUpdate, AgentRuntimeControl, AgentThinkingSupport, AgentTool, Capability,
-    GrokGoal, GrokWorkflow, SessionOpOutcome, TurnStop,
+    GrokGoal, GrokWorkflow, SessionOpOutcome, TextKind, TurnStop,
 };
 use chrono::Utc;
 use serde::Deserialize;
@@ -23,34 +23,25 @@ use crate::error::Result;
 
 use super::store::AgentChatStore;
 use super::types::{
-    advertised_option_for_kind, apply_assistant_text_part_nested, apply_context_usage,
-    config_kind_matches, config_values_equal, elapsed_ms, keep_pending_session_selection,
-    map_advertised_select_value, merge_session_usage, order_assistant_parts, parse_session_usage,
-    parse_turn_usage, pending_context_change, pending_fast_change, pending_permission_mode_change,
+    advertised_option_for_kind, apply_context_usage, apply_text_offset, config_kind_matches,
+    config_values_equal, elapsed_ms, keep_pending_session_selection, map_advertised_select_value,
+    merge_session_usage, order_assistant_parts, parse_session_usage, parse_turn_usage,
+    pending_context_change, pending_fast_change, pending_permission_mode_change,
     pending_session_config_change, pending_thinking_change, resolve_session_config_select,
     AgentChatEvent, AgentChatMeta, AgentChatPayload, AgentChatSessionOpOutcome, AgentChatSnapshot,
-    FoldedMessage, MessagePart, PendingPermission, PendingSessionOp, ResolvedSessionConfig,
-    RuntimeStatus, SessionAdvertisedOption, SessionAdvertisedOptionValue, SessionConfigChange,
-    SessionHintTone, TranscriptEnvelope, TranscriptEvent, TurnStatus,
-    SESSION_HINT_MODEL_SWITCH_FAILED, SESSION_HINT_MODE_SWITCH_FAILED,
+    FoldedMessage, MessagePart, Part, PartBody, PendingPermission, PendingSessionOp,
+    ResolvedSessionConfig, RuntimeStatus, SessionAdvertisedOption, SessionAdvertisedOptionValue,
+    SessionConfigChange, SessionHintTone, ToolCallState, TranscriptEnvelope, TranscriptEvent,
+    TurnStatus, SESSION_HINT_MODEL_SWITCH_FAILED, SESSION_HINT_MODE_SWITCH_FAILED,
 };
 
-pub(super) const ASSISTANT_SNAPSHOT_INTERVAL: Duration = Duration::from_millis(100);
+/// Cap for non-text recent events. Text is recovered by per-part backfill, not this ring.
 pub(super) const RECENT_EVENT_CAP: usize = 2048;
-const STREAM_KEY_SEP: char = '\u{1e}';
 
-fn text_stream_key(message_id: &str, parent_tool_call_id: Option<&str>) -> String {
-    match parent_tool_call_id
-        .map(str::trim)
-        .filter(|id| !id.is_empty())
-    {
-        Some(parent) => format!("{message_id}{STREAM_KEY_SEP}{parent}"),
-        None => message_id.to_string(),
-    }
-}
-
-fn text_stream_message_id(key: &str) -> &str {
-    key.split(STREAM_KEY_SEP).next().unwrap_or(key)
+pub(super) struct TrackedPart {
+    pub turn_id: String,
+    pub part: Part,
+    pub opened_at: chrono::DateTime<Utc>,
 }
 
 pub(super) struct RuntimeState {
@@ -60,24 +51,40 @@ pub(super) struct RuntimeState {
     pub(super) last_turn_id: Option<String>,
     pub(super) pending_permission: Option<PendingPermission>,
     pub(super) pending_session_op: Option<PendingSessionOp>,
-    /// Keyed by `message_id` or `message_id\\u{1e}parent_tool_call_id` for nested streams.
-    pub(super) assistant_text: HashMap<String, (String, String, Option<String>)>,
-    pub(super) thinking_text: HashMap<String, (String, String, Option<String>)>,
-    pub(super) last_snapshot: Instant,
+    pub(super) parts: HashMap<String, TrackedPart>,
+    pub(super) known_turns: std::collections::HashSet<String>,
     pub(super) last_activity: Instant,
     pub(super) turn_started_at: Option<chrono::DateTime<Utc>>,
     pub(super) thinking_started_at: Option<chrono::DateTime<Utc>>,
     pub(super) thinking_ms: u64,
     pub(super) last_thinking_segment_ms: u64,
     pub(super) turn_usage: Option<super::types::TurnUsage>,
-    /// Sequence of the last stream delta that mutated `assistant_text` /
-    /// `thinking_text`. `get()` stamps this onto `meta.last_event_seq` so a
-    /// refresh subscribe does not replay chunks already in the overlay.
-    pub(super) last_stream_seq: u64,
 }
 
 impl RuntimeState {
+    pub(super) fn new(current_turn_id: Option<String>) -> Self {
+        let mut known_turns = std::collections::HashSet::new();
+        if let Some(id) = current_turn_id.as_ref() {
+            known_turns.insert(id.clone());
+        }
+        Self {
+            last_turn_id: current_turn_id.clone(),
+            current_turn_id,
+            pending_permission: None,
+            pending_session_op: None,
+            parts: HashMap::new(),
+            known_turns,
+            last_activity: Instant::now(),
+            turn_started_at: None,
+            thinking_started_at: None,
+            thinking_ms: 0,
+            last_thinking_segment_ms: 0,
+            turn_usage: None,
+        }
+    }
+
     pub(super) fn begin_turn(&mut self, turn_id: String, started_at: chrono::DateTime<Utc>) {
+        self.known_turns.insert(turn_id.clone());
         self.current_turn_id = Some(turn_id.clone());
         self.last_turn_id = Some(turn_id);
         self.turn_started_at = Some(started_at);
@@ -99,12 +106,6 @@ impl RuntimeState {
             .or_else(|| adapter_turn_id.and_then(usable))
             .or_else(|| self.last_turn_id.as_deref().and_then(usable))
             .unwrap_or_else(|| UNKNOWN.to_string())
-    }
-
-    fn note_stream_seq(&mut self, seq: u64) {
-        if seq > self.last_stream_seq {
-            self.last_stream_seq = seq;
-        }
     }
 
     fn ensure_turn_clock(&mut self) {
@@ -227,155 +228,49 @@ pub(super) async fn apply_event(
                 emit(AgentChatPayload::AvailableCommandsUpdated { commands: injected })?;
             }
         }
-        AgentEvent::AssistantMessageDelta {
+        AgentEvent::TextChunk {
+            part_id,
             message_id,
-            delta,
-            parent_tool_call_id,
+            parent_part_id,
+            ordinal,
+            kind,
+            offset,
+            text,
         } => {
-            flush_open_thinking(store, state, chat_id, &emit_host).await?;
-            let (sequence, snapshot) = {
-                let mut state = state.lock().await;
-                state.close_thinking();
-                let turn_id = state.persist_turn_id(adapter_turn_id.as_deref());
-                let key = text_stream_key(message_id.as_str(), parent_tool_call_id.as_deref());
-                {
-                    let entry = state
-                        .assistant_text
-                        .entry(key.clone())
-                        .or_insert_with(|| (turn_id, String::new(), parent_tool_call_id.clone()));
-                    entry.1.push_str(&delta);
-                }
-                let snapshot = if state.last_snapshot.elapsed() >= ASSISTANT_SNAPSHOT_INTERVAL {
-                    state.last_snapshot = Instant::now();
-                    state.assistant_text.get(&key).cloned()
-                } else {
-                    None
-                };
-                let sequence = store.next_seq(chat_id)?;
-                state.note_stream_seq(sequence);
-                (sequence, snapshot)
-            };
-            if let Some((turn_id, text, parent)) = snapshot {
-                store.append_record(
-                    chat_id,
-                    &TranscriptEnvelope::new(
-                        turn_id,
-                        TranscriptEvent::AssistantSnapshot {
-                            message_id: message_id.clone(),
-                            text,
-                            parent_tool_call_id: parent,
-                        },
-                    ),
-                )?;
-            }
-            emit_with_seq(
+            apply_text_chunk(
                 chat_id,
-                AgentChatPayload::AssistantMessageDelta {
-                    message_id,
-                    delta,
-                    parent_tool_call_id,
-                },
-                store,
-                events,
-                recent_events,
-                Some(adapter_event_id.clone()),
-                adapter_turn_id.clone(),
-                Some(sequence),
-            )?;
-        }
-        AgentEvent::AssistantMessageCompleted { message_id } => {
-            if let Some((turn_id, text, parent)) =
-                state.lock().await.assistant_text.remove(&message_id)
-            {
-                store.append_record(
-                    chat_id,
-                    &TranscriptEnvelope::with_id(
-                        adapter_event_id.clone(),
-                        turn_id,
-                        TranscriptEvent::AssistantSnapshot {
-                            message_id: message_id.clone(),
-                            text,
-                            parent_tool_call_id: parent,
-                        },
-                    ),
-                )?;
-            }
-            emit(AgentChatPayload::AssistantMessageCompleted { message_id })?;
-        }
-        AgentEvent::ThinkingDelta {
-            message_id,
-            delta,
-            parent_tool_call_id,
-        } => {
-            let sequence = {
-                let mut state = state.lock().await;
-                state.mark_thinking(previous_activity);
-                let turn_id = state.persist_turn_id(adapter_turn_id.as_deref());
-                let key = text_stream_key(message_id.as_str(), parent_tool_call_id.as_deref());
-                state
-                    .thinking_text
-                    .entry(key)
-                    .or_insert_with(|| (turn_id, String::new(), parent_tool_call_id.clone()))
-                    .1
-                    .push_str(&delta);
-                let sequence = store.next_seq(chat_id)?;
-                state.note_stream_seq(sequence);
-                sequence
-            };
-            emit_with_seq(
-                chat_id,
-                AgentChatPayload::ThinkingDelta {
-                    message_id,
-                    delta,
-                    parent_tool_call_id,
-                },
-                store,
-                events,
-                recent_events,
-                Some(adapter_event_id.clone()),
-                adapter_turn_id.clone(),
-                Some(sequence),
-            )?;
-        }
-        AgentEvent::ThinkingCompleted { message_id } => {
-            let snapshot = {
-                let mut state = state.lock().await;
-                let (turn_id, text, parent) = match state.thinking_text.remove(&message_id) {
-                    Some(entry) => entry,
-                    None => (
-                        state.persist_turn_id(adapter_turn_id.as_deref()),
-                        String::new(),
-                        None,
-                    ),
-                };
-                let started_at = state.thinking_started_at;
-                state.close_thinking();
-                let duration_ms = state.take_last_thinking_segment_ms();
-                Some((turn_id, text, parent, started_at, duration_ms))
-            };
-            let thinking_ms = snapshot.as_ref().and_then(|item| item.4);
-            if let Some((turn_id, text, parent, started_at, duration_ms)) = snapshot {
-                if !text.is_empty() || duration_ms.is_some() {
-                    store.append_record(
-                        chat_id,
-                        &TranscriptEnvelope::with_id(
-                            adapter_event_id.clone(),
-                            turn_id,
-                            TranscriptEvent::ThinkingSnapshot {
-                                message_id: message_id.clone(),
-                                text,
-                                started_at,
-                                duration_ms,
-                                parent_tool_call_id: parent,
-                            },
-                        ),
-                    )?;
-                }
-            }
-            emit(AgentChatPayload::ThinkingCompleted {
+                adapter_event_id.clone(),
+                adapter_turn_id.as_deref(),
+                previous_activity,
+                part_id,
                 message_id,
-                thinking_ms,
-            })?;
+                parent_part_id,
+                ordinal,
+                kind,
+                offset,
+                text,
+                store,
+                state,
+                events,
+                recent_events,
+            )
+            .await?;
+        }
+        AgentEvent::PartClosed {
+            part_id,
+            duration_ms,
+        } => {
+            apply_part_closed(
+                chat_id,
+                adapter_event_id.clone(),
+                adapter_turn_id.as_deref(),
+                part_id,
+                duration_ms,
+                store,
+                state,
+                &emit_host,
+            )
+            .await?;
         }
         AgentEvent::ToolCallStarted { tool_call } => {
             persist_tool(
@@ -451,11 +346,11 @@ pub(super) async fn apply_event(
             emit(AgentChatPayload::GrokWorkflowUpdated { grok_workflow })?;
         }
         AgentEvent::PlanUpdated { plan } => {
-            flush_open_thinking(store, state, chat_id, &emit_host).await?;
             let turn_id = state
                 .lock()
                 .await
                 .persist_turn_id(adapter_turn_id.as_deref());
+            upsert_plan_part(state, turn_id.clone(), plan.clone()).await;
             store.append_record(
                 chat_id,
                 &TranscriptEnvelope::with_id(
@@ -467,7 +362,6 @@ pub(super) async fn apply_event(
             emit(AgentChatPayload::PlanUpdated { plan })?;
         }
         AgentEvent::PermissionRequested { request } => {
-            flush_open_thinking(store, state, chat_id, &emit_host).await?;
             let turn_id = state
                 .lock()
                 .await
@@ -616,8 +510,58 @@ pub(super) async fn apply_event(
                 meta.runtime_status = RuntimeStatus::Closed;
                 meta.pending_session_op = None;
             })?;
-            state.lock().await.pending_permission = None;
-            state.lock().await.pending_session_op = None;
+            let closed_parts = {
+                let mut state = state.lock().await;
+                state.pending_permission = None;
+                state.pending_session_op = None;
+                let now = Utc::now();
+                let thinking_duration = {
+                    let host = state.close_thinking();
+                    let segment = state.take_last_thinking_segment_ms();
+                    if host > 0 {
+                        Some(host)
+                    } else {
+                        segment
+                    }
+                };
+                let mut closed = Vec::new();
+                for tracked in state.parts.values_mut() {
+                    if tracked.part.closed_at.is_some() {
+                        continue;
+                    }
+                    tracked.part.closed_at = Some(now);
+                    let thinking = matches!(
+                        tracked.part.body,
+                        PartBody::Text {
+                            kind: TextKind::Thinking,
+                            ..
+                        }
+                    );
+                    let duration_ms = thinking.then_some(thinking_duration).flatten();
+                    let finished = text_part_finished(&tracked.part, duration_ms);
+                    closed.push((
+                        tracked.turn_id.clone(),
+                        tracked.part.id.clone(),
+                        finished,
+                        duration_ms,
+                        tracked.opened_at,
+                    ));
+                }
+                closed
+            };
+            for (turn_id, part_id, finished, duration_ms, opened_at) in closed_parts {
+                if let Some(finished) = finished {
+                    store.append_record(
+                        chat_id,
+                        &TranscriptEnvelope::at(turn_id, opened_at, finished),
+                    )?;
+                }
+                emit(AgentChatPayload::PartClosed {
+                    part_id,
+                    duration_ms,
+                })?;
+            }
+            store.close_leftover_open_parts(chat_id)?;
             emit(AgentChatPayload::RuntimeStatus {
                 status: RuntimeStatus::Closed,
                 persistence_handle: None,
@@ -1414,75 +1358,418 @@ async fn persist_tool(
     state: &Mutex<RuntimeState>,
     chat_id: &str,
     tool: AgentTool,
-    emit: &impl Fn(AgentChatPayload) -> Result<()>,
+    _emit: &impl Fn(AgentChatPayload) -> Result<()>,
     persist_event_id: Option<String>,
     adapter_turn_id: Option<&str>,
 ) -> Result<()> {
-    flush_open_thinking(store, state, chat_id, emit).await?;
     let turn_id = state.lock().await.persist_turn_id(adapter_turn_id);
+    let incoming = ToolCallState::from(tool);
+    upsert_tool_part(state, turn_id.clone(), incoming.clone()).await;
     let envelope = match persist_event_id {
-        Some(event_id) => {
-            TranscriptEnvelope::with_id(event_id, turn_id, TranscriptEvent::ToolCall { tool })
-        }
-        None => TranscriptEnvelope::new(turn_id, TranscriptEvent::ToolCall { tool }),
+        Some(event_id) => TranscriptEnvelope::with_id(
+            event_id,
+            turn_id,
+            TranscriptEvent::ToolCall { tool: incoming },
+        ),
+        None => TranscriptEnvelope::new(turn_id, TranscriptEvent::ToolCall { tool: incoming }),
     };
     store.append_record(chat_id, &envelope)
 }
 
-/// Persist in-memory thinking as its own transcript segment when a tool, plan,
-/// or assistant answer interrupts it. ACP thought chunks never send `done`, so
-/// without this the whole turn collapses to one thinking snapshot after tools.
-async fn flush_open_thinking(
+#[allow(clippy::too_many_arguments)]
+async fn apply_text_chunk(
+    chat_id: &str,
+    adapter_event_id: String,
+    adapter_turn_id: Option<&str>,
+    previous_activity: Instant,
+    part_id: String,
+    message_id: String,
+    parent_part_id: Option<String>,
+    _ordinal: u32,
+    kind: TextKind,
+    offset: u64,
+    text: String,
+    store: &AgentChatStore,
+    state: &Mutex<RuntimeState>,
+    events: &broadcast::Sender<AgentChatEvent>,
+    recent_events: &std::sync::Mutex<HashMap<String, VecDeque<AgentChatEvent>>>,
+) -> Result<()> {
+    let turn_id = ensure_turn_row(
+        store,
+        state,
+        chat_id,
+        adapter_turn_id,
+        events,
+        recent_events,
+    )
+    .await?;
+    let persist_ordinal;
+    {
+        let mut state = state.lock().await;
+        if kind == TextKind::Thinking {
+            state.mark_thinking(previous_activity);
+        }
+        if !state.parts.contains_key(&part_id) {
+            let ordinal = next_ordinal(&state.parts, &message_id);
+            state.parts.insert(
+                part_id.clone(),
+                TrackedPart {
+                    turn_id: turn_id.clone(),
+                    part: Part {
+                        id: part_id.clone(),
+                        message_id: message_id.clone(),
+                        parent_part_id: parent_part_id.clone(),
+                        ordinal,
+                        body: PartBody::Text {
+                            kind,
+                            text: String::new(),
+                        },
+                        closed_at: None,
+                    },
+                    opened_at: Utc::now(),
+                },
+            );
+        }
+        let tracked = state.parts.get_mut(&part_id).expect("part inserted");
+        if let PartBody::Text { text: existing, .. } = &mut tracked.part.body {
+            apply_text_offset(existing, offset, &text);
+        }
+        persist_ordinal = tracked.part.ordinal;
+    }
+    store.append_record(
+        chat_id,
+        &TranscriptEnvelope::with_id(
+            adapter_event_id.clone(),
+            turn_id,
+            TranscriptEvent::TextChunk {
+                part_id: part_id.clone(),
+                message_id: message_id.clone(),
+                parent_part_id: parent_part_id.clone(),
+                ordinal: persist_ordinal,
+                kind,
+                offset,
+                text: text.clone(),
+            },
+        ),
+    )?;
+    emit_live_ids(
+        chat_id,
+        AgentChatPayload::TextChunk {
+            part_id,
+            message_id,
+            parent_part_id,
+            ordinal: persist_ordinal,
+            kind,
+            offset,
+            text,
+        },
+        store,
+        events,
+        recent_events,
+        Some(adapter_event_id),
+        adapter_turn_id.map(str::to_string),
+    )
+}
+
+async fn apply_part_closed(
+    chat_id: &str,
+    adapter_event_id: String,
+    adapter_turn_id: Option<&str>,
+    part_id: String,
+    adapter_duration_ms: Option<u64>,
+    store: &AgentChatStore,
+    state: &Mutex<RuntimeState>,
+    emit: &impl Fn(AgentChatPayload) -> Result<()>,
+) -> Result<()> {
+    let mut state = state.lock().await;
+    if !state.parts.contains_key(&part_id) {
+        return Ok(());
+    }
+    let thinking = matches!(
+        state.parts.get(&part_id).map(|tracked| &tracked.part.body),
+        Some(PartBody::Text {
+            kind: TextKind::Thinking,
+            ..
+        })
+    );
+    let duration_ms = if thinking {
+        let host = state.close_thinking();
+        let segment = state.take_last_thinking_segment_ms();
+        if host > 0 {
+            Some(host)
+        } else {
+            segment.or(adapter_duration_ms)
+        }
+    } else {
+        adapter_duration_ms
+    };
+    let turn_id = state
+        .parts
+        .get(&part_id)
+        .map(|tracked| tracked.turn_id.clone())
+        .unwrap_or_else(|| state.persist_turn_id(adapter_turn_id));
+    if let Some(tracked) = state.parts.get_mut(&part_id) {
+        if tracked.part.closed_at.is_none() {
+            tracked.part.closed_at = Some(Utc::now());
+        }
+    }
+    let finished = state
+        .parts
+        .get(&part_id)
+        .and_then(|tracked| text_part_finished(&tracked.part, duration_ms));
+    let opened_at = state
+        .parts
+        .get(&part_id)
+        .map(|tracked| tracked.opened_at)
+        .unwrap_or_else(Utc::now);
+    drop(state);
+    if let Some(finished) = finished {
+        store.append_record(
+            chat_id,
+            &TranscriptEnvelope {
+                event_id: adapter_event_id,
+                turn_id: Some(turn_id),
+                timestamp: opened_at,
+                event: finished,
+            },
+        )?;
+    }
+    emit(AgentChatPayload::PartClosed {
+        part_id,
+        duration_ms,
+    })
+}
+
+async fn ensure_turn_row(
     store: &AgentChatStore,
     state: &Mutex<RuntimeState>,
     chat_id: &str,
+    adapter_turn_id: Option<&str>,
+    events: &broadcast::Sender<AgentChatEvent>,
+    recent_events: &std::sync::Mutex<HashMap<String, VecDeque<AgentChatEvent>>>,
+) -> Result<String> {
+    let (turn_id, create) = {
+        let mut state = state.lock().await;
+        let turn_id = state.persist_turn_id(adapter_turn_id);
+        if turn_id == "unknown" || state.known_turns.contains(&turn_id) {
+            (turn_id, false)
+        } else {
+            let exists = store
+                .folded_turns(chat_id)
+                .ok()
+                .is_some_and(|turns| turns.iter().any(|turn| turn.id == turn_id));
+            state.known_turns.insert(turn_id.clone());
+            if exists {
+                (turn_id, false)
+            } else {
+                let started_at = Utc::now();
+                if state.current_turn_id.is_none() {
+                    state.begin_turn(turn_id.clone(), started_at);
+                } else {
+                    state.last_turn_id = Some(turn_id.clone());
+                }
+                (turn_id, true)
+            }
+        }
+    };
+    if create {
+        let started_at = Utc::now();
+        store.append_record(
+            chat_id,
+            &TranscriptEnvelope::at(turn_id.clone(), started_at, TranscriptEvent::TurnStarted),
+        )?;
+        emit_live(
+            chat_id,
+            AgentChatPayload::TurnStarted {
+                turn_id: turn_id.clone(),
+                created_at: Some(started_at),
+            },
+            store,
+            events,
+            recent_events,
+        )?;
+    }
+    Ok(turn_id)
+}
+
+async fn upsert_tool_part(state: &Mutex<RuntimeState>, turn_id: String, tool: ToolCallState) {
+    let mut state = state.lock().await;
+    let part_id = tool.tool_call_id.clone();
+    if let Some(tracked) = state.parts.get_mut(&part_id) {
+        tracked.part.body = match &tracked.part.body {
+            PartBody::ToolCall(existing) => {
+                PartBody::ToolCall(ToolCallState::merge(existing, tool))
+            }
+            _ => PartBody::ToolCall(tool),
+        };
+        return;
+    }
+    let message_id = state
+        .parts
+        .values()
+        .filter(|tracked| tracked.turn_id == turn_id)
+        .max_by_key(|tracked| tracked.part.ordinal)
+        .map(|tracked| tracked.part.message_id.clone())
+        .unwrap_or_else(|| format!("tool-{part_id}"));
+    let ordinal = next_ordinal(&state.parts, &message_id);
+    let parent_part_id = tool.parent_tool_call_id.clone();
+    state.parts.insert(
+        part_id.clone(),
+        TrackedPart {
+            turn_id,
+            part: Part {
+                id: part_id,
+                message_id,
+                parent_part_id,
+                ordinal,
+                body: PartBody::ToolCall(tool),
+                closed_at: None,
+            },
+            opened_at: Utc::now(),
+        },
+    );
+}
+
+async fn upsert_plan_part(state: &Mutex<RuntimeState>, turn_id: String, plan: serde_json::Value) {
+    let mut state = state.lock().await;
+    let part_id = format!("plan-{turn_id}");
+    if let Some(tracked) = state.parts.get_mut(&part_id) {
+        tracked.part.body = PartBody::Plan { plan };
+        return;
+    }
+    let message_id = state
+        .parts
+        .values()
+        .filter(|tracked| tracked.turn_id == turn_id)
+        .max_by_key(|tracked| tracked.part.ordinal)
+        .map(|tracked| tracked.part.message_id.clone())
+        .unwrap_or_else(|| format!("plan-{turn_id}"));
+    let ordinal = next_ordinal(&state.parts, &message_id);
+    state.parts.insert(
+        part_id.clone(),
+        TrackedPart {
+            turn_id,
+            part: Part {
+                id: part_id,
+                message_id,
+                parent_part_id: None,
+                ordinal,
+                body: PartBody::Plan { plan },
+                closed_at: None,
+            },
+            opened_at: Utc::now(),
+        },
+    );
+}
+
+fn next_ordinal(parts: &HashMap<String, TrackedPart>, message_id: &str) -> u32 {
+    parts
+        .values()
+        .filter(|tracked| tracked.part.message_id == message_id)
+        .map(|tracked| tracked.part.ordinal)
+        .max()
+        .map(|ordinal| ordinal.saturating_add(1))
+        .unwrap_or(0)
+}
+
+fn text_part_finished(part: &Part, duration_ms: Option<u64>) -> Option<TranscriptEvent> {
+    let PartBody::Text { kind, text } = &part.body else {
+        return None;
+    };
+    Some(TranscriptEvent::PartFinished {
+        part_id: part.id.clone(),
+        message_id: part.message_id.clone(),
+        parent_part_id: part.parent_part_id.clone(),
+        ordinal: part.ordinal,
+        kind: *kind,
+        text: text.clone(),
+        duration_ms,
+    })
+}
+
+fn close_parts_of_turn(
+    state: &mut RuntimeState,
+    turn_id: &str,
+    closed_at: chrono::DateTime<Utc>,
+    thinking_duration_ms: Option<u64>,
+) -> Vec<(
+    String,
+    Option<TranscriptEvent>,
+    Option<u64>,
+    chrono::DateTime<Utc>,
+)> {
+    close_open_parts(state, Some(turn_id), closed_at, thinking_duration_ms)
+        .into_iter()
+        .map(|(part_id, finished, duration_ms, _, opened_at)| {
+            (part_id, finished, duration_ms, opened_at)
+        })
+        .collect()
+}
+
+fn close_open_parts(
+    state: &mut RuntimeState,
+    turn_id: Option<&str>,
+    closed_at: chrono::DateTime<Utc>,
+    thinking_duration_ms: Option<u64>,
+) -> Vec<(
+    String,
+    Option<TranscriptEvent>,
+    Option<u64>,
+    String,
+    chrono::DateTime<Utc>,
+)> {
+    let mut closed = Vec::new();
+    for tracked in state.parts.values_mut() {
+        if turn_id.is_some_and(|id| tracked.turn_id != id) || tracked.part.closed_at.is_some() {
+            continue;
+        }
+        tracked.part.closed_at = Some(closed_at);
+        let thinking = matches!(
+            tracked.part.body,
+            PartBody::Text {
+                kind: TextKind::Thinking,
+                ..
+            }
+        );
+        let duration_ms = thinking.then_some(thinking_duration_ms).flatten();
+        let finished = text_part_finished(&tracked.part, duration_ms);
+        closed.push((
+            tracked.part.id.clone(),
+            finished,
+            duration_ms,
+            tracked.turn_id.clone(),
+            tracked.opened_at,
+        ));
+    }
+    closed
+}
+
+/// Close every still-open part of the chat (all turns) and persist
+/// `PartFinished` for leftover text. Used on runtime teardown after the
+/// current turn is settled, and when the current turn id is already gone.
+pub(super) async fn persist_open_parts_closed(
+    chat_id: &str,
+    store: &AgentChatStore,
+    state: &Mutex<RuntimeState>,
     emit: &impl Fn(AgentChatPayload) -> Result<()>,
 ) -> Result<()> {
-    let snapshots = {
+    let closed_parts = {
         let mut state = state.lock().await;
-        if state.thinking_text.is_empty() {
-            state.close_thinking();
-            return Ok(());
-        }
-        let started_at = state.thinking_started_at;
-        state.close_thinking();
-        let duration_ms = state.take_last_thinking_segment_ms();
-        let entries: Vec<_> = state.thinking_text.drain().collect();
-        entries
-            .into_iter()
-            .map(|(key, (turn_id, text, parent))| {
-                (
-                    text_stream_message_id(&key).to_string(),
-                    turn_id,
-                    text,
-                    parent,
-                    started_at,
-                    duration_ms,
-                )
-            })
-            .collect::<Vec<_>>()
+        close_open_parts(&mut state, None, Utc::now(), None)
     };
-    for (message_id, turn_id, text, parent, started_at, duration_ms) in snapshots {
-        if !text.is_empty() || duration_ms.is_some() {
+    for (part_id, finished, duration_ms, turn_id, opened_at) in closed_parts {
+        if let Some(finished) = finished {
             store.append_record(
                 chat_id,
-                &TranscriptEnvelope::new(
-                    turn_id,
-                    TranscriptEvent::ThinkingSnapshot {
-                        message_id: message_id.clone(),
-                        text,
-                        started_at,
-                        duration_ms,
-                        parent_tool_call_id: parent,
-                    },
-                ),
+                &TranscriptEnvelope::at(turn_id, opened_at, finished),
             )?;
         }
-        emit(AgentChatPayload::ThinkingCompleted {
-            message_id,
-            thinking_ms: duration_ms,
+        emit(AgentChatPayload::PartClosed {
+            part_id,
+            duration_ms,
         })?;
     }
+    store.close_leftover_open_parts(chat_id)?;
     Ok(())
 }
 
@@ -1497,15 +1784,7 @@ pub(super) async fn finish_turn(
     emit: &impl Fn(AgentChatPayload) -> Result<()>,
     persist_event_id: Option<String>,
 ) -> Result<()> {
-    let (
-        assistant,
-        thinking,
-        worked_ms,
-        thinking_ms,
-        last_thinking_segment_ms,
-        usage,
-        completed_at,
-    ) = {
+    let (closed_parts, worked_ms, thinking_ms, usage, completed_at) = {
         let mut state = state.lock().await;
         if state.current_turn_id.as_deref() == Some(turn_id.as_str()) {
             state.current_turn_id = None;
@@ -1513,69 +1792,22 @@ pub(super) async fn finish_turn(
         let (worked_ms, thinking_ms, last_thinking_segment_ms) = state.finish_timing();
         let usage = state.turn_usage.take();
         let completed_at = Utc::now();
-        let mut assistant = HashMap::new();
-        state
-            .assistant_text
-            .retain(|id, (snap_turn, text, parent)| {
-                if snap_turn == &turn_id {
-                    assistant.insert(
-                        id.clone(),
-                        (snap_turn.clone(), text.clone(), parent.clone()),
-                    );
-                    false
-                } else {
-                    true
-                }
-            });
-        let mut thinking = HashMap::new();
-        state.thinking_text.retain(|id, (snap_turn, text, parent)| {
-            if snap_turn == &turn_id {
-                thinking.insert(
-                    id.clone(),
-                    (snap_turn.clone(), text.clone(), parent.clone()),
-                );
-                false
-            } else {
-                true
-            }
-        });
-        (
-            assistant,
-            thinking,
-            worked_ms,
-            thinking_ms,
-            last_thinking_segment_ms,
-            usage,
-            completed_at,
-        )
+        let thinking_duration = (last_thinking_segment_ms > 0).then_some(last_thinking_segment_ms);
+        let closed_parts =
+            close_parts_of_turn(&mut state, &turn_id, completed_at, thinking_duration);
+        (closed_parts, worked_ms, thinking_ms, usage, completed_at)
     };
-    for (key, (snap_turn, text, parent)) in assistant {
-        store.append_record(
-            chat_id,
-            &TranscriptEnvelope::new(
-                snap_turn,
-                TranscriptEvent::AssistantSnapshot {
-                    message_id: text_stream_message_id(&key).to_string(),
-                    text,
-                    parent_tool_call_id: parent,
-                },
-            ),
-        )?;
-    }
-    for (key, (snap_turn, text, parent)) in thinking {
-        store.append_record(
-            chat_id,
-            &TranscriptEnvelope::new(
-                snap_turn,
-                TranscriptEvent::ThinkingSnapshot {
-                    message_id: text_stream_message_id(&key).to_string(),
-                    text,
-                    started_at: None,
-                    duration_ms: (last_thinking_segment_ms > 0).then_some(last_thinking_segment_ms),
-                    parent_tool_call_id: parent,
-                },
-            ),
-        )?;
+    for (part_id, finished, duration_ms, opened_at) in closed_parts {
+        if let Some(finished) = finished {
+            store.append_record(
+                chat_id,
+                &TranscriptEnvelope::at(turn_id.clone(), opened_at, finished),
+            )?;
+        }
+        emit(AgentChatPayload::PartClosed {
+            part_id,
+            duration_ms,
+        })?;
     }
     let completed = TranscriptEvent::TurnCompleted {
         status,
@@ -1603,43 +1835,13 @@ pub(super) async fn finish_turn(
     })
 }
 
-enum LiveOverlay {
-    Text {
-        text: String,
-        parent_tool_call_id: Option<String>,
-    },
-    Thinking {
-        text: String,
-        parent_tool_call_id: Option<String>,
-    },
-}
-
-/// Splice in-memory assistant/thinking text that has not been flushed to jsonl
-/// onto a disk snapshot. Same `message_id` updates in place; a live id that is
-/// not on disk lands on the current-turn assistant instead of a second row.
-///
-/// Also raises `last_event_seq` to `last_stream_seq` so a page reload's
-/// `subscribe(after_sequence)` does not replay deltas already merged here.
+/// Merge live parts onto a disk snapshot. Same `Part` shape — map merge by
+/// `part_id`, not a text splice.
 pub(super) fn overlay_live_state(snapshot: &mut AgentChatSnapshot, state: &RuntimeState) {
-    for (key, (_turn, text, parent)) in &state.thinking_text {
-        overlay_live_part(
-            &mut snapshot.messages,
-            text_stream_message_id(key),
-            LiveOverlay::Thinking {
-                text: text.clone(),
-                parent_tool_call_id: parent.clone(),
-            },
-        );
-    }
-    for (key, (_turn, text, parent)) in &state.assistant_text {
-        overlay_live_part(
-            &mut snapshot.messages,
-            text_stream_message_id(key),
-            LiveOverlay::Text {
-                text: text.clone(),
-                parent_tool_call_id: parent.clone(),
-            },
-        );
+    let mut parts: Vec<&Part> = state.parts.values().map(|tracked| &tracked.part).collect();
+    parts.sort_by_key(|part| (part.message_id.clone(), part.ordinal));
+    for part in parts {
+        overlay_tracked_part(&mut snapshot.messages, part);
     }
     overlay_live_timing(snapshot, state, Utc::now());
     if snapshot.pending_permission.is_none() {
@@ -1650,9 +1852,6 @@ pub(super) fn overlay_live_state(snapshot: &mut AgentChatSnapshot, state: &Runti
             .pending_session_op
             .as_ref()
             .map(|pending| pending.request.clone());
-    }
-    if state.last_stream_seq > snapshot.meta.last_event_seq {
-        snapshot.meta.last_event_seq = state.last_stream_seq;
     }
 }
 
@@ -1683,9 +1882,12 @@ fn overlay_live_timing(
             .saturating_add(open_thinking_ms.unwrap_or(0)),
     )
     .filter(|ms| *ms > 0 || open_thinking_ms.is_some());
+    let streaming = state.parts.values().any(|tracked| {
+        tracked.part.closed_at.is_none() && matches!(tracked.part.body, PartBody::Text { .. })
+    });
     if let Some(last) = snapshot.messages.last_mut() {
         if last.role == "assistant" {
-            last.streaming = true;
+            last.streaming = streaming;
             if let Some(ms) = worked_ms {
                 last.worked_ms = Some(ms);
             }
@@ -1702,7 +1904,6 @@ fn overlay_live_timing(
 fn stamp_open_thinking_duration(parts: &mut [MessagePart], duration_ms: u64) {
     for part in parts.iter_mut().rev() {
         if let MessagePart::Thinking {
-            tool_call_id: None,
             duration_ms: existing,
             ..
         } = part
@@ -1732,77 +1933,124 @@ fn overlay_target(messages: &[FoldedMessage], message_id: &str) -> Option<usize>
         .map(|rel| start + rel)
 }
 
-fn overlay_live_part(messages: &mut Vec<FoldedMessage>, message_id: &str, part: LiveOverlay) {
-    if let Some(index) = overlay_target(messages, message_id) {
-        apply_overlay_part(&mut messages[index], message_id, part);
+fn overlay_tracked_part(messages: &mut Vec<FoldedMessage>, part: &Part) {
+    if let Some(index) = overlay_target(messages, &part.message_id) {
+        upsert_overlay_part(&mut messages[index], part);
+        messages[index].parts = order_assistant_parts(std::mem::take(&mut messages[index].parts));
+        if part.closed_at.is_none() && matches!(part.body, PartBody::Text { .. }) {
+            messages[index].streaming = true;
+        }
         return;
     }
-    let parts = match &part {
-        LiveOverlay::Text {
-            text,
-            parent_tool_call_id,
-        } => vec![MessagePart::Text {
-            text: text.clone(),
-            parent_tool_call_id: parent_tool_call_id.clone(),
-            message_id: Some(message_id.to_string()),
-        }],
-        LiveOverlay::Thinking {
-            text,
-            parent_tool_call_id,
-        } => vec![MessagePart::Thinking {
-            text: text.clone(),
-            tool_call_id: None,
-            duration_ms: None,
-            parent_tool_call_id: parent_tool_call_id.clone(),
-        }],
-    };
-    messages.push(FoldedMessage {
-        id: message_id.to_string(),
+    let mut message = FoldedMessage {
+        id: part.message_id.clone(),
         role: "assistant".into(),
         kind: agent::UserMessageKind::Normal,
-        parts,
+        parts: Vec::new(),
         created_at: Utc::now(),
-        streaming: true,
+        streaming: part.closed_at.is_none() && matches!(part.body, PartBody::Text { .. }),
         ..Default::default()
-    });
+    };
+    upsert_overlay_part(&mut message, part);
+    messages.push(message);
 }
 
-fn apply_overlay_part(message: &mut FoldedMessage, message_id: &str, part: LiveOverlay) {
-    match part {
-        LiveOverlay::Text {
+fn upsert_overlay_part(message: &mut FoldedMessage, part: &Part) {
+    match &part.body {
+        PartBody::Text {
+            kind: TextKind::Answer,
             text,
-            parent_tool_call_id,
         } => {
-            apply_assistant_text_part_nested(message, message_id, text, parent_tool_call_id);
-        }
-        LiveOverlay::Thinking {
-            text,
-            parent_tool_call_id,
-        } => {
-            let parent = parent_tool_call_id.clone();
-            let open = message.parts.iter_mut().rev().find_map(|item| match item {
-                MessagePart::Thinking {
-                    tool_call_id: None,
-                    duration_ms,
-                    parent_tool_call_id: existing_parent,
-                    text: existing,
-                } if duration_ms.is_none() && existing_parent == &parent => Some(existing),
-                _ => None,
-            });
-            if let Some(existing) = open {
-                *existing = text;
+            if let Some(MessagePart::Text {
+                text: existing,
+                parent_tool_call_id,
+                message_id,
+            }) = message.parts.iter_mut().find(|item| match item {
+                MessagePart::Text {
+                    message_id: Some(id),
+                    ..
+                } => id == &part.id,
+                _ => false,
+            }) {
+                *existing = text.clone();
+                *parent_tool_call_id = part.parent_part_id.clone();
+                *message_id = Some(part.id.clone());
             } else {
-                message.parts.push(MessagePart::Thinking {
-                    text,
-                    tool_call_id: None,
-                    duration_ms: None,
-                    parent_tool_call_id,
+                message.parts.push(MessagePart::Text {
+                    text: text.clone(),
+                    parent_tool_call_id: part.parent_part_id.clone(),
+                    message_id: Some(part.id.clone()),
                 });
             }
         }
+        PartBody::Text {
+            kind: TextKind::Thinking,
+            text,
+        } => {
+            if let Some(MessagePart::Thinking {
+                text: existing,
+                tool_call_id,
+                parent_tool_call_id,
+                duration_ms,
+            }) = message.parts.iter_mut().find(|item| match item {
+                MessagePart::Thinking {
+                    tool_call_id: Some(id),
+                    ..
+                } => id == &part.id,
+                _ => false,
+            }) {
+                *existing = text.clone();
+                *tool_call_id = Some(part.id.clone());
+                *parent_tool_call_id = part.parent_part_id.clone();
+                if part.closed_at.is_none() {
+                    *duration_ms = None;
+                }
+            } else {
+                message.parts.push(MessagePart::Thinking {
+                    text: text.clone(),
+                    tool_call_id: Some(part.id.clone()),
+                    duration_ms: None,
+                    parent_tool_call_id: part.parent_part_id.clone(),
+                });
+            }
+        }
+        PartBody::ToolCall(tool) => {
+            if let Some(index) = message.parts.iter().position(|item| {
+                matches!(item, MessagePart::ToolCall { tool_call_id, .. } if tool_call_id == &tool.tool_call_id)
+            }) {
+                let merged = match ToolCallState::from_message_part(&message.parts[index]) {
+                    Some(existing) => ToolCallState::merge(&existing, tool.clone()),
+                    None => tool.clone(),
+                };
+                message.parts[index] = merged.to_message_part();
+            } else {
+                message.parts.push(tool.to_message_part());
+            }
+        }
+        PartBody::Plan { plan } => {
+            if let Some(existing) = message
+                .parts
+                .iter_mut()
+                .find(|item| matches!(item, MessagePart::Plan { .. }))
+            {
+                *existing = MessagePart::Plan { plan: plan.clone() };
+            } else {
+                message.parts.push(MessagePart::Plan { plan: plan.clone() });
+            }
+        }
+        PartBody::Attachment { path, name } => {
+            message.parts.push(MessagePart::Attachment {
+                path: path.clone(),
+                name: name.clone(),
+            });
+        }
+        PartBody::Error { message: error } => {
+            message.parts.push(MessagePart::Error {
+                message: error.clone(),
+            });
+        }
+        PartBody::SessionChrome(_) => {}
     }
-    message.streaming = true;
-    message.parts = order_assistant_parts(std::mem::take(&mut message.parts));
 }
 
 pub(super) fn emit_live(
@@ -1847,26 +2095,20 @@ fn emit_with_seq(
     turn_id: Option<String>,
     assigned_seq: Option<u64>,
 ) -> Result<()> {
-    let sequence = match assigned_seq {
+    let revision = match assigned_seq {
         Some(seq) => seq,
         None => store.next_seq(chat_id)?,
     };
-    let persist = !matches!(
-        payload,
-        AgentChatPayload::AssistantMessageDelta { .. } | AgentChatPayload::ThinkingDelta { .. }
-    );
     let event = AgentChatEvent {
         chat_id: chat_id.to_string(),
         event_id: event_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
-        sequence,
+        revision,
         turn_id,
         payload,
     };
     push_recent(recent_events, &event);
     let _ = events.send(event);
-    if persist {
-        store.persist_seq(chat_id)?;
-    }
+    store.persist_seq(chat_id)?;
     Ok(())
 }
 
@@ -2301,6 +2543,9 @@ pub(super) fn push_recent(
     recent_events: &std::sync::Mutex<HashMap<String, VecDeque<AgentChatEvent>>>,
     event: &AgentChatEvent,
 ) {
+    if matches!(event.payload, AgentChatPayload::TextChunk { .. }) {
+        return;
+    }
     if let Ok(mut map) = recent_events.lock() {
         let queue = map
             .entry(event.chat_id.clone())
@@ -2569,21 +2814,30 @@ mod tests {
     }
 
     fn runtime() -> RuntimeState {
-        RuntimeState {
-            current_turn_id: Some("t1".into()),
-            last_turn_id: Some("t1".into()),
-            pending_permission: None,
-            pending_session_op: None,
-            assistant_text: HashMap::new(),
-            thinking_text: HashMap::new(),
-            last_snapshot: Instant::now(),
-            last_activity: Instant::now(),
-            turn_started_at: None,
-            thinking_started_at: None,
-            thinking_ms: 0,
-            last_thinking_segment_ms: 0,
-            turn_usage: None,
-            last_stream_seq: 0,
+        RuntimeState::new(Some("t1".into()))
+    }
+
+    fn live_part(
+        part_id: &str,
+        message_id: &str,
+        kind: TextKind,
+        text: &str,
+        closed: bool,
+    ) -> TrackedPart {
+        TrackedPart {
+            turn_id: "t1".into(),
+            part: Part {
+                id: part_id.into(),
+                message_id: message_id.into(),
+                parent_part_id: None,
+                ordinal: 0,
+                body: PartBody::Text {
+                    kind,
+                    text: text.into(),
+                },
+                closed_at: closed.then(Utc::now),
+            },
+            opened_at: Utc::now(),
         }
     }
 
@@ -2632,10 +2886,17 @@ mod tests {
         state.turn_started_at = Some(started);
         state.thinking_started_at = Some(thinking_started);
         state.thinking_ms = 4_000;
-        state
-            .thinking_text
-            .insert("a1".into(), ("t1".into(), "hmm live".into(), None));
+        state.parts.insert(
+            "think-1".into(),
+            live_part("think-1", "a1", TextKind::Thinking, "hmm live", false),
+        );
         let mut snapshot = snapshot_with_assistant();
+        snapshot.messages[0].parts[0] = MessagePart::Thinking {
+            text: "hmm".into(),
+            tool_call_id: Some("think-1".into()),
+            duration_ms: None,
+            parent_tool_call_id: None,
+        };
         overlay_live_state(&mut snapshot, &state);
         assert_eq!(snapshot.running_turn_started_at, Some(started));
         let assistant = &snapshot.messages[0];
@@ -2665,21 +2926,22 @@ mod tests {
         snapshot.messages[0].parts = vec![
             MessagePart::Thinking {
                 text: "first".into(),
-                tool_call_id: None,
+                tool_call_id: Some("think-1".into()),
                 duration_ms: Some(5_000),
                 parent_tool_call_id: None,
             },
             MessagePart::Thinking {
                 text: "second".into(),
-                tool_call_id: None,
+                tool_call_id: Some("think-2".into()),
                 duration_ms: None,
                 parent_tool_call_id: None,
             },
         ];
         let mut state = runtime();
-        state
-            .thinking_text
-            .insert("a1".into(), ("t1".into(), "second live".into(), None));
+        state.parts.insert(
+            "think-2".into(),
+            live_part("think-2", "a1", TextKind::Thinking, "second live", false),
+        );
         overlay_live_state(&mut snapshot, &state);
         match &snapshot.messages[0].parts[..] {
             [MessagePart::Thinking {
@@ -2699,19 +2961,6 @@ mod tests {
     }
 
     #[test]
-    fn overlay_stamps_stream_seq_onto_snapshot() {
-        let mut state = runtime();
-        state.last_stream_seq = 42;
-        state
-            .assistant_text
-            .insert("a1".into(), ("t1".into(), "live".into(), None));
-        let mut snapshot = snapshot_with_assistant();
-        snapshot.meta.last_event_seq = 10;
-        overlay_live_state(&mut snapshot, &state);
-        assert_eq!(snapshot.meta.last_event_seq, 42);
-    }
-
-    #[test]
     fn overlay_appends_new_text_after_tools_instead_of_overwriting() {
         let mut snapshot = snapshot_with_assistant();
         snapshot.messages[0].id = "a1".into();
@@ -2719,19 +2968,19 @@ mod tests {
             MessagePart::Text {
                 text: "looking".into(),
                 parent_tool_call_id: None,
-                message_id: Some("a1".into()),
+                message_id: Some("look-1".into()),
             },
             MessagePart::Thinking {
                 text: "hmm".into(),
-                tool_call_id: None,
+                tool_call_id: Some("think-1".into()),
                 duration_ms: Some(1_000),
                 parent_tool_call_id: None,
             },
         ];
         let mut state = runtime();
-        state
-            .assistant_text
-            .insert("a2".into(), ("t1".into(), "final".into(), None));
+        let mut final_part = live_part("a2", "a1", TextKind::Answer, "final", false);
+        final_part.part.ordinal = 2;
+        state.parts.insert("a2".into(), final_part);
         overlay_live_state(&mut snapshot, &state);
         match &snapshot.messages[0].parts[..] {
             [MessagePart::Text { text: mid, .. }, MessagePart::Thinking { .. }, MessagePart::Text { text: answer, .. }] =>
@@ -3633,10 +3882,14 @@ mod tests {
                 &meta.id,
                 &crate::service::agent_chat::types::TranscriptEnvelope::new(
                     "turn-1",
-                    crate::service::agent_chat::types::TranscriptEvent::AssistantSnapshot {
+                    crate::service::agent_chat::types::TranscriptEvent::TextChunk {
+                        part_id: "asst:sa-a".into(),
                         message_id: "asst".into(),
+                        parent_part_id: Some("sa-a".into()),
+                        ordinal: 0,
+                        kind: TextKind::Answer,
+                        offset: 0,
                         text: "only-a".into(),
-                        parent_tool_call_id: Some("sa-a".into()),
                     },
                 ),
             )
@@ -3646,10 +3899,14 @@ mod tests {
                 &meta.id,
                 &crate::service::agent_chat::types::TranscriptEnvelope::new(
                     "turn-1",
-                    crate::service::agent_chat::types::TranscriptEvent::AssistantSnapshot {
+                    crate::service::agent_chat::types::TranscriptEvent::TextChunk {
+                        part_id: "asst:sa-b".into(),
                         message_id: "asst".into(),
+                        parent_part_id: Some("sa-b".into()),
+                        ordinal: 1,
+                        kind: TextKind::Answer,
+                        offset: 0,
                         text: "only-b".into(),
-                        parent_tool_call_id: Some("sa-b".into()),
                     },
                 ),
             )
@@ -3800,5 +4057,311 @@ mod tests {
             saw_workflow_cleared >= 1,
             "workflow clear must emit GrokWorkflowUpdated None, got {saw_workflow_cleared}"
         );
+    }
+
+    fn create_chat(store: &AgentChatStore) -> crate::service::agent_chat::types::AgentChatMeta {
+        store
+            .create(CreateAgentChatRequest {
+                workspace_id: None,
+                project_id: None,
+                space_id: None,
+                cwd: "/tmp".into(),
+                origin: AgentChatOrigin::Normal,
+                provider_id: "claude".into(),
+                model: None,
+                thinking: None,
+                mode: None,
+                permission_mode: None,
+                fast: None,
+                context: None,
+                title: None,
+                source: None,
+                automation_run_guid: None,
+            })
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn lifecycle_turn_settlement_closes_every_part() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = AgentChatStore::new(dir.path().join("chats"));
+        let meta = create_chat(&store);
+        let (tx, _rx) = broadcast::channel(16);
+        let recent = std::sync::Mutex::new(HashMap::new());
+        let state = Mutex::new(RuntimeState::new(Some("t1".into())));
+        let apply = |payload: AgentEvent| {
+            apply_event(
+                &meta.id,
+                AgentEventEnvelope::new(Some("t1".into()), payload),
+                &store,
+                &state,
+                &tx,
+                &recent,
+            )
+        };
+        apply(AgentEvent::TextChunk {
+            part_id: "answer-1".into(),
+            message_id: "a1".into(),
+            parent_part_id: None,
+            ordinal: 0,
+            kind: TextKind::Answer,
+            offset: 0,
+            text: "hi".into(),
+        })
+        .await
+        .unwrap();
+        apply(AgentEvent::TextChunk {
+            part_id: "think-1".into(),
+            message_id: "a1".into(),
+            parent_part_id: None,
+            ordinal: 1,
+            kind: TextKind::Thinking,
+            offset: 0,
+            text: "hmm".into(),
+        })
+        .await
+        .unwrap();
+        apply(AgentEvent::ToolCallStarted {
+            tool_call: AgentTool {
+                tool_call_id: "tool-1".into(),
+                parent_tool_call_id: None,
+                name: "Read".into(),
+                title: None,
+                kind: AgentToolKind::Read,
+                status: AgentToolStatus::Running,
+                params: AgentToolParams::Other {
+                    value: serde_json::json!({}),
+                },
+                result: None,
+            },
+        })
+        .await
+        .unwrap();
+        apply(AgentEvent::TurnCompleted {
+            turn_id: "t1".into(),
+            stop: TurnStop::Completed,
+        })
+        .await
+        .unwrap();
+        let state = state.lock().await;
+        assert_eq!(state.parts.len(), 3, "answer, thinking, and tool parts");
+        for tracked in state.parts.values() {
+            assert!(
+                tracked.part.closed_at.is_some(),
+                "part {} still open",
+                tracked.part.id
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn lifecycle_teardown_closes_every_open_part() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = AgentChatStore::new(dir.path().join("chats"));
+        let meta = create_chat(&store);
+        let (tx, _rx) = broadcast::channel(16);
+        let recent = std::sync::Mutex::new(HashMap::new());
+        let state = Mutex::new(RuntimeState::new(Some("t1".into())));
+        apply_event(
+            &meta.id,
+            AgentEventEnvelope::new(
+                Some("t1".into()),
+                AgentEvent::TextChunk {
+                    part_id: "answer-1".into(),
+                    message_id: "a1".into(),
+                    parent_part_id: None,
+                    ordinal: 0,
+                    kind: TextKind::Answer,
+                    offset: 0,
+                    text: "still open".into(),
+                },
+            ),
+            &store,
+            &state,
+            &tx,
+            &recent,
+        )
+        .await
+        .unwrap();
+        apply_event(
+            &meta.id,
+            AgentEventEnvelope::new(
+                Some("t1".into()),
+                AgentEvent::TextChunk {
+                    part_id: "think-1".into(),
+                    message_id: "a1".into(),
+                    parent_part_id: None,
+                    ordinal: 1,
+                    kind: TextKind::Thinking,
+                    offset: 0,
+                    text: "hmm".into(),
+                },
+            ),
+            &store,
+            &state,
+            &tx,
+            &recent,
+        )
+        .await
+        .unwrap();
+        state.lock().await.current_turn_id = None;
+        let emit = |payload: AgentChatPayload| emit_live(&meta.id, payload, &store, &tx, &recent);
+        persist_open_parts_closed(&meta.id, &store, &state, &emit)
+            .await
+            .unwrap();
+        {
+            let state = state.lock().await;
+            assert_eq!(state.parts.len(), 2);
+            for tracked in state.parts.values() {
+                assert!(
+                    tracked.part.closed_at.is_some(),
+                    "part {} still open after teardown",
+                    tracked.part.id
+                );
+            }
+        }
+        let jsonl =
+            std::fs::read_to_string(store.dir_for(&meta.id).join("transcript.jsonl")).unwrap();
+        let finished: Vec<_> = jsonl
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .map(|line| serde_json::from_str::<TranscriptEnvelope>(line).unwrap())
+            .filter(|record| {
+                matches!(
+                    record.event,
+                    TranscriptEvent::PartFinished { ref part_id, .. }
+                        if part_id == "answer-1" || part_id == "think-1"
+                )
+            })
+            .collect();
+        assert_eq!(
+            finished.len(),
+            2,
+            "teardown must persist PartFinished: {jsonl}"
+        );
+        let snapshot = store.get_snapshot(&meta.id).unwrap();
+        assert!(
+            snapshot
+                .messages
+                .iter()
+                .filter(|message| message.role == "assistant")
+                .all(|message| !message.streaming),
+            "closed leftover parts must not stream: {:?}",
+            snapshot.messages
+        );
+    }
+
+    #[tokio::test]
+    async fn lifecycle_chunk_creates_missing_turn() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = AgentChatStore::new(dir.path().join("chats"));
+        let meta = create_chat(&store);
+        let (tx, _rx) = broadcast::channel(16);
+        let recent = std::sync::Mutex::new(HashMap::new());
+        let state = Mutex::new(RuntimeState::new(None));
+        apply_event(
+            &meta.id,
+            AgentEventEnvelope::new(
+                Some("codex-cont".into()),
+                AgentEvent::TextChunk {
+                    part_id: "p1".into(),
+                    message_id: "a1".into(),
+                    parent_part_id: None,
+                    ordinal: 0,
+                    kind: TextKind::Answer,
+                    offset: 0,
+                    text: "continued".into(),
+                },
+            ),
+            &store,
+            &state,
+            &tx,
+            &recent,
+        )
+        .await
+        .unwrap();
+        let turns = store.folded_turns(&meta.id).unwrap();
+        let turn = turns
+            .iter()
+            .find(|turn| turn.id == "codex-cont")
+            .expect("provider-started turn");
+        assert!(
+            turn.messages
+                .iter()
+                .any(|message| message.parts.iter().any(
+                    |part| matches!(part, MessagePart::Text { text, .. } if text == "continued")
+                )),
+            "chunk must land on the created turn: {turn:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn lifecycle_usage_and_goal_apply_without_open_turn() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = AgentChatStore::new(dir.path().join("chats"));
+        let meta = create_chat(&store);
+        let (tx, _rx) = broadcast::channel(16);
+        let recent = std::sync::Mutex::new(HashMap::new());
+        let state = Mutex::new(RuntimeState::new(None));
+        let apply = |payload: AgentEvent| {
+            apply_event(
+                &meta.id,
+                AgentEventEnvelope::new(None, payload),
+                &store,
+                &state,
+                &tx,
+                &recent,
+            )
+        };
+        apply(AgentEvent::SessionTitleUpdated {
+            title: "between turns".into(),
+        })
+        .await
+        .unwrap();
+        apply(AgentEvent::AvailableCommandsUpdated {
+            commands: vec![AgentAvailableCommand {
+                name: "plan".into(),
+                description: "Plan".into(),
+                hint: None,
+            }],
+        })
+        .await
+        .unwrap();
+        apply(AgentEvent::GrokGoalUpdated {
+            goal: Some(GrokGoal {
+                goal_id: "g1".into(),
+                objective: "Ship".into(),
+                status: "active".into(),
+                phase: "executing".into(),
+                planning: false,
+                verifying_completion: false,
+                last_event: None,
+                tokens_used: 0,
+                elapsed_ms: 0,
+                children: Vec::new(),
+            }),
+        })
+        .await
+        .unwrap();
+        apply(AgentEvent::UsageUpdated {
+            usage: serde_json::json!({
+                "cost": { "amount": 0.2, "currency": "USD" }
+            }),
+        })
+        .await
+        .unwrap();
+        let updated = store.get_meta(&meta.id).unwrap();
+        assert_eq!(updated.title.as_deref(), Some("between turns"));
+        assert_eq!(updated.available_commands[0].name, "plan");
+        assert!(updated.grok_goal.is_some());
+        assert_eq!(
+            updated
+                .session_usage
+                .as_ref()
+                .and_then(|usage| usage.cost.as_ref())
+                .and_then(|cost| cost.amount),
+            Some(0.2)
+        );
+        assert!(state.lock().await.current_turn_id.is_none());
     }
 }

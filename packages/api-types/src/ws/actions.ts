@@ -180,6 +180,7 @@ export const WS_ACTIONS = [
   "agent_chat_configure",
   "agent_chat_delete",
   "agent_chat_subscribe",
+  "agent_chat_backfill",
   "agent_chat_unsubscribe",
   "agent_chat_send",
   "agent_chat_steer",

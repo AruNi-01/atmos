@@ -22,7 +22,7 @@ pub use contract::{
     AgentSessionOpRequest, AgentSupportedOptions, AgentThinkingSupport, AgentTool, AgentToolCall,
     AgentToolKind, AgentToolParams, AgentToolResult, AgentToolStatus, AgentTurnHandle, Capability,
     GrokGoal, GrokGoalChild, GrokWorkflow, GrokWorkflowAgent, GrokWorkflowPhase, SearchHit,
-    SessionOpKind, SessionOpOutcome, TurnStop, UserMessageKind, WebSearchLink,
+    SessionOpKind, SessionOpOutcome, TextKind, TurnStop, UserMessageKind, WebSearchLink,
     GROK_CHROME_SUBAGENT_NAME,
 };
 pub use manager::AgentManager;

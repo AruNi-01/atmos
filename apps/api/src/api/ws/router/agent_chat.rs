@@ -192,6 +192,19 @@ impl WsMessageService {
         Ok(json!({ "last_event_seq": snapshot.meta.last_event_seq }))
     }
 
+    pub(super) async fn handle_agent_chat_backfill(
+        &self,
+        req: AgentChatBackfillRequest,
+    ) -> Result<Value> {
+        let parts: Vec<(String, u64)> = req
+            .parts
+            .into_iter()
+            .map(|part| (part.part_id, part.from_offset))
+            .collect();
+        let accepted = self.agent_chat().backfill(&req.chat_id, &parts).await?;
+        Ok(json!({ "accepted": accepted }))
+    }
+
     pub(super) async fn handle_agent_chat_unsubscribe(
         &self,
         conn_id: &str,
@@ -207,10 +220,11 @@ impl WsMessageService {
     pub(super) async fn handle_agent_chat_send(&self, req: AgentChatSendRequest) -> Result<Value> {
         let turn_id = self
             .agent_chat()
-            .send(
+            .send_with_message_id(
                 &req.chat_id,
                 &req.text,
                 req.attachment_paths.unwrap_or_default(),
+                req.message_id,
             )
             .await?;
         Ok(json!({ "turn_id": turn_id }))

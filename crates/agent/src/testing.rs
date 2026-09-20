@@ -15,7 +15,7 @@ use crate::contract::{
 use crate::contract::{
     AgentEvent, AgentOptionsContext, AgentPersistenceHandle, AgentPrompt, AgentProvider,
     AgentProviderError, AgentResult, AgentRuntime, AgentRuntimeCommands, AgentRuntimeConfig,
-    AgentRuntimeConfigUpdate, AgentRuntimeControl, AgentTurnHandle, TurnStop,
+    AgentRuntimeConfigUpdate, AgentRuntimeControl, AgentTurnHandle, TextKind, TurnStop,
 };
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
 
@@ -230,18 +230,24 @@ impl AgentRuntimeCommands for FakeSessionInner {
             tokio::spawn(async move {
                 tokio::task::yield_now().await;
                 let assistant_id = uuid::Uuid::new_v4().to_string();
+                let part_id = format!("{assistant_id}:0");
                 let _ = tx.send(AgentEventEnvelope::new(
                     Some(completed_turn.clone()),
-                    AgentEvent::AssistantMessageDelta {
-                        message_id: assistant_id.clone(),
-                        delta: "ok".into(),
-                        parent_tool_call_id: None,
+                    AgentEvent::TextChunk {
+                        part_id: part_id.clone(),
+                        message_id: assistant_id,
+                        parent_part_id: None,
+                        ordinal: 0,
+                        kind: TextKind::Answer,
+                        offset: 0,
+                        text: "ok".into(),
                     },
                 ));
                 let _ = tx.send(AgentEventEnvelope::new(
                     Some(completed_turn.clone()),
-                    AgentEvent::AssistantMessageCompleted {
-                        message_id: assistant_id,
+                    AgentEvent::PartClosed {
+                        part_id,
+                        duration_ms: None,
                     },
                 ));
                 let _ = tx.send(AgentEventEnvelope::new(

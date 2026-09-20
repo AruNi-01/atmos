@@ -8,7 +8,8 @@ use serde_json::Value;
 
 use crate::contract::{
     AgentEvent, AgentEventEnvelope, AgentPermissionOption, AgentPermissionRequest, AgentResult,
-    AgentTool, AgentToolKind, AgentToolParams, AgentToolResult, AgentToolStatus, UserMessageKind,
+    AgentTool, AgentToolKind, AgentToolParams, AgentToolResult, AgentToolStatus, TextKind,
+    UserMessageKind,
 };
 use crate::map::extract::{first_string, labeled_id_from_text};
 use crate::map::subagent::is_subagent_dispatch_ack;
@@ -21,7 +22,9 @@ use crate::map::{
     plan_from_tool_input_or_stub, plan_markdown_from_input, thinking_text, ClassifiedTool,
 };
 use crate::session_source::paths;
-use crate::session_source::{HostId, HostSessionRef, SessionSource, TuiResumePlan};
+use crate::session_source::{
+    finished_text_part, HostId, HostSessionRef, SessionSource, TuiResumePlan,
+};
 
 const LIST_PEEK_BYTES: usize = 8192;
 const SKIP_TYPES: &[&str] = &[
@@ -836,23 +839,14 @@ fn push_assistant_text(
     text: &str,
     parent_tool_call_id: Option<String>,
 ) {
-    if text.is_empty() {
-        return;
-    }
-    state.events.push(wrap(
-        Some(turn_id.to_string()),
-        AgentEvent::AssistantMessageDelta {
-            message_id: message_id.to_string(),
-            delta: text.to_string(),
-            parent_tool_call_id,
-        },
-    ));
-    state.events.push(wrap(
-        Some(turn_id.to_string()),
-        AgentEvent::AssistantMessageCompleted {
-            message_id: message_id.to_string(),
-        },
-    ));
+    push_text(
+        state,
+        turn_id,
+        message_id,
+        TextKind::Answer,
+        text,
+        parent_tool_call_id,
+    );
 }
 
 fn push_thinking(
@@ -862,23 +856,32 @@ fn push_thinking(
     text: &str,
     parent_tool_call_id: Option<String>,
 ) {
+    push_text(
+        state,
+        turn_id,
+        message_id,
+        TextKind::Thinking,
+        text,
+        parent_tool_call_id,
+    );
+}
+
+fn push_text(
+    state: &mut ParseState,
+    turn_id: &str,
+    message_id: &str,
+    kind: TextKind,
+    text: &str,
+    parent_part_id: Option<String>,
+) {
     if text.is_empty() {
         return;
     }
-    state.events.push(wrap(
-        Some(turn_id.to_string()),
-        AgentEvent::ThinkingDelta {
-            message_id: message_id.to_string(),
-            delta: text.to_string(),
-            parent_tool_call_id,
-        },
-    ));
-    state.events.push(wrap(
-        Some(turn_id.to_string()),
-        AgentEvent::ThinkingCompleted {
-            message_id: message_id.to_string(),
-        },
-    ));
+    // `ingest_assistant` already folds the content-block index into `message_id`,
+    // so each segment is the sole part of its message.
+    for payload in finished_text_part(message_id, 0, kind, text, parent_part_id) {
+        state.events.push(wrap(Some(turn_id.to_string()), payload));
+    }
 }
 
 fn ensure_turn(state: &mut ParseState) -> String {
@@ -1307,15 +1310,17 @@ mod tests {
         assert_eq!(users, ["List the files in src.", "Thanks."]);
         assert!(events.iter().any(|event| matches!(
             &event.payload,
-            AgentEvent::ThinkingDelta { delta, .. } if delta.contains("list the directory")
+            AgentEvent::TextChunk { kind: TextKind::Thinking, text, .. }
+                if text.contains("list the directory")
         )));
         assert!(events.iter().any(|event| matches!(
             &event.payload,
-            AgentEvent::AssistantMessageDelta { delta, .. } if delta == "I'll list src."
+            AgentEvent::TextChunk { kind: TextKind::Answer, text, offset: 0, .. }
+                if text == "I'll list src."
         )));
         assert!(events
             .iter()
-            .any(|event| matches!(&event.payload, AgentEvent::AssistantMessageCompleted { .. })));
+            .any(|event| matches!(&event.payload, AgentEvent::PartClosed { .. })));
         let started = events.iter().find_map(|event| match &event.payload {
             AgentEvent::ToolCallStarted { tool_call } => Some(tool_call),
             _ => None,
@@ -1411,11 +1416,12 @@ mod tests {
         assert!(matches!(completed[0].1, Some(AgentToolResult::Empty)));
         assert!(events.iter().any(|event| matches!(
             &event.payload,
-            AgentEvent::AssistantMessageDelta {
-                delta,
-                parent_tool_call_id: Some(parent),
+            AgentEvent::TextChunk {
+                kind: TextKind::Answer,
+                text,
+                parent_part_id: Some(parent),
                 ..
-            } if delta.contains("monorepo") && parent == "call_task_1"
+            } if text.contains("monorepo") && parent == "call_task_1"
         )));
         assert!(!events.iter().any(|event| matches!(
             &event.payload,
@@ -1423,11 +1429,12 @@ mod tests {
         )));
         assert!(!events.iter().any(|event| matches!(
             &event.payload,
-            AgentEvent::AssistantMessageDelta {
-                delta,
-                parent_tool_call_id: None,
+            AgentEvent::TextChunk {
+                kind: TextKind::Answer,
+                text,
+                parent_part_id: None,
                 ..
-            } if delta.contains("monorepo")
+            } if text.contains("monorepo")
         )));
     }
 }

@@ -25,6 +25,8 @@ import type {
   AgentChatSteerRequest,
   AgentChatSubscribeRequest,
   AgentChatSubscribeResponse,
+  AgentChatBackfillRequest,
+  AgentChatBackfillResponse,
   AgentChatTurnIdResponse,
 } from "../dto/agent-chat";
 
@@ -57,6 +59,10 @@ export type AgentChatContract = {
   agent_chat_subscribe: {
     input: AgentChatSubscribeRequest;
     output: AgentChatSubscribeResponse;
+  };
+  agent_chat_backfill: {
+    input: AgentChatBackfillRequest;
+    output: AgentChatBackfillResponse;
   };
   agent_chat_unsubscribe: { input: AgentChatIdRequest; output: WsOk };
   agent_chat_send: {

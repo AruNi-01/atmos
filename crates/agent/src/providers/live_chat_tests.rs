@@ -18,7 +18,7 @@ use tokio::time::{timeout, Instant};
 use crate::acp_client::AcpToolHandler;
 use crate::contract::{
     AgentEvent, AgentPrompt, AgentProvider, AgentRuntime, AgentRuntimeConfig,
-    AgentRuntimeConfigUpdate, TurnStop,
+    AgentRuntimeConfigUpdate, TextKind, TurnStop,
 };
 use crate::models::AgentLaunchSpec;
 use crate::providers::acp::{AcpAgentProvider, AcpProviderParams};
@@ -150,7 +150,11 @@ async fn drain_until_complete(
         };
 
         match event.payload {
-            AgentEvent::AssistantMessageDelta { delta, .. } => text.push_str(&delta),
+            AgentEvent::TextChunk {
+                kind: TextKind::Answer,
+                text: ref chunk,
+                ..
+            } => text.push_str(chunk),
             AgentEvent::ToolCallStarted { tool_call, .. } => {
                 tools.push(format!("{:?}:{}", tool_call.kind, tool_call.name));
             }

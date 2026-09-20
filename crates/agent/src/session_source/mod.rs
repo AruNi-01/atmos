@@ -12,7 +12,39 @@ use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 
-use crate::contract::{AgentEventEnvelope, AgentResult};
+use crate::contract::{AgentEvent, AgentEventEnvelope, AgentResult, TextKind};
+
+/// A transcript record carries a part's whole text, so the part is finished the
+/// moment it is parsed: one chunk at offset 0 followed by its terminator. Nothing
+/// here accumulates an offset, because nothing appends to a part twice.
+///
+/// `index` is the text segment's position inside its message, so a message holding
+/// several segments yields several parts — and re-parsing the same file names them
+/// identically, which a running counter would not.
+pub(crate) fn finished_text_part(
+    message_id: &str,
+    index: u32,
+    kind: TextKind,
+    text: &str,
+    parent_part_id: Option<String>,
+) -> [AgentEvent; 2] {
+    let part_id = format!("{message_id}:{index}");
+    [
+        AgentEvent::TextChunk {
+            part_id: part_id.clone(),
+            message_id: message_id.to_string(),
+            parent_part_id,
+            ordinal: index,
+            kind,
+            offset: 0,
+            text: text.to_string(),
+        },
+        AgentEvent::PartClosed {
+            part_id,
+            duration_ms: None,
+        },
+    ]
+}
 
 pub(crate) fn stamp_new_envelopes(
     events: &mut [AgentEventEnvelope],

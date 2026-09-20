@@ -8,7 +8,7 @@ use serde_json::Value;
 
 use crate::contract::{
     AgentEvent, AgentEventEnvelope, AgentResult, AgentTool, AgentToolKind, AgentToolParams,
-    AgentToolResult, AgentToolStatus, UserMessageKind,
+    AgentToolResult, AgentToolStatus, TextKind, UserMessageKind,
 };
 use crate::map::extract::first_string;
 use crate::map::{
@@ -19,7 +19,9 @@ use crate::map::{
     plan_from_tool_input_or_stub, thinking_text, ClassifiedTool,
 };
 use crate::session_source::paths;
-use crate::session_source::{HostId, HostSessionRef, SessionSource, TuiResumePlan};
+use crate::session_source::{
+    finished_text_part, HostId, HostSessionRef, SessionSource, TuiResumePlan,
+};
 
 const LIST_PEEK_BYTES: usize = 8192;
 const SKIPPED_THREAD_SOURCES: &[&str] = &["guardian_review", "memory_consolidation"];
@@ -204,15 +206,8 @@ fn event_tool(event: &AgentEventEnvelope) -> Option<&AgentTool> {
 
 fn stamp_nested(payload: &mut AgentEvent, parent: &str) {
     match payload {
-        AgentEvent::AssistantMessageDelta {
-            parent_tool_call_id,
-            ..
-        }
-        | AgentEvent::ThinkingDelta {
-            parent_tool_call_id,
-            ..
-        } => {
-            *parent_tool_call_id = Some(parent.to_string());
+        AgentEvent::TextChunk { parent_part_id, .. } => {
+            *parent_part_id = Some(parent.to_string());
         }
         AgentEvent::ToolCallStarted { tool_call }
         | AgentEvent::ToolCallUpdated { tool_call }
@@ -786,43 +781,22 @@ fn is_environment_context_only(text: &str) -> bool {
 }
 
 fn push_assistant_text(state: &mut ParseState, turn_id: &str, message_id: &str, text: &str) {
-    if text.is_empty() {
-        return;
-    }
-    state.events.push(wrap(
-        Some(turn_id.to_string()),
-        AgentEvent::AssistantMessageDelta {
-            message_id: message_id.to_string(),
-            delta: text.to_string(),
-            parent_tool_call_id: None,
-        },
-    ));
-    state.events.push(wrap(
-        Some(turn_id.to_string()),
-        AgentEvent::AssistantMessageCompleted {
-            message_id: message_id.to_string(),
-        },
-    ));
+    push_text(state, turn_id, message_id, TextKind::Answer, text);
 }
 
 fn push_thinking(state: &mut ParseState, turn_id: &str, message_id: &str, text: &str) {
+    push_text(state, turn_id, message_id, TextKind::Thinking, text);
+}
+
+fn push_text(state: &mut ParseState, turn_id: &str, message_id: &str, kind: TextKind, text: &str) {
     if text.is_empty() {
         return;
     }
-    state.events.push(wrap(
-        Some(turn_id.to_string()),
-        AgentEvent::ThinkingDelta {
-            message_id: message_id.to_string(),
-            delta: text.to_string(),
-            parent_tool_call_id: None,
-        },
-    ));
-    state.events.push(wrap(
-        Some(turn_id.to_string()),
-        AgentEvent::ThinkingCompleted {
-            message_id: message_id.to_string(),
-        },
-    ));
+    // Every caller derives a `message_id` that names one text segment, so each is
+    // the sole part of its message.
+    for payload in finished_text_part(message_id, 0, kind, text, None) {
+        state.events.push(wrap(Some(turn_id.to_string()), payload));
+    }
 }
 
 fn ensure_turn(state: &mut ParseState) -> String {
@@ -1252,11 +1226,13 @@ mod tests {
         )));
         assert!(events.iter().any(|event| matches!(
             &event.payload,
-            AgentEvent::ThinkingDelta { delta, .. } if delta.contains("greeting")
+            AgentEvent::TextChunk { kind: TextKind::Thinking, text, .. }
+                if text.contains("greeting")
         )));
         assert!(events.iter().any(|event| matches!(
             &event.payload,
-            AgentEvent::AssistantMessageDelta { delta, .. } if delta == "Hello from disk."
+            AgentEvent::TextChunk { kind: TextKind::Answer, text, offset: 0, .. }
+                if text == "Hello from disk."
         )));
         let started = events.iter().find_map(|event| match &event.payload {
             AgentEvent::ToolCallStarted { tool_call } => Some(tool_call),
@@ -1304,11 +1280,12 @@ mod tests {
         )));
         assert!(events.iter().any(|event| matches!(
             &event.payload,
-            AgentEvent::AssistantMessageDelta {
-                delta,
-                parent_tool_call_id: Some(parent),
+            AgentEvent::TextChunk {
+                kind: TextKind::Answer,
+                text,
+                parent_part_id: Some(parent),
                 ..
-            } if delta == "Nested child answer." && parent == "call-spawn"
+            } if text == "Nested child answer." && parent == "call-spawn"
         )));
         assert!(events.iter().any(|event| matches!(
             &event.payload,

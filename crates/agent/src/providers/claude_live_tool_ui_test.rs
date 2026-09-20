@@ -21,7 +21,7 @@ use tokio::time::{timeout, Instant};
 
 use crate::contract::{
     AgentEvent, AgentPrompt, AgentProvider, AgentRuntimeConfig, AgentRuntimeConfigUpdate,
-    AgentToolKind, TurnStop,
+    AgentToolKind, TextKind, TurnStop,
 };
 use crate::providers::claude::ClaudeNativeProvider;
 
@@ -109,8 +109,15 @@ async fn run_forced_prompt(label: &str, prompt: &str, cwd: &Path) -> Vec<String>
             Ok(Some(event)) => event,
         };
         match &event.payload {
-            AgentEvent::AssistantMessageDelta { delta, .. } => text.push_str(delta),
-            AgentEvent::ThinkingDelta { .. } | AgentEvent::ThinkingCompleted { .. } => {}
+            AgentEvent::TextChunk {
+                kind: TextKind::Answer,
+                text: chunk,
+                ..
+            } => text.push_str(chunk),
+            AgentEvent::TextChunk {
+                kind: TextKind::Thinking,
+                ..
+            } => {}
             AgentEvent::PlanUpdated { .. } => {
                 plan_events += 1;
                 eprintln!("PLAN updated");
@@ -200,7 +207,7 @@ async fn run_forced_prompt(label: &str, prompt: &str, cwd: &Path) -> Vec<String>
             }
             AgentEvent::UserCheckpoint { .. }
             | AgentEvent::SessionStarted { .. }
-            | AgentEvent::AssistantMessageCompleted { .. } => {}
+            | AgentEvent::PartClosed { .. } => {}
             other => {
                 eprintln!("event: {other:?}");
             }

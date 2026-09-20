@@ -6,7 +6,10 @@ import { WS_ACTIONS } from "../actions";
 import { WS_EVENTS } from "../events";
 import type {
   AgentCapabilities,
+  AgentChatEvent,
   AgentChatMeta,
+  AgentChatPayload,
+  AgentChatSendRequest,
   AgentDescriptor,
   AgentOptionSupport,
   AgentTool,
@@ -38,6 +41,30 @@ type ForbiddenMeta = Extract<
 type _NoLegacyMeta = AssertNever<ForbiddenMeta>;
 type ForbiddenTool = Extract<keyof AgentTool, "input" | "output" | "content" | "native">;
 type _NoBagFields = AssertNever<ForbiddenTool>;
+type UnexpectedEventKeys = Exclude<
+  keyof AgentChatEvent,
+  "chat_id" | "event_id" | "revision" | "turn_id" | "payload"
+>;
+type _EventKeysClosed = AssertNever<UnexpectedEventKeys>;
+type ForbiddenSequence = Extract<keyof AgentChatEvent, "sequence">;
+type _NoSequenceField = AssertNever<ForbiddenSequence>;
+type ForbiddenPayload = Extract<
+  AgentChatPayload["type"],
+  | "assistant_message_delta"
+  | "assistant_message_completed"
+  | "thinking_delta"
+  | "thinking_completed"
+>;
+type _NoLegacyDeltas = AssertNever<ForbiddenPayload>;
+type MissingTextWire = Exclude<"text_chunk" | "part_closed", AgentChatPayload["type"]>;
+type _HasTextWire = AssertNever<MissingTextWire>;
+type UnexpectedSend = Exclude<
+  keyof AgentChatSendRequest,
+  "chat_id" | "text" | "attachment_paths" | "message_id"
+>;
+type _SendClosed = AssertNever<UnexpectedSend>;
+type MissingSendMessageId = Exclude<"message_id", keyof AgentChatSendRequest>;
+type _HasSendMessageId = AssertNever<MissingSendMessageId>;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const dtoSource = readFileSync(join(__dirname, "./agent-chat.ts"), "utf8");
@@ -51,6 +78,7 @@ const AGENT_CHAT_ACTIONS = [
   "agent_chat_configure",
   "agent_chat_delete",
   "agent_chat_subscribe",
+  "agent_chat_backfill",
   "agent_chat_unsubscribe",
   "agent_chat_send",
   "agent_chat_steer",
@@ -97,15 +125,27 @@ describe("APP-069 S18 Agent Chat stays on main /ws", () => {
     expect(dtoSource).toContain('type: "search_hits"');
     expect(dtoSource).toContain("params: AgentToolParams");
     expect(dtoSource).toContain("result?: AgentToolResult | null");
+    expect(dtoSource).toContain("message_id?: string | null");
   });
 
-  test("AgentChatEvent envelope includes optional turn_id", () => {
+  test("AgentChatEvent envelope uses revision and optional turn_id", () => {
     const match = dtoSource.match(/export type AgentChatEvent = \{[\s\S]*?\};/);
     expect(match).toBeTruthy();
     expect(match![0]).toContain("chat_id: string");
     expect(match![0]).toContain("event_id: string");
-    expect(match![0]).toContain("sequence: number");
+    expect(match![0]).toContain("revision: number");
+    expect(match![0]).not.toContain("sequence: number");
     expect(match![0]).toContain("turn_id?: string | null");
     expect(match![0]).toContain("payload: AgentEvent");
+  });
+
+  test("AgentChatPayload is text_chunk plus part_closed, not deltas", () => {
+    expect(dtoSource).toContain('type: "text_chunk"');
+    expect(dtoSource).toContain('type: "part_closed"');
+    expect(dtoSource).toContain('kind: "answer" | "thinking"');
+    expect(dtoSource).not.toContain("assistant_message_delta");
+    expect(dtoSource).not.toContain("assistant_message_completed");
+    expect(dtoSource).not.toContain("thinking_delta");
+    expect(dtoSource).not.toContain("thinking_completed");
   });
 });

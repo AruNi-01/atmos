@@ -15,6 +15,13 @@ pub enum UserMessageKind {
     Steer,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TextKind {
+    Answer,
+    Thinking,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TurnStop {
@@ -131,24 +138,27 @@ pub enum AgentEvent {
         #[serde(default)]
         attachments: Vec<String>,
     },
-    AssistantMessageDelta {
+    /// Self-describing on purpose. Carrying part metadata on every chunk is what
+    /// makes application order-independent: a chunk for an unknown part creates it,
+    /// so no earlier event is a prerequisite. A part's text only ever grows — a
+    /// provider that genuinely revises emits `PartClosed` then a new `part_id`.
+    TextChunk {
+        part_id: String,
         message_id: String,
-        delta: String,
-        /// Nested subagent stream. Untagged deltas belong to the parent assistant.
+        /// Nested subagent stream. Untagged chunks belong to the parent assistant.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        parent_tool_call_id: Option<String>,
+        parent_part_id: Option<String>,
+        ordinal: u32,
+        kind: TextKind,
+        /// Byte offset of `text` within this part.
+        offset: u64,
+        /// Must begin and end on a UTF-8 char boundary.
+        text: String,
     },
-    AssistantMessageCompleted {
-        message_id: String,
-    },
-    ThinkingDelta {
-        message_id: String,
-        delta: String,
+    PartClosed {
+        part_id: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        parent_tool_call_id: Option<String>,
-    },
-    ThinkingCompleted {
-        message_id: String,
+        duration_ms: Option<u64>,
     },
     ToolCallStarted {
         tool_call: AgentTool,

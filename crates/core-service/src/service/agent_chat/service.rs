@@ -7,9 +7,9 @@ use agent::providers::{chat_provider_kind, ChatProviderKind};
 use agent::{
     apply_droid_fast_current_config, canonicalize_chat_provider_id, encode_droid_fast_model,
     is_droid_chat_provider, AgentAction, AgentActionError, AgentActionResult, AgentCheckpoint,
-    AgentEvent, AgentPermissionOption, AgentPersistenceHandle, AgentPrompt, AgentProviderFactory,
-    AgentRuntime, AgentRuntimeConfig, AgentRuntimeControl, AgentSessionOpRequest, Capability,
-    SessionOpKind, UserMessageKind,
+    AgentEvent, AgentEventEnvelope, AgentPermissionOption, AgentPersistenceHandle, AgentPrompt,
+    AgentProviderFactory, AgentRuntime, AgentRuntimeConfig, AgentRuntimeControl,
+    AgentSessionOpRequest, Capability, SessionOpKind, UserMessageKind,
 };
 use chrono::Utc;
 use tokio::sync::{broadcast, Mutex};
@@ -19,17 +19,19 @@ use crate::error::{Result, ServiceError};
 
 use super::apply_event::{
     apply_event, apply_pending_session_config, emit_live, finish_turn, nonempty_opt,
-    overlay_live_state, RuntimeState,
+    overlay_live_state, persist_open_parts_closed, RuntimeState,
 };
+use super::coalesce::{TextChunkCoalescer, COALESCE_FLUSH};
 use super::options::OptionsPrefetchWorker;
 use super::queue::maybe_dispatch_queue;
 use super::store::AgentChatStore;
 use super::types::{
-    apply_rewind_view, resolve_session_config_select, AgentChatEvent, AgentChatMeta,
-    AgentChatPayload, AgentChatSessionOpOutcome, AgentChatSnapshot, CreateAgentChatRequest,
-    FoldedTurn, MessagePart, PendingPermission, PendingSessionOp, QueueItem, QueueItemStatus,
-    ResolvedSessionConfig, RewindView, RuntimeStatus, SessionLifecycleAction,
-    SessionLifecycleStatus, TranscriptEnvelope, TranscriptEvent, TurnStatus,
+    apply_rewind_view, resolve_session_config_select, text_suffix_from, AgentChatEvent,
+    AgentChatMeta, AgentChatPayload, AgentChatSessionOpOutcome, AgentChatSnapshot,
+    CreateAgentChatRequest, FoldedTurn, MaterializedTextPart, MessagePart, PartBody,
+    PendingPermission, PendingSessionOp, QueueItem, QueueItemStatus, ResolvedSessionConfig,
+    RewindView, RuntimeStatus, SessionLifecycleAction, SessionLifecycleStatus, TranscriptEnvelope,
+    TranscriptEvent, TurnStatus,
 };
 use crate::service::agent_status::{self, AgentStatusService};
 
@@ -126,6 +128,7 @@ impl AgentChatService {
             .clone()
     }
 
+    /// Best-effort non-text hint. Text gaps are recovered via `backfill`, not this ring.
     pub fn events_after(&self, chat_id: &str, after_sequence: u64) -> Vec<AgentChatEvent> {
         self.recent_events
             .lock()
@@ -133,11 +136,72 @@ impl AgentChatService {
                 map.get(chat_id)
                     .into_iter()
                     .flatten()
-                    .filter(|event| event.sequence > after_sequence)
+                    .filter(|event| event.revision > after_sequence)
                     .cloned()
                     .collect()
             })
             .unwrap_or_default()
+    }
+
+    /// Stream ordinary `text_chunk` events for the missing suffix of each part.
+    /// `accepted` is the number of parts for which at least one chunk was emitted.
+    pub async fn backfill(&self, chat_id: &str, parts: &[(String, u64)]) -> Result<u32> {
+        let _ = self.store.get_meta(chat_id)?;
+        let mut accepted = 0u32;
+        for (part_id, from_offset) in parts {
+            let Some(materialized) = self.lookup_text_part(chat_id, part_id).await? else {
+                continue;
+            };
+            let Some((suffix, offset)) = text_suffix_from(&materialized.text, *from_offset) else {
+                continue;
+            };
+            self.emit(
+                chat_id,
+                AgentChatPayload::TextChunk {
+                    part_id: materialized.part_id,
+                    message_id: materialized.message_id,
+                    parent_part_id: materialized.parent_part_id,
+                    ordinal: materialized.ordinal,
+                    kind: materialized.kind,
+                    offset,
+                    text: suffix.to_string(),
+                },
+            )?;
+            accepted += 1;
+        }
+        Ok(accepted)
+    }
+
+    async fn lookup_text_part(
+        &self,
+        chat_id: &str,
+        part_id: &str,
+    ) -> Result<Option<MaterializedTextPart>> {
+        let live = {
+            let map = self.runtimes.lock().await;
+            map.get(chat_id).and_then(|runtime| {
+                runtime
+                    .alive
+                    .load(Ordering::SeqCst)
+                    .then(|| Arc::clone(&runtime.state))
+            })
+        };
+        if let Some(state) = live {
+            let state = state.lock().await;
+            if let Some(tracked) = state.parts.get(part_id) {
+                if let PartBody::Text { kind, text } = &tracked.part.body {
+                    return Ok(Some(MaterializedTextPart {
+                        part_id: tracked.part.id.clone(),
+                        message_id: tracked.part.message_id.clone(),
+                        parent_part_id: tracked.part.parent_part_id.clone(),
+                        ordinal: tracked.part.ordinal,
+                        kind: *kind,
+                        text: text.clone(),
+                    }));
+                }
+            }
+        }
+        self.store.materialized_text_part(chat_id, part_id)
     }
 
     pub fn store(&self) -> &AgentChatStore {
@@ -258,6 +322,7 @@ impl AgentChatService {
             overlay_live_state(&mut snapshot, &state);
             return Ok(snapshot);
         }
+        self.store.close_leftover_open_parts(id)?;
         self.store.get_snapshot(id)
     }
 
@@ -492,6 +557,17 @@ impl AgentChatService {
         text: &str,
         attachments: Vec<String>,
     ) -> Result<String> {
+        self.send_with_message_id(chat_id, text, attachments, None)
+            .await
+    }
+
+    pub async fn send_with_message_id(
+        &self,
+        chat_id: &str,
+        text: &str,
+        attachments: Vec<String>,
+        message_id: Option<String>,
+    ) -> Result<String> {
         if text.trim().is_empty() && attachments.is_empty() {
             return Err(ServiceError::Validation("text is required".into()));
         }
@@ -572,7 +648,7 @@ impl AgentChatService {
             chat_id,
             &TranscriptEnvelope::at(turn_id.clone(), created_at, TranscriptEvent::TurnStarted),
         )?;
-        let message_id = uuid::Uuid::new_v4().to_string();
+        let message_id = resolve_user_message_id(message_id);
         self.store.append_record(
             chat_id,
             &TranscriptEnvelope::at(
@@ -1206,6 +1282,7 @@ impl AgentChatService {
                 return Ok(runtime.control.clone());
             }
         }
+        self.store.close_leftover_open_parts(chat_id)?;
         let meta = self.store.get_meta(chat_id)?;
         let action = if meta.persistence_handle.is_some() {
             SessionLifecycleAction::Resume
@@ -1381,22 +1458,9 @@ impl AgentChatService {
             .get_meta(chat_id)
             .ok()
             .and_then(|meta| meta.pending_session_op);
-        let state = Arc::new(Mutex::new(RuntimeState {
-            current_turn_id: initial_turn_id.clone(),
-            last_turn_id: initial_turn_id,
-            pending_permission: None,
-            pending_session_op,
-            assistant_text: HashMap::new(),
-            thinking_text: HashMap::new(),
-            last_snapshot: Instant::now(),
-            last_activity: Instant::now(),
-            turn_started_at: None,
-            thinking_started_at: None,
-            thinking_ms: 0,
-            last_thinking_segment_ms: 0,
-            turn_usage: None,
-            last_stream_seq: 0,
-        }));
+        let mut runtime_state = RuntimeState::new(initial_turn_id);
+        runtime_state.pending_session_op = pending_session_op;
+        let state = Arc::new(Mutex::new(runtime_state));
         let generation = self.generations.fetch_add(1, Ordering::SeqCst);
         let root_pid = Arc::new(AtomicU32::new(0));
         store_live_root_pid(&root_pid, session.root_pid());
@@ -1879,57 +1943,56 @@ async fn pump_session(
 ) {
     store_live_root_pid(&root_pid, session.root_pid());
     let mut closed_cleanly = false;
-    while let Some(envelope) = session.next_event().await {
-        store_live_root_pid(&root_pid, session.root_pid());
-        if matches!(envelope.payload, AgentEvent::SessionClosed) {
-            closed_cleanly = true;
-        }
-        let should_dispatch = matches!(
-            &envelope.payload,
-            AgentEvent::TurnCompleted {
-                stop: agent::TurnStop::Completed,
-                ..
+    let mut coalescer = TextChunkCoalescer::new();
+    let mut flush_tick =
+        tokio::time::interval_at(tokio::time::Instant::now() + COALESCE_FLUSH, COALESCE_FLUSH);
+    flush_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    loop {
+        let envelope = tokio::select! {
+            next = session.next_event() => {
+                store_live_root_pid(&root_pid, session.root_pid());
+                let Some(envelope) = next else { break };
+                if matches!(envelope.payload, AgentEvent::SessionClosed) {
+                    closed_cleanly = true;
+                }
+                if matches!(envelope.payload, AgentEvent::TextChunk { .. }) {
+                    coalescer.push(envelope)
+                } else {
+                    let mut flushed = coalescer.flush_all();
+                    flushed.push(envelope);
+                    flushed
+                }
             }
-        );
-        if let Some(status) = &status {
-            if let Ok(meta) = store.get_meta(&chat_id) {
-                agent_status::apply_host_event(status, &meta, &envelope.payload);
-            }
-        }
-        let is_config_changed = matches!(envelope.payload, AgentEvent::ConfigChanged { .. });
-        if let Err(error) =
-            apply_event(&chat_id, envelope, &store, &state, &events, &recent_events).await
-        {
-            warn!("agent chat pump error: {error}");
-        } else if is_config_changed {
-            if let Err(error) = super::apply_event::sync_pending_session_config_if_needed(
+            _ = flush_tick.tick() => coalescer.flush_all(),
+        };
+        for envelope in envelope {
+            pump_dispatch_envelope(
                 &chat_id,
-                &store,
-                &control,
-                &state,
-                &events,
-                &recent_events,
-            )
-            .await
-            {
-                warn!("agent chat config sync error: {error}");
-            }
-        }
-        if should_dispatch {
-            if let Err(error) = maybe_dispatch_queue(
-                &chat_id,
+                envelope,
                 &store,
                 &state,
                 &events,
                 &control,
                 &recent_events,
                 &turn_gates,
+                status.as_deref(),
             )
-            .await
-            {
-                warn!("queue dispatch error: {error}");
-            }
+            .await;
         }
+    }
+    for envelope in coalescer.flush_all() {
+        pump_dispatch_envelope(
+            &chat_id,
+            envelope,
+            &store,
+            &state,
+            &events,
+            &control,
+            &recent_events,
+            &turn_gates,
+            status.as_deref(),
+        )
+        .await;
     }
     let replaced = runtimes
         .lock()
@@ -1939,6 +2002,9 @@ async fn pump_session(
     if replaced {
         return;
     }
+    let emit = |payload: AgentChatPayload| -> Result<()> {
+        emit_live(&chat_id, payload, &store, &events, &recent_events)
+    };
     if let Some(turn_id) = state.lock().await.current_turn_id.clone() {
         if let Some(status) = &status {
             if let Ok(meta) = store.get_meta(&chat_id) {
@@ -1952,9 +2018,6 @@ async fn pump_session(
                 );
             }
         }
-        let emit = |payload: AgentChatPayload| -> Result<()> {
-            emit_live(&chat_id, payload, &store, &events, &recent_events)
-        };
         let _ = finish_turn(
             &chat_id,
             turn_id,
@@ -1967,6 +2030,7 @@ async fn pump_session(
         )
         .await;
     }
+    let _ = persist_open_parts_closed(&chat_id, &store, &state, &emit).await;
     let status = if closed_cleanly {
         RuntimeStatus::Closed
     } else {
@@ -1975,6 +2039,64 @@ async fn pump_session(
     let _ = store.update_meta(&chat_id, |meta| {
         meta.runtime_status = status;
     });
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn pump_dispatch_envelope(
+    chat_id: &str,
+    envelope: AgentEventEnvelope,
+    store: &AgentChatStore,
+    state: &Mutex<RuntimeState>,
+    events: &broadcast::Sender<AgentChatEvent>,
+    control: &AgentRuntimeControl,
+    recent_events: &std::sync::Mutex<HashMap<String, VecDeque<AgentChatEvent>>>,
+    turn_gates: &Mutex<HashMap<String, Arc<Mutex<()>>>>,
+    status: Option<&AgentStatusService>,
+) {
+    let should_dispatch = matches!(
+        &envelope.payload,
+        AgentEvent::TurnCompleted {
+            stop: agent::TurnStop::Completed,
+            ..
+        }
+    );
+    if let Some(status) = status {
+        if let Ok(meta) = store.get_meta(chat_id) {
+            agent_status::apply_host_event(status, &meta, &envelope.payload);
+        }
+    }
+    let is_config_changed = matches!(envelope.payload, AgentEvent::ConfigChanged { .. });
+    if let Err(error) = apply_event(chat_id, envelope, store, state, events, recent_events).await {
+        warn!("agent chat pump error: {error}");
+    } else if is_config_changed {
+        if let Err(error) = super::apply_event::sync_pending_session_config_if_needed(
+            chat_id,
+            store,
+            control,
+            state,
+            events,
+            recent_events,
+        )
+        .await
+        {
+            warn!("agent chat config sync error: {error}");
+        }
+    }
+    if should_dispatch {
+        if let Err(error) = maybe_dispatch_queue(
+            chat_id,
+            store,
+            state,
+            events,
+            control,
+            recent_events,
+            turn_gates,
+        )
+        .await
+        {
+            warn!("queue dispatch error: {error}");
+        }
+    }
 }
 
 fn model_id_usable(id: &str) -> bool {
@@ -2239,4 +2361,11 @@ fn resolve_turn_id(turns: &[FoldedTurn], token: &str) -> Option<String> {
 fn is_conversation_restore(option_id: &str) -> bool {
     matches!(option_id, "rewind_conversation" | "rewind_both" | "rewind")
         || option_id.starts_with(TURN_OPTION_PREFIX)
+}
+
+fn resolve_user_message_id(message_id: Option<String>) -> String {
+    match message_id {
+        Some(id) if !id.trim().is_empty() => id.trim().to_string(),
+        _ => uuid::Uuid::new_v4().to_string(),
+    }
 }

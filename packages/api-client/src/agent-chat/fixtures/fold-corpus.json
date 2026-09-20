@@ -1,0 +1,239 @@
+{
+  "cases": [
+    {
+      "name": "S4 identical consecutive chunks",
+      "events": [
+        {
+          "type": "text_chunk",
+          "part_id": "p1",
+          "message_id": "m1",
+          "ordinal": 0,
+          "kind": "answer",
+          "offset": 0,
+          "text": "hello"
+        },
+        {
+          "type": "text_chunk",
+          "part_id": "p1",
+          "message_id": "m1",
+          "ordinal": 0,
+          "kind": "answer",
+          "offset": 5,
+          "text": "hello"
+        }
+      ],
+      "expected": [
+        {
+          "id": "p1",
+          "message_id": "m1",
+          "ordinal": 0,
+          "kind": "answer",
+          "text": "hellohello",
+          "closed": false
+        }
+      ]
+    },
+    {
+      "name": "S5 overlapping and contained chunks",
+      "events": [
+        {
+          "type": "text_chunk",
+          "part_id": "p1",
+          "message_id": "m1",
+          "ordinal": 0,
+          "kind": "answer",
+          "offset": 0,
+          "text": "abcd"
+        },
+        {
+          "type": "text_chunk",
+          "part_id": "p1",
+          "message_id": "m1",
+          "ordinal": 0,
+          "kind": "answer",
+          "offset": 2,
+          "text": "cdef"
+        },
+        {
+          "type": "text_chunk",
+          "part_id": "p1",
+          "message_id": "m1",
+          "ordinal": 0,
+          "kind": "answer",
+          "offset": 2,
+          "text": "cdef"
+        },
+        {
+          "type": "text_chunk",
+          "part_id": "p1",
+          "message_id": "m1",
+          "ordinal": 0,
+          "kind": "answer",
+          "offset": 0,
+          "text": "ab"
+        }
+      ],
+      "expected": [
+        {
+          "id": "p1",
+          "message_id": "m1",
+          "ordinal": 0,
+          "kind": "answer",
+          "text": "abcdef",
+          "closed": false
+        }
+      ]
+    },
+    {
+      "name": "thinking and answer stay separate parts",
+      "events": [
+        {
+          "type": "text_chunk",
+          "part_id": "think-1",
+          "message_id": "m1",
+          "ordinal": 0,
+          "kind": "thinking",
+          "offset": 0,
+          "text": "plan"
+        },
+        {
+          "type": "text_chunk",
+          "part_id": "answer-1",
+          "message_id": "m1",
+          "ordinal": 1,
+          "kind": "answer",
+          "offset": 0,
+          "text": "done"
+        },
+        {
+          "type": "part_closed",
+          "part_id": "think-1"
+        },
+        {
+          "type": "part_closed",
+          "part_id": "answer-1"
+        }
+      ],
+      "expected": [
+        {
+          "id": "answer-1",
+          "message_id": "m1",
+          "ordinal": 1,
+          "kind": "answer",
+          "text": "done",
+          "closed": true
+        },
+        {
+          "id": "think-1",
+          "message_id": "m1",
+          "ordinal": 0,
+          "kind": "thinking",
+          "text": "plan",
+          "closed": true
+        }
+      ]
+    },
+    {
+      "name": "utf8 byte offsets",
+      "events": [
+        {
+          "type": "text_chunk",
+          "part_id": "p1",
+          "message_id": "m1",
+          "ordinal": 0,
+          "kind": "answer",
+          "offset": 0,
+          "text": "é"
+        },
+        {
+          "type": "text_chunk",
+          "part_id": "p1",
+          "message_id": "m1",
+          "ordinal": 0,
+          "kind": "answer",
+          "offset": 2,
+          "text": "x"
+        }
+      ],
+      "expected": [
+        {
+          "id": "p1",
+          "message_id": "m1",
+          "ordinal": 0,
+          "kind": "answer",
+          "text": "éx",
+          "closed": false
+        }
+      ]
+    },
+    {
+      "name": "tool status lattice and absent optionals",
+      "events": [
+        {
+          "type": "tool_call",
+          "tool_call_id": "t1",
+          "status": "completed",
+          "name": "Read"
+        },
+        {
+          "type": "tool_call",
+          "tool_call_id": "t1",
+          "status": "running"
+        }
+      ],
+      "expected": [
+        {
+          "id": "t1",
+          "message_id": "tool-t1",
+          "ordinal": 0,
+          "kind": "tool",
+          "text": "",
+          "closed": false,
+          "tool_status": "completed",
+          "tool_name": "Read"
+        }
+      ]
+    },
+    {
+      "name": "replayed closed part keeps text",
+      "events": [
+        {
+          "type": "text_chunk",
+          "part_id": "p1",
+          "message_id": "m1",
+          "ordinal": 0,
+          "kind": "answer",
+          "offset": 0,
+          "text": "abc"
+        },
+        {
+          "type": "part_closed",
+          "part_id": "p1"
+        },
+        {
+          "type": "text_chunk",
+          "part_id": "p1",
+          "message_id": "m1",
+          "ordinal": 0,
+          "kind": "answer",
+          "offset": 0,
+          "text": "abc"
+        },
+        {
+          "type": "part_closed",
+          "part_id": "p1"
+        }
+      ],
+      "expected": [
+        {
+          "id": "p1",
+          "message_id": "m1",
+          "ordinal": 0,
+          "kind": "answer",
+          "text": "abc",
+          "closed": true
+        }
+      ]
+    }
+  ]
+}

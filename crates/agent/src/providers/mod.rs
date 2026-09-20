@@ -4,6 +4,7 @@ pub mod codex;
 pub mod grok;
 pub mod opencode;
 pub mod pi;
+pub(crate) mod text_parts;
 
 #[cfg(test)]
 mod ask_user_live_probe_test;

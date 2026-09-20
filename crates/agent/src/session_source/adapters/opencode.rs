@@ -8,7 +8,8 @@ use serde_json::Value;
 
 use crate::contract::{
     AgentEvent, AgentEventEnvelope, AgentPermissionOption, AgentPermissionRequest, AgentResult,
-    AgentTool, AgentToolKind, AgentToolParams, AgentToolResult, AgentToolStatus, UserMessageKind,
+    AgentTool, AgentToolKind, AgentToolParams, AgentToolResult, AgentToolStatus, TextKind,
+    UserMessageKind,
 };
 use crate::map::{
     ask_questions_from_input, classify_tool, extract_aspect_ratio, extract_background,
@@ -19,7 +20,9 @@ use crate::map::{
     thinking_text, ClassifiedTool,
 };
 use crate::session_source::paths;
-use crate::session_source::{HostId, HostSessionRef, SessionSource, TuiResumePlan};
+use crate::session_source::{
+    finished_text_part, HostId, HostSessionRef, SessionSource, TuiResumePlan,
+};
 
 const DB_NAMES: [&str; 2] = ["opencode.db", "opencode-next.db"];
 const LIST_SQL: &str =
@@ -330,15 +333,8 @@ fn event_tool(event: &AgentEventEnvelope) -> Option<&AgentTool> {
 
 fn stamp_nested(payload: &mut AgentEvent, parent: &str) {
     match payload {
-        AgentEvent::AssistantMessageDelta {
-            parent_tool_call_id,
-            ..
-        }
-        | AgentEvent::ThinkingDelta {
-            parent_tool_call_id,
-            ..
-        } => {
-            *parent_tool_call_id = Some(parent.to_string());
+        AgentEvent::TextChunk { parent_part_id, .. } => {
+            *parent_part_id = Some(parent.to_string());
         }
         AgentEvent::ToolCallStarted { tool_call }
         | AgentEvent::ToolCallUpdated { tool_call }
@@ -483,11 +479,11 @@ fn map_message(
                 },
             ));
         }
-        for part in parts {
+        for (index, part) in parts.into_iter().enumerate() {
             if part_type(&part) == "text" {
                 continue;
             }
-            map_part(events, turn_id.clone(), &message.id, part);
+            map_part(events, turn_id.clone(), &message.id, index as u32, part);
         }
         crate::session_source::stamp_new_envelopes(
             events,
@@ -497,8 +493,8 @@ fn map_message(
         return;
     }
     let from = events.len();
-    for part in parts {
-        map_part(events, turn_id.clone(), &message.id, part);
+    for (index, part) in parts.into_iter().enumerate() {
+        map_part(events, turn_id.clone(), &message.id, index as u32, part);
     }
     crate::session_source::stamp_new_envelopes(
         events,
@@ -513,49 +509,26 @@ fn map_part(
     events: &mut Vec<AgentEventEnvelope>,
     turn_id: Option<String>,
     message_id: &str,
+    index: u32,
     part: Value,
 ) {
     match part_type(&part) {
+        // A message can hold several text parts, so the part's position in the
+        // message is what keeps them apart.
         "text" => {
             let text = part.get("text").and_then(Value::as_str).unwrap_or("");
             let text = strip_subagent_footers(text);
             if text.is_empty() {
                 return;
             }
-            events.push(wrap(
-                turn_id.clone(),
-                AgentEvent::AssistantMessageDelta {
-                    message_id: message_id.to_string(),
-                    delta: text,
-                    parent_tool_call_id: None,
-                },
-            ));
-            events.push(wrap(
-                turn_id,
-                AgentEvent::AssistantMessageCompleted {
-                    message_id: message_id.to_string(),
-                },
-            ));
+            push_text_part(events, turn_id, message_id, index, TextKind::Answer, &text);
         }
         "reasoning" | "thinking" => {
             let text = part.get("text").and_then(Value::as_str).unwrap_or("");
             if text.is_empty() {
                 return;
             }
-            events.push(wrap(
-                turn_id.clone(),
-                AgentEvent::ThinkingDelta {
-                    message_id: message_id.to_string(),
-                    delta: text.to_string(),
-                    parent_tool_call_id: None,
-                },
-            ));
-            events.push(wrap(
-                turn_id,
-                AgentEvent::ThinkingCompleted {
-                    message_id: message_id.to_string(),
-                },
-            ));
+            push_text_part(events, turn_id, message_id, index, TextKind::Thinking, text);
         }
         "tool" => map_tool_part(events, turn_id, part),
         "patch" => map_patch_part(events, turn_id, &part),
@@ -567,6 +540,19 @@ fn map_part(
                 payload: part,
             },
         )),
+    }
+}
+
+fn push_text_part(
+    events: &mut Vec<AgentEventEnvelope>,
+    turn_id: Option<String>,
+    message_id: &str,
+    index: u32,
+    kind: TextKind,
+    text: &str,
+) {
+    for payload in finished_text_part(message_id, index, kind, text, None) {
+        events.push(wrap(turn_id.clone(), payload));
     }
 }
 
@@ -739,20 +725,8 @@ fn push_tool(
             if text.is_empty() {
                 return;
             }
-            events.push(wrap(
-                turn_id.clone(),
-                AgentEvent::ThinkingDelta {
-                    message_id: call_id.to_string(),
-                    delta: text,
-                    parent_tool_call_id: None,
-                },
-            ));
-            events.push(wrap(
-                turn_id,
-                AgentEvent::ThinkingCompleted {
-                    message_id: call_id.to_string(),
-                },
-            ));
+            // One folded Think tool is one part, addressed by its call id.
+            push_text_part(events, turn_id, call_id, 0, TextKind::Thinking, &text);
         }
         ClassifiedTool::Plan => {
             events.push(wrap(
@@ -1285,14 +1259,16 @@ mod tests {
         )));
         assert!(events.iter().any(|event| matches!(
             event.payload,
-            AgentEvent::ThinkingDelta { ref delta, .. } if delta.contains("list the directory")
+            AgentEvent::TextChunk { kind: TextKind::Thinking, ref text, .. }
+                if text.contains("list the directory")
         )));
         assert!(events
             .iter()
-            .any(|event| matches!(event.payload, AgentEvent::ThinkingCompleted { .. })));
+            .any(|event| matches!(event.payload, AgentEvent::PartClosed { .. })));
         assert!(events.iter().any(|event| matches!(
             event.payload,
-            AgentEvent::AssistantMessageDelta { ref delta, .. } if delta == "Running ls."
+            AgentEvent::TextChunk { kind: TextKind::Answer, ref text, offset: 0, .. }
+                if text == "Running ls."
         )));
         let tool = events.iter().find_map(|event| match &event.payload {
             AgentEvent::ToolCallCompleted { tool_call } => Some(tool_call),
@@ -1339,11 +1315,12 @@ mod tests {
         ));
         assert!(events.iter().any(|event| matches!(
             &event.payload,
-            AgentEvent::AssistantMessageDelta {
-                delta,
-                parent_tool_call_id: Some(parent),
+            AgentEvent::TextChunk {
+                kind: TextKind::Answer,
+                text,
+                parent_part_id: Some(parent),
                 ..
-            } if delta == "README looks good." && parent == "call_task"
+            } if text == "README looks good." && parent == "call_task"
         )));
         assert!(events.iter().any(|event| matches!(
             &event.payload,

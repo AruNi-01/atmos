@@ -17,7 +17,7 @@ use tokio::time::{timeout, Instant};
 use crate::acp_client::AcpToolHandler;
 use crate::contract::{
     AgentEvent, AgentPrompt, AgentProvider, AgentRuntime, AgentRuntimeConfig,
-    AgentRuntimeConfigUpdate, AgentToolKind, TurnStop,
+    AgentRuntimeConfigUpdate, AgentToolKind, TextKind, TurnStop,
 };
 use crate::models::AgentLaunchSpec;
 use crate::providers::acp::{AcpAgentProvider, AcpProviderParams};
@@ -155,9 +155,17 @@ async fn drain_turn(
             Ok(Some(event)) => event,
         };
         match &event.payload {
-            AgentEvent::AssistantMessageDelta { delta, .. } => stats.text.push_str(delta),
-            AgentEvent::ThinkingDelta { delta, .. } => {
-                eprintln!("thinking_delta len={}", delta.chars().count());
+            AgentEvent::TextChunk {
+                kind: TextKind::Answer,
+                text: chunk,
+                ..
+            } => stats.text.push_str(chunk),
+            AgentEvent::TextChunk {
+                kind: TextKind::Thinking,
+                text: chunk,
+                ..
+            } => {
+                eprintln!("thinking_chunk len={}", chunk.chars().count());
             }
             AgentEvent::PlanUpdated { plan } => {
                 stats.plans += 1;

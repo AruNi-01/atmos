@@ -291,9 +291,7 @@ fn host_event_to_status(event: &AgentEvent) -> Option<(AgentOccupancy, Occupancy
         AgentEvent::TurnStarted { .. } | AgentEvent::UserMessage { .. } => {
             Some((AgentOccupancy::Running, OccupancyUpdateKind::NewTurn))
         }
-        AgentEvent::ToolCallStarted { .. }
-        | AgentEvent::AssistantMessageDelta { .. }
-        | AgentEvent::ThinkingDelta { .. } => {
+        AgentEvent::ToolCallStarted { .. } | AgentEvent::TextChunk { .. } => {
             Some((AgentOccupancy::Running, OccupancyUpdateKind::Progress))
         }
         AgentEvent::PermissionRequested { .. } => Some((
@@ -1482,6 +1480,25 @@ mod tests {
         assert_eq!(
             host_event_to_status(&AgentEvent::SessionClosed),
             Some((AgentOccupancy::Idle, OccupancyUpdateKind::ForcedIdle))
+        );
+        assert_eq!(
+            host_event_to_status(&AgentEvent::TextChunk {
+                part_id: "p1".into(),
+                message_id: "a1".into(),
+                parent_part_id: None,
+                ordinal: 0,
+                kind: agent::TextKind::Answer,
+                offset: 0,
+                text: "hi".into(),
+            }),
+            Some((AgentOccupancy::Running, OccupancyUpdateKind::Progress))
+        );
+        assert_eq!(
+            host_event_to_status(&AgentEvent::PartClosed {
+                part_id: "p1".into(),
+                duration_ms: None,
+            }),
+            None
         );
     }
 

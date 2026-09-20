@@ -6,6 +6,7 @@ use crate::acp_client::types::{AgentConfigOption, StreamDelta, ToolCallUpdate};
 use crate::contract::AgentPersistenceHandle;
 use crate::contract::AgentTool;
 use crate::contract::AgentToolKind;
+use crate::contract::TextKind;
 use crate::contract::{AgentCurrentConfig, AgentIdentity, AgentSupportedOptions, Capability};
 use crate::contract::{AgentDescriptor, TurnStop};
 use crate::contract::{
@@ -20,6 +21,7 @@ use crate::policy::{
     option_support_for_provider,
 };
 use crate::providers::grok::{append_grok_child_prompt, map_xai_ext_events};
+use crate::providers::text_parts::{close_open_parts, TextParts};
 
 use super::overlays::OverlayState;
 use super::tool_map::{map_tool_call, merge_tool_call_patch, ToolEventKind, ToolMapOut};
@@ -30,6 +32,8 @@ pub(crate) struct EventMapState {
     pub pending: VecDeque<AgentEventEnvelope>,
     pub assistant_message_id: Option<String>,
     pub thinking_message_id: Option<String>,
+    /// ACP exposes no part index, so part ids are `{message_id}:{ordinal}`.
+    pub parts: TextParts,
     pub replaying: bool,
     pub identity: AgentIdentity,
     pub capabilities: crate::contract::AgentCapabilities,
@@ -65,6 +69,7 @@ impl EventMapState {
             pending: VecDeque::new(),
             assistant_message_id: None,
             thinking_message_id: None,
+            parts: TextParts::default(),
             replaying,
             capabilities,
             supported_options: AgentSupportedOptions::default(),
@@ -465,14 +470,10 @@ fn map_thinking_stream(
 ) -> AgentEventEnvelope {
     if let Some(parent) = parent_tool_call_for_session(state, delta.session_id.as_deref()) {
         let message_id = format!("subagent-think:{parent}");
-        return wrap(
-            turn_id,
-            AgentEvent::ThinkingDelta {
-                message_id,
-                delta: delta.delta,
-                parent_tool_call_id: Some(parent),
-            },
-        );
+        let chunk = state
+            .parts
+            .nested_chunk(&message_id, parent, TextKind::Thinking, delta.delta);
+        return wrap(turn_id, chunk);
     }
     fold_thinking(state, turn_id, delta.delta, delta.done)
 }
@@ -487,34 +488,23 @@ fn fold_thinking(
         .thinking_message_id
         .get_or_insert_with(|| uuid::Uuid::new_v4().to_string())
         .clone();
+    let part_id = state.parts.synthesized_id(&message_id, TextKind::Thinking);
     if done {
         state.thinking_message_id = None;
         if !text.is_empty() {
-            state.pending.push_back(wrap(
-                turn_id.clone(),
-                AgentEvent::ThinkingCompleted {
-                    message_id: message_id.clone(),
-                },
-            ));
-            return wrap(
-                turn_id,
-                AgentEvent::ThinkingDelta {
-                    message_id,
-                    delta: text,
-                    parent_tool_call_id: None,
-                },
-            );
+            let chunk = state
+                .parts
+                .chunk(&part_id, &message_id, None, TextKind::Thinking, text);
+            let closed = state.parts.close(part_id, None);
+            state.pending.push_back(wrap(turn_id.clone(), closed));
+            return wrap(turn_id, chunk);
         }
-        return wrap(turn_id, AgentEvent::ThinkingCompleted { message_id });
+        return wrap(turn_id, state.parts.close(part_id, None));
     }
-    wrap(
-        turn_id,
-        AgentEvent::ThinkingDelta {
-            message_id,
-            delta: text,
-            parent_tool_call_id: None,
-        },
-    )
+    let chunk = state
+        .parts
+        .chunk(&part_id, &message_id, None, TextKind::Thinking, text);
+    wrap(turn_id, chunk)
 }
 
 fn map_assistant_stream(
@@ -524,65 +514,33 @@ fn map_assistant_stream(
 ) -> AgentEventEnvelope {
     if let Some(parent) = parent_tool_call_for_session(state, delta.session_id.as_deref()) {
         let message_id = format!("subagent-text:{parent}");
-        return wrap(
-            turn_id,
-            AgentEvent::AssistantMessageDelta {
-                message_id,
-                delta: delta.delta,
-                parent_tool_call_id: Some(parent),
-            },
-        );
+        let chunk = state
+            .parts
+            .nested_chunk(&message_id, parent, TextKind::Answer, delta.delta);
+        return wrap(turn_id, chunk);
     }
     let message_id = state
         .assistant_message_id
         .get_or_insert_with(|| uuid::Uuid::new_v4().to_string())
         .clone();
+    let part_id = state.parts.synthesized_id(&message_id, TextKind::Answer);
     if delta.done {
         state.assistant_message_id = None;
         if !delta.delta.is_empty() {
-            state.pending.push_back(wrap(
-                turn_id.clone(),
-                AgentEvent::AssistantMessageCompleted {
-                    message_id: message_id.clone(),
-                },
-            ));
-            return wrap(
-                turn_id,
-                AgentEvent::AssistantMessageDelta {
-                    message_id,
-                    delta: delta.delta,
-                    parent_tool_call_id: None,
-                },
-            );
+            let chunk =
+                state
+                    .parts
+                    .chunk(&part_id, &message_id, None, TextKind::Answer, delta.delta);
+            let closed = state.parts.close(part_id, None);
+            state.pending.push_back(wrap(turn_id.clone(), closed));
+            return wrap(turn_id, chunk);
         }
-        return wrap(
-            turn_id,
-            AgentEvent::AssistantMessageCompleted { message_id },
-        );
+        return wrap(turn_id, state.parts.close(part_id, None));
     }
-    wrap(
-        turn_id,
-        AgentEvent::AssistantMessageDelta {
-            message_id,
-            delta: delta.delta,
-            parent_tool_call_id: None,
-        },
-    )
-}
-
-pub(crate) fn complete_stream_before(
-    open_id: &mut Option<String>,
-    pending: &mut VecDeque<AgentEventEnvelope>,
-    turn_id: Option<String>,
-    completed: impl FnOnce(String) -> AgentEvent,
-    next: AgentEventEnvelope,
-) -> AgentEventEnvelope {
-    if let Some(message_id) = open_id.take() {
-        pending.push_back(next);
-        wrap(turn_id, completed(message_id))
-    } else {
-        next
-    }
+    let chunk = state
+        .parts
+        .chunk(&part_id, &message_id, None, TextKind::Answer, delta.delta);
+    wrap(turn_id, chunk)
 }
 
 fn complete_before_thinking(
@@ -590,11 +548,14 @@ fn complete_before_thinking(
     turn_id: Option<String>,
     next: AgentEventEnvelope,
 ) -> AgentEventEnvelope {
-    complete_stream_before(
-        &mut state.thinking_message_id,
+    if !state.parts.open_of(TextKind::Thinking).is_empty() {
+        state.thinking_message_id = None;
+    }
+    close_open_parts(
+        &mut state.parts,
         &mut state.pending,
         turn_id,
-        |message_id| AgentEvent::ThinkingCompleted { message_id },
+        TextKind::Thinking,
         next,
     )
 }
@@ -604,11 +565,14 @@ fn complete_before_assistant(
     turn_id: Option<String>,
     next: AgentEventEnvelope,
 ) -> AgentEventEnvelope {
-    complete_stream_before(
-        &mut state.assistant_message_id,
+    if !state.parts.open_of(TextKind::Answer).is_empty() {
+        state.assistant_message_id = None;
+    }
+    close_open_parts(
+        &mut state.parts,
         &mut state.pending,
         turn_id,
-        |message_id| AgentEvent::AssistantMessageCompleted { message_id },
+        TextKind::Answer,
         next,
     )
 }
@@ -878,6 +842,7 @@ mod tests {
     use crate::contract::AgentToolKind;
     use crate::contract::AgentToolStatus;
     use crate::contract::{AgentToolParams, AgentToolResult};
+    use crate::providers::text_parts::{reassemble, reassembled_text};
 
     fn state() -> EventMapState {
         EventMapState::new("gemini".into(), AgentCurrentConfig::default(), false)
@@ -892,6 +857,71 @@ mod tests {
             out.push(next.payload);
         }
         out
+    }
+
+    fn stream_delta(kind: &str, delta: &str) -> AcpSessionEvent {
+        AcpSessionEvent::Stream(StreamDelta {
+            role: "assistant".into(),
+            kind: kind.into(),
+            delta: delta.into(),
+            done: false,
+            usage: None,
+            session_id: None,
+        })
+    }
+
+    #[test]
+    fn s6_acp_reassembles_chunks_at_offsets() {
+        let mut state = state();
+        state.thinking_message_id = Some("think-msg".into());
+        state.assistant_message_id = Some("ans-msg".into());
+        let vendor_thinking = ["Think ", "café."];
+        let vendor_answer = ["Hello ", "world."];
+        let mut events = Vec::new();
+        for text in vendor_thinking {
+            events.extend(payloads(&mut state, stream_delta("thinking", text)));
+        }
+        for text in vendor_answer {
+            events.extend(payloads(&mut state, stream_delta("message", text)));
+        }
+
+        for event in &events {
+            if let AgentEvent::TextChunk {
+                part_id,
+                message_id,
+                ordinal,
+                ..
+            } = event
+            {
+                assert_eq!(part_id, &format!("{message_id}:{ordinal}"));
+            }
+        }
+
+        // Panics on a gap or an overlap in any part's offset sequence.
+        let parts = reassemble(&events);
+        assert_eq!(
+            parts,
+            vec![
+                (
+                    "think-msg:0".to_string(),
+                    TextKind::Thinking,
+                    vendor_thinking.concat()
+                ),
+                (
+                    "ans-msg:0".to_string(),
+                    TextKind::Answer,
+                    vendor_answer.concat()
+                ),
+            ]
+        );
+        assert_eq!(
+            reassembled_text(&events, TextKind::Thinking),
+            vendor_thinking.concat()
+        );
+        assert_eq!(
+            reassembled_text(&events, TextKind::Answer),
+            vendor_answer.concat()
+        );
     }
 
     #[test]
@@ -915,13 +945,15 @@ mod tests {
     fn tool_call_closes_open_thinking_stream() {
         let mut state = state();
         state.thinking_message_id = Some("think-1".into());
+        let part_id = state.parts.synthesized_id("think-1", TextKind::Thinking);
         let events = payloads(&mut state, AcpSessionEvent::SessionClosed { reason: None });
         assert!(matches!(
             events.first(),
-            Some(AgentEvent::ThinkingCompleted { message_id }) if message_id == "think-1"
+            Some(AgentEvent::PartClosed { part_id: closed, .. }) if *closed == part_id
         ));
         assert!(matches!(events.get(1), Some(AgentEvent::SessionClosed)));
         assert!(state.thinking_message_id.is_none());
+        assert!(state.parts.open_of(TextKind::Thinking).is_empty());
     }
 
     #[test]
@@ -1291,14 +1323,15 @@ mod tests {
             }),
         )
         .expect("child stream after TurnEnd");
-        let AgentEvent::AssistantMessageDelta {
-            parent_tool_call_id,
+        let AgentEvent::TextChunk {
+            parent_part_id,
+            kind: TextKind::Answer,
             ..
         } = child_text.payload
         else {
             panic!("expected parented child text, got {:?}", child_text.payload);
         };
-        assert_eq!(parent_tool_call_id.as_deref(), Some("tc_sub"));
+        assert_eq!(parent_part_id.as_deref(), Some("tc_sub"));
 
         let child_tool = map_event(
             &mut state,

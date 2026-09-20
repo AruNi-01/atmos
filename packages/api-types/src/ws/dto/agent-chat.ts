@@ -90,10 +90,25 @@ export type AgentChatSubscribeRequest = {
   after_sequence?: number | null;
 };
 
+export type AgentChatBackfillPart = {
+  part_id: string;
+  from_offset: number;
+};
+
+export type AgentChatBackfillRequest = {
+  chat_id: string;
+  parts: AgentChatBackfillPart[];
+};
+
+export type AgentChatBackfillResponse = {
+  accepted: number;
+};
+
 export type AgentChatSendRequest = {
   chat_id: string;
   text: string;
   attachment_paths?: string[] | null;
+  message_id?: string | null;
 };
 
 export type AgentChatSteerRequest = {
@@ -578,21 +593,16 @@ export type AgentChatPayload =
       created_at?: string;
     }
   | {
-      type: "assistant_message_delta";
+      type: "text_chunk";
+      part_id: string;
       message_id: string;
-      delta: string;
-      turn_id?: string;
-      parent_tool_call_id?: string | null;
+      parent_part_id?: string | null;
+      ordinal: number;
+      kind: "answer" | "thinking";
+      offset: number;
+      text: string;
     }
-  | { type: "assistant_message_completed"; message_id: string }
-  | {
-      type: "thinking_delta";
-      message_id: string;
-      delta: string;
-      turn_id?: string;
-      parent_tool_call_id?: string | null;
-    }
-  | { type: "thinking_completed"; message_id: string; thinking_ms?: number | null }
+  | { type: "part_closed"; part_id: string; duration_ms?: number | null }
   | {
       type: "tool_call_started" | "tool_call_updated" | "tool_call_completed";
       tool_call: AgentTool;
@@ -697,7 +707,7 @@ export type AgentEvent = AgentChatPayload;
 export type AgentChatEvent = {
   chat_id: string;
   event_id: string;
-  sequence: number;
+  revision: number;
   turn_id?: string | null;
   payload: AgentEvent;
 };

@@ -8,7 +8,7 @@ use serde_json::{Map, Value};
 
 use crate::contract::{
     AgentEvent, AgentEventEnvelope, AgentResult, AgentTool, AgentToolKind, AgentToolParams,
-    AgentToolResult, AgentToolStatus, UserMessageKind,
+    AgentToolResult, AgentToolStatus, TextKind, UserMessageKind,
 };
 use crate::map::{
     classify_tool, extract_aspect_ratio, extract_background, extract_command, extract_cwd,
@@ -17,7 +17,9 @@ use crate::map::{
     plan_document_from_tool_input, plan_from_tool_input, ClassifiedTool,
 };
 use crate::session_source::paths;
-use crate::session_source::{HostId, HostSessionRef, SessionSource, TuiResumePlan};
+use crate::session_source::{
+    finished_text_part, HostId, HostSessionRef, SessionSource, TuiResumePlan,
+};
 
 const PROVIDER: &str = "cursor";
 
@@ -730,19 +732,19 @@ fn flush_assistant(
     if text.is_empty() {
         return;
     }
+    // A flush is one whole segment under a `message_id` minted right here, so it is
+    // the sole part of its message.
     let message_id = uuid::Uuid::new_v4().to_string();
-    events.push(wrap(
-        Some(turn_id.to_string()),
-        AgentEvent::AssistantMessageDelta {
-            message_id: message_id.clone(),
-            delta: std::mem::take(text),
-            parent_tool_call_id: parent_tool_call_id.map(str::to_string),
-        },
-    ));
-    events.push(wrap(
-        Some(turn_id.to_string()),
-        AgentEvent::AssistantMessageCompleted { message_id },
-    ));
+    let taken = std::mem::take(text);
+    for payload in finished_text_part(
+        &message_id,
+        0,
+        TextKind::Answer,
+        &taken,
+        parent_tool_call_id.map(str::to_string),
+    ) {
+        events.push(wrap(Some(turn_id.to_string()), payload));
+    }
 }
 
 fn map_tool_use(
@@ -1277,7 +1279,7 @@ mod tests {
         let assistant: Vec<_> = events
             .iter()
             .filter_map(|event| match &event.payload {
-                AgentEvent::AssistantMessageDelta { delta, .. } => Some(delta.as_str()),
+                AgentEvent::TextChunk { text, .. } => Some(text.as_str()),
                 _ => None,
             })
             .collect();
@@ -1327,7 +1329,7 @@ mod tests {
         let assistant: Vec<_> = events
             .iter()
             .filter_map(|event| match &event.payload {
-                AgentEvent::AssistantMessageDelta { delta, .. } => Some(delta.as_str()),
+                AgentEvent::TextChunk { text, .. } => Some(text.as_str()),
                 _ => None,
             })
             .collect();
@@ -1353,7 +1355,7 @@ mod tests {
         let assistant_turns: Vec<_> = events
             .iter()
             .filter_map(|event| match &event.payload {
-                AgentEvent::AssistantMessageDelta { .. } => event.turn_id.as_deref(),
+                AgentEvent::TextChunk { .. } => event.turn_id.as_deref(),
                 _ => None,
             })
             .collect();
@@ -1425,11 +1427,11 @@ mod tests {
         );
 
         let nested_text = events.iter().find_map(|event| match &event.payload {
-            AgentEvent::AssistantMessageDelta {
-                delta,
-                parent_tool_call_id: Some(parent),
+            AgentEvent::TextChunk {
+                text,
+                parent_part_id: Some(parent),
                 ..
-            } if parent == &task.tool_call_id => Some(delta.as_str()),
+            } if parent == &task.tool_call_id => Some(text.as_str()),
             _ => None,
         });
         assert_eq!(nested_text, Some("Child finished."));

@@ -19,8 +19,8 @@ pub use descriptor::{
 pub use error::{AgentProviderError, AgentResult};
 pub use event::{
     AgentAskQuestion, AgentAvailableCommand, AgentEvent, AgentEventEnvelope, AgentPermissionOption,
-    AgentPermissionRequest, AgentSessionOpRequest, AgentToolCall, SessionOpOutcome, TurnStop,
-    UserMessageKind,
+    AgentPermissionRequest, AgentSessionOpRequest, AgentToolCall, SessionOpOutcome, TextKind,
+    TurnStop, UserMessageKind,
 };
 pub use grok::{
     is_grok_chrome_subagent_name, GrokGoal, GrokGoalChild, GrokWorkflow, GrokWorkflowAgent,

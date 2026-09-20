@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     "./ws": "./src/ws/index.ts",
-    "./platform": "./src/platform/types.ts"
+    "./platform": "./src/platform/types.ts",
+    "./agent-chat": "./src/agent-chat/index.ts"
   },
   "scripts": {
     "typecheck": "bun ../../scripts/run-tsc7.ts --noEmit",

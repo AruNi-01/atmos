@@ -8,7 +8,7 @@ use serde_json::{Map, Value};
 
 use crate::contract::{
     AgentEvent, AgentEventEnvelope, AgentResult, AgentTool, AgentToolKind, AgentToolParams,
-    AgentToolResult, AgentToolStatus, UserMessageKind, GROK_CHROME_SUBAGENT_NAME,
+    AgentToolResult, AgentToolStatus, TextKind, UserMessageKind, GROK_CHROME_SUBAGENT_NAME,
 };
 use crate::map::subagent::is_xai_session_notification_method;
 use crate::map::{
@@ -19,7 +19,9 @@ use crate::map::{
 };
 use crate::providers::grok::{looks_like_grok_goal_child, map_xai_ext_events};
 use crate::session_source::paths;
-use crate::session_source::{HostId, HostSessionRef, SessionSource, TuiResumePlan};
+use crate::session_source::{
+    finished_text_part, HostId, HostSessionRef, SessionSource, TuiResumePlan,
+};
 
 const PROVIDER: &str = "grok";
 
@@ -473,15 +475,8 @@ fn event_tool(event: &AgentEventEnvelope) -> Option<&AgentTool> {
 
 fn stamp_nested(payload: &mut AgentEvent, parent: &str) {
     match payload {
-        AgentEvent::AssistantMessageDelta {
-            parent_tool_call_id,
-            ..
-        }
-        | AgentEvent::ThinkingDelta {
-            parent_tool_call_id,
-            ..
-        } => {
-            *parent_tool_call_id = Some(parent.to_string());
+        AgentEvent::TextChunk { parent_part_id, .. } => {
+            *parent_part_id = Some(parent.to_string());
         }
         AgentEvent::ToolCallStarted { tool_call }
         | AgentEvent::ToolCallUpdated { tool_call }
@@ -623,37 +618,17 @@ fn flush_open(open: &mut Option<OpenText>, events: &mut Vec<AgentEventEnvelope>)
                 attachments: Vec::new(),
             },
         )),
-        OpenKind::Assistant => {
-            events.push(wrap(
-                turn.clone(),
-                AgentEvent::AssistantMessageDelta {
-                    message_id: current.message_id.clone(),
-                    delta: current.text,
-                    parent_tool_call_id: None,
-                },
-            ));
-            events.push(wrap(
-                turn,
-                AgentEvent::AssistantMessageCompleted {
-                    message_id: current.message_id,
-                },
-            ));
-        }
-        OpenKind::Thinking => {
-            events.push(wrap(
-                turn.clone(),
-                AgentEvent::ThinkingDelta {
-                    message_id: current.message_id.clone(),
-                    delta: current.text,
-                    parent_tool_call_id: None,
-                },
-            ));
-            events.push(wrap(
-                turn,
-                AgentEvent::ThinkingCompleted {
-                    message_id: current.message_id,
-                },
-            ));
+        // `append_open` mints a `message_id` per open block, so a flushed block is
+        // the sole part of its message.
+        OpenKind::Assistant | OpenKind::Thinking => {
+            let kind = if current.kind == OpenKind::Assistant {
+                TextKind::Answer
+            } else {
+                TextKind::Thinking
+            };
+            for payload in finished_text_part(&current.message_id, 0, kind, &current.text, None) {
+                events.push(wrap(turn.clone(), payload));
+            }
         }
     }
 }
@@ -1199,16 +1174,24 @@ mod tests {
         assert_eq!(user, Some("Hello world"));
 
         let thinking = events.iter().find_map(|event| match &event.payload {
-            AgentEvent::ThinkingDelta { delta, .. } => Some(delta.as_str()),
+            AgentEvent::TextChunk {
+                kind: TextKind::Thinking,
+                text,
+                ..
+            } => Some(text.as_str()),
             _ => None,
         });
         assert_eq!(thinking, Some("thinking now"));
         assert!(events
             .iter()
-            .any(|event| matches!(event.payload, AgentEvent::ThinkingCompleted { .. })));
+            .any(|event| matches!(event.payload, AgentEvent::PartClosed { .. })));
 
         let assistant = events.iter().find_map(|event| match &event.payload {
-            AgentEvent::AssistantMessageDelta { delta, .. } => Some(delta.as_str()),
+            AgentEvent::TextChunk {
+                kind: TextKind::Answer,
+                text,
+                ..
+            } => Some(text.as_str()),
             _ => None,
         });
         assert_eq!(assistant, Some("I will read it."));
@@ -1303,11 +1286,12 @@ mod tests {
             .any(|event| matches!(&event.payload, AgentEvent::PlanUpdated { .. })));
         assert!(events.iter().any(|event| matches!(
             &event.payload,
-            AgentEvent::AssistantMessageDelta {
-                delta,
-                parent_tool_call_id: Some(parent),
+            AgentEvent::TextChunk {
+                kind: TextKind::Answer,
+                text,
+                parent_part_id: Some(parent),
                 ..
-            } if delta == "Sibling found README." && parent == SIBLING_ID
+            } if text == "Sibling found README." && parent == SIBLING_ID
         )));
         assert!(events.iter().any(|event| matches!(
             &event.payload,
@@ -1321,7 +1305,7 @@ mod tests {
         )));
         assert!(!events.iter().any(|event| matches!(
             &event.payload,
-            AgentEvent::AssistantMessageDelta { delta, .. } if delta == "Fork only."
+            AgentEvent::TextChunk { text, .. } if text == "Fork only."
         )));
         assert!(!events.iter().any(|event| matches!(
             &event.payload,

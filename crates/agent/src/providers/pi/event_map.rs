@@ -4,11 +4,13 @@ use std::collections::{HashMap, VecDeque};
 
 use serde_json::Value;
 
+use crate::contract::TextKind;
 use crate::contract::TurnStop;
 use crate::contract::{
     AgentEvent, AgentEventEnvelope, AgentPermissionOption, AgentPermissionRequest,
 };
 use crate::contract::{AgentTool, AgentToolStatus};
+use crate::providers::text_parts::{close_open_parts, Snapshot, TextParts};
 
 use super::tool_map::{map_tool_execution, ToolMapOut};
 
@@ -25,7 +27,8 @@ pub struct EventMapState {
     pub pending: VecDeque<AgentEventEnvelope>,
     assistant_message_id: Option<String>,
     thinking_message_id: Option<String>,
-    text_by_index: HashMap<i64, String>,
+    /// Keyed by `{messageId}:{contentIndex}` — Pi's own content index.
+    parts: TextParts,
     tools: HashMap<String, AgentTool>,
     toolcall_args: HashMap<String, Value>,
     turn_outcome: Option<TurnOutcome>,
@@ -195,56 +198,78 @@ fn map_message_end(
     let thinking = message.map(message_thinking).unwrap_or_default();
     if !thinking.is_empty() {
         let id = ensure_thinking_id(state);
-        if !thinking.is_empty() {
-            push(
-                state,
-                wrap(
-                    turn_id.clone(),
-                    AgentEvent::ThinkingDelta {
-                        message_id: id.clone(),
-                        delta: thinking,
-                        parent_tool_call_id: None,
-                    },
-                ),
-            );
+        for event in apply_snapshot(state, &id, 0, TextKind::Thinking, &thinking) {
+            push(state, wrap(turn_id.clone(), event));
         }
         state.thinking_message_id = None;
-        push(
-            state,
-            wrap(
-                turn_id.clone(),
-                AgentEvent::ThinkingCompleted { message_id: id },
-            ),
-        );
+        close_kind(state, turn_id.clone(), TextKind::Thinking);
     }
     if text.is_empty() && state.assistant_message_id.is_none() {
         return state.pending.pop_front();
     }
+    // The streamed deltas already carry the body; only the bytes they did not
+    // deliver come from the `message_end` snapshot.
     let message_id = ensure_assistant_id(state);
-    let assembled: String = state.text_by_index.values().cloned().collect();
-    if assembled.is_empty() && !text.is_empty() {
-        push(
-            state,
-            wrap(
-                turn_id.clone(),
-                AgentEvent::AssistantMessageDelta {
-                    message_id: message_id.clone(),
-                    delta: text,
-                    parent_tool_call_id: None,
-                },
-            ),
-        );
+    for event in apply_snapshot(state, &message_id, 0, TextKind::Answer, &text) {
+        push(state, wrap(turn_id.clone(), event));
     }
     state.assistant_message_id = None;
-    state.text_by_index.clear();
-    Some(complete_before_thinking(
-        state,
-        turn_id.clone(),
-        wrap(
-            turn_id,
-            AgentEvent::AssistantMessageCompleted { message_id },
-        ),
-    ))
+    close_kind(state, turn_id, TextKind::Answer);
+    state.pending.pop_front()
+}
+
+fn close_kind(state: &mut EventMapState, turn_id: Option<String>, kind: TextKind) {
+    for part_id in state.parts.open_of(kind) {
+        let closed = state.parts.close(part_id, None);
+        push(state, wrap(turn_id.clone(), closed));
+    }
+}
+
+/// Pi addresses text by `{messageId}:{contentIndex}`.
+fn part_id_of(message_id: &str, content_index: i64) -> String {
+    format!("{message_id}:{content_index}")
+}
+
+fn text_chunk(
+    state: &mut EventMapState,
+    message_id: &str,
+    content_index: i64,
+    kind: TextKind,
+    text: String,
+) -> AgentEvent {
+    let part_id = state.parts.current(&part_id_of(message_id, content_index));
+    state.parts.chunk(&part_id, message_id, None, kind, text)
+}
+
+/// Apply a vendor full-text snapshot to one part: append the tail it adds, or —
+/// when Pi replaced content it had already sent — close the part and restart.
+fn apply_snapshot(
+    state: &mut EventMapState,
+    message_id: &str,
+    content_index: i64,
+    kind: TextKind,
+    snapshot: &str,
+) -> Vec<AgentEvent> {
+    let vendor_key = part_id_of(message_id, content_index);
+    let part_id = state.parts.current(&vendor_key);
+    match state.parts.snapshot(&part_id, snapshot) {
+        Snapshot::Unchanged => Vec::new(),
+        Snapshot::Appends(suffix) => {
+            let suffix = suffix.to_string();
+            vec![state.parts.chunk(&part_id, message_id, None, kind, suffix)]
+        }
+        Snapshot::Revised => {
+            let snapshot = snapshot.to_string();
+            let closed = state.parts.close(part_id, None);
+            let revised = state.parts.revise(&vendor_key);
+            vec![
+                closed,
+                state
+                    .parts
+                    .chunk(&revised, message_id, None, kind, snapshot),
+            ]
+        }
+    }
 }
 
 fn map_message_update(
@@ -288,31 +313,34 @@ fn map_message_update(
             state.pending.pop_front()
         }
         "text_delta" => {
-            let delta = event.get("delta").and_then(Value::as_str).unwrap_or("");
-            state
-                .text_by_index
-                .entry(content_index)
-                .or_default()
-                .push_str(delta);
+            let delta = event
+                .get("delta")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
             let message_id = ensure_assistant_id(state);
+            let chunk = text_chunk(state, &message_id, content_index, TextKind::Answer, delta);
             Some(complete_before_thinking(
                 state,
                 turn_id.clone(),
-                wrap(
-                    turn_id,
-                    AgentEvent::AssistantMessageDelta {
-                        message_id,
-                        delta: delta.to_string(),
-                        parent_tool_call_id: None,
-                    },
-                ),
+                wrap(turn_id, chunk),
             ))
         }
         "text_end" => {
+            // `content` is the settled body. Pi sometimes rewrites what it
+            // streamed, which closes the part and restarts under a new id.
             if let Some(content) = event.get("content").and_then(Value::as_str) {
-                state
-                    .text_by_index
-                    .insert(content_index, content.to_string());
+                let content = content.to_string();
+                let message_id = ensure_assistant_id(state);
+                for payload in apply_snapshot(
+                    state,
+                    &message_id,
+                    content_index,
+                    TextKind::Answer,
+                    &content,
+                ) {
+                    push(state, wrap(turn_id.clone(), payload));
+                }
             }
             state.pending.pop_front()
         }
@@ -321,27 +349,23 @@ fn map_message_update(
             state.pending.pop_front()
         }
         "thinking_delta" => {
-            let delta = event.get("delta").and_then(Value::as_str).unwrap_or("");
+            let delta = event
+                .get("delta")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
             let message_id = ensure_thinking_id(state);
+            let chunk = text_chunk(state, &message_id, content_index, TextKind::Thinking, delta);
             Some(complete_before_assistant(
                 state,
                 turn_id.clone(),
-                wrap(
-                    turn_id,
-                    AgentEvent::ThinkingDelta {
-                        message_id,
-                        delta: delta.to_string(),
-                        parent_tool_call_id: None,
-                    },
-                ),
+                wrap(turn_id, chunk),
             ))
         }
         "thinking_end" => {
-            let message_id = state
-                .thinking_message_id
-                .take()
-                .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-            Some(wrap(turn_id, AgentEvent::ThinkingCompleted { message_id }))
+            state.thinking_message_id = None;
+            close_kind(state, turn_id, TextKind::Thinking);
+            state.pending.pop_front()
         }
         "toolcall_start" => {
             if let (Some(id), Some(name)) = (
@@ -403,7 +427,7 @@ fn map_tool(
             turn_id.clone(),
             wrap(turn_id, AgentEvent::PlanUpdated { plan }),
         )),
-        ToolMapOut::FoldThinking { text, done } => Some(fold_thinking(state, turn_id, text, done)),
+        ToolMapOut::FoldThinking { text, done } => fold_thinking(state, turn_id, text, done),
         ToolMapOut::Tool(tool) => {
             let event = tool_event(&tool, status, is_error);
             state.tools.insert(tool.tool_call_id.clone(), tool);
@@ -573,60 +597,24 @@ fn fold_thinking(
     turn_id: Option<String>,
     text: String,
     done: bool,
-) -> AgentEventEnvelope {
+) -> Option<AgentEventEnvelope> {
     let message_id = ensure_thinking_id(state);
+    if !text.is_empty() {
+        let chunk = text_chunk(state, &message_id, 0, TextKind::Thinking, text);
+        push(state, wrap(turn_id.clone(), chunk));
+    }
     if done {
         state.thinking_message_id = None;
-        if !text.is_empty() {
-            push(
-                state,
-                wrap(
-                    turn_id.clone(),
-                    AgentEvent::ThinkingCompleted {
-                        message_id: message_id.clone(),
-                    },
-                ),
-            );
-            return wrap(
-                turn_id,
-                AgentEvent::ThinkingDelta {
-                    message_id,
-                    delta: text,
-                    parent_tool_call_id: None,
-                },
-            );
-        }
-        return wrap(turn_id, AgentEvent::ThinkingCompleted { message_id });
+        close_kind(state, turn_id, TextKind::Thinking);
     }
-    wrap(
-        turn_id,
-        AgentEvent::ThinkingDelta {
-            message_id,
-            delta: text,
-            parent_tool_call_id: None,
-        },
-    )
+    state.pending.pop_front()
 }
 
 fn complete_open_streams(state: &mut EventMapState, turn_id: Option<String>) {
-    if let Some(message_id) = state.thinking_message_id.take() {
-        push(
-            state,
-            wrap(
-                turn_id.clone(),
-                AgentEvent::ThinkingCompleted { message_id },
-            ),
-        );
-    }
-    if let Some(message_id) = state.assistant_message_id.take() {
-        push(
-            state,
-            wrap(
-                turn_id,
-                AgentEvent::AssistantMessageCompleted { message_id },
-            ),
-        );
-    }
+    state.thinking_message_id = None;
+    state.assistant_message_id = None;
+    close_kind(state, turn_id.clone(), TextKind::Thinking);
+    close_kind(state, turn_id, TextKind::Answer);
 }
 
 fn complete_before_thinking(
@@ -634,12 +622,16 @@ fn complete_before_thinking(
     turn_id: Option<String>,
     next: AgentEventEnvelope,
 ) -> AgentEventEnvelope {
-    if let Some(message_id) = state.thinking_message_id.take() {
-        push(state, next);
-        wrap(turn_id, AgentEvent::ThinkingCompleted { message_id })
-    } else {
-        next
+    if !state.parts.open_of(TextKind::Thinking).is_empty() {
+        state.thinking_message_id = None;
     }
+    close_open_parts(
+        &mut state.parts,
+        &mut state.pending,
+        turn_id,
+        TextKind::Thinking,
+        next,
+    )
 }
 
 fn complete_before_assistant(
@@ -647,15 +639,16 @@ fn complete_before_assistant(
     turn_id: Option<String>,
     next: AgentEventEnvelope,
 ) -> AgentEventEnvelope {
-    if let Some(message_id) = state.assistant_message_id.take() {
-        push(state, next);
-        wrap(
-            turn_id,
-            AgentEvent::AssistantMessageCompleted { message_id },
-        )
-    } else {
-        next
+    if !state.parts.open_of(TextKind::Answer).is_empty() {
+        state.assistant_message_id = None;
     }
+    close_open_parts(
+        &mut state.parts,
+        &mut state.pending,
+        turn_id,
+        TextKind::Answer,
+        next,
+    )
 }
 
 fn ensure_assistant_id(state: &mut EventMapState) -> String {
@@ -772,6 +765,77 @@ mod tests {
     use crate::contract::AgentEvent;
     use crate::contract::AgentToolKind;
     use crate::contract::AgentToolParams;
+    use crate::providers::text_parts::{reassemble, reassembled_text};
+
+    fn jsonl_fixtures() -> Vec<(String, String)> {
+        let dir =
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/providers/pi/testdata");
+        let mut fixtures: Vec<(String, String)> = std::fs::read_dir(dir)
+            .expect("testdata dir")
+            .map(|entry| entry.expect("dir entry").path())
+            .filter(|path| path.extension().is_some_and(|ext| ext == "jsonl"))
+            .map(|path| {
+                (
+                    path.file_name()
+                        .and_then(|name| name.to_str())
+                        .unwrap_or_default()
+                        .to_string(),
+                    std::fs::read_to_string(&path).expect("fixture"),
+                )
+            })
+            .collect();
+        fixtures.sort_by(|left, right| left.0.cmp(&right.0));
+        assert!(!fixtures.is_empty(), "no jsonl fixtures found");
+        fixtures
+    }
+
+    #[test]
+    fn s6_prompt_turn_reassembles_to_the_text_pi_sent() {
+        let events = map_jsonl(include_str!("testdata/prompt-turn.jsonl"), "atmos-turn");
+        assert_eq!(reassembled_text(&events, TextKind::Answer), "Hello");
+        // `text_end` repeats the settled body, so it must not append a second copy.
+        assert_eq!(reassemble(&events).len(), 1);
+    }
+
+    #[test]
+    fn s6_every_jsonl_fixture_keeps_part_offsets_contiguous() {
+        for (name, jsonl) in jsonl_fixtures() {
+            let events = map_jsonl(&jsonl, "atmos-turn");
+            // Panics on a gap or an overlap in any part's offset sequence.
+            for (part_id, _, text) in reassemble(&events) {
+                assert!(
+                    !text.is_empty(),
+                    "{name}: part {part_id} emitted chunks but reassembled empty"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn s6_text_end_rewrite_closes_the_part_and_restarts() {
+        let jsonl = concat!(
+            r#"{"type":"message_start","message":{"role":"assistant","content":[]}}"#,
+            "\n",
+            r#"{"type":"message_update","assistantMessageEvent":{"type":"text_delta","contentIndex":0,"delta":"draft"}}"#,
+            "\n",
+            r#"{"type":"message_update","assistantMessageEvent":{"type":"text_end","contentIndex":0,"content":"final"}}"#,
+            "\n",
+        );
+        let events = map_jsonl(jsonl, "atmos-turn");
+        let parts = reassemble(&events);
+        assert_eq!(
+            parts.len(),
+            2,
+            "expected a closed part plus its replacement"
+        );
+        assert_eq!(parts[0].2, "draft");
+        assert_eq!(parts[1].2, "final");
+        assert_ne!(parts[0].0, parts[1].0);
+        assert!(events.iter().any(|event| matches!(
+            event,
+            AgentEvent::PartClosed { part_id, .. } if *part_id == parts[0].0
+        )));
+    }
 
     fn map_jsonl(text: &str, turn: &str) -> Vec<AgentEvent> {
         let mut state = EventMapState::new();
@@ -803,12 +867,18 @@ mod tests {
         assert_eq!(completed.len(), 1);
         assert!(events.iter().any(|event| matches!(
             event,
-            AgentEvent::AssistantMessageDelta { delta, .. } if delta == "Hello"
+            AgentEvent::TextChunk { kind: TextKind::Answer, text, .. } if text == "Hello"
         )));
         assert_eq!(
             events
                 .iter()
-                .filter(|event| matches!(event, AgentEvent::AssistantMessageDelta { .. }))
+                .filter(|event| matches!(
+                    event,
+                    AgentEvent::TextChunk {
+                        kind: TextKind::Answer,
+                        ..
+                    }
+                ))
                 .count(),
             1
         );

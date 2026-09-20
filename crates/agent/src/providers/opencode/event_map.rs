@@ -5,6 +5,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use serde_json::Value;
 
 use crate::contract::AgentPersistenceHandle;
+use crate::contract::TextKind;
 use crate::contract::{AgentCurrentConfig, AgentIdentity, AgentSupportedOptions};
 use crate::contract::{AgentDescriptor, TurnStop};
 use crate::contract::{
@@ -12,6 +13,7 @@ use crate::contract::{
 };
 use crate::contract::{AgentTool, AgentToolKind, AgentToolParams, AgentToolStatus};
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
+use crate::providers::text_parts::{close_open_parts, Snapshot, TextParts};
 
 use super::codec::{is_heartbeat, BusEvent};
 use super::tool_map::{map_tool_part, ToolEventKind, ToolMapOut};
@@ -36,10 +38,8 @@ pub(crate) struct EventMapState {
     pub persistence: Option<AgentPersistenceHandle>,
     pub pending: VecDeque<AgentEventEnvelope>,
     pub pending_asks: HashMap<String, PendingAsk>,
-    pub assistant_message_id: Option<String>,
-    pub thinking_message_id: Option<String>,
-    pub assistant_text: HashMap<String, String>,
-    pub thinking_text: HashMap<String, String>,
+    /// Keyed by the vendor `partID`, which is OpenCode's own block index.
+    pub parts: TextParts,
     /// OpenCode `message.part.delta.field` is the JSON field name (`text`), not the
     /// part type. Reasoning vs answer is `part.type` keyed by `partID`.
     pub part_kinds: HashMap<String, String>,
@@ -82,10 +82,7 @@ impl EventMapState {
             session_id,
             pending: VecDeque::new(),
             pending_asks: HashMap::new(),
-            assistant_message_id: None,
-            thinking_message_id: None,
-            assistant_text: HashMap::new(),
-            thinking_text: HashMap::new(),
+            parts: TextParts::default(),
             part_kinds: HashMap::new(),
             ignored_parts: HashSet::new(),
             pending_part_deltas: HashMap::new(),
@@ -228,7 +225,7 @@ fn map_part_delta(
             return MapOut::Skip;
         }
         if let Some(kind) = state.part_kinds.get(part_id).cloned() {
-            return emit_content_delta(state, turn_id, &message_id, &kind, delta);
+            return emit_content_delta(state, turn_id, Some(part_id), &message_id, &kind, delta);
         }
         mark_work(state);
         state
@@ -243,7 +240,7 @@ fn map_part_delta(
     } else {
         "text"
     };
-    emit_content_delta(state, turn_id, &message_id, kind, delta)
+    emit_content_delta(state, turn_id, None, &message_id, kind, delta)
 }
 
 fn map_part_updated(
@@ -283,6 +280,7 @@ fn map_part_updated(
                 enqueue_content_delta(
                     state,
                     turn_id.clone(),
+                    Some(part_id),
                     &message_id,
                     part_type,
                     delta,
@@ -302,6 +300,7 @@ fn map_part_updated(
             enqueue_content_delta(
                 state,
                 turn_id.clone(),
+                part_id,
                 &message_id,
                 part_type,
                 delta.to_string(),
@@ -336,6 +335,9 @@ fn map_part_updated(
     }
 }
 
+/// `message.part.updated` carries the whole part text. Everything past what the
+/// part already holds is an ordinary append; a shorter or rewritten body is a real
+/// revision, so the part closes and the rest continues under a new `part_id`.
 fn enqueue_snapshot(
     state: &mut EventMapState,
     turn_id: Option<String>,
@@ -355,39 +357,75 @@ fn enqueue_snapshot(
     if is_user_message(state, &message_id) {
         return;
     }
-    let text = part.get("text").and_then(Value::as_str).unwrap_or("");
-    let current = if is_reasoning_type(kind) {
-        state
-            .thinking_text
-            .get(&message_id)
-            .cloned()
-            .unwrap_or_default()
-    } else {
-        state
-            .assistant_text
-            .get(&message_id)
-            .cloned()
-            .unwrap_or_default()
-    };
-    if text.len() <= current.len() {
+    let Some(text_kind) = text_kind_of(kind) else {
         return;
+    };
+    let text = part.get("text").and_then(Value::as_str).unwrap_or("");
+    let vendor_part_id = part.get("id").and_then(Value::as_str).map(str::to_string);
+    let part_id = text_part_id(state, vendor_part_id.as_deref(), &message_id, text_kind);
+    match state.parts.snapshot(&part_id, text) {
+        Snapshot::Unchanged => {}
+        Snapshot::Appends(suffix) => {
+            let suffix = suffix.to_string();
+            enqueue_part_chunk(state, turn_id, &part_id, &message_id, kind, suffix, first);
+        }
+        Snapshot::Revised => {
+            let text = text.to_string();
+            let closed = wrap(turn_id.clone(), state.parts.close(part_id, None));
+            push_mapped(state, first, closed);
+            let revised = match vendor_part_id.as_deref() {
+                Some(vendor_part_id) => state.parts.revise(vendor_part_id),
+                None => state.parts.synthesized_id(&message_id, text_kind),
+            };
+            enqueue_part_chunk(state, turn_id, &revised, &message_id, kind, text, first);
+        }
     }
-    let suffix = text[current.len()..].to_string();
-    enqueue_content_delta(state, turn_id, &message_id, kind, suffix, first);
 }
 
 fn enqueue_content_delta(
     state: &mut EventMapState,
     turn_id: Option<String>,
+    vendor_part_id: Option<&str>,
     message_id: &str,
     kind: &str,
     delta: String,
     first: &mut Option<AgentEventEnvelope>,
 ) {
-    let Some(payload) = content_delta(state, message_id, kind, delta) else {
+    let Some(payload) = content_delta(state, vendor_part_id, message_id, kind, delta) else {
         return;
     };
     let event = complete_before_opposite(state, turn_id, kind, payload);
+    push_mapped(state, first, event);
+}
+
+fn enqueue_part_chunk(
+    state: &mut EventMapState,
+    turn_id: Option<String>,
+    part_id: &str,
+    message_id: &str,
+    kind: &str,
+    text: String,
+    first: &mut Option<AgentEventEnvelope>,
+) {
+    let Some(text_kind) = text_kind_of(kind) else {
+        return;
+    };
+    if text.is_empty() {
+        return;
+    }
+    mark_work(state);
+    let payload = state
+        .parts
+        .chunk(part_id, message_id, None, text_kind, text);
+    let event = complete_before_opposite(state, turn_id, kind, payload);
+    push_mapped(state, first, event);
+}
+
+fn push_mapped(
+    state: &mut EventMapState,
+    first: &mut Option<AgentEventEnvelope>,
+    event: AgentEventEnvelope,
+) {
     if first.is_none() {
         *first = Some(event);
     } else {
@@ -398,11 +436,12 @@ fn enqueue_content_delta(
 fn emit_content_delta(
     state: &mut EventMapState,
     turn_id: Option<String>,
+    vendor_part_id: Option<&str>,
     message_id: &str,
     kind: &str,
     delta: String,
 ) -> MapOut {
-    let Some(payload) = content_delta(state, message_id, kind, delta) else {
+    let Some(payload) = content_delta(state, vendor_part_id, message_id, kind, delta) else {
         return MapOut::Skip;
     };
     emit(complete_before_opposite(state, turn_id, kind, payload))
@@ -410,6 +449,7 @@ fn emit_content_delta(
 
 fn content_delta(
     state: &mut EventMapState,
+    vendor_part_id: Option<&str>,
     message_id: &str,
     kind: &str,
     delta: String,
@@ -417,15 +457,41 @@ fn content_delta(
     if delta.is_empty() || is_user_message(state, message_id) {
         return None;
     }
-    if is_reasoning_type(kind) {
-        mark_work(state);
-        return Some(push_thinking(state, message_id.to_string(), delta));
+    let text_kind = text_kind_of(kind)?;
+    mark_work(state);
+    let part_id = text_part_id(state, vendor_part_id, message_id, text_kind);
+    Some(
+        state
+            .parts
+            .chunk(&part_id, message_id, None, text_kind, delta),
+    )
+}
+
+fn text_kind_of(part_type: &str) -> Option<TextKind> {
+    if is_reasoning_type(part_type) {
+        Some(TextKind::Thinking)
+    } else if part_type == "text" || part_type.is_empty() {
+        Some(TextKind::Answer)
+    } else {
+        None
     }
-    if kind == "text" || kind.is_empty() {
-        mark_work(state);
-        return Some(assistant_delta(state, message_id.to_string(), delta));
+}
+
+/// OpenCode exposes `partID`; use it verbatim, following any earlier revision.
+/// `message.part.delta` can arrive without one, so those chunks open a synthesized
+/// part that the named part adopts once `message.part.updated` names it.
+fn text_part_id(
+    state: &mut EventMapState,
+    vendor_part_id: Option<&str>,
+    message_id: &str,
+    kind: TextKind,
+) -> String {
+    match vendor_part_id {
+        Some(vendor_part_id) => state
+            .parts
+            .adopt_or_current(vendor_part_id, message_id, kind),
+        None => state.parts.synthesized_id(message_id, kind),
     }
-    None
 }
 
 fn first_mapped(first: Option<AgentEventEnvelope>) -> MapOut {
@@ -501,21 +567,23 @@ fn map_tool(state: &mut EventMapState, turn_id: Option<String>, part: &Value) ->
                 .and_then(Value::as_str)
                 .unwrap_or("opencode-thinking")
                 .to_string();
-            let event = thinking_delta(state, message_id.clone(), text);
-            if done {
-                state.thinking_message_id = None;
-                state.pending.push_back(wrap(
-                    turn_id.clone(),
-                    AgentEvent::ThinkingCompleted {
-                        message_id: message_id.clone(),
-                    },
-                ));
-            }
-            emit(complete_before_assistant(
+            let vendor_part_id = part.get("id").and_then(Value::as_str).map(str::to_string);
+            let part_id = text_part_id(
                 state,
-                turn_id.clone(),
-                wrap(turn_id, event),
-            ))
+                vendor_part_id.as_deref(),
+                &message_id,
+                TextKind::Thinking,
+            );
+            let event = state
+                .parts
+                .chunk(&part_id, &message_id, None, TextKind::Thinking, text);
+            let head =
+                complete_before_assistant(state, turn_id.clone(), wrap(turn_id.clone(), event));
+            if done {
+                let closed = state.parts.close(part_id, None);
+                state.pending.push_back(wrap(turn_id, closed));
+            }
+            emit(head)
         }
         Some(ToolMapOut::FoldPlan { plan }) => {
             mark_work(state);
@@ -942,38 +1010,6 @@ fn map_todo(state: &mut EventMapState, turn_id: Option<String>, properties: &Val
     ))
 }
 
-fn assistant_delta(state: &mut EventMapState, message_id: String, delta: String) -> AgentEvent {
-    state.assistant_message_id = Some(message_id.clone());
-    state
-        .assistant_text
-        .entry(message_id.clone())
-        .or_default()
-        .push_str(&delta);
-    AgentEvent::AssistantMessageDelta {
-        message_id,
-        delta,
-        parent_tool_call_id: None,
-    }
-}
-
-fn push_thinking(state: &mut EventMapState, message_id: String, delta: String) -> AgentEvent {
-    state
-        .thinking_text
-        .entry(message_id.clone())
-        .or_default()
-        .push_str(&delta);
-    thinking_delta(state, message_id, delta)
-}
-
-fn thinking_delta(state: &mut EventMapState, message_id: String, delta: String) -> AgentEvent {
-    state.thinking_message_id = Some(message_id.clone());
-    AgentEvent::ThinkingDelta {
-        message_id,
-        delta,
-        parent_tool_call_id: None,
-    }
-}
-
 fn tool_event(tool: AgentTool, kind: ToolEventKind) -> AgentEvent {
     match kind {
         ToolEventKind::Started => AgentEvent::ToolCallStarted { tool_call: tool },
@@ -1068,11 +1104,11 @@ fn complete_before_thinking(
     turn_id: Option<String>,
     next: AgentEventEnvelope,
 ) -> AgentEventEnvelope {
-    complete_stream(
-        &mut state.thinking_message_id,
+    close_open_parts(
+        &mut state.parts,
         &mut state.pending,
         turn_id,
-        |message_id| AgentEvent::ThinkingCompleted { message_id },
+        TextKind::Thinking,
         next,
     )
 }
@@ -1082,11 +1118,11 @@ fn complete_before_assistant(
     turn_id: Option<String>,
     next: AgentEventEnvelope,
 ) -> AgentEventEnvelope {
-    complete_stream(
-        &mut state.assistant_message_id,
+    close_open_parts(
+        &mut state.parts,
         &mut state.pending,
         turn_id,
-        |message_id| AgentEvent::AssistantMessageCompleted { message_id },
+        TextKind::Answer,
         next,
     )
 }
@@ -1099,21 +1135,6 @@ fn complete_open_streams(
     let next = wrap(turn_id.clone(), payload);
     let next = complete_before_thinking(state, turn_id.clone(), next);
     complete_before_assistant(state, turn_id, next)
-}
-
-fn complete_stream(
-    open_id: &mut Option<String>,
-    pending: &mut VecDeque<AgentEventEnvelope>,
-    turn_id: Option<String>,
-    completed: impl FnOnce(String) -> AgentEvent,
-    next: AgentEventEnvelope,
-) -> AgentEventEnvelope {
-    if let Some(message_id) = open_id.take() {
-        pending.push_back(next);
-        wrap(turn_id, completed(message_id))
-    } else {
-        next
-    }
 }
 
 #[cfg(test)]
@@ -1143,6 +1164,7 @@ mod tests {
     use crate::contract::Capability;
     use crate::contract::{AgentAction, AgentActionError, AgentActionKind};
     use crate::contract::{AgentPrompt, AgentRuntimeConfigUpdate};
+    use crate::providers::text_parts::{reassemble, reassembled_text};
 
     fn map_fixture() -> Vec<AgentEvent> {
         let raw = include_str!("testdata/sse-turn.sse");
@@ -1161,12 +1183,81 @@ mod tests {
     }
 
     #[test]
+    fn s6_sse_turn_reassembles_to_the_text_opencode_sent() {
+        let events = map_fixture();
+        // The delta carries "Hello"; `message.part.updated` repeats the settled
+        // body, so it must not append a second copy.
+        assert_eq!(reassembled_text(&events, TextKind::Answer), "Hello");
+        assert_eq!(reassemble(&events).len(), 1);
+    }
+
+    #[test]
+    fn s6_shorter_snapshot_closes_the_part_and_restarts() {
+        let mut state = EventMapState::new("ses_test".into(), AgentCurrentConfig::default());
+        let mut events = Vec::new();
+        let frames = [
+            bus(
+                "message.part.updated",
+                serde_json::json!({
+                    "sessionID": "ses_test",
+                    "part": {
+                        "id": "prt_1",
+                        "type": "text",
+                        "messageID": "msg_a",
+                        "text": "a long first answer"
+                    }
+                }),
+            ),
+            bus(
+                "message.part.updated",
+                serde_json::json!({
+                    "sessionID": "ses_test",
+                    "part": {
+                        "id": "prt_1",
+                        "type": "text",
+                        "messageID": "msg_a",
+                        "text": "short"
+                    }
+                }),
+            ),
+            bus(
+                "message.part.delta",
+                serde_json::json!({
+                    "sessionID": "ses_test",
+                    "partID": "prt_1",
+                    "messageID": "msg_a",
+                    "field": "text",
+                    "delta": "er"
+                }),
+            ),
+        ];
+        for frame in frames {
+            let (mapped, _) = drain_mapped(&mut state, Some("turn-1".into()), frame);
+            events.extend(mapped.into_iter().map(|event| event.payload));
+        }
+        let parts = reassemble(&events);
+        assert_eq!(
+            parts.len(),
+            2,
+            "a shorter snapshot is a revision, not a no-op: {parts:?}"
+        );
+        assert_eq!(parts[0].0, "prt_1");
+        assert_eq!(parts[0].2, "a long first answer");
+        // Later deltas for the same vendor partID follow the revision.
+        assert_eq!(parts[1].2, "shorter");
+        assert!(events.iter().any(|event| matches!(
+            event,
+            AgentEvent::PartClosed { part_id, .. } if part_id == "prt_1"
+        )));
+    }
+
+    #[test]
     fn s20_maps_text_tool_permission_and_idle() {
         let events = map_fixture();
         assert!(
             events
                 .iter()
-                .any(|event| matches!(event, AgentEvent::AssistantMessageDelta { delta, .. } if delta == "Hello"))
+                .any(|event| matches!(event, AgentEvent::TextChunk { kind: TextKind::Answer, text, .. } if text == "Hello"))
         );
         let tool = events.iter().find_map(|event| match event {
             AgentEvent::ToolCallCompleted { tool_call } => Some(tool_call),
@@ -1328,7 +1419,7 @@ mod tests {
         assert!(prompt_events.is_empty());
         assert!(assistant_events.iter().any(|event| matches!(
             &event.payload,
-            AgentEvent::AssistantMessageDelta { delta, .. } if delta == "Hello"
+            AgentEvent::TextChunk { kind: TextKind::Answer, text, .. } if text == "Hello"
         )));
     }
 
@@ -1345,8 +1436,16 @@ mod tests {
         let mut assistant = String::new();
         for event in events {
             match &event.payload {
-                AgentEvent::ThinkingDelta { delta, .. } => thinking.push_str(delta),
-                AgentEvent::AssistantMessageDelta { delta, .. } => assistant.push_str(delta),
+                AgentEvent::TextChunk {
+                    kind: TextKind::Thinking,
+                    text,
+                    ..
+                } => thinking.push_str(text),
+                AgentEvent::TextChunk {
+                    kind: TextKind::Answer,
+                    text,
+                    ..
+                } => assistant.push_str(text),
                 _ => {}
             }
         }
@@ -1550,7 +1649,7 @@ mod tests {
         let (delta_events, _) = drain_mapped(&mut state, Some("turn-1".into()), delta);
         assert!(delta_events.iter().any(|event| matches!(
             &event.payload,
-            AgentEvent::AssistantMessageDelta { delta, .. } if delta == "Hi"
+            AgentEvent::TextChunk { kind: TextKind::Answer, text, .. } if text == "Hi"
         )));
         let (idle_events, _) = drain_mapped(&mut state, Some("turn-1".into()), idle_event());
         assert!(completed(&idle_events));

@@ -8,7 +8,7 @@ use serde_json::Value;
 
 use crate::contract::{
     AgentEvent, AgentEventEnvelope, AgentResult, AgentTool, AgentToolKind, AgentToolParams,
-    AgentToolResult, AgentToolStatus, UserMessageKind,
+    AgentToolResult, AgentToolStatus, TextKind, UserMessageKind,
 };
 use crate::map::{
     classify_tool, extract_aspect_ratio, extract_background, extract_command, extract_cwd,
@@ -18,7 +18,9 @@ use crate::map::{
     plan_from_tool_input_or_stub, thinking_text, ClassifiedTool,
 };
 use crate::session_source::paths;
-use crate::session_source::{HostId, HostSessionRef, SessionSource, TuiResumePlan};
+use crate::session_source::{
+    finished_text_part, HostId, HostSessionRef, SessionSource, TuiResumePlan,
+};
 
 pub struct PiSource;
 
@@ -335,14 +337,24 @@ fn map_assistant(
         return;
     };
     let mut saw_text = false;
-    for block in content {
+    // A message can hold several text and thinking blocks, so the block's position
+    // in the message is what keeps their parts apart.
+    for (index, block) in content.iter().enumerate() {
+        let index = index as u32;
         let ty = normalize_type(block.get("type").and_then(Value::as_str).unwrap_or(""));
         match ty.as_str() {
             "text" => {
                 let text = block.get("text").and_then(Value::as_str).unwrap_or("");
                 if !text.is_empty() {
                     saw_text = true;
-                    push_assistant_text(events, turn_id.clone(), message_id, text);
+                    push_text_part(
+                        events,
+                        turn_id.clone(),
+                        message_id,
+                        index,
+                        TextKind::Answer,
+                        text,
+                    );
                 }
             }
             "thinking" | "reasoning" => {
@@ -354,20 +366,14 @@ fn map_assistant(
                 if text.is_empty() {
                     continue;
                 }
-                events.push(wrap(
+                push_text_part(
+                    events,
                     turn_id.clone(),
-                    AgentEvent::ThinkingDelta {
-                        message_id: message_id.to_string(),
-                        delta: text.to_string(),
-                        parent_tool_call_id: None,
-                    },
-                ));
-                events.push(wrap(
-                    turn_id.clone(),
-                    AgentEvent::ThinkingCompleted {
-                        message_id: message_id.to_string(),
-                    },
-                ));
+                    message_id,
+                    index,
+                    TextKind::Thinking,
+                    text,
+                );
             }
             "toolcall" => {
                 let call_id = block
@@ -463,20 +469,20 @@ fn push_assistant_text(
     message_id: &str,
     text: &str,
 ) {
-    events.push(wrap(
-        turn_id.clone(),
-        AgentEvent::AssistantMessageDelta {
-            message_id: message_id.to_string(),
-            delta: text.to_string(),
-            parent_tool_call_id: None,
-        },
-    ));
-    events.push(wrap(
-        turn_id,
-        AgentEvent::AssistantMessageCompleted {
-            message_id: message_id.to_string(),
-        },
-    ));
+    push_text_part(events, turn_id, message_id, 0, TextKind::Answer, text);
+}
+
+fn push_text_part(
+    events: &mut Vec<AgentEventEnvelope>,
+    turn_id: Option<String>,
+    message_id: &str,
+    index: u32,
+    kind: TextKind,
+    text: &str,
+) {
+    for payload in finished_text_part(message_id, index, kind, text, None) {
+        events.push(wrap(turn_id.clone(), payload));
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -497,20 +503,8 @@ fn push_tool(
             if text.is_empty() {
                 return;
             }
-            events.push(wrap(
-                turn_id.clone(),
-                AgentEvent::ThinkingDelta {
-                    message_id: call_id.to_string(),
-                    delta: text,
-                    parent_tool_call_id: None,
-                },
-            ));
-            events.push(wrap(
-                turn_id,
-                AgentEvent::ThinkingCompleted {
-                    message_id: call_id.to_string(),
-                },
-            ));
+            // One folded Think tool is one part, addressed by its call id.
+            push_text_part(events, turn_id, call_id, 0, TextKind::Thinking, &text);
         }
         ClassifiedTool::Plan => {
             events.push(wrap(
@@ -1067,11 +1061,13 @@ mod tests {
         )));
         assert!(events.iter().any(|event| matches!(
             event.payload,
-            AgentEvent::ThinkingDelta { ref delta, .. } if delta.contains("list the directory")
+            AgentEvent::TextChunk { kind: TextKind::Thinking, ref text, .. }
+                if text.contains("list the directory")
         )));
         assert!(events.iter().any(|event| matches!(
             event.payload,
-            AgentEvent::AssistantMessageDelta { ref delta, .. } if delta == "Running ls."
+            AgentEvent::TextChunk { kind: TextKind::Answer, ref text, offset: 0, .. }
+                if text == "Running ls."
         )));
         let tool = events.iter().find_map(|event| match &event.payload {
             AgentEvent::ToolCallCompleted { tool_call } => Some(tool_call),
@@ -1117,7 +1113,8 @@ mod tests {
         )));
         assert!(events.iter().any(|event| matches!(
             event.payload,
-            AgentEvent::AssistantMessageDelta { ref delta, .. } if delta == "Model failed"
+            AgentEvent::TextChunk { kind: TextKind::Answer, ref text, .. }
+                if text == "Model failed"
         )));
         assert!(parse_in(&[tmp.path().to_path_buf()], "missing").is_empty());
     }

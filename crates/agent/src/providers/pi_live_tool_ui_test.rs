@@ -12,7 +12,7 @@ use tokio::time::{timeout, Instant};
 
 use crate::contract::{
     AgentEvent, AgentPrompt, AgentProvider, AgentRuntimeConfig, AgentRuntimeConfigUpdate,
-    AgentToolKind, TurnStop,
+    AgentToolKind, TextKind, TurnStop,
 };
 use crate::providers::pi::PiNativeProvider;
 
@@ -81,7 +81,11 @@ async fn live_pi_deepseek_tool_ui_probe() {
             Ok(Some(event)) => event,
         };
         match &event.payload {
-            AgentEvent::AssistantMessageDelta { delta, .. } => text.push_str(delta),
+            AgentEvent::TextChunk {
+                kind: TextKind::Answer,
+                text: chunk,
+                ..
+            } => text.push_str(chunk),
             AgentEvent::ToolCallStarted { tool_call }
             | AgentEvent::ToolCallUpdated { tool_call }
             | AgentEvent::ToolCallCompleted { tool_call }

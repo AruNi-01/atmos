@@ -11,7 +11,8 @@ use std::time::Duration;
 use tokio::time::{timeout, Instant};
 
 use crate::contract::{
-    AgentEvent, AgentPrompt, AgentProvider, AgentRuntimeConfig, AgentRuntimeConfigUpdate, TurnStop,
+    AgentEvent, AgentPrompt, AgentProvider, AgentRuntimeConfig, AgentRuntimeConfigUpdate, TextKind,
+    TurnStop,
 };
 use crate::providers::codex::CodexNativeProvider;
 use crate::providers::grok::GrokNativeProvider;
@@ -210,7 +211,11 @@ async fn live_codex_plan_request_user_input() {
             continue;
         };
         match &event.payload {
-            AgentEvent::AssistantMessageDelta { delta, .. } => text.push_str(delta),
+            AgentEvent::TextChunk {
+                kind: TextKind::Answer,
+                text: chunk,
+                ..
+            } => text.push_str(chunk),
             AgentEvent::PermissionRequested { request } => {
                 eprintln!(
                     "ASK tool={} questions={:?} desc={} markdown={:?}",

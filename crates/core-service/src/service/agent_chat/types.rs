@@ -6,7 +6,7 @@ use agent::{
     map_to_advertised_cursor_model, models_look_like_cursor_acp, option_support_for_provider,
     AgentCurrentConfig, AgentDescriptor, AgentIdentity, AgentOptionSupport, AgentSessionOpRequest,
     AgentSupportedOptions, AgentThinkingSupport, AgentTool, AgentToolKind, AgentToolParams,
-    AgentToolResult, AgentToolStatus, UserMessageKind,
+    AgentToolResult, AgentToolStatus, TextKind, UserMessageKind,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -795,6 +795,224 @@ pub fn pending_context_change(meta: &AgentChatMeta) -> Option<String> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Part {
+    pub id: String,
+    pub message_id: String,
+    pub parent_part_id: Option<String>,
+    /// Assigned by the host at part creation, monotonic within `message_id`
+    /// across all part kinds, in arrival order.
+    pub ordinal: u32,
+    pub body: PartBody,
+    /// None while the part may still grow.
+    pub closed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(clippy::large_enum_variant)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum PartBody {
+    Text { kind: TextKind, text: String },
+    ToolCall(ToolCallState),
+    Plan { plan: serde_json::Value },
+    Attachment { path: String, name: Option<String> },
+    Error { message: String },
+    SessionChrome(SessionChrome),
+}
+
+/// Monotonic. A merge rejects any incoming status of lower rank, so a replayed
+/// or reordered `Running` can never regress a `Completed` tool.
+/// Rank: Pending < Running < Completed, Failed. Completed and Failed do not
+/// regress to each other or to Running/Pending.
+pub fn tool_status_rank(status: AgentToolStatus) -> u8 {
+    match status {
+        AgentToolStatus::Pending => 0,
+        AgentToolStatus::Running => 1,
+        AgentToolStatus::Completed | AgentToolStatus::Failed => 2,
+    }
+}
+
+pub fn merge_tool_status(existing: AgentToolStatus, incoming: AgentToolStatus) -> AgentToolStatus {
+    if incoming == existing {
+        return incoming;
+    }
+    if tool_status_rank(incoming) > tool_status_rank(existing) {
+        incoming
+    } else {
+        existing
+    }
+}
+
+/// `None` means no opinion, keep what you have. Senders must never put a
+/// placeholder here. Empty `Some("")` overwrites.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ToolCallState {
+    pub tool_call_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_tool_call_id: Option<String>,
+    pub status: AgentToolStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<AgentToolKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub params: Option<AgentToolParams>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<AgentToolResult>,
+}
+
+impl From<AgentTool> for ToolCallState {
+    fn from(tool: AgentTool) -> Self {
+        Self {
+            tool_call_id: tool.tool_call_id,
+            parent_tool_call_id: tool.parent_tool_call_id,
+            status: tool.status,
+            name: Some(tool.name),
+            title: tool.title,
+            kind: Some(tool.kind),
+            params: Some(tool.params),
+            result: tool.result,
+        }
+    }
+}
+
+impl ToolCallState {
+    pub fn merge(existing: &Self, incoming: Self) -> Self {
+        Self {
+            tool_call_id: if incoming.tool_call_id.is_empty() {
+                existing.tool_call_id.clone()
+            } else {
+                incoming.tool_call_id
+            },
+            parent_tool_call_id: incoming
+                .parent_tool_call_id
+                .or_else(|| existing.parent_tool_call_id.clone()),
+            status: merge_tool_status(existing.status, incoming.status),
+            name: incoming.name.or_else(|| existing.name.clone()),
+            title: incoming.title.or_else(|| existing.title.clone()),
+            kind: incoming.kind.or(existing.kind),
+            params: incoming.params.or_else(|| existing.params.clone()),
+            result: incoming.result.or_else(|| existing.result.clone()),
+        }
+    }
+
+    pub fn from_message_part(part: &MessagePart) -> Option<Self> {
+        let MessagePart::ToolCall {
+            tool_call_id,
+            parent_tool_call_id,
+            name,
+            title,
+            kind,
+            status,
+            params,
+            result,
+        } = part
+        else {
+            return None;
+        };
+        Some(Self {
+            tool_call_id: tool_call_id.clone(),
+            parent_tool_call_id: parent_tool_call_id.clone(),
+            status: *status,
+            name: Some(name.clone()),
+            title: title.clone(),
+            kind: Some(*kind),
+            params: Some(params.clone()),
+            result: result.clone(),
+        })
+    }
+
+    pub fn to_message_part(&self) -> MessagePart {
+        MessagePart::ToolCall {
+            tool_call_id: self.tool_call_id.clone(),
+            parent_tool_call_id: self.parent_tool_call_id.clone(),
+            name: self.name.clone().unwrap_or_default(),
+            title: self.title.clone(),
+            kind: self.kind.unwrap_or_default(),
+            status: self.status,
+            params: self.params.clone().unwrap_or(AgentToolParams::Other {
+                value: serde_json::Value::Null,
+            }),
+            result: self.result.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "chrome", rename_all = "snake_case")]
+pub enum SessionChrome {
+    Lifecycle {
+        action: SessionLifecycleAction,
+        status: SessionLifecycleStatus,
+        #[serde(default)]
+        duration_ms: Option<u64>,
+        #[serde(default)]
+        error: Option<String>,
+    },
+    ConfigChange {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        model: Option<SessionConfigValueChange>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mode: Option<SessionConfigValueChange>,
+    },
+    Hint {
+        tone: SessionHintTone,
+        kind: String,
+    },
+}
+
+/// Append-only text addressed by byte offset. See QUALITY-006 offset rules.
+pub fn apply_text_offset(existing: &mut String, offset: u64, text: &str) {
+    let len = existing.len() as u64;
+    if offset > len {
+        tracing::warn!(offset, len, "text chunk gap; appending without padding");
+        existing.push_str(text);
+        return;
+    }
+    let skip = (len - offset) as usize;
+    if skip >= text.len() {
+        return;
+    }
+    if let Some(tail) = text.get(skip..) {
+        existing.push_str(tail);
+        return;
+    }
+    let aligned = text.ceil_char_boundary(skip);
+    if aligned < text.len() {
+        existing.push_str(&text[aligned..]);
+    }
+}
+
+/// Byte suffix of materialized part text. `None` when `from_offset >= len`.
+pub fn text_suffix_from(text: &str, from_offset: u64) -> Option<(&str, u64)> {
+    let len = text.len() as u64;
+    if from_offset >= len {
+        return None;
+    }
+    let start = from_offset as usize;
+    let aligned = if text.is_char_boundary(start) {
+        start
+    } else {
+        text.ceil_char_boundary(start)
+    };
+    if aligned >= text.len() {
+        return None;
+    }
+    Some((&text[aligned..], aligned as u64))
+}
+
+#[derive(Debug, Clone)]
+pub struct MaterializedTextPart {
+    pub part_id: String,
+    pub message_id: String,
+    pub parent_part_id: Option<String>,
+    pub ordinal: u32,
+    pub kind: TextKind,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[allow(clippy::large_enum_variant)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum MessagePart {
@@ -1000,7 +1218,6 @@ pub fn flatten_messages_at(
     let mut messages: Vec<FoldedMessage> = Vec::new();
     let mut running_turn_id = None;
     let mut running_turn_started_at = None;
-    let mut running = false;
     let mut last_user_at = None;
     for turn in turns {
         if matches!(
@@ -1009,7 +1226,6 @@ pub fn flatten_messages_at(
         ) {
             running_turn_id = Some(turn.id.clone());
             running_turn_started_at = Some(turn.created_at);
-            running = true;
         }
         if let Some(user) = turn.messages.iter().find(|message| message.role == "user") {
             last_user_at = Some(user.created_at);
@@ -1020,6 +1236,7 @@ pub fn flatten_messages_at(
             if message.role == "assistant" {
                 if let Some(last) = messages.last_mut() {
                     if last.role == "assistant" {
+                        last.streaming = last.streaming || message.streaming;
                         last.parts.extend(message.parts);
                         apply_turn_timing(last, &timing);
                         assistant_index = Some(messages.len() - 1);
@@ -1028,7 +1245,7 @@ pub fn flatten_messages_at(
                 }
             }
             let is_assistant = message.role == "assistant";
-            push_unique_message(&mut messages, message);
+            messages.push(message);
             if is_assistant {
                 assistant_index = Some(messages.len() - 1);
             }
@@ -1037,13 +1254,6 @@ pub fn flatten_messages_at(
             if let Some(message) = messages.get_mut(index) {
                 apply_turn_timing(message, &timing);
                 message.parts = order_assistant_parts(std::mem::take(&mut message.parts));
-            }
-        }
-    }
-    if running {
-        if let Some(last) = messages.last_mut() {
-            if last.role == "assistant" {
-                last.streaming = true;
             }
         }
     }
@@ -1061,13 +1271,6 @@ pub fn apply_rewind_view(
         Some(index) => turns.into_iter().take(index + 1).collect(),
         None => turns,
     }
-}
-
-fn push_unique_message(messages: &mut Vec<FoldedMessage>, mut message: FoldedMessage) {
-    if messages.iter().any(|item| item.id == message.id) {
-        message.id = format!("{}:{}", message.id, messages.len());
-    }
-    messages.push(message);
 }
 
 fn is_answer_text_part(part: &MessagePart) -> bool {
@@ -1120,115 +1323,6 @@ fn split_trailing_answer(mut parts: Vec<MessagePart>) -> (Vec<MessagePart>, Vec<
         return (process, parts);
     }
     (parts, Vec::new())
-}
-
-fn assistant_text_part(
-    text: String,
-    parent_tool_call_id: Option<String>,
-    message_id: &str,
-) -> MessagePart {
-    MessagePart::Text {
-        text,
-        parent_tool_call_id,
-        message_id: Some(message_id.to_string()),
-    }
-}
-
-/// Apply a snapshot/delta text block. Same stream `message_id` updates that
-/// block even when tools sit in between and session chrome owns the row id.
-/// A new id after tools/thinking starts a new text part instead of overwriting.
-/// Nested subagent prose (`parent_tool_call_id`) never merges with parent text.
-pub fn apply_assistant_text_part(message: &mut FoldedMessage, message_id: &str, text: String) {
-    apply_assistant_text_part_nested(message, message_id, text, None);
-}
-
-pub fn apply_assistant_text_part_nested(
-    message: &mut FoldedMessage,
-    message_id: &str,
-    text: String,
-    parent_tool_call_id: Option<String>,
-) {
-    let same_parent = |part: &MessagePart| match part {
-        MessagePart::Text {
-            parent_tool_call_id: existing,
-            ..
-        } => existing == &parent_tool_call_id,
-        _ => false,
-    };
-    let same_stream = |part: &MessagePart| match part {
-        MessagePart::Text {
-            message_id: Some(id),
-            parent_tool_call_id: existing,
-            ..
-        } => id == message_id && existing == &parent_tool_call_id,
-        _ => false,
-    };
-    for index in (0..message.parts.len()).rev() {
-        match &message.parts[index] {
-            MessagePart::ToolCall { .. }
-            | MessagePart::SessionLifecycle { .. }
-            | MessagePart::SessionConfigChange { .. }
-            | MessagePart::SessionHint { .. }
-            | MessagePart::Permission { .. } => continue,
-            part if same_stream(part) => {
-                if let MessagePart::Text { text: existing, .. } = &mut message.parts[index] {
-                    *existing = text;
-                }
-                return;
-            }
-            _ => break,
-        }
-    }
-    let last_is_text = matches!(message.parts.last(), Some(MessagePart::Text { .. }))
-        && message.parts.last().is_some_and(same_parent);
-    if last_is_text {
-        let same_block = message.id == message_id
-            || message.parts.last().is_some_and(|part| match part {
-                MessagePart::Text { text: existing, .. } => {
-                    text.starts_with(existing.as_str()) || existing.starts_with(text.as_str())
-                }
-                _ => false,
-            });
-        if same_block {
-            if let Some(MessagePart::Text {
-                text: existing,
-                message_id: stream_id,
-                ..
-            }) = message.parts.last_mut()
-            {
-                *existing = text;
-                if stream_id.is_none() {
-                    *stream_id = Some(message_id.to_string());
-                }
-            }
-            return;
-        }
-        message
-            .parts
-            .push(assistant_text_part(text, parent_tool_call_id, message_id));
-        return;
-    }
-    if message.id == message_id {
-        if let Some(MessagePart::Text {
-            text: existing,
-            message_id: stream_id,
-            ..
-        }) = message
-            .parts
-            .iter_mut()
-            .rev()
-            .find(|part| matches!(part, MessagePart::Text { .. }) && same_parent(part))
-        {
-            *existing = text;
-            if stream_id.is_none() {
-                *stream_id = Some(message_id.to_string());
-            }
-            return;
-        }
-    }
-    message
-        .parts
-        .push(assistant_text_part(text, parent_tool_call_id, message_id));
 }
 
 struct TurnTiming {
@@ -1487,24 +1581,29 @@ pub enum TranscriptEvent {
     UserCheckpoint {
         checkpoint_id: String,
     },
-    AssistantSnapshot {
+    TextChunk {
+        part_id: String,
         message_id: String,
-        text: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        parent_tool_call_id: Option<String>,
-    },
-    ThinkingSnapshot {
-        message_id: String,
+        parent_part_id: Option<String>,
+        ordinal: u32,
+        kind: TextKind,
+        offset: u64,
         text: String,
-        #[serde(default)]
-        started_at: Option<DateTime<Utc>>,
+    },
+    PartFinished {
+        part_id: String,
+        message_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        parent_part_id: Option<String>,
+        ordinal: u32,
+        kind: TextKind,
+        text: String,
         #[serde(default)]
         duration_ms: Option<u64>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        parent_tool_call_id: Option<String>,
     },
     ToolCall {
-        tool: AgentTool,
+        tool: ToolCallState,
     },
     Plan {
         plan: serde_json::Value,
@@ -1547,17 +1646,13 @@ pub enum TranscriptEvent {
         tone: SessionHintTone,
         kind: String,
     },
-    Unknown {
-        event_type: String,
-        payload: serde_json::Value,
-    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentChatEvent {
     pub chat_id: String,
     pub event_id: String,
-    pub sequence: u64,
+    pub revision: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub turn_id: Option<String>,
     pub payload: AgentChatPayload,
@@ -1581,25 +1676,20 @@ pub enum AgentChatPayload {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         created_at: Option<DateTime<Utc>>,
     },
-    AssistantMessageDelta {
+    TextChunk {
+        part_id: String,
         message_id: String,
-        delta: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        parent_tool_call_id: Option<String>,
+        parent_part_id: Option<String>,
+        ordinal: u32,
+        kind: TextKind,
+        offset: u64,
+        text: String,
     },
-    AssistantMessageCompleted {
-        message_id: String,
-    },
-    ThinkingDelta {
-        message_id: String,
-        delta: String,
+    PartClosed {
+        part_id: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        parent_tool_call_id: Option<String>,
-    },
-    ThinkingCompleted {
-        message_id: String,
-        #[serde(default)]
-        thinking_ms: Option<u64>,
+        duration_ms: Option<u64>,
     },
     ToolCallStarted {
         tool_call: AgentTool,
@@ -1740,11 +1830,7 @@ pub struct CreateAgentChatRequest {
 
 #[cfg(test)]
 mod assistant_part_order_tests {
-    use super::{
-        apply_assistant_text_part, apply_assistant_text_part_nested, order_assistant_parts,
-        FoldedMessage, MessagePart,
-    };
-    use agent::{AgentToolKind, AgentToolParams, AgentToolStatus};
+    use super::{apply_text_offset, order_assistant_parts, MessagePart};
 
     fn text(value: &str) -> MessagePart {
         MessagePart::Text {
@@ -1754,37 +1840,12 @@ mod assistant_part_order_tests {
         }
     }
 
-    fn text_stream(message_id: &str, value: &str) -> MessagePart {
-        MessagePart::Text {
-            text: value.to_string(),
-            parent_tool_call_id: None,
-            message_id: Some(message_id.to_string()),
-        }
-    }
-
     fn thinking(value: &str) -> MessagePart {
         MessagePart::Thinking {
             text: value.to_string(),
             tool_call_id: None,
             duration_ms: None,
             parent_tool_call_id: None,
-        }
-    }
-
-    fn tool() -> MessagePart {
-        MessagePart::ToolCall {
-            tool_call_id: "tool-1".into(),
-            parent_tool_call_id: None,
-            name: "Read".into(),
-            title: None,
-            kind: AgentToolKind::Read,
-            status: AgentToolStatus::Completed,
-            params: AgentToolParams::Read {
-                path: String::new(),
-                offset: None,
-                limit: None,
-            },
-            result: None,
         }
     }
 
@@ -1825,112 +1886,6 @@ mod assistant_part_order_tests {
     }
 
     #[test]
-    fn new_message_id_after_process_appends_text() {
-        let mut message = FoldedMessage {
-            id: "a1".into(),
-            role: "assistant".into(),
-            parts: vec![text("looking"), thinking("hmm")],
-            created_at: chrono::Utc::now(),
-            ..Default::default()
-        };
-        apply_assistant_text_part(&mut message, "a2", "final".into());
-        match &message.parts[..] {
-            [MessagePart::Text {
-                text: mid,
-                parent_tool_call_id: None,
-                ..
-            }, MessagePart::Thinking { .. }, MessagePart::Text {
-                text: answer,
-                parent_tool_call_id: None,
-                ..
-            }] => {
-                assert_eq!(mid, "looking");
-                assert_eq!(answer, "final");
-            }
-            other => panic!("unexpected parts: {other:?}"),
-        }
-    }
-
-    #[test]
-    fn same_stream_id_after_process_updates_even_when_row_id_differs() {
-        let mut message = FoldedMessage {
-            id: "session-1".into(),
-            role: "assistant".into(),
-            parts: vec![
-                text_stream("a1", "先从 tabs 看创建、关闭和重启后恢复时有"),
-                tool(),
-            ],
-            created_at: chrono::Utc::now(),
-            ..Default::default()
-        };
-        apply_assistant_text_part(
-            &mut message,
-            "a1",
-            "先从 tabs 看创建、关闭和重启后恢复时有没有串数据。".into(),
-        );
-        match &message.parts[..] {
-            [MessagePart::Text {
-                text: mid,
-                parent_tool_call_id: None,
-                message_id: Some(stream_id),
-            }, MessagePart::ToolCall { .. }] => {
-                assert_eq!(mid, "先从 tabs 看创建、关闭和重启后恢复时有没有串数据。");
-                assert_eq!(stream_id, "a1");
-            }
-            other => panic!("expected in-place stream update, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn nested_text_does_not_merge_with_parent_answer() {
-        let mut message = FoldedMessage {
-            id: "a1".into(),
-            role: "assistant".into(),
-            parts: vec![text("parent")],
-            created_at: chrono::Utc::now(),
-            ..Default::default()
-        };
-        apply_assistant_text_part_nested(&mut message, "a1", "child".into(), Some("sub-1".into()));
-        match &message.parts[..] {
-            [MessagePart::Text {
-                text: parent,
-                parent_tool_call_id: None,
-                ..
-            }, MessagePart::Text {
-                text: child,
-                parent_tool_call_id: Some(parent_id),
-                ..
-            }] => {
-                assert_eq!(parent, "parent");
-                assert_eq!(child, "child");
-                assert_eq!(parent_id, "sub-1");
-            }
-            other => panic!("unexpected parts: {other:?}"),
-        }
-        apply_assistant_text_part_nested(
-            &mut message,
-            "a1",
-            "child more".into(),
-            Some("sub-1".into()),
-        );
-        match &message.parts[..] {
-            [MessagePart::Text {
-                text: parent,
-                parent_tool_call_id: None,
-                ..
-            }, MessagePart::Text {
-                text: child,
-                parent_tool_call_id: Some(_),
-                ..
-            }] => {
-                assert_eq!(parent, "parent");
-                assert_eq!(child, "child more");
-            }
-            other => panic!("unexpected parts: {other:?}"),
-        }
-    }
-
-    #[test]
     fn nested_text_is_not_trailing_answer() {
         let ordered = order_assistant_parts(vec![
             MessagePart::Text {
@@ -1956,6 +1911,35 @@ mod assistant_part_order_tests {
             }
             other => panic!("unexpected parts: {other:?}"),
         }
+    }
+
+    #[test]
+    fn offset_identical_chunks_both_apply() {
+        let mut text = String::new();
+        apply_text_offset(&mut text, 0, "hello");
+        apply_text_offset(&mut text, 5, "hello");
+        assert_eq!(text, "hellohello");
+    }
+
+    #[test]
+    fn offset_overlapping_and_contained_chunks() {
+        let mut text = String::from("abcd");
+        apply_text_offset(&mut text, 2, "cdef");
+        assert_eq!(text, "abcdef");
+        apply_text_offset(&mut text, 2, "cdef");
+        assert_eq!(text, "abcdef");
+        apply_text_offset(&mut text, 0, "ab");
+        assert_eq!(text, "abcdef");
+    }
+
+    #[test]
+    fn text_suffix_from_skips_prefix_and_empty_when_caught_up() {
+        let text = "x".repeat(16);
+        let (suffix, offset) = super::text_suffix_from(&text, 4).expect("suffix");
+        assert_eq!(offset, 4);
+        assert_eq!(suffix, &text[4..]);
+        assert!(super::text_suffix_from(&text, 16).is_none());
+        assert!(super::text_suffix_from(&text, 32).is_none());
     }
 }
 
@@ -2449,5 +2433,652 @@ mod session_config_change_tests {
         let merged = merge_advertised_options(prev, incoming);
         assert_eq!(merged[0].current_value.as_deref(), Some("grok-4"));
         assert_eq!(merged[0].options.len(), 2);
+    }
+}
+
+#[cfg(test)]
+mod tool_status_tests {
+    use super::{merge_tool_status, ToolCallState};
+    use agent::{AgentToolKind, AgentToolParams, AgentToolResult, AgentToolStatus};
+
+    fn state(status: AgentToolStatus) -> ToolCallState {
+        ToolCallState {
+            tool_call_id: "tool-1".into(),
+            parent_tool_call_id: None,
+            status,
+            name: Some("Read".into()),
+            title: Some("Read file".into()),
+            kind: Some(AgentToolKind::Read),
+            params: Some(AgentToolParams::Read {
+                path: "a.rs".into(),
+                offset: None,
+                limit: None,
+            }),
+            result: Some(AgentToolResult::FileContent {
+                path: "a.rs".into(),
+                text: "fn main() {}".into(),
+            }),
+        }
+    }
+
+    #[test]
+    fn tool_status_completed_does_not_regress_to_running() {
+        let existing = state(AgentToolStatus::Completed);
+        let incoming = ToolCallState {
+            status: AgentToolStatus::Running,
+            name: None,
+            title: None,
+            kind: None,
+            params: None,
+            result: None,
+            ..state(AgentToolStatus::Running)
+        };
+        let merged = ToolCallState::merge(&existing, incoming);
+        assert_eq!(merged.status, AgentToolStatus::Completed);
+    }
+
+    #[test]
+    fn tool_status_failed_does_not_regress_to_running() {
+        let existing = state(AgentToolStatus::Failed);
+        let incoming = ToolCallState {
+            status: AgentToolStatus::Pending,
+            name: None,
+            title: None,
+            kind: None,
+            params: None,
+            result: None,
+            ..state(AgentToolStatus::Pending)
+        };
+        let merged = ToolCallState::merge(&existing, incoming);
+        assert_eq!(merged.status, AgentToolStatus::Failed);
+    }
+
+    #[test]
+    fn tool_status_completed_and_failed_do_not_switch() {
+        assert_eq!(
+            merge_tool_status(AgentToolStatus::Completed, AgentToolStatus::Failed),
+            AgentToolStatus::Completed
+        );
+        assert_eq!(
+            merge_tool_status(AgentToolStatus::Failed, AgentToolStatus::Completed),
+            AgentToolStatus::Failed
+        );
+    }
+
+    #[test]
+    fn tool_status_pending_promotes_to_running_then_completed() {
+        assert_eq!(
+            merge_tool_status(AgentToolStatus::Pending, AgentToolStatus::Running),
+            AgentToolStatus::Running
+        );
+        assert_eq!(
+            merge_tool_status(AgentToolStatus::Running, AgentToolStatus::Completed),
+            AgentToolStatus::Completed
+        );
+    }
+}
+
+#[cfg(test)]
+mod tool_upsert_tests {
+    use super::ToolCallState;
+    use agent::{AgentToolKind, AgentToolParams, AgentToolResult, AgentToolStatus};
+
+    fn known() -> ToolCallState {
+        ToolCallState {
+            tool_call_id: "tool-1".into(),
+            parent_tool_call_id: None,
+            status: AgentToolStatus::Completed,
+            name: Some("Read".into()),
+            title: Some("Read file".into()),
+            kind: Some(AgentToolKind::Read),
+            params: Some(AgentToolParams::Read {
+                path: "a.rs".into(),
+                offset: None,
+                limit: None,
+            }),
+            result: Some(AgentToolResult::FileContent {
+                path: "a.rs".into(),
+                text: "fn main() {}".into(),
+            }),
+        }
+    }
+
+    #[test]
+    fn tool_upsert_absent_optionals_keep_prior() {
+        let existing = known();
+        let incoming = ToolCallState {
+            tool_call_id: "tool-1".into(),
+            parent_tool_call_id: None,
+            status: AgentToolStatus::Completed,
+            name: None,
+            title: None,
+            kind: None,
+            params: None,
+            result: None,
+        };
+        let merged = ToolCallState::merge(&existing, incoming);
+        assert_eq!(merged.name.as_deref(), Some("Read"));
+        assert_eq!(merged.title.as_deref(), Some("Read file"));
+        assert_eq!(merged.kind, Some(AgentToolKind::Read));
+        assert_eq!(
+            merged.params,
+            Some(AgentToolParams::Read {
+                path: "a.rs".into(),
+                offset: None,
+                limit: None,
+            })
+        );
+        assert_eq!(
+            merged.result,
+            Some(AgentToolResult::FileContent {
+                path: "a.rs".into(),
+                text: "fn main() {}".into(),
+            })
+        );
+    }
+
+    #[test]
+    fn tool_upsert_empty_name_overwrites() {
+        let existing = known();
+        let incoming = ToolCallState {
+            name: Some(String::new()),
+            title: None,
+            kind: None,
+            params: None,
+            result: None,
+            status: AgentToolStatus::Completed,
+            ..known()
+        };
+        let merged = ToolCallState::merge(&existing, incoming);
+        assert_eq!(merged.name.as_deref(), Some(""));
+        assert_eq!(merged.title.as_deref(), Some("Read file"));
+    }
+
+    #[test]
+    fn tool_upsert_present_other_params_overwrite() {
+        let existing = known();
+        let incoming = ToolCallState {
+            name: Some("Tool".into()),
+            kind: Some(AgentToolKind::Other),
+            params: Some(AgentToolParams::Other {
+                value: serde_json::json!({}),
+            }),
+            title: None,
+            result: None,
+            status: AgentToolStatus::Completed,
+            ..known()
+        };
+        let merged = ToolCallState::merge(&existing, incoming);
+        assert_eq!(merged.name.as_deref(), Some("Tool"));
+        assert_eq!(merged.kind, Some(AgentToolKind::Other));
+        assert_eq!(
+            merged.params,
+            Some(AgentToolParams::Other {
+                value: serde_json::json!({}),
+            })
+        );
+    }
+}
+
+#[cfg(test)]
+mod idempotent_tests {
+    use std::collections::BTreeMap;
+
+    use super::{apply_text_offset, text_suffix_from, ToolCallState};
+    use agent::{AgentToolStatus, TextKind};
+
+    #[derive(Clone, Debug)]
+    enum FoldEvent {
+        Text {
+            part_id: String,
+            message_id: String,
+            ordinal: u32,
+            kind: TextKind,
+            offset: u64,
+            text: String,
+        },
+        Close {
+            part_id: String,
+        },
+        Tool {
+            tool_call_id: String,
+            status: AgentToolStatus,
+            name: Option<String>,
+        },
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    struct FoldedPart {
+        message_id: String,
+        ordinal: u32,
+        kind: String,
+        text: String,
+        closed: bool,
+        tool_status: Option<String>,
+        tool_name: Option<String>,
+    }
+
+    type PartMap = BTreeMap<String, FoldedPart>;
+
+    fn kind_name(kind: TextKind) -> String {
+        match kind {
+            TextKind::Answer => "answer".into(),
+            TextKind::Thinking => "thinking".into(),
+        }
+    }
+
+    fn status_name(status: AgentToolStatus) -> String {
+        match status {
+            AgentToolStatus::Pending => "pending".into(),
+            AgentToolStatus::Running => "running".into(),
+            AgentToolStatus::Completed => "completed".into(),
+            AgentToolStatus::Failed => "failed".into(),
+        }
+    }
+
+    fn apply_text_or_backfill(
+        existing: &mut String,
+        offset: u64,
+        chunk: &str,
+        canonical: Option<&str>,
+    ) {
+        let len = existing.len() as u64;
+        if offset > len {
+            if let Some(canonical) = canonical {
+                if let Some((suffix, at)) = text_suffix_from(canonical, len) {
+                    apply_text_offset(existing, at, suffix);
+                }
+            }
+        }
+        let len = existing.len() as u64;
+        if offset > len {
+            return;
+        }
+        apply_text_offset(existing, offset, chunk);
+    }
+
+    fn fold_events(events: &[FoldEvent], canonical: Option<&PartMap>) -> PartMap {
+        let mut parts = PartMap::new();
+        let mut pending_close = std::collections::HashSet::new();
+        for event in events {
+            match event {
+                FoldEvent::Text {
+                    part_id,
+                    message_id,
+                    ordinal,
+                    kind,
+                    offset,
+                    text,
+                } => {
+                    let canonical_text =
+                        canonical.and_then(|map| map.get(part_id).map(|part| part.text.as_str()));
+                    let closed = pending_close.remove(part_id);
+                    let part = parts.entry(part_id.clone()).or_insert_with(|| FoldedPart {
+                        message_id: message_id.clone(),
+                        ordinal: *ordinal,
+                        kind: kind_name(*kind),
+                        text: String::new(),
+                        closed,
+                        tool_status: None,
+                        tool_name: None,
+                    });
+                    apply_text_or_backfill(&mut part.text, *offset, text, canonical_text);
+                }
+                FoldEvent::Close { part_id } => {
+                    if let Some(part) = parts.get_mut(part_id) {
+                        part.closed = true;
+                    } else {
+                        pending_close.insert(part_id.clone());
+                    }
+                }
+                FoldEvent::Tool {
+                    tool_call_id,
+                    status,
+                    name,
+                } => {
+                    let incoming = ToolCallState {
+                        tool_call_id: tool_call_id.clone(),
+                        parent_tool_call_id: None,
+                        status: *status,
+                        name: name.clone(),
+                        title: None,
+                        kind: None,
+                        params: None,
+                        result: None,
+                    };
+                    let part = parts
+                        .entry(tool_call_id.clone())
+                        .or_insert_with(|| FoldedPart {
+                            message_id: format!("tool-{tool_call_id}"),
+                            ordinal: 0,
+                            kind: "tool".into(),
+                            text: String::new(),
+                            closed: false,
+                            tool_status: Some(status_name(*status)),
+                            tool_name: name.clone(),
+                        });
+                    if part.kind == "tool" {
+                        let existing = ToolCallState {
+                            tool_call_id: tool_call_id.clone(),
+                            parent_tool_call_id: None,
+                            status: match part.tool_status.as_deref() {
+                                Some("running") => AgentToolStatus::Running,
+                                Some("completed") => AgentToolStatus::Completed,
+                                Some("failed") => AgentToolStatus::Failed,
+                                _ => AgentToolStatus::Pending,
+                            },
+                            name: part.tool_name.clone(),
+                            title: None,
+                            kind: None,
+                            params: None,
+                            result: None,
+                        };
+                        let merged = ToolCallState::merge(&existing, incoming);
+                        part.tool_status = Some(status_name(merged.status));
+                        part.tool_name = merged.name;
+                    }
+                }
+            }
+        }
+        parts
+    }
+
+    fn text_chunk(
+        part_id: &str,
+        message_id: &str,
+        ordinal: u32,
+        kind: TextKind,
+        offset: u64,
+        text: &str,
+    ) -> FoldEvent {
+        FoldEvent::Text {
+            part_id: part_id.into(),
+            message_id: message_id.into(),
+            ordinal,
+            kind,
+            offset,
+            text: text.into(),
+        }
+    }
+
+    fn generate_sequence(seed: usize) -> Vec<FoldEvent> {
+        let part_count = 1 + seed % 3;
+        let chunks_per = 2 + seed % 4;
+        let mut events = Vec::new();
+        for part_i in 0..part_count {
+            let part_id = format!("p{part_i}");
+            let message_id = format!("m{part_i}");
+            let kind = if part_i == 1 {
+                TextKind::Thinking
+            } else {
+                TextKind::Answer
+            };
+            let mut offset = 0_u64;
+            for chunk_i in 0..chunks_per {
+                let unit = format!("{}{}", (b'a' + (part_i as u8)) as char, chunk_i);
+                events.push(text_chunk(
+                    &part_id,
+                    &message_id,
+                    part_i as u32,
+                    kind,
+                    offset,
+                    &unit,
+                ));
+                offset += unit.len() as u64;
+            }
+            if seed % 2 == 0 {
+                events.push(FoldEvent::Close {
+                    part_id: part_id.clone(),
+                });
+            }
+        }
+        if seed % 3 == 0 {
+            let tool_id = format!("tool-{seed}");
+            events.push(FoldEvent::Tool {
+                tool_call_id: tool_id.clone(),
+                status: AgentToolStatus::Pending,
+                name: Some("Read".into()),
+            });
+            events.push(FoldEvent::Tool {
+                tool_call_id: tool_id.clone(),
+                status: AgentToolStatus::Running,
+                name: None,
+            });
+            events.push(FoldEvent::Tool {
+                tool_call_id: tool_id,
+                status: AgentToolStatus::Completed,
+                name: None,
+            });
+        }
+        events
+    }
+
+    fn reorder_sequence(events: &[FoldEvent], seed: usize) -> Vec<FoldEvent> {
+        let mut out = events.to_vec();
+        let len = out.len();
+        if len < 2 {
+            return out;
+        }
+        out.rotate_left(seed % len);
+        let mut i = seed % len;
+        for step in 0..len / 2 {
+            let j = (i + 1 + seed + step) % len;
+            out.swap(i, j);
+            i = (i + 2) % len;
+        }
+        out
+    }
+
+    fn generated_sequences() -> Vec<Vec<FoldEvent>> {
+        (0..24).map(generate_sequence).collect()
+    }
+
+    #[test]
+    fn idempotent_duplicate_delivery_changes_nothing() {
+        for sequence in generated_sequences() {
+            let once = fold_events(&sequence, None);
+            let mut doubled = sequence.clone();
+            doubled.extend(sequence.iter().cloned());
+            let twice = fold_events(&doubled, None);
+            assert_eq!(twice, once);
+        }
+    }
+
+    #[test]
+    fn idempotent_reordered_delivery_converges() {
+        for (seed, sequence) in generated_sequences().into_iter().enumerate() {
+            let in_order = fold_events(&sequence, None);
+            let shuffled = reorder_sequence(&sequence, seed.wrapping_mul(17) + 3);
+            let converged = fold_events(&shuffled, Some(&in_order));
+            assert_eq!(converged, in_order, "seed {seed}");
+        }
+    }
+
+    #[test]
+    fn idempotent_prefix_replay_converges() {
+        for sequence in generated_sequences() {
+            let full = fold_events(&sequence, None);
+            for prefix_len in 0..=sequence.len() {
+                let mut replayed = sequence[..prefix_len].to_vec();
+                replayed.extend(sequence.iter().cloned());
+                let after = fold_events(&replayed, None);
+                assert_eq!(after, full, "prefix {prefix_len}");
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod fold_corpus_tests {
+    use std::collections::BTreeMap;
+
+    use super::{apply_text_offset, ToolCallState};
+    use agent::{AgentToolStatus, TextKind};
+    use serde::Deserialize;
+
+    #[derive(Debug, Deserialize)]
+    struct Corpus {
+        cases: Vec<CorpusCase>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct CorpusCase {
+        name: String,
+        events: Vec<CorpusEvent>,
+        expected: Vec<CorpusPart>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(tag = "type", rename_all = "snake_case")]
+    enum CorpusEvent {
+        TextChunk {
+            part_id: String,
+            message_id: String,
+            ordinal: u32,
+            kind: TextKind,
+            offset: u64,
+            text: String,
+        },
+        PartClosed {
+            part_id: String,
+        },
+        ToolCall {
+            tool_call_id: String,
+            status: AgentToolStatus,
+            #[serde(default)]
+            name: Option<String>,
+        },
+    }
+
+    #[derive(Debug, Deserialize, PartialEq, Eq)]
+    struct CorpusPart {
+        id: String,
+        message_id: String,
+        ordinal: u32,
+        kind: String,
+        text: String,
+        closed: bool,
+        #[serde(default)]
+        tool_status: Option<String>,
+        #[serde(default)]
+        tool_name: Option<String>,
+    }
+
+    fn status_name(status: AgentToolStatus) -> String {
+        match status {
+            AgentToolStatus::Pending => "pending".into(),
+            AgentToolStatus::Running => "running".into(),
+            AgentToolStatus::Completed => "completed".into(),
+            AgentToolStatus::Failed => "failed".into(),
+        }
+    }
+
+    fn fold_corpus_events(events: &[CorpusEvent]) -> BTreeMap<String, CorpusPart> {
+        let mut parts = BTreeMap::new();
+        for event in events {
+            match event {
+                CorpusEvent::TextChunk {
+                    part_id,
+                    message_id,
+                    ordinal,
+                    kind,
+                    offset,
+                    text,
+                } => {
+                    let part = parts.entry(part_id.clone()).or_insert_with(|| CorpusPart {
+                        id: part_id.clone(),
+                        message_id: message_id.clone(),
+                        ordinal: *ordinal,
+                        kind: match kind {
+                            TextKind::Answer => "answer".into(),
+                            TextKind::Thinking => "thinking".into(),
+                        },
+                        text: String::new(),
+                        closed: false,
+                        tool_status: None,
+                        tool_name: None,
+                    });
+                    apply_text_offset(&mut part.text, *offset, text);
+                }
+                CorpusEvent::PartClosed { part_id } => {
+                    if let Some(part) = parts.get_mut(part_id) {
+                        part.closed = true;
+                    }
+                }
+                CorpusEvent::ToolCall {
+                    tool_call_id,
+                    status,
+                    name,
+                } => {
+                    let incoming = ToolCallState {
+                        tool_call_id: tool_call_id.clone(),
+                        parent_tool_call_id: None,
+                        status: *status,
+                        name: name.clone(),
+                        title: None,
+                        kind: None,
+                        params: None,
+                        result: None,
+                    };
+                    let part = parts
+                        .entry(tool_call_id.clone())
+                        .or_insert_with(|| CorpusPart {
+                            id: tool_call_id.clone(),
+                            message_id: format!("tool-{tool_call_id}"),
+                            ordinal: 0,
+                            kind: "tool".into(),
+                            text: String::new(),
+                            closed: false,
+                            tool_status: Some(status_name(*status)),
+                            tool_name: name.clone(),
+                        });
+                    let existing = ToolCallState {
+                        tool_call_id: tool_call_id.clone(),
+                        parent_tool_call_id: None,
+                        status: match part.tool_status.as_deref() {
+                            Some("running") => AgentToolStatus::Running,
+                            Some("completed") => AgentToolStatus::Completed,
+                            Some("failed") => AgentToolStatus::Failed,
+                            _ => AgentToolStatus::Pending,
+                        },
+                        name: part.tool_name.clone(),
+                        title: None,
+                        kind: None,
+                        params: None,
+                        result: None,
+                    };
+                    let merged = ToolCallState::merge(&existing, incoming);
+                    part.tool_status = Some(status_name(merged.status));
+                    part.tool_name = merged.name;
+                }
+            }
+        }
+        parts
+    }
+
+    fn load_corpus() -> Corpus {
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../packages/api-client/src/agent-chat/fixtures/fold-corpus.json");
+        let raw = std::fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("read {}: {error}", path.display()));
+        serde_json::from_str(&raw).expect("fold corpus json")
+    }
+
+    #[test]
+    fn fold_corpus_rust_matches_expected_part_map() {
+        let corpus = load_corpus();
+        assert!(
+            !corpus.cases.is_empty(),
+            "shared fold corpus must not be empty"
+        );
+        for case in corpus.cases {
+            let folded = fold_corpus_events(&case.events);
+            let expected: BTreeMap<_, _> = case
+                .expected
+                .into_iter()
+                .map(|part| (part.id.clone(), part))
+                .collect();
+            assert_eq!(folded, expected, "{}", case.name);
+        }
     }
 }

@@ -5,11 +5,13 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use serde_json::{json, Value};
 
 use crate::contract::AgentPersistenceHandle;
+use crate::contract::TextKind;
 use crate::contract::{AgentCurrentConfig, AgentIdentity, AgentSupportedOptions};
 use crate::contract::{AgentDescriptor, TurnStop};
 use crate::contract::{AgentEvent, AgentEventEnvelope};
 use crate::contract::{AgentTool, AgentToolKind, AgentToolStatus};
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
+use crate::providers::text_parts::{close_open_parts, Snapshot, TextParts};
 
 use super::codec::{frame_kind, ClaudeFrameKind};
 use super::rpc::{pending_from_can_use_tool, permission_request_event};
@@ -20,8 +22,9 @@ pub(crate) struct EventMapState {
     pub pending: VecDeque<AgentEventEnvelope>,
     pub assistant_message_id: Option<String>,
     pub thinking_message_id: Option<String>,
-    pub streamed_assistant: bool,
-    pub streamed_thinking: bool,
+    /// Open parts are the only "a stream is in flight" state — the old
+    /// `streamed_assistant` / `streamed_thinking` flags duplicated it.
+    pub parts: TextParts,
     pub tools: HashMap<String, AgentTool>,
     pub identity: AgentIdentity,
     pub capabilities: crate::contract::AgentCapabilities,
@@ -49,8 +52,7 @@ impl EventMapState {
             pending: VecDeque::new(),
             assistant_message_id: None,
             thinking_message_id: None,
-            streamed_assistant: false,
-            streamed_thinking: false,
+            parts: TextParts::default(),
             tools: HashMap::new(),
             identity: AgentIdentity {
                 id: "claude".into(),
@@ -207,25 +209,27 @@ fn map_stream_event(
     }
     let delta = event.get("delta").cloned().unwrap_or(Value::Null);
     let parent_tool_call_id = parent_tool_use_id(frame);
+    // `event.index` is the vendor's content-block index: two blocks are two parts.
+    let block_index = content_block_index(event);
     match delta.get("type").and_then(Value::as_str) {
         Some("text_delta") => {
             let text = delta.get("text").and_then(Value::as_str).unwrap_or("");
             if text.is_empty() {
                 return MappedFrame::Omit;
             }
-            state.streamed_assistant = true;
             let message_id = assistant_id(state);
+            let chunk = text_chunk(
+                state,
+                &message_id,
+                block_index,
+                TextKind::Answer,
+                text.to_string(),
+                parent_tool_call_id,
+            );
             MappedFrame::Envelope(complete_before_thinking(
                 state,
                 turn_id.clone(),
-                wrap(
-                    turn_id,
-                    AgentEvent::AssistantMessageDelta {
-                        message_id,
-                        delta: text.to_string(),
-                        parent_tool_call_id,
-                    },
-                ),
+                wrap(turn_id, chunk),
             ))
         }
         Some("thinking_delta") => {
@@ -237,23 +241,92 @@ fn map_stream_event(
             if text.is_empty() {
                 return MappedFrame::Omit;
             }
-            state.streamed_thinking = true;
             let message_id = thinking_id(state);
+            let chunk = text_chunk(
+                state,
+                &message_id,
+                block_index,
+                TextKind::Thinking,
+                text.to_string(),
+                parent_tool_call_id,
+            );
             MappedFrame::Envelope(complete_before_assistant(
                 state,
                 turn_id.clone(),
-                wrap(
-                    turn_id,
-                    AgentEvent::ThinkingDelta {
-                        message_id,
-                        delta: text.to_string(),
-                        parent_tool_call_id,
-                    },
-                ),
+                wrap(turn_id, chunk),
             ))
         }
         _ => MappedFrame::Omit,
     }
+}
+
+fn content_block_index(event: &Value) -> u64 {
+    event.get("index").and_then(Value::as_u64).unwrap_or(0)
+}
+
+/// Part identity is `{message_id}:{content block index}`.
+fn part_id_of(message_id: &str, block_index: u64) -> String {
+    format!("{message_id}:{block_index}")
+}
+
+fn text_chunk(
+    state: &mut EventMapState,
+    message_id: &str,
+    block_index: u64,
+    kind: TextKind,
+    text: String,
+    parent_tool_call_id: Option<String>,
+) -> AgentEvent {
+    let part_id = part_id_of(message_id, block_index);
+    state
+        .parts
+        .chunk(&part_id, message_id, parent_tool_call_id, kind, text)
+}
+
+/// Apply a `message.content` block snapshot to `part_id`: append what the stream
+/// did not deliver, or — if Claude replaced content it had already sent — close
+/// the part and restart under a new id.
+fn apply_snapshot(
+    state: &mut EventMapState,
+    part_id: &str,
+    message_id: &str,
+    kind: TextKind,
+    snapshot: &str,
+    parent_tool_call_id: Option<String>,
+) -> Vec<AgentEvent> {
+    match state.parts.snapshot(part_id, snapshot) {
+        Snapshot::Unchanged => Vec::new(),
+        Snapshot::Appends(suffix) => {
+            let suffix = suffix.to_string();
+            vec![state
+                .parts
+                .chunk(part_id, message_id, parent_tool_call_id, kind, suffix)]
+        }
+        Snapshot::Revised => {
+            let snapshot = snapshot.to_string();
+            let closed = state.parts.close(part_id.to_string(), None);
+            let revised = state.parts.revise(part_id);
+            vec![
+                closed,
+                state
+                    .parts
+                    .chunk(&revised, message_id, parent_tool_call_id, kind, snapshot),
+            ]
+        }
+    }
+}
+
+fn close_parts(
+    state: &mut EventMapState,
+    turn_id: Option<String>,
+    kind: TextKind,
+) -> Vec<AgentEventEnvelope> {
+    state
+        .parts
+        .open_of(kind)
+        .into_iter()
+        .map(|part_id| wrap(turn_id.clone(), state.parts.close(part_id, None)))
+        .collect()
 }
 
 fn map_assistant(state: &mut EventMapState, turn_id: Option<String>, frame: &Value) -> MappedFrame {
@@ -284,7 +357,14 @@ fn map_assistant(state: &mut EventMapState, turn_id: Option<String>, frame: &Val
         }
     };
 
-    for block in &content {
+    // The `assistant` frame snapshots the message the stream was building, so a
+    // block lands on the stream's own part when one is open and only opens a part
+    // of its own when nothing streamed.
+    let mut streamed_answer = state.parts.open_of(TextKind::Answer).into_iter().next();
+    let mut streamed_thinking = state.parts.open_of(TextKind::Thinking).into_iter().next();
+
+    for (block_index, block) in content.iter().enumerate() {
+        let block_index = block_index as u64;
         let block_type = block.get("type").and_then(Value::as_str).unwrap_or("");
         match block_type {
             "thinking" | "redacted_thinking" => {
@@ -295,50 +375,54 @@ fn map_assistant(state: &mut EventMapState, turn_id: Option<String>, frame: &Val
                     .get("thinking")
                     .or_else(|| block.get("text"))
                     .and_then(Value::as_str)
-                    .unwrap_or("");
-                if !state.streamed_thinking && !text.is_empty() {
-                    let message_id = thinking_id(state);
+                    .unwrap_or("")
+                    .to_string();
+                let message_id = thinking_id(state);
+                let part_id = streamed_thinking
+                    .take()
+                    .unwrap_or_else(|| part_id_of(&message_id, block_index));
+                for chunk in apply_snapshot(
+                    state,
+                    &part_id,
+                    &message_id,
+                    TextKind::Thinking,
+                    &text,
+                    parent_tool_call_id.clone(),
+                ) {
                     let event = complete_before_assistant(
                         state,
                         turn_id.clone(),
-                        wrap(
-                            turn_id.clone(),
-                            AgentEvent::ThinkingDelta {
-                                message_id,
-                                delta: text.to_string(),
-                                parent_tool_call_id: parent_tool_call_id.clone(),
-                            },
-                        ),
+                        wrap(turn_id.clone(), chunk),
                     );
                     push(state, &mut first, event);
                 }
-                if state.thinking_message_id.is_some() || state.streamed_thinking {
-                    let event = wrap(
-                        turn_id.clone(),
-                        AgentEvent::ThinkingCompleted {
-                            message_id: thinking_id(state),
-                        },
-                    );
-                    state.thinking_message_id = None;
-                    state.streamed_thinking = false;
+                for event in close_parts(state, turn_id.clone(), TextKind::Thinking) {
                     push(state, &mut first, event);
                 }
+                state.thinking_message_id = None;
             }
             "text" => {
-                let text = block.get("text").and_then(Value::as_str).unwrap_or("");
-                if !state.streamed_assistant && !text.is_empty() {
-                    let message_id = assistant_id(state);
+                let text = block
+                    .get("text")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                let message_id = assistant_id(state);
+                let part_id = streamed_answer
+                    .take()
+                    .unwrap_or_else(|| part_id_of(&message_id, block_index));
+                for chunk in apply_snapshot(
+                    state,
+                    &part_id,
+                    &message_id,
+                    TextKind::Answer,
+                    &text,
+                    parent_tool_call_id.clone(),
+                ) {
                     let event = complete_before_thinking(
                         state,
                         turn_id.clone(),
-                        wrap(
-                            turn_id.clone(),
-                            AgentEvent::AssistantMessageDelta {
-                                message_id,
-                                delta: text.to_string(),
-                                parent_tool_call_id: parent_tool_call_id.clone(),
-                            },
-                        ),
+                        wrap(turn_id.clone(), chunk),
                     );
                     push(state, &mut first, event);
                 }
@@ -359,17 +443,18 @@ fn map_assistant(state: &mut EventMapState, turn_id: Option<String>, frame: &Val
                 ) {
                     ToolMapOut::FoldThinking { text } => {
                         let message_id = thinking_id(state);
+                        let chunk = text_chunk(
+                            state,
+                            &message_id,
+                            block_index,
+                            TextKind::Thinking,
+                            text,
+                            parent_tool_call_id.clone(),
+                        );
                         let event = complete_before_assistant(
                             state,
                             turn_id.clone(),
-                            wrap(
-                                turn_id.clone(),
-                                AgentEvent::ThinkingDelta {
-                                    message_id,
-                                    delta: text,
-                                    parent_tool_call_id: parent_tool_call_id.clone(),
-                                },
-                            ),
+                            wrap(turn_id.clone(), chunk),
                         );
                         push(state, &mut first, event);
                     }
@@ -446,17 +531,10 @@ fn map_assistant(state: &mut EventMapState, turn_id: Option<String>, frame: &Val
         }
     }
 
-    if state.assistant_message_id.is_some() || state.streamed_assistant {
-        let event = wrap(
-            turn_id.clone(),
-            AgentEvent::AssistantMessageCompleted {
-                message_id: assistant_id(state),
-            },
-        );
-        state.assistant_message_id = None;
-        state.streamed_assistant = false;
+    for event in close_parts(state, turn_id.clone(), TextKind::Answer) {
         push(state, &mut first, event);
     }
+    state.assistant_message_id = None;
 
     match first {
         Some(event) => MappedFrame::Envelope(event),
@@ -546,26 +624,13 @@ fn map_result(state: &mut EventMapState, turn_id: Option<String>, frame: &Value)
         }
     };
 
-    if let Some(message_id) = state.thinking_message_id.take() {
-        push(
-            state,
-            wrap(
-                Some(turn_id.clone()),
-                AgentEvent::ThinkingCompleted { message_id },
-            ),
-        );
+    for kind in [TextKind::Thinking, TextKind::Answer] {
+        for event in close_parts(state, Some(turn_id.clone()), kind) {
+            push(state, event);
+        }
     }
-    if let Some(message_id) = state.assistant_message_id.take() {
-        push(
-            state,
-            wrap(
-                Some(turn_id.clone()),
-                AgentEvent::AssistantMessageCompleted { message_id },
-            ),
-        );
-    }
-    state.streamed_assistant = false;
-    state.streamed_thinking = false;
+    state.thinking_message_id = None;
+    state.assistant_message_id = None;
 
     let running_subagent = state.has_running_subagent();
     let already_deferred = state.deferred_host_stop.is_some();
@@ -762,50 +827,19 @@ fn complete_open_streams(
     turn_id: Option<String>,
     next: AgentEventEnvelope,
 ) -> AgentEventEnvelope {
-    let thinking = state.thinking_message_id.take();
-    let assistant = state.assistant_message_id.take();
-    if thinking.is_some() {
-        state.streamed_thinking = false;
+    let mut closed = close_parts(state, turn_id.clone(), TextKind::Thinking);
+    closed.extend(close_parts(state, turn_id, TextKind::Answer));
+    state.thinking_message_id = None;
+    state.assistant_message_id = None;
+    let mut closed = closed.into_iter();
+    let Some(head) = closed.next() else {
+        return next;
+    };
+    for event in closed {
+        state.pending.push_back(event);
     }
-    if assistant.is_some() {
-        state.streamed_assistant = false;
-    }
-    match (thinking, assistant) {
-        (Some(thinking_id), Some(assistant_id)) => {
-            state.pending.push_back(wrap(
-                turn_id.clone(),
-                AgentEvent::AssistantMessageCompleted {
-                    message_id: assistant_id,
-                },
-            ));
-            state.pending.push_back(next);
-            wrap(
-                turn_id,
-                AgentEvent::ThinkingCompleted {
-                    message_id: thinking_id,
-                },
-            )
-        }
-        (Some(thinking_id), None) => {
-            state.pending.push_back(next);
-            wrap(
-                turn_id,
-                AgentEvent::ThinkingCompleted {
-                    message_id: thinking_id,
-                },
-            )
-        }
-        (None, Some(assistant_id)) => {
-            state.pending.push_back(next);
-            wrap(
-                turn_id,
-                AgentEvent::AssistantMessageCompleted {
-                    message_id: assistant_id,
-                },
-            )
-        }
-        (None, None) => next,
-    }
+    state.pending.push_back(next);
+    head
 }
 
 fn complete_before_thinking(
@@ -813,14 +847,14 @@ fn complete_before_thinking(
     turn_id: Option<String>,
     next: AgentEventEnvelope,
 ) -> AgentEventEnvelope {
-    if state.thinking_message_id.is_some() {
-        state.streamed_thinking = false;
+    if !state.parts.open_of(TextKind::Thinking).is_empty() {
+        state.thinking_message_id = None;
     }
-    complete_stream_before(
-        &mut state.thinking_message_id,
+    close_open_parts(
+        &mut state.parts,
         &mut state.pending,
         turn_id,
-        |message_id| AgentEvent::ThinkingCompleted { message_id },
+        TextKind::Thinking,
         next,
     )
 }
@@ -830,31 +864,16 @@ fn complete_before_assistant(
     turn_id: Option<String>,
     next: AgentEventEnvelope,
 ) -> AgentEventEnvelope {
-    if state.assistant_message_id.is_some() {
-        state.streamed_assistant = false;
+    if !state.parts.open_of(TextKind::Answer).is_empty() {
+        state.assistant_message_id = None;
     }
-    complete_stream_before(
-        &mut state.assistant_message_id,
+    close_open_parts(
+        &mut state.parts,
         &mut state.pending,
         turn_id,
-        |message_id| AgentEvent::AssistantMessageCompleted { message_id },
+        TextKind::Answer,
         next,
     )
-}
-
-fn complete_stream_before(
-    open_id: &mut Option<String>,
-    pending: &mut VecDeque<AgentEventEnvelope>,
-    turn_id: Option<String>,
-    completed: impl FnOnce(String) -> AgentEvent,
-    next: AgentEventEnvelope,
-) -> AgentEventEnvelope {
-    if let Some(message_id) = open_id.take() {
-        pending.push_back(next);
-        wrap(turn_id, completed(message_id))
-    } else {
-        next
-    }
 }
 
 fn wrap(turn_id: Option<String>, payload: AgentEvent) -> AgentEventEnvelope {
@@ -890,6 +909,7 @@ mod tests {
     use crate::contract::AgentToolStatus;
     use crate::contract::Capability;
     use crate::contract::{AgentToolParams, AgentToolResult};
+    use crate::providers::text_parts::{reassemble, reassembled_text};
 
     fn testdata_jsonl(name: &str) -> Vec<Value> {
         let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -901,6 +921,20 @@ mod tests {
             .filter(|line| !line.trim().is_empty())
             .map(|line| serde_json::from_str(line).expect("jsonl"))
             .collect()
+    }
+
+    fn jsonl_fixture_names() -> Vec<String> {
+        let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("src/providers/claude/testdata");
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .expect("testdata dir")
+            .map(|entry| entry.expect("dir entry").file_name())
+            .filter_map(|name| name.into_string().ok())
+            .filter(|name| name.ends_with(".jsonl"))
+            .collect();
+        names.sort();
+        assert!(!names.is_empty(), "no jsonl fixtures found");
+        names
     }
 
     fn replay(name: &str) -> (EventMapState, Vec<AgentEvent>) {
@@ -927,9 +961,13 @@ mod tests {
                 persistence_handle: Some(id)
             } if id == "ses_abc123"
         )));
-        assert!(events
-            .iter()
-            .any(|event| matches!(event, AgentEvent::ThinkingDelta { .. })));
+        assert!(events.iter().any(|event| matches!(
+            event,
+            AgentEvent::TextChunk {
+                kind: TextKind::Thinking,
+                ..
+            }
+        )));
         assert!(events.iter().any(|event| matches!(
             event,
             AgentEvent::PermissionRequested { request } if request.request_id == "req_p"
@@ -986,6 +1024,87 @@ mod tests {
             assert!(json.get("source").is_none());
             assert!(json.get("native").is_none());
         }
+    }
+
+    #[test]
+    fn s6_turn_bash_web_reassembles_to_the_text_claude_sent() {
+        let (_, events) = replay("turn_bash_web.jsonl");
+        assert_eq!(
+            reassembled_text(&events, TextKind::Answer),
+            "I'll look around."
+        );
+        assert_eq!(
+            reassembled_text(&events, TextKind::Thinking),
+            "plan the tools"
+        );
+    }
+
+    #[test]
+    fn s6_assistant_snapshot_tail_is_appended_not_dropped() {
+        // Claude streams "Working" and then snapshots the settled
+        // "Working on it." — the tail the stream never sent must still arrive.
+        let (_, events) = replay("mixed_control.jsonl");
+        assert_eq!(
+            reassembled_text(&events, TextKind::Answer),
+            "Working on it."
+        );
+    }
+
+    #[test]
+    fn s6_every_jsonl_fixture_keeps_part_offsets_contiguous() {
+        for name in jsonl_fixture_names() {
+            let (_, events) = replay(&name);
+            // Panics on a gap or an overlap in any part's offset sequence.
+            let parts = reassemble(&events);
+            for (part_id, _, text) in parts {
+                assert!(
+                    !text.is_empty(),
+                    "{name}: part {part_id} emitted chunks but reassembled empty"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn s7_two_content_block_indexes_become_two_answer_parts() {
+        let mut state = EventMapState::new(AgentCurrentConfig::default());
+        state.assistant_message_id = Some("msg_multi".into());
+        let mut events = Vec::new();
+        for (index, text) in [(0_u64, "first block "), (1, "second block")] {
+            let frame = json!({
+                "type": "stream_event",
+                "event": {
+                    "type": "content_block_delta",
+                    "index": index,
+                    "delta": { "type": "text_delta", "text": text }
+                }
+            });
+            let (mapped, _) = drain_mapped(&mut state, Some("turn-1".into()), &frame);
+            events.extend(mapped.into_iter().map(|envelope| envelope.payload));
+        }
+        assert_eq!(
+            reassemble(&events),
+            vec![
+                (
+                    "msg_multi:0".to_string(),
+                    TextKind::Answer,
+                    "first block ".to_string()
+                ),
+                (
+                    "msg_multi:1".to_string(),
+                    TextKind::Answer,
+                    "second block".to_string()
+                ),
+            ]
+        );
+        let ordinals: Vec<u32> = events
+            .iter()
+            .filter_map(|event| match event {
+                AgentEvent::TextChunk { ordinal, .. } => Some(*ordinal),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(ordinals, vec![0, 1]);
     }
 
     #[test]
@@ -1048,11 +1167,12 @@ mod tests {
         let (events, _) = drain_mapped(&mut state, Some("turn-1".into()), &stream);
         assert!(events.iter().any(|envelope| matches!(
             envelope.payload,
-            AgentEvent::AssistantMessageDelta {
-                ref delta,
-                parent_tool_call_id: Some(ref parent),
+            AgentEvent::TextChunk {
+                kind: TextKind::Answer,
+                ref text,
+                parent_part_id: Some(ref parent),
                 ..
-            } if delta == "nested hello" && parent == "toolu_parent"
+            } if text == "nested hello" && parent == "toolu_parent"
         )));
 
         let mut replay_state = EventMapState::new(AgentCurrentConfig::default());
@@ -1068,11 +1188,12 @@ mod tests {
         let (events, _) = drain_mapped(&mut replay_state, Some("turn-1".into()), &assistant);
         assert!(events.iter().any(|envelope| matches!(
             envelope.payload,
-            AgentEvent::AssistantMessageDelta {
-                ref delta,
-                parent_tool_call_id: Some(ref parent),
+            AgentEvent::TextChunk {
+                kind: TextKind::Answer,
+                ref text,
+                parent_part_id: Some(ref parent),
                 ..
-            } if delta == "nested replay" && parent == "toolu_parent"
+            } if text == "nested replay" && parent == "toolu_parent"
         )));
     }
 

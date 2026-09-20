@@ -260,7 +260,7 @@ impl WsMessageService {
             loop {
                 match events.recv().await {
                     Ok(event) => {
-                        last_seq.insert(event.chat_id.clone(), event.sequence);
+                        last_seq.insert(event.chat_id.clone(), event.revision);
                         let conns = {
                             let map = subs.read().await;
                             map.get(&event.chat_id).cloned().unwrap_or_default()
@@ -274,7 +274,7 @@ impl WsMessageService {
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
                         tracing::warn!(
-                            "agent chat event fan-out lagged; replaying missed sequences"
+                            "agent chat event fan-out lagged; replaying non-text recent events"
                         );
                         let subscribed = {
                             let map = subs.read().await;
@@ -283,7 +283,7 @@ impl WsMessageService {
                         for (chat_id, conns) in subscribed {
                             let after = last_seq.get(&chat_id).copied().unwrap_or(0);
                             for event in agent_chat.events_after(&chat_id, after) {
-                                last_seq.insert(chat_id.clone(), event.sequence);
+                                last_seq.insert(chat_id.clone(), event.revision);
                                 if let Ok(payload) = serde_json::to_value(&event) {
                                     let message =
                                         WsMessage::notification(WsEvent::AgentChatEvent, payload);
@@ -947,6 +947,10 @@ impl WsMessageService {
             }
             WsAction::AgentChatSubscribe => {
                 self.handle_agent_chat_subscribe(conn_id, parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatBackfill => {
+                self.handle_agent_chat_backfill(parse_request(request.data)?)
                     .await
             }
             WsAction::AgentChatUnsubscribe => {

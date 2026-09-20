@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -11,15 +11,14 @@ use crate::error::{Result, ServiceError};
 use crate::utils::path_boundary::{path_or_existing_parent_within_root, path_within_root};
 
 use super::types::{
-    apply_assistant_text_part_nested, apply_rewind_view, chat_descriptor, flatten_messages,
-    AgentChatIndexEntry, AgentChatMeta, AgentChatOrigin, AgentChatSnapshot, CreateAgentChatRequest,
-    FoldedMessage, FoldedTurn, MessagePart, PendingPermission, QueueItem, RuntimeStatus,
-    SessionHintTone, SessionLifecycleAction, SessionLifecycleStatus, TranscriptEnvelope,
-    TranscriptEvent, TurnStatus,
+    apply_rewind_view, apply_text_offset, chat_descriptor, flatten_messages, AgentChatIndexEntry,
+    AgentChatMeta, AgentChatOrigin, AgentChatSnapshot, CreateAgentChatRequest, FoldedMessage,
+    FoldedTurn, MaterializedTextPart, MessagePart, PendingPermission, QueueItem, RuntimeStatus,
+    SessionHintTone, SessionLifecycleAction, SessionLifecycleStatus, ToolCallState,
+    TranscriptEnvelope, TranscriptEvent, TurnStatus,
 };
 use agent::{
-    AgentCurrentConfig, AgentEvent, AgentEventEnvelope, AgentPermissionRequest, AgentTool,
-    AgentToolKind, AgentToolParams,
+    AgentCurrentConfig, AgentEvent, AgentEventEnvelope, AgentPermissionRequest, TextKind, TurnStop,
 };
 
 pub struct AgentChatStore {
@@ -110,6 +109,7 @@ impl AgentChatStore {
         self.write_meta(&meta)?;
         self.write_queue_unlocked(&id, &[])?;
         File::create(dir.join("transcript.jsonl")).map_err(io_err)?;
+        File::create(dir.join("live.jsonl")).map_err(io_err)?;
         self.upsert_index(&meta)?;
         Ok(meta)
     }
@@ -177,7 +177,7 @@ impl AgentChatStore {
         let lock = self.lock_arc(id);
         let _guard = lock.lock().expect("agent chat lock");
         let meta = self.get_meta(id)?;
-        let turns = fold_transcript(&self.dir_for(id).join("transcript.jsonl"))?;
+        let turns = fold_chat_dir(&self.dir_for(id))?;
         let turns = apply_rewind_view(turns, meta.rewind_view.as_ref());
         let queue = self.read_queue_unlocked(id)?;
         let pending_permission =
@@ -202,7 +202,24 @@ impl AgentChatStore {
         require_chat_id(id)?;
         let lock = self.lock_arc(id);
         let _guard = lock.lock().expect("agent chat lock");
-        fold_transcript(&self.dir_for(id).join("transcript.jsonl"))
+        fold_chat_dir(&self.dir_for(id))
+    }
+
+    /// Materialized text of one part. The folded log is the source of truth:
+    /// a suffix of this text is exactly the chunks a client is missing.
+    pub fn materialized_text_part(
+        &self,
+        id: &str,
+        part_id: &str,
+    ) -> Result<Option<MaterializedTextPart>> {
+        require_chat_id(id)?;
+        let lock = self.lock_arc(id);
+        let _guard = lock.lock().expect("agent chat lock");
+        let mut records = Vec::new();
+        read_envelopes(&self.dir_for(id).join("transcript.jsonl"), &mut records)?;
+        read_envelopes(&self.dir_for(id).join("live.jsonl"), &mut records)?;
+        records.sort_by(|left, right| left.timestamp.cmp(&right.timestamp));
+        Ok(materialize_text_part_from_envelopes(&records, part_id))
     }
 
     pub fn list(
@@ -277,18 +294,74 @@ impl AgentChatStore {
     pub fn append_record(&self, id: &str, record: &TranscriptEnvelope) -> Result<()> {
         let lock = self.lock_arc(id);
         let _guard = lock.lock().expect("agent chat lock");
-        let path = self.dir_for(id).join("transcript.jsonl");
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)
-            .map_err(io_err)?;
-        serde_json::to_writer(&mut file, record).map_err(|e| {
-            ServiceError::Processing(format!("failed to serialize transcript record: {e}"))
-        })?;
-        file.write_all(b"\n").map_err(io_err)?;
+        self.append_record_unlocked(id, record)
+    }
+
+    fn append_record_unlocked(&self, id: &str, record: &TranscriptEnvelope) -> Result<()> {
+        if matches!(record.event, TranscriptEvent::TurnCompleted { .. }) {
+            self.materialize_leftovers_unlocked(id)?;
+            append_jsonl(&self.transcript_path(id), record)?;
+            return self.truncate_live_unlocked(id);
+        }
+        let path = match record.event {
+            TranscriptEvent::TextChunk { .. } => self.live_path(id),
+            _ => self.transcript_path(id),
+        };
+        append_jsonl(&path, record)
+    }
+
+    /// Persist `PartFinished` for leftover open text parts after a detached or
+    /// crashed runtime, then truncate `live.jsonl`. Idempotent: already-finished
+    /// parts are skipped. A crash between those two steps replays already
+    /// materialized chunks; offset rule 2 ignores them.
+    pub fn close_leftover_open_parts(&self, id: &str) -> Result<()> {
+        require_chat_id(id)?;
+        let lock = self.lock_arc(id);
+        let _guard = lock.lock().expect("agent chat lock");
+        self.settle_live_unlocked(id)
+    }
+
+    fn settle_live_unlocked(&self, id: &str) -> Result<()> {
+        self.materialize_leftovers_unlocked(id)?;
+        self.truncate_live_unlocked(id)
+    }
+
+    fn materialize_leftovers_unlocked(&self, id: &str) -> Result<()> {
+        let leftovers = leftover_open_text_parts(&self.transcript_path(id), &self.live_path(id))?;
+        for (part_id, leftover) in leftovers {
+            self.append_record_unlocked(
+                id,
+                &TranscriptEnvelope::at(
+                    leftover.turn_id,
+                    leftover.first_at,
+                    TranscriptEvent::PartFinished {
+                        part_id,
+                        message_id: leftover.message_id,
+                        parent_part_id: leftover.parent_part_id,
+                        ordinal: leftover.ordinal,
+                        kind: leftover.kind,
+                        text: leftover.text,
+                        duration_ms: None,
+                    },
+                ),
+            )?;
+        }
+        Ok(())
+    }
+
+    fn truncate_live_unlocked(&self, id: &str) -> Result<()> {
+        let path = self.live_path(id);
+        let file = File::create(&path).map_err(io_err)?;
         file.sync_all().map_err(io_err)?;
         Ok(())
+    }
+
+    fn transcript_path(&self, id: &str) -> PathBuf {
+        self.dir_for(id).join("transcript.jsonl")
+    }
+
+    fn live_path(&self, id: &str) -> PathBuf {
+        self.dir_for(id).join("live.jsonl")
     }
 
     pub fn read_queue(&self, id: &str) -> Result<Vec<QueueItem>> {
@@ -502,11 +575,10 @@ fn last_pending_permission(path: &Path) -> Result<Option<super::types::PendingPe
         if line.trim().is_empty() {
             continue;
         }
-        if let Ok(TranscriptEnvelope {
-            event: TranscriptEvent::Permission { request },
-            ..
-        }) = serde_json::from_str(&line)
-        {
+        let record: TranscriptEnvelope = serde_json::from_str(&line).map_err(|error| {
+            ServiceError::Processing(format!("unreadable transcript record: {error}"))
+        })?;
+        if let TranscriptEvent::Permission { request } = record.event {
             pending = if request.status == "pending" {
                 Some(request)
             } else {
@@ -518,29 +590,124 @@ fn last_pending_permission(path: &Path) -> Result<Option<super::types::PendingPe
 }
 
 pub fn fold_transcript(path: &Path) -> Result<Vec<FoldedTurn>> {
+    let mut turns = Vec::new();
+    let mut open_text: HashMap<String, HashSet<String>> = HashMap::new();
+    let mut closed_parts: HashSet<String> = HashSet::new();
+    apply_jsonl_file(path, &mut turns, &mut open_text, &mut closed_parts)?;
+    Ok(turns)
+}
+
+fn fold_chat_dir(dir: &Path) -> Result<Vec<FoldedTurn>> {
+    let mut records = Vec::new();
+    read_envelopes(&dir.join("transcript.jsonl"), &mut records)?;
+    read_envelopes(&dir.join("live.jsonl"), &mut records)?;
+    records.sort_by(|left, right| left.timestamp.cmp(&right.timestamp));
+    Ok(fold_envelopes(records))
+}
+
+fn materialize_text_part_from_envelopes(
+    records: &[TranscriptEnvelope],
+    want: &str,
+) -> Option<MaterializedTextPart> {
+    let mut found: Option<MaterializedTextPart> = None;
+    for record in records {
+        match &record.event {
+            TranscriptEvent::TextChunk {
+                part_id,
+                message_id,
+                parent_part_id,
+                ordinal,
+                kind,
+                offset,
+                text,
+            } if part_id == want => {
+                let entry = found.get_or_insert_with(|| MaterializedTextPart {
+                    part_id: part_id.clone(),
+                    message_id: message_id.clone(),
+                    parent_part_id: parent_part_id.clone(),
+                    ordinal: *ordinal,
+                    kind: *kind,
+                    text: String::new(),
+                });
+                entry.message_id = message_id.clone();
+                entry.parent_part_id = parent_part_id.clone();
+                entry.ordinal = *ordinal;
+                entry.kind = *kind;
+                apply_text_offset(&mut entry.text, *offset, text);
+            }
+            TranscriptEvent::PartFinished {
+                part_id,
+                message_id,
+                parent_part_id,
+                ordinal,
+                kind,
+                text,
+                ..
+            } if part_id == want => {
+                found = Some(MaterializedTextPart {
+                    part_id: part_id.clone(),
+                    message_id: message_id.clone(),
+                    parent_part_id: parent_part_id.clone(),
+                    ordinal: *ordinal,
+                    kind: *kind,
+                    text: text.clone(),
+                });
+            }
+            _ => {}
+        }
+    }
+    found
+}
+
+fn read_envelopes(path: &Path, out: &mut Vec<TranscriptEnvelope>) -> Result<()> {
     if !path.exists() {
-        return Ok(Vec::new());
+        return Ok(());
     }
     let file = File::open(path).map_err(io_err)?;
     let reader = BufReader::new(file);
-    let mut turns: Vec<FoldedTurn> = Vec::new();
     for line in reader.lines() {
         let line = line.map_err(io_err)?;
         if line.trim().is_empty() {
             continue;
         }
-        let Ok(record) = serde_json::from_str::<TranscriptEnvelope>(&line) else {
-            continue;
-        };
-        apply_record(&mut turns, record);
+        let record: TranscriptEnvelope = serde_json::from_str(&line).map_err(|error| {
+            ServiceError::Processing(format!("unreadable transcript record: {error}"))
+        })?;
+        out.push(record);
     }
-    Ok(turns)
+    Ok(())
+}
+
+fn apply_jsonl_file(
+    path: &Path,
+    turns: &mut Vec<FoldedTurn>,
+    open_text: &mut HashMap<String, HashSet<String>>,
+    closed_parts: &mut HashSet<String>,
+) -> Result<()> {
+    if !path.exists() {
+        return Ok(());
+    }
+    let file = File::open(path).map_err(io_err)?;
+    let reader = BufReader::new(file);
+    for line in reader.lines() {
+        let line = line.map_err(io_err)?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        let record: TranscriptEnvelope = serde_json::from_str(&line).map_err(|error| {
+            ServiceError::Processing(format!("unreadable transcript record: {error}"))
+        })?;
+        apply_record(turns, record, open_text, closed_parts);
+    }
+    Ok(())
 }
 
 pub fn fold_envelopes(envelopes: impl IntoIterator<Item = TranscriptEnvelope>) -> Vec<FoldedTurn> {
     let mut turns = Vec::new();
+    let mut open_text: HashMap<String, HashSet<String>> = HashMap::new();
+    let mut closed_parts: HashSet<String> = HashSet::new();
     for envelope in envelopes {
-        apply_record(&mut turns, envelope);
+        apply_record(&mut turns, envelope, &mut open_text, &mut closed_parts);
     }
     turns
 }
@@ -550,23 +717,90 @@ pub fn fold_agent_events(envelopes: &[AgentEventEnvelope]) -> Vec<FoldedTurn> {
     fold_envelopes(agent_events_to_transcript(envelopes))
 }
 
-struct AgentStreamAcc {
+struct OpenTextPart {
     message_id: String,
-    parent_tool_call_id: Option<String>,
+    parent_part_id: Option<String>,
+    ordinal: u32,
+    kind: TextKind,
     text: String,
-    turn_id: Option<String>,
-    event_id: String,
-    timestamp: DateTime<Utc>,
 }
 
-fn agent_stream_key(message_id: &str, parent_tool_call_id: Option<&str>) -> String {
-    match parent_tool_call_id
-        .map(str::trim)
-        .filter(|id| !id.is_empty())
-    {
-        Some(parent) => format!("{message_id}\u{1e}{parent}"),
-        None => message_id.to_string(),
+struct LeftoverOpenText {
+    turn_id: String,
+    message_id: String,
+    parent_part_id: Option<String>,
+    ordinal: u32,
+    kind: TextKind,
+    text: String,
+    first_at: DateTime<Utc>,
+}
+
+fn leftover_open_text_parts(
+    transcript: &Path,
+    live: &Path,
+) -> Result<Vec<(String, LeftoverOpenText)>> {
+    let mut open: HashMap<String, LeftoverOpenText> = HashMap::new();
+    let mut finished: HashSet<String> = HashSet::new();
+    scan_leftover_jsonl(transcript, &mut open, &mut finished)?;
+    scan_leftover_jsonl(live, &mut open, &mut finished)?;
+    let mut leftovers: Vec<_> = open.into_iter().collect();
+    leftovers.sort_by(|a, b| a.1.ordinal.cmp(&b.1.ordinal).then_with(|| a.0.cmp(&b.0)));
+    Ok(leftovers)
+}
+
+fn scan_leftover_jsonl(
+    path: &Path,
+    open: &mut HashMap<String, LeftoverOpenText>,
+    finished: &mut HashSet<String>,
+) -> Result<()> {
+    if !path.exists() {
+        return Ok(());
     }
+    let file = File::open(path).map_err(io_err)?;
+    let reader = BufReader::new(file);
+    for line in reader.lines() {
+        let line = line.map_err(io_err)?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        let record: TranscriptEnvelope = serde_json::from_str(&line).map_err(|error| {
+            ServiceError::Processing(format!("unreadable transcript record: {error}"))
+        })?;
+        let turn_id = record.turn_id.unwrap_or_else(|| "unknown".into());
+        let first_at = record.timestamp;
+        match record.event {
+            TranscriptEvent::TextChunk {
+                part_id,
+                message_id,
+                parent_part_id,
+                ordinal,
+                kind,
+                offset,
+                text,
+            } => {
+                if finished.contains(&part_id) {
+                    continue;
+                }
+                let acc = open.entry(part_id).or_insert_with(|| LeftoverOpenText {
+                    turn_id: turn_id.clone(),
+                    message_id,
+                    parent_part_id,
+                    ordinal,
+                    kind,
+                    text: String::new(),
+                    first_at,
+                });
+                acc.turn_id = turn_id;
+                apply_text_offset(&mut acc.text, offset, &text);
+            }
+            TranscriptEvent::PartFinished { part_id, .. } => {
+                finished.insert(part_id.clone());
+                open.remove(&part_id);
+            }
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 fn envelope_time(envelope: &AgentEventEnvelope) -> DateTime<Utc> {
@@ -586,47 +820,11 @@ fn transcript_from_agent(
     }
 }
 
-fn flush_agent_stream(
-    buf: &mut HashMap<String, AgentStreamAcc>,
-    message_id: Option<&str>,
-    assistant: bool,
-    out: &mut Vec<TranscriptEnvelope>,
-) {
-    let keys: Vec<String> = buf
-        .iter()
-        .filter(|(_, acc)| message_id.is_none_or(|id| acc.message_id == id))
-        .map(|(key, _)| key.clone())
-        .collect();
-    let mut keys = keys;
-    keys.sort();
-    for key in keys {
-        let Some(acc) = buf.remove(&key) else {
-            continue;
-        };
-        if acc.text.is_empty() {
-            continue;
-        }
-        let event = if assistant {
-            TranscriptEvent::AssistantSnapshot {
-                message_id: acc.message_id,
-                text: acc.text,
-                parent_tool_call_id: acc.parent_tool_call_id,
-            }
-        } else {
-            TranscriptEvent::ThinkingSnapshot {
-                message_id: acc.message_id,
-                text: acc.text,
-                started_at: None,
-                duration_ms: None,
-                parent_tool_call_id: acc.parent_tool_call_id,
-            }
-        };
-        out.push(TranscriptEnvelope {
-            event_id: acc.event_id,
-            turn_id: acc.turn_id,
-            timestamp: acc.timestamp,
-            event,
-        });
+fn turn_status_from_stop(stop: TurnStop) -> TurnStatus {
+    match stop {
+        TurnStop::Completed => TurnStatus::Completed,
+        TurnStop::Canceled => TurnStatus::Canceled,
+        TurnStop::Failed => TurnStatus::Failed,
     }
 }
 
@@ -634,11 +832,17 @@ pub(crate) fn agent_events_to_transcript(
     envelopes: &[AgentEventEnvelope],
 ) -> Vec<TranscriptEnvelope> {
     let mut out = Vec::new();
-    let mut assistant: HashMap<String, AgentStreamAcc> = HashMap::new();
-    let mut thinking: HashMap<String, AgentStreamAcc> = HashMap::new();
+    let mut open: HashMap<String, OpenTextPart> = HashMap::new();
     for envelope in envelopes {
         let turn_id = envelope.turn_id.clone();
         match &envelope.payload {
+            AgentEvent::TurnStarted { turn_id: started } => {
+                out.push(transcript_from_agent(
+                    envelope,
+                    Some(started.clone()),
+                    TranscriptEvent::TurnStarted,
+                ));
+            }
             AgentEvent::UserMessage {
                 turn_id: user_turn,
                 message_id,
@@ -658,53 +862,56 @@ pub(crate) fn agent_events_to_transcript(
                     },
                 ));
             }
-            AgentEvent::AssistantMessageDelta {
+            AgentEvent::TextChunk {
+                part_id,
                 message_id,
-                delta,
-                parent_tool_call_id,
+                parent_part_id,
+                ordinal,
+                kind,
+                offset,
+                text,
             } => {
-                let key = agent_stream_key(message_id, parent_tool_call_id.as_deref());
-                let acc = assistant.entry(key).or_insert_with(|| AgentStreamAcc {
+                let acc = open.entry(part_id.clone()).or_insert_with(|| OpenTextPart {
                     message_id: message_id.clone(),
-                    parent_tool_call_id: parent_tool_call_id.clone(),
+                    parent_part_id: parent_part_id.clone(),
+                    ordinal: *ordinal,
+                    kind: *kind,
                     text: String::new(),
-                    turn_id: turn_id.clone(),
-                    event_id: envelope.event_id.clone(),
-                    timestamp: envelope_time(envelope),
                 });
-                acc.text.push_str(delta);
-                acc.turn_id = turn_id.clone().or_else(|| acc.turn_id.clone());
-                acc.event_id = envelope.event_id.clone();
-                if let Some(ts) = envelope.timestamp {
-                    acc.timestamp = ts;
-                }
+                apply_text_offset(&mut acc.text, *offset, text);
+                out.push(transcript_from_agent(
+                    envelope,
+                    turn_id,
+                    TranscriptEvent::TextChunk {
+                        part_id: part_id.clone(),
+                        message_id: message_id.clone(),
+                        parent_part_id: parent_part_id.clone(),
+                        ordinal: *ordinal,
+                        kind: *kind,
+                        offset: *offset,
+                        text: text.clone(),
+                    },
+                ));
             }
-            AgentEvent::AssistantMessageCompleted { message_id } => {
-                flush_agent_stream(&mut assistant, Some(message_id), true, &mut out);
-            }
-            AgentEvent::ThinkingDelta {
-                message_id,
-                delta,
-                parent_tool_call_id,
+            AgentEvent::PartClosed {
+                part_id,
+                duration_ms,
             } => {
-                let key = agent_stream_key(message_id, parent_tool_call_id.as_deref());
-                let acc = thinking.entry(key).or_insert_with(|| AgentStreamAcc {
-                    message_id: message_id.clone(),
-                    parent_tool_call_id: parent_tool_call_id.clone(),
-                    text: String::new(),
-                    turn_id: turn_id.clone(),
-                    event_id: envelope.event_id.clone(),
-                    timestamp: envelope_time(envelope),
-                });
-                acc.text.push_str(delta);
-                acc.turn_id = turn_id.clone().or_else(|| acc.turn_id.clone());
-                acc.event_id = envelope.event_id.clone();
-                if let Some(ts) = envelope.timestamp {
-                    acc.timestamp = ts;
+                if let Some(acc) = open.remove(part_id) {
+                    out.push(transcript_from_agent(
+                        envelope,
+                        turn_id,
+                        TranscriptEvent::PartFinished {
+                            part_id: part_id.clone(),
+                            message_id: acc.message_id,
+                            parent_part_id: acc.parent_part_id,
+                            ordinal: acc.ordinal,
+                            kind: acc.kind,
+                            text: acc.text,
+                            duration_ms: *duration_ms,
+                        },
+                    ));
                 }
-            }
-            AgentEvent::ThinkingCompleted { message_id } => {
-                flush_agent_stream(&mut thinking, Some(message_id), false, &mut out);
             }
             AgentEvent::ToolCallStarted { tool_call }
             | AgentEvent::ToolCallUpdated { tool_call }
@@ -714,7 +921,7 @@ pub(crate) fn agent_events_to_transcript(
                     envelope,
                     turn_id,
                     TranscriptEvent::ToolCall {
-                        tool: tool_call.clone(),
+                        tool: ToolCallState::from(tool_call.clone()),
                     },
                 ));
             }
@@ -726,8 +933,6 @@ pub(crate) fn agent_events_to_transcript(
                 ));
             }
             AgentEvent::PermissionRequested { request } => {
-                flush_agent_stream(&mut thinking, None, false, &mut out);
-                flush_agent_stream(&mut assistant, None, true, &mut out);
                 out.push(transcript_from_agent(
                     envelope,
                     turn_id,
@@ -754,15 +959,63 @@ pub(crate) fn agent_events_to_transcript(
                     },
                 ));
             }
+            AgentEvent::TurnCompleted {
+                turn_id: completed,
+                stop,
+            } => {
+                out.push(transcript_from_agent(
+                    envelope,
+                    Some(completed.clone()),
+                    TranscriptEvent::TurnCompleted {
+                        status: turn_status_from_stop(*stop),
+                        error: None,
+                        worked_ms: None,
+                        thinking_ms: None,
+                        usage: None,
+                    },
+                ));
+            }
+            AgentEvent::TurnFailed {
+                turn_id: failed,
+                error,
+            } => {
+                out.push(transcript_from_agent(
+                    envelope,
+                    Some(failed.clone()),
+                    TranscriptEvent::TurnCompleted {
+                        status: TurnStatus::Failed,
+                        error: Some(error.clone()),
+                        worked_ms: None,
+                        thinking_ms: None,
+                        usage: None,
+                    },
+                ));
+            }
+            AgentEvent::TurnCanceled { turn_id: canceled } => {
+                out.push(transcript_from_agent(
+                    envelope,
+                    Some(canceled.clone()),
+                    TranscriptEvent::TurnCompleted {
+                        status: TurnStatus::Canceled,
+                        error: None,
+                        worked_ms: None,
+                        thinking_ms: None,
+                        usage: None,
+                    },
+                ));
+            }
             _ => {}
         }
     }
-    flush_agent_stream(&mut assistant, None, true, &mut out);
-    flush_agent_stream(&mut thinking, None, false, &mut out);
     out
 }
 
-fn apply_record(turns: &mut Vec<FoldedTurn>, envelope: TranscriptEnvelope) {
+fn apply_record(
+    turns: &mut Vec<FoldedTurn>,
+    envelope: TranscriptEnvelope,
+    open_text: &mut HashMap<String, HashSet<String>>,
+    closed_parts: &mut HashSet<String>,
+) {
     let turn_id = envelope.turn_id.clone().unwrap_or_else(|| "unknown".into());
     let created_at = envelope.timestamp;
     match envelope.event {
@@ -816,73 +1069,55 @@ fn apply_record(turns: &mut Vec<FoldedTurn>, envelope: TranscriptEnvelope) {
                 user.checkpoint_id = Some(checkpoint_id);
             }
         }
-        TranscriptEvent::AssistantSnapshot {
+        TranscriptEvent::TextChunk {
+            part_id,
             message_id,
+            parent_part_id,
+            kind,
+            offset,
             text,
-            parent_tool_call_id,
+            ..
         } => {
+            let closed = closed_parts.contains(&part_id);
             let turn = upsert_turn(turns, &turn_id, created_at);
-            if let Some(index) = assistant_message_index(turn, &message_id) {
-                apply_assistant_text_part_nested(
-                    &mut turn.messages[index],
-                    &message_id,
-                    text,
-                    parent_tool_call_id,
-                );
-            } else {
-                upsert_message(
-                    turn,
-                    FoldedMessage {
-                        id: message_id.clone(),
-                        role: "assistant".into(),
-                        kind: agent::UserMessageKind::Normal,
-                        parts: vec![MessagePart::Text {
-                            text,
-                            parent_tool_call_id,
-                            message_id: Some(message_id),
-                        }],
-                        created_at,
-                        streaming: false,
-                        ..Default::default()
-                    },
-                );
-            }
+            apply_folded_text_part(
+                turn,
+                part_id,
+                message_id,
+                parent_part_id,
+                kind,
+                offset,
+                text,
+                created_at,
+                None,
+                closed,
+                open_text,
+            );
         }
-        TranscriptEvent::ThinkingSnapshot {
+        TranscriptEvent::PartFinished {
+            part_id,
             message_id,
+            parent_part_id,
+            kind,
             text,
-            started_at,
             duration_ms,
-            parent_tool_call_id,
+            ..
         } => {
+            closed_parts.insert(part_id.clone());
             let turn = upsert_turn(turns, &turn_id, created_at);
-            apply_thinking_timing(turn, started_at, duration_ms, created_at);
-            if let Some(index) = assistant_message_index(turn, &message_id) {
-                apply_thinking_snapshot_part(
-                    &mut turn.messages[index],
-                    text,
-                    duration_ms,
-                    parent_tool_call_id,
-                );
-            } else {
-                upsert_message(
-                    turn,
-                    FoldedMessage {
-                        id: message_id,
-                        role: "assistant".into(),
-                        kind: agent::UserMessageKind::Normal,
-                        parts: vec![MessagePart::Thinking {
-                            text,
-                            tool_call_id: None,
-                            duration_ms,
-                            parent_tool_call_id,
-                        }],
-                        created_at,
-                        streaming: false,
-                        ..Default::default()
-                    },
-                );
-            }
+            apply_folded_text_part(
+                turn,
+                part_id,
+                message_id,
+                parent_part_id,
+                kind,
+                0,
+                text,
+                created_at,
+                duration_ms,
+                true,
+                open_text,
+            );
         }
         TranscriptEvent::ToolCall { tool } => {
             let turn = upsert_turn(turns, &turn_id, created_at);
@@ -972,7 +1207,6 @@ fn apply_record(turns: &mut Vec<FoldedTurn>, envelope: TranscriptEnvelope) {
             let turn = upsert_turn(turns, &turn_id, created_at);
             apply_session_hint(turn, message_id, tone, kind, created_at);
         }
-        TranscriptEvent::Unknown { .. } => {}
     }
     if let Some(turn) = turns.iter_mut().rev().find(|turn| turn.id == turn_id) {
         turn.last_event_at = Some(
@@ -1037,153 +1271,106 @@ fn apply_thinking_timing(
     }
 }
 
-fn apply_thinking_snapshot_part(
-    message: &mut FoldedMessage,
+fn apply_folded_text_part(
+    turn: &mut FoldedTurn,
+    part_id: String,
+    message_id: String,
+    parent_part_id: Option<String>,
+    kind: TextKind,
+    offset: u64,
     text: String,
+    created_at: chrono::DateTime<Utc>,
     duration_ms: Option<u64>,
-    parent_tool_call_id: Option<String>,
+    closed: bool,
+    open_text: &mut HashMap<String, HashSet<String>>,
 ) {
-    if let Some(MessagePart::Thinking {
-        tool_call_id: None,
-        parent_tool_call_id: existing_parent,
-        duration_ms: existing_duration,
-        text: existing,
-    }) = message.parts.last_mut()
-    {
-        if existing_duration.is_none() && *existing_parent == parent_tool_call_id {
-            *existing = text;
-            *existing_duration = duration_ms;
-            return;
-        }
+    if kind == TextKind::Thinking {
+        apply_thinking_timing(turn, None, duration_ms, created_at);
     }
-    message.parts.push(MessagePart::Thinking {
-        text,
-        tool_call_id: None,
-        duration_ms,
-        parent_tool_call_id,
-    });
-}
-
-fn merge_tool_call_part(existing: &MessagePart, incoming: MessagePart) -> MessagePart {
-    let MessagePart::ToolCall {
-        tool_call_id: existing_id,
-        parent_tool_call_id: existing_parent_id,
-        name: existing_name,
-        title: existing_title,
-        kind: existing_kind,
-        params: existing_params,
-        result: existing_result,
-        ..
-    } = existing
-    else {
-        return incoming;
-    };
-    let MessagePart::ToolCall {
-        parent_tool_call_id,
-        name,
-        title,
-        kind,
-        status,
-        params,
-        result,
-        ..
-    } = incoming
-    else {
-        return incoming;
-    };
-    MessagePart::ToolCall {
-        tool_call_id: existing_id.clone(),
-        parent_tool_call_id: parent_tool_call_id.or_else(|| existing_parent_id.clone()),
-        name: if name.is_empty() && !existing_name.is_empty() {
-            existing_name.clone()
-        } else {
-            name
-        },
-        title: title.or_else(|| existing_title.clone()),
-        kind: merge_tool_kind(*existing_kind, kind),
-        status,
-        params: merge_tool_params(existing_params, params),
-        result: result.or_else(|| existing_result.clone()),
-    }
-}
-
-fn merge_tool_kind(existing: AgentToolKind, incoming: AgentToolKind) -> AgentToolKind {
-    if incoming == AgentToolKind::Other && existing != AgentToolKind::Other {
-        return existing;
-    }
-    if existing == AgentToolKind::Search && incoming == AgentToolKind::WebSearch {
-        return existing;
-    }
-    if existing == AgentToolKind::WebSearch && incoming == AgentToolKind::Search {
-        return existing;
-    }
-    incoming
-}
-
-fn params_omitted(params: &AgentToolParams) -> bool {
-    match params {
-        AgentToolParams::Other { value } => {
-            value.is_null() || value.as_object().is_some_and(|object| object.is_empty())
-        }
-        AgentToolParams::PlanDocument {
-            name,
-            overview,
-            plan,
-            todos,
-            is_project,
-            phases,
-        } => {
-            name.is_none()
-                && overview.is_none()
-                && plan.trim().is_empty()
-                && todos.is_empty()
-                && is_project.is_none()
-                && phases.is_none()
-        }
-        _ => false,
-    }
-}
-
-fn merge_tool_params(existing: &AgentToolParams, incoming: AgentToolParams) -> AgentToolParams {
-    if params_omitted(&incoming) {
-        return existing.clone();
-    }
-    match (existing, incoming) {
-        (
-            AgentToolParams::PlanDocument {
-                name: existing_name,
-                overview: existing_overview,
-                plan: existing_plan,
-                todos: existing_todos,
-                is_project: existing_is_project,
-                phases: existing_phases,
+    if assistant_message_index(turn, &message_id).is_none() {
+        upsert_message(
+            turn,
+            FoldedMessage {
+                id: message_id.clone(),
+                role: "assistant".into(),
+                kind: agent::UserMessageKind::Normal,
+                parts: Vec::new(),
+                created_at,
+                streaming: false,
+                ..Default::default()
             },
-            AgentToolParams::PlanDocument {
-                name,
-                overview,
-                plan,
-                todos,
-                is_project,
-                phases,
-            },
-        ) => AgentToolParams::PlanDocument {
-            name: name.or_else(|| existing_name.clone()),
-            overview: overview.or_else(|| existing_overview.clone()),
-            plan: if plan.trim().is_empty() {
-                existing_plan.clone()
+        );
+    }
+    let index = assistant_message_index(turn, &message_id).expect("assistant message");
+    let tracking_id = part_id.clone();
+    let message = &mut turn.messages[index];
+    match kind {
+        TextKind::Answer => {
+            let existing = message.parts.iter_mut().find_map(|item| match item {
+                MessagePart::Text {
+                    text: existing,
+                    parent_tool_call_id,
+                    message_id: stored,
+                } if stored.as_deref() == Some(part_id.as_str()) => {
+                    Some((existing, parent_tool_call_id, stored))
+                }
+                _ => None,
+            });
+            if let Some((existing, parent, stored)) = existing {
+                apply_text_offset(existing, offset, &text);
+                *parent = parent_part_id;
+                *stored = Some(part_id);
             } else {
-                plan
-            },
-            todos: if todos.is_empty() {
-                existing_todos.clone()
+                let mut body = String::new();
+                apply_text_offset(&mut body, offset, &text);
+                message.parts.push(MessagePart::Text {
+                    text: body,
+                    parent_tool_call_id: parent_part_id,
+                    message_id: Some(part_id),
+                });
+            }
+        }
+        TextKind::Thinking => {
+            let existing = message.parts.iter_mut().find_map(|item| match item {
+                MessagePart::Thinking {
+                    text: existing,
+                    tool_call_id,
+                    parent_tool_call_id,
+                    duration_ms: existing_duration,
+                } if tool_call_id.as_deref() == Some(part_id.as_str()) => Some((
+                    existing,
+                    tool_call_id,
+                    parent_tool_call_id,
+                    existing_duration,
+                )),
+                _ => None,
+            });
+            if let Some((existing, tool_call_id, parent, existing_duration)) = existing {
+                apply_text_offset(existing, offset, &text);
+                *tool_call_id = Some(part_id);
+                *parent = parent_part_id;
+                if duration_ms.is_some() {
+                    *existing_duration = duration_ms;
+                }
             } else {
-                todos
-            },
-            is_project: is_project.or(*existing_is_project),
-            phases: phases.or_else(|| existing_phases.clone()),
-        },
-        (_, incoming) => incoming,
+                let mut body = String::new();
+                apply_text_offset(&mut body, offset, &text);
+                message.parts.push(MessagePart::Thinking {
+                    text: body,
+                    tool_call_id: Some(part_id),
+                    duration_ms,
+                    parent_tool_call_id: parent_part_id,
+                });
+            }
+        }
     }
+    let open_parts = open_text.entry(message_id).or_default();
+    if closed {
+        open_parts.remove(&tracking_id);
+    } else {
+        open_parts.insert(tracking_id);
+    }
+    message.streaming = !open_parts.is_empty();
 }
 
 fn apply_session_lifecycle(
@@ -1412,35 +1599,8 @@ fn apply_plan(turn: &mut FoldedTurn, plan: serde_json::Value, created_at: chrono
     );
 }
 
-fn apply_tool_call(turn: &mut FoldedTurn, tool: AgentTool, created_at: chrono::DateTime<Utc>) {
-    let assistant = turn
-        .messages
-        .iter()
-        .rev()
-        .find(|message| message.role == "assistant");
-    let existing_name = assistant.and_then(|message| {
-        message.parts.iter().find_map(|part| match part {
-            MessagePart::ToolCall {
-                tool_call_id, name, ..
-            } if tool_call_id == &tool.tool_call_id => Some(name.clone()),
-            _ => None,
-        })
-    });
-    let name = if tool.name.is_empty() {
-        existing_name.unwrap_or_else(|| tool.name.clone())
-    } else {
-        tool.name.clone()
-    };
-    let part = MessagePart::ToolCall {
-        tool_call_id: tool.tool_call_id.clone(),
-        parent_tool_call_id: tool.parent_tool_call_id,
-        name,
-        title: tool.title,
-        kind: tool.kind,
-        status: tool.status,
-        params: tool.params,
-        result: tool.result,
-    };
+fn apply_tool_call(turn: &mut FoldedTurn, tool: ToolCallState, created_at: chrono::DateTime<Utc>) {
+    let tool_call_id = tool.tool_call_id.clone();
     if let Some(message) = turn
         .messages
         .iter_mut()
@@ -1448,21 +1608,24 @@ fn apply_tool_call(turn: &mut FoldedTurn, tool: AgentTool, created_at: chrono::D
         .find(|message| message.role == "assistant")
     {
         if let Some(existing) = message.parts.iter_mut().find(|item| {
-            matches!(item, MessagePart::ToolCall { tool_call_id, .. } if tool_call_id == &tool.tool_call_id)
+            matches!(item, MessagePart::ToolCall { tool_call_id: id, .. } if id == &tool_call_id)
         }) {
-            *existing = merge_tool_call_part(existing, part);
+            *existing = match ToolCallState::from_message_part(existing) {
+                Some(prior) => ToolCallState::merge(&prior, tool).to_message_part(),
+                None => tool.to_message_part(),
+            };
             return;
         }
-        message.parts.push(part);
+        message.parts.push(tool.to_message_part());
         return;
     }
     upsert_message(
         turn,
         FoldedMessage {
-            id: format!("tool-{}", tool.tool_call_id),
+            id: format!("tool-{tool_call_id}"),
             role: "assistant".into(),
             kind: agent::UserMessageKind::Normal,
-            parts: vec![part],
+            parts: vec![tool.to_message_part()],
             created_at,
             streaming: false,
             ..Default::default()
@@ -1482,6 +1645,20 @@ fn require_chat_id(id: &str) -> Result<()> {
     uuid::Uuid::parse_str(id)
         .map(|_| ())
         .map_err(|_| ServiceError::Validation("chat id must be a UUID".into()))
+}
+
+fn append_jsonl(path: &Path, record: &TranscriptEnvelope) -> Result<()> {
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .map_err(io_err)?;
+    serde_json::to_writer(&mut file, record).map_err(|e| {
+        ServiceError::Processing(format!("failed to serialize transcript record: {e}"))
+    })?;
+    file.write_all(b"\n").map_err(io_err)?;
+    file.sync_all().map_err(io_err)?;
+    Ok(())
 }
 
 fn atomic_write_json<T: Serialize>(path: &Path, value: &T) -> Result<()> {
@@ -1543,7 +1720,7 @@ mod tests {
         status: AgentToolStatus,
         params: AgentToolParams,
         result: Option<AgentToolResult>,
-    ) -> AgentTool {
+    ) -> ToolCallState {
         AgentTool {
             tool_call_id: id.into(),
             parent_tool_call_id: None,
@@ -1554,6 +1731,7 @@ mod tests {
             params,
             result,
         }
+        .into()
     }
 
     fn store() -> (tempfile::TempDir, AgentChatStore) {
@@ -1743,7 +1921,7 @@ mod tests {
     }
 
     #[test]
-    fn fold_skips_unparseable_pre_app068_jsonl_lines() {
+    fn fold_unreadable_transcript_fails_load() {
         let (_dir, store) = store();
         let meta = create(&store, "/tmp/a");
         let path = store.dir_for(&meta.id).join("transcript.jsonl");
@@ -1752,14 +1930,11 @@ mod tests {
             "{\"type\":\"tool_call\",\"turn_id\":\"t1\",\"tool_call\":{\"tool_call_id\":\"old\",\"name\":\"Read\",\"kind\":\"read\",\"input\":{\"path\":\"/tmp/a\"}},\"created_at\":\"2026-01-01T00:00:00Z\"}\n",
         )
         .unwrap();
-        let snapshot = store.get_snapshot(&meta.id).unwrap();
-        let tool_count = snapshot
-            .messages
-            .iter()
-            .flat_map(|message| message.parts.iter())
-            .filter(|part| matches!(part, MessagePart::ToolCall { .. }))
-            .count();
-        assert_eq!(tool_count, 0);
+        let error = store.get_snapshot(&meta.id).expect_err("unreadable record");
+        assert!(
+            error.to_string().contains("unreadable transcript record"),
+            "{error}"
+        );
     }
 
     #[test]
@@ -1814,10 +1989,14 @@ mod tests {
                 &meta.id,
                 &rec(
                     turn_id,
-                    TranscriptEvent::AssistantSnapshot {
+                    TranscriptEvent::TextChunk {
+                        part_id: "m2".into(),
                         message_id: "m2".into(),
+                        parent_part_id: None,
+                        ordinal: 0,
+                        kind: TextKind::Answer,
+                        offset: 0,
                         text: "world".into(),
-                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -1863,10 +2042,14 @@ mod tests {
                 &meta.id,
                 &rec(
                     turn_id,
-                    TranscriptEvent::AssistantSnapshot {
+                    TranscriptEvent::TextChunk {
+                        part_id: "tool-tool-1".to_string(),
                         message_id: "tool-tool-1".to_string(),
+                        parent_part_id: None,
+                        ordinal: 0,
+                        kind: TextKind::Answer,
+                        offset: 0,
                         text: "done".into(),
-                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -1910,10 +2093,14 @@ mod tests {
                 &meta.id,
                 &rec(
                     turn_id,
-                    TranscriptEvent::AssistantSnapshot {
+                    TranscriptEvent::TextChunk {
+                        part_id: "a1".into(),
                         message_id: "a1".into(),
+                        parent_part_id: None,
+                        ordinal: 0,
+                        kind: TextKind::Answer,
+                        offset: 0,
                         text: "looking".into(),
-                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -1943,10 +2130,14 @@ mod tests {
                 &meta.id,
                 &rec(
                     turn_id,
-                    TranscriptEvent::AssistantSnapshot {
+                    TranscriptEvent::TextChunk {
+                        part_id: "a2".into(),
                         message_id: "a2".into(),
+                        parent_part_id: None,
+                        ordinal: 0,
+                        kind: TextKind::Answer,
+                        offset: 0,
                         text: "final".into(),
-                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -1992,10 +2183,14 @@ mod tests {
                 &meta.id,
                 &rec(
                     turn_id,
-                    TranscriptEvent::AssistantSnapshot {
+                    TranscriptEvent::TextChunk {
+                        part_id: "a1".into(),
                         message_id: "a1".into(),
+                        parent_part_id: None,
+                        ordinal: 0,
+                        kind: TextKind::Answer,
+                        offset: 0,
                         text: "先从 tabs 看创建、关闭和重启后恢复时有".into(),
-                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -2025,10 +2220,14 @@ mod tests {
                 &meta.id,
                 &rec(
                     turn_id,
-                    TranscriptEvent::AssistantSnapshot {
+                    TranscriptEvent::TextChunk {
+                        part_id: "a1".into(),
                         message_id: "a1".into(),
+                        parent_part_id: None,
+                        ordinal: 0,
+                        kind: TextKind::Answer,
+                        offset: 0,
                         text: "先从 tabs 看创建、关闭和重启后恢复时有没有串数据。".into(),
-                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -2116,17 +2315,30 @@ mod tests {
             AgentEventEnvelope::at(
                 Some("t1".into()),
                 Some(end),
-                AgentEvent::AssistantMessageDelta {
+                AgentEvent::TextChunk {
+                    part_id: "a1".into(),
                     message_id: "a1".into(),
-                    delta: "hello".into(),
-                    parent_tool_call_id: None,
+                    parent_part_id: None,
+                    ordinal: 0,
+                    kind: TextKind::Answer,
+                    offset: 0,
+                    text: "hello".into(),
                 },
             ),
             AgentEventEnvelope::at(
                 Some("t1".into()),
                 Some(end),
-                AgentEvent::AssistantMessageCompleted {
-                    message_id: "a1".into(),
+                AgentEvent::PartClosed {
+                    part_id: "a1".into(),
+                    duration_ms: None,
+                },
+            ),
+            AgentEventEnvelope::at(
+                Some("t1".into()),
+                Some(end),
+                AgentEvent::TurnCompleted {
+                    turn_id: "t1".into(),
+                    stop: agent::TurnStop::Completed,
                 },
             ),
         ]);
@@ -2174,16 +2386,18 @@ mod tests {
                 &rec(
                     turn_id,
                     TranscriptEvent::ToolCall {
-                        tool: read_tool(
-                            "tool-1",
-                            AgentToolStatus::Completed,
-                            AgentToolParams::Other {
-                                value: serde_json::json!({}),
-                            },
-                            Some(AgentToolResult::Text {
+                        tool: ToolCallState {
+                            tool_call_id: "tool-1".into(),
+                            parent_tool_call_id: None,
+                            status: AgentToolStatus::Completed,
+                            name: None,
+                            title: None,
+                            kind: None,
+                            params: None,
+                            result: Some(AgentToolResult::Text {
                                 text: "# hi\n".into(),
                             }),
-                        ),
+                        },
                     },
                 ),
             )
@@ -2229,10 +2443,14 @@ mod tests {
                 &meta.id,
                 &rec(
                     turn_id,
-                    TranscriptEvent::AssistantSnapshot {
+                    TranscriptEvent::TextChunk {
+                        part_id: "a1".into(),
                         message_id: "a1".into(),
+                        parent_part_id: None,
+                        ordinal: 0,
+                        kind: TextKind::Answer,
+                        offset: 0,
                         text: "early".into(),
-                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -2262,12 +2480,14 @@ mod tests {
                 &meta.id,
                 &rec(
                     turn_id,
-                    TranscriptEvent::ThinkingSnapshot {
+                    TranscriptEvent::TextChunk {
+                        part_id: "think".into(),
                         message_id: "think".into(),
+                        parent_part_id: None,
+                        ordinal: 0,
+                        kind: TextKind::Thinking,
+                        offset: 0,
                         text: "hmm".into(),
-                        started_at: None,
-                        duration_ms: None,
-                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -2277,10 +2497,14 @@ mod tests {
                 &meta.id,
                 &rec(
                     turn_id,
-                    TranscriptEvent::AssistantSnapshot {
+                    TranscriptEvent::TextChunk {
+                        part_id: "a1-final".into(),
                         message_id: "a1".into(),
+                        parent_part_id: None,
+                        ordinal: 1,
+                        kind: TextKind::Answer,
+                        offset: 0,
                         text: "final answer".into(),
-                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -2296,7 +2520,7 @@ mod tests {
                 _ => "other",
             })
             .collect();
-        assert_eq!(kinds, ["tool", "thinking", "final answer"]);
+        assert_eq!(kinds, ["early", "tool", "thinking", "final answer"]);
     }
 
     #[test]
@@ -2326,12 +2550,14 @@ mod tests {
                 &meta.id,
                 &rec(
                     turn_id,
-                    TranscriptEvent::ThinkingSnapshot {
+                    TranscriptEvent::TextChunk {
+                        part_id: "think".into(),
                         message_id: "think".into(),
+                        parent_part_id: None,
+                        ordinal: 0,
+                        kind: TextKind::Thinking,
+                        offset: 0,
                         text: "hmm".into(),
-                        started_at: None,
-                        duration_ms: None,
-                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -2341,10 +2567,14 @@ mod tests {
                 &meta.id,
                 &rec(
                     turn_id,
-                    TranscriptEvent::AssistantSnapshot {
+                    TranscriptEvent::TextChunk {
+                        part_id: "a1".into(),
                         message_id: "a1".into(),
+                        parent_part_id: None,
+                        ordinal: 0,
+                        kind: TextKind::Answer,
+                        offset: 0,
                         text: "hello".into(),
-                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -2393,12 +2623,14 @@ mod tests {
                 &rec_at(
                     turn_id,
                     started + chrono::Duration::seconds(12),
-                    TranscriptEvent::ThinkingSnapshot {
+                    TranscriptEvent::PartFinished {
+                        part_id: "think".into(),
                         message_id: "think".into(),
+                        parent_part_id: None,
+                        ordinal: 0,
+                        kind: TextKind::Thinking,
                         text: "hmm".into(),
-                        started_at: Some(started),
                         duration_ms: Some(12_000),
-                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -2446,12 +2678,14 @@ mod tests {
                 &rec_at(
                     turn_id,
                     started + chrono::Duration::seconds(5),
-                    TranscriptEvent::ThinkingSnapshot {
+                    TranscriptEvent::PartFinished {
+                        part_id: "think-first".into(),
                         message_id: "a1".into(),
+                        parent_part_id: None,
+                        ordinal: 0,
+                        kind: TextKind::Thinking,
                         text: "first pass".into(),
-                        started_at: Some(started),
                         duration_ms: Some(5_000),
-                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -2483,12 +2717,14 @@ mod tests {
                 &rec_at(
                     turn_id,
                     started + chrono::Duration::seconds(20),
-                    TranscriptEvent::ThinkingSnapshot {
+                    TranscriptEvent::PartFinished {
+                        part_id: "think-second".into(),
                         message_id: "a1".into(),
+                        parent_part_id: None,
+                        ordinal: 0,
+                        kind: TextKind::Thinking,
                         text: "second pass".into(),
-                        started_at: Some(started + chrono::Duration::seconds(12)),
                         duration_ms: Some(8_000),
-                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -2574,12 +2810,14 @@ mod tests {
                 &meta.id,
                 &rec(
                     turn_id,
-                    TranscriptEvent::ThinkingSnapshot {
+                    TranscriptEvent::TextChunk {
+                        part_id: "a1".into(),
                         message_id: "a1".into(),
+                        parent_part_id: None,
+                        ordinal: 0,
+                        kind: TextKind::Thinking,
+                        offset: 0,
                         text: "hmm".into(),
-                        started_at: None,
-                        duration_ms: None,
-                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -2780,7 +3018,7 @@ mod tests {
         assert_eq!(kinds, ["session", "model_switch_failed"]);
     }
 
-    fn execute_tool(id: &str) -> AgentTool {
+    fn execute_tool(id: &str) -> ToolCallState {
         AgentTool {
             tool_call_id: id.into(),
             parent_tool_call_id: None,
@@ -2796,6 +3034,7 @@ mod tests {
             },
             result: None,
         }
+        .into()
     }
 
     #[test]
@@ -2927,10 +3166,14 @@ mod tests {
                 &rec_at(
                     "t1",
                     started + chrono::Duration::seconds(1),
-                    TranscriptEvent::AssistantSnapshot {
+                    TranscriptEvent::TextChunk {
+                        part_id: "a1".into(),
                         message_id: "a1".into(),
+                        parent_part_id: None,
+                        ordinal: 0,
+                        kind: TextKind::Answer,
+                        offset: 0,
                         text: "working".into(),
-                        parent_tool_call_id: None,
                     },
                 ),
             )
@@ -2952,7 +3195,7 @@ mod tests {
     }
 
     #[test]
-    fn flatten_uniqueifies_reused_assistant_ids_across_turns() {
+    fn flatten_keeps_assistant_messages_across_turns() {
         let (_dir, store) = store();
         let meta = create(&store, "/tmp/a");
         for (turn_id, user_id, text) in [("t1", "u1", "first"), ("t2", "u2", "second")] {
@@ -2978,10 +3221,14 @@ mod tests {
                     &meta.id,
                     &rec(
                         turn_id,
-                        TranscriptEvent::AssistantSnapshot {
-                            message_id: "a-reused".into(),
+                        TranscriptEvent::TextChunk {
+                            part_id: format!("a-{turn_id}"),
+                            message_id: format!("a-{turn_id}"),
+                            parent_part_id: None,
+                            ordinal: 0,
+                            kind: TextKind::Answer,
+                            offset: 0,
                             text: text.into(),
-                            parent_tool_call_id: None,
                         },
                     ),
                 )

@@ -947,8 +947,7 @@ async fn reconcile_messages(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::contract::Capability;
-    use crate::contract::TurnStop;
+    use crate::contract::{Capability, TextKind, TurnStop};
     use std::path::PathBuf;
 
     #[test]
@@ -1026,7 +1025,11 @@ mod tests {
             };
             eprintln!("live event: {:?}", event.payload);
             match event.payload {
-                AgentEvent::AssistantMessageDelta { delta, .. } => text.push_str(&delta),
+                AgentEvent::TextChunk {
+                    kind: TextKind::Answer,
+                    text: ref chunk,
+                    ..
+                } => text.push_str(chunk),
                 AgentEvent::TurnCompleted { turn_id, stop } => {
                     completed = Some((turn_id, stop));
                     break;

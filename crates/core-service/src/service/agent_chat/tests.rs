@@ -3,13 +3,15 @@ use std::time::Duration;
 
 use agent::testing::{FakeAgentProvider, StaticProviderFactory};
 use agent::{
-    AgentAvailableCommand, AgentEvent, AgentMode, AgentModel, AgentOptionsSnapshot,
-    AgentPermissionOption, AgentProvider, AgentThinkingSupport, AgentTool, AgentToolKind,
-    AgentToolParams, AgentToolResult, AgentToolStatus, NoopAcpOptionsProbe, OptionsProbe,
-    OptionsProbeStrategy, OptionsSource, OptionsStatus, ProbePlan, UserMessageKind,
+    AgentAvailableCommand, AgentEvent, AgentEventEnvelope, AgentMode, AgentModel,
+    AgentOptionsSnapshot, AgentPermissionOption, AgentProvider, AgentThinkingSupport, AgentTool,
+    AgentToolKind, AgentToolParams, AgentToolResult, AgentToolStatus, NoopAcpOptionsProbe,
+    OptionsProbe, OptionsProbeStrategy, OptionsSource, OptionsStatus, ProbePlan, TextKind,
+    UserMessageKind,
 };
 use tokio::time::timeout;
 
+use super::coalesce::{concat_adjacent_text, TextChunkCoalescer};
 use super::options::{parse_followup_policy, FollowupPolicy, OptionsPrefetchWorker};
 use super::service::AgentChatService;
 use super::store::AgentChatStore;
@@ -173,7 +175,8 @@ async fn s13_get_new_jsonl_exposes_params_result_without_spawn() {
                             output: "ok".into(),
                             exit_code: Some(0),
                         }),
-                    },
+                    }
+                    .into(),
                 },
             ),
         )
@@ -538,10 +541,14 @@ async fn send_after_stale_unknown_turn_does_not_fail_previous_turn() {
             &meta.id,
             &TranscriptEnvelope::new(
                 "unknown",
-                TranscriptEvent::AssistantSnapshot {
+                TranscriptEvent::TextChunk {
+                    part_id: "ghost".into(),
                     message_id: "ghost".into(),
+                    parent_part_id: None,
+                    ordinal: 0,
+                    kind: TextKind::Answer,
+                    offset: 0,
                     text: "background wakeup".into(),
-                    parent_tool_call_id: None,
                 },
             ),
         )
@@ -611,6 +618,29 @@ async fn s16_two_subscribers_see_the_same_send() {
     .await
     .expect("second subscriber saw send");
     assert_eq!(id_a, id_b);
+}
+
+#[tokio::test]
+async fn send_persists_client_supplied_message_id() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let _ = service
+        .send_with_message_id(
+            &meta.id,
+            "hello",
+            Vec::new(),
+            Some("pending-client-id".into()),
+        )
+        .await
+        .unwrap();
+    let snapshot = service.get(&meta.id).await.unwrap();
+    let user = snapshot
+        .messages
+        .iter()
+        .find(|message| message.role == "user")
+        .expect("user message");
+    assert_eq!(user.id, "pending-client-id");
 }
 
 #[tokio::test]
@@ -2461,10 +2491,14 @@ async fn get_projects_live_turn_timing_from_server_clock() {
     .expect("runtime event channel");
 
     provider
-        .push_event(AgentEvent::ThinkingDelta {
+        .push_event(AgentEvent::TextChunk {
+            part_id: "a1".into(),
             message_id: "a1".into(),
-            delta: "hmm".into(),
-            parent_tool_call_id: None,
+            parent_part_id: None,
+            ordinal: 0,
+            kind: TextKind::Thinking,
+            offset: 0,
+            text: "hmm".into(),
         })
         .await;
     tokio::time::sleep(Duration::from_millis(1100)).await;
@@ -2519,21 +2553,29 @@ async fn get_overlays_unpersisted_live_text_without_duplicate_ids() {
 
     let assistant_id = uuid::Uuid::new_v4().to_string();
     provider
-        .push_event(AgentEvent::AssistantMessageDelta {
+        .push_event(AgentEvent::TextChunk {
+            part_id: assistant_id.clone(),
             message_id: assistant_id.clone(),
-            delta: "DISK".into(),
-            parent_tool_call_id: None,
+            parent_part_id: None,
+            ordinal: 0,
+            kind: TextKind::Answer,
+            offset: 0,
+            text: "DISK".into(),
         })
         .await;
     tokio::time::sleep(Duration::from_millis(20)).await;
     provider
-        .push_event(AgentEvent::AssistantMessageDelta {
-            message_id: assistant_id,
-            delta: "LIVE".into(),
-            parent_tool_call_id: None,
+        .push_event(AgentEvent::TextChunk {
+            part_id: assistant_id.clone(),
+            message_id: assistant_id.clone(),
+            parent_part_id: None,
+            ordinal: 0,
+            kind: TextKind::Answer,
+            offset: 4,
+            text: "LIVE".into(),
         })
         .await;
-    tokio::time::sleep(Duration::from_millis(20)).await;
+    tokio::time::sleep(Duration::from_millis(180)).await;
 
     let disk = service.store().get_snapshot(&meta.id).unwrap();
     let live = service.get(&meta.id).await.unwrap();
@@ -2578,21 +2620,29 @@ async fn get_stream_seq_covers_overlaid_deltas() {
 
     let assistant_id = uuid::Uuid::new_v4().to_string();
     provider
-        .push_event(AgentEvent::AssistantMessageDelta {
+        .push_event(AgentEvent::TextChunk {
+            part_id: assistant_id.clone(),
             message_id: assistant_id.clone(),
-            delta: "Hello".into(),
-            parent_tool_call_id: None,
+            parent_part_id: None,
+            ordinal: 0,
+            kind: TextKind::Answer,
+            offset: 0,
+            text: "Hello".into(),
         })
         .await;
     tokio::time::sleep(Duration::from_millis(20)).await;
     provider
-        .push_event(AgentEvent::AssistantMessageDelta {
+        .push_event(AgentEvent::TextChunk {
+            part_id: assistant_id.clone(),
             message_id: assistant_id,
-            delta: " world".into(),
-            parent_tool_call_id: None,
+            parent_part_id: None,
+            ordinal: 0,
+            kind: TextKind::Answer,
+            offset: 5,
+            text: " world".into(),
         })
         .await;
-    tokio::time::sleep(Duration::from_millis(20)).await;
+    tokio::time::sleep(Duration::from_millis(180)).await;
 
     let live = service.get(&meta.id).await.unwrap();
     assert!(
@@ -2604,8 +2654,7 @@ async fn get_stream_seq_covers_overlaid_deltas() {
     let replayed: Vec<&str> = missed
         .iter()
         .filter_map(|event| match &event.payload {
-            AgentChatPayload::AssistantMessageDelta { delta, .. } => Some(delta.as_str()),
-            AgentChatPayload::ThinkingDelta { delta, .. } => Some(delta.as_str()),
+            AgentChatPayload::TextChunk { text, .. } => Some(text.as_str()),
             _ => None,
         })
         .collect();
@@ -2676,10 +2725,14 @@ async fn interleaved_thinking_and_tools_survive_disk_reload() {
     .expect("runtime event channel");
 
     provider
-        .push_event(AgentEvent::ThinkingDelta {
+        .push_event(AgentEvent::TextChunk {
+            part_id: "think-1".into(),
             message_id: "a1".into(),
-            delta: "first".into(),
-            parent_tool_call_id: None,
+            parent_part_id: None,
+            ordinal: 0,
+            kind: TextKind::Thinking,
+            offset: 0,
+            text: "first".into(),
         })
         .await;
     tokio::time::sleep(Duration::from_millis(20)).await;
@@ -2695,10 +2748,14 @@ async fn interleaved_thinking_and_tools_survive_disk_reload() {
         .await;
     tokio::time::sleep(Duration::from_millis(20)).await;
     provider
-        .push_event(AgentEvent::ThinkingDelta {
+        .push_event(AgentEvent::TextChunk {
+            part_id: "think-2".into(),
             message_id: "a1".into(),
-            delta: "second".into(),
-            parent_tool_call_id: None,
+            parent_part_id: None,
+            ordinal: 1,
+            kind: TextKind::Thinking,
+            offset: 0,
+            text: "second".into(),
         })
         .await;
     tokio::time::sleep(Duration::from_millis(20)).await;
@@ -2714,10 +2771,14 @@ async fn interleaved_thinking_and_tools_survive_disk_reload() {
         .await;
     tokio::time::sleep(Duration::from_millis(20)).await;
     provider
-        .push_event(AgentEvent::ThinkingDelta {
+        .push_event(AgentEvent::TextChunk {
+            part_id: "think-3".into(),
             message_id: "a1".into(),
-            delta: "third".into(),
-            parent_tool_call_id: None,
+            parent_part_id: None,
+            ordinal: 2,
+            kind: TextKind::Thinking,
+            offset: 0,
+            text: "third".into(),
         })
         .await;
     tokio::time::sleep(Duration::from_millis(20)).await;
@@ -2942,4 +3003,530 @@ async fn list_resource_roots_exposes_live_pid_for_workspace_chat() {
         .expect("chat root");
     assert_eq!(root.context_id, "ws-1");
     assert_eq!(root.root_pid, Some(4242));
+}
+
+#[tokio::test]
+async fn lifecycle_load_without_runtime_closes_leftover_open_parts() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(provider);
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let store = service.store();
+    store
+        .append_record(
+            &meta.id,
+            &TranscriptEnvelope::new("t1", TranscriptEvent::TurnStarted),
+        )
+        .unwrap();
+    store
+        .append_record(
+            &meta.id,
+            &TranscriptEnvelope::new(
+                "t1",
+                TranscriptEvent::UserMessage {
+                    message_id: "u1".into(),
+                    kind: UserMessageKind::Normal,
+                    text: "hello".into(),
+                    attachments: Vec::new(),
+                },
+            ),
+        )
+        .unwrap();
+    store
+        .append_record(
+            &meta.id,
+            &TranscriptEnvelope::new(
+                "t1",
+                TranscriptEvent::TextChunk {
+                    part_id: "p1".into(),
+                    message_id: "a1".into(),
+                    parent_part_id: None,
+                    ordinal: 0,
+                    kind: TextKind::Answer,
+                    offset: 0,
+                    text: "leftover".into(),
+                },
+            ),
+        )
+        .unwrap();
+
+    let snapshot = service.get(&meta.id).await.unwrap();
+    assert_eq!(snapshot.running_turn_id.as_deref(), Some("t1"));
+    let assistant = snapshot
+        .messages
+        .iter()
+        .find(|message| message.role == "assistant")
+        .expect("assistant");
+    assert!(
+        !assistant.streaming,
+        "load with no live runtime must not leave streaming true: {assistant:?}"
+    );
+
+    let jsonl = std::fs::read_to_string(store.dir_for(&meta.id).join("transcript.jsonl")).unwrap();
+    let finished = jsonl
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .any(|line| {
+            let record: TranscriptEnvelope = serde_json::from_str(line).unwrap();
+            matches!(
+                record.event,
+                TranscriptEvent::PartFinished {
+                    ref part_id,
+                    ref text,
+                    ..
+                } if part_id == "p1" && text == "leftover"
+            )
+        });
+    assert!(
+        finished,
+        "load must persist PartFinished for leftover text: {jsonl}"
+    );
+
+    let again = service.get(&meta.id).await.unwrap();
+    let assistant = again
+        .messages
+        .iter()
+        .find(|message| message.role == "assistant")
+        .expect("assistant");
+    assert!(!assistant.streaming);
+}
+
+fn jsonl_events(path: &std::path::Path) -> Vec<TranscriptEvent> {
+    std::fs::read_to_string(path)
+        .unwrap_or_default()
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| {
+            let record: TranscriptEnvelope = serde_json::from_str(line).unwrap();
+            record.event
+        })
+        .collect()
+}
+
+#[test]
+fn transcript_turn_completion_compacts_the_log() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = AgentChatStore::new(dir.path().join("chats"));
+    let meta = store.create(create_req("/tmp/s12")).unwrap();
+    store
+        .append_record(
+            &meta.id,
+            &TranscriptEnvelope::new("t1", TranscriptEvent::TurnStarted),
+        )
+        .unwrap();
+    store
+        .append_record(
+            &meta.id,
+            &TranscriptEnvelope::new(
+                "t1",
+                TranscriptEvent::UserMessage {
+                    message_id: "u1".into(),
+                    kind: UserMessageKind::Normal,
+                    text: "hello".into(),
+                    attachments: Vec::new(),
+                },
+            ),
+        )
+        .unwrap();
+    for (index, piece) in ["Hel", "lo ", "world"].iter().enumerate() {
+        store
+            .append_record(
+                &meta.id,
+                &TranscriptEnvelope::new(
+                    "t1",
+                    TranscriptEvent::TextChunk {
+                        part_id: "answer-1".into(),
+                        message_id: "a1".into(),
+                        parent_part_id: None,
+                        ordinal: 0,
+                        kind: TextKind::Answer,
+                        offset: (index as u64) * 3,
+                        text: (*piece).into(),
+                    },
+                ),
+            )
+            .unwrap();
+    }
+    store
+        .append_record(
+            &meta.id,
+            &TranscriptEnvelope::new(
+                "t1",
+                TranscriptEvent::TextChunk {
+                    part_id: "think-1".into(),
+                    message_id: "a1".into(),
+                    parent_part_id: None,
+                    ordinal: 1,
+                    kind: TextKind::Thinking,
+                    offset: 0,
+                    text: "hmm".into(),
+                },
+            ),
+        )
+        .unwrap();
+
+    let live_path = store.dir_for(&meta.id).join("live.jsonl");
+    let transcript_path = store.dir_for(&meta.id).join("transcript.jsonl");
+    let live_before = jsonl_events(&live_path);
+    assert_eq!(
+        live_before
+            .iter()
+            .filter(|event| matches!(event, TranscriptEvent::TextChunk { .. }))
+            .count(),
+        4,
+        "in-flight chunks belong on live.jsonl"
+    );
+    assert!(
+        jsonl_events(&transcript_path)
+            .iter()
+            .all(|event| !matches!(event, TranscriptEvent::TextChunk { .. })),
+        "durable file must not store in-flight TextChunks"
+    );
+
+    store
+        .append_record(
+            &meta.id,
+            &TranscriptEnvelope::new(
+                "t1",
+                TranscriptEvent::TurnCompleted {
+                    status: TurnStatus::Completed,
+                    error: None,
+                    worked_ms: Some(10),
+                    thinking_ms: Some(2),
+                    usage: None,
+                },
+            ),
+        )
+        .unwrap();
+
+    let live_after = std::fs::read_to_string(&live_path).unwrap();
+    assert!(
+        live_after.trim().is_empty(),
+        "live.jsonl must be truncated: {live_after:?}"
+    );
+    assert_eq!(std::fs::metadata(&live_path).unwrap().len(), 0);
+
+    let finished: Vec<_> = jsonl_events(&transcript_path)
+        .into_iter()
+        .filter_map(|event| match event {
+            TranscriptEvent::PartFinished {
+                part_id,
+                text,
+                kind,
+                ..
+            } => Some((part_id, kind, text)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(finished.len(), 2, "one PartFinished per part: {finished:?}");
+    let answer = finished
+        .iter()
+        .find(|(part_id, kind, _)| part_id == "answer-1" && *kind == TextKind::Answer)
+        .expect("answer PartFinished");
+    let thinking = finished
+        .iter()
+        .find(|(part_id, kind, _)| part_id == "think-1" && *kind == TextKind::Thinking)
+        .expect("thinking PartFinished");
+    assert_eq!(answer.2, "Hello world");
+    assert_eq!(thinking.2, "hmm");
+
+    let snapshot = store.get_snapshot(&meta.id).unwrap();
+    let assistant = snapshot
+        .messages
+        .iter()
+        .find(|message| message.role == "assistant")
+        .expect("assistant");
+    let answer_text = assistant.parts.iter().find_map(|part| match part {
+        MessagePart::Text { text, .. } => Some(text.as_str()),
+        _ => None,
+    });
+    assert_eq!(answer_text, Some("Hello world"));
+}
+
+#[test]
+fn transcript_durable_bytes_are_linear_in_content() {
+    const CONTENT_LEN: usize = 10_000;
+    const CHUNK_LEN: usize = 10;
+    let dir = tempfile::tempdir().unwrap();
+    let store = AgentChatStore::new(dir.path().join("chats"));
+    let meta = store.create(create_req("/tmp/s13")).unwrap();
+    store
+        .append_record(
+            &meta.id,
+            &TranscriptEnvelope::new("t1", TranscriptEvent::TurnStarted),
+        )
+        .unwrap();
+    store
+        .append_record(
+            &meta.id,
+            &TranscriptEnvelope::new(
+                "t1",
+                TranscriptEvent::UserMessage {
+                    message_id: "u1".into(),
+                    kind: UserMessageKind::Normal,
+                    text: "ask".into(),
+                    attachments: Vec::new(),
+                },
+            ),
+        )
+        .unwrap();
+    let chunk = "x".repeat(CHUNK_LEN);
+    let chunks = CONTENT_LEN / CHUNK_LEN;
+    for index in 0..chunks {
+        store
+            .append_record(
+                &meta.id,
+                &TranscriptEnvelope::new(
+                    "t1",
+                    TranscriptEvent::TextChunk {
+                        part_id: "answer-1".into(),
+                        message_id: "a1".into(),
+                        parent_part_id: None,
+                        ordinal: 0,
+                        kind: TextKind::Answer,
+                        offset: (index * CHUNK_LEN) as u64,
+                        text: chunk.clone(),
+                    },
+                ),
+            )
+            .unwrap();
+    }
+    store
+        .append_record(
+            &meta.id,
+            &TranscriptEnvelope::new(
+                "t1",
+                TranscriptEvent::TurnCompleted {
+                    status: TurnStatus::Completed,
+                    error: None,
+                    worked_ms: Some(1),
+                    thinking_ms: Some(0),
+                    usage: None,
+                },
+            ),
+        )
+        .unwrap();
+
+    let transcript_path = store.dir_for(&meta.id).join("transcript.jsonl");
+    let live_path = store.dir_for(&meta.id).join("live.jsonl");
+    let durable = std::fs::metadata(&transcript_path).unwrap().len();
+    let max = (CONTENT_LEN as u64) * 8 + 4096;
+    assert!(
+        durable <= max,
+        "durable bytes must stay O(n), got {durable} for {CONTENT_LEN} content bytes (max {max})"
+    );
+    let transcript = std::fs::read_to_string(&transcript_path).unwrap();
+    assert!(
+        !transcript.contains("\"type\":\"text_chunk\""),
+        "chunks must not remain on transcript.jsonl after compaction"
+    );
+    let finished: Vec<_> = jsonl_events(&transcript_path)
+        .into_iter()
+        .filter(|event| matches!(event, TranscriptEvent::PartFinished { .. }))
+        .collect();
+    assert_eq!(finished.len(), 1, "one PartFinished for the 10 KB answer");
+    match &finished[0] {
+        TranscriptEvent::PartFinished { text, .. } => {
+            assert_eq!(text.len(), CONTENT_LEN);
+        }
+        other => panic!("expected PartFinished, got {other:?}"),
+    }
+    assert_eq!(std::fs::metadata(&live_path).unwrap().len(), 0);
+}
+
+#[tokio::test]
+async fn backfill_serves_exactly_the_missing_suffix() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(provider);
+    let meta = service.create(create_req("/tmp/backfill-s17")).unwrap();
+    let full = format!("{}{}", "a".repeat(1024), "b".repeat(3072));
+    assert_eq!(full.len(), 4096);
+    service
+        .store()
+        .append_record(
+            &meta.id,
+            &TranscriptEnvelope::new("t1", TranscriptEvent::TurnStarted),
+        )
+        .unwrap();
+    service
+        .store()
+        .append_record(
+            &meta.id,
+            &TranscriptEnvelope::new(
+                "t1",
+                TranscriptEvent::TextChunk {
+                    part_id: "answer-1".into(),
+                    message_id: "a1".into(),
+                    parent_part_id: None,
+                    ordinal: 0,
+                    kind: TextKind::Answer,
+                    offset: 0,
+                    text: full.clone(),
+                },
+            ),
+        )
+        .unwrap();
+
+    let mut rx = service.subscribe();
+    let accepted = service
+        .backfill(&meta.id, &[("answer-1".into(), 1024)])
+        .await
+        .unwrap();
+    assert_eq!(accepted, 1);
+
+    let mut chunks = Vec::new();
+    while let Ok(event) = rx.try_recv() {
+        if let AgentChatPayload::TextChunk {
+            part_id,
+            offset,
+            text,
+            ..
+        } = event.payload
+        {
+            chunks.push((part_id, offset, text));
+        }
+    }
+    assert_eq!(chunks.len(), 1, "one suffix chunk: {chunks:?}");
+    assert_eq!(chunks[0].0, "answer-1");
+    assert_eq!(chunks[0].1, 1024);
+    assert_eq!(chunks[0].2.len(), 3072);
+    assert_eq!(chunks[0].2, full[1024..]);
+    assert!(chunks[0].2.as_bytes().iter().all(|byte| *byte == b'b'));
+
+    let recent = service.events_after(&meta.id, 0);
+    assert!(
+        recent
+            .iter()
+            .all(|event| !matches!(event.payload, AgentChatPayload::TextChunk { .. })),
+        "recent_events must not retain text: {recent:?}"
+    );
+}
+
+#[tokio::test]
+async fn backfill_emits_nothing_when_from_offset_at_or_past_len() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(provider);
+    let meta = service
+        .create(create_req("/tmp/backfill-caught-up"))
+        .unwrap();
+    service
+        .store()
+        .append_record(
+            &meta.id,
+            &TranscriptEnvelope::new("t1", TranscriptEvent::TurnStarted),
+        )
+        .unwrap();
+    service
+        .store()
+        .append_record(
+            &meta.id,
+            &TranscriptEnvelope::new(
+                "t1",
+                TranscriptEvent::TextChunk {
+                    part_id: "answer-1".into(),
+                    message_id: "a1".into(),
+                    parent_part_id: None,
+                    ordinal: 0,
+                    kind: TextKind::Answer,
+                    offset: 0,
+                    text: "hello".into(),
+                },
+            ),
+        )
+        .unwrap();
+
+    let mut rx = service.subscribe();
+    let accepted = service
+        .backfill(&meta.id, &[("answer-1".into(), 5), ("missing".into(), 0)])
+        .await
+        .unwrap();
+    assert_eq!(accepted, 0);
+    assert!(rx.try_recv().is_err());
+}
+
+fn coalesce_chunk(part_id: &str, offset: u64, text: &str) -> AgentEventEnvelope {
+    AgentEventEnvelope::new(
+        Some("t1".into()),
+        AgentEvent::TextChunk {
+            part_id: part_id.into(),
+            message_id: "m1".into(),
+            parent_part_id: None,
+            ordinal: 0,
+            kind: TextKind::Answer,
+            offset,
+            text: text.into(),
+        },
+    )
+}
+
+fn coalesce_text(envelope: &AgentEventEnvelope) -> (&str, u64, &str) {
+    match &envelope.payload {
+        AgentEvent::TextChunk {
+            part_id,
+            offset,
+            text,
+            ..
+        } => (part_id, *offset, text.as_str()),
+        other => panic!("expected TextChunk, got {other:?}"),
+    }
+}
+
+#[test]
+fn coalesce_same_part_concat() {
+    assert_eq!(
+        concat_adjacent_text(0, "ab", 2, "cd").as_deref(),
+        Some("abcd")
+    );
+    assert_eq!(
+        concat_adjacent_text(0, "abcd", 2, "cdef").as_deref(),
+        Some("abcdef")
+    );
+
+    let mut coalescer = TextChunkCoalescer::new();
+    assert!(coalescer.push(coalesce_chunk("p", 0, "ab")).is_empty());
+    assert!(coalescer.push(coalesce_chunk("p", 2, "cd")).is_empty());
+    let flushed = coalescer.flush_all();
+    assert_eq!(flushed.len(), 1);
+    assert_eq!(coalesce_text(&flushed[0]), ("p", 0, "abcd"));
+    assert!(coalescer.is_empty());
+}
+
+#[test]
+fn coalesce_different_part_isolation() {
+    let mut coalescer = TextChunkCoalescer::new();
+    assert!(coalescer.push(coalesce_chunk("p1", 0, "ab")).is_empty());
+    assert!(coalescer.push(coalesce_chunk("p2", 0, "xy")).is_empty());
+    let flushed = coalescer.flush_all();
+    assert_eq!(flushed.len(), 2);
+    assert_eq!(coalesce_text(&flushed[0]), ("p1", 0, "ab"));
+    assert_eq!(coalesce_text(&flushed[1]), ("p2", 0, "xy"));
+}
+
+#[test]
+fn coalesce_gap_does_not_invent_bytes() {
+    let mut coalescer = TextChunkCoalescer::new();
+    assert!(coalescer.push(coalesce_chunk("p", 0, "ab")).is_empty());
+    let flushed = coalescer.push(coalesce_chunk("p", 5, "cd"));
+    assert_eq!(flushed.len(), 1);
+    assert_eq!(coalesce_text(&flushed[0]), ("p", 0, "ab"));
+    assert_eq!(concat_adjacent_text(0, "ab", 5, "cd"), None);
+    let held = coalescer.flush_all();
+    assert_eq!(held.len(), 1);
+    assert_eq!(coalesce_text(&held[0]), ("p", 5, "cd"));
+}
+
+#[test]
+fn coalesce_non_text_forces_flush() {
+    let mut coalescer = TextChunkCoalescer::new();
+    assert!(coalescer.push(coalesce_chunk("p", 0, "ab")).is_empty());
+    let flushed = coalescer.push(AgentEventEnvelope::new(
+        Some("t1".into()),
+        AgentEvent::PartClosed {
+            part_id: "p".into(),
+            duration_ms: None,
+        },
+    ));
+    assert_eq!(flushed.len(), 2);
+    assert_eq!(coalesce_text(&flushed[0]), ("p", 0, "ab"));
+    assert!(matches!(flushed[1].payload, AgentEvent::PartClosed { .. }));
+    assert!(coalescer.is_empty());
 }

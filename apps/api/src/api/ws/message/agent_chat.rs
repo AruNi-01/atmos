@@ -83,11 +83,25 @@ pub struct AgentChatSubscribeRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentChatBackfillPartRequest {
+    pub part_id: String,
+    pub from_offset: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentChatBackfillRequest {
+    pub chat_id: String,
+    pub parts: Vec<AgentChatBackfillPartRequest>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentChatSendRequest {
     pub chat_id: String,
     pub text: String,
     #[serde(default)]
     pub attachment_paths: Option<Vec<String>>,
+    #[serde(default)]
+    pub message_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

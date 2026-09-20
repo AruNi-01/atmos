@@ -1,5 +1,6 @@
 pub mod acp_factory;
 mod apply_event;
+mod coalesce;
 pub mod new_chat_configs;
 pub mod options;
 pub mod prefs;

@@ -5,12 +5,14 @@ use std::collections::{HashMap, VecDeque};
 use serde_json::Value;
 
 use crate::contract::AgentPersistenceHandle;
+use crate::contract::TextKind;
 use crate::contract::{AgentCurrentConfig, AgentIdentity, AgentSupportedOptions};
 use crate::contract::{AgentDescriptor, TurnStop};
 use crate::contract::{AgentEvent, AgentEventEnvelope};
 use crate::contract::{AgentTool, AgentToolKind, AgentToolParams, AgentToolStatus};
 use crate::map::plan_from_tool_input;
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
+use crate::providers::text_parts::{close_open_parts, Snapshot, TextParts};
 
 use super::tool_map::{
     apply_diff_stats, apply_output_delta, map_item, parse_unified_diff_stats, ItemMapOut, ItemPhase,
@@ -21,6 +23,7 @@ pub struct EventMapState {
     pub pending: VecDeque<AgentEventEnvelope>,
     pub assistant_message_id: Option<String>,
     pub thinking_message_id: Option<String>,
+    pub parts: TextParts,
     pub tools: HashMap<String, AgentTool>,
     pub path_to_tool: HashMap<String, String>,
     pub last_error: Option<String>,
@@ -44,6 +47,7 @@ impl EventMapState {
             pending: VecDeque::new(),
             assistant_message_id: None,
             thinking_message_id: None,
+            parts: TextParts::default(),
             tools: HashMap::new(),
             path_to_tool: HashMap::new(),
             last_error: None,
@@ -230,54 +234,58 @@ fn map_agent_message_item(
             if text.is_empty() {
                 return None;
             }
+            let chunk = assistant_chunk(state, &message_id, text.to_string());
             Some(complete_before_thinking(
                 state,
                 turn_id.clone(),
-                wrap(
-                    turn_id,
-                    AgentEvent::AssistantMessageDelta {
-                        message_id,
-                        delta: text.to_string(),
-                        parent_tool_call_id: None,
-                    },
-                ),
+                wrap(turn_id, chunk),
             ))
         }
         ItemPhase::Completed => {
-            let streamed = state.assistant_message_id.take().is_some();
+            state.assistant_message_id = None;
             let text = item.get("text").and_then(Value::as_str).unwrap_or("");
-            if !streamed && !text.is_empty() {
-                state.pending.push_back(wrap(
-                    turn_id.clone(),
-                    AgentEvent::AssistantMessageCompleted {
-                        message_id: message_id.clone(),
-                    },
-                ));
-                Some(complete_before_thinking(
-                    state,
-                    turn_id.clone(),
-                    wrap(
-                        turn_id,
-                        AgentEvent::AssistantMessageDelta {
-                            message_id,
-                            delta: text.to_string(),
-                            parent_tool_call_id: None,
-                        },
-                    ),
-                ))
-            } else {
-                Some(complete_before_thinking(
-                    state,
-                    turn_id.clone(),
-                    wrap(
-                        turn_id,
-                        AgentEvent::AssistantMessageCompleted { message_id },
-                    ),
-                ))
+            // `item/completed` carries the whole message: emit only what the
+            // deltas have not already delivered.
+            let mut events: Vec<AgentEvent> = Vec::new();
+            let part_id = match state.parts.snapshot(&message_id, text) {
+                Snapshot::Unchanged => message_id.clone(),
+                Snapshot::Appends(suffix) => {
+                    let suffix = suffix.to_string();
+                    events.push(assistant_chunk(state, &message_id, suffix));
+                    message_id.clone()
+                }
+                Snapshot::Revised => {
+                    let text = text.to_string();
+                    events.push(state.parts.close(message_id.clone(), None));
+                    let revised = state.parts.revise(&message_id);
+                    events.push(state.parts.chunk(
+                        &revised,
+                        &message_id,
+                        None,
+                        TextKind::Answer,
+                        text,
+                    ));
+                    revised
+                }
+            };
+            events.push(state.parts.close(part_id, None));
+            let mut events = events.into_iter();
+            let head = wrap(turn_id.clone(), events.next()?);
+            let head = complete_before_thinking(state, turn_id.clone(), head);
+            for event in events {
+                state.pending.push_back(wrap(turn_id.clone(), event));
             }
+            Some(head)
         }
         ItemPhase::Updated => None,
     }
+}
+
+/// Codex addresses the assistant message by `itemId`, so the part is the item.
+fn assistant_chunk(state: &mut EventMapState, message_id: &str, text: String) -> AgentEvent {
+    state
+        .parts
+        .chunk(message_id, message_id, None, TextKind::Answer, text)
 }
 
 fn map_reasoning_item(
@@ -294,33 +302,88 @@ fn map_reasoning_item(
     match phase {
         ItemPhase::Started => {
             state.thinking_message_id = Some(message_id.clone());
-            let text = reasoning_text(item);
-            if text.is_empty() {
-                return None;
+            // Each `summary` entry is its own part, addressed by its summary index.
+            let mut events: Vec<AgentEvent> = Vec::new();
+            for (summary_index, summary) in reasoning_summaries(item).into_iter().enumerate() {
+                match state.parts.snapshot(
+                    &reasoning_part_id(&message_id, summary_index as i64),
+                    &summary,
+                ) {
+                    Snapshot::Unchanged => {}
+                    Snapshot::Appends(suffix) => {
+                        let suffix = suffix.to_string();
+                        events.push(thinking_chunk(
+                            state,
+                            &message_id,
+                            summary_index as i64,
+                            suffix,
+                        ));
+                    }
+                    Snapshot::Revised => {
+                        let part_id = reasoning_part_id(&message_id, summary_index as i64);
+                        events.push(state.parts.close(part_id.clone(), None));
+                        let revised = state.parts.revise(&part_id);
+                        events.push(state.parts.chunk(
+                            &revised,
+                            &message_id,
+                            None,
+                            TextKind::Thinking,
+                            summary,
+                        ));
+                    }
+                }
             }
-            Some(complete_before_assistant(
-                state,
-                turn_id.clone(),
-                wrap(
-                    turn_id,
-                    AgentEvent::ThinkingDelta {
-                        message_id,
-                        delta: text,
-                        parent_tool_call_id: None,
-                    },
-                ),
-            ))
+            let mut events = events.into_iter();
+            let head = wrap(turn_id.clone(), events.next()?);
+            let head = complete_before_assistant(state, turn_id.clone(), head);
+            for event in events {
+                state.pending.push_back(wrap(turn_id.clone(), event));
+            }
+            Some(head)
         }
         ItemPhase::Completed => {
             state.thinking_message_id = None;
-            Some(complete_before_assistant(
-                state,
-                turn_id.clone(),
-                wrap(turn_id, AgentEvent::ThinkingCompleted { message_id }),
-            ))
+            let prefix = format!("{message_id}:");
+            let open: Vec<String> = state
+                .parts
+                .open_of(TextKind::Thinking)
+                .into_iter()
+                .filter(|part_id| part_id.starts_with(&prefix))
+                .collect();
+            let mut closed: Vec<AgentEvent> = open
+                .into_iter()
+                .map(|part_id| state.parts.close(part_id, None))
+                .collect();
+            if closed.is_empty() {
+                closed.push(state.parts.close(reasoning_part_id(&message_id, 0), None));
+            }
+            let mut closed = closed.into_iter();
+            let head = wrap(turn_id.clone(), closed.next()?);
+            let head = complete_before_assistant(state, turn_id.clone(), head);
+            for event in closed {
+                state.pending.push_back(wrap(turn_id.clone(), event));
+            }
+            Some(head)
         }
         ItemPhase::Updated => None,
     }
+}
+
+/// Codex addresses reasoning by `{itemId}:{summaryIndex}`.
+fn reasoning_part_id(message_id: &str, summary_index: i64) -> String {
+    format!("{message_id}:{summary_index}")
+}
+
+fn thinking_chunk(
+    state: &mut EventMapState,
+    message_id: &str,
+    summary_index: i64,
+    text: String,
+) -> AgentEvent {
+    let part_id = reasoning_part_id(message_id, summary_index);
+    state
+        .parts
+        .chunk(&part_id, message_id, None, TextKind::Thinking, text)
 }
 
 fn map_assistant_delta(
@@ -339,17 +402,11 @@ fn map_assistant_delta(
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
+    let chunk = assistant_chunk(state, &message_id, delta);
     Some(complete_before_thinking(
         state,
         turn_id.clone(),
-        wrap(
-            turn_id,
-            AgentEvent::AssistantMessageDelta {
-                message_id,
-                delta,
-                parent_tool_call_id: None,
-            },
-        ),
+        wrap(turn_id, chunk),
     ))
 }
 
@@ -364,22 +421,20 @@ fn map_thinking_delta(
         .map(str::to_string)
         .or_else(|| state.thinking_message_id.clone())?;
     state.thinking_message_id = Some(message_id.clone());
+    let summary_index = params
+        .get("summaryIndex")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
     let delta = params
         .get("delta")
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
+    let chunk = thinking_chunk(state, &message_id, summary_index, delta);
     Some(complete_before_assistant(
         state,
         turn_id.clone(),
-        wrap(
-            turn_id,
-            AgentEvent::ThinkingDelta {
-                message_id,
-                delta,
-                parent_tool_call_id: None,
-            },
-        ),
+        wrap(turn_id, chunk),
     ))
 }
 
@@ -659,15 +714,15 @@ fn remember_tool(state: &mut EventMapState, tool: &AgentTool) {
     }
 }
 
-fn reasoning_text(item: &Value) -> String {
+fn reasoning_summaries(item: &Value) -> Vec<String> {
     match item.get("summary") {
-        Some(Value::String(text)) => text.clone(),
+        Some(Value::String(text)) => vec![text.clone()],
         Some(Value::Array(parts)) => parts
             .iter()
             .filter_map(Value::as_str)
-            .collect::<Vec<_>>()
-            .join("\n"),
-        _ => String::new(),
+            .map(str::to_string)
+            .collect(),
+        _ => Vec::new(),
     }
 }
 
@@ -679,31 +734,19 @@ fn wrap(turn_id: Option<String>, payload: AgentEvent) -> AgentEventEnvelope {
     AgentEventEnvelope::new(turn_id, payload)
 }
 
-fn complete_stream_before(
-    open_id: &mut Option<String>,
-    pending: &mut VecDeque<AgentEventEnvelope>,
-    turn_id: Option<String>,
-    completed: impl FnOnce(String) -> AgentEvent,
-    next: AgentEventEnvelope,
-) -> AgentEventEnvelope {
-    if let Some(message_id) = open_id.take() {
-        pending.push_back(next);
-        wrap(turn_id, completed(message_id))
-    } else {
-        next
-    }
-}
-
 fn complete_before_thinking(
     state: &mut EventMapState,
     turn_id: Option<String>,
     next: AgentEventEnvelope,
 ) -> AgentEventEnvelope {
-    complete_stream_before(
-        &mut state.thinking_message_id,
+    if !state.parts.open_of(TextKind::Thinking).is_empty() {
+        state.thinking_message_id = None;
+    }
+    close_open_parts(
+        &mut state.parts,
         &mut state.pending,
         turn_id,
-        |message_id| AgentEvent::ThinkingCompleted { message_id },
+        TextKind::Thinking,
         next,
     )
 }
@@ -713,11 +756,14 @@ fn complete_before_assistant(
     turn_id: Option<String>,
     next: AgentEventEnvelope,
 ) -> AgentEventEnvelope {
-    complete_stream_before(
-        &mut state.assistant_message_id,
+    if !state.parts.open_of(TextKind::Answer).is_empty() {
+        state.assistant_message_id = None;
+    }
+    close_open_parts(
+        &mut state.parts,
         &mut state.pending,
         turn_id,
-        |message_id| AgentEvent::AssistantMessageCompleted { message_id },
+        TextKind::Answer,
         next,
     )
 }
@@ -728,15 +774,22 @@ mod tests {
     use crate::contract::AgentToolKind;
     use crate::contract::AgentToolParams;
     use crate::providers::codex::codec::{classify, InboundFrame};
+    use crate::providers::text_parts::{reassemble, reassembled_text};
 
     fn replay(turn_id: &str) -> Vec<AgentEvent> {
+        replay_lines(include_str!("testdata/turn-tools.jsonl"), turn_id)
+    }
+
+    fn replay_lines(jsonl: &str, turn_id: &str) -> Vec<AgentEvent> {
         let mut state = EventMapState::new(AgentCurrentConfig::default());
         let mut events = Vec::new();
-        for line in include_str!("testdata/turn-tools.jsonl").lines() {
+        for line in jsonl.lines() {
             if line.trim().is_empty() {
                 continue;
             }
-            let value: Value = serde_json::from_str(line).expect("json");
+            let Ok(value) = serde_json::from_str::<Value>(line) else {
+                continue;
+            };
             let InboundFrame::Notification { method, params } = classify(&value) else {
                 continue;
             };
@@ -748,12 +801,91 @@ mod tests {
         events
     }
 
+    fn jsonl_fixtures() -> Vec<(String, String)> {
+        let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("src/providers/codex/testdata");
+        let mut fixtures: Vec<(String, String)> = std::fs::read_dir(dir)
+            .expect("testdata dir")
+            .map(|entry| entry.expect("dir entry").path())
+            .filter(|path| path.extension().is_some_and(|ext| ext == "jsonl"))
+            .map(|path| {
+                (
+                    path.file_name()
+                        .and_then(|name| name.to_str())
+                        .unwrap_or_default()
+                        .to_string(),
+                    std::fs::read_to_string(&path).expect("fixture"),
+                )
+            })
+            .collect();
+        fixtures.sort_by(|left, right| left.0.cmp(&right.0));
+        assert!(!fixtures.is_empty(), "no jsonl fixtures found");
+        fixtures
+    }
+
+    #[test]
+    fn s6_turn_tools_reassembles_to_the_text_codex_sent() {
+        let events = replay("atmos-turn-1");
+        assert_eq!(reassembled_text(&events, TextKind::Answer), "Done.");
+        assert_eq!(
+            reassembled_text(&events, TextKind::Thinking),
+            "I will run tests."
+        );
+        // Reasoning is addressed by `{itemId}:{summaryIndex}`, the answer by `itemId`.
+        let part_ids: Vec<String> = reassemble(&events)
+            .into_iter()
+            .map(|(part_id, _, _)| part_id)
+            .collect();
+        assert_eq!(part_ids, vec!["r_1:0".to_string(), "am_1".to_string()]);
+    }
+
+    #[test]
+    fn s6_every_jsonl_fixture_keeps_part_offsets_contiguous() {
+        for (name, jsonl) in jsonl_fixtures() {
+            let events = replay_lines(&jsonl, "atmos-turn-1");
+            // Panics on a gap or an overlap in any part's offset sequence.
+            for (part_id, _, text) in reassemble(&events) {
+                assert!(
+                    !text.is_empty(),
+                    "{name}: part {part_id} emitted chunks but reassembled empty"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn s6_two_reasoning_summary_indexes_become_two_parts() {
+        let jsonl = concat!(
+            r#"{"method":"item/started","params":{"item":{"type":"reasoning","id":"r_9","summary":[]}}}"#,
+            "\n",
+            r#"{"method":"item/reasoning/summaryTextDelta","params":{"itemId":"r_9","delta":"first","summaryIndex":0}}"#,
+            "\n",
+            r#"{"method":"item/reasoning/summaryTextDelta","params":{"itemId":"r_9","delta":"second","summaryIndex":1}}"#,
+            "\n",
+        );
+        let events = replay_lines(jsonl, "atmos-turn-1");
+        assert_eq!(
+            reassemble(&events),
+            vec![
+                ("r_9:0".to_string(), TextKind::Thinking, "first".to_string()),
+                (
+                    "r_9:1".to_string(),
+                    TextKind::Thinking,
+                    "second".to_string()
+                ),
+            ]
+        );
+    }
+
     #[test]
     fn fixture_maps_tools_thinking_plan_and_omits_unknown() {
         let events = replay("atmos-turn-1");
         assert!(events.iter().any(|event| matches!(
             event,
-            AgentEvent::ThinkingDelta { .. } | AgentEvent::ThinkingCompleted { .. }
+            AgentEvent::TextChunk {
+                kind: TextKind::Thinking,
+                ..
+            }
         )));
         assert!(events.iter().any(|event| match event {
             AgentEvent::PlanUpdated { plan } =>
