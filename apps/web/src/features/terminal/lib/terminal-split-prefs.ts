@@ -12,11 +12,6 @@ export type TerminalSplitPrefs = {
   agentId: string | null;
   /** Optional run config (model / reasoning / extra args) for the default agent. */
   runConfig: TerminalAgentRunConfigInput | null;
-  /**
-   * When true (and `enabled`), creating a new Terminal tab also launches the
-   * default agent in the initial pane.
-   */
-  applyToNewTerminalTab: boolean;
 };
 
 export type TerminalDefaultAgentMatch = {
@@ -28,7 +23,6 @@ export const DEFAULT_TERMINAL_SPLIT_PREFS: TerminalSplitPrefs = {
   enabled: false,
   agentId: null,
   runConfig: null,
-  applyToNewTerminalTab: false,
 };
 
 /** Disk keys under function_settings.terminal.* */
@@ -36,7 +30,6 @@ export const TERMINAL_DEFAULT_SPLIT_AGENT_KEYS = {
   enabled: 'default_split_agent_enabled',
   agentId: 'default_split_agent_id',
   runConfig: 'default_split_agent_run_config',
-  applyToNewTerminalTab: 'default_split_agent_apply_to_new_tab',
 } as const;
 
 function readAgentId(value: unknown): string | null {
@@ -74,8 +67,6 @@ export function parseTerminalSplitPrefsFromSettings(
     enabled: terminal[TERMINAL_DEFAULT_SPLIT_AGENT_KEYS.enabled] === true,
     agentId: readAgentId(terminal[TERMINAL_DEFAULT_SPLIT_AGENT_KEYS.agentId]),
     runConfig: readRunConfig(terminal[TERMINAL_DEFAULT_SPLIT_AGENT_KEYS.runConfig]),
-    applyToNewTerminalTab:
-      terminal[TERMINAL_DEFAULT_SPLIT_AGENT_KEYS.applyToNewTerminalTab] === true,
   };
 }
 

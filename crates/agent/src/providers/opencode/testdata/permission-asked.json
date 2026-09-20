@@ -1,0 +1,12 @@
+{
+  "id": "per_abc",
+  "sessionID": "ses_x",
+  "permission": "bash",
+  "patterns": ["ls -la"],
+  "always": ["ls *"],
+  "metadata": {},
+  "tool": {
+    "messageID": "msg_a",
+    "callID": "call_bash"
+  }
+}

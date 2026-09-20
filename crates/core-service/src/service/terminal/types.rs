@@ -245,6 +245,10 @@ pub struct CreateSessionParams {
     pub side_chat_id: Option<String>,
     pub source_pane_id: Option<String>,
     pub source_tmux_window_name: Option<String>,
+    pub origin: Option<String>,
+    pub run_guid: Option<String>,
+    pub automation_guid: Option<String>,
+    pub initial_input: Option<String>,
 }
 
 /// Parameters for creating a simple (non-tmux) terminal session

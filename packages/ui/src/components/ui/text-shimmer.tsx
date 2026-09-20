@@ -1,7 +1,8 @@
 'use client';
-import React, { useMemo, type JSX } from 'react';
+import React, { useMemo, useRef, type JSX } from 'react';
 import { motion } from 'motion/react';
 import { cn } from '../../lib/utils';
+import { usePauseWhenInert } from '../../lib/use-pause-when-inert';
 
 export type TextShimmerProps = {
   children: string;
@@ -10,6 +11,7 @@ export type TextShimmerProps = {
   style?: React.CSSProperties;
   duration?: number;
   spread?: number;
+  animated?: boolean;
 };
 
 function TextShimmerComponent({
@@ -19,7 +21,11 @@ function TextShimmerComponent({
   style,
   duration = 2,
   spread = 2,
+  animated = true,
 }: TextShimmerProps) {
+  const hostRef = useRef<HTMLElement>(null);
+  const paused = usePauseWhenInert(hostRef);
+  const motionOn = animated && !paused;
   // Prefer motion.<tag> for intrinsic elements. motion.create() has produced
   // null element types during Next 16.3 Turbopack Windows prerender (CI).
   const MotionComponent = useMemo(() => {
@@ -57,7 +63,7 @@ function TextShimmerComponent({
   // Plain element fallback when motion could not build a component type.
   if (MotionComponent === Component) {
     return (
-      <Component className={shimmerClassName} style={shimmerStyle}>
+      <Component ref={hostRef} className={shimmerClassName} style={shimmerStyle}>
         {children}
       </Component>
     );
@@ -67,11 +73,12 @@ function TextShimmerComponent({
 
   return (
     <Animated
+      ref={hostRef}
       className={shimmerClassName}
       initial={{ backgroundPosition: '100% center' }}
-      animate={{ backgroundPosition: '0% center' }}
+      animate={motionOn ? { backgroundPosition: '0% center' } : false}
       transition={{
-        repeat: Infinity,
+        repeat: motionOn ? Infinity : 0,
         duration,
         ease: 'linear',
       }}

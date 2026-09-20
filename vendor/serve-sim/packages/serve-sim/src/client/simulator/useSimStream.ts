@@ -65,8 +65,9 @@ export function useSimStream({ exec, device: deviceProp }: UseSimStreamOptions):
       setError(null);
       try {
         if (!deviceProp) {
-          // No device selected — just disconnect
-          await exec("serve-sim --kill");
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ type: "atmos:simulator-stop" }, "*");
+          }
           if (mountedRef.current) setInfo(null);
           return;
         }
@@ -122,7 +123,9 @@ export function useSimStream({ exec, device: deviceProp }: UseSimStreamOptions):
     setLoading(true);
     setError(null);
     try {
-      await exec("serve-sim --kill");
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: "atmos:simulator-stop" }, "*");
+      }
       if (mountedRef.current) setInfo(null);
     } catch (err) {
       if (mountedRef.current) {
@@ -131,7 +134,7 @@ export function useSimStream({ exec, device: deviceProp }: UseSimStreamOptions):
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  }, [exec]);
+  }, []);
 
   const sendButton = useCallback(async (button: string) => {
     try {

@@ -57,7 +57,8 @@ crates/runtime-manager/src/
 |-------------|----------------|
 | `apps/api` | `client` — manifest write, relay register env token, read identity |
 | `apps/cli` | `client` + `supervisor` — `atmos runtime`, `atmos computer` |
-| `apps/desktop` | `client` + `supervisor` — `src-tauri/src/runtime.rs` |
+| `apps/desktop-electron` | APP-076 thin caller: reuse/quit policy; TS spawn remains a follow-up |
+| `apps/desktop` | deprecated Tauri — do not add supervisor features |
 
 ---
 

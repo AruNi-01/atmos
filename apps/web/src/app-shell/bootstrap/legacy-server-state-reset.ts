@@ -11,7 +11,7 @@ export async function resetLegacyServerStateForConnectionChange(): Promise<void>
     { useReviewSnapshotStore },
     { invalidateLocalComputerStatusCache },
     { clearWelcomeGithubCaches },
-    { useAgentHooksStore },
+    { useAgentStatusStore },
     { useAgentActivityStore },
   ] = await Promise.all([
     import("@/features/git/store/use-git-store"),
@@ -19,7 +19,7 @@ export async function resetLegacyServerStateForConnectionChange(): Promise<void>
     import("@/features/code-review/store/review-snapshot-store"),
     import("@/features/connection/lib/atmos-computer-local"),
     import("@/features/welcome/lib/welcome-page-helpers"),
-    import("@/features/agent/store/agent-hooks-store"),
+    import("@/features/agent/store/agent-status-store"),
     import("@/features/agent/store/agent-activity-store"),
   ]);
 
@@ -36,6 +36,6 @@ export async function resetLegacyServerStateForConnectionChange(): Promise<void>
   clearWelcomeGithubCaches();
   // Agent hook sessions / attention / grouping snapshot are Computer-scoped
   // in-memory maps. WS listeners stay; hydrate re-reads the new target.
-  useAgentHooksStore.getState().resetForConnectionChange();
+  useAgentStatusStore.getState().resetForConnectionChange();
   useAgentActivityStore.getState().resetForConnectionChange();
 }

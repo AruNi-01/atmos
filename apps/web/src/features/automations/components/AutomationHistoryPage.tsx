@@ -69,6 +69,8 @@ export function AutomationHistoryPage({
   onCancelRun,
   onFetchArtifact,
   onContinueInTerminal,
+  onContinueInChat,
+  onOpenRunSurface,
   onSaveMemory,
 }: {
   automation: AutomationSummary | null;
@@ -92,6 +94,8 @@ export function AutomationHistoryPage({
   onCancelRun: (run: AutomationRunSummary) => Promise<void>;
   onFetchArtifact: (run: AutomationRunSummary, kind: AutomationArtifactKind) => Promise<void>;
   onContinueInTerminal: (run: AutomationRunSummary) => Promise<void>;
+  onContinueInChat: (run: AutomationRunSummary) => Promise<void>;
+  onOpenRunSurface: (run: AutomationRunSummary) => Promise<void>;
   onSaveMemory: (automationGuid: string, memory: string) => Promise<void>;
 }) {
   const t = useTranslations("automation.historyPage");
@@ -104,6 +108,11 @@ export function AutomationHistoryPage({
     : null;
   const savedMemory = detail?.memory ?? "";
   const memoryDirty = memoryDraft !== savedMemory;
+  const chatKey = selectedRunGuid ?? visibleAutomation?.guid ?? "history";
+  const [chatId, setChatId] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    setChatId(null);
+  }, [chatKey]);
 
   React.useEffect(() => {
     setMemoryDraft(detail?.memory ?? "");
@@ -252,6 +261,8 @@ export function AutomationHistoryPage({
                 onCancelRun={onCancelRun}
                 onFetchArtifact={onFetchArtifact}
                 onContinueInTerminal={onContinueInTerminal}
+                onContinueInChat={onContinueInChat}
+                onOpenRunSurface={onOpenRunSurface}
               />
             ) : (
               <div className="flex h-full min-h-0 items-center justify-center text-center">
@@ -270,12 +281,20 @@ export function AutomationHistoryPage({
                   <div className="text-sm font-semibold text-foreground">{t("standalone.title")}</div>
                   <div className="mt-0.5 text-xs text-muted-foreground">{t("standalone.description")}</div>
                 </div>
-                <Button variant="ghost" size="icon" className="size-8" onClick={onCloseStandaloneChat} aria-label={t("actions.closeConversation")}>
+                <Button variant="ghost" size="icon" className="size-8" onClick={onCloseStandaloneChat} aria-label={t("actions.closeChat")}>
                   <X className="size-4" />
                 </Button>
               </div>
               <div className="min-h-0 flex-1 overflow-hidden">
-                <AgentChatPanel variant="sidebar" publishStatus={false} active={standaloneChatOpen} />
+                <AgentChatPanel
+                  variant="sidebar"
+                  publishStatus={false}
+                  active={standaloneChatOpen}
+                  instanceKey={chatKey}
+                  chatId={chatId}
+                  onChatStarted={setChatId}
+                  onOpenChat={setChatId}
+                />
               </div>
             </section>
           ) : null}

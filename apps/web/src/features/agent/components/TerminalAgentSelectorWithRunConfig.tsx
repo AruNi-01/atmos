@@ -90,10 +90,20 @@ type MenuProps = SharedProps & {
   contentClassName?: string;
 };
 
+type PanelProps = SharedProps & {
+  variant: "panel";
+  className?: string;
+  showRunConfig?: boolean;
+  runConfig: TerminalAgentRunConfigInput | null | undefined;
+  runConfigByAgentId?: Record<string, TerminalAgentRunConfigInput | null | undefined>;
+  onRunConfigChange: (agentId: string, value: TerminalAgentRunConfigInput | null) => void;
+};
+
 type TerminalAgentSelectorWithRunConfigProps =
   | FloatingProps
   | FieldProps
-  | MenuProps;
+  | MenuProps
+  | PanelProps;
 
 type SelectorView = "agent_list" | "run_config";
 
@@ -116,7 +126,10 @@ export function TerminalAgentSelectorWithRunConfig(
   const preserveConfigViewOnCloseRef = React.useRef(false);
   const settings = useFunctionSettingsStore((state) => state.settings);
   const loadFunctionSettings = useFunctionSettingsStore((state) => state.load);
-  const allowRunConfig = props.variant !== "field" || props.showRunConfig !== false;
+  const allowRunConfig =
+    props.variant === "field" || props.variant === "panel"
+      ? props.showRunConfig !== false
+      : true;
 
   React.useEffect(() => {
     void loadFunctionSettings();
@@ -175,7 +188,9 @@ export function TerminalAgentSelectorWithRunConfig(
   const handleAgentSelect = React.useCallback(
     (agentId: string) => {
       props.onValueChange(agentId);
-      setOpen(false);
+      if (props.variant !== "panel") {
+        setOpen(false);
+      }
     },
     [props, setOpen],
   );
@@ -297,7 +312,11 @@ export function TerminalAgentSelectorWithRunConfig(
     <div
       className={cn(
         "relative overflow-hidden transition-[width] duration-250 ease-out",
-        view === "agent_list" ? "w-[272px]" : "w-[420px]",
+        props.variant === "panel"
+          ? "w-full"
+          : view === "agent_list"
+            ? "w-[272px]"
+            : "w-[420px]",
       )}
     >
       <div
@@ -436,6 +455,20 @@ export function TerminalAgentSelectorWithRunConfig(
         {props.helperText ? (
           <p className="mt-1.5 text-[11px] text-muted-foreground">{props.helperText}</p>
         ) : null}
+      </div>
+    );
+  }
+
+  if (props.variant === "panel") {
+    return (
+      <div
+        className={cn(
+          "max-h-[min(14rem,40vh)] overflow-auto",
+          view === "run_config" && "max-h-[min(22rem,50vh)]",
+          props.className,
+        )}
+      >
+        {overlayContent}
       </div>
     );
   }

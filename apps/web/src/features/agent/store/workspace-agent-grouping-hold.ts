@@ -3,7 +3,7 @@
 import { create } from "zustand";
 
 /** Keep an acknowledged just-finished workspace in Need attention this long. */
-export const WORKSPACE_AGENT_GROUPING_HOLD_MS = 2.5 * 60 * 1000;
+export const WORKSPACE_AGENT_GROUPING_HOLD_MS = 60 * 1000;
 
 type WorkspaceAgentGroupingHoldStore = {
   untilByContextId: Map<string, number>;

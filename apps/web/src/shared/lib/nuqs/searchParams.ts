@@ -142,7 +142,12 @@ export type SkillsTab = "installed" | "market" | "resources";
 export type ScopeFilter = "all" | "global" | "project" | "system";
 
 export const skillsParams = {
-  tab: parseAsStringEnum<SkillsTab>(["installed", "market", "resources"]).withDefault("installed"),
+  /**
+   * URL key must stay page-prefixed: `?tab=` is owned by CenterStage's one-shot
+   * workspace deep link (centerStageParams), which strips values it does not
+   * honor. Generic `tab` here made Skills header tabs revert on click.
+   */
+  skillsTab: parseAsStringEnum<SkillsTab>(["installed", "market", "resources"]).withDefault("installed"),
   filter: parseAsStringEnum<ScopeFilter>(["all", "global", "project", "system"]).withDefault("all"),
   projects: parseAsString.withDefault(""),
   q: parseAsString.withDefault(""),
@@ -151,12 +156,13 @@ export const skillsParams = {
 // ---------------------------------------------------------------------------
 // AgentManager – tab & search
 // ---------------------------------------------------------------------------
-export type AgentTab = "installed" | "registry" | "custom";
+export type AgentTab = "native" | "acp" | "custom";
 export type AgentManagerView = "manager" | "sessions";
 
 export const agentManagerParams = {
   agentView: parseAsStringEnum<AgentManagerView>(["manager", "sessions"]).withDefault("manager"),
-  agentTab: parseAsStringEnum<AgentTab>(["installed", "registry", "custom"]).withDefault("registry"),
+  // Old `registry` / `installed` query values are dropped and default to `acp`.
+  agentTab: parseAsStringEnum<AgentTab>(["native", "acp", "custom"]).withDefault("acp"),
   agentQ: parseAsString.withDefault(""),
 };
 
@@ -289,7 +295,7 @@ const parseAsStringList = parseAsArrayOf(parseAsString).withDefault([]);
 export const taskParams = {
   /** Atmos board vs GitHub issues/PRs. */
   taskSource: parseAsStringEnum<TaskSourceTab>(["atmos", "github", "linear"]).withDefault("atmos"),
-  /** Atmos kanban column grouping (also mirrored to function settings). */
+  /** Atmos board grouping (URL + `workspace_kanban_view`; not shared with the left sidebar). */
   taskGroupBy: parseAsStringEnum<TaskGroupingModeParam>([
     "project",
     "group",
@@ -325,4 +331,19 @@ export const taskParams = {
     "updated-asc",
     "best-match",
   ]).withDefault("updated-desc"),
+};
+
+// ---------------------------------------------------------------------------
+// Prototype Design overview
+// ---------------------------------------------------------------------------
+export type PtDesignScopeFilter = "all" | "global" | "project" | "workspace";
+
+export const ptDesignParams = {
+  design: parseAsString,
+  ptScope: parseAsStringEnum<PtDesignScopeFilter>([
+    "all",
+    "global",
+    "project",
+    "workspace",
+  ]).withDefault("all"),
 };

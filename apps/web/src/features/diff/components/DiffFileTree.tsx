@@ -532,7 +532,7 @@ export function DiffFileTree({
       ref={treeRef}
       role="tree"
       aria-label={ariaLabel}
-      className={cn("w-full overflow-y-auto pr-1", className)}
+      className={cn("w-full pr-1", className)}
       style={style}
       onMouseLeave={() => setHoveredRowPath(null)}
     >

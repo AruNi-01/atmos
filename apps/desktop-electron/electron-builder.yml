@@ -95,21 +95,22 @@ dmg:
   # avoid electron-builder's default "${productName} ${version}".
   title: Atmos
   artifactName: Atmos.${ext}
-  # Minimal plain backdrop: slogan + arrow + drag caption only (no Atmos title / art).
-  # Regenerate: python3 scripts/generate-dmg-background.py
+  # Landscape + sharp arrow/caption + Applications folder + name chips.
+  # Regenerate: python3 scripts/generate-dmg-background.py /path/to/landscape.png
   background: resources/dmg/background.png
   # Volume + downloaded-file icon. Must remain .icns (not Assets.car).
   # Padded separately from the app tile so Finder's desktop well has margin.
   icon: resources/icons/dmg-icon.icns
-  iconSize: 96
+  iconSize: 128
   window:
-    width: 540
-    height: 380
+    width: 642
+    height: 406
   contents:
-    - x: 148
-      y: 170
-    - x: 392
-      y: 170
+    - x: 95
+      y: 72
+      type: file
+    - x: 367
+      y: 213
       type: link
       path: /Applications
 

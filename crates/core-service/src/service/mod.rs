@@ -1,14 +1,18 @@
 pub mod agent;
 pub mod agent_hooks;
-pub mod agent_session;
+pub mod agent_status;
+
+pub mod agent_chat;
 pub mod automation;
 pub mod canvas;
 pub mod canvas_agent_relay;
 pub mod center_layout;
 pub mod cli_identity;
+pub mod device_preview;
 pub mod disk_analyzer;
 pub mod git_commit_message;
 pub mod group;
+pub mod host_session;
 pub mod linear;
 pub mod linear_credentials;
 pub mod llm_text_generation;

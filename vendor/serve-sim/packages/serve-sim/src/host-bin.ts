@@ -35,3 +35,11 @@ export function rewriteHostCommand(command: string, bin = hostServeSimBin()): st
   if (/^serve-sim(?=\s|$)/.test(command)) return command.replace(/^serve-sim/, quoted);
   return command;
 }
+
+/** True when the command would stop every serve-sim stream, not one device. */
+export function isGlobalServeSimKill(command: string): boolean {
+  const rewritten = rewriteHostCommand(command);
+  const tokens = rewritten.match(/(?:'[^']*'|"[^"]*"|\S)+/g) ?? [];
+  const args = tokens.slice(1).map((token) => token.replace(/^['"]|['"]$/g, ""));
+  return args.length === 1 && (args[0] === "--kill" || args[0] === "-k");
+}

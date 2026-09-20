@@ -18,7 +18,7 @@ import {
 import { getComputerQueryScope } from "@/api/query/query-scope";
 import { buildCommand, type AgentId } from "@/features/wiki/components/AgentSelect";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
-import { useAgentChatUrl } from "@/features/agent/hooks/use-agent-chat-url";
+import { useAgentChatCenterTabsStore } from "@/features/agent/store/use-agent-chat-center-tabs";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { useReviewSessionsQuery } from "@/features/code-review/hooks/use-review-sessions-query";
 import { reviewSessionsKey } from "@/features/code-review/lib/review-query-options";
@@ -72,7 +72,6 @@ export function useReviewContext({
   const setPendingAgentChatMode = useDialogStore(
     (state) => state.setPendingAgentChatMode,
   );
-  const [, setAgentChatOpen] = useAgentChatUrl();
   const terminalRunner = useReviewTerminalRunnerStore((state) => state.runner);
 
   const sessionsQuery = useReviewSessionsQuery(target);
@@ -822,7 +821,7 @@ export function useReviewContext({
           forceNewSession: false,
         });
         setPendingAgentChatMode("default");
-        await setAgentChatOpen(true);
+        useAgentChatCenterTabsStore.getState().requestNewChat();
         toastManager.add({
           title: t("agentChat.successTitle"),
           description: t("agentChat.successDescription"),
@@ -848,7 +847,6 @@ export function useReviewContext({
       filePath,
       loadSessions,
       setSelectedRevisionGuid,
-      setAgentChatOpen,
       setPendingAgentChatMode,
       t,
       target,
@@ -926,7 +924,7 @@ export function useReviewContext({
           const workspaceId = target.kind === "workspace" ? target.workspaceId : null;
           const projectId = target.kind === "project" ? target.projectId : null;
           setPendingAgentChatMode("default");
-          setAgentChatOpen(true);
+          useAgentChatCenterTabsStore.getState().requestNewChat();
           await enqueueAgentChatPrompt({
             prompt: result.prompt,
             workspaceId,
@@ -951,7 +949,7 @@ export function useReviewContext({
         setIsCreatingAgentRun(false);
       }
     },
-    [createAgentRun, currentRevision, currentSession, enqueueAgentChatPrompt, filePath, loadSessions, setSelectedRevisionGuid, setAgentChatOpen, setPendingAgentChatMode, t, target],
+    [createAgentRun, currentRevision, currentSession, enqueueAgentChatPrompt, filePath, loadSessions, setSelectedRevisionGuid, setPendingAgentChatMode, t, target],
   );
 
   const handleCopyAgentReviewPrompt = useCallback(

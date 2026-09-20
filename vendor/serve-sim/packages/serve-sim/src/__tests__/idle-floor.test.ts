@@ -3,6 +3,7 @@ import { execSync, spawnSync } from "child_process";
 import { readdirSync, readFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
+import { parseDetachState } from "./detach-state";
 
 /**
  * Integration test for the idle-frame-floor guarantee.
@@ -138,7 +139,7 @@ describeWithSim(`serve-sim idle frame floor (booted sim ${bootedUdid ?? "<skippe
       );
     }
     try {
-      const info = JSON.parse(detach.stdout.trim()) as { streamUrl: string };
+      const info = parseDetachState<{ streamUrl: string }>(detach.stdout);
       streamUrl = info.streamUrl;
     } catch {
       throw new Error(

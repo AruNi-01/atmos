@@ -25,6 +25,16 @@ This skill is the bridge from specs to shipped production code. You execute what
 
 Why: separating production code from scenario-test authoring forces honesty. When the same skill writes both, it's tempting to weaken assertions to make green; having `atmos-specs-test-run` write the suite afterward, against the plan, makes regressions land as real failures. The regression gate (lint + existing tests) stays here because it's non-negotiable for every code chunk.
 
+## When to hand off to `atmos-long-task-impl`
+
+Do **not** implement in the parent session when any of these hold; switch to `atmos-long-task-impl` and stay orchestrator:
+
+- The user asked to 并行 / 切分 / 看板 / 派发 subagent / 长任务实现
+- The phase spans several disjoint modules and would overflow one context window
+- Two workstreams would edit the same files if started together
+
+Coding rules in **this** skill still apply inside each 实现 subagent. The parent does not write feature code.
+
 ## Read these before you code
 
 Read them in order. Do not skim.

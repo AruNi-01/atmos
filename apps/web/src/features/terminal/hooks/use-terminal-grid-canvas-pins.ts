@@ -24,7 +24,7 @@ import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import { toastManager } from "@workspace/ui";
 import enMessages from '../../../../messages/en.json';
 import zhMessages from '../../../../messages/zh.json';
-import { useAgentTitleSettingsStore } from "@/features/settings/store/agent-title-settings-store";
+
 import { getTerminalDisplayMeta } from "../components/terminal-title";
 import { useContestedCliOwners } from "./use-contested-cli-owners";
 import type { TerminalPaneAgent, TerminalPaneProps } from "../types/index";
@@ -158,8 +158,6 @@ export function useTerminalGridCanvasPins({
           workspaceName: workspaceInfo.workspaceName,
           localPath: workspaceInfo.localPath,
           terminalName: (() => {
-            const showAgentName =
-              useAgentTitleSettingsStore.getState().showAgentNameInTerminalTitles;
             const { displayTitle, toolbarAgent } = getTerminalDisplayMeta({
               baseTitle: pane.label,
               dynamicTitle: pane.dynamicTitle,
@@ -168,7 +166,6 @@ export function useTerminalGridCanvasPins({
               contestedOwners,
               oscTitle: pane.oscTitle,
               suppressOscTitle: !!pane.customLabel?.trim(),
-              showAgentName,
             });
             // Contested freehand `agent` can pin before identity resolves. Prefer
             // the pane's known launch agent over baking a raw `agent` label.

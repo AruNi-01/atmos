@@ -13,6 +13,7 @@ import {
 } from "@workspace/ui";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { useContextParams } from "@/shared/hooks/use-context-params";
+import { useStoreWithEqualityFn } from "zustand/traditional";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 import { WorkspaceSetupProgressView } from "@/features/workspace/components/WorkspaceSetupProgress";
@@ -25,6 +26,7 @@ import {
   getWorkspaceSetupProgressValue,
   getWorkspaceSetupSteps,
   isWorkspaceSetupBlocking,
+  setupProgressUiEqual,
 } from "@/features/workspace/lib/workspace-setup";
 import { WorkspaceStatusPopover } from "./WorkspaceStatusPopover";
 import {
@@ -96,10 +98,14 @@ function SetupDetailPanel({
 }) {
   const t = useTranslations("header.workspaceJobs");
   const workspaceId = item.workspaceId;
+  const liveProgress = useProjectStore((state) =>
+    workspaceId ? state.setupProgress[workspaceId] ?? null : null,
+  );
+  const progress = liveProgress ?? item.progress;
   const enterable =
-    !!workspaceId && !isWorkspaceSetupBlocking(item.progress ?? undefined) && !isCurrent;
-  const detailWidth = item.progress
-    ? getWorkspaceSetupPopoverWidth(getWorkspaceSetupSteps(item.progress).length, viewportWidth)
+    !!workspaceId && !isWorkspaceSetupBlocking(progress ?? undefined) && !isCurrent;
+  const detailWidth = progress
+    ? getWorkspaceSetupPopoverWidth(getWorkspaceSetupSteps(progress).length, viewportWidth)
     : 360;
 
   return (
@@ -121,9 +127,9 @@ function SetupDetailPanel({
           ) : null}
         </div>
       ) : null}
-      {item.progress ? (
+      {progress ? (
         <WorkspaceSetupProgressView
-          progress={item.progress}
+          progress={progress}
           onFinish={() => {
             if (item.workspaceId) onFinish(item.workspaceId);
           }}
@@ -187,6 +193,7 @@ function WorkspaceSetupListRow({
       type="button"
       className={cn(
         "flex w-full min-w-0 items-start gap-2 rounded-md px-2 py-2 text-left",
+        enterable && "pr-12",
         rowOpen ? "bg-muted" : "hover:bg-muted/70",
       )}
       onClick={ready && workspaceId ? () => onOpenWorkspace(workspaceId, true) : undefined}
@@ -197,15 +204,17 @@ function WorkspaceSetupListRow({
         <Loader2 className="mt-0.5 size-3.5 shrink-0 animate-spin text-primary" />
       )}
       <span className="min-w-0 flex-1">
-        <span className="flex items-center justify-between gap-2">
-          <span className="truncate text-sm font-medium">{title}</span>
+        <span className="block truncate text-sm font-medium">{title}</span>
+        <span className="mt-0.5 flex items-center justify-between gap-2">
+          <span className="min-w-0 truncate text-xs text-muted-foreground">
+            {stepLabel}
+            {showCountdown ? ` · ${t("autoEnterCountdown", { seconds: remainingSeconds })}` : ""}
+          </span>
           {percent != null ? (
-            <span className="tabular-nums text-[11px] text-muted-foreground">{percent}%</span>
+            <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+              {percent}%
+            </span>
           ) : null}
-        </span>
-        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-          {stepLabel}
-          {showCountdown ? ` · ${t("autoEnterCountdown", { seconds: remainingSeconds })}` : ""}
         </span>
       </span>
     </button>
@@ -215,8 +224,11 @@ function WorkspaceSetupListRow({
     enterable && workspaceId ? (
       <button
         type="button"
-        className="mt-1.5 shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-foreground hover:bg-muted"
-        onClick={() => onOpenWorkspace(workspaceId, ready)}
+        className="absolute top-2 right-2 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-foreground hover:bg-muted"
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpenWorkspace(workspaceId, ready);
+        }}
       >
         {t("autoEnterNow")}
       </button>
@@ -224,47 +236,45 @@ function WorkspaceSetupListRow({
 
   if (ready) {
     return (
-      <div className="flex min-w-0 items-start gap-1">
-        <div className="min-w-0 flex-1">{rowButton(false)}</div>
+      <div className="relative min-w-0 w-full">
+        {rowButton(false)}
         {enterNowButton}
       </div>
     );
   }
 
   return (
-    <div className="flex min-w-0 items-start gap-1">
-      <div className="min-w-0 flex-1">
-        <Popover
-          open={open}
-          onOpenChange={(next) => {
-            setOpen(next);
-            onDetailOpenChange?.(next);
-          }}
+    <div className="relative min-w-0 w-full">
+      <Popover
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          onDetailOpenChange?.(next);
+        }}
+      >
+        <PopoverTrigger asChild>{rowButton(open)}</PopoverTrigger>
+        <PopoverContent
+          align="start"
+          side="right"
+          sideOffset={8}
+          collisionPadding={12}
+          data-header-setup-nested=""
+          className="w-auto max-w-[calc(100vw-24px)] overflow-x-hidden border border-border/70 bg-popover/96 p-0 data-[state=closed]:hidden"
         >
-          <PopoverTrigger asChild>{rowButton(open)}</PopoverTrigger>
-          <PopoverContent
-            align="start"
-            side="right"
-            sideOffset={8}
-            collisionPadding={12}
-            data-header-setup-nested=""
-            className="w-auto max-w-[calc(100vw-24px)] overflow-x-hidden border border-border/70 bg-popover/96 p-0 data-[state=closed]:hidden"
-          >
-            <SetupDetailPanel
-              item={item}
-              title={title}
-              isCurrent={isCurrent}
-              nestedOpen={open}
-              viewportWidth={viewportWidth}
-              onOpenWorkspace={onOpenWorkspace}
-              onFinish={onFinish}
-              showHeader
-              autoEnterWorkspaceId={autoEnterWorkspaceId}
-              remainingSeconds={remainingSeconds}
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
+          <SetupDetailPanel
+            item={item}
+            title={title}
+            isCurrent={isCurrent}
+            nestedOpen={open}
+            viewportWidth={viewportWidth}
+            onOpenWorkspace={onOpenWorkspace}
+            onFinish={onFinish}
+            showHeader
+            autoEnterWorkspaceId={autoEnterWorkspaceId}
+            remainingSeconds={remainingSeconds}
+          />
+        </PopoverContent>
+      </Popover>
       {enterNowButton}
     </div>
   );
@@ -339,7 +349,7 @@ function CreatingJobPopover({
           sideOffset={8}
           className="w-auto max-w-[calc(100vw-24px)] overflow-visible border-0 bg-transparent p-0 shadow-none"
         >
-          <div className="min-w-0 overflow-hidden rounded-md border border-border/70 bg-popover/96 shadow-md">
+          <div className="min-w-0 overflow-hidden rounded-xl border border-border/70 bg-popover/96 shadow-md">
             <SetupDetailPanel
               item={item}
               title={title}
@@ -364,7 +374,11 @@ export function HeaderWorkspaceJobs() {
   const jobs = useWorkspaceCreationStore((state) => state.jobs);
   const markOpened = useWorkspaceCreationStore((state) => state.markOpened);
   const cancelAutoOpen = useWorkspaceCreationStore((state) => state.cancelAutoOpen);
-  const setupProgress = useProjectStore((state) => state.setupProgress);
+  const setupProgress = useStoreWithEqualityFn(
+    useProjectStore,
+    (state) => state.setupProgress,
+    setupProgressUiEqual,
+  );
   const clearSetupProgress = useProjectStore((state) => state.clearSetupProgress);
   const [open, setOpen] = React.useState(false);
   const [chipHovering, setChipHovering] = React.useState(false);
@@ -397,8 +411,16 @@ export function HeaderWorkspaceJobs() {
       setupProgress,
       currentWorkspaceId,
     });
-    return visibleHeaderWorkspaceSetupItems(collected, currentWorkspaceId);
+    return visibleHeaderWorkspaceSetupItems(collected);
   }, [currentWorkspaceId, jobs, setupProgress]);
+
+  React.useEffect(() => {
+    for (const [workspaceId, progress] of Object.entries(setupProgress)) {
+      if (progress.status === "completed") {
+        clearSetupProgress(workspaceId);
+      }
+    }
+  }, [clearSetupProgress, setupProgress]);
   const chipItem = selectHeaderWorkspaceSetupChipItem(items, currentWorkspaceId);
   const titleForItem = React.useCallback(
     (item: HeaderWorkspaceSetupItem) => itemTitle(item, workspaceNameById, t("creating")),

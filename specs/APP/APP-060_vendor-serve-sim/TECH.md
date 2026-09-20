@@ -203,7 +203,7 @@ Do not edit `apps/desktop` (Tauri).
 
 ### Agent / CLI (M10)
 
-Phase 1: if something already started a helper for this workspace or project, reuse that claim (same pid/url). Other contexts get their own helper and must not steal a claimed UDID. A later spec can teach agents the serve-sim CLI against that URL.
+Phase 1: if something already started a helper for this workspace or project, reuse that claim (same pid/url). Other contexts get their own helper and must not steal a claimed UDID. Agent HID against that claim is [APP-071](../APP-071_device-preview-agent-control/TECH.md) (CLI + skill, not raw serve-sim).
 
 ## Data model
 

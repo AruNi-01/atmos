@@ -1,6 +1,7 @@
 pub mod automation_repo;
 pub mod base;
 pub mod group_repo;
+pub mod host_session_repo;
 pub mod project_repo;
 pub mod queue_event_repo;
 pub mod review_repo;
@@ -11,6 +12,7 @@ pub mod workspace_repo;
 
 pub use automation_repo::*;
 pub use group_repo::*;
+pub use host_session_repo::*;
 pub use project_repo::*;
 pub use queue_event_repo::QueueEventRepo;
 pub use review_repo::ReviewRepo;

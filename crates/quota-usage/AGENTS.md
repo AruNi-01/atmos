@@ -30,6 +30,7 @@ crates/quota-usage/
         ├── codex.rs        # Codex
         ├── gemini.rs       # Google Gemini
         ├── grok.rs         # Grok Build / SuperGrok subscription quota
+        ├── deepseek.rs     # DeepSeek prepaid wallet balance
         ├── kimi.rs         # Moonshot Kimi
         ├── minimax.rs      # MiniMax
         ├── opencode.rs     # OpenCode

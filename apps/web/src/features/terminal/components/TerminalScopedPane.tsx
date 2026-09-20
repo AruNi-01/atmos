@@ -42,6 +42,7 @@ import {
   hasAgentContextDragData,
 } from "@/shared/lib/agent-context-drag";
 import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
+import { addTerminalSelectionAsContext } from "@/features/agent/lib/agent/active-composer";
 import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
 
 type TerminalPaneToolbarActions = {
@@ -89,6 +90,7 @@ type ScopedPaneWindowProps = {
   setPaneAgent: (workspaceId: string, paneId: string, agent: TerminalPaneAgent) => void;
   markPaneAttached: (workspaceId: string, paneId: string) => void;
   surfaceActive?: boolean;
+  connectWhileHidden?: boolean;
 };
 
 export function TerminalScopedPane({
@@ -125,6 +127,7 @@ export function TerminalScopedPane({
   setPaneAgent,
   markPaneAttached,
   surfaceActive = true,
+  connectWhileHidden = false,
 }: ScopedPaneWindowProps) {
   const t = useTranslations("Terminal.chrome");
   const contestedOwners = useContestedCliOwners();
@@ -247,7 +250,7 @@ export function TerminalScopedPane({
               className="terminal-pane-toolbar-left"
               label={t("paneToolbar.dragHandle")}
             >
-              {displayTitle ? (
+              {displayTitle || toolbarAgent ? (
                 <TerminalTitleWithAgent
                   displayTitle={displayTitle}
                   primaryTitle={primaryTitle}
@@ -430,14 +433,14 @@ export function TerminalScopedPane({
           cwd={workspaceInfo?.localPath}
           projectRootPath={activeProject?.mainFilePath}
           surfaceActive={surfaceActive}
-          onAddSelectionAsContext={
-            richInputActive
-              ? (snapshot) => {
-                  setActivePaneId(id);
-                  agentInputOverlayRefsMap.current.get(id)?.addTerminalSelectionContext(snapshot);
-                }
-              : undefined
-          }
+          connectWhileHidden={connectWhileHidden}
+          onAddSelectionAsContext={(snapshot) => {
+            setActivePaneId(id);
+            addTerminalSelectionAsContext(
+              snapshot,
+              richInputActive ? agentInputOverlayRefsMap.current.get(id) : null,
+            );
+          }}
           onStartSideChatForSelection={
             richInputActive
               ? (snapshot) => {

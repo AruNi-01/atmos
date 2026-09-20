@@ -60,8 +60,9 @@ Release notes: `releasenotes/Atmos Desktop <version>.md`.
 - Browser (APP-053): in-DOM `<webview>` + `persist:atmos-browser` (default-deny `will-attach-webview`); `apps/desktop-electron/src/browser`
 - Browser guest inject: `packages/shared/browser/browser-runtime.js` is **copied into `dist/browser-runtime.js` at build** (packaged apps must not rely on monorepo paths)
 - Commands: `get_api_config`, `browser_bridge_*`, `appshot_*`, `tunnel_connector_*`, …
-- AppShot: dual-shift, live TCC, frontmost capture, target-window border/flash overlay, pending auto-accept + fly-in preview (`source_bounds`), shared `appshots` layout
+- AppShot: dual-shift under **Atmos Desktop Use** identity. The inject dylib freezes the frontmost window and captures in-process (ScreenCaptureKit, then CG). Electron only stages the preview — it must not recapture on the hot path. Permission grants always use the drag-to-list overlay (`showAccessibilityGrantOverlay`); after a grant rising edge, restart Desktop Use only (never the main Atmos app). Do not call system TCC prompt APIs.
 - Host shortcuts: while Atmos is frontmost, swallow macOS screenshot chords (⌘⇧3–6) for that key event via a consuming CGEventTap. Desktop Use is not required — Electron Accessibility is enough; Desktop Use inject is optional when already installed. Do not globally disable system screenshot hotkeys. Notify the renderer over `host-shortcut` IPC (do not `sendInputEvent` replay).
+- **macOS TCC (Accessibility / Screen Recording):** never prompt at app launch (`isTrustedAccessibilityClient(true)` / `AXIsProcessTrustedWithOptions` prompt). Ask only when a feature needs the grant (first ⌘⇧3–6 screenshot steal, Settings → Privacy Grant, AppShot fallback). Always use the drag-to-list overlay (`showAccessibilityGrantOverlay`) that opens System Settings and flies a card so the user can drop **Atmos.app** (or **Atmos Desktop Use.app**) into the list. Settings → Privacy must list every OS permission Atmos uses (Atmos.app and Desktop Use as separate identities).
 - Cookies: `atmos-browser-cookies` under `resources/bin`
 - Tunnel: shared local gateway + share URL
 - Quit: stop Server when this process started it
@@ -77,3 +78,4 @@ Release notes: `releasenotes/Atmos Desktop <version>.md`.
 - Enable `nodeIntegration` for product UI or browser guests
 - Fork AppShot/Server on-disk contracts
 - Bundle the Atmos CLI binary into the app; or use R2/GitHub “latest CLI” as a feature readiness gate (use package `min_cli_version` instead)
+- Prompt macOS Accessibility at boot, or use `isTrustedAccessibilityClient(true)` for Atmos.app grants (use the drag-to-list overlay instead)

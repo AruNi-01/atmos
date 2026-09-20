@@ -8,9 +8,11 @@ const DESKTOP_WINDOW_DRAG_INTERACTIVE_SELECTOR =
   '.desktop-no-drag, button, a, input, textarea, select, summary, [role="button"], [contenteditable], [contenteditable="true"]';
 
 /**
- * Enables header drag + traffic-light left inset on any desktop shell.
+ * Enables header drag on any desktop shell.
  * Tauri: CSS drag-region + startDragging fallback.
- * Electron: CSS `-webkit-app-region: drag` is sufficient.
+ * Electron: CSS `-webkit-app-region: drag` on a hittable box (not
+ * `pointer-events: none`). Interactive chrome must be a descendant
+ * with `.desktop-no-drag`.
  */
 export function useDesktopWindowDrag() {
   const [isDesktopDragEnabled, setIsDesktopDragEnabled] = useState(false);

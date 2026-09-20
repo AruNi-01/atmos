@@ -150,6 +150,7 @@ import {
   CanvasToolbarCollapseIcon,
   NullStylePanelSlot,
 } from "./CanvasToolbarChrome";
+import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
 
 const SESSION_SAVE_DEBOUNCE_MS = 400;
 const CANVAS_READY_MIN_LOADING_MS = 180;
@@ -1329,9 +1330,9 @@ export const CanvasView: React.FC = () => {
           aria-pressed={isToolbarCollapsed}
           aria-label={isToolbarCollapsed ? t("toolbar.expandAria") : t("toolbar.collapseAria")}
           title={isToolbarCollapsed ? t("toolbar.expandTitle") : t("toolbar.collapseTitle")}
-          className={sharePanelIconButtonClass}
+          className={cn(sharePanelIconButtonClass, panelFoldCursorClass("right", isToolbarCollapsed))}
         >
-          <CanvasToolbarCollapseIcon isCollapsed={isToolbarCollapsed} side="right" />
+          <CanvasToolbarCollapseIcon side="right" />
         </Button>
         <CanvasAnimatedToolbarGroup isCollapsed={isToolbarCollapsed}>
           <div className="ml-0.5 flex items-center gap-0.5">

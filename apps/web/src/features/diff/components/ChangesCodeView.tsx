@@ -34,6 +34,7 @@ import {
 import { useDiffWorkerPoolReady } from '@/features/diff/components/DiffWorkerPoolProvider';
 import { DiffCodeViewSettingsMenu } from '@/features/diff/components/DiffCodeViewSettingsMenu';
 import { DiffCodeViewScaffold } from '@/features/diff/components/DiffCodeViewScaffold';
+import { CenterExplorerToggle } from '@/app-shell/CenterExplorerToggle';
 import {
   useDiffPromptStash,
   type LoadedDiffContents,
@@ -60,6 +61,7 @@ import {
   CODE_VIEW_HOST_CLASS,
   getAtmosDiffThemeType,
 } from '@/features/diff/lib/diff-view-constants';
+import { useScrollFadeRef } from '@/features/diff/lib/use-scroll-fade-element';
 import {
   findDiffItemIdForViewport,
   renderDiffHeaderPrefix,
@@ -83,6 +85,8 @@ interface ChangesCodeViewProps {
   agentFixContext?: AgentFixContextRef | null;
   contextId?: string | null;
   navigationTarget?: FileNavigationTarget | null;
+  /** Center-stage diff tabs share a changes list sidecar. */
+  showChangesExplorerToggle?: boolean;
 }
 
 export function ChangesCodeView({
@@ -91,6 +95,7 @@ export function ChangesCodeView({
   groupPath,
   contextId,
   navigationTarget: navigationTargetProp,
+  showChangesExplorerToggle = false,
 }: ChangesCodeViewProps) {
   const t = useTranslations('diff.codeView');
   const loadChangesFallbackRef = useRef(t('errors.loadChangesFallback'));
@@ -168,6 +173,7 @@ export function ChangesCodeView({
     'expanded',
   );
   const codeViewRef = useRef<CodeViewHandle<DiffListAnnotationMeta>>(null);
+  const setCodeViewHost = useScrollFadeRef<HTMLDivElement>();
   const lastHandledNavRef = useRef<string | null>(null);
   const itemIdsRef = useRef<string[]>([]);
   const pendingAppendRef = useRef<CodeViewItem<DiffListAnnotationMeta>[]>([]);
@@ -699,12 +705,21 @@ export function ChangesCodeView({
           loading
           loadingTreeLabel={groupLabel}
           defaultTreeVisible={false}
+          showFileTree={!showChangesExplorerToggle}
+          compactToolbar={showChangesExplorerToggle}
           toolbar={
             <div className="flex items-center gap-2">
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 <span className="truncate text-sm font-medium text-foreground">{groupLabel}</span>
               </div>
               <Loader2 className="size-4 animate-spin text-muted-foreground" />
+              {showChangesExplorerToggle ? (
+                <CenterExplorerToggle
+                  kind="changes"
+                  foldScopeId={groupPath}
+                  className="flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                />
+              ) : null}
             </div>
           }
           onSelectFile={() => {}}
@@ -792,6 +807,13 @@ export function ChangesCodeView({
         collapseMode={collapseMode}
         onToggleCollapseMode={handleToggleCollapseMode}
       />
+      {showChangesExplorerToggle ? (
+        <CenterExplorerToggle
+          kind="changes"
+          foldScopeId={groupPath}
+          className="flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+        />
+      ) : null}
     </div>
   );
 
@@ -803,12 +825,15 @@ export function ChangesCodeView({
         ariaLabel={t('fileTreeAria', { label: groupLabel })}
         toolbar={toolbar}
         defaultTreeVisible={false}
+        showFileTree={!showChangesExplorerToggle}
+        compactToolbar={showChangesExplorerToggle}
         onSelectFile={handleSelectFile}
       >
         <EditProvider createEditor={createDiffEditor}>
           <CodeView
             key={`${groupPath}:${viewerKey}`}
             ref={handleViewerRef}
+            containerRef={setCodeViewHost}
             initialItems={initialItems}
             options={codeViewOptions}
             onItemEditChange={canEditWorktree ? handleItemEditChange : undefined}

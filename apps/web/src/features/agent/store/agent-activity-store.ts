@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import type { AgentActivity } from "@atmos/api-types/ws/dto/events";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
-import { agentHooksApi } from "@/api/rest-api";
+import { agentStatusApi } from "@/api/rest-api";
 
 interface AgentActivityStore {
   records: Map<string, AgentActivity>;
@@ -19,7 +19,7 @@ let hydrateGeneration = 0;
 async function hydrateActivity(apply: (records: Map<string, AgentActivity>) => void) {
   const generation = ++hydrateGeneration;
   try {
-    const { sessions } = await agentHooksApi.listActivity();
+    const { sessions } = await agentStatusApi.listActivity();
     if (generation !== hydrateGeneration) return;
     const records = new Map<string, AgentActivity>();
     for (const record of sessions ?? []) {

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import {
+  applyLaunchpadHide,
   applyLaunchpadReorder,
   createDefaultLaunchpadItems,
+  isLaunchpadHideTarget,
+  LAUNCHPAD_DROP_HIDE,
   LAUNCHPAD_DROP_INSIDE,
   LAUNCHPAD_DROP_OUTSIDE,
   launchpadPreviewPlacement,
@@ -11,20 +14,21 @@ import {
 } from "./launchpad-items";
 
 describe("launchpad item placement helpers", () => {
-  it("defaults always-on items enabled; skills/automations/token-usage/canvas/tasks/new-workspace outside, rest inside; terminals/agents off", () => {
+  it("defaults always-on items enabled; skills/automations/new-workspace outside, rest inside including terminals and agents", () => {
     const items = createDefaultLaunchpadItems();
     expect(items.workspaces).toEqual({ enabled: true, placement: "inside", order: 0 });
     expect(items.skills).toEqual({ enabled: true, placement: "outside", order: 1 });
-    expect(items["disk-analyzer"]).toEqual({ enabled: true, placement: "inside", order: 5 });
-    expect(items["token-usage"]).toEqual({ enabled: true, placement: "outside", order: 6 });
-    expect(items["agent-observer"]).toEqual({ enabled: true, placement: "outside", order: 7 });
-    expect(items.canvas).toEqual({ enabled: true, placement: "outside", order: 8 });
-    expect(items["pt-design"]).toEqual({ enabled: true, placement: "outside", order: 9 });
-    expect(items.tasks).toEqual({ enabled: true, placement: "outside", order: 10 });
-    expect(items["new-workspace"]).toEqual({ enabled: true, placement: "outside", order: 11 });
-    expect(items.terminals).toEqual({ enabled: false, placement: "inside", order: 2 });
-    expect(items.agents).toEqual({ enabled: false, placement: "inside", order: 3 });
+    expect(items.terminals).toEqual({ enabled: true, placement: "inside", order: 2 });
+    expect(items.agents).toEqual({ enabled: true, placement: "inside", order: 3 });
     expect(items.automations).toEqual({ enabled: true, placement: "outside", order: 4 });
+    expect(items["disk-analyzer"]).toEqual({ enabled: true, placement: "inside", order: 5 });
+    expect(items["token-usage"]).toEqual({ enabled: true, placement: "inside", order: 6 });
+    expect(items["agent-observer"]).toEqual({ enabled: true, placement: "inside", order: 7 });
+    expect(items.canvas).toEqual({ enabled: true, placement: "inside", order: 8 });
+    expect(items["pt-design"]).toEqual({ enabled: true, placement: "inside", order: 9 });
+    expect(items.tasks).toEqual({ enabled: true, placement: "inside", order: 10 });
+    expect(items["new-workspace"]).toEqual({ enabled: true, placement: "outside", order: 11 });
+    expect(items["agent-sessions"]).toEqual({ enabled: true, placement: "inside", order: 12 });
   });
 
   it("selects only enabled items for a placement", () => {
@@ -40,24 +44,32 @@ describe("launchpad item placement helpers", () => {
     expect(selectLaunchpadItemsByPlacement(items, "outside")).toEqual([
       "workspaces",
       "automations",
-      "agent-observer",
       "canvas",
-      "pt-design",
-      "tasks",
       "new-workspace",
     ]);
     expect(selectLaunchpadItemsByPlacement(items, "inside")).toEqual([
       "terminals",
+      "agents",
       "disk-analyzer",
+      "agent-observer",
+      "pt-design",
+      "tasks",
+      "agent-sessions",
     ]);
   });
 
   it("uses defaults when launchpad_items is absent", () => {
     const items = readLaunchpadItems({});
-    expect(items.terminals).toEqual({ enabled: false, placement: "inside", order: 2 });
-    expect(items.agents).toEqual({ enabled: false, placement: "inside", order: 3 });
+    expect(items.terminals).toEqual({ enabled: true, placement: "inside", order: 2 });
+    expect(items.agents).toEqual({ enabled: true, placement: "inside", order: 3 });
     expect(items.automations).toEqual({ enabled: true, placement: "outside", order: 4 });
     expect(items.workspaces).toEqual({ enabled: true, placement: "inside", order: 0 });
+    expect(items["agent-sessions"]).toEqual({ enabled: true, placement: "inside", order: 12 });
+    expect(items.canvas).toEqual({ enabled: true, placement: "inside", order: 8 });
+    expect(items.tasks).toEqual({ enabled: true, placement: "inside", order: 10 });
+    expect(items["token-usage"]).toEqual({ enabled: true, placement: "inside", order: 6 });
+    expect(items["pt-design"]).toEqual({ enabled: true, placement: "inside", order: 9 });
+    expect(items["agent-observer"]).toEqual({ enabled: true, placement: "inside", order: 7 });
   });
 
   it("merges persisted launchpad_items over defaults", () => {
@@ -72,6 +84,7 @@ describe("launchpad item placement helpers", () => {
     expect(items.agents).toEqual({ enabled: true, placement: "outside", order: 3 });
     expect(items.automations).toEqual({ enabled: true, placement: "outside", order: 4 });
     expect(items.workspaces).toEqual({ enabled: false, placement: "inside", order: 0 });
+    expect(items["agent-sessions"]).toEqual({ enabled: true, placement: "inside", order: 12 });
   });
 
   it("sorts enabled items by persisted order", () => {
@@ -101,10 +114,10 @@ describe("launchpad item placement helpers", () => {
 
     expect(applyLaunchpadReorder(items, "skills", LAUNCHPAD_DROP_OUTSIDE)).toBeNull();
 
-    const movedOntoLater = applyLaunchpadReorder(items, "skills", "token-usage");
-    expect(selectLaunchpadItemsByPlacement(movedOntoLater!, "outside").slice(0, 3)).toEqual([
+    const movedOntoLater = applyLaunchpadReorder(items, "skills", "new-workspace");
+    expect(selectLaunchpadItemsByPlacement(movedOntoLater!, "outside")).toEqual([
       "automations",
-      "token-usage",
+      "new-workspace",
       "skills",
     ]);
   });
@@ -117,5 +130,26 @@ describe("launchpad item placement helpers", () => {
     expect(launchpadPreviewPlacement("workspaces", items, "outside")).toBe("inside");
     expect(launchpadPreviewPlacement("skills", items, "inside")).toBe("outside");
     expect(launchpadPreviewPlacement("not-an-item", items, "inside")).toBe("inside");
+    expect(launchpadPreviewPlacement(LAUNCHPAD_DROP_HIDE, items, "outside")).toBe("outside");
+  });
+
+  it("hides an enabled item and leaves reorder-on-hide as a no-op", () => {
+    const items = createDefaultLaunchpadItems();
+    const hidden = applyLaunchpadHide(items, "skills");
+    expect(hidden).not.toBeNull();
+    expect(hidden!.skills).toEqual({
+      enabled: false,
+      placement: "outside",
+      order: 1,
+    });
+    expect(selectLaunchpadItemsByPlacement(hidden!, "outside")).not.toContain("skills");
+    expect(selectLaunchpadItemsByPlacement(hidden!, "outside")[0]).toBe("automations");
+    expect(hidden!.automations.order).toBe(0);
+
+    expect(applyLaunchpadHide(hidden!, "skills")).toBeNull();
+    expect(applyLaunchpadHide(items, "not-an-item")).toBeNull();
+    expect(applyLaunchpadReorder(items, "skills", LAUNCHPAD_DROP_HIDE)).toBeNull();
+    expect(isLaunchpadHideTarget(LAUNCHPAD_DROP_HIDE)).toBe(true);
+    expect(isLaunchpadHideTarget(LAUNCHPAD_DROP_OUTSIDE)).toBe(false);
   });
 });

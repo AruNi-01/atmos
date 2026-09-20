@@ -3,6 +3,7 @@ import type { OpenFile } from "@/features/editor/store/use-editor-store";
 
 /** Closable center-stage tab kinds that appear in the tab strip. */
 export type CenterTabKind =
+  | "overview"
   | "terminal"
   | "project-wiki"
   | "code-review"
@@ -14,7 +15,7 @@ export type CenterTabKind =
   | "github-pr"
   | "github-issue"
   | "github-action"
-  | "github-commit"
+  | "git-commit"
   | "github"
   | "browser"
   | "simulator"
@@ -23,7 +24,8 @@ export type CenterTabKind =
   | "review"
   | "run"
   | "files"
-  | "pt-design";
+  | "pt-design"
+  | "agent-chat";
 
 /**
  * Visual-order descriptor for a closable center tab.
@@ -64,8 +66,7 @@ export function isGithubCenterTabKind(kind: CenterTabKind): boolean {
   return (
     kind === "github-pr" ||
     kind === "github-issue" ||
-    kind === "github-action" ||
-    kind === "github-commit"
+    kind === "github-action"
   );
 }
 
@@ -187,9 +188,10 @@ export function centerStripShortcutDigitFromEvent(event: {
 }
 
 /**
- * Visual strip ids used by Cmd+1–9. Overview / wiki stay pinned outside this
- * list (Overview is Cmd+0). Multi-pane layouts pass `constrainToPane` so only
- * the focused pane's strip is numbered; empty panes have no shortcut targets.
+ * Visual strip ids used by Cmd+1–9. Overview stays leftmost in the strip but
+ * is numbered separately (Cmd+0). Wiki stays pinned outside this list.
+ * Multi-pane layouts pass `constrainToPane` so only the focused pane's strip
+ * is numbered; empty panes have no shortcut targets.
  */
 export function resolveCenterStripShortcutTabIds(input: {
   membershipIds: readonly string[];

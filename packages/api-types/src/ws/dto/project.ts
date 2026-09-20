@@ -15,6 +15,8 @@ export type ProjectModel = {
   created_at: string;
   updated_at: string;
   is_deleted: boolean;
+  /** Present on server wire; null until the project is opened. Optional for partial client fixtures. */
+  last_visited_at?: string | null;
 };
 
 /**

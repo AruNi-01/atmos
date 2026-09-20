@@ -39,13 +39,14 @@ export function buildLocalAgentPrompt(clientId: string, apiBase?: string | null)
     `atmos://context/${PT_DESIGN_AGENT_CONTEXT_KIND}`,
     "The live Prototype Design board is already open on this computer.",
     `Read ${PT_DESIGN_AGENT_SKILL_PATH} and follow it.`,
+    "Read document.ptx (or pt_ptx_get), edit the XML, write it back (pt_ptx_apply or save the file). Do not invent Excalidraw JSON.",
     "Do not start MCP. Do not install a CLI. Do not edit a separate .ptdesign.json. Do not join a collaboration room.",
     `POST ${invoke}`,
     "Content-Type: application/json",
     JSON.stringify(
       {
         request_id: "<new-uuid>",
-        tool: "pt_ir_get",
+        tool: "pt_ptx_get",
         args: {},
         client_id: clientId,
       },

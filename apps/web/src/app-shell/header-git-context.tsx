@@ -11,8 +11,6 @@ import {
   DropdownMenuTrigger,
   Edit2,
   GitBranch,
-  GitPullRequestClosedIcon,
-  GitPullRequestCreateIcon,
   Input,
   ScrollArea,
   Tooltip,
@@ -24,6 +22,9 @@ import {
 } from "@workspace/ui";
 
 import type { Project, Workspace } from "@/shared/types/domain";
+import { WorkspacePrLifecycleIcon } from "@/features/github/components/WorkspacePrStatusIcon";
+import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
+import { useWorkspacePrStatus } from "@/features/github/hooks/use-workspace-pr-status";
 import {
   BranchSyncIndicator,
   HEADER_CHIP_HOVER_CLASS,
@@ -33,15 +34,9 @@ import {
 
 type BranchSyncState = ReturnType<typeof getBranchSyncIndicatorState>;
 
-type CurrentBranchPullRequest = {
-  number: number;
-  state: string;
-  title?: string | null;
-};
-
 type HeaderGitContextProps = {
   branchSyncState: BranchSyncState;
-  currentBranchPR: CurrentBranchPullRequest | null;
+  currentBranch: string | null;
   currentProject: Project | undefined;
   currentWorkspace: Workspace | undefined;
   displayCurrentBranch: string;
@@ -54,14 +49,10 @@ type HeaderGitContextProps = {
   isLoadingBranches: boolean;
   isTargetBranchOpen: boolean;
   onCancelEditCurrentBranch: () => void;
-  onOpenPr: (prNumber: number, prTitle?: string | null) => void;
   onRefreshChangedFiles: () => Promise<void> | void;
   onSaveCurrentBranch: () => Promise<void> | void;
   onSetTargetBranch: (projectId: string, branch: string) => Promise<void> | void;
-  prIconRef: React.MutableRefObject<{
-    startAnimation: () => void;
-    stopAnimation: () => void;
-  } | null>;
+  repoPath: string | null;
   setEditedCurrentBranch: React.Dispatch<React.SetStateAction<string>>;
   setIsEditingCurrentBranch: React.Dispatch<React.SetStateAction<boolean>>;
   setIsTargetBranchOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -73,7 +64,7 @@ type HeaderGitContextProps = {
 
 export function HeaderGitContext({
   branchSyncState,
-  currentBranchPR,
+  currentBranch,
   currentProject,
   currentWorkspace,
   displayCurrentBranch,
@@ -86,11 +77,10 @@ export function HeaderGitContext({
   isLoadingBranches,
   isTargetBranchOpen,
   onCancelEditCurrentBranch,
-  onOpenPr,
   onRefreshChangedFiles,
   onSaveCurrentBranch,
   onSetTargetBranch,
-  prIconRef,
+  repoPath,
   setEditedCurrentBranch,
   setIsEditingCurrentBranch,
   setIsTargetBranchOpen,
@@ -100,6 +90,37 @@ export function HeaderGitContext({
   unpushedCount,
 }: HeaderGitContextProps) {
   const t = useTranslations("header");
+  const { openPullRequestTab } = useOpenGithubCenterTab();
+  const prRepoPath =
+    repoPath?.trim() ||
+    currentWorkspace?.localPath?.trim() ||
+    currentProject?.mainFilePath?.trim() ||
+    null;
+  const { presentation: managedPr } = useWorkspacePrStatus({
+    githubPr: currentWorkspace?.githubPr,
+    branch: currentWorkspace?.branch || currentBranch,
+    repoPath: prRepoPath,
+  });
+  const openManagedPullRequest = React.useCallback(() => {
+    if (!managedPr) return;
+    openPullRequestTab({
+      owner: managedPr.owner,
+      repo: managedPr.repo,
+      prNumber: managedPr.number,
+      title: managedPr.title,
+      branch: currentWorkspace?.branch || currentBranch || displayCurrentBranch,
+      contextId: currentWorkspace?.id ?? currentProject?.id,
+    });
+  }, [
+    currentBranch,
+    currentProject?.id,
+    currentWorkspace?.branch,
+    currentWorkspace?.id,
+    displayCurrentBranch,
+    managedPr,
+    openPullRequestTab,
+  ]);
+
   if (!currentWorkspace && !currentProject) {
     return null;
   }
@@ -114,42 +135,35 @@ export function HeaderGitContext({
           : cn(HEADER_CHIP_HOVER_CLASS, "w-fit max-w-[500px]"),
       )}
     >
-      {currentBranchPR && (
+      {managedPr ? (
         <>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  onClick={() => onOpenPr(currentBranchPR.number, currentBranchPR.title)}
-                  onMouseEnter={() => prIconRef.current?.startAnimation()}
-                  onMouseLeave={() => prIconRef.current?.stopAnimation()}
-                  className="flex items-center space-x-1 py-0.5 px-1.5 rounded text-[12px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground shrink-0"
-                  aria-label={t("gitContext.openPr", { number: currentBranchPR.number })}
+                  type="button"
+                  onClick={openManagedPullRequest}
+                  className="group/pr flex items-center space-x-1 py-0.5 px-1.5 rounded text-[12px] font-medium hover:bg-accent shrink-0"
+                  aria-label={t("gitContext.openPr", { number: managedPr.number })}
                 >
-                  {currentBranchPR.state === "CLOSED" || currentBranchPR.state === "MERGED" ? (
-                    <GitPullRequestClosedIcon
-                      ref={prIconRef}
-                      size={14}
-                      className="shrink-0 pointer-events-none"
-                    />
-                  ) : (
-                    <GitPullRequestCreateIcon
-                      ref={prIconRef}
-                      size={14}
-                      className="shrink-0 pointer-events-none"
-                    />
-                  )}
-                  <span>#{currentBranchPR.number}</span>
+                  <WorkspacePrLifecycleIcon
+                    state={managedPr.state}
+                    checksTone={managedPr.checksTone}
+                    className="pointer-events-none"
+                  />
+                  <span className="text-muted-foreground group-hover/pr:text-foreground">
+                    #{managedPr.number}
+                  </span>
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">
-                {currentBranchPR.title}
+                {managedPr.title}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
           <div className="h-4 w-px bg-border/60 shrink-0 mx-1.5" />
         </>
-      )}
+      ) : null}
 
       <div className="flex items-center space-x-1 shrink-0">
         <BranchSyncIndicator state={branchSyncState} />

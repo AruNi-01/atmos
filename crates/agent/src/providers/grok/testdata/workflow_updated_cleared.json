@@ -1,0 +1,13 @@
+{
+  "sessionId": "sess_parent",
+  "update": {
+    "sessionUpdate": "workflow_updated",
+    "run_id": "wf-1",
+    "revision": 0,
+    "name": "deep-research",
+    "objective": "obj",
+    "status": "cleared",
+    "foreground": false,
+    "elapsed_ms": 1000
+  }
+}

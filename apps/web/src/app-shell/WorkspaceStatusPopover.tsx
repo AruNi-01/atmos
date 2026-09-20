@@ -12,7 +12,7 @@ import {
   cn,
 } from "@workspace/ui";
 import { WorkspaceSetupProgressView } from "@/features/workspace/components/WorkspaceSetupProgress";
-import type { WorkspaceSetupProgress } from "@/features/project/store/use-project-store";
+import { useProjectStore, type WorkspaceSetupProgress } from "@/features/project/store/use-project-store";
 import {
   getWorkspaceSetupPopoverWidth,
   getWorkspaceSetupProgressValue,
@@ -128,7 +128,7 @@ function ProgressRing({
 }
 
 export function WorkspaceStatusPopover({
-  progress,
+  progress: progressProp,
   onFinish,
   autoEnter,
   onChipHoverChange,
@@ -137,6 +137,9 @@ export function WorkspaceStatusPopover({
   const [open, setOpen] = React.useState(false);
   const [chipHovering, setChipHovering] = React.useState(false);
   const [actionHovering, setActionHovering] = React.useState(false);
+  const progress = useProjectStore(
+    (state) => state.setupProgress[progressProp.workspaceId] ?? progressProp,
+  );
   const autoFinish = usePausedDeadlineCountdown({
     sessionKey: progress.status === "completed" ? `${progress.workspaceId}:setup-auto-finish` : null,
     durationMs: WORKSPACE_SETUP_AUTO_FINISH_DELAY_MS,

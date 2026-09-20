@@ -1,0 +1,387 @@
+import type { AgentOptionsSnapshot } from "@/api/ws/agent-chat-api";
+import { queryKeys } from "@/api/query/query-keys";
+import { getComputerQueryScope } from "@/api/query/query-scope";
+import { getAtmosWebQueryClient } from "@/providers/app/query-client";
+import type {
+  AgentRegistryListResponse,
+  CustomAgentListResponse,
+  NativeChatAgentListResponse,
+} from "@/features/agent/lib/agent-registry-query-options";
+import { mergeInstalledAgents } from "@/features/agent/lib/custom-agent-registry";
+import type { RegistryAgent } from "@/api/ws/agent-api";
+import {
+  lastNewChatConfigForAgent,
+  pickInstalledRegistryId,
+  preferredConfigFromDefault,
+  type PreferredNewChatConfig,
+} from "@/features/agent/lib/agent-chat-prefs";
+import {
+  readAgentChatLastSessions,
+  resolveRestoredAgentChat,
+} from "@/features/agent/lib/agent-chat-last-session";
+import { readDefaultAgentRegistryId } from "@/features/agent/lib/chat-helpers";
+import {
+  favoriteModelsEqual,
+  parseFavoriteModels,
+  type AgentFavoriteModel,
+} from "@/features/agent/lib/agent-chat-favorites";
+
+export const COMPOSER_LOCAL_CACHE_KEY = "atmos-agent-composer-cache";
+
+export type ComposerChromeDraft = {
+  providerId: string;
+  model: string;
+  thinking: string;
+  mode: string;
+  permissionMode: string;
+  fast: string;
+  context: string;
+};
+
+export type ComposerLocalCache = {
+  lastRegistryId: string;
+  lastNewChatConfigs: Record<string, Record<string, string>>;
+  optionsByAgent: Record<string, AgentOptionsSnapshot>;
+  chromeByInstance: Record<string, ComposerChromeDraft>;
+  favoriteModels: AgentFavoriteModel[];
+};
+
+export type ComposerChromeSeed = {
+  providerId: string;
+  preferred: PreferredNewChatConfig;
+  catalog: AgentOptionsSnapshot | null;
+  installedAgents: RegistryAgent[];
+  lastNewChatConfigs: Record<string, Record<string, string>>;
+  lastRegistryId: string;
+  hydrated: boolean;
+};
+
+const EMPTY_CACHE: ComposerLocalCache = {
+  lastRegistryId: "",
+  lastNewChatConfigs: {},
+  optionsByAgent: {},
+  chromeByInstance: {},
+  favoriteModels: [],
+};
+
+const EMPTY_FAVORITE_MODELS: AgentFavoriteModel[] = [];
+const favoriteModelListeners = new Set<() => void>();
+
+function notifyFavoriteModels() {
+  for (const listener of favoriteModelListeners) listener();
+}
+
+let memory: ComposerLocalCache | null = null;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function parseStringMap(value: unknown): Record<string, string> {
+  if (!isRecord(value)) return {};
+  const next: Record<string, string> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === "string" && entry.trim()) next[key] = entry;
+  }
+  return next;
+}
+
+function parseConfigs(value: unknown): Record<string, Record<string, string>> {
+  if (!isRecord(value)) return {};
+  const next: Record<string, Record<string, string>> = {};
+  for (const [agentId, config] of Object.entries(value)) {
+    const parsed = parseStringMap(config);
+    if (Object.keys(parsed).length > 0) next[agentId] = parsed;
+  }
+  return next;
+}
+
+export function composerOptionsAreUsable(
+  snapshot: AgentOptionsSnapshot | null | undefined,
+): snapshot is AgentOptionsSnapshot {
+  if (!snapshot?.agent_id.trim()) return false;
+  if (snapshot.status === "probing" && snapshot.models.length === 0 && snapshot.modes.length === 0) {
+    return false;
+  }
+  return snapshot.models.length > 0 || snapshot.modes.length > 0;
+}
+
+/** Keep last-good pickers when a live probe fails or comes back thinner. */
+export function shouldRetainExistingOptions(
+  incoming: AgentOptionsSnapshot,
+  existing: AgentOptionsSnapshot | null | undefined,
+): boolean {
+  if (!composerOptionsAreUsable(existing)) return false;
+  if (incoming.status === "auth_required") return true;
+  if (incoming.status !== "ok") return true;
+  if (!composerOptionsAreUsable(incoming)) return true;
+  return (
+    (existing.models.length > 0 && incoming.models.length === 0)
+    || (existing.modes.length > 0 && incoming.modes.length === 0)
+    || ((existing.permission_modes?.length ?? 0) > 0
+      && (incoming.permission_modes?.length ?? 0) === 0)
+    || ((existing.commands?.length ?? 0) > 0 && (incoming.commands?.length ?? 0) === 0)
+  );
+}
+
+function parseOptionsByAgent(value: unknown): Record<string, AgentOptionsSnapshot> {
+  if (!isRecord(value)) return {};
+  const next: Record<string, AgentOptionsSnapshot> = {};
+  for (const [agentId, snapshot] of Object.entries(value)) {
+    if (!isRecord(snapshot)) continue;
+    const raw = snapshot as unknown as AgentOptionsSnapshot;
+    const parsed: AgentOptionsSnapshot = {
+      ...raw,
+      agent_id: raw.agent_id?.trim() || agentId,
+    };
+    if (!composerOptionsAreUsable(parsed)) continue;
+    if (parsed.agent_id !== agentId) continue;
+    next[agentId] = parsed;
+  }
+  return next;
+}
+
+function parseChromeDraft(value: unknown): ComposerChromeDraft | null {
+  if (!isRecord(value)) return null;
+  const providerId = typeof value.providerId === "string" ? value.providerId.trim() : "";
+  if (!providerId) return null;
+  return {
+    providerId,
+    model: typeof value.model === "string" ? value.model : "",
+    thinking: typeof value.thinking === "string" ? value.thinking : "",
+    mode: typeof value.mode === "string" ? value.mode : "",
+    permissionMode: typeof value.permissionMode === "string" ? value.permissionMode : "",
+    fast: typeof value.fast === "string" ? value.fast : "",
+    context: typeof value.context === "string" ? value.context : "",
+  };
+}
+
+function parseChromeByInstance(value: unknown): Record<string, ComposerChromeDraft> {
+  if (!isRecord(value)) return {};
+  const next: Record<string, ComposerChromeDraft> = {};
+  for (const [instanceKey, draft] of Object.entries(value)) {
+    const parsed = parseChromeDraft(draft);
+    if (parsed) next[instanceKey] = parsed;
+  }
+  return next;
+}
+
+function parseCache(value: unknown): ComposerLocalCache {
+  if (!isRecord(value)) return { ...EMPTY_CACHE };
+  return {
+    lastRegistryId:
+      typeof value.lastRegistryId === "string" ? value.lastRegistryId.trim() : "",
+    lastNewChatConfigs: parseConfigs(value.lastNewChatConfigs),
+    optionsByAgent: parseOptionsByAgent(value.optionsByAgent),
+    chromeByInstance: parseChromeByInstance(value.chromeByInstance),
+    favoriteModels: parseFavoriteModels(value.favoriteModels),
+  };
+}
+
+function persistMemory() {
+  if (typeof window === "undefined" || !memory) return;
+  try {
+    window.localStorage.setItem(COMPOSER_LOCAL_CACHE_KEY, JSON.stringify(memory));
+  } catch {
+    // Quota / private mode — keep the in-memory copy for this session.
+  }
+}
+
+export function readComposerLocalCache(): ComposerLocalCache {
+  if (memory) return memory;
+  if (typeof window === "undefined") {
+    memory = { ...EMPTY_CACHE };
+    return memory;
+  }
+  try {
+    const raw = window.localStorage.getItem(COMPOSER_LOCAL_CACHE_KEY);
+    memory = raw ? parseCache(JSON.parse(raw) as unknown) : { ...EMPTY_CACHE };
+  } catch {
+    memory = { ...EMPTY_CACHE };
+  }
+  return memory;
+}
+
+function mutateCache(patch: Partial<ComposerLocalCache>) {
+  const current = readComposerLocalCache();
+  memory = {
+    lastRegistryId: patch.lastRegistryId ?? current.lastRegistryId,
+    lastNewChatConfigs: patch.lastNewChatConfigs ?? current.lastNewChatConfigs,
+    optionsByAgent: patch.optionsByAgent ?? current.optionsByAgent,
+    chromeByInstance: patch.chromeByInstance ?? current.chromeByInstance,
+    favoriteModels: patch.favoriteModels ?? current.favoriteModels,
+  };
+  persistMemory();
+}
+
+export function rememberLastRegistryId(registryId: string | null | undefined) {
+  const next = registryId?.trim() ?? "";
+  if (!next) return;
+  mutateCache({ lastRegistryId: next });
+}
+
+export function rememberLastNewChatConfigs(
+  configs: Record<string, Record<string, string>>,
+) {
+  mutateCache({ lastNewChatConfigs: parseConfigs(configs) });
+}
+
+export function rememberFavoriteModels(favorites: readonly AgentFavoriteModel[]) {
+  const next = parseFavoriteModels(favorites);
+  const current = readComposerLocalCache().favoriteModels;
+  if (favoriteModelsEqual(current, next)) return;
+  mutateCache({ favoriteModels: next });
+  notifyFavoriteModels();
+}
+
+export function getFavoriteModelsSnapshot(): AgentFavoriteModel[] {
+  return readComposerLocalCache().favoriteModels;
+}
+
+export function getFavoriteModelsServerSnapshot(): AgentFavoriteModel[] {
+  return EMPTY_FAVORITE_MODELS;
+}
+
+export function subscribeFavoriteModels(onStoreChange: () => void): () => void {
+  favoriteModelListeners.add(onStoreChange);
+  return () => {
+    favoriteModelListeners.delete(onStoreChange);
+  };
+}
+
+export function rememberComposerChromeDraft(
+  instanceKey: string | null | undefined,
+  draft: ComposerChromeDraft,
+) {
+  const key = instanceKey?.trim() ?? "";
+  if (!key || !draft.providerId.trim()) return;
+  const current = readComposerLocalCache();
+  mutateCache({
+    chromeByInstance: {
+      ...current.chromeByInstance,
+      [key]: {
+        providerId: draft.providerId.trim(),
+        model: draft.model,
+        thinking: draft.thinking,
+        mode: draft.mode,
+        permissionMode: draft.permissionMode,
+        fast: draft.fast,
+        context: draft.context,
+      },
+    },
+  });
+}
+
+export function rememberComposerOptions(snapshot: AgentOptionsSnapshot | null | undefined) {
+  if (!composerOptionsAreUsable(snapshot)) return;
+  const current = readComposerLocalCache();
+  mutateCache({
+    optionsByAgent: {
+      ...current.optionsByAgent,
+      [snapshot.agent_id]: snapshot,
+    },
+  });
+}
+
+export function readCachedInstalledAgents(): RegistryAgent[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const client = getAtmosWebQueryClient();
+    const scope = getComputerQueryScope();
+    const registry = client.getQueryData<AgentRegistryListResponse>(
+      queryKeys.computer.agentRegistryList(scope),
+    );
+    const custom = client.getQueryData<CustomAgentListResponse>(
+      queryKeys.computer.customAgentList(scope),
+    );
+    const natives = client.getQueryData<NativeChatAgentListResponse>(
+      queryKeys.computer.nativeChatAgentList(scope),
+    );
+    if (!registry && !custom && !natives) return [];
+    return mergeInstalledAgents(
+      (registry?.agents ?? []).filter((agent) => agent.installed),
+      custom?.agents ?? [],
+      natives?.agents ?? [],
+    );
+  } catch {
+    return [];
+  }
+}
+
+export function seedNewChatComposer(input: {
+  chatId: string;
+  instanceKey?: string | null;
+  isolatedModal: boolean;
+  urlWorkspaceId: string | null;
+  urlProjectId: string | null;
+  chatMode: string;
+  lastSessionPrefKey?: { workspaceId: string | null; projectId: string | null };
+}): ComposerChromeSeed {
+  const cache = readComposerLocalCache();
+  const installedAgents = readCachedInstalledAgents();
+  const installedIds = installedAgents.map((agent) => agent.id);
+  const stored = readAgentChatLastSessions({
+    workspaceId: input.isolatedModal ? null : input.urlWorkspaceId,
+    projectId: input.isolatedModal ? null : input.urlProjectId,
+    mode: input.chatMode,
+    instanceKey: input.instanceKey,
+    prefKey: input.lastSessionPrefKey,
+  });
+  const restored = resolveRestoredAgentChat({
+    chatIdProp: input.chatId,
+    instanceKey: input.instanceKey,
+    instanceLast: stored.instanceLast,
+    filterLast: stored.filterLast,
+    installedAgentIds: installedIds,
+    defaultRegistryId:
+      cache.lastRegistryId ||
+      readDefaultAgentRegistryId() ||
+      installedAgents[0]?.id ||
+      "",
+  });
+  const instanceDraft = input.instanceKey?.trim()
+    ? cache.chromeByInstance[input.instanceKey.trim()]
+    : undefined;
+  const providerId =
+    pickInstalledRegistryId(installedIds, instanceDraft?.providerId) ||
+    pickInstalledRegistryId(installedIds, restored.registryId) ||
+    pickInstalledRegistryId(installedIds, cache.lastRegistryId) ||
+    pickInstalledRegistryId(installedIds, readDefaultAgentRegistryId()) ||
+    installedAgents[0]?.id ||
+    instanceDraft?.providerId ||
+    restored.registryId ||
+    cache.lastRegistryId ||
+    "";
+  const storedPreferred = preferredConfigFromDefault(
+    lastNewChatConfigForAgent(cache.lastNewChatConfigs, providerId)
+      ?? installedAgents.find((agent) => agent.id === providerId)?.default_config,
+  );
+  const preferred: PreferredNewChatConfig = instanceDraft
+    ? {
+        modelId: instanceDraft.model || storedPreferred.modelId,
+        thinkingId: instanceDraft.thinking || storedPreferred.thinkingId,
+        modeId: instanceDraft.mode || storedPreferred.modeId,
+        permissionModeId: instanceDraft.permissionMode || storedPreferred.permissionModeId,
+        fastId: instanceDraft.fast || storedPreferred.fastId,
+        contextId: instanceDraft.context || storedPreferred.contextId,
+      }
+    : storedPreferred;
+  const catalog = providerId
+    ? cache.optionsByAgent[providerId] ?? null
+    : null;
+  return {
+    providerId,
+    preferred,
+    catalog: composerOptionsAreUsable(catalog) ? catalog : null,
+    installedAgents,
+    lastNewChatConfigs: { ...cache.lastNewChatConfigs },
+    lastRegistryId: cache.lastRegistryId || providerId,
+    hydrated: !input.chatId.trim(),
+  };
+}
+
+/** Test-only: drop the in-memory copy so the next read hits storage. */
+/** Test-only: drop the in-memory copy so the next read hits storage. */
+export function __resetComposerLocalCacheForTests() {
+  memory = null;
+}

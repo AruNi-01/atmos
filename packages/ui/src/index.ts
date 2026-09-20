@@ -3,6 +3,7 @@
 // UI Components
 export * from "./components/ui/button";
 export * from "./components/ui/card";
+export * from "./components/ui/minimal-card";
 export * from "./components/ui/checkbox";
 export * from "./components/ui/qr-code";
 export * from "./components/ui/input";
@@ -14,6 +15,8 @@ export * from "./components/ui/dither-gauge";
 export * from "./components/ui/scroll-area";
 export * from "./components/ui/select";
 export * from "./components/ui/toast";
+export { UndoPill } from "./components/spectrumui/undo-pill";
+export type { UndoPillProps } from "./components/spectrumui/undo-pill";
 export * from "./components/theme-toggle";
 export * from "./components/language-selector";
 export * from "./components/ui/dropdown-menu";
@@ -110,6 +113,8 @@ export * from "./components/ui/skeleton";
 export * from "./components/ui/preview-card";
 export * from "./components/logo-svg";
 export * from "./components/ui/avatar";
+export { AvatarStack } from "./components/ui/avatar-stack";
+export type { AvatarStackProps, AvatarStackUser } from "./components/ui/avatar-stack";
 export { Badge, badgeVariants } from "./components/ui/badge";
 export * from "./components/ui/craft-button";
 export * from "./components/cta-1";
@@ -156,6 +161,17 @@ export {
 export * from "./components/ui/accordion";
 export * from "./components/ui/expandable-screen";
 export { Calendar, CalendarDayButton } from "./components/ui/calendar";
+export {
+  DateRangePicker,
+  DateRangePickerPanel,
+  DATE_RANGE_PRESET_IDS,
+} from "./components/ui/date-picker/date-range-picker";
+export type {
+  DateRangePickerProps,
+  DateRangePickerLabels,
+  DateRangePresetId,
+  DateRangeValue,
+} from "./components/ui/date-picker/date-range-picker";
 export * from "./components/ui/flow-button";
 export * from "./components/ui/border-beam";
 export { ShineBorder } from "./components/ui/shine-border";
@@ -164,8 +180,83 @@ export { DotmSquare12 } from "./components/ui/dotm-square-12";
 export type { DotmSquare12Props } from "./components/ui/dotm-square-12";
 export { TerminalLoader } from "./components/ui/terminal-loader";
 export type { TerminalLoaderProps } from "./components/ui/terminal-loader";
-export { ImageGenerationCanvas } from "./components/ui/image-generation";
-export type { ImageGenerationCanvasProps } from "./components/ui/image-generation";
+export { ImageGeneration, ImageGenerationCanvas } from "./components/ui/image-generation";
+export type {
+  ImageGenerationProps,
+  ImageGenerationStatus,
+  ImageGenerationCanvasProps,
+} from "./components/ui/image-generation";
+export {
+  ApprovalCard,
+  type ApprovalCardProps,
+  type ApprovalVariant,
+  type ApprovalQuestion,
+  type ApprovalPlanStep,
+  type ApprovalAction,
+} from "./components/ui/approval-card";
+export {
+  AgentCode,
+  AgentCodeLine,
+  resolveAgentCodeLanguage,
+  useAgentCodeTokens,
+  type AgentCodeLanguage,
+  type AgentCodeLineProps,
+  type AgentCodeProps,
+  type AgentCodeToken,
+  type AgentCodeTokenLines,
+} from "./components/ui/agent-code";
+export { ThinkingStars } from "./components/ui/thinking-stars";
+export {
+  ActivityIndicator,
+  ActivityIndicatorGroup,
+  ACTIVITY_INDICATOR_GROUPS,
+  ACTIVITY_INDICATOR_STYLES,
+  ACTIVITY_STYLES_BY_GROUP,
+  isActivityIndicatorGroup,
+  isActivityIndicatorStyle,
+  isOrbIndicatorId,
+  isUnicodeSpinnerId,
+  ORB_VARIANT_IDS,
+  pickActivityIndicatorStyle,
+  stylesForGroups,
+  UNICODE_SPINNER_IDS,
+} from "./components/ui/activity-indicator";
+export type {
+  ActivityIndicatorProps,
+  ActivityIndicatorStyle,
+  UnicodeSpinnerId,
+} from "./components/ui/activity-indicator";
+export {
+  Orb,
+  HELIX_VARIANTS,
+  LATTICE_VARIANTS,
+  LENS_VARIANTS,
+  MORPH_VARIANTS,
+  RING_VARIANTS,
+  ORB_TASKS,
+} from "./components/ui/orb";
+export type {
+  HelixVariant,
+  LatticeVariant,
+  LensVariant,
+  MorphVariant,
+  OrbProps,
+  OrbVariant,
+  RingVariant,
+} from "./components/ui/orb";
+export { MatrixOrb } from "./components/ui/matrix-orb";
+export type { MatrixOrbProps, MatrixOrbState } from "./components/ui/matrix-orb";
+export {
+  matrixOrbColor,
+  matrixOrbDotsForSize,
+  matrixOrbLayout,
+  readMatrixOrbTheme,
+} from "./components/ui/matrix-orb-color";
+export type {
+  MatrixOrbColorOptions,
+  MatrixOrbColorScheme,
+  MatrixOrbTheme,
+} from "./components/ui/matrix-orb-color";
 
 // Dither / ordered-dot charts (MIT-adapted Amicro simple-comp style)
 export {
@@ -211,6 +302,16 @@ export { TextShimmerWave } from "./components/ui/text-shimmer-wave";
 export { TextScramble } from "./components/ui/text-scramble";
 export { TextMorph } from "./components/ui/text-morph";
 export {
+  TextEffect,
+  textEffectBlurSlideVariants,
+} from "./components/ui/text-effect";
+export type {
+  TextEffectProps,
+  PresetType as TextEffectPreset,
+  PerType as TextEffectPer,
+} from "./components/ui/text-effect";
+
+export {
   TypewriterEffect,
   TypewriterEffectSmooth,
 } from "./components/ui/typewriter-effect";
@@ -235,6 +336,11 @@ export { NativeFollowCursor } from "./components/native/native-follow-cursor";
 export type { NativeFollowCursorProps } from "./components/native/native-follow-cursor";
 export { AnimatedNumber } from "./components/ui/animated-number";
 export type { AnimatedNumberProps } from "./components/ui/animated-number";
+export { NotificationBell } from "./components/ui/notification-bell";
+export type {
+  NotificationBellColor,
+  NotificationBellProps,
+} from "./components/ui/notification-bell";
 export { SlidingNumber } from "./components/ui/sliding-number";
 export type { SlidingNumberProps } from "./components/ui/sliding-number";
 export {
@@ -268,6 +374,35 @@ export * from "./components/ai-elements/reasoning";
 export * from "./components/ai-elements/confirmation";
 export * from "./components/ai-elements/attachments";
 export * from "./components/ai-elements/prompt-input";
+export {
+  PromptInput as AgentsPromptInput,
+  type PromptInputProps as AgentsPromptInputProps,
+  type PromptInputRadius as AgentsPromptInputRadius,
+  type PromptModel,
+  type PromptAction,
+  type PromptInputLabels,
+} from "./components/agents/prompt-input";
+export {
+  agentConfigFlyoutOffsetTop,
+  agentConfigFlyoutSide,
+  agentConfigTriggerText,
+  capitalizeLeading,
+  formatModelProviderLabel,
+  initialAgentConfigFlyout,
+  modelEffortTriggerLabel,
+} from "./components/agents/prompt-input-view";
+export { RangeSlider } from "./components/motion/range-slider";
+export type { RangeSliderProps } from "./components/motion/range-slider";
+export { PreviewRail } from "./components/motion/preview-rail";
+export type {
+  PreviewRailItem,
+  PreviewRailProps,
+} from "./components/motion/preview-rail";
+export { MorphingSearch } from "./components/motion/morphing-search";
+export type {
+  MorphingSearchItem,
+  MorphingSearchProps,
+} from "./components/motion/morphing-search";
 export * from "./components/ai-elements/tool";
 export {
   Terminal as AcpTerminal,
@@ -285,8 +420,11 @@ export { FilledBellIcon } from "./components/icons/filled-bell-icon";
 export type { AnimatedIconHandle, AnimatedIconProps } from "./components/icons/filled-bell-icon";
 export { BotMessageSquareIcon } from "./components/icons/bot-message-square";
 export type { BotMessageSquareHandle } from "./components/icons/bot-message-square";
+export { LayersIcon } from "./components/icons/layers-icon";
+export type { LayersIconHandle } from "./components/icons/layers-icon";
 export { GithubIcon } from "./components/icons/github-icon";
 export type { GithubIconHandle } from "./components/icons/github-icon";
+export { Github, Gitlab } from "./components/icons/lucide-brand-icons";
 export { LinearIcon } from "./components/icons/linear-icon";
 export { XIcon } from "./components/icons/x-icon";
 export { RedditIcon } from "./components/icons/reddit-icon";
@@ -304,6 +442,8 @@ export type { UserIconHandle } from "./components/icons/user-icon";
 
 // Utilities
 export { cn } from "./lib/utils";
+export { panelFoldCursorClass } from "./lib/panel-fold";
+export type { PanelFoldSide } from "./lib/panel-fold";
 export * from "./utils/file-icons";
 
 // Third Party Components

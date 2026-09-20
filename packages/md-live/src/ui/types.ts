@@ -1,0 +1,83 @@
+/** Slash menu and toolbar convert. Markdown still parses and renders H1–H6. */
+export const MD_LIVE_HEADING_LEVELS = [1, 2, 3, 4] as const;
+export type MdLiveHeadingLevel = (typeof MD_LIVE_HEADING_LEVELS)[number];
+
+export const MD_LIVE_MARKDOWN_HEADING_LEVELS = [1, 2, 3, 4, 5, 6] as const;
+export type MdLiveMarkdownHeadingLevel = (typeof MD_LIVE_MARKDOWN_HEADING_LEVELS)[number];
+
+export function mdLiveMarkdownHeadingLevelOf(level: unknown): MdLiveMarkdownHeadingLevel | null {
+  const n = Number(level);
+  if (!Number.isInteger(n) || n < 1 || n > 6) return null;
+  return n as MdLiveMarkdownHeadingLevel;
+}
+
+export type MdLiveBlockAction =
+  | { type: "paragraph" }
+  | { type: "heading"; level: MdLiveHeadingLevel }
+  | { type: "bullet-list" }
+  | { type: "ordered-list" }
+  | { type: "task-list" }
+  | { type: "quote" }
+  | { type: "toggle" }
+  | { type: "code" }
+  | { type: "inline-code" }
+  | { type: "bold" }
+  | { type: "italic" }
+  | { type: "strikethrough" }
+  | { type: "table" }
+  | { type: "divider" };
+
+export type MdLiveAiActionKind = "ask" | "rewrite" | "summarize";
+
+export type MdLiveMediaOpenKind = "image" | "video" | "audio" | "file";
+
+export type MdLiveEmbedInsertKind = "github-issue" | "github-pr" | "path";
+
+export type MdLiveSlashPick =
+  | { kind: "block"; action: MdLiveBlockAction }
+  | { kind: "markdown"; markdown: string }
+  | { kind: "text"; text: string }
+  | { kind: "open"; open: MdLiveMediaOpenKind };
+
+export type MdLiveFocusCaret = "start" | "end" | "preserve";
+
+export type MdLiveEditorHandle = {
+  getMarkdown: () => string;
+  getSelectionMarkdown: () => string;
+  focus: (options?: { caret?: MdLiveFocusCaret }) => void;
+  insertMarkdown: (markdown: string, options?: { replaceSlash?: boolean }) => void;
+  insertText: (text: string, options?: { replaceSlash?: boolean }) => void;
+  runBlockAction: (action: MdLiveBlockAction) => void;
+  startStream: (insertAt: "cursor" | "selection") => boolean;
+  pushChunk: (token: string) => void;
+  endStream: (diffReview?: boolean) => void;
+  abortStream: (keep?: boolean) => void;
+  acceptAllDiffs: () => void;
+  clearDiffReview: () => void;
+  setToggleDefaultOpen: (open: boolean) => void;
+};
+
+export type MdLiveCopyFn = (key: string) => string;
+
+export type MdLiveSlashMenuProps = {
+  query: string;
+  onPick: (pick: MdLiveSlashPick) => void;
+  copy?: MdLiveCopyFn;
+  hiddenGroups?: Array<"heading" | "basic" | "advanced" | "media" | "reference" | "others">;
+  /** Keep `/` and delete the query after it (enter a nested slash menu). */
+  onKeepSlash?: () => void;
+};
+
+export type MdLiveSelectionToolbarProps = {
+  onBlock: (action: MdLiveBlockAction) => void;
+  onCopy: () => void;
+  onAi?: (kind: MdLiveAiActionKind) => void;
+  onCopyPrompt?: () => void;
+  copy?: MdLiveCopyFn;
+  /** Uniform block kind under the selection, or null when mixed. */
+  activeBlockId?: string | null;
+  /** Convertible text block ids for this selection. Empty hides convert controls. */
+  convertIds?: string[];
+};
+
+export type MdLiveTaskMarker = " " | "x" | "/" | "-";

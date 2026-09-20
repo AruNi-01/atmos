@@ -1,0 +1,2 @@
+{"timestamp":"2026-04-07T10:00:00.000Z","type":"session_meta","payload":{"id":"019d5555-1111-7222-8333-444444444444","cwd":"/tmp/archived-app","source":"cli"}}
+{"timestamp":"2026-04-07T10:00:01.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Archived hello."}]}}

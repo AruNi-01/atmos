@@ -1,0 +1,747 @@
+export type AgentChatOrigin = "quick" | "normal" | "imported";
+
+export type AgentChatFavoriteModel = {
+  agent_id: string;
+  model: string;
+  label?: string | null;
+};
+
+export type AgentChatPrefs = {
+  last_registry_id?: string | null;
+  /** Last New Chat composer snapshot keyed by agent id. */
+  last_new_chat_configs?: Record<string, Record<string, string>>;
+  /** Favorited agent+model pairs from `~/.atmos/config/agent/chat_prefs.json`. */
+  favorite_models?: AgentChatFavoriteModel[];
+};
+
+export type AgentChatLastNewChatConfigPatch = {
+  agent_id: string;
+  model?: string | null;
+  thinking?: string | null;
+  mode?: string | null;
+  permission_mode?: string | null;
+  fast?: string | null;
+  context?: string | null;
+};
+
+export type AgentChatPrefsSetRequest = {
+  last_registry_id?: string | null;
+  /** Landing composer snapshot for one agent. Omitted fields are left unchanged on disk. */
+  last_new_chat_config?: AgentChatLastNewChatConfigPatch | null;
+  /** Replace the favorited model list. Omitted → leave disk unchanged. */
+  favorite_models?: AgentChatFavoriteModel[] | null;
+};
+
+export type AgentChatCreateRequest = {
+  workspace_id?: string | null;
+  project_id?: string | null;
+  space_id?: string | null;
+  cwd?: string | null;
+  provider_id: string;
+  model?: string | null;
+  thinking?: string | null;
+  mode?: string | null;
+  permission_mode?: string | null;
+  fast?: string | null;
+  context?: string | null;
+  title?: string | null;
+  origin?: AgentChatOrigin | null;
+  source?: string | null;
+  automation_run_guid?: string | null;
+};
+
+export type AgentChatListRequest = {
+  workspace_id?: string | null;
+  project_id?: string | null;
+  cwd?: string | null;
+  cursor?: string | null;
+  limit?: number | null;
+  all?: boolean | null;
+  origin?: AgentChatOrigin | null;
+};
+
+export type AgentChatIdRequest = {
+  chat_id: string;
+};
+
+export type AgentChatMessagesRequest = {
+  chat_id: string;
+  limit?: number | null;
+};
+
+export type AgentChatRenameRequest = {
+  chat_id: string;
+  title: string;
+};
+
+export type AgentChatConfigureRequest = {
+  chat_id: string;
+  provider_id?: string | null;
+  model?: string | null;
+  thinking?: string | null;
+  mode?: string | null;
+  permission_mode?: string | null;
+  fast?: string | null;
+  context?: string | null;
+};
+
+export type AgentChatSubscribeRequest = {
+  chat_id: string;
+  after_sequence?: number | null;
+};
+
+export type AgentChatBackfillPart = {
+  part_id: string;
+  from_offset: number;
+};
+
+export type AgentChatBackfillRequest = {
+  chat_id: string;
+  parts: AgentChatBackfillPart[];
+};
+
+export type AgentChatBackfillResponse = {
+  accepted: number;
+};
+
+export type AgentChatSendRequest = {
+  chat_id: string;
+  text: string;
+  attachment_paths?: string[] | null;
+  message_id?: string | null;
+};
+
+export type AgentChatSteerRequest = {
+  chat_id: string;
+  expected_turn_id: string;
+  text: string;
+};
+
+export type AgentChatQueueAddRequest = {
+  chat_id: string;
+  text: string;
+  attachment_paths?: string[] | null;
+};
+
+export type AgentChatQueueUpdateRequest = {
+  chat_id: string;
+  item_id: string;
+  text?: string | null;
+  status?: string | null;
+};
+
+export type AgentChatQueueReorderRequest = {
+  chat_id: string;
+  item_ids: string[];
+};
+
+export type AgentChatQueueDeleteRequest = {
+  chat_id: string;
+  item_id: string;
+};
+
+export type AgentChatPermissionRespondRequest = {
+  chat_id: string;
+  request_id: string;
+  option_id?: string | null;
+  allowed?: boolean | null;
+};
+
+export type AgentChatSessionOpRespondRequest = {
+  chat_id: string;
+  request_id: string;
+  option_id: string;
+};
+
+export type AgentOptionsGetRequest = {
+  agent_id: string;
+  refresh?: boolean | null;
+  auth_method_id?: string | null;
+  auth_secret?: string | null;
+};
+
+export type Capability = "supported" | "unsupported";
+
+export type AgentThinkingSupport =
+  | { type: "none" }
+  | { type: "enum"; arg?: string | null; options: string[] }
+  | { type: "manual"; arg: string; placeholder?: string | null }
+  | { type: "encoded_in_model" }
+  | { type: "flag_only"; arg: string };
+
+export type AgentIdentity = {
+  id: string;
+  name: string;
+  version?: string | null;
+};
+
+export type AgentCapabilities = {
+  steer: Capability;
+  resume: Capability;
+  permission: Capability;
+  configure: Capability;
+  fork: Capability;
+  rewind: Capability;
+};
+
+export type AgentOptionSupport = {
+  models: Capability;
+  thinking: Capability;
+  modes: Capability;
+  permission_modes: Capability;
+  fast?: Capability;
+  context?: Capability;
+};
+
+export type AgentDescriptor = {
+  identity: AgentIdentity;
+  capabilities: AgentCapabilities;
+  support: AgentOptionSupport;
+  supported_options: {
+    models: Array<{
+      id: string;
+      label: string;
+      group?: string | null;
+      is_default?: boolean;
+      thinking?: AgentThinkingSupport | null;
+      context?: Array<{ id: string; label: string; is_default?: boolean }>;
+      fast?: boolean;
+      multiplier?: string | null;
+      fast_multiplier?: string | null;
+    }>;
+    thinking?: AgentThinkingSupport;
+    modes?: Array<{ id: string; label: string; is_default?: boolean }>;
+    permission_modes?: Array<{ id: string; label: string; is_default?: boolean }>;
+    fast?: Array<{ id: string; label: string; is_default?: boolean }>;
+    context?: Array<{ id: string; label: string; is_default?: boolean }>;
+  };
+  current_config: {
+    model?: string | null;
+    thinking?: string | null;
+    mode?: string | null;
+    permission_mode?: string | null;
+    fast?: string | null;
+    context?: string | null;
+  };
+};
+
+export type AgentChatMeta = {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  deleted: boolean;
+  title: string | null;
+  cwd: string;
+  workspace_id: string | null;
+  project_id: string | null;
+  space_id?: string | null;
+  origin?: AgentChatOrigin | null;
+  source?: string | null;
+  automation_run_guid?: string | null;
+  provider_id: string;
+  last_message_at: string | null;
+  last_event_seq: number;
+  persistence_handle: string | null;
+  runtime_status: string;
+  available_commands?: Array<{
+    name: string;
+    description: string;
+    hint?: string | null;
+  }>;
+  session_usage?: AgentSessionUsage | null;
+  descriptor: AgentDescriptor;
+  parent_chat_id?: string | null;
+  rewind_view?: { until_turn_id: string } | null;
+  grok_goal?: GrokGoal | null;
+  grok_workflow?: GrokWorkflow | null;
+};
+
+export type GrokGoalChild = {
+  id: string;
+  label: string;
+  role: string;
+  agent_type?: string | null;
+};
+
+export type GrokGoal = {
+  goal_id: string;
+  objective: string;
+  status: string;
+  phase: string;
+  planning?: boolean;
+  verifying_completion?: boolean;
+  last_event?: string | null;
+  tokens_used?: number;
+  elapsed_ms?: number;
+  children: GrokGoalChild[];
+};
+
+export type GrokWorkflowPhase = {
+  id: string;
+  title: string;
+  state: string;
+};
+
+export type GrokWorkflowAgent = {
+  id: string;
+  label: string;
+  phase_id: string;
+  agent_type?: string | null;
+};
+
+export type GrokWorkflow = {
+  run_id: string;
+  name: string;
+  objective: string;
+  status: string;
+  phases: GrokWorkflowPhase[];
+  agents: GrokWorkflowAgent[];
+};
+
+export type AgentSessionUsage = {
+  used?: number | null;
+  /** Total context window tokens. Prefer this over legacy `size`. */
+  context_window?: number | null;
+  /** @deprecated Prefer `context_window`. Kept for older persisted meta. */
+  size?: number | null;
+  cost?: {
+    amount?: number | null;
+    currency?: string | null;
+  } | null;
+};
+
+export type AgentTurnUsage = {
+  total_tokens?: number | null;
+  input_tokens?: number | null;
+  output_tokens?: number | null;
+  thought_tokens?: number | null;
+  cached_read_tokens?: number | null;
+  cached_write_tokens?: number | null;
+};
+
+export type AgentChatIndexEntry = {
+  id: string;
+  title: string | null;
+  cwd: string;
+  workspace_id: string | null;
+  project_id: string | null;
+  space_id?: string | null;
+  origin?: AgentChatOrigin | null;
+  provider_id: string;
+  updated_at: string;
+  last_message_at: string | null;
+  deleted: boolean;
+};
+
+export type AgentChatListResponse = {
+  items: AgentChatIndexEntry[];
+};
+
+export type AgentToolKind =
+  | "read"
+  | "edit"
+  | "delete"
+  | "move"
+  | "search"
+  | "web_search"
+  | "execute"
+  | "fetch"
+  | "skill"
+  | "subagent"
+  | "mcp_list"
+  | "mcp_call"
+  | "image_gen"
+  | "plan_document"
+  | "other";
+
+export type AgentToolStatus = "pending" | "running" | "completed" | "failed";
+
+/** Internally tagged `{ type: kind, … }`. `other.value` is vendor JSON as-is. */
+export type AgentToolParams =
+  | { type: "read"; path: string; offset?: number | null; limit?: number | null }
+  | { type: "edit"; path: string }
+  | { type: "delete"; path: string }
+  | { type: "move"; from: string; to: string }
+  | { type: "search"; query: string; path?: string | null; glob?: string | null }
+  | { type: "web_search"; query: string }
+  | {
+      type: "execute";
+      command: string;
+      cwd?: string | null;
+      background: boolean;
+      task_id?: string | null;
+    }
+  | { type: "fetch"; url: string }
+  | { type: "skill"; skill: string }
+  | {
+      type: "subagent";
+      description: string;
+      agent_type?: string | null;
+      /** Provider task ID used to attach later child output to this card. */
+      task_id?: string | null;
+      /** Full prompt sent to the child, when distinct from `description`. */
+      prompt?: string | null;
+    }
+  | { type: "mcp_list"; server?: string | null }
+  | { type: "mcp_call"; server?: string | null; tool?: string | null }
+  | {
+      type: "image_gen";
+      prompt: string;
+      aspect_ratio?: string | null;
+      size?: string | null;
+      path?: string | null;
+      reference_paths?: string[] | null;
+    }
+  | {
+      type: "plan_document";
+      name?: string | null;
+      overview?: string | null;
+      plan: string;
+      todos: Array<{
+        id?: string | null;
+        content: string;
+        status: string;
+      }>;
+      is_project?: boolean | null;
+      phases?: unknown;
+    }
+  | { type: "other"; value: unknown };
+
+export type AgentGeneratedImage = {
+  url?: string | null;
+  path?: string | null;
+  mime?: string | null;
+};
+
+export type AgentToolResult =
+  | { type: "text"; text: string }
+  | { type: "file_content"; path: string; text: string }
+  | { type: "diff_stats"; path: string; additions: number; deletions: number }
+  | {
+      type: "diff";
+      path: string;
+      old_content?: string | null;
+      new_content: string;
+    }
+  | { type: "execute"; output: string; exit_code?: number | null }
+  | {
+      type: "web_search";
+      query: string;
+      links: Array<{ url: string; title: string; snippet?: string | null }>;
+    }
+  | {
+      type: "search_hits";
+      query: string;
+      hits: Array<{
+        path: string;
+        line?: number | null;
+        snippet?: string | null;
+      }>;
+    }
+  | {
+      type: "web_fetch";
+      url: string;
+      title?: string | null;
+      markdown?: string | null;
+      text?: string | null;
+    }
+  | { type: "images"; images: AgentGeneratedImage[] }
+  | { type: "other"; value: unknown }
+  | { type: "error"; message: string }
+  | { type: "empty" };
+
+export type AgentTool = {
+  tool_call_id: string;
+  parent_tool_call_id?: string | null;
+  name: string;
+  title?: string | null;
+  kind: AgentToolKind;
+  status: AgentToolStatus;
+  params: AgentToolParams;
+  result?: AgentToolResult | null;
+};
+
+export type SessionLifecycleAction = "create" | "resume";
+export type SessionLifecycleStatus = "running" | "completed" | "failed";
+export type SessionHintTone = "info" | "warning" | "error";
+
+export type SessionConfigValueChange = {
+  from?: string | null;
+  to: string;
+};
+
+export type AgentPart =
+  | {
+      type: "text";
+      text: string;
+      parent_tool_call_id?: string | null;
+      /** Provider stream id; same id updates one block across tools. */
+      message_id?: string | null;
+    }
+  | {
+      type: "thinking";
+      text: string;
+      tool_call_id?: string;
+      duration_ms?: number | null;
+      parent_tool_call_id?: string | null;
+      message_id?: string | null;
+    }
+  | ({ type: "tool_call" } & AgentTool)
+  | { type: "plan"; plan: unknown }
+  | { type: "attachment"; path: string; name?: string | null }
+  | { type: "error"; message: string }
+  | {
+      type: "session_lifecycle";
+      action: SessionLifecycleAction;
+      status: SessionLifecycleStatus;
+      duration_ms?: number | null;
+      error?: string | null;
+    }
+  | {
+      type: "session_config_change";
+      model?: SessionConfigValueChange | null;
+      mode?: SessionConfigValueChange | null;
+    }
+  | {
+      type: "session_hint";
+      tone: SessionHintTone;
+      kind: string;
+    }
+  | {
+      type: "permission";
+      request: {
+        request_id: string;
+        tool: string;
+        description: string;
+        content_markdown?: string | null;
+        options?: Array<{ option_id: string; name: string; kind?: string }>;
+        questions?: Array<{ id: string; prompt: string; options?: string[] }>;
+        plan_todos?: Array<{ id?: string | null; content: string; status?: string }>;
+        status: string;
+      };
+    };
+
+export type AgentMessage = {
+  id: string;
+  role: "user" | "assistant" | string;
+  kind?: "normal" | "steer" | string;
+  parts: AgentPart[];
+  created_at?: string;
+  streaming?: boolean;
+  worked_ms?: number | null;
+  thinking_ms?: number | null;
+  completed_at?: string | null;
+  usage?: AgentTurnUsage | null;
+};
+
+export type AgentQueueItem = {
+  id: string;
+  seq: number;
+  status: string;
+  prompt: string;
+  display_prompt?: string | null;
+  attachments?: string[];
+};
+
+export type AgentSessionOpKind = "fork" | "rewind";
+
+export type AgentSessionOpOutcome = "applied" | "canceled" | "failed";
+
+export type AgentSessionOpRequest = {
+  request_id: string;
+  kind: AgentSessionOpKind;
+  title: string;
+  options: Array<{ option_id: string; name: string; kind?: string }>;
+};
+
+export type AgentChatSnapshot = {
+  meta: AgentChatMeta;
+  messages: AgentMessage[];
+  queue: AgentQueueItem[];
+  pending_permission?: {
+    request_id: string;
+    tool: string;
+    description: string;
+    content_markdown?: string | null;
+    options?: Array<{ option_id: string; name: string; kind?: string }>;
+    questions?: Array<{ id: string; prompt: string; options?: string[] }>;
+    plan_todos?: Array<{ id?: string | null; content: string; status?: string }>;
+    status: string;
+  } | null;
+  pending_session_op?: AgentSessionOpRequest | null;
+  running_turn_id?: string | null;
+  running_turn_started_at?: string | null;
+};
+
+export type AgentChatTurnIdResponse = {
+  turn_id: string;
+};
+
+export type AgentChatSubscribeResponse = {
+  last_event_seq: number;
+};
+
+export type AgentChatPayload =
+  | { type: "turn_started"; turn_id: string; created_at?: string | null }
+  | {
+      type: "user_message";
+      turn_id: string;
+      message_id: string;
+      kind?: string;
+      text: string;
+      attachments?: string[];
+      created_at?: string;
+    }
+  | {
+      type: "text_chunk";
+      part_id: string;
+      message_id: string;
+      parent_part_id?: string | null;
+      ordinal: number;
+      kind: "answer" | "thinking";
+      offset: number;
+      text: string;
+    }
+  | { type: "part_closed"; part_id: string; duration_ms?: number | null }
+  | {
+      type: "tool_call_started" | "tool_call_updated" | "tool_call_completed";
+      tool_call: AgentTool;
+    }
+  | {
+      type: "tool_call_failed";
+      tool_call: AgentTool;
+      error?: string | null;
+    }
+  | { type: "plan_updated"; plan?: unknown; turn_id?: string }
+  | {
+      type: "permission_requested";
+      request: {
+        request_id: string;
+        tool?: string;
+        description?: string;
+        content_markdown?: string;
+        options?: Array<{ option_id: string; name: string; kind?: string }>;
+        questions?: Array<{ id: string; prompt: string; options?: string[] }>;
+        plan_todos?: Array<{ id?: string | null; content: string; status?: string }>;
+      };
+    }
+  | { type: "permission_resolved"; request_id: string; option_id: string }
+  | { type: "session_op_requested"; request: AgentSessionOpRequest }
+  | {
+      type: "session_op_resolved";
+      request_id: string;
+      option_id: string;
+      outcome: AgentSessionOpOutcome;
+      error?: string | null;
+    }
+  | { type: "session_forked"; parent_chat_id: string; chat_id: string }
+  | { type: "rewind_view_updated"; until_turn_id: string | null }
+  | {
+      type: "turn_completed";
+      turn_id: string;
+      status?: string;
+      worked_ms?: number | null;
+      thinking_ms?: number | null;
+      completed_at?: string | null;
+      usage?: AgentTurnUsage | null;
+      error?: string | null;
+    }
+  | {
+      type: "usage_updated";
+      session?: AgentSessionUsage | null;
+      turn?: AgentTurnUsage | null;
+    }
+  | {
+      type: "context_usage_updated";
+      used: number;
+      context_window?: number | null;
+    }
+  | {
+      type: "queue_updated";
+      items: Array<{
+        id: string;
+        seq: number;
+        status: string;
+        prompt: string;
+        display_prompt?: string | null;
+        attachments?: string[];
+      }>;
+    }
+  | { type: "runtime_status"; status?: string; persistence_handle?: string | null }
+  | { type: "title_updated"; title?: string | null }
+  | {
+      type: "available_commands_updated";
+      commands?: Array<{ name?: string; description?: string; hint?: string | null }>;
+    }
+  | { type: "grok_goal_updated"; grok_goal?: GrokGoal | null }
+  | { type: "grok_workflow_updated"; grok_workflow?: GrokWorkflow | null }
+  | { type: "config_updated"; descriptor: AgentDescriptor }
+  | { type: "unknown"; event_type: string; payload: unknown }
+  | {
+      type: "session_lifecycle";
+      turn_id: string;
+      message_id: string;
+      action: SessionLifecycleAction;
+      status: SessionLifecycleStatus;
+      duration_ms?: number | null;
+      error?: string | null;
+    }
+  | {
+      type: "session_config_change";
+      turn_id: string;
+      message_id: string;
+      model?: SessionConfigValueChange | null;
+      mode?: SessionConfigValueChange | null;
+    }
+  | {
+      type: "session_hint";
+      turn_id: string;
+      message_id: string;
+      tone: SessionHintTone;
+      kind: string;
+    };
+
+/** Host event log item. Same tagged union the server emits on `agent_chat_event`. */
+export type AgentEvent = AgentChatPayload;
+
+export type AgentChatEvent = {
+  chat_id: string;
+  event_id: string;
+  revision: number;
+  turn_id?: string | null;
+  payload: AgentEvent;
+};
+
+export type AgentOptionsSnapshot = {
+  agent_id: string;
+  status: "ok" | "unsupported" | "auth_required" | "error" | "probing";
+  models: Array<{
+    id: string;
+    label: string;
+    group?: string | null;
+    is_default?: boolean;
+    thinking?: AgentThinkingSupport | null;
+    context?: Array<{ id: string; label: string; is_default?: boolean }>;
+    fast?: boolean;
+    multiplier?: string | null;
+    fast_multiplier?: string | null;
+  }>;
+  modes: Array<{ id: string; label: string; is_default?: boolean }>;
+  permission_modes?: Array<{ id: string; label: string; is_default?: boolean }>;
+  thinking: AgentThinkingSupport;
+  context?: Array<{ id: string; label: string; is_default?: boolean }>;
+  strategies_used: string[];
+  fetched_at: string;
+  source: "cache" | "live";
+  message: string | null;
+  commands?: Array<{
+    name: string;
+    description: string;
+    hint?: string | null;
+  }>;
+};
+
+export type AgentOptionsUpdated = {
+  agent_id: string;
+  options: AgentOptionsSnapshot;
+};

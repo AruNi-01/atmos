@@ -22,11 +22,11 @@ import {
   CalendarRange,
   Clock3,
   Globe2,
-  Github,
   LoaderCircle,
   Play,
   type LucideIcon,
 } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 
 import { AutomationGithubTriggerPanel } from "@/features/automations/components/AutomationGithubTriggerPanel";
 import type { GithubInstallation, GithubRepository } from "@/features/automations/lib/github-trigger-relay";

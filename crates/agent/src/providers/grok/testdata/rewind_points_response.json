@@ -1,0 +1,11 @@
+{
+  "rewind_points": [
+    {
+      "prompt_index": 0,
+      "created_at": "2026-09-01T16:14:52.026180+00:00",
+      "num_file_snapshots": 0,
+      "has_file_changes": false,
+      "prompt_preview": "Reply with exactly the word pong. Do not use tools."
+    }
+  ]
+}

@@ -302,6 +302,10 @@ async fn open_terminal(
                 side_chat_id: None,
                 source_pane_id: None,
                 source_tmux_window_name: None,
+                origin: None,
+                run_guid: None,
+                automation_guid: None,
+                initial_input: None,
             })
             .await
             .map(|(rx, snapshot)| (rx, snapshot, false))

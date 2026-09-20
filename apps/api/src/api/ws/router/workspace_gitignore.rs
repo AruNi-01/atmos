@@ -12,21 +12,13 @@ impl WsMessageService {
         let _ = manager.broadcast(&message).await;
     }
 
-    pub(super) fn queue_workspace_gitignore_compensation(
-        &self,
+    pub(super) fn spawn_workspace_gitignore_compensation(
+        manager: Arc<WsManager>,
+        project_service: Arc<ProjectService>,
         workspace_id: String,
         project_guid: String,
         worktree_path: String,
     ) {
-        let Some(manager) = self.ws_manager.get().cloned() else {
-            tracing::warn!(
-                "[gitignore_dirs] WsManager unavailable; skipping async compensation notification path for {}",
-                workspace_id
-            );
-            return;
-        };
-        let project_service = self.project_service.clone();
-
         tokio::spawn(async move {
             let project = match project_service.get_project(project_guid.clone()).await {
                 Ok(Some(project)) => project,

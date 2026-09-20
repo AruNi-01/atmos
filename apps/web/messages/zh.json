@@ -53,11 +53,13 @@
         "installTerminal": {
           "title": "安装 {toolName}",
           "descriptionGuide": "Atmos 已检测本机包管理器，可在临时终端中执行安装。",
+          "descriptionGuideExplicit": "Atmos 可在临时终端中执行你选择的 {toolName} 官方安装命令。",
           "descriptionTerminalWithCommand": "正在执行：{command}",
           "descriptionTerminalFallback": "请在临时终端中完成安装，然后点击重新检测。",
           "detectingOptions": "正在检测安装方式…",
           "detectedHostTitle": "检测到的主机",
           "detectedHostUnavailable": "无法检测主机包管理器。",
+          "detectedHostManual": "使用你选择的官方安装命令。",
           "recommendedCommandTitle": "推荐命令",
           "recommendedCommandDescription": "该命令会自动输入到 Atmos 临时终端中。",
           "recommendedCommandSudo": "安装过程中可能需要输入密码。",
@@ -94,22 +96,38 @@
     },
     "agents": {
       "title": "选择你的 Agent",
-      "subtitle": "我们已检测本机安装了哪些内置 Agent CLI。保留你常用的，并为新终端选择默认 Agent。",
-      "summary": "已安装 {installed} · 已选中 {selected} · 共 {total} 个内置",
+      "subtitle": "Atmos 将会保存你的 Agent 偏好，并自动配置 Chat 模式",
+      "summary": "已安装 {installed} · 已选中 {selected} · 共 {total} 个",
       "yoloLabel": "默认启用 YOLO 模式",
-      "yoloAria": "默认启用 Agent 的 YOLO / 跳过权限确认参数",
-      "detecting": "正在检测已安装的 Agent CLI…",
+      "yoloAria": "默认跳过 Agent 的权限确认",
+      "detecting": "正在查找 Agent…",
       "statusInstalled": "已安装",
       "statusMissing": "未检测到",
       "defaultBadge": "默认",
       "setDefault": "设为默认",
       "selectAria": "启用 {name}",
-      "noneInstalledHint": "PATH 上未发现内置 Agent CLI。你仍可勾选计划稍后安装的 Agent，或先继续，之后在设置中配置。",
+      "noneInstalledHint": "这台电脑上还没找到 Agent。勾选你需要的，再点安装。",
       "recheck": "重新检测",
       "next": "保存并继续",
+      "provisioning": "正在准备 Chat 模式…",
+      "provisioningProgress": "{current} / {total}",
+      "provisionReadyTitle": "Chat 模式已就绪",
+      "provisionReady": "可以开始用了。",
       "skip": "暂且跳过",
-      "checkFailed": "无法连接本地 Atmos Server 检测 Agent。请确认服务已启动后重新检测。",
-      "saveFailed": "无法保存 Agent 偏好。请检查连接后重试。"
+      "checkFailed": "没法查找 Agent。请确认 Atmos 正在运行，然后重试。",
+      "saveFailed": "没法保存你的选择。请检查网络后重试。",
+      "provisionFailedTitle": "Chat 模式还没准备好",
+      "provisionFailed": "{names} 还没设置完成。可以稍后在 Agents 里再试。",
+      "provisionFailedGeneric": "Chat 模式还没设置完成。可以稍后在 Agents 里再试。",
+      "install": {
+        "description": "可以在终端里安装，也可以复制命令自己执行。"
+      },
+      "deepseek": {
+        "name": "DeepSeek Harness",
+        "optionalBadge": "可选",
+        "hint": "在 Chat 模式里用 DeepSeek 时再打开。",
+        "chatOnly": "仅 Chat"
+      }
     },
     "quota": {
       "title": "AI 用量追踪",
@@ -220,8 +238,8 @@
       "language": "语言",
       "fullScreenEnter": "进入全屏",
       "fullScreenExit": "退出全屏",
-      "acpAgent": "ACP 助手",
-      "openAgentChat": "打开 Agent Chat",
+      "acpAgent": "Agent Chat",
+      "openAgentChat": "打开对话",
       "opacity": "不透明度",
       "tokenUsage": "Token 用量"
     },
@@ -255,7 +273,9 @@
       "connectErrorTitle": "无法连接",
       "connectErrorHint": "请重试。",
       "accessKeyRequired": "需要登录账号",
-      "accessKeyRequiredDescription": "请先在 设置 → 账号 登录，以便本机使用 Hub 设备身份，然后再从页头切换 Computer。",
+      "accessKeyRequiredDescription": "用 GitHub 或 Google 登录后，本机即可使用 Hub 设备身份，然后在这里切换 Computer。",
+      "signIn": "登录",
+      "openAccountSettings": "打开账号设置",
       "openComputerSettings": "打开设备设置",
       "noComputers": "还没有设备",
       "noComputersDescription": "请先注册本机，或在同一 Atmos 账号下添加其它机器。",
@@ -381,12 +401,15 @@
     },
     "centerStageTabBar": {
       "newTerminalTab": "终端",
+      "newAgentChat": "对话",
+      "agentChatDraft": "新对话",
+      "newMarkdown": "Markdown",
       "newBrowser": "浏览器",
       "newChanges": "变更",
       "newReview": "评审",
       "newRun": "运行",
       "newGithub": "GitHub",
-      "newPtDesign": "Prototype Design",
+      "newPtDesign": "原型设计",
       "newFiles": "文件",
       "newSimulator": "模拟器",
       "fullscreen": "全屏",
@@ -398,6 +421,7 @@
       "plusMenuLayout": "布局",
       "newSpace": "新建空间",
       "newSpaceDialogTitle": "新建空间",
+      "newSpaceDialogDescription": "空间属于工作区。一个工作区可以有多个互不影响的空间，每个空间里可以分成多个区域。",
       "newSpaceNamePlaceholder": "空间名称",
       "newSpaceConfirm": "创建",
       "newSpaceCancel": "取消",
@@ -422,8 +446,8 @@
       "closeGithubTab": "关闭 GitHub 标签页",
       "files": "文件",
       "closeFilesTab": "关闭文件标签页",
-      "ptDesign": "Prototype Design",
-      "closePtDesignTab": "关闭 Prototype Design 标签页",
+      "ptDesign": "原型设计",
+      "closePtDesignTab": "关闭原型设计标签页",
       "simulator": "模拟器",
       "closeSimulatorTab": "关闭模拟器标签页",
       "history": "图形历史",
@@ -438,7 +462,9 @@
       "codeReviewTerminal": "代码评审终端",
       "closeCodeReviewTab": "关闭代码评审标签页",
       "renameTab": "重命名标签页",
-      "renameTabPlaceholder": "输入标签页名称…"
+      "renameTabPlaceholder": "输入标签页名称…",
+      "tooltipKindTui": "TUI",
+      "tooltipKindChatUi": "对话 UI"
     },
     "footer": {
       "openOnCanvasLabel": "在画布中打开",
@@ -447,9 +473,10 @@
       "agentSessions": "Agent 会话 ({count})",
       "openAgentObserver": "打开 Agent Observer",
       "clearIdle": "清理空闲",
+      "clearSession": "清除",
       "permissionRequested": "权限请求中",
-      "openAgentChat": "打开 Agent Chat",
-      "acpChat": "ACP Chat",
+      "openAgentChat": "打开对话",
+      "acpChat": "对话",
       "activeWebSocket": "活跃 WebSocket",
       "notConnected": "未连接",
       "loading": "加载中...",
@@ -494,6 +521,7 @@
       "typeToSearch": "至少输入一个字符",
       "fallback": {
         "tasks": "全部任务",
+        "notes": "笔记",
         "commit": "提交与推送",
         "usage": "使用情况"
       },
@@ -502,9 +530,12 @@
         "theme": "主题",
         "project": "项目",
         "modal": "弹窗",
-        "todo": "待办",
+        "todo": "清单",
+        "note": "笔记",
         "commit": "提交",
         "usage": "用量",
+        "command": "命令",
+        "surface": "工作区视图",
         "newWorkspace": "新建工作区",
         "quickOpen": "快速打开",
         "files": "文件",
@@ -581,6 +612,7 @@
         "resetUnknown": "重置时间未知",
         "resettingNow": "正在重置",
         "resetsIn": "将在",
+        "useDroidToStart": "使用 Droid 后开始",
         "nextUpdateIn": "下次更新于"
       },
       "autoRefresh": {
@@ -624,6 +656,8 @@
         "detectionRequired": "需要检测",
         "detectSetupHint": "请登录本地应用，或添加受支持的本地 token / 配置，Atmos 才能检测到这个 provider。",
         "usage": "用量",
+        "standard": "标准",
+        "droidCore": "Droid Core",
         "noUsageData": "暂无用量数据",
         "credits": "额度",
         "unknown": "未知",
@@ -1063,7 +1097,7 @@
       "tokenUsage": "Token 用量 - ATMOS",
       "agentObserver": "Agent Observer - ATMOS",
       "tasks": "任务 - ATMOS",
-      "ptDesign": "Prototype Design - ATMOS",
+      "ptDesign": "原型设计 - ATMOS",
       "settings": "设置 - ATMOS"
     },
     "localModelDownload": {
@@ -1083,6 +1117,10 @@
         "dark": "深色主题",
         "system": "系统主题"
       },
+      "languages": {
+        "en": "英语",
+        "zh": "中文"
+      },
       "addProject": "添加项目",
       "modalChat": {
         "title": "打开 ACP Chat",
@@ -1093,8 +1131,8 @@
         "description": "配置 LLM Provider 的 API Key 和模型"
       },
       "aiQuota": {
-        "title": "AI 配额使用",
-        "description": "查看 Provider 配额和刷新状态"
+        "title": "AI 配额用量",
+        "description": "查看各 Provider 剩余配额并刷新状态"
       },
       "canvas": {
         "title": "打开 Canvas",
@@ -1107,9 +1145,61 @@
         "itemTitle": "设置：{label}"
       },
       "workspaceTodos": {
-        "title": "工作区 TODO",
-        "descriptionWithLabel": "{label} - 查看任务",
-        "description": "查看当前任务"
+        "title": "工作区清单",
+        "descriptionWithLabel": "{label} — 本地清单，不是看板",
+        "description": "当前工作区的本地清单，不是看板"
+      },
+      "workspaceNotes": {
+        "title": "工作区笔记",
+        "descriptionWithLabel": "{label} — 编辑工作区笔记",
+        "description": "编辑工作区笔记"
+      },
+      "sidebar": {
+        "show": "显示左侧边栏",
+        "hide": "隐藏左侧边栏",
+        "description": "切换左侧边栏"
+      },
+      "refresh": {
+        "title": "刷新",
+        "description": "重新加载当前页面"
+      },
+      "wiki": {
+        "title": "打开 Wiki",
+        "description": "打开项目 Wiki 标签"
+      },
+      "browser": {
+        "title": "新建浏览器标签",
+        "description": "打开应用内浏览器标签"
+      },
+      "simulator": {
+        "title": "打开模拟器",
+        "description": "打开 iOS / Android 模拟器标签"
+      },
+      "gitHistory": {
+        "title": "打开提交图",
+        "description": "打开 Git 提交图标签"
+      },
+      "surfaces": {
+        "changes": {
+          "title": "打开更改",
+          "description": "打开 Git 更改标签"
+        },
+        "review": {
+          "title": "打开审查",
+          "description": "打开审查标签"
+        },
+        "run": {
+          "title": "打开运行",
+          "description": "打开运行标签"
+        },
+        "github": {
+          "title": "打开 GitHub",
+          "description": "打开 GitHub 中心标签"
+        },
+        "files": {
+          "title": "打开文件",
+          "description": "打开文件标签"
+        }
       },
       "commitPush": {
         "title": "提交并推送",
@@ -1135,24 +1225,24 @@
       },
       "launchpad": {
         "workspaces": {
-          "title": "Launchpad：工作区",
-          "description": "打开工作区"
+          "title": "工作区管理",
+          "description": "打开工作区管理页"
         },
         "skills": {
-          "title": "Launchpad：技能",
-          "description": "打开技能"
+          "title": "技能",
+          "description": "打开技能目录"
         },
         "terminals": {
-          "title": "Launchpad：终端",
-          "description": "打开终端"
+          "title": "终端",
+          "description": "打开终端页"
         },
         "agents": {
-          "title": "Launchpad：Agent",
-          "description": "打开 Agent"
+          "title": "Agent",
+          "description": "打开 Agent 页"
         },
         "automations": {
-          "title": "Launchpad：自动化",
-          "description": "打开自动化"
+          "title": "自动化",
+          "description": "打开自动化页"
         },
         "diskAnalyzer": {
           "title": "磁盘分析器",
@@ -1160,20 +1250,24 @@
         },
         "tokenUsage": {
           "title": "Token 用量",
-          "description": "查看模型 Token 使用和活动"
+          "description": "打开 Token 用量页，查看模型活动和费用"
         },
         "agentObserver": {
           "title": "Agent Observer",
           "description": "查看这台 Computer 上每个 Agent 以及它在做什么"
         },
         "ptDesign": {
-          "title": "Launchpad：Prototype Design",
-          "description": "打开独立的原型设计画板"
+          "title": "原型设计",
+          "description": "打开已保存的原型设计"
+        },
+        "agentSessions": {
+          "title": "智能体会话",
+          "description": "打开本机命令行智能体会话列表"
         }
       },
       "tasks": {
-        "title": "打开任务视图",
-        "description": "打开工作区与 GitHub Issue/PR 的任务视图"
+        "title": "打开任务看板",
+        "description": "打开工作区与 GitHub Issue/PR 的看板"
       }
     },
     "workspaceCreationOverlay": {
@@ -1200,6 +1294,7 @@
     },
     "centerStage": {
       "fallbackTerminalTitle": "终端",
+      "fallbackAgentChatTitle": "对话",
       "errors": {
         "failedToCloseTerminal": "关闭终端失败",
         "failedToClosePreviousTerminal": "关闭上一个终端失败",
@@ -1217,6 +1312,10 @@
         "closeTerminalTab": {
           "title": "关闭终端标签页？",
           "description": "{title} 中有正在运行的面板。关闭后会终止这些进程，并移除该标签页中的所有面板。"
+        },
+        "closeAgentChatTab": {
+          "title": "关闭 Agent Chat？",
+          "description": "{title} 仍在运行，或处于需要关注、需要授权状态。确定关闭此标签页吗？"
         }
       },
       "toasts": {
@@ -1245,15 +1344,36 @@
       },
       "notesTitle": "笔记"
     },
+    "centerExplorer": {
+      "hideFiles": "隐藏文件目录",
+      "showFiles": "显示文件目录",
+      "hideChanges": "隐藏变更列表",
+      "showChanges": "显示变更列表",
+      "selectFile": "从右侧目录打开文件",
+      "selectChange": "从右侧变更列表打开 diff",
+      "searchPlaceholder": "文件、文件夹...",
+      "searchHint": "输入以搜索文件",
+      "searching": "搜索中…",
+      "newFile": "新建文件",
+      "recents": "最近打开",
+      "graphHistory": "图形历史",
+      "recentCommits": "最近提交",
+      "pullRequests": "拉取请求",
+      "pullRequestNumber": "PR #{number}",
+      "noSearchResults": "没有匹配的文件或文件夹"
+    },
     "centerStageTabGroups": {
       "groups": {
         "terminal": "终端",
+        "chat": "对话",
         "file": "文件",
         "diff": "Diff",
         "review": "Review",
         "conflict": "冲突解决",
         "github": "GitHub",
         "browser": "浏览器",
+        "simulator": "模拟器",
+        "overview": "总览",
         "other": "标签页"
       },
       "browser": {
@@ -1687,19 +1807,21 @@
       },
       "launchpad": {
         "title": "Launchpad",
+        "hideDrop": "移动到这里关闭此功能",
         "items": {
           "workspaces": "工作区",
           "skills": "技能",
           "terminals": "终端",
-          "agents": "Agent",
+          "agents": "Agent Chat",
           "automations": "自动化",
           "canvas": "画布",
-          "ptDesign": "Prototype Design",
+          "ptDesign": "原型设计",
           "newWorkspace": "新建工作区",
           "diskAnalyzer": "磁盘分析器",
           "tokenUsage": "Token 用量",
-          "agentObserver": "Agent Observer",
-          "tasks": "任务"
+          "agentObserver": "Agent 观察器",
+          "tasks": "任务",
+          "agentSessions": "智能体会话"
         }
       },
       "projectItem": {
@@ -1890,6 +2012,8 @@
       },
       "changes": {
         "selectScope": "选择变更范围",
+        "loadingCommits": "正在加载提交…",
+        "noCommitsOnBranch": "当前分支没有提交",
         "noCommitChanges": "提交 {commit} 没有文件变更",
         "noChangesAgainst": "与 {compareRef} 相比没有变更",
         "noChangesDetected": "未检测到变更",
@@ -2061,9 +2185,9 @@
       "titleNamed": "运行 {id}",
       "close": "关闭运行详情",
       "standalone": {
-        "title": "独立会话",
-        "description": "在本地对话中继续这次运行。",
-        "close": "关闭会话"
+        "title": "独立聊天",
+        "description": "在本地聊天中继续这次运行。",
+        "close": "关闭聊天"
       }
     },
     "setup": {
@@ -2075,11 +2199,23 @@
         "create": "填写名称、环境和触发器，然后写下指令。",
         "edit": "更新这个自动化的配置、指令或记忆。"
       },
+      "executeAgent": {
+        "label": "执行 Agent",
+        "headless": "无界面启动",
+        "terminal": "终端 Agent",
+        "chat": "Agent 对话"
+      },
+      "tryRun": "试运行",
+      "picker": {
+        "loading": "正在加载 Agent",
+        "empty": "暂无可用 Agent",
+        "ready": "可用于非交互运行"
+      },
       "instructions": {
         "label": "指令"
       },
       "memory": {
-        "label": "Memories",
+        "label": "记忆",
         "description": "这个任务的持久记忆。每次运行都会把本地记忆文件路径告诉 Agent，让它可以读取，并在结束后自行追加或改写。"
       },
       "agentOptions": {
@@ -2118,7 +2254,8 @@
       "errors": {
         "githubFiltersRequired": "至少配置一个 GitHub 过滤条件。",
         "invalidSchedule": "计划无效。",
-        "saveFailed": "保存自动化失败。"
+        "saveFailed": "保存自动化失败。",
+        "tryRunFailed": "试运行启动失败。"
       },
       "loading": "正在加载自动化...",
       "placeholder": {
@@ -2363,6 +2500,8 @@
         "disableFailed": "停用失败",
         "cancelFailed": "取消失败",
         "continueInTerminalFailed": "在终端中继续失败",
+        "continueInChatFailed": "在聊天中继续失败",
+        "openSurfaceFailed": "打开运行失败",
         "saveMemoryFailed": "保存记忆失败"
       },
       "toasts": {
@@ -2376,10 +2515,11 @@
         "enabled": "自动化已启用",
         "disabled": "自动化已停用",
         "runCancelled": "运行已取消",
-        "openingStandaloneConversation": "正在打开独立会话",
+        "openingStandaloneChat": "正在打开独立聊天",
         "promptCopied": "续写提示词已复制到剪贴板。",
         "clipboardUnavailable": "无法使用剪贴板。提示词已保存到 {promptPath}",
-        "openingTerminal": "正在打开终端"
+        "openingTerminal": "正在打开终端",
+        "openingChat": "正在打开聊天"
       }
     },
     "githubTriggerSetup": {
@@ -2437,7 +2577,11 @@
       "title": "运行详情",
       "actions": {
         "cancel": "取消",
-        "continue": "继续"
+        "continue": "继续",
+        "continueInTerminal": "在终端中继续",
+        "continueInChat": "在聊天中继续",
+        "openTerminal": "打开终端",
+        "openChat": "打开聊天"
       },
       "inline": {
         "exitCode": "退出码 {code}"
@@ -2478,10 +2622,10 @@
       "title": "自动化历史",
       "tabs": {
         "runs": "运行",
-        "memory": "Memories"
+        "memory": "记忆"
       },
       "memory": {
-        "title": "Memories",
+        "title": "记忆",
         "description": "这份文件保存在本机。每次运行时 Agent 都可以读取并编辑它。"
       },
       "badges": {
@@ -2494,7 +2638,7 @@
         "back": "返回",
         "refresh": "刷新",
         "runNow": "立即运行",
-        "closeConversation": "关闭会话"
+        "closeChat": "关闭聊天"
       },
       "empty": {
         "unavailableTitle": "自动化不可用",
@@ -2526,6 +2670,17 @@
         "create": "创建",
         "update": "保存"
       }
+    },
+    "sidebar": {
+      "standaloneGroup": "独立自动化"
+    },
+    "chip": {
+      "label": "自动化"
+    },
+    "stalePrompt": {
+      "title": "{name} 已运行超过 1 小时",
+      "body": "请自行打开正在运行的终端或对话标签页来引导 Agent。关闭这条提示不会改变运行状态。",
+      "dismiss": "关闭"
     },
     "schedule": {
       "triggerOptions": {
@@ -2586,7 +2741,7 @@
         "connectComputerBeforeSetup": "设置 GitHub 触发器前，请先连接已配置 Relay 的计算机。",
         "connectComputerBeforeSync": "同步 GitHub 路由前，请先连接已配置 Relay 的计算机。",
         "connectComputerBeforeRemove": "移除 GitHub 路由前，请先连接已配置 Relay 的计算机。",
-        "accessTokenMissing": "缺少 Relay 访问令牌。"
+        "accessTokenMissing": "使用 GitHub 触发器前，请先登录。"
       }
     },
     "runHistory": {
@@ -2595,13 +2750,11 @@
       "unknownError": "未知错误"
     },
     "memory": {
-      "fileHint": "memory.md",
+      "expand": "放大",
+      "collapse": "缩小",
       "save": "保存",
       "saving": "保存中",
-      "saved": "已保存",
-      "editor": "编辑",
-      "preview": "预览",
-      "emptyPreview": "还没有可预览的内容。"
+      "saved": "已保存"
     }
   },
   "project": {
@@ -2684,7 +2837,8 @@
         "error": "错误",
         "deleted": "已删除",
         "archived": "已归档",
-        "untitled": "未命名"
+        "untitled": "未命名",
+        "undo": "撤销"
       },
       "accessToken": {
         "errors": {
@@ -2726,7 +2880,8 @@
           "workspaceSetupStartedTitle": "工作区初始化已开始",
           "openingWorkspace": "正在打开 {name}",
           "workspaceRemovedCleanupMayStillRun": "{name} 已移除，后台清理可能仍在继续。",
-          "workspaceArchived": "工作区已归档"
+          "workspaceArchived": "工作区已归档",
+          "workspaceArchivedNamed": "{name} 已归档"
         }
       },
       "subscriptions": {
@@ -2741,6 +2896,7 @@
       },
       "setupProgress": {
         "stepTitles": {
+          "creatingWorkspace": "正在创建工作区",
           "extractingInitialTodos": "正在提取初始 TODO",
           "runningSetupScript": "正在运行初始化脚本",
           "readyToBuild": "已准备开始构建"
@@ -2761,8 +2917,8 @@
         "errors": {
           "cannotReachLocalServer": "无法连接到这台电脑上的 Atmos Server。",
           "computerApiUnavailable": "此 Atmos Server 不提供 Computer API。",
-          "accessKeyTooShort": "访问密钥过短。",
-          "couldNotSaveAccessKey": "无法保存访问密钥。",
+          "accessKeyTooShort": "连接远程 Computer 前需要先登录。",
+          "couldNotSaveAccessKey": "无法在这台 Computer 上保存账号设备凭证。",
           "couldNotConnectComputer": "无法连接到该电脑。",
           "remoteRelayUnreachable": "无法通过 relay 访问远程电脑。",
           "remoteRelayUnreachableWithReason": "无法通过 relay 访问远程电脑：{message}"
@@ -2773,13 +2929,15 @@
   "AgentObserver": {
     "title": "Agent Observer",
     "subtitle": "这台 Computer 上正在运行和已经结束的 Agent 轮次",
-    "empty": "终端里的 hooks 触发后，Agent 会出现在这里。如果还没有安装，请到设置里安装 hooks。",
+    "empty": "终端 hooks 触发或 Agent Chat 开始一轮之后，Agent 会出现在这里。如果终端 Agent 还没有安装，请到设置里安装 hooks。",
     "disconnected": "请先连接一台 Computer，再查看 Agent Observer。",
     "relayout": "重新布局",
     "openPane": "打开面板",
+    "openChat": "打开对话",
     "expand": "展开",
     "fold": "折叠",
     "sideChat": "侧栏对话",
+    "chat": "对话",
     "turns": "{count} 轮",
     "children": "{count} 个子 Agent",
     "members": "{count} 个",
@@ -2788,6 +2946,42 @@
     "openObserver": "打开 Agent Observer"
   },
   "Agent": {
+    "workspace": {
+      "history": "聊天",
+      "newChat": "新建聊天",
+      "untitled": "未命名",
+      "noFolder": "无文件夹",
+      "emptyTitle": "开始聊天",
+      "emptyDescription": "发送一条消息即可开始这段聊天。",
+      "placeholder": "向 Agent 发送消息",
+      "queue": "排队",
+      "steer": "引导",
+      "stop": "停止",
+      "rename": "重命名聊天",
+      "permissionTitle": "需要授权",
+      "allow": "允许",
+      "reject": "拒绝",
+      "agent": "Agent",
+      "model": "模型",
+      "thinking": "Thinking",
+      "tool": "工具",
+      "queued": "已排队",
+      "edit": "编辑",
+      "pause": "暂停",
+      "resume": "继续",
+      "moveUp": "上移",
+      "delete": "删除",
+      "oneShotQueue": "仅这次排队",
+      "oneShotSteer": "仅这次引导",
+      "sendFailed": "消息发送失败",
+      "send": "发送",
+      "openStandalone": "在新窗口打开",
+      "permissionNoOptions": "该 agent 没有提供权限选项。",
+      "steerUnavailable": "引导不可用",
+      "plan": "计划",
+      "attach": "添加附件",
+      "attachmentsCount": "已添加 {count} 个附件"
+    },
     "attention": {
       "permissionNeeded": "需要授权",
       "taskComplete": "任务完成 — 待查看",
@@ -2827,18 +3021,75 @@
         "promptTitle": "提示词",
         "loadingDiff": "正在加载 diff...",
         "terminalLabel": "终端 {terminalId}",
-        "resultTitle": "结果"
+        "resultTitle": "结果",
+        "ranTitle": "已运行子代理 {name}",
+        "overlayAria": "子代理对话",
+        "closeAria": "关闭子代理"
       },
       "composer": {
         "placeholder": {
           "unavailable": "Agent 不可用",
-          "connected": "给当前连接的 Agent 发送消息...",
-          "selectAgent": "选择一个 Agent 后开始聊天..."
+          "selectAgent": "选择一个 Agent 后开始聊天...",
+          "createSession": "发送消息以创建会话",
+          "resumeSession": "发送消息以恢复会话",
+          "connected": "用 {agent} 做任何事"
         },
-        "noAgent": "没有 Agent"
+        "removeSlashCommand": "移除 {name}",
+        "noAgent": "没有 Agent",
+        "selectAgent": "Agent",
+        "model": "模型",
+        "searchModels": "搜索模型",
+        "searchAgents": "搜索 Agent",
+        "chooseModel": "选择模型",
+        "chooseMode": "模式",
+        "choosePermission": "权限",
+        "modelLocked": "当前会话中此 Agent 无法切换模型",
+        "agentLocked": "当前会话无法切换 Agent",
+        "modeLocked": "当前会话中此 Agent 无法切换模式",
+        "permissionLocked": "当前会话中此 Agent 无法切换权限",
+        "backToAgents": "Agent",
+        "loadingModels": "正在加载模型",
+        "loadModels": "加载",
+        "reloadModels": "重新加载模型",
+        "thinkingFaster": "Faster",
+        "thinkingSmarter": "Smarter",
+        "thinkingEffort": "Effort",
+        "fastMode": "Fast Tier",
+        "fastChip": "Fast",
+        "context": "上下文",
+        "favorites": "收藏",
+        "addFavorite": "加入收藏",
+        "removeFavorite": "取消收藏",
+        "noFavorites": "还没有收藏",
+        "queue": "排队",
+        "steer": "引导",
+        "oneShotQueue": "这次排队",
+        "oneShotSteer": "这次引导",
+        "steerUnavailable": "当前 Agent 不支持引导",
+        "planTitle": "当前计划",
+        "approvePlan": "批准",
+        "viewPlan": "查看计划",
+        "workingDirectory": {
+          "aria": "工作目录",
+          "thread": "会话",
+          "threadDescription": "直接通过会话聊天，不绑定任何目录",
+          "projects": "项目",
+          "searchPlaceholder": "搜索",
+          "searchWorkspaces": "搜索工作区",
+          "noResults": "没有结果"
+        },
+        "attachments": {
+          "removeNamed": "移除 {filename}",
+          "preview": "预览 {filename}",
+          "imageFallback": "图片",
+          "fileFallback": "文件"
+        }
       },
       "terminalBlock": {
-        "title": "运行脚本"
+        "title": "运行脚本",
+        "moreActions": "更多",
+        "copyCommand": "复制命令",
+        "copyResult": "复制结果"
       },
       "confirmDialogs": {
         "overwrite": {
@@ -2882,7 +3133,7 @@
           "tooltip": "更多操作"
         },
         "actions": {
-          "exportConversation": "导出会话",
+          "exportChat": "导出聊天",
           "openInWindow": "在窗口中打开",
           "returnToEmbedded": "回到嵌入聊天",
           "logoutAgent": "退出 Agent 登录"
@@ -2906,9 +3157,29 @@
           "hide": "隐藏过程",
           "show": "显示过程",
           "label": "过程",
-          "collapseAria": "折叠过程",
-          "collapseLabel": "折叠过程"
+          "collapseAria": "折叠",
+          "collapseLabel": "折叠"
+        },
+        "files": {
+          "changed": "{count} 个文件变更",
+          "showMore": "… 显示另外 {count} 个",
+          "showLess": "收起"
         }
+      },
+      "toolGroup": {
+        "join": "，",
+        "write": "{count} 次写入",
+        "command": "运行了 {count} 条命令",
+        "skill": "{count} 个技能",
+        "subagent": "{count} 个子代理",
+        "other": "{count} 个工具",
+        "fetch": "{count} 次摄取",
+        "search": "{count} 次搜索",
+        "read": "{count} 次读取",
+        "thinking": "思考中",
+        "working": "处理中",
+        "expandAria": "展开工具调用：{overview}",
+        "collapseAria": "收起工具调用：{overview}"
       },
       "manager": {
         "switchToAgentManager": "切换到 Agent 管理器",
@@ -2916,20 +3187,20 @@
         "sessionsTitle": "会话",
         "agentsTitle": "Agent",
         "sessionsDescription": "管理最近的聊天会话。",
-        "agentsDescription": "浏览已安装和可用的 Agent。",
+        "agentsDescription": "浏览原生、ACP 和自定义 Agent。",
         "searchPlaceholder": "搜索 Agent",
         "addCustomAgent": "添加自定义 Agent",
         "refreshRegistry": "刷新注册表",
         "tabs": {
-          "registry": "注册表",
-          "installed": "已安装",
+          "native": "原生",
+          "acp": "ACP",
           "custom": "自定义"
         },
         "empty": {
-          "registryQuery": "注册表中没有匹配“{query}”的 Agent",
-          "registryDefault": "未找到注册表 Agent",
-          "installedQuery": "没有匹配“{query}”的已安装 Agent",
-          "installedDefault": "没有已安装的 Agent"
+          "nativeQuery": "没有匹配“{query}”的原生 Agent",
+          "nativeDefault": "没有原生 Agent",
+          "acpQuery": "没有匹配“{query}”的 ACP Agent",
+          "acpDefault": "未找到 ACP Agent"
         },
         "customEmpty": {
           "title": "没有自定义 Agent",
@@ -3000,9 +3271,86 @@
         "editAria": "编辑排队消息",
         "deleteAria": "删除排队消息"
       },
+      "backgroundCommands": {
+        "title": "后台任务",
+        "running": "运行中",
+        "runningCount": "{count} 个运行中",
+        "emptyOutput": "暂无输出",
+        "commandAria": "查看后台命令输出"
+      },
+      "subagentTasks": {
+        "title": "子代理任务",
+        "runningCount": "{count} 个运行中",
+        "progressCount": "已完成 {completed}/{total}",
+        "allDone": "全部完成",
+        "rowAria": "查看 {label}",
+        "collapseAria": "折叠子代理任务",
+        "expandAria": "展开子代理任务",
+        "panelAria": "子代理任务",
+        "fallbackType": "子代理"
+      },
+      "grokGoal": {
+        "title": "目标",
+        "runningCount": "{count} 个运行中",
+        "idleCount": "空闲",
+        "rowAria": "查看 {label}",
+        "collapseAria": "折叠目标代理",
+        "expandAria": "展开目标代理",
+        "panelAria": "Grok 目标代理",
+        "fallbackType": "代理",
+        "implementer": "实现者",
+        "statusLine": "状态：{status}",
+        "tokensLine": "{tokens} token",
+        "elapsedLine": "耗时 {elapsed}",
+        "emptyVerify": "实现完成后再启动验证子代理。",
+        "emptySummarize": "验证完成后再启动总结子代理。",
+        "status": {
+          "active": "进行中",
+          "complete": "已完成",
+          "user_paused": "用户已暂停",
+          "back_off_paused": "退避暂停",
+          "no_progress_paused": "无进展暂停",
+          "infra_paused": "基础设施暂停",
+          "blocked": "已阻塞",
+          "failed": "失败",
+          "interrupted": "已中断",
+          "budget_limited": "预算受限"
+        },
+        "phaseLabel": {
+          "idle": "空闲",
+          "planning": "规划中",
+          "executing": "执行中",
+          "verifying": "验证中"
+        },
+        "phases": {
+          "planning": "计划",
+          "implementing": "实现",
+          "verifying": "验证",
+          "summarizing": "总结"
+        }
+      },
+      "grokWorkflow": {
+        "title": "研究",
+        "runningCount": "{count} 个运行中",
+        "idleCount": "空闲",
+        "rowAria": "查看 {label}",
+        "collapseAria": "折叠研究代理",
+        "expandAria": "展开研究代理",
+        "panelAria": "Grok 研究代理",
+        "fallbackType": "代理"
+      },
       "authDialog": {
         "title": "需要 Agent 认证",
-        "description": "继续之前请先完成 Agent 认证。"
+        "description": "继续之前请先完成 Agent 认证。",
+        "apiKeyLabel": "API 令牌",
+        "apiKeyPlaceholder": "粘贴 API 令牌",
+        "cliCommandLabel": "在终端中运行",
+        "copyCommand": "复制",
+        "copied": "已复制",
+        "signedIn": "我已登录",
+        "authenticated": "已认证",
+        "browserHint": "将打开浏览器完成登录。",
+        "openBrowser": "在浏览器中继续"
       },
       "linkSafety": {
         "closeTitle": "关闭预览",
@@ -3016,8 +3364,10 @@
         "triggerAria": "打开聊天历史",
         "triggerTooltip": "聊天历史",
         "title": "聊天历史",
-        "sourceLabel": "来源",
-        "sourceTooltip": "会话存储位置",
+        "searchAria": "搜索对话",
+        "searchPlaceholder": "搜索对话",
+        "clearSearchAria": "清除搜索",
+        "searchNoResults": "没有匹配的对话",
         "empty": "还没有历史记录",
         "newChat": "新建聊天",
         "loadMore": "加载更多"
@@ -3058,13 +3408,43 @@
           "total": "总计"
         }
       },
+      "contextWindow": {
+        "title": "上下文用量",
+        "summary": "{used} tokens / {size}（{percent}）",
+        "percentFull": "{percent} 已满",
+        "tokensSummary": "~{used} / {size} Tokens",
+        "toggleAria": "上下文用量 {percent}",
+        "closeAria": "关闭上下文用量",
+        "quotaSection": "Agent 配额用量",
+        "quotaSectionWithPlan": "Agent 配额用量 · {plan}",
+        "notDetected": "未检测到",
+        "quotaFetchFailed": "最近一次配额刷新失败"
+      },
       "managerCards": {
         "installedVersion": "已安装 v{version}",
         "status": {
           "available": "可用",
           "updateAvailable": "有可用更新",
           "installed": "已安装",
-          "custom": "自定义"
+          "usingInstalledCli": "使用已安装的 CLI",
+          "custom": "自定义",
+          "builtin": "内置",
+          "native": "原生"
+        },
+        "preferNative": {
+          "recommend": "原生 {name} 可用，能力支持更完整。建议在「原生」标签页启用它——你仍可继续安装此 ACP Agent。",
+          "alreadyEnabled": "原生 {name} 已启用，能力支持更完整。如有需要仍可使用 ACP。"
+        },
+        "native": {
+          "cliFound": "已找到命令行",
+          "cliMissing": "未在 PATH 中找到命令行",
+          "description": {
+            "claude": "用于 Chat 的官方 Claude Code 命令行。",
+            "codex": "用于 Chat 的官方 Codex 命令行。",
+            "opencode": "用于 Chat 的官方 OpenCode 命令行。",
+            "pi": "用于 Chat 的官方 Pi 命令行。",
+            "grok": "用于 Chat 的官方 Grok 命令行。"
+          }
         },
         "repositoryTitle": "仓库",
         "repositoryAria": "打开 {name} 的仓库",
@@ -3073,12 +3453,18 @@
           "install": "安装",
           "updating": "更新中...",
           "upgrade": "升级",
-          "removing": "移除中..."
+          "removing": "移除中...",
+          "enable": "启用",
+          "preloading": "正在预下载依赖..."
         },
         "emptyState": {
           "title": "未找到 Agent",
           "clearSearch": "清除搜索"
         }
+      },
+      "agentKind": {
+        "native": "原生",
+        "acp": "ACP"
       },
       "configOptionDropdown": {
         "searchPlaceholder": "搜索选项",
@@ -3144,23 +3530,103 @@
             "closeModal": "关闭面板"
           }
         },
+        "catalogError": {
+          "title": "无法加载 Agent 选项",
+          "auth": "Auth",
+          "authRequired": "这个 Agent 需要你先登录。"
+        },
         "loading": "加载中...",
         "restoringSession": "正在恢复会话...",
         "empty": {
           "resumedTitle": "会话已恢复",
-          "startTitle": "开始对话",
           "resumedDescription": "这个 Agent 已恢复会话上下文。发送一条消息以继续。",
           "startDescription": "在下方输入消息即可开始聊天"
         },
         "bottom": "底部",
+        "scrollBelow": {
+          "prefix": "下面有",
+          "unit": "",
+          "suffix": "条消息",
+          "aria": "下面有 {count} 条消息"
+        },
         "permissionRequested": "权限请求中",
+        "askUserTitle": "需要你回答",
+        "planApprovalTitle": "计划已就绪",
+        "continue": "继续",
+        "skip": "跳过",
+        "approve": "批准",
+        "keepPlanning": "继续规划",
+        "cancelPlan": "取消计划",
+        "viewPlan": "查看计划",
+        "viewTodos": "查看待办",
+        "planViewerEmpty": "暂无计划内容。",
+        "sessionOpRequested": "会话操作请求中",
+        "sessionOpFork": "分叉",
+        "sessionOpRewind": "回退",
         "deny": "拒绝",
         "allow": "允许",
         "copy": {
           "userAria": "复制用户消息",
-          "message": "复制消息",
-          "turnAria": "复制当前轮消息",
-          "turn": "复制当前轮"
+          "assistantAria": "复制助手消息",
+          "message": "复制消息"
+        },
+        "paste": {
+          "chip": "已粘贴：{count} 行",
+          "moreLines": "（还有 {count} 行…）"
+        },
+        "workedFor": "工作了 {duration}",
+        "thinking": "思考中...",
+        "thoughtFor": "思考了 {duration}",
+        "thoughtForFew": "思考了几秒",
+        "session": {
+          "creating": "正在创建会话...",
+          "created": "已创建会话",
+          "createdIn": "创建会话用了 {duration}",
+          "createFailed": "创建会话失败",
+          "resuming": "正在恢复会话...",
+          "resumed": "已恢复会话",
+          "resumedIn": "恢复会话用了 {duration}",
+          "resumeFailed": "恢复会话失败",
+          "switchedModel": "已切换模型为 {to}",
+          "switchedModelFrom": "已将模型从 {from} 切换为 {to}",
+          "switchedMode": "已切换模式为 {to}",
+          "switchedModeFrom": "已将模式从 {from} 切换为 {to}",
+          "switchedBoth": "已切换模型为 {model} · 模式为 {mode}",
+          "hints": {
+            "modelSwitchFailed": "当前会话无法切换模型，已恢复为原来的模型",
+            "modeSwitchFailed": "当前会话无法切换模式，已恢复为原来的模式",
+            "sessionOpFailed": "无法完成这次会话操作"
+          }
+        },
+        "pickers": {
+          "permissionMode": "权限模式",
+          "mode": "模式",
+          "model": "模型",
+          "thinking": "Thinking",
+          "thinkingLevels": {
+            "off": "Off",
+            "none": "None",
+            "minimal": "Minimal",
+            "low": "Low",
+            "medium": "Medium",
+            "high": "High",
+            "extraHigh": "Extra high",
+            "max": "Max",
+            "ultra": "Ultra",
+            "maximum": "Maximum"
+          },
+          "permissionModes": {
+            "yolo": "跳过审批",
+            "acceptEdits": "接受编辑",
+            "auto": "自动",
+            "askAlways": "总是询问"
+          },
+          "permissionModeDescriptions": {
+            "yolo": "跳过全部审批，包括文件编辑和网络访问。",
+            "acceptEdits": "自动批准文件编辑，其他操作仍会询问。",
+            "auto": "仅在检测到可能不安全的操作时询问。",
+            "askAlways": "编辑文件或使用网络前总是询问。"
+          }
         }
       },
       "selector": {
@@ -3182,7 +3648,9 @@
         "navigation": "消息导航",
         "assistantResponding": "助手正在回复...",
         "assistantPending": "正在等待助手回复。",
-        "jumpToMessage": "跳转到第 {turnNumber} 条消息：{userText}"
+        "jumpToMessage": "跳转到第 {messageNumber} 条消息：{userText}",
+        "previousMessage": "上一条消息",
+        "nextMessage": "下一条消息"
       },
       "toolOrSkill": {
         "file": "文件",
@@ -3192,6 +3660,37 @@
         "args": "参数",
         "parameters": "参数",
         "loadingDiff": "正在加载 diff..."
+      },
+      "toolResults": {
+        "file": "文件",
+        "loadingDiff": "正在加载 diff...",
+        "processing": "处理中...",
+        "noOutput": "没有输出",
+        "executionFailed": "执行失败",
+        "skillTitle": "技能：{name}",
+        "parameters": "参数",
+        "newFile": "新文件",
+        "created": "已创建",
+        "deletedFile": "已删除",
+        "deletedFileLabel": "已删除 {path}",
+        "searchingFor": "正在搜索 {query}",
+        "webSearch": "网络搜索",
+        "imageGen": "图片",
+        "imagePreview": "放大图片",
+        "planDocument": "计划",
+        "planBody": "查看计划",
+        "planTodos": "{count} 项待办",
+        "resultCount": "{count} 条结果",
+        "matchCount": "{count} 处匹配",
+        "sources": "来源",
+        "fetchUrl": "摄取 {host}",
+        "to": "到",
+        "lineChanges": "行变更",
+        "todo": {
+          "pending": "待办",
+          "inProgress": "进行中",
+          "completed": "已完成"
+        }
       },
       "hookStatus": {
         "permissionRequested": "权限请求中",
@@ -3233,26 +3732,19 @@
   },
   "ptDesign": {
     "agentIsland": {
-      "working": "Agent 正在操作原型板",
-      "idle": "原型板 Agent 活动",
-      "history": "原型板 Agent 活动历史",
+      "working": "Agent 正在操作原型设计",
+      "idle": "原型设计 Agent 活动",
+      "history": "原型设计 Agent 活动历史",
       "openScreenshotPreview": "打开 Agent 截图预览",
-      "screenshotPreviewAlt": "原型板截图"
+      "screenshotPreviewAlt": "原型设计截图"
     },
     "agentFeedLabels": {
       "readingBoard": "正在读取画板",
+      "readingPtx": "正在读取原型源码",
+      "applyingPtx": "正在应用原型源码",
       "capturingScreenshot": "正在截图",
-      "placingComponent": "正在放置组件",
-      "placingNamed": "正在放置 {type}",
-      "editingComponent": "正在编辑组件",
-      "deletingComponents": "正在删除组件",
-      "creatingFrame": "正在创建画板",
-      "editingFrame": "正在编辑画板",
-      "deletingFrame": "正在删除画板",
-      "arrangingLayout": "正在排列布局",
-      "batchingCommands": "正在批量更新画板",
-      "applyingDesign": "正在应用设计",
-      "exportingBoard": "正在导出画板",
+      "runningAction": "正在运行 {name}",
+      "runningBoardAction": "正在运行画板动作",
       "workingOnBoard": "正在操作画板"
     },
     "share": {
@@ -3276,6 +3768,40 @@
     },
     "guest": {
       "logoLink": "打开 Atmos 官网"
+    },
+    "mode": {
+      "edit": "编辑",
+      "interact": "交互"
+    },
+    "overview": {
+      "title": "原型设计",
+      "all": "全部",
+      "global": "全局",
+      "project": "项目",
+      "workspace": "工作区",
+      "pinned": "置顶",
+      "pin": "置顶",
+      "unpin": "取消置顶",
+      "rename": "重命名",
+      "delete": "删除",
+      "cancel": "取消",
+      "more": "更多",
+      "moveTo": "移动到",
+      "newDesign": "新建",
+      "back": "返回",
+      "untitled": "未命名",
+      "empty": "还没有已保存的设计",
+      "emptyFilter": "这个筛选下没有设计",
+      "emptySearch": "没有符合搜索的设计",
+      "searchPlaceholder": "搜索设计",
+      "filter": "筛选",
+      "viewBoard": "看板",
+      "viewList": "列表",
+      "filterScope": "范围",
+      "clearFilters": "清除筛选",
+      "toggleAll": "展开或收起全部范围",
+      "confirmDeleteTitle": "删除这个设计？",
+      "confirmDeleteDescription": "这会从这台电脑移除“{name}”。"
     }
   },
   "canvas": {
@@ -3876,29 +4402,19 @@
           },
           "toast": {
             "couldNotLoadComputersTitle": "无法加载设备列表",
-            "couldNotSaveAccessKeyTitle": "无法保存访问密钥",
-            "couldNotCreateAccessKeyTitle": "无法创建访问密钥",
             "couldNotConnectTitle": "无法连接远程设备"
           },
-          "notice": {
-            "savedOnConnectedComputer": "访问密钥已保存到当前连接的设备。",
-            "notConnectedCopyBeforeClose": "如果当前设备未连接，请在关闭前先复制访问密钥。"
-          },
-          "accessKeyTitle": "访问密钥",
-          "accessKeyDescription": "在每台你想连接的设备上使用同一个访问密钥。",
-          "accessKeyPlaceholder": "粘贴访问密钥",
-          "generateKey": "生成密钥",
-          "useKey": "使用密钥",
+          "signInTitle": "登录后连接",
+          "signInDescription": "使用 GitHub 或 Google 登录。Atmos 会用你的账号列出并连接 Computers。",
+          "signIn": "登录",
+          "signedInHint": "正在使用你的 Atmos 账号列出 Computers。",
+          "hubNotConfigured": "当前版本无法登录 Atmos 账号。请重新安装 Atmos 或检查更新。",
           "privateRelayTitle": "私有 Relay",
           "privateRelayDescription": "自托管部署时可选的 Relay 配置。",
           "relayUrlLabel": "Relay URL",
           "relayUrlPlaceholder": "wss://relay.example.com",
           "privateRelayTokenLabel": "私有 Relay Token",
           "privateRelayTokenPlaceholder": "粘贴 Relay Token",
-          "copyAccessKeyNow": "立即复制访问密钥",
-          "generatedKeySaved": "已生成并保存密钥",
-          "generatedKeyNotSaved": "已生成但未保存密钥",
-          "copyKey": "复制密钥",
           "availableComputersTitle": "可用设备",
           "availableComputersDescription": "选择一台已连接的设备继续。",
           "badge": {
@@ -3906,8 +4422,8 @@
             "connected": "已连接"
           },
           "reconnect": "重新连接",
-          "emptyWithKey": "这个访问密钥下还没有发现设备。",
-          "emptyWithoutKey": "先创建或粘贴访问密钥，才能看到远程设备。"
+          "emptySignedIn": "这个账号下还没有 Computer。",
+          "emptySignedOut": "登录后即可查看远程 Computer。"
         }
       },
       "advanced": {
@@ -3983,7 +4499,8 @@
         "github": "GitHub",
         "files": "文件",
         "searchingFiles": "正在搜索文件...",
-        "continueTyping": "继续输入"
+        "noFiles": "没有文件",
+        "noMatches": "没有匹配的文件"
       },
       "page": {
         "errors": {
@@ -4000,6 +4517,8 @@
       },
       "slashPopover": {
         "commands": "命令",
+        "agentCommands": "{agent} 命令",
+        "atmosCommands": "Atmos 内置命令",
         "skills": "技能",
         "loadingSkills": "正在加载技能...",
         "global": "全局",
@@ -4028,7 +4547,11 @@
         },
         "viewRunLogs": {
           "label": "View Run Logs",
-          "description": "将最新的 Atmos Run 日志路径附加给 Agent"
+          "description": "附加最近一次点 Run 的日志。如果 tab 不对，可以直接说明，或让 Agent 反问。"
+        },
+        "devicePreview": {
+          "label": "Simulator Device Use",
+          "description": "让 Agent 使用当前工作区的模拟器设备"
         }
       }
     },
@@ -4103,8 +4626,21 @@
           "breadcrumbsTooltip": "显示当前文件路径。",
           "lineHighlight": "当前行高亮",
           "lineHighlightTooltip": "高亮当前行。",
-          "gitIntegration": "Git 集成",
-          "gitIntegrationTooltip": "在边栏中显示 Git 变更。"
+          "gitIntegration": "Git 变更条",
+          "gitIntegrationTooltip": "在行号旁显示未提交的 Git 变更。",
+          "gitBlame": "Git 追溯",
+          "gitBlameTooltip": "显示当前行最后一次修改对应的提交。",
+          "expandToggles": "默认展开折叠块",
+          "expandTogglesTooltip": "在实时编辑和预览中默认展开 Markdown 折叠块。"
+        },
+        "gitBlame": {
+          "notCommittedYet": "尚未提交",
+          "filesChanged": "{count} 个文件变更",
+          "insertions": "+{count}",
+          "deletions": "-{count}",
+          "copyHash": "复制提交哈希",
+          "copied": "已复制",
+          "openCommit": "打开提交"
         }
       },
       "searchPanel": {
@@ -4728,8 +5264,7 @@
       "syncFailedTitle": "设置同步失败",
       "enabledFailed": "更新默认分屏 Agent 失败。",
       "agentFailed": "更新默认分屏 Agent 失败。",
-      "runConfigFailed": "更新默认分屏 Agent run config 失败。",
-      "newTabFailed": "更新新建 Terminal Tab 默认 Agent 失败。"
+      "runConfigFailed": "更新默认分屏 Agent run config 失败。"
     },
     "notificationStore": {
       "unknownError": "未知错误"
@@ -4977,6 +5512,27 @@
         "installed": "已安装",
         "notInstalled": "未安装",
         "webSession": "已登录网页会话",
+        "atmosApp": {
+          "title": "Atmos",
+          "description": "为 Atmos 授予辅助功能和屏幕录制。以 macOS 系统设置为准——Atmos 不能自己记下这些授权。",
+          "desktopOnly": "这些 macOS 权限仅在 Atmos 桌面端可用。",
+          "macosOnly": "这些权限仅在 macOS 上使用。",
+          "grant": "授予",
+          "done": "完成",
+          "refresh": "刷新",
+          "grantFailed": "无法打开权限授予面板。",
+          "statusFailed": "无法读取 macOS 权限状态。",
+          "items": {
+            "accessibility": {
+              "title": "辅助功能",
+              "description": "让 Atmos 在位于前台时用 ⌘⇧3–6 切换侧边栏项目；未安装 Desktop Use 时，也用于 Left⇧+Right⇧ AppShot。"
+            },
+            "screenRecording": {
+              "title": "屏幕录制",
+              "description": "未安装 Desktop Use 时，让 Atmos 为 AppShot 捕获最前窗口。"
+            }
+          }
+        },
         "desktopUse": {
           "title": "Desktop Use",
           "description": "为 Atmos Desktop Use 授予辅助功能和屏幕录制。以 macOS 系统设置为准——Atmos 不能自己记下这些授权。"
@@ -4989,7 +5545,6 @@
       "errors": {
         "saveBuiltInAgentTitle": "保存内置 Agent 失败",
         "updateYoloModeTitle": "更新 YOLO 模式失败",
-        "updateShowAgentNameTitle": "更新 Agent 名称显示失败",
         "restoreYoloModeTitle": "恢复 YOLO 模式失败",
         "updateAgentVisibilityTitle": "更新 Agent 可见性失败",
         "removeCustomAgentTitle": "移除自定义 Agent 失败",
@@ -5073,7 +5628,7 @@
               "label": "Agent 状态面板"
             },
             "acpAgentChatEntry": {
-              "label": "ACP Agent Chat 入口"
+              "label": "Agent Chat 入口"
             },
             "workspacesLaunchpad": {
               "label": "工作区（Launchpad）"
@@ -5085,7 +5640,7 @@
               "label": "Terminals（Launchpad）"
             },
             "acpAgentsLaunchpad": {
-              "label": "ACP Agents（Launchpad 和底部 ACP Chat）"
+              "label": "Agent Chat（Launchpad 和底部入口）"
             },
             "automationsLaunchpad": {
               "label": "Automations（Launchpad）"
@@ -5097,7 +5652,7 @@
               "label": "Canvas（Launchpad）"
             },
             "ptDesignLaunchpad": {
-              "label": "Prototype Design（Launchpad）"
+              "label": "原型设计（Launchpad）"
             },
             "newWorkspaceLaunchpad": {
               "label": "New Workspace（Launchpad）"
@@ -5136,7 +5691,7 @@
               "label": "行高亮"
             },
             "gitIntegration": {
-              "label": "Git 集成"
+              "label": "Git 变更条"
             },
             "diff": {
               "label": "Diff"
@@ -5175,8 +5730,8 @@
             "yoloMode": {
               "label": "YOLO 模式"
             },
-            "showAgentNameInTerminalTitles": {
-              "label": "在终端标题中显示 Agent 名称"
+            "toolCallDensity": {
+              "label": "工具调用密度"
             },
             "activityIndicators": {
               "label": "Agent 活动指示器"
@@ -5485,6 +6040,18 @@
             "browserCookies": {
               "label": "浏览器 Cookie",
               "description": "用于已登录网页用量的钥匙串访问"
+            },
+            "atmosAccessibility": {
+              "label": "Atmos 辅助功能",
+              "description": "Atmos.app 的侧边栏快捷键与 AppShot 回退"
+            },
+            "atmosScreenRecording": {
+              "label": "Atmos 屏幕录制",
+              "description": "Atmos.app 的 AppShot 捕获回退"
+            },
+            "desktopUsePermissions": {
+              "label": "Desktop Use 权限",
+              "description": "Atmos Desktop Use 的辅助功能与屏幕录制"
             }
           },
           "about": {
@@ -5671,8 +6238,16 @@
           "description": "高亮当前行和匹配的选区。"
         },
         "gitIntegration": {
-          "title": "Git 集成",
-          "description": "在编辑器中显示 Git 变更和 diff 信息。"
+          "title": "Git 变更条",
+          "description": "在行号旁显示未提交的 Git 变更。"
+        },
+        "gitBlame": {
+          "title": "Git 追溯",
+          "description": "显示当前行最后一次修改对应的提交。"
+        },
+        "expandToggles": {
+          "title": "默认展开折叠块",
+          "description": "在实时编辑和预览中默认展开 Markdown 折叠块。不会改写文件。"
         },
         "layout": {
           "title": "布局",
@@ -5736,7 +6311,8 @@
           "title": "Center Stage 标签页",
           "items": {
             "overview": "切换到总览标签页",
-            "tabByPosition": "按标签页位置切换"
+            "tabByPosition": "按标签页位置切换",
+            "focusAgentChat": "聚焦 Agent Chat 输入框"
           }
         },
         "terminal": {
@@ -5765,7 +6341,8 @@
           "title": "编辑器",
           "items": {
             "saveCurrentFile": "保存当前文件",
-            "findInEditor": "在编辑器中查找"
+            "findInEditor": "在编辑器中查找",
+            "toggleAgentInput": "展开 / 收起 Live AI 输入框"
           }
         },
         "submitCommit": {
@@ -5869,6 +6446,7 @@
         "testFailed": "测试失败",
         "unknownError": "未知错误",
         "browserPermissionRequired": "请在浏览器设置中允许通知。",
+        "desktopPermissionRequired": "Atmos 没有系统通知权限。请在系统设置 → 通知 中允许后再测试。",
         "desktopTestFailed": "桌面应用无法发送系统通知。"
       },
       "channels": {
@@ -5960,7 +6538,7 @@
       },
       "defaults": {
         "title": "默认设置",
-        "description": "启动参数，以及 Agent 名称在终端标题中的显示方式。"
+        "description": "代码 Agent 的启动参数。"
       },
       "yolo": {
         "title": "YOLO 模式",
@@ -5968,9 +6546,17 @@
         "restoreHint": "重新开启 YOLO，并清除所有内置 Agent 的自定义参数覆盖，使其恢复内置 YOLO 默认参数。",
         "restoreAll": "一键恢复全部 Agent 的 YOLO"
       },
-      "showAgentName": {
-        "title": "在终端标题中显示 Agent 名称",
-        "description": "终端或 Terminal tabs 检测到 Agent 时始终显示图标。关闭后可隐藏 Agent 品牌名称以节省空间——此时会话主题（OSC）会直接跟在图标后，用空格分隔，不再使用竖线。"
+      "toolCallDensity": {
+        "groupTitle": "对话显示",
+        "groupDescription": "控制 Agent Chat 如何展示工具活动。",
+        "title": "工具调用密度",
+        "description": "调整工具调用展示的详细程度。",
+        "compact": "精简",
+        "standard": "标准",
+        "detailed": "详细",
+        "sampleAnswer": "已更新辅助函数并补上测试。",
+        "sampleMidText": "辅助函数没问题，接下来补测试。",
+        "sampleThought": "先看辅助函数和测试文件。"
       },
       "activityIndicators": {
         "title": "Agent 活动指示器",
@@ -6027,7 +6613,11 @@
         "summaryDelayTitle": "总结前等待",
         "summaryDelayDescription": "task-complete 的 attention 在未被确认后，等待多久再触发总结。",
         "summaryAgentTitle": "总结 Agent",
-        "summaryAgentDescription": "无头总结使用的终端 Agent（与 Automations 相同）。可在 Agent 运行配置中设置模型。不选择则使用默认 LLM 提供方。"
+        "summaryAgentDescription": "无头总结使用的终端 Agent（与 Automations 相同）。可在 Agent 运行配置中设置模型。不选择则使用默认 LLM 提供方。",
+        "followupTitle": "忙碌时的后续输入",
+        "followupDescription": "当前轮次进行中时，Enter 会排队下一条，或把文本注入当前轮次。当前 agent 不支持引导时仍会排队。",
+        "followupQueue": "排队",
+        "followupSteer": "引导"
       }
     },
     "canvasSection": {
@@ -6081,7 +6671,7 @@
       },
       "footer": {
         "title": "页脚布局",
-        "description": "选择应用页脚中的可选状态条；连接异常会自动显示。若下方所有项目都关闭，且布局设置中也关闭了 ACP Chat，则页脚会隐藏。",
+        "description": "选择应用页脚中的可选状态条；连接异常会自动显示。若下方所有项目都关闭，且布局设置中也关闭了 Agent Chat，则页脚会隐藏。",
         "enabledCount": "已启用 {count} 项",
         "hidden": "已隐藏",
         "localServicesTitle": "本地服务",
@@ -6094,8 +6684,8 @@
         "agentStatusDescriptionPrefix": "在页脚显示正在运行的 Agent 会话。请先在",
         "codeAgent": "Code Agent",
         "agentStatusDescriptionSuffix": "中为每个 Agent 安装 hooks，以便 Atmos 接收其状态。",
-        "acpChatTitle": "ACP Agent Chat 入口",
-        "acpChatDescription": "启用后可从页脚打开浮动 ACP 聊天面板。开关在布局设置中控制，不在这里控制。",
+        "acpChatTitle": "Agent Chat 入口",
+        "acpChatDescription": "启用后可从页脚打开浮动 Agent Chat 面板。开关在布局设置中控制，不在这里控制。",
         "enabledInExperiments": "已在 Experiments 中启用",
         "disabledInExperiments": "已在 Experiments 中关闭",
         "openExperiments": "打开 Experiments",
@@ -6127,8 +6717,8 @@
             "description": "在 Launchpad 中监控并管理系统范围内的终端使用情况。"
           },
           "agents": {
-            "title": "ACP Agents",
-            "description": "启用 ACP Chat 面板，用于图形界面的 Agent 对话，并可从 Launchpad 和底部区域快速访问。"
+            "title": "Agent Chat",
+            "description": "启用 Agent Chat，用于图形界面的 Agent 聊天，并可从 Launchpad 和底部区域快速访问。"
           },
           "automations": {
             "title": "Automations",
@@ -6151,8 +6741,8 @@
             "description": "打开全屏 Canvas 运维画布。"
           },
           "ptDesign": {
-            "title": "Prototype Design",
-            "description": "从启动台打开独立的 Prototype Design 页面。工作区中心区域仍可再新建一块画布。"
+            "title": "原型设计",
+            "description": "从启动台打开已保存的原型设计列表。工作区中心标签栏仍可打开该工作区自己的画板。"
           },
           "newWorkspace": {
             "title": "New Workspace",
@@ -6161,6 +6751,10 @@
           "tasks": {
             "title": "任务",
             "description": "在同一任务视图中浏览 Atmos 工作区与 GitHub Issue/PR。"
+          },
+          "agentSessions": {
+            "title": "智能体会话",
+            "description": "浏览本机命令行智能体会话并预览记录，无需先转换。"
           }
         }
       }
@@ -6225,10 +6819,6 @@
         "agent": {
           "title": "Agent",
           "description": "默认分屏使用的 Agent 及可选 run config。更改会立即保存。"
-        },
-        "newTerminalTab": {
-          "title": "新建 Terminal Tab",
-          "description": "启用后，新建 Terminal tab 时也会在首个 pane 中启动该默认 Agent。"
         }
       },
       "richInputEnabled": {
@@ -6958,6 +7548,18 @@
         },
         "customRemoveFailed": {
           "title": "移除自定义 Agent 失败"
+        },
+        "customEnableFailed": {
+          "title": "更新 Agent 失败"
+        },
+        "nativeEnableFailed": {
+          "title": "更新原生 Agent 失败"
+        },
+        "registryEnableFailed": {
+          "title": "更新 Agent 失败"
+        },
+        "customPreloadFailed": {
+          "title": "预下载依赖失败"
         }
       }
     },
@@ -7039,28 +7641,37 @@
         "edit": "编辑",
         "move": "移动",
         "search": "搜索",
+        "grep": "Grep",
+        "listDirectory": "列出目录",
         "execute": "执行",
         "fetch": "获取",
         "delete": "删除",
         "think": "思考",
         "labelWithPath": "{tool}: {path}",
+        "labelWithPattern": "{tool}: {pattern}",
         "executeWithCommand": "执行：{command}",
-        "fetchWithUrl": "获取：{url}"
+        "fetchWithUrl": "获取：{url}",
+        "loadedTools": "已加载工具：{names}"
       },
       "activity": {
         "generating": "生成中",
         "reading": "读取中",
         "writing": "写入中",
         "searching": "搜索中",
-        "runningCommand": "运行命令中",
+        "executing": "执行中",
         "fetching": "获取中",
         "deleting": "删除中",
+        "moving": "移动中",
         "thinking": "思考中",
         "working": "处理中",
-        "streaming": "输出中"
+        "streaming": "输出中",
+        "creatingSession": "正在创建会话",
+        "resumingSession": "正在恢复会话",
+        "waitingForBackgroundAgent": "正在等待 1 个后台代理完成",
+        "waitingForBackgroundAgents": "正在等待 {count} 个后台代理完成"
       },
       "download": {
-        "defaultConversationName": "对话"
+        "defaultChatName": "聊天"
       }
     }
   },
@@ -8025,6 +8636,14 @@
       }
     }
   },
+  "x": {
+    "userCard": {
+      "loading": "正在加载主页…",
+      "following": "正在关注",
+      "followers": "关注者",
+      "joined": "{date} 加入"
+    }
+  },
   "codeReview": {
     "reviewContext": {
       "loadSessions": {
@@ -8302,6 +8921,10 @@
         "commit": "提交"
       },
       "resizeColumn": "调整{column}列宽"
+    },
+    "commitDiff": {
+      "loading": "正在加载提交...",
+      "filesChanged": "{count} 个文件变更"
     }
   },
   "localServices": {
@@ -8346,7 +8969,9 @@
       "chartSecondsAgo": "{count} 秒前",
       "chartMinutesAgo": "{count} 分钟前",
       "locateSession": "定位到此终端",
+      "locateChat": "定位到此对话",
       "sessionUnavailable": "此会话当前无法在终端中打开",
+      "chatUnavailable": "此对话当前无法打开",
       "sessionRowAria": "{action}，{name}，CPU {cpu}，内存 {memory}",
       "logicalCpus": "{count} 个逻辑 CPU",
       "coresInline": "{count} 核",
@@ -8396,6 +9021,9 @@
       "projectResources": "项目资源",
       "projectSessions": "项目会话",
       "sessions": "会话",
+      "agentSessions": "Agent 会话",
+      "kindTui": "TUI",
+      "kindChatUi": "对话 UI",
       "otherProcesses": "其他进程",
       "ungroupedProcesses": "未分组进程",
       "processes": "进程",
@@ -8453,12 +9081,34 @@
       "zoomIn": "放大",
       "close": "关闭"
     },
+    "imagePreviewOverlay": {
+      "menu": "图片操作",
+      "draw": "画笔",
+      "undo": "撤销",
+      "redo": "重做",
+      "saveAnnotation": "保存到输入框",
+      "saveAnnotationFailedTitle": "保存失败",
+      "saveAnnotationUnavailable": "无法保存标注后的图片。",
+      "zoomOut": "缩小",
+      "zoomIn": "放大",
+      "copyImage": "复制图片",
+      "downloadImage": "下载",
+      "close": "关闭",
+      "saveImage": "保存图片",
+      "copyFailedTitle": "复制失败",
+      "saveFailedTitle": "保存失败",
+      "clipboardUnavailable": "无法将图片复制到剪贴板。",
+      "saveUnavailable": "无法将图片保存到这台电脑。"
+    },
     "markdownRenderer": {
       "mermaid": {
         "title": "Mermaid",
-        "switchToAscii": "切换到 ASCII",
-        "switchToSvg": "切换到 SVG",
+        "modeGroup": "图表视图",
+        "modeAscii": "ASCII",
+        "modeSource": "源码",
+        "modePreview": "预览",
         "clickToEnlarge": "点击放大图表",
+        "rendering": "正在渲染...",
         "renderingAscii": "正在渲染 ASCII...",
         "errors": {
           "renderFailed": "Mermaid 渲染失败",
@@ -8476,6 +9126,9 @@
     "scriptTrustReview": {
       "empty": "该项目的脚本文件里没有任何命令。",
       "aboutToRun": "即将执行"
+    },
+    "linkPreview": {
+      "openInBrowser": "在浏览器中打开"
     }
   },
   "diff": {
@@ -8631,6 +9284,10 @@
         "loadTitle": "加载 diff 出错"
       },
       "empty": "没有可用的 diff"
+    },
+    "discussionDiff": {
+      "line": "第 {line} 行",
+      "lineRange": "第 {start}~{end} 行"
     },
     "codeView": {
       "actions": {
@@ -8811,6 +9468,91 @@
         "desktopOnly": "Appshot 仅在 Atmos Desktop 中可用。",
         "desktopRequired": "Appshot 需要 Atmos Desktop。"
       }
+    }
+  },
+  "agentSessions": {
+    "title": "智能体会话",
+    "description": "浏览本机命令行智能体会话，并在 Chat 或 TUI 中继续。",
+    "emptyList": "没有符合当前筛选条件的宿主会话。",
+    "emptyListTitle": "没有会话",
+    "emptyHomes": "未找到可用的命令行智能体主目录。",
+    "emptyHomesTitle": "还没有命令行会话",
+    "emptySearchTitle": "没有匹配的会话",
+    "errorTitle": "无法加载会话",
+    "retry": "重试",
+    "clearSearch": "清除搜索",
+    "emptyPreview": "选择一个会话以预览记录。",
+    "emptyTranscript": "此会话没有可预览的消息。",
+    "emptySearch": "没有符合搜索条件的会话。",
+    "loading": "正在加载会话",
+    "loadingTranscript": "正在加载记录",
+    "refresh": "刷新",
+    "searchPlaceholder": "搜索标题和消息",
+    "indexing": "正在索引消息",
+    "indexingProgress": "正在索引 {percent}%",
+    "backToList": "返回列表",
+    "close": "关闭",
+    "unknownProject": "未知项目",
+    "atmosChatTag": "Atmos Chat",
+    "resume": "继续",
+    "resumeChat": "Chat",
+    "resumeTui": "TUI",
+    "resumeChatFailed": "无法在 Chat 中继续",
+    "resumeTuiFailed": "无法在 TUI 中继续",
+    "resumeTuiNoWorkspace": "没有匹配的工作区。请复制命令并在终端中运行。",
+    "previewError": "无法加载此记录。",
+    "error": "无法加载会话。",
+    "tuiCommand": "继续命令",
+    "tuiCommandHint": "在 {cwd} 的终端中运行",
+    "copyCommand": "复制命令",
+    "copied": "已复制",
+    "copyFailed": "无法复制命令",
+    "listAria": "宿主会话",
+    "messageCount": "{count} 条消息",
+    "tabs": {
+      "agent": "智能体",
+      "project": "项目"
+    },
+    "filter": {
+      "trigger": "筛选",
+      "section": "筛选",
+      "groupBy": "分组",
+      "groupAll": "全部",
+      "agent": "智能体",
+      "project": "项目",
+      "allProjects": "全部项目",
+      "allAgents": "全部智能体",
+      "date": "时间",
+      "quickRange": "快捷范围",
+      "allTime": "全部时间",
+      "placeholder": "选择日期范围",
+      "cancel": "取消",
+      "apply": "应用",
+      "startDate": "开始日期",
+      "endDate": "结束日期",
+      "daysSelected": "{count} 天",
+      "quick": {
+        "today": "今天",
+        "yesterday": "昨天",
+        "lastWeek": "上周",
+        "thisMonth": "本月",
+        "lastMonth": "上月",
+        "thisYear": "今年",
+        "lastYear": "去年"
+      },
+      "clear": "清除筛选",
+      "reset": "重置"
+    },
+    "sort": {
+      "trigger": "排序",
+      "section": "排序",
+      "created": "创建时间",
+      "modified": "修改时间",
+      "fileSize": "文件大小",
+      "order": "顺序",
+      "ascending": "升序",
+      "descending": "倒序",
+      "reset": "重置"
     }
   },
   "skills": {
@@ -9396,7 +10138,8 @@
         "actions": {
           "showHiddenFiles": "显示隐藏文件",
           "hideHiddenFiles": "隐藏隐藏的文件",
-          "refreshFiles": "刷新文件"
+          "refreshFiles": "刷新文件",
+          "locateCurrentFile": "定位当前文件"
         }
       },
       "fileTree": {
@@ -9462,9 +10205,9 @@
         "savedForSession": "已为当前会话保存",
         "couldNotSaveLocally": "无法保存到这台电脑。请确保 Atmos 正在本地运行。",
         "signInRequired": "需要登录账号",
-        "signInBeforeRegistering": "注册这台 Computer 前，请先在 设置 → 账号 登录。",
-        "signInBeforeConnecting": "连接另一台 Computer 前，请先在 设置 → 账号 登录。",
-        "signInBeforeRemoving": "移除 Computer 前，请先在 设置 → 账号 登录。",
+        "signInBeforeRegistering": "注册这台 Computer 前，请先登录。",
+        "signInBeforeConnecting": "连接另一台 Computer 前，请先登录。",
+        "signInBeforeRemoving": "移除 Computer 前，请先登录。",
         "remoteConnectionRestored": "远程连接已恢复",
         "computerAvailable": "这台 Computer 已可用于 Atmos Computer 连接。",
         "couldNotConnectRelay": "无法连接 Relay",
@@ -9490,7 +10233,7 @@
       "panels": {
         "accountRequired": {
           "title": "需要登录账号",
-          "description": "请先在 设置 → 账号 登录。Atmos 会为本机自动签发设备凭证，无需复制或粘贴。",
+          "description": "用 GitHub 或 Google 登录。Atmos 会为本机自动签发设备凭证，无需复制或粘贴。",
           "syncing": "正在同步账号设备…"
         },
         "mobilePair": {
@@ -9529,13 +10272,13 @@
           "useLocalTitle": "使用这台 Computer 本地运行",
           "useLocalDescription": "从当前远程 Computer 切回本机 Desktop runtime。",
           "useLocalButton": "本地使用",
-          "signInPrompt": "请先在 设置 → 账号 登录，再注册这台 Computer。"
+          "signInPrompt": "请先登录，再注册这台 Computer。"
         },
         "myComputers": {
           "title": "我的 Computers",
           "description": "与你账户关联的 Computers。",
           "refresh": "刷新",
-          "signInPrompt": "请先在 设置 → 账号 登录，才能查看你的 Computers。",
+          "signInPrompt": "请先登录，才能查看你的 Computers。",
           "empty": "还没有任何 Computer。先注册这台 Computer，或在同一账号下添加另一台远程 Computer。",
           "connected": "已连接",
           "fallbackName": "Computer",
@@ -9642,7 +10385,7 @@
         "copyFailed": "复制失败"
       },
       "description": {
-        "useAccessKeyFirst": "请先在 设置 → 账号 登录，以便本机拥有 Hub 设备身份。",
+        "useAccessKeyFirst": "请先登录，以便本机拥有 Hub 设备身份。",
         "preparing": "正在准备注册码…",
         "expired": "注册码已过期，请重新生成并复制新的启动命令。",
         "generateAndCopy": "生成并复制启动命令，将这台远程 Computer 关联到你的账号。",
@@ -9655,7 +10398,7 @@
       "showQr": "显示二维码",
       "refresh": "刷新代码",
       "expiresIn": "{seconds} 秒后过期",
-      "signInFirst": "请先在 设置 → 账号 登录。",
+      "signInFirst": "请先登录。",
       "hubNotConfigured": "Hub 未配置。",
       "createFailed": "无法创建配对码"
     }
@@ -9750,6 +10493,7 @@
     "managementView": {
       "sessionContext": {
         "all": "全部",
+        "thread": "会话",
         "project": "项目：{name}"
       },
       "workspaceSelector": {
@@ -9757,7 +10501,7 @@
         "one": "1 个工作区",
         "many": "{count} 个工作区"
       },
-      "searchPlaceholder": "搜索 ACP 会话...",
+      "searchPlaceholder": "搜索对话...",
       "workspacePopover": {
         "title": "工作区",
         "all": "全部",
@@ -9770,22 +10514,20 @@
       },
       "agentSelect": {
         "loading": "正在加载 Agent...",
-        "placeholder": "选择 ACP Agent"
+        "placeholder": "选择 Agent",
+        "all": "全部 Agent"
       },
       "refresh": "刷新",
       "refreshAriaLabel": "刷新会话",
-      "headerTitle": "ACP 会话",
-      "warnings": {
-        "truncatedList": "这个 Agent 返回了未分页的会话列表。Atmos 当前只显示前 {limit} 项。"
-      },
+      "headerTitle": "会话",
       "emptyState": {
-        "genericAgent": "这个 Agent",
-        "unavailableTitle": "ACP 会话列表不可用",
-        "noSessionsTitle": "没有 ACP 会话",
-        "selectAgentTitle": "选择一个 ACP Agent",
-        "noSearchResults": "没有会话匹配当前搜索条件。",
-        "installedAgentsHint": "已安装的 Agent 会显示在这里。",
-        "unsupportedDescription": "{agentName} 未通过 ACP 暴露会话历史。"
+        "noSessionsTitle": "还没有对话",
+        "noSearchResultsTitle": "没有匹配的对话",
+        "noAgentSessionsTitle": "这个 Agent 还没有对话",
+        "noSearchResults": "没有对话匹配当前搜索条件。",
+        "noAgentSessionsDescription": "{agentName} 还没有已保存的对话。",
+        "installedAgentsHint": "请从加号菜单或新建工作区开始对话。",
+        "loadFailed": "无法加载对话历史。"
       },
       "timeGroups": {
         "today": "今天",
@@ -9796,8 +10538,10 @@
         "older": "更早"
       },
       "sessionCard": {
-        "fallbackTitle": "ACP 会话 {sessionId}",
-        "noWorkingDirectory": "没有工作目录"
+        "fallbackTitle": "对话 {sessionId}",
+        "noWorkingDirectory": "没有工作目录",
+        "quickChat": "快捷对话",
+        "normalChat": "普通对话"
       },
       "loadMore": "加载更多",
       "loadingMore": "加载中..."
@@ -9837,6 +10581,10 @@
         "tooltipEnabled": "添加：{names}",
         "tooltipDisabled": "删除：{names}"
       },
+      "paste": {
+        "chip": "已粘贴：{count} 行",
+        "moreLines": "（还有 {count} 行…）"
+      },
       "selectionContext": {
         "copy": "复制",
         "addAsContext": "添加为上下文",
@@ -9856,7 +10604,11 @@
       },
       "viewRunLogsCommand": {
         "label": "View Run Logs",
-        "description": "将最新的 Atmos Run 日志路径附加给 Agent"
+        "description": "附加最近一次点 Run 的日志。如果 tab 不对，可以直接说明，或让 Agent 反问。"
+      },
+      "devicePreviewCommand": {
+        "label": "Simulator Device Use",
+        "description": "让 Agent 使用当前工作区的模拟器设备"
       }
     },
     "sideChat": {
@@ -10698,35 +11450,94 @@
   "features": {
     "simulator": {
       "tab": "模拟器",
-      "iframeTitle": "iOS 模拟器预览",
-      "downloading": "正在下载模拟器助手… {percent}%",
-      "starting": "正在启动模拟器预览…",
-      "checking": "正在检查模拟器…",
+      "iframeTitle": "设备预览",
+      "agentCopy": "Agent",
+      "agentCopyTooltip": "复制 Prompt 给 Agent，用于操作这台设备",
+      "agentCopied": "已复制",
+      "downloading": "正在下载设备预览助手… {percent}%",
+      "starting": "正在启动设备预览…",
+      "checking": "正在检查设备…",
+      "choosePlatform": {
+        "title": "选择平台",
+        "body": "启动 iOS 模拟器或 Android 模拟器。同一个工作区一次只能占用一台设备。"
+      },
       "actions": {
         "needDesktop": "获取 Atmos Desktop",
         "installXcode": "安装 Xcode",
         "openXcode": "安装 iOS 运行时",
+        "installAndroidSdk": "安装 Android Studio",
+        "createAvd": "创建 Android 虚拟设备",
         "retry": "重试",
         "start": "启动",
+        "startIos": "启动 iOS",
+        "startAndroid": "启动 Android",
         "stop": "停止",
-        "cancel": "取消"
+        "cancel": "取消",
+        "addDevice": "添加设备",
+        "boot": "开机",
+        "shutdown": "关机",
+        "delete": "删除",
+        "preview": "预览",
+        "clear": "清除"
       },
+      "inventory": {
+        "title": "设备",
+        "empty": "这台 Mac 上还没有模拟器或虚拟设备。",
+        "collapse": "隐藏设备列表",
+        "expand": "显示设备列表",
+        "claimedThis": "当前工作区",
+        "claimedOther": "其他工作区正在使用",
+        "unclaimed": "未被占用",
+        "stateBooted": "已开机",
+        "stateShutdown": "已关机",
+        "stateBooting": "正在开机",
+        "stateShuttingDown": "正在关机",
+        "stateUnavailable": "不可用"
+      },
+      "createDialog": {
+        "title": "添加设备",
+        "description": "从这台 Mac 上已安装的类型创建模拟器或 AVD。创建设备后保持关机，直到你手动开机。",
+        "platform": "平台",
+        "runtime": "运行时",
+        "deviceType": "机型",
+        "profile": "设备配置",
+        "systemImage": "系统镜像",
+        "name": "名称",
+        "nameOptional": "可选",
+        "androidNameHint": "仅可使用字母、数字、点、下划线和连字符。",
+        "androidNameInvalid": "Android 名称只能使用字母、数字、点、下划线和连字符。",
+        "missingRuntime": "请先在 Xcode 中安装 iOS 运行时，然后再试。",
+        "missingImage": "请先在 SDK Manager 中安装 Android 系统镜像，然后再试。",
+        "missingType": "当前运行时没有可用机型。",
+        "confirm": "创建"
+      },
+      "appearance": "外观",
+      "light": "浅色",
+      "dark": "深色",
+      "camera": "相机",
+      "front": "前置",
+      "back": "后置",
+      "cameraHelper": "请在应用中重新打开相机，才能看到新的图片。",
+      "cameraFileInvalid": "请选择小于 32 MiB 的 PNG 文件。",
+      "choosePng": "选择 PNG",
+      "platformIos": "iOS",
+      "platformAndroid": "Android",
       "stopConfirm": {
         "title": "停止模拟器预览？",
         "body": "这会结束后台助手并释放这台设备。"
       },
       "reasons": {
         "ok": {
-          "title": "模拟器未启动",
-          "body": "需要时再启动预览。同一个工作区一次只能运行一个模拟器。"
+          "title": "设备预览未启动",
+          "body": "需要时再启动预览。同一个工作区一次只能占用一台设备。"
         },
         "not_desktop": {
-          "title": "需要本机 Mac 上的服务",
-          "body": "iOS 模拟器跑在托管这份 Atmos Server 的那台机器上。请连到装了 Xcode 的 Mac，或在那台 Mac 上启动 just dev-api。"
+          "title": "需要这台 Mac",
+          "body": "设备预览是网页，助手跑在 127.0.0.1。本机 Atmos Server 可以拉起真正的模拟器。请连到这台 Mac 上的 Computer，然后重试。经过中继的远程 Computer 无法在这个浏览器里显示预览。"
         },
         "unsupported_platform": {
           "title": "需要 Mac",
-          "body": "iOS 模拟器仅在安装了 Xcode 的 macOS 上可用。"
+          "body": "设备预览仅在 Apple 芯片的 macOS 上可用。"
         },
         "unsupported_arch": {
           "title": "需要 Apple 芯片",
@@ -10750,7 +11561,27 @@
         },
         "no_device": {
           "title": "没有模拟器机型",
-          "body": "请在 Xcode 中创建一个 iPhone 模拟器，然后重试。"
+          "body": "请在 Xcode 中创建一个 iPhone 模拟器。如果只用 Android，请改为创建一个 AVD。"
+        },
+        "android_sdk_missing": {
+          "title": "未安装 Android SDK",
+          "body": "请安装 Android Studio 或 SDK，以便 Atmos 找到 adb 和模拟器。"
+        },
+        "adb_missing": {
+          "title": "缺少 adb",
+          "body": "请安装 Android platform-tools，并确保 adb 在 PATH 中。"
+        },
+        "emulator_missing": {
+          "title": "缺少 Android 模拟器",
+          "body": "请在 SDK Manager 中安装 Android Emulator，然后重试。"
+        },
+        "no_avd": {
+          "title": "没有 Android 虚拟设备",
+          "body": "请在 Android Studio 中创建一个 AVD，然后启动预览。"
+        },
+        "device_already_claimed": {
+          "title": "这台设备正在使用中",
+          "body": "另一个工作区已经在预览这台设备。请启动另一台模拟器或 AVD，或等它被释放。"
         },
         "helper_missing": {
           "title": "尚未安装助手",
@@ -10766,9 +11597,161 @@
         },
         "start_failed": {
           "title": "无法启动预览",
-          "body": "助手没有启动。请确认 Xcode 与模拟器工具可用后重试。"
+          "body": "助手没有启动。请确认 Xcode 或 Android SDK 可用后重试。"
+        },
+        "no_claim": {
+          "title": "没有正在预览的设备",
+          "body": "请先从设备列表启动预览，然后再试。"
+        },
+        "device_not_booted": {
+          "title": "设备尚未开机",
+          "body": "请先开机模拟器或虚拟设备，然后再试。"
+        },
+        "runtime_missing": {
+          "title": "未安装该运行时",
+          "body": "请在 Xcode 设置 → Platforms 中安装对应的 iOS 运行时，然后再试。"
+        },
+        "system_image_missing": {
+          "title": "未安装该系统镜像",
+          "body": "请在 SDK Manager 中安装对应的 Android 系统镜像，然后再试。"
+        },
+        "device_type_unknown": {
+          "title": "未知机型",
+          "body": "请从已安装的目录中选择机型。"
+        },
+        "create_failed": {
+          "title": "无法创建设备",
+          "body": "请检查名称和目录选项，然后再试。"
+        },
+        "boot_failed": {
+          "title": "无法开机",
+          "body": "模拟器或虚拟设备没有启动。请重试，或检查 Xcode 与 Android SDK。"
+        },
+        "shutdown_failed": {
+          "title": "无法关机",
+          "body": "设备没有关机。请稍后再试。"
+        },
+        "delete_failed": {
+          "title": "无法删除",
+          "body": "无法移除这台设备。请先关机，然后再试。"
+        },
+        "camera_unavailable": {
+          "title": "相机不可用",
+          "body": "这台模拟器不是由 Atmos 以相机文件方式启动的。请先关机，再从 Atmos 开机。"
+        },
+        "appearance_unavailable": {
+          "title": "无法更改外观",
+          "body": "设备无法切换浅色或深色。请确认它已经开机。"
+        },
+        "unsupported_on_platform": {
+          "title": "当前平台不支持",
+          "body": "相机注入仅适用于 Android。"
         }
       }
     }
+  },
+  "mdLive": {
+    "untitled": "未命名",
+    "live": "实时",
+    "source": "源码",
+    "newNote": "新建笔记",
+    "saveAs": "另存为",
+    "save": "保存",
+    "directory": "目录",
+    "fileName": "文件名",
+    "cancel": "取消",
+    "copyPrompt": "复制提示",
+    "copied": "已复制",
+    "placeholder": "让 Agent 改写或生成…",
+    "run": "运行",
+    "accept": "接受",
+    "reject": "拒绝",
+    "acceptAll": "全部接受",
+    "rejectAll": "全部拒绝",
+    "open": "打开",
+    "agentDidNotReturnEdit": "Agent 没有返回文档编辑。",
+    "runNeedsLive": "请切换到实时模式再运行。",
+    "runNeedsTerminal": "无法启动后台终端。",
+    "fileExists": "已有同名文件。请使用建议的名称。",
+    "saveAsFailed": "无法保存笔记。",
+    "slashFilter": "筛选...",
+    "slashGroupHeading": "标题",
+    "slashGroupBasic": "基础",
+    "slashGroupAdvanced": "高级",
+    "slashGroupMedia": "媒体",
+    "slashGroupReference": "引用",
+    "slashGroupOthers": "其他",
+    "slashHeading1": "标题 1",
+    "slashHeading2": "标题 2",
+    "slashHeading3": "标题 3",
+    "slashHeading4": "标题 4",
+    "slashHeading5": "标题 5",
+    "slashHeading6": "标题 6",
+    "slashBulletList": "无序列表",
+    "slashOrderedList": "有序列表",
+    "slashTaskList": "待办列表",
+    "slashToggle": "折叠块",
+    "placeholderEmptyLine": "输入文字，或输入 / 使用命令",
+    "slashQuote": "引用",
+    "slashCode": "代码块",
+    "slashInlineCode": "行内代码",
+    "slashTable": "表格",
+    "slashDivider": "分隔线",
+    "slashImage": "图片",
+    "slashVideo": "视频",
+    "slashAudio": "音频",
+    "slashFile": "文件",
+    "slashEmoji": "Emoji",
+    "slashEmojiLoading": "加载中...",
+    "slashNoResults": "没有匹配项",
+    "slashGithub": "GitHub",
+    "slashGithubIssue": "GitHub Issue",
+    "slashGithubPr": "GitHub PR",
+    "slashEmbedFile": "项目文件",
+    "slashEmbedFolder": "文件夹",
+    "slashEmbedPath": "文件",
+    "slashGithubUrl": "粘贴 GitHub 链接，或输入关键词搜索",
+    "slashFilePath": "输入以筛选文件和文件夹",
+    "slashInsert": "插入",
+    "embedStateOpen": "开放",
+    "embedStateClosed": "已关闭",
+    "embedStateDraft": "草稿",
+    "embedStateMerged": "已合并",
+    "toolbarGroupOperate": "操作",
+    "toolbarGroupConvert": "转换",
+    "toolbarParagraph": "段落",
+    "toolbarHeading": "标题",
+    "toolbarList": "列表",
+    "toolbarQuote": "引用",
+    "toolbarCode": "代码",
+    "toolbarBulletList": "无序列表",
+    "toolbarOrderedList": "有序列表",
+    "toolbarTaskList": "待办列表",
+    "toolbarAi": "问 AI",
+    "toolbarInlineCode": "行内代码",
+    "toolbarBold": "加粗",
+    "toolbarItalic": "斜体",
+    "toolbarStrikethrough": "删除线",
+    "toolbarCopy": "复制",
+    "toolbarCopyPrompt": "复制提示",
+    "toolbarAsk": "提问",
+    "toolbarRewrite": "改写",
+    "toolbarSummarize": "总结",
+    "rewriteInstruction": "改写选中的 Markdown。",
+    "summarizeInstruction": "总结选中的 Markdown。",
+    "githubIssue": "Issue #{number}",
+    "githubPullRequest": "Pull request #{number}",
+    "codeLanguagePlain": "纯文本",
+    "codeLanguageSelect": "选择语言",
+    "tableRowMenu": "行操作",
+    "tableColMenu": "列操作",
+    "tableAddRowAbove": "上面添加一行",
+    "tableAddRowBelow": "下面添加一行",
+    "tableDeleteRow": "删除这一行",
+    "tableAddColLeft": "左边添加一列",
+    "tableAddColRight": "右边添加一列",
+    "tableDeleteCol": "删除这一列",
+    "tableAddRow": "添加一行",
+    "tableAddCol": "添加一列"
   }
 }

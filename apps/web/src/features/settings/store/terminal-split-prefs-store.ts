@@ -29,7 +29,6 @@ interface TerminalSplitPrefsState extends TerminalSplitPrefs {
   setEnabled: (enabled: boolean) => Promise<void>;
   setAgentId: (agentId: string) => Promise<void>;
   setRunConfig: (agentId: string, runConfig: TerminalAgentRunConfigInput | null) => Promise<void>;
-  setApplyToNewTerminalTab: (enabled: boolean) => Promise<void>;
 }
 
 type TerminalSplitPrefsStoreTranslator = ReturnType<typeof useTranslations>;
@@ -39,7 +38,6 @@ let loadRequestToken = 0;
 let enabledRequestToken = 0;
 let agentIdRequestToken = 0;
 let runConfigRequestToken = 0;
-let applyToNewTabRequestToken = 0;
 /** Bumped on connection change so in-flight hydrates ignore stale writes. */
 let hydrateGeneration = 0;
 let lastPersisted: TerminalSplitPrefs = { ...DEFAULT_TERMINAL_SPLIT_PREFS };
@@ -64,8 +62,7 @@ function storeText(
     | 'syncFailedTitle'
     | 'enabledFailed'
     | 'agentFailed'
-    | 'runConfigFailed'
-    | 'newTabFailed',
+    | 'runConfigFailed',
 ): string {
   if (terminalSplitPrefsTranslator) {
     return terminalSplitPrefsTranslator(key);
@@ -80,8 +77,6 @@ function storeText(
       return 'Failed to update the default split agent.';
     case 'runConfigFailed':
       return 'Failed to update the default split agent run config.';
-    case 'newTabFailed':
-      return 'Failed to update New Terminal Tab default agent.';
   }
 }
 
@@ -130,7 +125,6 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
     enabledRequestToken += 1;
     agentIdRequestToken += 1;
     runConfigRequestToken += 1;
-    applyToNewTabRequestToken += 1;
     hydrateGeneration += 1;
     inFlightLoad = null;
     lastPersisted = { ...DEFAULT_TERMINAL_SPLIT_PREFS };
@@ -196,18 +190,15 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
     const expectedScope = getComputerQueryScope();
     const current = get();
     const nextAgentId = enabled ? current.agentId ?? defaultAgentId() : current.agentId;
-    const nextApplyToNewTab = enabled ? current.applyToNewTerminalTab : false;
     const snapshot: TerminalSplitPrefs = {
       enabled: current.enabled,
       agentId: current.agentId,
       runConfig: current.runConfig,
-      applyToNewTerminalTab: current.applyToNewTerminalTab,
     };
 
     set({
       enabled,
       agentId: nextAgentId,
-      applyToNewTerminalTab: nextApplyToNewTab,
       loaded: true,
       loading: false,
     });
@@ -221,15 +212,6 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
           persistTerminalKey(TERMINAL_DEFAULT_SPLIT_AGENT_KEYS.agentId, nextAgentId, expectedScope),
         );
       }
-      if (!enabled && snapshot.applyToNewTerminalTab) {
-        writes.push(
-          persistTerminalKey(
-            TERMINAL_DEFAULT_SPLIT_AGENT_KEYS.applyToNewTerminalTab,
-            false,
-            expectedScope,
-          ),
-        );
-      }
       await Promise.all(writes);
 
       if (isWriteStillCurrent(requestToken, enabledRequestToken, expectedScope)) {
@@ -237,7 +219,6 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
           ...lastPersisted,
           enabled,
           agentId: nextAgentId,
-          applyToNewTerminalTab: nextApplyToNewTab,
         };
       }
     } catch {
@@ -375,48 +356,6 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
     }
   },
 
-  setApplyToNewTerminalTab: async (enabled) => {
-    const requestToken = ++applyToNewTabRequestToken;
-    const expectedScope = getComputerQueryScope();
-
-    set({
-      applyToNewTerminalTab: enabled,
-      loaded: true,
-      loading: false,
-    });
-
-    try {
-      await persistTerminalKey(
-        TERMINAL_DEFAULT_SPLIT_AGENT_KEYS.applyToNewTerminalTab,
-        enabled,
-        expectedScope,
-      );
-      if (isWriteStillCurrent(requestToken, applyToNewTabRequestToken, expectedScope)) {
-        lastPersisted = {
-          ...lastPersisted,
-          applyToNewTerminalTab: enabled,
-        };
-      }
-    } catch {
-      if (applyToNewTabRequestToken === requestToken) {
-        if (!hydratedFromServer) {
-          try {
-            await hydratePersistedFromServer();
-          } catch {
-            /* keep last known */
-          }
-        }
-        if (isWriteStillCurrent(requestToken, applyToNewTabRequestToken, expectedScope)) {
-          set({ applyToNewTerminalTab: lastPersisted.applyToNewTerminalTab });
-          toastManager.add({
-            title: storeText('syncFailedTitle'),
-            description: storeText('newTabFailed'),
-            type: 'error',
-          });
-        }
-      }
-    }
-  },
 }));
 
 export const useTerminalSplitPrefsStore = Object.assign(

@@ -41,6 +41,10 @@ impl WsMessageService {
                 side_chat_id: None,
                 source_pane_id: None,
                 source_tmux_window_name: None,
+                origin: req.origin,
+                run_guid: req.run_guid,
+                automation_guid: req.automation_guid,
+                initial_input: req.initial_input,
             })
             .await?;
 
@@ -106,10 +110,25 @@ impl WsMessageService {
         &self,
         req: RunLogResolveLatestRequest,
     ) -> Result<Value> {
-        let latest_path = self
+        let resolved = self
             .terminal_service
-            .run_log_resolve_latest(&req.project_root);
-        Ok(json!(RunLogResolveLatestResponse { latest_path }))
+            .run_log_resolve_latest(&req.project_root, req.preferred_window.as_deref());
+        Ok(json!(RunLogResolveLatestResponse {
+            latest_path: resolved
+                .as_ref()
+                .map(|item| item.path.to_string_lossy().into_owned()),
+            reason: resolved
+                .as_ref()
+                .map(|item| item.reason.as_str().to_string()),
+            other_latest_paths: resolved
+                .map(|item| {
+                    item.other_paths
+                        .into_iter()
+                        .map(|path| path.to_string_lossy().into_owned())
+                        .collect()
+                })
+                .unwrap_or_default(),
+        }))
     }
 
     pub(super) async fn handle_terminal_workspace_candidates(

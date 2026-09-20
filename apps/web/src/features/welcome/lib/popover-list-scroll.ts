@@ -1,10 +1,24 @@
 /**
+ * Enter or Tab confirms the highlighted `/` or `@` popover row.
+ * Shift/Alt/Meta/Ctrl are ignored so Tab-with-modifiers can still reverse-tab.
+ */
+export function isPopoverConfirmKey(event: KeyboardEvent): boolean {
+  if (event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return false;
+  return event.key === "Enter" || event.key === "Tab";
+}
+
+/**
  * Scroll the active popover row into view while keeping `paddingItems` extra
  * rows visible past it (both directions). When arrowing down, the selection
  * sits about 4th-from-bottom so the next few results stay readable.
  *
  * Shared by composer `@` mentions and `/` slash menus (including Terminal AI input).
  */
+/** Prefer the ScrollArea viewport when the ref is on the popover shell. */
+export function resolvePopoverScrollContainer(container: HTMLElement): HTMLElement {
+  return container.querySelector<HTMLElement>("[data-slot='scroll-area-viewport']") ?? container;
+}
+
 export function scrollActiveListItemIntoView(
   container: HTMLElement,
   itemEls: Array<HTMLElement | null>,
@@ -13,6 +27,7 @@ export function scrollActiveListItemIntoView(
 ): void {
   const activeItem = itemEls[activeIndex];
   if (!activeItem) return;
+  container = resolvePopoverScrollContainer(container);
 
   const lastIndex = itemEls.length - 1;
   let lookAheadIndex = Math.min(activeIndex + paddingItems, lastIndex);

@@ -4,7 +4,10 @@ use serde_json::json;
 use std::env;
 use std::path::{Path, PathBuf};
 
-use crate::constants::{CURSOR_PLAN_INFO_URL, CURSOR_USAGE_SERVICE_URL, CURSOR_USAGE_SUMMARY_URL};
+use crate::constants::{
+    CURSOR_PLAN_INFO_URL, CURSOR_SAND_USAGE_URL, CURSOR_STRIPE_URL, CURSOR_USAGE_SERVICE_URL,
+    CURSOR_USAGE_SUMMARY_URL,
+};
 use crate::models::{DetailRow, DetailSection, ProviderError, RowTone};
 use crate::runtime::LiveFetchResult;
 use crate::support::browser::load_cursor_session_token;
@@ -57,6 +60,8 @@ struct CursorTeamUsage {
 #[derive(Debug, Clone, Deserialize)]
 struct CursorOnDemandBucket {
     #[serde(default)]
+    enabled: Option<bool>,
+    #[serde(default)]
     used: Option<f64>,
     #[serde(default)]
     limit: Option<f64>,
@@ -69,6 +74,8 @@ struct CursorPlanBucket {
     used: Option<f64>,
     #[serde(default)]
     limit: Option<f64>,
+    #[serde(default)]
+    auto_percent_used: Option<f64>,
     #[serde(default)]
     api_percent_used: Option<f64>,
     #[serde(default)]
@@ -92,6 +99,8 @@ struct CursorPlanUsage {
     bonus_spend: Option<f64>,
     #[serde(default)]
     limit: Option<f64>,
+    #[serde(default)]
+    auto_percent_used: Option<f64>,
     #[serde(default)]
     api_percent_used: Option<f64>,
     #[serde(default)]
@@ -139,6 +148,31 @@ struct CursorAuth {
     team_id: Option<String>,
 }
 
+#[derive(Debug, Clone, Default)]
+struct CursorDashboardExtras {
+    credit_usd: Option<f64>,
+    grok_bot_percent: Option<f64>,
+    grok_bot_reset_at: Option<u64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CursorStripeResponse {
+    #[serde(default)]
+    customer_balance: Option<i64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CursorSandUsageStatus {
+    #[serde(default)]
+    usage_percent: Option<f64>,
+    #[serde(default)]
+    next_reset_timestamp_utc: Option<String>,
+    #[serde(default)]
+    has_non_zero_included_limit: Option<bool>,
+}
+
 pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult, ProviderError> {
     let auth = load_cursor_auth()?;
 
@@ -146,7 +180,10 @@ pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult
     // derived from Cursor.app's JWT. Browser cookies are optional; api2 DashboardService
     // stays as a last-resort fallback.
     let summary_error = match fetch_cursor_usage_summary(client, &auth).await {
-        Ok(summary) => return build_result_from_summary(&auth, summary),
+        Ok(summary) => {
+            let extras = fetch_cursor_dashboard_extras(client, &auth).await;
+            return build_result_from_summary(&auth, summary, extras);
+        }
         Err(error) => {
             tracing::debug!(error = %error, "Cursor usage-summary unavailable");
             error
@@ -186,15 +223,24 @@ pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult
 
     let plan = usage.plan_usage.as_ref();
 
-    // 基础用量：includedSpend / limit（cents → USD）
-    let included_used = plan.and_then(|p| p.included_spend).map(cents_to_usd);
-    let included_limit = plan.and_then(|p| p.limit).map(cents_to_usd);
+    let cursor_models_percent = plan
+        .and_then(|p| p.auto_percent_used)
+        .map(normalize_fraction_percent);
+    let other_models_percent = plan
+        .and_then(|p| p.api_percent_used)
+        .map(normalize_fraction_percent);
+    let other_models_used = plan.and_then(|p| p.included_spend).map(cents_to_usd);
+    let other_models_limit = plan.and_then(|p| p.limit).map(cents_to_usd);
+
+    // Legacy single-pool: includedSpend / limit (cents → USD)
+    let included_used = other_models_used;
+    let included_limit = other_models_limit;
     let included_percent = match (included_used, included_limit) {
         (Some(used), Some(limit)) if limit > 0.0 => Some(round_metric((used / limit) * 100.0)),
         _ => None,
     };
 
-    // 额外用量：bonusSpend（cents → USD），percent 用 apiPercentUsed
+    // Legacy bonusSpend; do not use this when the two-pool percents are present.
     let bonus_used = plan.and_then(|p| p.bonus_spend).map(cents_to_usd);
     let bonus_percent = plan.and_then(|p| p.api_percent_used);
 
@@ -247,29 +293,47 @@ pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult
         .map(format_cursor_plan_label);
 
     let mut usage_rows = Vec::new();
-    if let Some(percent) = included_percent {
+    let two_pool = cursor_models_percent.is_some() || other_models_percent.is_some();
+    if two_pool {
+        push_pool_row(
+            &mut usage_rows,
+            "Cursor Models",
+            cursor_models_percent,
+            None,
+            None,
+            reset_at,
+        );
+        push_pool_row(
+            &mut usage_rows,
+            "Other Models",
+            other_models_percent,
+            other_models_used,
+            other_models_limit,
+            reset_at,
+        );
+    } else if let Some(percent) = included_percent {
         usage_rows.push(DetailRow {
             label: "Included usage".to_string(),
             value: format_percent_window(percent, included_used, included_limit, reset_at),
             tone: RowTone::Default,
         });
-    }
-    if let Some(bu) = bonus_used {
-        let bonus_limit = bonus_percent
-            .filter(|&p| p > 0.0)
-            .map(|p| round_metric(bu / (p / 100.0)));
-        let value = match (bonus_percent, bonus_limit) {
-            (Some(p), Some(limit)) => {
-                format!("{p:.1}% used · {} / {}", format_usd(bu), format_usd(limit))
-            }
-            (Some(p), None) => format!("{p:.1}% used · {} used", format_usd(bu)),
-            _ => format!("{} used", format_usd(bu)),
-        };
-        usage_rows.push(DetailRow {
-            label: "Bonus usage".to_string(),
-            value,
-            tone: RowTone::Default,
-        });
+        if let Some(bu) = bonus_used {
+            let bonus_limit = bonus_percent
+                .filter(|&p| p > 0.0)
+                .map(|p| round_metric(bu / (p / 100.0)));
+            let value = match (bonus_percent, bonus_limit) {
+                (Some(p), Some(limit)) => {
+                    format!("{p:.1}% used · {} / {}", format_usd(bu), format_usd(limit))
+                }
+                (Some(p), None) => format!("{p:.1}% used · {} used", format_usd(bu)),
+                _ => format!("{} used", format_usd(bu)),
+            };
+            usage_rows.push(DetailRow {
+                label: "Bonus usage".to_string(),
+                value,
+                tone: RowTone::Default,
+            });
+        }
     }
     if let Some(percent) = on_demand_percent {
         usage_rows.push(DetailRow {
@@ -309,9 +373,11 @@ pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult
     }
 
     // usage_summary drives the top-level percent indicator — use totalPercentUsed
-    let summary_percent = plan
-        .and_then(|p| p.total_percent_used)
-        .map(normalize_fraction_percent)
+    let summary_percent = cursor_models_percent
+        .or(plan
+            .and_then(|p| p.total_percent_used)
+            .map(normalize_fraction_percent))
+        .or(other_models_percent)
         .or(included_percent);
 
     Ok(LiveFetchResult {
@@ -355,6 +421,7 @@ pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult
 fn build_result_from_summary(
     auth: &CursorAuth,
     summary: CursorQuotaSummaryResponse,
+    extras: CursorDashboardExtras,
 ) -> Result<LiveFetchResult, ProviderError> {
     let reset_at = summary
         .billing_cycle_end
@@ -366,21 +433,34 @@ fn build_result_from_summary(
         .as_ref()
         .and_then(|u| u.plan.as_ref());
 
-    // plan.used = includedSpend (cents), plan.limit = included limit (cents)
-    let included_used = plan.and_then(|p| p.used).map(cents_to_usd);
-    let included_limit = plan.and_then(|p| p.limit).map(cents_to_usd);
-    let included_percent = match (included_used, included_limit) {
+    // Spending dashboard: autoPercentUsed = Cursor Models, apiPercentUsed = Other Models.
+    // plan.used/limit is the Other Models dollar cap — not a combined included pool.
+    // breakdown.bonus is first-party spend, not a second quota.
+    let cursor_models_percent = plan
+        .and_then(|p| p.auto_percent_used)
+        .map(normalize_fraction_percent);
+    let other_models_percent = plan
+        .and_then(|p| p.api_percent_used)
+        .map(normalize_fraction_percent);
+    let other_models_used = plan.and_then(|p| p.used).map(cents_to_usd);
+    let other_models_limit = plan.and_then(|p| p.limit).map(cents_to_usd);
+    let two_pool = cursor_models_percent.is_some() || other_models_percent.is_some();
+
+    let included_percent = match (other_models_used, other_models_limit) {
         (Some(used), Some(limit)) if limit > 0.0 => Some(round_metric((used / limit) * 100.0)),
         _ => None,
     };
-
     let bonus_used = plan
         .and_then(|p| p.breakdown.as_ref()?.bonus)
         .map(cents_to_usd);
-    let bonus_api_percent = plan.and_then(|p| p.api_percent_used);
-    let summary_percent = plan.and_then(|p| p.total_percent_used);
+    let summary_percent = cursor_models_percent
+        .or(plan
+            .and_then(|p| p.total_percent_used)
+            .map(normalize_fraction_percent))
+        .or(other_models_percent)
+        .or(included_percent);
 
-    if included_percent.is_none() && included_used.is_none() {
+    if !two_pool && included_percent.is_none() && other_models_used.is_none() {
         return Err(ProviderError::Fetch(
             "Cursor usage-summary missing plan data".to_string(),
         ));
@@ -396,6 +476,7 @@ fn build_result_from_summary(
         .individual_usage
         .as_ref()
         .and_then(|u| u.on_demand.as_ref());
+    let od_enabled = individual_on_demand.and_then(|od| od.enabled);
     let od_used = individual_on_demand
         .and_then(|od| od.used)
         .map(cents_to_usd);
@@ -408,48 +489,61 @@ fn build_result_from_summary(
     };
 
     let mut usage_rows = Vec::new();
-    if let Some(percent) = included_percent {
-        usage_rows.push(DetailRow {
-            label: "Included usage".to_string(),
-            value: format_percent_window(percent, included_used, included_limit, reset_at),
-            tone: RowTone::Default,
-        });
-    }
-    if let Some(bu) = bonus_used {
-        let bonus_limit = bonus_api_percent
-            .filter(|&p| p > 0.0)
-            .map(|p| round_metric(bu / (p / 100.0)));
-        let value = match (bonus_api_percent, bonus_limit) {
-            (Some(p), Some(limit)) => {
-                format!("{p:.1}% used · {} / {}", format_usd(bu), format_usd(limit))
-            }
-            (Some(p), None) => format!("{p:.1}% used · {} used", format_usd(bu)),
-            _ => format!("{} used", format_usd(bu)),
-        };
-        usage_rows.push(DetailRow {
-            label: "Bonus usage".to_string(),
-            value,
-            tone: RowTone::Default,
-        });
-    }
-    if od_limit.is_some() {
-        let value = match (od_percent, od_used, od_limit) {
-            (Some(p), Some(used), Some(limit)) => {
-                format_percent_window(p, Some(used), Some(limit), reset_at)
-            }
-            (None, Some(used), Some(limit)) => {
-                format!("{} / {}", format_usd(used), format_usd(limit))
-            }
-            _ => String::new(),
-        };
-        if !value.is_empty() {
+    if two_pool {
+        push_pool_row(
+            &mut usage_rows,
+            "Cursor Models",
+            cursor_models_percent,
+            None,
+            None,
+            reset_at,
+        );
+        push_pool_row(
+            &mut usage_rows,
+            "Other Models",
+            other_models_percent,
+            other_models_used,
+            other_models_limit,
+            reset_at,
+        );
+    } else {
+        if let Some(percent) = included_percent {
             usage_rows.push(DetailRow {
-                label: "On-Demand".to_string(),
-                value,
+                label: "Included usage".to_string(),
+                value: format_percent_window(
+                    percent,
+                    other_models_used,
+                    other_models_limit,
+                    reset_at,
+                ),
+                tone: RowTone::Default,
+            });
+        }
+        if let Some(bu) = bonus_used {
+            usage_rows.push(DetailRow {
+                label: "Bonus usage".to_string(),
+                value: format!("{} used", format_usd(bu)),
                 tone: RowTone::Default,
             });
         }
     }
+
+    if let Some(percent) = extras.grok_bot_percent {
+        usage_rows.push(DetailRow {
+            label: "Grok Bot".to_string(),
+            value: format_percent_window(percent, None, None, extras.grok_bot_reset_at),
+            tone: RowTone::Default,
+        });
+    }
+
+    push_on_demand_row(
+        &mut usage_rows,
+        od_enabled,
+        od_percent,
+        od_used,
+        od_limit,
+        reset_at,
+    );
 
     // Team section (separate from Usage so it doesn't appear in footer carousel)
     let team_section = summary
@@ -480,11 +574,13 @@ fn build_result_from_summary(
         ));
     }
 
+    let credits_label = extras
+        .credit_usd
+        .map(|value| format!("{} remaining", format_usd(value)));
+
     Ok(LiveFetchResult {
         plan_label: plan_label.clone(),
-        usage_summary: Some(build_percent_usage_summary(
-            summary_percent.or(included_percent),
-        )),
+        usage_summary: Some(build_percent_usage_summary(summary_percent)),
         detail_sections: {
             let mut sections = vec![
                 DetailSection {
@@ -507,6 +603,16 @@ fn build_result_from_summary(
                     rows: usage_rows,
                 },
             ];
+            if let Some(credit) = extras.credit_usd {
+                sections.push(DetailSection {
+                    title: "Credits".to_string(),
+                    rows: vec![DetailRow {
+                        label: "Balance".to_string(),
+                        value: format_usd(credit),
+                        tone: RowTone::Muted,
+                    }],
+                });
+            }
             if let Some(s) = team_section {
                 sections.push(s);
             }
@@ -515,9 +621,64 @@ fn build_result_from_summary(
         warnings: vec![],
         fetch_message: "Cursor usage-summary API".to_string(),
         reset_at,
-        credits_label: None,
+        credits_label,
         last_updated_at: Some(unix_now()),
     })
+}
+
+fn push_pool_row(
+    usage_rows: &mut Vec<DetailRow>,
+    label: &str,
+    percent: Option<f64>,
+    used: Option<f64>,
+    limit: Option<f64>,
+    reset_at: Option<u64>,
+) {
+    let Some(percent) = percent else {
+        return;
+    };
+    usage_rows.push(DetailRow {
+        label: label.to_string(),
+        value: format_percent_window(percent, used, limit, reset_at),
+        tone: RowTone::Default,
+    });
+}
+
+fn push_on_demand_row(
+    usage_rows: &mut Vec<DetailRow>,
+    enabled: Option<bool>,
+    percent: Option<f64>,
+    used: Option<f64>,
+    limit: Option<f64>,
+    reset_at: Option<u64>,
+) {
+    if enabled == Some(false) {
+        usage_rows.push(DetailRow {
+            label: "On-Demand".to_string(),
+            value: "Disabled".to_string(),
+            tone: RowTone::Muted,
+        });
+        return;
+    }
+    if let Some(percent) = percent {
+        usage_rows.push(DetailRow {
+            label: "On-Demand".to_string(),
+            value: format_percent_window(percent, used, limit, reset_at),
+            tone: RowTone::Default,
+        });
+        return;
+    }
+    if let (Some(used), Some(limit)) = (used, limit) {
+        usage_rows.push(DetailRow {
+            label: "On-Demand".to_string(),
+            value: if limit > 0.0 {
+                format!("{} / {}", format_usd(used), format_usd(limit))
+            } else {
+                format!("{} used", format_usd(used))
+            },
+            tone: RowTone::Default,
+        });
+    }
 }
 
 async fn fetch_cursor_usage_summary(
@@ -541,6 +702,96 @@ async fn fetch_cursor_usage_summary(
     }
 
     Err("no Cursor session cookie available".to_string())
+}
+
+fn resolve_cursor_cookie(auth: &CursorAuth) -> Option<(String, Option<String>)> {
+    if let Some(cookie) = cursor_session_cookie_from_access_token(&auth.access_token) {
+        return Some((cookie, auth.team_id.clone()));
+    }
+    let session = load_cursor_session_token().ok().flatten()?;
+    let team_id = extract_cookie_value(&session.cookie_header, "team_id").or(auth.team_id.clone());
+    Some((session.cookie_header, team_id))
+}
+
+async fn fetch_cursor_dashboard_extras(
+    client: &Client,
+    auth: &CursorAuth,
+) -> CursorDashboardExtras {
+    let Some((cookie, _)) = resolve_cursor_cookie(auth) else {
+        return CursorDashboardExtras::default();
+    };
+    let mut extras = CursorDashboardExtras::default();
+    if let Ok(stripe) = request_cursor_stripe(client, &cookie).await {
+        extras.credit_usd = stripe_credit_usd(stripe.customer_balance);
+    }
+    if let Ok(sand) = request_cursor_sand_usage(client, &cookie).await {
+        if sand.has_non_zero_included_limit == Some(true) || sand.usage_percent.is_some() {
+            extras.grok_bot_percent = Some(
+                sand.usage_percent
+                    .map(normalize_fraction_percent)
+                    .unwrap_or(0.0),
+            );
+            extras.grok_bot_reset_at = sand
+                .next_reset_timestamp_utc
+                .as_deref()
+                .and_then(parse_cursor_timestamp);
+        }
+    }
+    extras
+}
+
+async fn request_cursor_stripe(
+    client: &Client,
+    cookie_header: &str,
+) -> Result<CursorStripeResponse, String> {
+    let response = client
+        .get(CURSOR_STRIPE_URL)
+        .header("Accept", "application/json")
+        .header("Cookie", cookie_header)
+        .send()
+        .await
+        .map_err(|e| format!("Cursor stripe request failed: {e}"))?;
+    if !response.status().is_success() {
+        return Err(format!("Cursor stripe returned {}", response.status()));
+    }
+    response
+        .json::<CursorStripeResponse>()
+        .await
+        .map_err(|e| format!("Invalid Cursor stripe payload: {e}"))
+}
+
+async fn request_cursor_sand_usage(
+    client: &Client,
+    cookie_header: &str,
+) -> Result<CursorSandUsageStatus, String> {
+    let response = client
+        .post(CURSOR_SAND_USAGE_URL)
+        .header("Accept", "application/json")
+        .header("Content-Type", "application/json")
+        .header("Origin", "https://cursor.com")
+        .header("Cookie", cookie_header)
+        .json(&json!({}))
+        .send()
+        .await
+        .map_err(|e| format!("Cursor Grok Bot usage request failed: {e}"))?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "Cursor Grok Bot usage returned {}",
+            response.status()
+        ));
+    }
+    response
+        .json::<CursorSandUsageStatus>()
+        .await
+        .map_err(|e| format!("Invalid Cursor Grok Bot usage payload: {e}"))
+}
+
+fn stripe_credit_usd(balance_cents: Option<i64>) -> Option<f64> {
+    let cents = balance_cents?;
+    if cents >= 0 {
+        return None;
+    }
+    Some(cents_to_usd((-cents) as f64))
 }
 
 /// Cursor.app local-auth cookie: `WorkosCursorSessionToken={userId}%3A%3A{jwt}`.
@@ -901,6 +1152,7 @@ mod tests {
                 team_id: Some("8521357".to_string()),
             },
             summary,
+            CursorDashboardExtras::default(),
         )
         .expect("result");
         assert_eq!(result.plan_label.as_deref(), Some("Enterprise"));
@@ -913,5 +1165,78 @@ mod tests {
             .expect("usage");
         assert!(usage.rows.iter().any(|row| row.label == "Included usage"));
         assert!(usage.rows.iter().any(|row| row.label == "On-Demand"));
+    }
+
+    #[test]
+    fn usage_summary_maps_cursor_and_other_model_pools() {
+        let summary: CursorQuotaSummaryResponse = serde_json::from_str(
+            r#"{
+              "billingCycleEnd": "2026-09-11T19:25:18.000Z",
+              "membershipType": "ultra",
+              "individualUsage": {
+                "plan": {
+                  "used": 40000,
+                  "limit": 40000,
+                  "breakdown": { "included": 40000, "bonus": 226699, "total": 266699 },
+                  "autoPercentUsed": 72.19166666666666,
+                  "apiPercentUsed": 100,
+                  "totalPercentUsed": 76.2
+                },
+                "onDemand": { "enabled": false, "used": 0, "limit": null }
+              }
+            }"#,
+        )
+        .expect("summary");
+        let extras = CursorDashboardExtras {
+            credit_usd: Some(10.0),
+            grok_bot_percent: Some(0.0),
+            grok_bot_reset_at: parse_cursor_timestamp("2026-09-08T19:27:21.325Z"),
+        };
+        let result = build_result_from_summary(
+            &CursorAuth {
+                access_token: LIVE_JWT.to_string(),
+                email: Some("dev@example.com".to_string()),
+                membership_type: Some("ultra".to_string()),
+                team_id: None,
+            },
+            summary,
+            extras,
+        )
+        .expect("result");
+        let usage = result
+            .detail_sections
+            .iter()
+            .find(|section| section.title == "Usage")
+            .expect("usage");
+        let labels: Vec<_> = usage.rows.iter().map(|row| row.label.as_str()).collect();
+        assert_eq!(
+            labels,
+            ["Cursor Models", "Other Models", "Grok Bot", "On-Demand"]
+        );
+        assert!(usage.rows[0].value.contains("72% used"));
+        assert!(!usage.rows[0].value.contains("$"));
+        assert!(usage.rows[1].value.contains("100% used"));
+        assert!(usage.rows[1].value.contains("$400.00 / $400.00"));
+        assert!(usage.rows[2].value.contains("0% used"));
+        assert_eq!(usage.rows[3].value, "Disabled");
+        assert!(
+            !usage.rows.iter().any(|row| row.label == "Bonus usage"),
+            "bonus spend is not a quota: {:?}",
+            usage.rows
+        );
+        assert_eq!(result.credits_label.as_deref(), Some("$10.00 remaining"));
+        let percent = result
+            .usage_summary
+            .as_ref()
+            .and_then(|summary| summary.percent);
+        assert_eq!(percent, Some(72.19));
+    }
+
+    #[test]
+    fn stripe_negative_balance_is_remaining_credit() {
+        assert_eq!(stripe_credit_usd(Some(-1000)), Some(10.0));
+        assert_eq!(stripe_credit_usd(Some(0)), None);
+        assert_eq!(stripe_credit_usd(Some(2500)), None);
+        assert_eq!(stripe_credit_usd(None), None);
     }
 }

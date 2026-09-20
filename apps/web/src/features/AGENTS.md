@@ -25,8 +25,7 @@ layered.
 
 ## Current Feature Areas
 
-- `agent/` — agent chat UI, agent manager, agent session hooks, agent thread
-  helpers.
+- `agent/` — Agent Chat UI (composer, session-op card, tool views, hits) and Agent Manager (Native / ACP / Custom). Wire is `agent_chat_*` plus manager `native_agent_*` / registry / custom WS; the web app does not spawn CLIs or speak ACP.
 - `canvas/` — canvas/tldraw runtime, canvas agent bridge, canvas settings.
 - `code-review/` and `diff/` — review workflows and diff/code viewing.
 - `connection/`, `atmos-computer/`, and `tunnel-connector/` — local/relay

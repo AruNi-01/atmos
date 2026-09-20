@@ -12,6 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import type { SimulatorOrientation } from "../types.js";
+import { pbpasteCommand, writeTextToBrowserClipboard } from "../utils/sim-clipboard";
 import { getDeviceType, type DeviceType } from "./deviceFrames.js";
 import { ROTATE_LEFT_CYCLE } from "./orientation.js";
 
@@ -267,6 +268,12 @@ export interface ToolbarButtonProps extends ButtonHTMLAttributes<HTMLButtonEleme
   forceEnabled?: boolean;
   /** Override the hover/focus tooltip label. Defaults to title or aria-label. */
   tooltip?: ReactNode;
+  /** Keep the tooltip visible even without hover/focus (e.g. a brief Copied state). */
+  tooltipForceVisible?: boolean;
+  /** Wrap long tooltip copy instead of a single nowrap line. */
+  tooltipWrap?: boolean;
+  /** `end` grows left from the button — use on the rightmost control. */
+  tooltipAlign?: "center" | "end";
 }
 
 const buttonStyle: CSSProperties = {
@@ -289,6 +296,9 @@ const ToolbarButton = forwardRef<HTMLButtonElement, ToolbarButtonProps>(function
     forceDisabled,
     forceEnabled,
     tooltip,
+    tooltipForceVisible,
+    tooltipWrap,
+    tooltipAlign = "center",
     style,
     disabled,
     title,
@@ -312,7 +322,8 @@ const ToolbarButton = forwardRef<HTMLButtonElement, ToolbarButtonProps>(function
   const pointerFocusedRef = useRef(false);
   const tooltipId = useId();
   const tooltipLabel = tooltip ?? title ?? (typeof ariaLabel === "string" ? ariaLabel : null);
-  const tooltipVisible = !!tooltipLabel && !effectiveDisabled && (hover || focus);
+  const tooltipVisible =
+    !!tooltipLabel && !effectiveDisabled && (tooltipForceVisible || hover || focus);
 
   return (
     <button
@@ -366,12 +377,18 @@ const ToolbarButton = forwardRef<HTMLButtonElement, ToolbarButtonProps>(function
           aria-hidden={!tooltipVisible}
           style={{
             position: "absolute",
-            left: "50%",
+            left: tooltipAlign === "end" ? "auto" : "50%",
+            right: tooltipAlign === "end" ? 0 : "auto",
             bottom: "calc(100% + 8px)",
-            transform: `translateX(-50%) translateY(${tooltipVisible ? 0 : 2}px)`,
+            transform:
+              tooltipAlign === "end"
+                ? `translateY(${tooltipVisible ? 0 : 2}px)`
+                : `translateX(-50%) translateY(${tooltipVisible ? 0 : 2}px)`,
             opacity: tooltipVisible ? 1 : 0,
             pointerEvents: "none",
-            whiteSpace: "nowrap",
+            whiteSpace: tooltipWrap ? "normal" : "nowrap",
+            maxWidth: tooltipWrap ? 220 : undefined,
+            textAlign: tooltipWrap ? "left" : undefined,
             padding: "4px 7px",
             borderRadius: 6,
             background: "var(--serve-sim-panel-bg, #181818)",
@@ -379,7 +396,7 @@ const ToolbarButton = forwardRef<HTMLButtonElement, ToolbarButtonProps>(function
             color: "rgba(255,255,255,0.92)",
             fontSize: 11,
             fontWeight: 500,
-            lineHeight: 1,
+            lineHeight: tooltipWrap ? 1.35 : 1,
             boxShadow: "0 4px 14px rgba(0,0,0,0.32)",
             transition: "opacity 0.12s ease, transform 0.12s ease",
             zIndex: 100,
@@ -507,6 +524,49 @@ const ScreenshotButton = forwardRef<HTMLButtonElement, ToolbarButtonProps>(funct
   );
 });
 
+const ClipboardIcon = (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect x="9" y="9" width="13" height="13" rx="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </svg>
+);
+
+const CopyButton = forwardRef<HTMLButtonElement, ToolbarButtonProps>(function CopyButton(
+  { onClick, ...rest },
+  ref,
+) {
+  const ctx = useToolbar("CopyButton");
+  return (
+    <ToolbarButton
+      ref={ref}
+      aria-label="Copy simulator clipboard"
+      onClick={(e) => {
+        onClick?.(e);
+        if (e.defaultPrevented) return;
+        if (!ctx.deviceUdid || !navigator.clipboard) return;
+        void writeTextToBrowserClipboard(
+          ctx.exec(pbpasteCommand(ctx.deviceUdid)).then(({ stdout, exitCode }) => {
+            if (exitCode !== 0) throw new Error("pbpaste failed");
+            return stdout;
+          }),
+        ).catch(() => {});
+      }}
+      {...rest}
+    >
+      {ClipboardIcon}
+    </ToolbarButton>
+  );
+});
+
 const RotateButton = forwardRef<HTMLButtonElement, ToolbarButtonProps>(function RotateButton(
   { onClick, forceDisabled, ...rest },
   ref,
@@ -550,6 +610,7 @@ type SimulatorToolbarCompound = typeof SimulatorToolbarRoot & {
   HomeButton: typeof HomeButton;
   ScreenshotButton: typeof ScreenshotButton;
   RotateButton: typeof RotateButton;
+  CopyButton: typeof CopyButton;
 };
 
 export const SimulatorToolbar = SimulatorToolbarRoot as SimulatorToolbarCompound;
@@ -559,3 +620,4 @@ SimulatorToolbar.Button = ToolbarButton;
 SimulatorToolbar.HomeButton = HomeButton;
 SimulatorToolbar.ScreenshotButton = ScreenshotButton;
 SimulatorToolbar.RotateButton = RotateButton;
+SimulatorToolbar.CopyButton = CopyButton;

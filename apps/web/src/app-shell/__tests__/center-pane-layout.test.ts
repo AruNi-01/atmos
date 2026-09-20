@@ -14,9 +14,11 @@ import {
   MAX_CENTER_PANES,
   normalizeCenterPaneLayout,
   openTabOnFocusedPane,
+  offerTabOnFocusedPane,
   OVERVIEW_TAB_ID,
   reconcileOpenTabs,
   removeTabFromLayout,
+  reorderPaneTabIds,
   reorderPanes,
   resizeAdjacentFractions,
   rowCountFor,
@@ -40,6 +42,18 @@ describe("center-pane-layout", () => {
     expect(layout.panes).toHaveLength(1);
     expect(layout.panes[0]!.tabIds).toEqual([]);
     expect(layout.panes[0]!.activeTabId).toBe("");
+  });
+
+  it("does not invent a terminal tab when creating a default layout with no tabs", () => {
+    const layout = createDefaultLayout([], "");
+    expect(isFreshEmptyCenterLayout(layout)).toBe(true);
+    expect(layout.panes[0]!.tabIds).toEqual([]);
+  });
+
+  it("keeps Overview leftmost when the pane strip is reordered", () => {
+    const layout = createDefaultLayout(["overview", "a.ts", "b.ts"], "a.ts");
+    const reordered = reorderPaneTabIds(layout, DEFAULT_PANE_ID, ["b.ts", "overview", "a.ts"]);
+    expect(getPane(reordered, DEFAULT_PANE_ID)!.tabIds).toEqual(["overview", "b.ts", "a.ts"]);
   });
 
   it("creates a single-pane default owning all tabs", () => {
@@ -112,12 +126,25 @@ describe("center-pane-layout", () => {
     expect(getPane(opened, DEFAULT_PANE_ID)!.tabIds).toContain("files");
   });
 
+  it("offers a tab onto the strip without activating it", () => {
+    const layout = createDefaultLayout(["files"], "files");
+    const offered = offerTabOnFocusedPane(layout, "terminal");
+    expect(getPane(offered, DEFAULT_PANE_ID)!.tabIds).toEqual(["files", "terminal"]);
+    expect(getPane(offered, DEFAULT_PANE_ID)!.activeTabId).toBe("files");
+    expect(offerTabOnFocusedPane(createEmptyCenterLayout(), "terminal")).toEqual(
+      createEmptyCenterLayout(),
+    );
+  });
+
   it("does not clone a live terminal session onto another pane", () => {
     expect(isShareableCenterTabId("files")).toBe(true);
     expect(isShareableCenterTabId("AGENTS.md")).toBe(true);
     expect(isShareableCenterTabId("terminal")).toBe(false);
     expect(isShareableCenterTabId("terminal-tab:abc")).toBe(false);
     expect(isShareableCenterTabId("browser:1")).toBe(false);
+    expect(isShareableCenterTabId("agent-chat:abc")).toBe(false);
+    expect(isShareableCenterTabId("simulator")).toBe(false);
+    expect(isShareableCenterTabId("run")).toBe(false);
 
     let layout = createDefaultLayout(["terminal", "files"], "files");
     layout = splitPane(layout, { direction: "right" });

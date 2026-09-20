@@ -6,11 +6,13 @@
     "jsx": "react-jsx",
     "paths": {
       "@/*": ["./src/*"],
+      "@workspace/ui": ["./src/index.ts"],
+      "@workspace/ui/*": ["./src/*"],
       "react": ["../../node_modules/@types/react"],
       "react/jsx-runtime": ["../../node_modules/@types/react/jsx-runtime"],
       "react/jsx-dev-runtime": ["../../node_modules/@types/react/jsx-dev-runtime"]
     }
   },
   "include": ["src", "src/css.d.ts"],
-  "exclude": ["node_modules", "dist", "src/**/*.test.ts"]
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts", "src/**/*.test.tsx"]
 }

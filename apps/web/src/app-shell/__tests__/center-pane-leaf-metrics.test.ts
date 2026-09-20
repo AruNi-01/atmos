@@ -40,8 +40,8 @@ describe("center pane leaf insets", () => {
     expect(bottom.top).toBe(CENTER_PANE_LEAF_GAP_PX);
     expect(bottom.bottom).toBe(0);
     expect(centerPaneLeafTileStyle(topLeaf).top).toBe("calc(0% + 0px)");
-    expect(centerPaneLeafTileStyle(bottomLeaf).top).toBe("calc(50% + 4px)");
-    expect(centerPaneLeafTileStyle(bottomLeaf).height).toBe("calc(50% - 4px)");
+    expect(centerPaneLeafTileStyle(bottomLeaf).top).toBe("calc(50% + 2px)");
+    expect(centerPaneLeafTileStyle(bottomLeaf).height).toBe("calc(50% - 2px)");
   });
 
   it("fullscreen tile fills the mosaic without the sibling gap insets", () => {

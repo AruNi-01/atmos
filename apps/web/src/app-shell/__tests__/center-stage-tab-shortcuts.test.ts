@@ -52,6 +52,7 @@ describe("center stage tab position shortcuts", () => {
     expect(badge).toContain("absolute inset-y-0 right-0");
     expect(badge).toContain("bg-gradient-to-l from-background");
     expect(tabBar).toContain("TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.id}");
+    expect(tabBar).toContain("AgentChatTabStatusIndicator chatId={chatId}");
     expect(tabBar).not.toContain("showHeldShortcut");
     expect(shared).not.toContain("showHeldShortcut");
     expect(shared).toContain("<CenterTabHeldShortcut digit={shortcutDigit} />");

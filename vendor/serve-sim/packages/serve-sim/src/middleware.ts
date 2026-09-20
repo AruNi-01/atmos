@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync, existsSync, unlinkSync, watch, type FSWatcher } from "fs";
+import { readFile, unlink } from "fs/promises";
 import { execSync, spawn, exec, execFile, type ChildProcess, type ExecException } from "child_process";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -13,10 +14,16 @@ import type { Socket } from "net";
 import { WebSocket } from "ws";
 import { createAxStreamerCache } from "./ax";
 import { readCameraStatus } from "./camera-helper";
-import { createMetricsSamplerCache, type MetricsSamplerCache } from "./cpu-mem-sampler";
+import { createMetricsSamplerCache, MetricsSampler, type MetricsSamplerCache } from "./metrics-sampler";
 import { foregroundTracker, type ForegroundApp, type ForegroundTrackerCache } from "./foreground-tracker";
 import { corsAllowOriginHeaders } from "./middleware-utils";
-import { closeDeviceSession, getDeviceSession, sendCorsPreflight, type HidSocket } from "./device-session";
+import {
+  closeDeviceSession,
+  getDeviceSession,
+  peekDeviceSession,
+  sendCorsPreflight,
+  type HidSocket,
+} from "./device-session";
 import {
   eventLogEventForCommand,
   readEventLog,
@@ -32,7 +39,8 @@ import {
   serveDevicePlaceholderAsset,
 } from "./devicekit-chrome";
 import { createExecWebSocketHandler, type UiRequestHandler } from "./exec-ws";
-import { hostServeSimBin, rewriteHostCommand } from "./host-bin";
+import { hostServeSimBin, isGlobalServeSimKill, rewriteHostCommand } from "./host-bin";
+import { claimHelperHidSocket, type UpgradeHandlerWebSocket } from "./middleware-utils";
 import { UI_OPTIONS, getUiStatus, normalizeUiValue, setUiOption } from "./ui-settings";
 import { type WebMiddleware } from "./runtime-utils";
 import { connectToFetch, type ConnectMiddleware } from "./connect-to-fetch";
@@ -95,7 +103,7 @@ type CdpHttpListEntry = {
 type CdpHttpVersion = { Browser?: string };
 
 type SimctlBootedList = {
-  devices: Record<string, Array<{ udid: string; state: string }>>;
+  devices: Record<string, Array<{ udid: string; state: string; name: string }>>;
 };
 
 type SimctlAllList = {
@@ -112,8 +120,11 @@ type ExecRequestBody = { command?: string };
 export type ServeSimState = ServeSimDeviceState;
 
 const axStreamerCache = createAxStreamerCache();
-// One shared cpu/mem sampler per udid; every /metrics viewer subscribes.
-const metricsSamplerCache = createMetricsSamplerCache();
+// One shared cpu/mem sampler per udid; every /metrics viewer subscribes. Stamp the device name
+// (from the last booted-device snapshot) into the sampler's meta frame when we know it.
+const metricsSamplerCache = createMetricsSamplerCache(
+  (udid) => new MetricsSampler({ udid, deviceName: bootedDeviceName(udid) }),
+);
 
 // Hard cap on the SSE line-assembly buffer for child-process stdout.
 // A malformed log entry without a newline can't grow this beyond 1 MB;
@@ -162,6 +173,11 @@ const RN_MARKERS = [
 function isSimulatorUdid(value: string): boolean {
   return /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i.test(value);
 }
+
+const SCREENSHOT_RESPONSE_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Cache-Control": "no-store",
+};
 
 /** What to do with a persisted device state when reaping during a grid poll. */
 type StaleStateAction = "keep" | "recycle-self" | "recycle-helper";
@@ -238,7 +254,11 @@ export function matchInstalledAppByDisplayName(
 // Cache simctl's booted-device set briefly so per-request cost stays bounded.
 // The middleware runs inside the user's dev server (Metro etc.) and
 // readServeSimStates() is called on every /api and every page load.
-let bootedSnapshot: { at: number; booted: Set<string> | null } = { at: 0, booted: null };
+let bootedSnapshot: { at: number; booted: Set<string> | null; names: Map<string, string> } = {
+  at: 0,
+  booted: null,
+  names: new Map(),
+};
 async function getBootedUdids(): Promise<Set<string> | null> {
   const now = Date.now();
   if (bootedSnapshot.booted && now - bootedSnapshot.at < 1500) {
@@ -261,16 +281,36 @@ async function getBootedUdids(): Promise<Set<string> | null> {
     });
     const data = JSON.parse(stdout) as SimctlBootedList;
     const booted = new Set<string>();
+    const names = new Map<string, string>();
     for (const runtime of Object.values(data.devices)) {
       for (const device of runtime) {
-        if (device.state === "Booted") booted.add(device.udid);
+        if (device.state === "Booted") {
+          // simctl's JSON is uppercase; canonicalize so Map/Set lookups stay case-insensitive.
+          const udid = device.udid.toUpperCase();
+          booted.add(udid);
+          names.set(udid, device.name);
+        }
       }
     }
-    bootedSnapshot = { at: now, booted };
+    bootedSnapshot = { at: now, booted, names };
     return booted;
   } catch {
     return null;
   }
+}
+
+/** Look up a display name in a simctl udid→name map. Keys are stored uppercase. */
+export function deviceNameFromBootedNames(
+  names: Map<string, string>,
+  udid: string,
+): string | undefined {
+  return names.get(udid.toUpperCase());
+}
+
+// Display name for a booted udid, from the last simctl snapshot (refreshed on grid polls).
+// Undefined until the first snapshot lands or if the device isn't booted.
+function bootedDeviceName(udid: string): string | undefined {
+  return deviceNameFromBootedNames(bootedSnapshot.names, udid);
 }
 
 // The device the user most recently opened in Simulator.app, regardless of
@@ -746,10 +786,19 @@ function serveHelperInProcess(
     return true;
   }
   if (
-    (endpoint === "/webrtc/offer" || endpoint === "/webrtc/close" || endpoint === "/stream-settings")
+    (endpoint === "/webrtc/offer" || endpoint === "/webrtc/close" || endpoint === "/webrtc/stats"
+      || endpoint === "/stream-settings")
     && req.method === "OPTIONS"
   ) {
     sendCorsPreflight(res);
+    return true;
+  }
+  // Polled once a second by the panel and the recorder, so creating a session here would start a
+  // capture nothing asked for, and re-create one every tick after the simulator is shut down.
+  if (endpoint === "/webrtc/stats") {
+    const live = peekDeviceSession(device);
+    if (!live) return false;
+    void live.handleWebRTCStats(req, res);
     return true;
   }
   let session;
@@ -906,6 +955,9 @@ export function previewConfigForState(
   streamSettingsEndpoint: string;
   serveSimBin: string;
   gridApiEndpoint: string;
+  gridCatalogEndpoint: string;
+  gridStatusEndpoint: string;
+  gridStatusEventsEndpoint: string;
   gridStartEndpoint: string;
   gridShutdownEndpoint: string;
   gridMemoryEndpoint: string;
@@ -935,6 +987,9 @@ export function previewConfigForState(
     streamSettingsEndpoint: streamSettingsEndpointFrom(state.streamUrl),
     serveSimBin,
     gridApiEndpoint: gridApiBase,
+    gridCatalogEndpoint: gridApiBase + "/catalog",
+    gridStatusEndpoint: gridApiBase + "/status",
+    gridStatusEventsEndpoint: gridApiBase + "/status/events",
     gridStartEndpoint: gridApiBase + "/start",
     gridShutdownEndpoint: gridApiBase + "/shutdown",
     gridMemoryEndpoint: gridApiBase + "/memory",
@@ -1116,6 +1171,81 @@ interface SimctlDevice {
   runtime: string;
 }
 
+type GridHelperStatus = Pick<ServeSimState, "port" | "url" | "streamUrl" | "wsUrl">;
+
+type GridCatalogDevice = {
+  device: string;
+  name: string;
+  runtime: string;
+  chrome: ReturnType<typeof resolveDeviceKitChrome>;
+  placeholderAsset: ReturnType<typeof resolveDevicePlaceholderAsset>;
+};
+
+type GridDeviceStatus = {
+  device: string;
+  state: string;
+  helper: GridHelperStatus | null;
+};
+
+// DeviceKit lookups are static for a simulator profile. Keep their descriptors
+// in-process so catalog page refreshes do not repeatedly rebuild the large
+// objects before JSON serialization.
+const gridCatalogDeviceCache = new Map<string, { signature: string; device: GridCatalogDevice }>();
+
+function catalogDeviceForSimulator(device: SimctlDevice): GridCatalogDevice {
+  const signature = [
+    device.name,
+    device.runtime,
+    device.deviceTypeIdentifier ?? "",
+  ].join("\0");
+  const cached = gridCatalogDeviceCache.get(device.udid);
+  if (cached?.signature === signature) return cached.device;
+  const catalogDevice: GridCatalogDevice = {
+    device: device.udid,
+    name: device.name,
+    runtime: device.runtime,
+    chrome: resolveDeviceKitChrome(device),
+    placeholderAsset: resolveDevicePlaceholderAsset(device),
+  };
+  gridCatalogDeviceCache.set(device.udid, { signature, device: catalogDevice });
+  return catalogDevice;
+}
+
+function sortGridSimulators(
+  simulators: SimctlDevice[],
+  helperByUdid: ReadonlyMap<string, ServeSimState>,
+  selectedDevice: string | null,
+): SimctlDevice[] {
+  const preferredUdid = getPreferredDeviceUdid();
+  const familyRank = (name: string): number => {
+    if (/iphone/i.test(name)) return 0;
+    if (/ipad/i.test(name)) return 1;
+    if (/watch/i.test(name)) return 2;
+    if (/(apple\s*tv|^tv\b)/i.test(name)) return 3;
+    if (/vision|reality/i.test(name)) return 4;
+    return 5;
+  };
+  const stateRank = (device: SimctlDevice): number => {
+    if (helperByUdid.has(device.udid)) return 0;
+    if (selectedDevice && device.udid === selectedDevice) return 1;
+    if (device.state === "Booted") return 2;
+    if (device.udid === preferredUdid) return 3;
+    return 4;
+  };
+  const runtimeRank = (runtime: string): number => {
+    const match = runtime.match(/-(\d+)-(\d+)/);
+    const major = match ? Number(match[1]) : 0;
+    const minor = match ? Number(match[2]) : 0;
+    return -(major * 1000 + minor);
+  };
+  return simulators.sort((a, b) =>
+    stateRank(a) - stateRank(b) ||
+    familyRank(a.name) - familyRank(b.name) ||
+    a.name.localeCompare(b.name) ||
+    runtimeRank(a.runtime) - runtimeRank(b.runtime),
+  );
+}
+
 function listAllSimulators(): Promise<SimctlDevice[]> {
   return new Promise((resolve) => {
     execFile(
@@ -1142,6 +1272,54 @@ function listAllSimulators(): Promise<SimctlDevice[]> {
         }
       },
     );
+  });
+}
+
+async function readGridSnapshot(selectedDevice: string | null): Promise<{
+  simulators: SimctlDevice[];
+  helperByUdid: Map<string, ServeSimState>;
+}> {
+  const [states, simulators] = await Promise.all([
+    readServeSimStates(),
+    listAllSimulators(),
+  ]);
+  const helperByUdid = new Map(states.map((state) => [state.device, state] as const));
+  return {
+    simulators: sortGridSimulators(simulators, helperByUdid, selectedDevice),
+    helperByUdid,
+  };
+}
+
+function gridStatusesForRequest(
+  simulators: readonly SimctlDevice[],
+  helperByUdid: ReadonlyMap<string, ServeSimState>,
+  req: SimReq,
+  base: string,
+  proxyHelpers: boolean,
+): GridDeviceStatus[] {
+  return simulators.map((simulator) => {
+    const helper = helperByUdid.get(simulator.udid);
+    const remoteHelper = helper
+      ? rewriteStateForRequestHost(
+          helper,
+          hostForRequest(req),
+          base,
+          httpProtocolForRequest(req),
+          proxyHelpers,
+        )
+      : null;
+    return {
+      device: simulator.udid,
+      state: simulator.state,
+      helper: remoteHelper
+        ? {
+            port: remoteHelper.port,
+            url: remoteHelper.url,
+            streamUrl: remoteHelper.streamUrl,
+            wsUrl: remoteHelper.wsUrl,
+          }
+        : null,
+    };
   });
 }
 
@@ -1511,77 +1689,158 @@ export function simMiddleware(options?: SimMiddlewareOptions): SimMiddleware {
       return;
     }
 
+    // Static simulator metadata. The browser keeps this catalog in memory and
+    // receives state/helper changes through the compact status feed below.
+    if (url === base + "/grid/api/catalog") {
+      const { simulators } = await readGridSnapshot(selectedDevice);
+      const total = simulators.length;
+      const { limit, offset } = parseGridPaging(rawUrl);
+      const page = limit == null ? simulators : simulators.slice(offset, offset + limit);
+      const body = JSON.stringify({
+        devices: page.map(catalogDeviceForSimulator),
+        total,
+        offset: limit == null ? 0 : offset,
+        limit: limit ?? total,
+      });
+      const etag = `"${createHash("sha1").update(body).digest("base64url")}"`;
+      if (req.headers["if-none-match"] === etag) {
+        res.writeHead(304, {
+          "Cache-Control": "private, no-cache",
+          ETag: etag,
+        });
+        res.end();
+        return;
+      }
+      res.writeHead(200, {
+        "Content-Type": "application/json",
+        "Cache-Control": "private, no-cache",
+        ETag: etag,
+      });
+      res.end(body);
+      return;
+    }
+
+    const computeGridStatuses = async (): Promise<string> => {
+      const { simulators, helperByUdid } = await readGridSnapshot(selectedDevice);
+      return JSON.stringify({
+        statuses: gridStatusesForRequest(
+          simulators,
+          helperByUdid,
+          req,
+          base,
+          proxyHelpers,
+        ),
+      });
+    };
+
+    // Compact point-in-time form used only while waiting for a start action.
+    if (url === base + "/grid/api/status") {
+      res.writeHead(200, {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+      });
+      res.end(await computeGridStatuses());
+      return;
+    }
+
+    // Change-only live grid state. It travels through the existing control
+    // WebSocket, so it does not consume another long-lived browser connection.
+    if (url === base + "/grid/api/status/events") {
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+      res.write(":\n\n");
+
+      let closed = false;
+      let computing = false;
+      let debounce: ReturnType<typeof setTimeout> | null = null;
+      let watcher: FSWatcher | null = null;
+      let watcherRetry: ReturnType<typeof setTimeout> | null = null;
+      let statusPoll: ReturnType<typeof setInterval> | null = null;
+      let heartbeat: ReturnType<typeof setInterval> | null = null;
+      req.on("close", () => {
+        closed = true;
+        if (debounce) clearTimeout(debounce);
+        if (watcherRetry) clearTimeout(watcherRetry);
+        if (statusPoll) clearInterval(statusPoll);
+        if (heartbeat) clearInterval(heartbeat);
+        watcher?.close();
+      });
+
+      let lastSent = await computeGridStatuses();
+      if (closed || res.writableEnded) return;
+      res.write("data: " + lastSent + "\n\n");
+      const sendIfChanged = async () => {
+        if (closed || computing || res.writableEnded) return;
+        computing = true;
+        try {
+          const next = await computeGridStatuses();
+          if (next === lastSent || closed || res.writableEnded) return;
+          lastSent = next;
+          res.write("data: " + next + "\n\n");
+        } finally {
+          computing = false;
+        }
+      };
+
+      // Filesystem notifications make helper start/stop immediate; the slow
+      // poll catches simctl changes made by Xcode or Simulator.app.
+      const onFsEvent = () => {
+        if (debounce) return;
+        debounce = setTimeout(() => {
+          debounce = null;
+          void sendIfChanged();
+        }, 150);
+      };
+      const ensureWatcher = () => {
+        if (closed || res.writableEnded || watcher || watcherRetry) return;
+        watcherRetry = setTimeout(() => {
+          watcherRetry = null;
+          if (closed || res.writableEnded || watcher) return;
+          try {
+            watcher = watch(STATE_DIR, onFsEvent);
+            watcher.on("error", () => {
+              watcher?.close();
+              watcher = null;
+              ensureWatcher();
+            });
+            void sendIfChanged();
+          } catch {
+            ensureWatcher();
+          }
+        }, 250);
+      };
+      ensureWatcher();
+      statusPoll = setInterval(() => void sendIfChanged(), 3_000);
+      heartbeat = setInterval(() => {
+        if (closed || res.writableEnded) return;
+        res.write(":\n\n");
+        ensureWatcher();
+      }, 15_000);
+      return;
+    }
+
     // Grid JSON: every supported simulator, annotated with running helper info if any.
     if (url === base + "/grid/api") {
-      const states = await readServeSimStates();
-      const helperByUdid = new Map(states.map((s) => [s.device, s] as const));
-      const sims = await listAllSimulators();
-      // Order mirrors Xcode's Devices window: the devices the user is actually
-      // using float to the top — streaming first, then booted, then the
-      // simulator they last opened in Simulator.app — and everything else falls
-      // back to a stable family / newest-OS / name grouping. This surfaces the
-      // handful of relevant devices instead of burying them in an alphabetical
-      // wall of near-identical names. Sort on the cheap metadata BEFORE
-      // resolving the DeviceKit chrome descriptor, so pagination resolves chrome
-      // only for the page actually returned.
-      const preferredUdid = getPreferredDeviceUdid();
-      const familyRank = (name: string): number => {
-        if (/iphone/i.test(name)) return 0;
-        if (/ipad/i.test(name)) return 1;
-        if (/watch/i.test(name)) return 2;
-        if (/(apple\s*tv|^tv\b)/i.test(name)) return 3;
-        if (/vision|reality/i.test(name)) return 4;
-        return 5;
-      };
-      // Lower is higher in the list: streaming > selected > booted > last-opened
-      // > rest. The active `?device=` selection is ranked near the top so it's
-      // always inside the first page — otherwise a paginated client that selected
-      // a shut-down device deep in the catalog would get no chrome/placeholder
-      // for the view it's actually showing.
-      const stateRank = (d: (typeof sims)[number]) => {
-        if (helperByUdid.has(d.udid)) return 0;
-        if (selectedDevice && d.udid === selectedDevice) return 1;
-        if (d.state === "Booted") return 2;
-        if (d.udid === preferredUdid) return 3;
-        return 4;
-      };
-      // Newest runtime first, so "iPhone 17 Pro (27.0)" sorts above its 26.x twins.
-      const runtimeRank = (runtime: string): number => {
-        const m = runtime.match(/-(\d+)-(\d+)/);
-        const major = m ? Number(m[1]) : 0;
-        const minor = m ? Number(m[2]) : 0;
-        return -(major * 1000 + minor);
-      };
-      sims.sort((a, b) =>
-        stateRank(a) - stateRank(b) ||
-        familyRank(a.name) - familyRank(b.name) ||
-        a.name.localeCompare(b.name) ||
-        runtimeRank(a.runtime) - runtimeRank(b.runtime),
-      );
-
-      const total = sims.length;
+      const { simulators, helperByUdid } = await readGridSnapshot(selectedDevice);
+      const total = simulators.length;
       const { limit, offset } = parseGridPaging(rawUrl);
-      const page = limit == null ? sims : sims.slice(offset, offset + limit);
-      const devices = page.map((d) => {
-        const helper = helperByUdid.get(d.udid);
-        const remoteHelper = helper ? rewriteStateForRequestHost(helper, hostForRequest(req), base, httpProtocolForRequest(req), proxyHelpers) : null;
-        return {
-          device: d.udid,
-          name: d.name,
-          runtime: d.runtime,
-          state: d.state,
-          chrome: resolveDeviceKitChrome(d),
-          placeholderAsset: resolveDevicePlaceholderAsset(d),
-          helper: remoteHelper
-            ? {
-                port: remoteHelper.port,
-                url: remoteHelper.url,
-                streamUrl: remoteHelper.streamUrl,
-                wsUrl: remoteHelper.wsUrl,
-              }
-            : null,
-        };
-      });
+      const page = limit == null ? simulators : simulators.slice(offset, offset + limit);
+      const statuses = gridStatusesForRequest(
+        page,
+        helperByUdid,
+        req,
+        base,
+        proxyHelpers,
+      );
+      const devices = page.map((device, index) => ({
+        ...catalogDeviceForSimulator(device),
+        state: statuses[index]!.state,
+        helper: statuses[index]!.helper,
+      }));
       res.writeHead(200, {
         "Content-Type": "application/json",
         "Cache-Control": "no-store",
@@ -1593,7 +1852,7 @@ export function simMiddleware(options?: SimMiddlewareOptions): SimMiddleware {
     }
 
     // Shutdown a booted simulator. Any running helper for the device is reaped
-    // by readServeSimStates() on the next /grid/api poll (it kills helpers
+    // by readServeSimStates() on the next status sample (it kills helpers
     // whose backing simulator is no longer in the booted set).
     if (url === base + "/grid/api/shutdown" && req.method === "POST") {
       let body = "";
@@ -1612,9 +1871,9 @@ export function simMiddleware(options?: SimMiddlewareOptions): SimMiddleware {
         // isn't streamed here). This frees the native session immediately
         // rather than waiting for the next poll's reaper to notice.
         closeDeviceSession(udid);
-        // Drop the snapshot so the next /grid/api call re-queries simctl
+        // Drop the snapshot so the next status sample re-queries simctl
         // and prunes any helper bound to this now-shutdown device.
-        bootedSnapshot = { at: 0, booted: null };
+        bootedSnapshot = { at: 0, booted: null, names: new Map() };
         execFile("xcrun", ["simctl", "shutdown", udid], { timeout: 30_000 }, (err, _stdout, stderr) => {
           if (err) {
             res.writeHead(500, { "Content-Type": "application/json" });
@@ -1827,6 +2086,78 @@ export function simMiddleware(options?: SimMiddlewareOptions): SimMiddleware {
       });
       const remoteState = state ? rewriteStateForRequestHost(state, hostForRequest(req), base, httpProtocolForRequest(req), proxyHelpers) : null;
       res.end(JSON.stringify(remoteState ? previewConfigForState(remoteState, base, serveSimBinPath(), execToken, streamSettings, proxyHelpers) : null));
+      return;
+    }
+
+    // Still-PNG capture via `simctl io <udid> screenshot`. Consumed by host
+    // dashboard save-screenshot actions (the serve-sim web UI shells out over
+    // exec-ws instead, so it never hits this route). Uses the ?device=
+    // selection with a booted-simulator fallback.
+    if (url === base + "/api/screenshot") {
+      if (req.method !== "POST") {
+        res.writeHead(405, {
+          ...SCREENSHOT_RESPONSE_HEADERS,
+          "Content-Type": "text/plain; charset=utf-8",
+        });
+        res.end("method not allowed");
+        return;
+      }
+      let udid = selectedDevice;
+      if (udid && !isSimulatorUdid(udid)) {
+        res.writeHead(400, {
+          ...SCREENSHOT_RESPONSE_HEADERS,
+          "Content-Type": "application/json",
+        });
+        res.end(JSON.stringify({ ok: false, error: "Invalid simulator device ID" }));
+        return;
+      }
+      if (!udid) {
+        const booted = await getBootedUdids();
+        udid = (booted && [...booted][0]) ?? null;
+      }
+      if (!udid) {
+        res.writeHead(400, {
+          ...SCREENSHOT_RESPONSE_HEADERS,
+          "Content-Type": "application/json",
+        });
+        res.end(JSON.stringify({ ok: false, error: "No booted simulator to screenshot" }));
+        return;
+      }
+      // simctl only writes to a file, so round-trip through a private tmp path
+      // instead of streaming; captures are a few MB at most.
+      const file = join(tmpdir(), `serve-sim-screenshot-${randomBytes(8).toString("hex")}.png`);
+      try {
+        await new Promise<void>((resolve, reject) => {
+          execFile(
+            "xcrun",
+            ["simctl", "io", udid, "screenshot", file],
+            { timeout: 5_000 },
+            (err, _stdout, stderr) => {
+              if (err) reject(Object.assign(err, { stderr: stderr?.toString() }));
+              else resolve();
+            },
+          );
+        });
+        const png = await readFile(file);
+        res.writeHead(200, {
+          ...SCREENSHOT_RESPONSE_HEADERS,
+          "Content-Type": "image/png",
+        });
+        res.end(png);
+      } catch (err) {
+        const stderr = (err as { stderr?: unknown }).stderr;
+        const message =
+          (typeof stderr === "string" && stderr.trim()) ||
+          (err instanceof Error ? err.message : String(err));
+        res.writeHead(500, {
+          ...SCREENSHOT_RESPONSE_HEADERS,
+          "Content-Type": "application/json",
+        });
+        res.end(JSON.stringify({ ok: false, error: message }));
+      } finally {
+        // Best-effort cleanup; the PNG is already in memory by now.
+        await unlink(file).catch(() => {});
+      }
       return;
     }
 
@@ -2109,6 +2440,15 @@ export function simMiddleware(options?: SimMiddlewareOptions): SimMiddleware {
           res.end(JSON.stringify({ stdout: "", stderr: "Missing command", exitCode: 1 }));
           return;
         }
+        if (isGlobalServeSimKill(command)) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({
+            stdout: "",
+            stderr: "refusing global serve-sim --kill",
+            exitCode: 1,
+          }));
+          return;
+        }
         exec(rewriteHostCommand(command), { maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
           const exitCode = err ? (err as ExecException).code ?? 1 : 0;
           recordCommandEvent(command, { exitCode });
@@ -2212,12 +2552,13 @@ export function simMiddleware(options?: SimMiddlewareOptions): SimMiddleware {
     return connectToFetch(connectMiddleware, request);
   }) as SimMiddleware;
 
-  fetchMiddleware.handleWebSocket = createExecWebSocketHandler({
+  const execWebSocketHandler = createExecWebSocketHandler({
     path: `${base}/exec-ws`,
     execToken,
     ssePrefixes: [
       `${base}/api/events`,
       `${base}/api/event-log/events`,
+      `${base}/grid/api/status/events`,
       `${base}/appstate`,
       `${base}/logs`,
       `${base}/metrics`,
@@ -2232,6 +2573,16 @@ export function simMiddleware(options?: SimMiddlewareOptions): SimMiddleware {
       }));
     },
   });
+
+  fetchMiddleware.handleWebSocket = (request: Request, websocket: UpgradeHandlerWebSocket): boolean => {
+    if (execWebSocketHandler(request, websocket)) return true;
+    if (claimHelperHidSocket(request, websocket, {
+      helperProxyTarget: (rawUrl) => helperProxyTarget(rawUrl, helperPrefix),
+      fallbackDevice: options?.device ?? null,
+      resolveSession: (device) => getDeviceSession(device, streamSettings),
+    })) return true;
+    return false;
+  };
 
   // WebSocket upgrades owned by the preview: the authenticated exec/control
   // channel plus same-origin helper/devtools proxy sockets.

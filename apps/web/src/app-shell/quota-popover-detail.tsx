@@ -15,16 +15,27 @@ import {
   extraSections,
   extractPercent,
   extractResetText,
+  FACTORY_MANAGED_COMPUTERS_GROUP,
+  FACTORY_USAGE_MODE_STANDARD,
+  quotaMetricShowsBar,
+  factoryManagedComputerMetrics,
+  factoryUsageModes,
+  factoryWindowMetrics,
   firstRowValue,
   inferProviderRegion,
+  metricGroupLabel,
+  providerCreditsLabel,
   providerIdentity,
-  sectionHeaderValue,
   quotaMetrics,
+  sectionHeaderValue,
   visibleSectionRows,
+  type QuotaMetricRow,
 } from "./quota-popover-utils";
 import {
   ProviderApiKeyManager,
   ProviderGlyph,
+  QuotaMetricUsage,
+  QuotaModeTabs,
   UsageBar,
   UsagePortalLink,
   UsageSwitch,
@@ -33,6 +44,84 @@ import {
 type ProviderSwitchHandler = (providerId: string, enabled: boolean) => void;
 type ApiKeyAddHandler = (providerId: string, region: string, apiKey: string) => void;
 type ApiKeyDeleteHandler = (providerId: string, keyId: string) => void;
+
+function useFactoryUsageMode(metrics: QuotaMetricRow[]) {
+  const modes = factoryUsageModes(metrics);
+  const [mode, setMode] = useState(modes[0] ?? FACTORY_USAGE_MODE_STANDARD);
+  const resolvedMode = modes.includes(mode) ? mode : (modes[0] ?? null);
+  return {
+    modes,
+    mode: resolvedMode,
+    setMode,
+    windowMetrics: factoryWindowMetrics(metrics, modes.length >= 2 ? resolvedMode : null),
+    managedMetrics: factoryManagedComputerMetrics(metrics),
+  };
+}
+
+function QuotaMetricBlock({
+  provider,
+  metric,
+  compact,
+  bordered,
+}: {
+  provider: QuotaProviderResponse;
+  metric: QuotaMetricRow;
+  compact?: boolean;
+  bordered?: boolean;
+}) {
+  const t = useTranslations("appShell.usagePopover");
+  return (
+    <div
+      className={bordered ? (compact ? "border-t border-border/60 pt-2.5" : "border-t border-border/70 pt-5") : undefined}
+    >
+      <QuotaMetricUsage
+        compact={compact}
+        label={metric.label}
+        percent={metric.percent}
+        segments={metric.segments}
+        usedText={displayMetricUsedText(metric, t("detail.usedSuffix"))}
+        detailText={metric.detailText}
+        resetText={displayResetText(metric.resetText, provider.subscription_summary?.reset_at, {
+          resetUnknownLabel: t("formatters.resetUnknown"),
+          resettingNowLabel: t("formatters.resettingNow"),
+          resetsInPrefixLabel: t("formatters.resetsIn"),
+          useDroidToStartLabel: t("formatters.useDroidToStart"),
+        })}
+      />
+    </div>
+  );
+}
+
+function factoryUsageRowKey(metric: { group?: string | null; label: string }): string {
+  return metric.group === FACTORY_MANAGED_COMPUTERS_GROUP
+    ? `${metric.group}:${metric.label}`
+    : `window:${metric.label}`;
+}
+
+function QuotaUsageModeTabs({
+  modes,
+  mode,
+  onModeChange,
+}: {
+  modes: string[];
+  mode: string | null;
+  onModeChange: (value: string) => void;
+}) {
+  const t = useTranslations("appShell.usagePopover");
+  return (
+    <QuotaModeTabs
+      value={mode ?? FACTORY_USAGE_MODE_STANDARD}
+      options={modes.map((item) => ({
+        value: item,
+        label: metricGroupLabel(item, {
+          standard: t("detail.standard"),
+          droidCore: t("detail.droidCore"),
+        }),
+      }))}
+      onValueChange={onModeChange}
+    />
+  );
+}
 
 export function AggregateDetail({
   aggregate,
@@ -79,7 +168,7 @@ export function AggregateDetail({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
-          <div className="text-[18px] font-semibold tracking-tight text-foreground">{t("detail.allProviders")}</div>
+          <div className="text-sm font-semibold tracking-tight text-foreground">{t("detail.allProviders")}</div>
           <UsageSwitch
             checked={allSwitchEnabled}
             onCheckedChange={onToggleAllProviders}
@@ -139,7 +228,7 @@ function AggregateProviderRow({
   const extraDetailSections = extraSections(provider);
   const providerRegion = inferProviderRegion(provider);
   const primaryMetric = metrics[0] ?? null;
-  const creditsBalance = firstRowValue(provider, "Credits", "Balance");
+  const creditsBalance = providerCreditsLabel(provider);
   const creditsState = firstRowValue(provider, "Credits", "State");
   const { accountLabel, planLabel, periodLabel } = providerIdentity(provider, t("detail.notDetected"));
   const collapsedSubtitle =
@@ -176,7 +265,7 @@ function AggregateProviderRow({
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <div className="truncate text-left text-sm font-semibold text-foreground">
+              <div className="truncate text-left text-xs font-semibold text-foreground">
                 {provider.label}
               </div>
               <div
@@ -302,11 +391,13 @@ function DetectedProviderDetails({
   deletingKeyId: string | null;
 }) {
   const t = useTranslations("appShell.usagePopover");
+  const { modes, mode, setMode, windowMetrics, managedMetrics } = useFactoryUsageMode(metrics);
+  const visibleMetrics = [...windowMetrics, ...managedMetrics];
   return (
     <>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="truncate text-sm text-foreground">{accountLabel}</div>
+          <div className="truncate text-xs text-foreground">{accountLabel}</div>
           {periodLabel ? (
             <div className="mt-0.5 truncate text-[11px] text-foreground/90">
               {periodLabel}
@@ -324,30 +415,19 @@ function DetectedProviderDetails({
       </div>
 
       <div className="mt-3.5 space-y-3.5">
-        {metrics.length > 0 ? (
-          metrics.map((metric) => (
-            <div key={metric.label}>
-              <div className="text-sm font-medium text-foreground">{metric.label}</div>
-              {metric.percent !== null && metric.percent !== undefined ? (
-                <div className="mt-1.5">
-                  <UsageBar percent={metric.percent} />
-                </div>
-              ) : null}
-              <div className="mt-1 flex items-center justify-between gap-4 text-[11px]">
-                <div className="text-foreground">{displayMetricUsedText(metric, t("detail.usedSuffix"))}</div>
-                <div className="text-foreground/90">
-                  {metric.percent !== null && metric.percent !== undefined
-                    ? displayResetText(metric.resetText, provider.subscription_summary?.reset_at, {
-                      resetUnknownLabel: t("formatters.resetUnknown"),
-                      resettingNowLabel: t("formatters.resettingNow"),
-                      resetsInPrefixLabel: t("formatters.resetsIn"),
-                    })
-                    : null}
-                </div>
-              </div>
-            </div>
+        {modes.length >= 2 ? (
+          <QuotaUsageModeTabs modes={modes} mode={mode} onModeChange={setMode} />
+        ) : null}
+        {visibleMetrics.length > 0 ? (
+          visibleMetrics.map((metric) => (
+            <QuotaMetricBlock
+              key={factoryUsageRowKey(metric)}
+              provider={provider}
+              metric={metric}
+              compact
+            />
           ))
-        ) : (
+        ) : creditsBalance || creditsState || extraDetailSections.length > 0 ? null : (
           <div>
             <div className="text-sm font-medium text-foreground">{t("detail.usage")}</div>
             <div className="mt-1 text-[11px] text-foreground/90">{t("detail.noUsageData")}</div>
@@ -357,9 +437,8 @@ function DetectedProviderDetails({
         {creditsBalance || creditsState ? (
           <div className="flex items-center justify-between gap-4 border-t border-border/60 pt-2.5 text-sm">
             <div className="text-foreground">{t("detail.credits")}</div>
-            <div className="text-right">
-              <div className="text-foreground">{creditsBalance ?? t("detail.unknown")}</div>
-              <div className="text-[11px] text-foreground/90">{creditsState ?? t("detail.credits")}</div>
+            <div className="text-right text-foreground">
+              {creditsBalance ?? creditsState ?? t("detail.unknown")}
             </div>
           </div>
         ) : null}
@@ -405,10 +484,12 @@ export function ProviderDetail({
   const metrics = quotaMetrics(provider);
   const extraDetailSections = extraSections(provider);
   const providerRegion = inferProviderRegion(provider);
-  const creditsBalance = firstRowValue(provider, "Credits", "Balance");
+  const creditsBalance = providerCreditsLabel(provider);
   const creditsState = firstRowValue(provider, "Credits", "State");
   const warningText = provider.warnings[0] ?? (provider.fetch_state.status !== "ready" ? provider.fetch_state.message : null);
   const showCredits = Boolean(creditsBalance || creditsState);
+  const { modes, mode, setMode, windowMetrics, managedMetrics } = useFactoryUsageMode(metrics);
+  const visibleMetrics = [...windowMetrics, ...managedMetrics];
 
   return (
     <div className="space-y-5">
@@ -416,7 +497,7 @@ export function ProviderDetail({
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <div className="text-[18px] font-semibold tracking-tight text-foreground">{provider.label}</div>
+              <div className="text-sm font-semibold tracking-tight text-foreground">{provider.label}</div>
               <UsageSwitch
                 checked={provider.switch_enabled}
                 onCheckedChange={(checked) => onToggleProvider(provider.id, checked)}
@@ -425,7 +506,7 @@ export function ProviderDetail({
               />
             </div>
             {provider.id === "zed" && periodLabel ? (
-              <div className="mt-1 text-sm text-foreground/90">{periodLabel}</div>
+              <div className="mt-1 text-xs text-foreground/90">{periodLabel}</div>
             ) : null}
             <UsagePortalLink
               providerId={provider.id}
@@ -434,45 +515,40 @@ export function ProviderDetail({
             />
           </div>
           <div className="text-right">
-            <div className="text-sm text-foreground">{accountLabel}</div>
+            <div className="text-xs text-foreground">{accountLabel}</div>
             {planLabel ? (
-              <div className="mt-1 text-sm text-foreground/90">{planLabel}</div>
+              <div className="mt-1 text-xs text-foreground/90">{planLabel}</div>
             ) : null}
           </div>
         </div>
       </div>
 
-      {metrics.map((metric) => (
-        <section key={metric.label} className="border-t border-border/70 pt-5">
-          <div className="text-[18px] font-semibold tracking-tight text-foreground">{metric.label}</div>
-          {metric.percent !== null && metric.percent !== undefined ? (
-            <div className="mt-4">
-              <UsageBar percent={metric.percent} />
-            </div>
-          ) : null}
-          <div className="mt-2 flex items-center justify-between gap-4 text-sm">
-            <div className="text-foreground">{displayMetricUsedText(metric, t("detail.usedSuffix"))}</div>
-            <div className="text-foreground/90">
-              {metric.percent !== null && metric.percent !== undefined
-                ? displayResetText(metric.resetText, provider.subscription_summary?.reset_at, {
-                  resetUnknownLabel: t("formatters.resetUnknown"),
-                  resettingNowLabel: t("formatters.resettingNow"),
-                  resetsInPrefixLabel: t("formatters.resetsIn"),
-                })
-                : null}
-            </div>
-          </div>
-        </section>
+      {modes.length >= 2 ? (
+        <QuotaUsageModeTabs modes={modes} mode={mode} onModeChange={setMode} />
+      ) : null}
+
+      {visibleMetrics.map((metric, index) => (
+        <QuotaMetricBlock
+          key={factoryUsageRowKey(metric)}
+          provider={provider}
+          metric={metric}
+          bordered={modes.length < 2 || index > 0}
+        />
       ))}
 
       {showCredits ? (
         <section className="border-t border-border/70 pt-5">
-          <div className="text-[18px] font-semibold tracking-tight text-foreground">{t("detail.credits")}</div>
-          <div className="mt-4 h-2 rounded-full bg-muted/60" />
-          <div className="mt-2 flex items-center justify-between gap-4 text-sm">
-            <div className="text-foreground">{creditsBalance ?? creditsState ?? t("detail.unknown")}</div>
-            <div className="text-foreground/90">{creditsState && creditsBalance ? creditsState : null}</div>
+          <div className="flex items-start justify-between gap-4">
+            <div className="text-sm font-semibold tracking-tight text-foreground">
+              {t("detail.credits")}
+            </div>
+            <div className="pt-1 text-right text-sm text-foreground">
+              {creditsBalance ?? creditsState ?? t("detail.unknown")}
+            </div>
           </div>
+          {creditsState && creditsBalance ? (
+            <div className="mt-1 text-right text-sm text-foreground/90">{creditsState}</div>
+          ) : null}
           {warningText ? (
             <div className="mt-3 text-sm leading-6 text-foreground/90">{warningText}</div>
           ) : null}
@@ -518,7 +594,7 @@ function ExtraDetailSections({
           className={compact ? "border-t border-border/60 pt-2.5" : "border-t border-border/70 pt-5"}
         >
           <div className="flex items-start justify-between gap-4">
-            <div className={compact ? "text-sm font-medium text-foreground" : "text-[18px] font-semibold tracking-tight text-foreground"}>
+            <div className={compact ? "text-xs font-medium text-foreground" : "text-sm font-semibold tracking-tight text-foreground"}>
               {section.title}
             </div>
             {sectionHeaderValue(provider, section) ? (
@@ -540,12 +616,12 @@ function ExtraDetailSections({
                     <div className="text-foreground/90">{row.label}</div>
                     <div className="text-right text-foreground">{displayValue}</div>
                   </div>
-                  {rowPercent !== null ? (
+                  {quotaMetricShowsBar(rowPercent) ? (
                     <div className={compact ? "mt-1" : "mt-1.5"}>
                       <UsageBar percent={rowPercent} />
                     </div>
                   ) : null}
-                  {rowPercent !== null ? (
+                  {quotaMetricShowsBar(rowPercent) ? (
                     <div className={compact ? "mt-0.5 flex items-center justify-between gap-4 text-[11px]" : "mt-1 flex items-center justify-between gap-4 text-[11px]"}>
                       <div />
                       <div className="text-foreground/90">{rowResetText}</div>

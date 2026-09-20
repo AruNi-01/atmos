@@ -1,0 +1,6 @@
+{"method":"initialize","id":0,"params":{"clientInfo":{"name":"atmos","title":"Atmos Chat","version":"0.0.0"}}}
+{"id":0,"result":{"userAgent":"atmos/0.144.5 (Mac OS 27.0.0; arm64) dumb (atmos; 0.0.0)","codexHome":"/Users/me/.codex","platformFamily":"unix","platformOs":"macos"}}
+{"method":"initialized","params":{}}
+{"method":"thread/start","id":1,"params":{"cwd":"/abs/project","model":"gpt-5.6-sol","approvalPolicy":"on-request","approvalsReviewer":"user","sandbox":"workspace-write"}}
+{"id":1,"result":{"thread":{"id":"01a05dc0-1cc9-7082-afb0-f8b5c2472403","sessionId":"01a05dc0-1cc9-7082-afb0-f8b5c2472403","forkedFromId":null,"parentThreadId":null,"preview":"","ephemeral":false,"historyMode":"legacy","modelProvider":"openai","createdAt":1788279266,"updatedAt":1788279266,"status":{"type":"idle"},"cwd":"/abs/project","cliVersion":"0.144.5","name":null,"turns":[]},"model":"gpt-5.6-sol","modelProvider":"openai","cwd":"/abs/project","instructionSources":[],"approvalPolicy":"on-request","approvalsReviewer":"user","sandbox":{"type":"workspaceWrite","writableRoots":[],"networkAccess":false,"excludeTmpdirEnvVar":false,"excludeSlashTmp":false},"reasoningEffort":null}}
+{"method":"thread/started","params":{"thread":{"id":"01a05dc0-1cc9-7082-afb0-f8b5c2472403","sessionId":"01a05dc0-1cc9-7082-afb0-f8b5c2472403","ephemeral":false,"historyMode":"legacy","turns":[]}}}

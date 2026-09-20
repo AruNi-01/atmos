@@ -6,6 +6,7 @@ import {
   TabsSubtle,
   TabsSubtleItem,
   drawerCloseReserveClass,
+  ScrollArea,
   useDrawerCloseReserve,
 } from "@workspace/ui";
 import { GithubUserAvatar } from "@/features/github/components/GithubUserHoverCard";
@@ -108,13 +109,7 @@ export function ActionsDetailView({
     },
     [],
   );
-  const {
-    contextRef,
-    handleScroll,
-    handleWheelCapture,
-    resetContext,
-    scrollRef,
-  } = useActionsContextHeader();
+  const { resetContext, scrollRef } = useActionsContextHeader();
 
   const effectiveRunId = runId ?? run?.databaseId;
   const { data: detail, loading: detailLoading } = useGithubActionsDetail(
@@ -268,7 +263,7 @@ export function ActionsDetailView({
   const createdAtTimestamp = formatActionTimestamp(effectiveRun.createdAt);
   const createdAtTimeAgo = formatActionTimeAgo(effectiveRun.createdAt);
 
-  const runContextHeader = (
+  const runTitleMeta = (
     <>
       <div className="flex items-center gap-2">
         <h3 className="text-base font-semibold text-foreground">
@@ -330,29 +325,30 @@ export function ActionsDetailView({
           </>
         )}
       </div>
-      <div className="mt-3 border-t border-border/40 pt-2">
-        <TabsSubtle
-          activeLabel
-          idPrefix={`actions-run-${effectiveRun.databaseId}`}
-          selectedIndex={activeTab === "summary" ? 0 : 1}
-          onSelect={(index) => {
-            setActiveTab(index === 1 ? "workflow" : "summary");
-            resetContext();
-          }}
-        >
-          <TabsSubtleItem
-            icon={ChartNoAxesCombined}
-            index={0}
-            label={t("tabs.summary")}
-          />
-          <TabsSubtleItem
-            icon={FileCode2}
-            index={1}
-            label={t("tabs.workflow")}
-          />
-        </TabsSubtle>
-      </div>
     </>
+  );
+
+  const runTabs = (
+    <TabsSubtle
+      activeLabel
+      idPrefix={`actions-run-${effectiveRun.databaseId}`}
+      selectedIndex={activeTab === "summary" ? 0 : 1}
+      onSelect={(index) => {
+        setActiveTab(index === 1 ? "workflow" : "summary");
+        resetContext();
+      }}
+    >
+      <TabsSubtleItem
+        icon={ChartNoAxesCombined}
+        index={0}
+        label={t("tabs.summary")}
+      />
+      <TabsSubtleItem
+        icon={FileCode2}
+        index={1}
+        label={t("tabs.workflow")}
+      />
+    </TabsSubtle>
   );
 
   return (
@@ -383,19 +379,16 @@ export function ActionsDetailView({
       </div>
 
       {activeTab === "summary" ? (
-        <div
-          ref={scrollRef}
-          className="no-scrollbar min-h-0 w-full flex-1 overflow-y-auto"
-          onScroll={handleScroll}
-          onWheelCapture={handleWheelCapture}
+        <ScrollArea
+          scrollFade
+          className="min-h-0 w-full flex-1"
+          viewportRef={scrollRef}
         >
           <div className="relative mx-auto w-full max-w-2xl px-6 pb-16">
             <div className="relative flex flex-col text-sm">
-              <div
-                ref={contextRef}
-                className="sticky top-0 z-30 transform-gpu bg-background/98 pb-2 pt-1 backdrop-blur-md transition-transform duration-200 ease-out will-change-transform"
-              >
-                {runContextHeader}
+              <div className="min-w-0 pt-1 pb-4">{runTitleMeta}</div>
+              <div className="sticky top-0 z-20 border-t border-border/40 bg-background pb-3 pt-3">
+                {runTabs}
               </div>
 
               <div className="flex flex-col gap-4 pt-4">
@@ -443,12 +436,15 @@ export function ActionsDetailView({
               </div>
             </div>
           </div>
-        </div>
+        </ScrollArea>
       ) : (
         // Workflow file: pin header/tabs; only the editor pane scrolls.
         <div className="flex min-h-0 w-full flex-1 flex-col">
           <div className="mx-auto w-full max-w-2xl shrink-0 px-6 pb-2 pt-1 text-sm">
-            {runContextHeader}
+            <div className="min-w-0 pb-4">{runTitleMeta}</div>
+            <div className="border-t border-border/40 bg-background pb-3 pt-3">
+              {runTabs}
+            </div>
           </div>
           <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col px-6 pb-4 pt-2">
             <ActionsWorkflowFile

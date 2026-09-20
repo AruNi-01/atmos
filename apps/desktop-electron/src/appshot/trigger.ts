@@ -7,6 +7,7 @@
 
 import type { AppState } from "../app-state.js";
 import { mainLog } from "../main-log.js";
+import type { HostShiftCapturedPayload } from "./host-shift.js";
 import {
   startShiftFlagsEventTap,
   type TapHandle,
@@ -27,6 +28,11 @@ let status: TriggerListenerStatus = {
 };
 let captureRunning = false;
 let onTrigger: (() => void | Promise<void>) | null = null;
+let onHostCaptured: ((payload: HostShiftCapturedPayload) => void | Promise<void>) | null =
+  null;
+let onNeedGrant: ((missing: string[]) => void | Promise<void>) | null = null;
+let onHostReady: ((info: { ax: boolean; tap: boolean }) => void | Promise<void>) | null =
+  null;
 let tapHandle: TapHandle | null = null;
 /** Accessibility trust observed at last successful arm. */
 let armedWithAx = false;
@@ -44,6 +50,32 @@ function fireCapture(): void {
     })
     .finally(() => {
       captureRunning = false;
+    });
+}
+
+function fireHostCaptured(payload: HostShiftCapturedPayload): void {
+  if (captureRunning) return;
+  captureRunning = true;
+  const run = onHostCaptured;
+  void Promise.resolve()
+    .then(() => run?.(payload))
+    .catch((error) => {
+      const msg = error instanceof Error ? error.message : String(error);
+      mainLog(`[appshot-trigger] host capture failed: ${msg}`, "error");
+      status.lastError = msg;
+    })
+    .finally(() => {
+      captureRunning = false;
+    });
+}
+
+function fireNeedGrant(missing: string[]): void {
+  const run = onNeedGrant;
+  void Promise.resolve()
+    .then(() => run?.(missing))
+    .catch((error) => {
+      const msg = error instanceof Error ? error.message : String(error);
+      mainLog(`[appshot-trigger] need-grant failed: ${msg}`, "warn");
     });
 }
 
@@ -68,6 +100,14 @@ export async function ensureTriggerListener(
   state: AppState,
   triggerCapture: (state: AppState) => Promise<void>,
   accessibilityGranted?: boolean,
+  hooks?: {
+    hostCaptured?: (
+      state: AppState,
+      payload: HostShiftCapturedPayload,
+    ) => Promise<void>;
+    needGrant?: (missing: string[]) => Promise<void>;
+    hostReady?: (info: { ax: boolean; tap: boolean }) => Promise<void>;
+  },
 ): Promise<TriggerListenerStatus> {
   if (process.platform !== "darwin") {
     status = {
@@ -80,6 +120,11 @@ export async function ensureTriggerListener(
   }
 
   onTrigger = () => triggerCapture(state);
+  onHostCaptured = hooks?.hostCaptured
+    ? (payload) => hooks.hostCaptured?.(state, payload)
+    : null;
+  onNeedGrant = hooks?.needGrant ?? null;
+  onHostReady = hooks?.hostReady ?? null;
 
   const ax = Boolean(accessibilityGranted);
 
@@ -101,15 +146,28 @@ export async function ensureTriggerListener(
   status = { ...status, starting: true, lastError: null };
 
   try {
-    const handle = startShiftFlagsEventTap(() => {
-      fireCapture();
+    const handle = startShiftFlagsEventTap({
+      onElectronChord: () => fireCapture(),
+      onHostCaptured: (payload) => fireHostCaptured(payload),
+      onNeedGrant: (missing) => fireNeedGrant(missing),
+      onIgnored: (reason) => {
+        mainLog(`[appshot-trigger] host ignored: ${reason}`);
+      },
+      onHostReady: (info) => {
+        void Promise.resolve()
+          .then(() => onHostReady?.(info))
+          .catch((error) => {
+            const msg = error instanceof Error ? error.message : String(error);
+            mainLog(`[appshot-trigger] host-ready failed: ${msg}`, "warn");
+          });
+      },
     });
     if (!handle) {
       status = {
         enabled: false,
         starting: false,
         lastError:
-          "failed to create dual-shift event tap — grant Accessibility to Atmos, then refresh Appshots (or restart)",
+          "failed to create dual-shift event tap — grant Accessibility, then refresh Appshots",
         mode: "none",
       };
       mainLog(`[appshot-trigger] arm FAILED: ${status.lastError}`, "error");
@@ -122,7 +180,7 @@ export async function ensureTriggerListener(
       starting: false,
       lastError: ax
         ? null
-        : "Accessibility is off — dual-shift will not receive keys until Atmos is trusted (System Settings → Privacy → Accessibility)",
+        : "Accessibility is off — dual-shift will not receive keys until the host is trusted (System Settings → Privacy → Accessibility)",
       mode: "event-tap",
     };
   } catch (error) {
@@ -141,6 +199,9 @@ export async function ensureTriggerListener(
 export function stopTriggerListener(): void {
   disarm();
   onTrigger = null;
+  onHostCaptured = null;
+  onNeedGrant = null;
+  onHostReady = null;
   status = {
     enabled: false,
     starting: false,

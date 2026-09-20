@@ -200,6 +200,7 @@ describe("ResourceMonitorPopover structure", () => {
     expect(popoverSrc).toContain("desktopLoading");
     expect(popoverSrc).toContain("lastUpdatedAtMs");
     expect(popoverSrc).toContain("ScrollArea");
+    expect(popoverSrc).toContain("scrollFade");
     const chartSrc = readFileSync(
       join(import.meta.dir, "../components/ResourceMonitorHostChart.tsx"),
       "utf8",
@@ -250,7 +251,12 @@ describe("ResourceMonitorPopover structure", () => {
     expect(hierarchySrc).toContain('t("sharedRuntime")');
     expect(hierarchySrc).toContain('t("projects")');
     expect(hierarchySrc).toContain('t("projectResources")');
-    expect(hierarchySrc).toContain('t("sessions")');
+    expect(hierarchySrc).toContain('t("agentSessions")');
+    expect(hierarchySrc).toContain("SessionKindChip");
+    expect(hierarchySrc).toContain("RM_CHIP");
+    expect(hierarchySrc).toContain('t("kindTui")');
+    expect(hierarchySrc).toContain('t("kindChatUi")');
+    expect(hierarchySrc).toContain("canLocateResourceMonitorChatSession");
     expect(hierarchySrc).toContain('t("otherProcesses")');
     expect(hierarchySrc).toContain('t("noAttributedResources")');
     expect(hierarchySrc).toContain('t("ungroupedProcesses")');

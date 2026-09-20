@@ -10,8 +10,7 @@ use crate::error::{Result, ServiceError};
 use super::{
     agents, artifacts, process_runner, publish_run_update, runner,
     AutomationContinueInTerminalResponse, AutomationRunDetail, AutomationRunStatus,
-    AutomationRunSummary, AutomationService, AutomationTargetKind, AutomationTriggerKind,
-    START_FAILURE_KIND,
+    AutomationRunSummary, AutomationService, AutomationTriggerKind, START_FAILURE_KIND,
 };
 
 impl AutomationService {
@@ -37,6 +36,35 @@ impl AutomationService {
         if existing.status != AutomationRunStatus::Running.as_str() {
             return Ok(AutomationRunDetail {
                 summary: AutomationRunSummary::from(existing),
+            });
+        }
+
+        if super::complete::run_is_interactive(&existing.execute_mode) {
+            self.interrupt_interactive_surface(&existing).await;
+            let completed_at = Utc::now().naive_utc();
+            let updated = repo
+                .update_run_status(
+                    run_guid,
+                    UpdateAutomationRunStatusRecord {
+                        status: AutomationRunStatus::Cancelled.as_str().to_string(),
+                        completed_at: Some(completed_at),
+                        exit_code: None,
+                        failure_kind: None,
+                        error_message: None,
+                    },
+                )
+                .await?;
+            let run_json = runner::AutomationRunJson::from_run_model(&updated);
+            let _ = runner::write_run_json(Path::new(&updated.run_json_path), &run_json);
+            publish_run_update(
+                &self.db,
+                &self.notification_service,
+                &self.event_tx,
+                updated.clone(),
+            )
+            .await;
+            return Ok(AutomationRunDetail {
+                summary: AutomationRunSummary::from(updated),
             });
         }
 
@@ -76,10 +104,16 @@ impl AutomationService {
             .as_deref()
             .or(automation.agent_config_json.as_deref())
             .and_then(parse_run_config);
-        let agent = agents::resolve_interactive_automation_agent_with_config(
+        let mut agent = agents::resolve_interactive_automation_agent_with_config(
             &automation.agent_id,
             run_config.as_ref(),
         )?;
+        agent
+            .args
+            .extend(super::interactive_runner::interactive_trust_args(
+                &agent.agent_id,
+                &run.cwd,
+            ));
 
         let prompt_path = PathBuf::from(&run.run_dir).join(runner::CONTINUE_PROMPT_FILE);
         let memory_path = artifacts::ensure_memory_file(&automation.guid)?;
@@ -167,14 +201,24 @@ impl AutomationService {
             return Err(ServiceError::Validation("already_running".to_string()));
         }
 
+        let execute_mode = super::AutomationExecuteMode::parse(&automation.execute_mode)?;
         let run_config = automation
             .agent_config_json
             .as_deref()
             .and_then(parse_run_config);
-        let agent_command = agents::resolve_automation_agent_with_config(
-            &automation.agent_id,
-            run_config.as_ref(),
-        )?;
+        let agent_command = if execute_mode == super::AutomationExecuteMode::Chat {
+            None
+        } else if execute_mode == super::AutomationExecuteMode::Terminal {
+            Some(agents::resolve_interactive_automation_agent_with_config(
+                &automation.agent_id,
+                run_config.as_ref(),
+            )?)
+        } else {
+            Some(agents::resolve_automation_agent_with_config(
+                &automation.agent_id,
+                run_config.as_ref(),
+            )?)
+        };
         let instructions = artifacts::read_instructions(&automation.instructions_path)?;
         let target = self.resolve_target(&automation).await?;
         let prepared = runner::prepare_run_files(
@@ -185,11 +229,13 @@ impl AutomationService {
             trigger_context.as_deref(),
         )?;
 
-        let cwd = if target.target_kind == AutomationTargetKind::Standalone.as_str() {
-            prepared.run_dir.clone()
-        } else {
-            target.cwd.clone()
-        };
+        let cwd = super::interactive_runner::interactive_cwd(
+            &automation,
+            &target.target_kind,
+            &prepared.run_dir,
+            &target.cwd,
+            execute_mode,
+        )?;
         if !cwd.exists() {
             return Err(ServiceError::Validation(format!(
                 "Automation working directory does not exist: {}",
@@ -198,17 +244,27 @@ impl AutomationService {
         }
 
         let cwd_str = cwd.to_string_lossy().to_string();
+        if execute_mode.is_interactive() {
+            super::interactive_runner::write_interactive_prompt(
+                &automation,
+                &prepared.run_guid,
+                &prepared.prompt_path,
+                &cwd_str,
+            )?;
+        }
 
-        let invocation = agent_command.build_invocation(agents::AutomationCommandInput {
-            prompt_path: prepared.prompt_path.clone(),
+        let invocation = agent_command.as_ref().map(|agent| {
+            agent.build_invocation(agents::AutomationCommandInput {
+                prompt_path: prepared.prompt_path.clone(),
+            })
         });
 
         let run = match repo
             .create_run(CreateAutomationRunRecord {
                 guid: prepared.run_guid.clone(),
                 automation_guid: automation.guid.clone(),
-                agent_id: Some(agent_command.agent_id.clone()),
-                agent_label: Some(agent_command.label.clone()),
+                agent_id: Some(automation.agent_id.clone()),
+                agent_label: agent_command.as_ref().map(|agent| agent.label.clone()),
                 agent_config_json: automation.agent_config_json.clone(),
                 trigger_kind: trigger_kind.as_str().to_string(),
                 trigger_source_json,
@@ -217,7 +273,7 @@ impl AutomationService {
                 project_guid: target.project_guid.clone(),
                 workspace_guid: target.workspace_guid.clone(),
                 created_workspace_guid: target.created_workspace_guid.clone(),
-                cwd: cwd_str,
+                cwd: cwd_str.clone(),
                 run_dir: prepared.run_dir.to_string_lossy().to_string(),
                 prompt_path: prepared.prompt_path.to_string_lossy().to_string(),
                 result_path: prepared.result_path.to_string_lossy().to_string(),
@@ -226,6 +282,17 @@ impl AutomationService {
                 tmux_window_name: None,
                 tmux_window_index: None,
                 started_at: prepared.started_at,
+                execute_mode: execute_mode.as_str().to_string(),
+                surface_kind: Some(
+                    match execute_mode {
+                        super::AutomationExecuteMode::Headless => "none",
+                        super::AutomationExecuteMode::Terminal => "terminal",
+                        super::AutomationExecuteMode::Chat => "chat",
+                    }
+                    .to_string(),
+                ),
+                surface_session_id: None,
+                surface_scope_id: None,
             })
             .await
         {
@@ -267,7 +334,49 @@ impl AutomationService {
             run.clone(),
         )
         .await;
-        self.spawn_process_runner(run.guid.clone(), invocation);
+        if execute_mode.is_interactive() {
+            match self
+                .start_interactive_surface(&automation, run.clone(), execute_mode, &cwd_str)
+                .await
+            {
+                Ok(updated) => {
+                    publish_run_update(
+                        &self.db,
+                        &self.notification_service,
+                        &self.event_tx,
+                        updated.clone(),
+                    )
+                    .await;
+                    return Ok(updated);
+                }
+                Err(error) => {
+                    let completed_at = Utc::now().naive_utc();
+                    let failed = repo
+                        .update_run_status(
+                            &run.guid,
+                            UpdateAutomationRunStatusRecord {
+                                status: AutomationRunStatus::Failed.as_str().to_string(),
+                                completed_at: Some(completed_at),
+                                exit_code: None,
+                                failure_kind: Some(START_FAILURE_KIND.to_string()),
+                                error_message: Some(error.to_string()),
+                            },
+                        )
+                        .await?;
+                    publish_run_update(
+                        &self.db,
+                        &self.notification_service,
+                        &self.event_tx,
+                        failed.clone(),
+                    )
+                    .await;
+                    return Ok(failed);
+                }
+            }
+        }
+        if let Some(invocation) = invocation {
+            self.spawn_process_runner(run.guid.clone(), invocation);
+        }
         Ok(run)
     }
 
@@ -332,4 +441,30 @@ fn build_continue_prompt(
 
 fn short_run_id(run_guid: &str) -> String {
     run_guid.chars().take(8).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn interactive_cancel_interrupts_surface_then_marks_cancelled() {
+        let source = include_str!("lifecycle.rs");
+        let start = source.find("pub async fn cancel_run").expect("cancel_run");
+        let end = source
+            .find("pub async fn continue_in_terminal")
+            .expect("continue_in_terminal");
+        let block = &source[start..end];
+        let interrupt_at = block
+            .find("interrupt_interactive_surface")
+            .expect("interrupt live surface");
+        let cancelled_at = block
+            .find("AutomationRunStatus::Cancelled")
+            .expect("mark cancelled");
+        assert!(
+            interrupt_at < cancelled_at,
+            "interrupt the live turn before persisting cancelled"
+        );
+        assert!(!block.contains("kill_window"));
+        assert!(!block.contains("destroy_session"));
+        assert!(!block.contains("close_session"));
+    }
 }

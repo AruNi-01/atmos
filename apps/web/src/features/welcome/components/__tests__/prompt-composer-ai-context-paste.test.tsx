@@ -87,7 +87,9 @@ describe("PromptComposer AI context paste", () => {
       );
     });
 
-    const chip = editor.querySelector("[data-kind='ai-context:code-selection']");
+    const chips = editor.querySelectorAll("[data-kind='ai-context:code-selection']");
+    expect(chips).toHaveLength(1);
+    const chip = chips[0];
     expect(chip).not.toBeNull();
     expect(chip?.textContent).toContain("app.ts");
     expect(chip?.querySelector("svg")).not.toBeNull();
@@ -120,6 +122,53 @@ describe("PromptComposer AI context paste", () => {
     expect(materializeAiContextText(composerRef.current?.getText().trim() ?? "")).toBe(
       reviewBody,
     );
+  });
+
+  it("renders slash command chips without a leading slash and file mentions as chips", async () => {
+    const composerRef = React.createRef<ComposerHandle>();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(<PromptComposer ref={composerRef} />);
+    });
+
+    await act(async () => {
+      composerRef.current?.setText("/cmd:copy-request-id @file:README.md");
+    });
+
+    const editor = container.querySelector<HTMLElement>("[contenteditable='true']");
+    if (!editor) throw new Error("PromptComposer editor not found");
+    const commandChip = editor.querySelector("[data-kind='command']");
+    expect(commandChip?.textContent).toBe("copy-request-id");
+    expect(commandChip?.getAttribute("data-tooltip")).toBe("/copy-request-id");
+    expect(composerRef.current?.getText()).toContain("/cmd:copy-request-id");
+    expect(editor.querySelector("[data-tooltip='README.md']")?.textContent).toContain(
+      "README.md",
+    );
+  });
+
+  it("inserts a selected ACP slash command as a chip without a leading slash", async () => {
+    const composerRef = React.createRef<ComposerHandle>();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(<PromptComposer ref={composerRef} />);
+    });
+
+    await act(async () => {
+      composerRef.current?.setText("/co");
+      composerRef.current?.applySlashAtRange(1, 2, { kind: "command", name: "copy-request-id" });
+    });
+
+    const editor = container.querySelector<HTMLElement>("[contenteditable='true']");
+    if (!editor) throw new Error("PromptComposer editor not found");
+    const commandChip = editor.querySelector("[data-kind='command']");
+    expect(commandChip?.textContent).toBe("copy-request-id");
+    expect(composerRef.current?.getText().trim()).toBe("/cmd:copy-request-id");
   });
 });
 

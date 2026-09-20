@@ -70,7 +70,7 @@ DeviceSession (one per UDID)
           |
           v
 CaptureEngine
-  +-- FrameCapture (SimulatorKit callbacks -> IOSurface -> CVPixelBuffer)
+  +-- FrameCapture (callbacks + IOSurface seed poll -> CVPixelBuffer)
   +-- MJPEG consumers
   +-- AVCC consumers
   +-- WebRTCPublisher consumer
@@ -80,8 +80,8 @@ WebRTCPublisher (LiveKit WebRTC framework)
   +-- active peer registry and serialized SDP offer setup
   +-- ICE gathering
   +-- codec preference and H.264 capability probe
-  +-- pixel-buffer conversion
-  +-- latest-frame pacing at up to 30 fps
+  +-- pre-encode resolution scaling and pixel-buffer conversion
+  +-- latest-frame pacing at the configured frame rate
 ```
 
 The browser has three rendering paths:
@@ -95,15 +95,50 @@ The browser has three rendering paths:
 ### Capture and frame flow
 
 `FrameCapture` registers private SimulatorKit screen callbacks on every display
-descriptor and chooses the largest live IOSurface. It emits changed frames and a
-fixed 5 fps idle floor. Every frame has a host monotonic capture timestamp.
+descriptor and chooses the largest live IOSurface. A 60 Hz IOSurface seed poll
+catches changes when virtualized SimulatorKit callbacks arrive below the display
+cadence, while seed checks avoid duplicating unchanged frames. The poll is not a
+capture-rate ceiling: callbacks still deliver prompt unique changes between poll
+ticks. Capture also maintains a fixed 5 fps idle floor. Every frame has a host
+monotonic capture timestamp.
 
 `CaptureEngine` fans frames out synchronously to consumers. Each encoder keeps a
 single newest pending frame, so a slow consumer cannot create latency by
-building a backlog. `WebRTCPublisher` adds one 30 fps latest-frame pump and only
-accepts frames while at least one peer is connected. Its shared video source
-fans each accepted frame out to every peer connection; libwebrtc maintains an
-independent sender, encoder, bitrate estimate, and packet stream per viewer.
+building a backlog. `WebRTCPublisher` retains the newest captured frame and uses
+one absolute-cadence pump as the only configured FPS controller. After the first
+frame, it continuously resubmits that retained buffer with fresh presentation
+timestamps; new captures replace it without building a backlog. The libwebrtc
+source adapter uses a 1,000 FPS safety ceiling and RTP senders have no additional
+FPS cap, avoiding independently phased frame droppers. The publisher pre-scales
+accepted pixel buffers to the configured maximum dimension and only accepts
+frames while at least one peer is connected. Its shared video source fans each
+submission out to every peer connection; libwebrtc maintains an independent
+sender, encoder, bitrate estimate, and packet stream per viewer.
+
+The pump is hardened against hostile host timing, because a production trace
+showed it silently degrading to send-on-arrival on a virtualized macOS VM
+(forwarded ≈ offered instead of ~60/s):
+
+- Each chain tick is armed as a strict, zero-leeway `DispatchSourceTimer`, which
+  opts out of the timer coalescing that stretched `asyncAfter` wake-ups. At most
+  one timer is pending at a time, so a replacement chain cannot race a zombie.
+- A late tick advances to the next cadence slot but never skips slots; a stall
+  longer than an interval re-anchors to the present instead of draining a
+  catch-up burst. Consistently late timers therefore cost phase, not rate.
+- Arrivals watch chain liveness. If a scheduled pump has not ticked for four
+  intervals, the next capture arrival restarts the chain under a fresh
+  generation. Restarts are counted and exposed as `pumpRestarts` in
+  `/webrtc/stats`; a nonzero value means the host starved or dropped timers.
+- The publisher holds a `latencyCritical` `ProcessInfo` activity while it
+  exists, so macOS does not apply App Nap-style throttling to the detached
+  daemon.
+
+The sender stamps the playout-delay extension as min 0 / max 0 by default:
+every frame renders as soon as it arrives. `SERVE_SIM_WEBRTC_PLAYOUT_MAX_MS`
+raises the max for a deployment, letting the receiver absorb arrival jitter —
+encode-time spikes, transatlantic wobble — instead of rendering it as stutter.
+Changing the default is a viewer-visible latency decision and waits on
+tap-to-pixel measurements.
 
 The WebRTC publisher is created lazily on the first offer. Its frame consumer
 currently remains attached until the device capture session stops, but sending
@@ -180,8 +215,8 @@ the simulator's single synthetic touch surface.
 - No automatic fallback from unreachable WebRTC media to HTTP video.
 - Codec configuration describes a preference, not the negotiated sender codec.
 - Signaling URLs are derived from the MJPEG URL rather than advertised directly.
-- The native publisher uses fixed native resolution, 30 fps, and a 6 Mbps target
-  with a 1.5 Mbps minimum.
+- Encoder resolution, frame rate, and target bitrate are shared across viewers;
+  one viewer changing them affects every peer attached to that simulator.
 - There is no process-wide resource budget across several software-encoded
   simulators.
 - External `simctl shutdown` is detected by state/grid polling rather than a

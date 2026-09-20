@@ -310,7 +310,7 @@ export function HeaderWorkspaceSummaryButton({
                 />
               )}
             >
-              <div className="flex h-[min(560px,76vh)] flex-col overflow-hidden rounded-md bg-popover">
+              <div className="flex h-[min(560px,76vh)] flex-col overflow-hidden rounded-xl bg-popover">
                 <div className="flex h-11 shrink-0 items-center justify-between border-b border-border px-4">
                   <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     <ListTodo className="size-4" />
@@ -345,7 +345,7 @@ export function HeaderWorkspaceSummaryButton({
                 />
               )}
             >
-              <div className="flex h-[min(560px,76vh)] flex-col overflow-hidden rounded-md bg-popover">
+              <div className="flex h-[min(560px,76vh)] flex-col overflow-hidden rounded-xl bg-popover">
                 <NotePanel
                   key={effectivePath}
                   note={note}

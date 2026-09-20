@@ -42,9 +42,9 @@ const IssueDetailView = dynamic(
     import("@/features/github/components/IssueDetailView").then((m) => m.IssueDetailView),
   { ssr: false },
 );
-const CommitDetailView = dynamic(
+const GitCommitDiffView = dynamic(
   () =>
-    import("@/features/github/components/CommitDetailView").then((m) => m.CommitDetailView),
+    import("@/features/git/components/GitCommitDiffView").then((m) => m.GitCommitDiffView),
   { ssr: false },
 );
 const ActionsDetailView = dynamic(
@@ -328,7 +328,7 @@ function DrawerLayer({
                   );
                 })()
               ) : entry.kind === "commit" ? (
-                <CommitDetailView
+                <GitCommitDiffView
                   owner={entry.owner}
                   repo={entry.repo}
                   sha={entry.sha}

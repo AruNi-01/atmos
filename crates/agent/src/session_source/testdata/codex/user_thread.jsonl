@@ -1,0 +1,23 @@
+{"timestamp":"2026-04-06T14:48:31.234Z","type":"session_meta","payload":{"id":"019d6344-42fe-7ec0-aae0-b24916d4e28e","cwd":"/tmp/fixture-app","source":"cli","model_provider":"openai"}}
+{"timestamp":"2026-04-06T14:48:31.300Z","type":"turn_context","payload":{"cwd":"/tmp/fixture-app","model":"gpt-5"}}
+{"timestamp":"2026-04-06T14:48:32.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"<environment_context>\n<cwd>/tmp/fixture-app</cwd>\n</environment_context>"}]}}
+{"timestamp":"2026-04-06T14:48:33.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Say hello."}]}}
+{"timestamp":"2026-04-06T14:48:34.000Z","type":"response_item","payload":{"type":"reasoning","summary":[{"type":"summary_text","text":"The user wants a greeting."}]}}
+{"timestamp":"2026-04-06T14:48:35.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Hello from disk."}]}}
+{"timestamp":"2026-04-06T14:48:36.000Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":"{\"cmd\":\"ls\",\"workdir\":\"/tmp/fixture-app\"}","call_id":"call-1"}}
+{"timestamp":"2026-04-06T14:48:37.000Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call-1","output":"main.rs"}}
+{"timestamp":"2026-04-06T14:48:38.000Z","type":"mystery-host-line","payload":{"x":1}}
+{"timestamp":"2026-04-06T14:48:39.000Z","type":"event_msg","payload":{"type":"task_complete"}}
+{"timestamp":"2026-04-06T14:48:40.000Z","type":"compacted","payload":{}}
+{"timestamp":"2026-04-06T14:48:41.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Thanks."}]}}
+{"timestamp":"2026-04-06T14:48:42.000Z","type":"response_item","payload":{"type":"custom_tool_call","name":"apply_patch","call_id":"call-patch","input":"*** Begin Patch\n*** Update File: README.md\n@@\n-hello\n+hello world\n*** End Patch"}}
+{"timestamp":"2026-04-06T14:48:43.000Z","type":"response_item","payload":{"type":"custom_tool_call_output","call_id":"call-patch","output":"Success. Updated README.md"}}
+{"timestamp":"2026-04-06T14:48:44.000Z","type":"response_item","payload":{"type":"web_search_call","id":"ws-1","status":"completed","action":{"type":"search","query":"rust hashmap"}}}
+{"timestamp":"2026-04-06T14:48:45.000Z","type":"response_item","payload":{"type":"function_call","name":"spawn_agent","call_id":"call-spawn","arguments":"{\"message\":\"Explore the child thread\"}"}}
+{"timestamp":"2026-04-06T14:48:46.000Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call-spawn","output":"{\"agent_id\":\"019d6344-cccc-7ec0-aae0-b24916d4e999\"}"}}
+{"timestamp":"2026-04-06T14:48:47.000Z","type":"response_item","payload":{"type":"function_call","name":"wait_agent","call_id":"call-wait","arguments":"{\"agent_id\":\"019d6344-cccc-7ec0-aae0-b24916d4e999\",\"timeout_ms\":30000}"}}
+{"timestamp":"2026-04-06T14:48:48.000Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call-wait","output":"{\"status\":\"completed\"}"}}
+{"timestamp":"2026-04-06T14:48:49.000Z","type":"response_item","payload":{"type":"function_call","name":"list_agents","call_id":"call-list","arguments":"{}"}}
+{"timestamp":"2026-04-06T14:48:50.000Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call-list","output":"[]"}}
+{"timestamp":"2026-04-06T14:48:51.000Z","type":"response_item","payload":{"type":"function_call","name":"close_agent","call_id":"call-close","arguments":"{\"agent_id\":\"019d6344-cccc-7ec0-aae0-b24916d4e999\"}"}}
+{"timestamp":"2026-04-06T14:48:52.000Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call-close","output":"{\"ok\":true}"}}

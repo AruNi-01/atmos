@@ -12,9 +12,20 @@ export interface OpenFile {
   lastFocusedAt: number;
 }
 
+export interface FileNavigationLineRange {
+  startLine: number;
+  endLine: number;
+}
+
 export interface FileNavigationTarget {
   line?: number;
   column?: number;
+  /** 1-based inclusive line ranges to select after opening (normal CM selection). */
+  selectRanges?: FileNavigationLineRange[];
+  /** Expand every git gutter hunk when turn line ranges are unreliable. */
+  openGitGutter?: "all";
+  /** Open markdown in CodeMirror source instead of the live view. */
+  preferMarkdownSource?: boolean;
   reviewCommentGuid?: string;
   reviewMessageGuid?: string;
   /** Scroll to a file within a `diff-group://` CodeView tab */
@@ -57,12 +68,20 @@ export interface EditorStore {
       preview?: boolean;
       line?: number;
       column?: number;
+      selectRanges?: FileNavigationLineRange[];
+      openGitGutter?: "all";
+      preferMarkdownSource?: boolean;
       reviewCommentGuid?: string;
       reviewMessageGuid?: string;
       diffFilePath?: string;
     }
   ) => Promise<void>;
-  reloadFileContent: (path: string, workspaceId?: string) => Promise<void>;
+  openUntitledMarkdown: (workspaceId?: string) => string | null;
+  reloadFileContent: (
+    path: string,
+    workspaceId?: string,
+    options?: { silent?: boolean },
+  ) => Promise<void>;
   pinFile: (path: string, workspaceId?: string) => void;
   closeFile: (path: string, workspaceId?: string) => void;
   setActiveFile: (path: string | null, workspaceId?: string) => void;

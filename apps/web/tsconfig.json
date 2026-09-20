@@ -24,6 +24,9 @@
     ],
     "paths": {
       "@/lib/utils": ["../../packages/ui/src/lib/utils.ts"],
+      "@/lib/*": ["../../packages/ui/src/lib/*"],
+      "@/hooks/*": ["../../packages/ui/src/hooks/*"],
+      "@/components/*": ["../../packages/ui/src/components/*"],
       "@/*": ["./src/*"],
       "@atmos/resources/*": ["../../resources/*"],
       "@workspace/ui": ["../../packages/ui/src/index.ts"],
@@ -39,5 +42,5 @@
     "**/*.mts",
     "../../packages/ui/src/css.d.ts"
   ],
-  "exclude": ["node_modules", "**/*.test.ts"]
+  "exclude": ["node_modules", "out", "**/*.test.ts", "**/*.test.tsx"]
 }

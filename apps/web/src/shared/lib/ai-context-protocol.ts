@@ -28,6 +28,8 @@ export const AI_CONTEXT_KINDS = [
   "canvas-agent",
   "pt-design-agent",
   "run-log",
+  "doc-selection",
+  "device-preview",
 ] as const;
 
 export type AiContextKind = (typeof AI_CONTEXT_KINDS)[number];
@@ -142,12 +144,24 @@ const KIND_DEFAULTS: Record<
     tone: "violet",
     icon: "layout",
   },
+  "doc-selection": {
+    label: "Selection",
+    tooltip: "Document selection",
+    tone: "blue",
+    icon: "book",
+  },
   "run-log": {
     label: "Run log",
     tooltip: "Atmos Run log",
     // Align with slash menu (ScrollText / emerald) and Run product surface.
     tone: "emerald",
     icon: "terminal",
+  },
+  "device-preview": {
+    label: "Simulator Device Use",
+    tooltip: "Simulator Device Use",
+    tone: "cyan",
+    icon: "layout",
   },
 };
 
@@ -341,6 +355,12 @@ function deriveChipLabel(kind: AiContextKind, promptText: string): string | null
     case "run-log":
       // Keep stable product label; do not derive from path/prompt first line.
       return null;
+    case "doc-selection":
+      return null;
+    case "device-preview": {
+      const name = promptText.match(/^- name:\s*(.+)$/m)?.[1]?.trim();
+      return name ? truncateLabel(name, 28) : null;
+    }
   }
 }
 

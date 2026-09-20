@@ -1,59 +1,123 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { TextShimmer } from "@workspace/ui";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  ActivityIndicatorGroup,
+  SlidingNumber,
+  TextShimmer,
+  pickActivityIndicatorStyle,
+} from "@workspace/ui";
+import { cn } from "@/shared/lib/utils";
 import type { AgentActivity } from "../lib/chat-helpers";
+import { formatWorkDuration, workDurationParts } from "../lib/agent-chat-timing";
 
-const SPINNER_NAMES = [
-  "braille", "helix", "scan", "cascade", "orbit",
-  "snake", "breathe", "pulse", "dna", "rain",
+const STREAM_ORB_GROUPS = [
+  ActivityIndicatorGroup.Lattice,
+  ActivityIndicatorGroup.Ring,
+  ActivityIndicatorGroup.Helix,
 ] as const;
 
-function useUnicodeSpinner() {
-  const [frame, setFrame] = useState(0);
-  const [spinner, setSpinner] = useState<{ frames: readonly string[]; interval: number } | null>(null);
+/**
+ * Orb/stars fill a shared `size-4` slot with session-lifecycle / tool headers.
+ * 20px (default ActivityIndicator) keeps lattice/ring optical weight; the
+ * slot centers it so left edges match lucide `size-4` chrome.
+ */
+const GLYPH_SIZE = 20;
+const CLOCK_CLASS =
+  "inline-flex shrink-0 items-baseline font-mono text-sm tabular-nums leading-none text-muted-foreground";
 
-  useEffect(() => {
-    let cancelled = false;
-    const name = SPINNER_NAMES[Math.floor(Math.random() * SPINNER_NAMES.length)];
-
-    import("unicode-animations").then((mod) => {
-      if (cancelled) return;
-      const spinners = mod.default ?? mod;
-      const s = spinners[name as keyof typeof spinners];
-      if (s) setSpinner(s);
-    });
-
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    if (!spinner) return;
-    const timer = setInterval(() => {
-      setFrame((f) => f + 1);
-    }, spinner.interval);
-    return () => clearInterval(timer);
-  }, [spinner]);
-
-  if (!spinner) return "⠋";
-  return spinner.frames[frame % spinner.frames.length];
+function DurationUnit({ value, unit }: { value: number; unit: "h" | "m" | "s" }) {
+  return (
+    <span className="inline-flex items-baseline">
+      <SlidingNumber value={value} />
+      <span>{unit}</span>
+    </span>
+  );
 }
 
-export function AgentActivityIndicator({ activity }: { activity: AgentActivity & { busy: true } }) {
-  const spinnerChar = useUnicodeSpinner();
+export function AgentActivityStatusText({
+  activity,
+  className,
+}: {
+  activity: AgentActivity & { busy: true };
+  className?: string;
+}) {
+  const label = activity.trail === "none" ? activity.label : `${activity.label}...`;
+  const reduced = Boolean(useReducedMotion());
+  return (
+    <span className={cn("relative inline-flex h-5 min-w-0 items-center overflow-hidden", className)}>
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.span
+          key={label}
+          initial={reduced ? false : { y: 12, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={reduced ? { opacity: 0 } : { y: -12, opacity: 0 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          className="inline-flex min-w-0 max-w-full items-center overflow-hidden"
+        >
+          <TextShimmer
+            as="span"
+            className="block max-w-full truncate text-sm leading-5"
+            duration={1.5}
+          >
+            {label}
+          </TextShimmer>
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
+}
+
+function WorkDurationClock({
+  elapsedMs,
+  reduced,
+}: {
+  elapsedMs: number;
+  reduced: boolean;
+}) {
+  const label = formatWorkDuration(elapsedMs);
+  if (reduced) {
+    return (
+      <span className={CLOCK_CLASS} role="timer">
+        {label}
+      </span>
+    );
+  }
+
+  const { hours, minutes, seconds } = workDurationParts(elapsedMs);
+  return (
+    <span className={CLOCK_CLASS} role="timer" aria-label={label}>
+      {hours > 0 ? <DurationUnit key="h" value={hours} unit="h" /> : null}
+      {hours > 0 || minutes > 0 ? <DurationUnit key="m" value={minutes} unit="m" /> : null}
+      <DurationUnit key="s" value={seconds} unit="s" />
+    </span>
+  );
+}
+
+export function AgentActivityIndicator({
+  activity,
+  elapsedMs = 0,
+}: {
+  activity: AgentActivity & { busy: true };
+  elapsedMs?: number;
+}) {
+  const thinking = activity.kind === "thinking";
+  const reduced = Boolean(useReducedMotion());
+  const [streamStyle] = useState(() => pickActivityIndicatorStyle(STREAM_ORB_GROUPS));
+  const glyphStyle = thinking ? "stars" : streamStyle;
 
   return (
-    <div className="flex items-center gap-2 px-1 py-1.5 text-sm">
-      <span className="inline-flex items-center font-mono text-sm leading-none text-muted-foreground/80 dark:text-muted-foreground">
-        {spinnerChar}
+    <div className="inline-flex min-w-0 max-w-full items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground">
+      <span className="flex size-4 shrink-0 items-center justify-center overflow-visible">
+        <ActivityIndicator
+          style={glyphStyle}
+          size={GLYPH_SIZE}
+        />
       </span>
-      <TextShimmer
-        as="span"
-        className="translate-y-px text-sm"
-        duration={1.5}
-      >
-        {`${activity.label}...`}
-      </TextShimmer>
+      <AgentActivityStatusText activity={activity} />
+      <WorkDurationClock elapsedMs={elapsedMs} reduced={reduced} />
     </div>
   );
 }

@@ -1,0 +1,63 @@
+/* User prompt copy/time chrome: collapsed to 0 height until hover/focus. */
+.user-message-meta {
+  display: grid;
+  grid-template-rows: 0fr;
+  pointer-events: none;
+  transition: grid-template-rows 200ms cubic-bezier(0.22, 1, 0.36, 1) 50ms;
+}
+
+.user-message-meta-clip {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.user-message-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  padding-top: 0.25rem;
+}
+
+.user-message-meta-item {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0;
+  transform: translateY(-5px);
+  transition:
+    opacity 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-user-message-chrome]:hover .user-message-meta,
+[data-user-message-chrome]:focus-within .user-message-meta {
+  grid-template-rows: 1fr;
+  pointer-events: auto;
+  transition-duration: 280ms;
+  transition-delay: 0ms;
+}
+
+[data-user-message-chrome]:hover .user-message-meta-item,
+[data-user-message-chrome]:focus-within .user-message-meta-item {
+  opacity: 1;
+  transform: translateY(0);
+  transition-duration: 220ms, 280ms;
+}
+
+[data-user-message-chrome]:hover .user-message-meta-item:nth-child(1),
+[data-user-message-chrome]:focus-within .user-message-meta-item:nth-child(1) {
+  transition-delay: 30ms;
+}
+
+[data-user-message-chrome]:hover .user-message-meta-item:nth-child(2),
+[data-user-message-chrome]:focus-within .user-message-meta-item:nth-child(2) {
+  transition-delay: 70ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .user-message-meta,
+  .user-message-meta-item {
+    transition: none;
+    transform: none;
+  }
+}

@@ -4,8 +4,8 @@ import { useQueryState } from "nuqs";
 import { agentChatParams } from "@/shared/lib/nuqs/searchParams";
 
 /**
- * Hook to manage Agent Chat open/close state via URL param `?chat=true`.
- * Returns [isOpen, setIsOpen] — same API as useState<boolean>.
+ * Footer / command-palette Agent Chat modal. Open state is `?chat=true`.
+ * Returns `[isOpen, setIsOpen]` — same API as `useState<boolean>`.
  */
 export function useAgentChatUrl() {
   return useQueryState("chat", agentChatParams.chat);

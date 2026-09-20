@@ -1,0 +1,58 @@
+{
+  "sessionId": "sess_parent",
+  "update": {
+    "sessionUpdate": "workflow_updated",
+    "run_id": "wf-1",
+    "revision": 1,
+    "name": "deep-research",
+    "objective": "Compare Postgres 17 vs MySQL 9",
+    "status": "running",
+    "foreground": false,
+    "phases": [
+      {
+        "title": "Plan",
+        "state": "completed"
+      },
+      {
+        "title": "Research",
+        "state": "running"
+      },
+      {
+        "title": "Verify",
+        "state": "pending"
+      },
+      {
+        "title": "Report",
+        "state": "pending"
+      }
+    ],
+    "current_phase": "Research",
+    "elapsed_ms": 4000,
+    "agents": [
+      {
+        "agent_id": "ag-plan",
+        "label": "research-planner",
+        "phase": "Plan",
+        "state": "completed",
+        "tokens_used": 10,
+        "duration_ms": 100
+      },
+      {
+        "agent_id": "ag-r1",
+        "label": "researcher-1",
+        "phase": "Research",
+        "state": "running",
+        "tokens_used": 20,
+        "duration_ms": 200
+      },
+      {
+        "agent_id": "ag-r2",
+        "label": "researcher-2",
+        "phase": "Research",
+        "state": "running",
+        "tokens_used": 21,
+        "duration_ms": 210
+      }
+    ]
+  }
+}

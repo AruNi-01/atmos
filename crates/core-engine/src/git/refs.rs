@@ -15,15 +15,32 @@ impl GitEngine {
             return Err(EngineError::Git("Base branch cannot be empty".to_string()));
         }
 
-        let remote_branches = self.list_remote_branches(repo_path)?;
-        if remote_branches.iter().any(|branch| branch == normalized) {
-            return Ok(format!("origin/{}", normalized));
+        if super::git_ref_exists(repo_path, &format!("refs/remotes/origin/{normalized}")) {
+            return Ok(format!("origin/{normalized}"));
         }
 
         Err(EngineError::Git(format!(
-            "Remote branch origin/{} does not exist",
-            normalized
+            "Remote branch origin/{normalized} does not exist"
         )))
+    }
+
+    pub fn has_local_branch(&self, repo_path: &Path, branch: &str) -> bool {
+        let branch = branch.trim().trim_start_matches("refs/heads/");
+        if branch.is_empty() {
+            return false;
+        }
+        super::git_ref_exists(repo_path, &format!("refs/heads/{branch}"))
+    }
+
+    pub fn has_remote_branch(&self, repo_path: &Path, branch: &str) -> bool {
+        let branch = branch
+            .trim()
+            .trim_start_matches("origin/")
+            .trim_start_matches("refs/remotes/origin/");
+        if branch.is_empty() {
+            return false;
+        }
+        super::git_ref_exists(repo_path, &format!("refs/remotes/origin/{branch}"))
     }
 
     pub(super) fn get_upstream_branch_ref(&self, repo_path: &Path) -> Result<Option<String>> {

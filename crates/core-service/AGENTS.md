@@ -17,7 +17,7 @@
 ```
 crates/core-service/
 └── src/
-    ├── service/             # Business logic services
+    ├── service/             # Business logic services (includes device_preview)
     ├── utils/               # Service-level utilities
     ├── lib.rs               # Module exports
     ├── error.rs             # ServiceError definition
@@ -46,6 +46,9 @@ crates/core-service/
 - **Project/Workspace**: Orchestrating Engine and Infra to manage development environments
 - **Terminal**: High-level terminal session orchestration
 - **Notifications**: Service events and settings, without direct WebSocket manager ownership
+- **Agent install / registry**: `service/agent.rs` wraps `agent::AgentManager` (install, status, keys, Native tab enable). Not a Chat session.
+- **Agent Chat**: `service/agent_chat/` (`AgentChatService`) owns jsonl transcript, native `/fork` `/rewind` intercept on send, `rewind_view`, and sibling `chat_id` after vendor fork. Talks only to `agent::AgentProvider` via `DefaultAgentProviderFactory`. Do not spawn CLIs or hold ACP handles here. Do not `git checkout` / restore workspace files for rewind. WS DTOs stay in `apps/api`. Last New Chat composer snapshots live in `~/.atmos/config/agent/new_chat_configs.json` (see `new_chat_configs.rs`); write from landing chrome via `agent_chat_prefs_set`, never from eager `agent_chat_create` (that still carries catalog defaults such as Cursor Auto). Favorited agent+model pairs live in `~/.atmos/config/agent/chat_prefs.json` (`favorite_models`, next to `last_registry_id`) so Desktop and Web share them.
+- **Device Preview**: `service/device_preview/` (`DevicePreviewService`) owns workspace claims, helper install/spawn (serve-sim / serve-emu), nested iOS+Android probe, inventory create/boot/shutdown/delete, and Preview `start` that boots a Shutdown Android AVD then attaches serve-emu with `-s serial`. `DeviceControlService` owns HID plus appearance and Android camera inject/clear (claimed + booted only; no auto-start). Catalogs, lifecycle argv, and camera files stay in `core-engine` `host_devices`. Paths only from `runtime-manager` (including `simulator_camera_dir()`). Thin `simulator_*` WS lives in `apps/api`. Never steal another workspace's device; never `serve-sim --kill`; never power off the VM from `stop()`.
 
 ---
 
@@ -53,6 +56,7 @@ crates/core-service/
 
 - `core-engine`: L2 engine capabilities (PTY, Git, FS)
 - `infra`: L1 infrastructure (DB, repos, cache, queue, jobs)
+- `agent`: Chat `AgentProvider` (native Claude / Codex / OpenCode / Pi / Grok + ACP) and `AgentManager`. See [agent/AGENTS.md](../agent/AGENTS.md).
 
 ---
 
@@ -67,3 +71,4 @@ crates/core-service/
 - Orchestrate multiple L2 and L1 components to fulfill business goals
 - Use `ServiceError` for consistent error handling
 - Keep transport adaptation in `apps/api`; expose ordinary service methods and events
+- Agent Chat: intercept `/fork` `/rewind` on send; persist `rewind_view`; never restore files in this crate

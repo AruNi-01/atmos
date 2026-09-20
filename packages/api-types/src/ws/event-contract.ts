@@ -2,8 +2,8 @@ import type { WsEvent } from "./events";
 import type {
   AgentActivity,
   AgentActivityClearedNotification,
-  AgentHookSessionsClearedNotification,
-  AgentHookStateNotification,
+  AgentStatusClearedNotification,
+  AgentStatusChangedNotification,
   AgentNotificationPayload,
   GitCommitMessageChunkNotification,
   LlmProviderTestChunkNotification,
@@ -16,9 +16,18 @@ import type {
   AutomationNotificationPayload,
   AutomationRunOutputEvent,
   AutomationRunUpdatedEvent,
+  AutomationStalePromptEvent,
 } from "./dto/automation";
 import type { ResourceMonitorSnapshot } from "./dto/resource-monitor";
-import type { SimulatorDownloadProgress } from "./dto/simulator";
+import type {
+  AgentOptionsUpdated,
+  AgentChatEvent,
+} from "./dto/agent-chat";
+import type { HostSessionIndexUpdated } from "./dto/host-session";
+import type {
+  SimulatorDevicesChanged,
+  SimulatorDownloadProgress,
+} from "./dto/simulator";
 import type {
   ProjectDeleteProgressNotification,
   WorkspaceDeleteProgressNotification,
@@ -38,8 +47,8 @@ export type WsEventContract = {
   llm_provider_test_chunk: { payload: LlmProviderTestChunkNotification };
   workspace_delete_progress: { payload: WorkspaceDeleteProgressNotification };
   project_delete_progress: { payload: ProjectDeleteProgressNotification };
-  agent_hook_state_changed: { payload: AgentHookStateNotification };
-  agent_hook_sessions_cleared: { payload: AgentHookSessionsClearedNotification };
+  agent_status_changed: { payload: AgentStatusChangedNotification };
+  agent_status_cleared: { payload: AgentStatusClearedNotification };
   agent_activity_updated: { payload: AgentActivity };
   agent_activity_cleared: { payload: AgentActivityClearedNotification };
   agent_attention_raised: { payload: RefreshNotification };
@@ -59,9 +68,14 @@ export type WsEventContract = {
   automation_run_updated: { payload: AutomationRunUpdatedEvent };
   automation_run_output: { payload: AutomationRunOutputEvent };
   automation_notification: { payload: AutomationNotificationPayload };
+  automation_stale_prompt: { payload: AutomationStalePromptEvent };
   disk_analyzer_scan_progress: { payload: DiskScanProgress };
   simulator_download_progress: { payload: SimulatorDownloadProgress };
+  simulator_devices_changed: { payload: SimulatorDevicesChanged };
   resource_monitor_updated: { payload: ResourceMonitorSnapshot };
+  agent_chat_event: { payload: AgentChatEvent };
+  agent_options_updated: { payload: AgentOptionsUpdated };
+  host_session_index_updated: { payload: HostSessionIndexUpdated };
 };
 
 export type MappedWsEvent = keyof WsEventContract & WsEvent;

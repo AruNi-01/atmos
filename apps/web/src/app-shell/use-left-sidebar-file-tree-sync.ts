@@ -1,8 +1,13 @@
 import { useEffect } from "react";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
+import {
+  isConflictResolveEditorPath,
+  isDiffEditorPath,
+} from "@/features/editor/store/editor-store-paths";
 import { useFileTreeStore } from "@/features/files/store/use-file-tree-store";
 import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
 import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
+import { setCenterExplorerCollapsed } from "@/shared/stores/use-ui-pref-hooks";
 
 function normalizePathForContainment(path: string): string {
   const normalized = path.replace(/\\/g, "/");
@@ -32,8 +37,8 @@ export function useLeftSidebarFileTreeSync({
   const setContext = useFileTreeStore((s) => s.setContext);
   const paintContextId = useCenterPaintContextId();
 
-  // Keep the file-tree query key bound to the live workspace so the center
-  // Files tab can render as soon as it opens.
+  // Keep the file-tree query key bound to the live workspace so the shared
+  // files explorer can render as soon as a file surface opens.
   useEffect(() => {
     if (!currentProjectId || !currentEffectivePath) return;
     const canSet = currentWorkspaceId ? !isSettingUp : true;
@@ -78,6 +83,13 @@ export function useLeftSidebarFileTreeSync({
       return;
     }
     const targetContextId = paintContextId || effectiveContextId;
+    setCenterExplorerCollapsed("files", false);
+    const openFiles = useEditorStore.getState().workspaceStates[targetContextId]?.openFiles;
+    const hasRegularFile = (openFiles ?? []).some(
+      (file) =>
+        !isDiffEditorPath(file.path) && !isConflictResolveEditorPath(file.path),
+    );
+    if (hasRegularFile) return;
     activateCenterChromeTab(targetContextId, "files", { placement: "focused" });
   }, [
     currentEffectivePath,

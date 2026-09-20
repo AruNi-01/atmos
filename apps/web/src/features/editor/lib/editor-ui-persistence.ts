@@ -31,7 +31,7 @@ export function partializeEditorState(state: {
       Object.entries(state.workspaceStates).map(([wsId, ws]) => [
         wsId,
         {
-          openFiles: ws.openFiles.map(f => ({
+          openFiles: ws.openFiles.filter((f) => !f.path.startsWith('untitled:')).map(f => ({
             ...f,
             content: '',
             originalContent: '',

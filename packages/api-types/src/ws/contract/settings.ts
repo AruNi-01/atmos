@@ -14,7 +14,7 @@ import type {
   NotificationTestPushRequest,
   NotificationTestPushResponse,
   SettingsBootstrapPayload,
-  TerminalAgentModelCatalog,
+  TerminalAgentOptions,
   TerminalAgentModelsGetRequest,
 } from "../dto/settings";
 
@@ -27,7 +27,7 @@ export type SettingsContract = {
   };
   terminal_agent_models_get: {
     input: TerminalAgentModelsGetRequest;
-    output: TerminalAgentModelCatalog;
+    output: TerminalAgentOptions;
   };
   llm_providers_get: { input: WsEmpty; output: LlmProvidersFile };
   llm_providers_update: { input: LlmProvidersUpdateRequest; output: WsOk };

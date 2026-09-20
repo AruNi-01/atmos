@@ -8,7 +8,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 VENDOR="$ROOT/vendor/serve-sim/packages/serve-sim"
-PIN="$ROOT/apps/api/simulator/serve-sim-requirement.json"
+PIN="$ROOT/crates/core-service/pins/serve-sim-requirement.json"
 INSTALL=0
 OUT_DIR="$ROOT/dist/serve-sim"
 
@@ -86,6 +86,7 @@ if [[ -f "$VENDOR/dist/simax/serve-sim-ax-settings" ]]; then
   mkdir -p "$STAGE/simax"
   cp "$VENDOR/dist/simax/serve-sim-ax-settings" "$STAGE/simax/"
 fi
+# Camera dylibs (`dist/simcam/`) are not required for the preview. Omit them.
 
 ARCHIVE="$OUT_DIR/$ASSET"
 tar -C "$OUT_DIR" -czf "$ARCHIVE" "serve-sim-${VERSION}-darwin-arm64"

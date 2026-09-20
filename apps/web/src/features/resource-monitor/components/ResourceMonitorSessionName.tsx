@@ -5,31 +5,44 @@ import type { TerminalTitleAgent } from "@atmos/shared/terminal";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { cn } from "@/shared/lib/utils";
 
-export function ResourceMonitorSessionName({
-  name,
+export function ResourceMonitorSessionIcon({
   toolbarAgent,
-  className,
 }: {
-  name: string;
   toolbarAgent: TerminalTitleAgent | undefined;
-  className?: string;
 }) {
-  const icon =
-    toolbarAgent?.iconType === "built-in" ? (
+  if (toolbarAgent?.iconType === "built-in") {
+    return (
       <AgentIcon
         registryId={toolbarAgent.id}
         name={toolbarAgent.label}
         size={12}
       />
-    ) : toolbarAgent?.iconType === "custom" ? (
-      <Bot className="size-3 text-muted-foreground" aria-hidden />
-    ) : (
-      <TerminalIcon className="size-3 text-muted-foreground" aria-hidden />
     );
+  }
+  if (toolbarAgent?.iconType === "custom") {
+    return <Bot className="size-3 text-muted-foreground" aria-hidden />;
+  }
+  return <TerminalIcon className="size-3 text-muted-foreground" aria-hidden />;
+}
 
+export function ResourceMonitorSessionName({
+  name,
+  toolbarAgent,
+  className,
+  showIcon = true,
+}: {
+  name: string;
+  toolbarAgent: TerminalTitleAgent | undefined;
+  className?: string;
+  showIcon?: boolean;
+}) {
   return (
     <span className={cn("flex min-w-0 items-center gap-1.5", className)}>
-      <span className="flex size-3 shrink-0 items-center justify-center">{icon}</span>
+      {showIcon ? (
+        <span className="flex size-3 shrink-0 items-center justify-center">
+          <ResourceMonitorSessionIcon toolbarAgent={toolbarAgent} />
+        </span>
+      ) : null}
       <span className="min-w-0 truncate">{name}</span>
     </span>
   );

@@ -8,8 +8,8 @@ use tracing::{debug, info, warn};
 use crate::config::{add_provider_api_key, delete_provider_api_key, persist_provider_manual_setup};
 use crate::constants::CACHE_TTL_SECS;
 use crate::models::{
-    AutoRefreshConfig, FetchStateStatus, ProviderStatus, QuotaAggregate, QuotaFetchIssue,
-    QuotaOverview,
+    AuthStateStatus, AutoRefreshConfig, FetchStateStatus, ProviderStatus, QuotaAggregate,
+    QuotaFetchIssue, QuotaOverview,
 };
 use crate::refresh::{
     apply_provider_state, load_auto_refresh_interval_minutes, persist_all_provider_switch,
@@ -484,22 +484,34 @@ impl QuotaUsageService {
                             provider_label: descriptor.label.clone(),
                             message,
                         }),
-                        refreshed_provider_id: None,
                         succeeded: false,
                     }
                 }
             };
 
-            if refreshed.succeeded {
+            let previous = previous_overview.and_then(|overview| {
+                overview
+                    .providers
+                    .iter()
+                    .find(|item| item.id == descriptor.id)
+            });
+            let reconciled = reconcile_provider_refresh(
+                refreshed.status,
+                previous,
+                refreshed.issue,
+                !refreshed.succeeded,
+            );
+
+            if reconciled.succeeded {
                 success_count += 1;
             }
-            if let Some(provider_id) = refreshed.refreshed_provider_id {
+            if let Some(provider_id) = reconciled.refreshed_provider_id {
                 refreshed_provider_ids.push(provider_id);
             }
-            if let Some(issue) = refreshed.issue {
+            if let Some(issue) = reconciled.issue {
                 issues.push(issue);
             }
-            providers[refreshed.index] = Some(refreshed.status);
+            providers[refreshed.index] = Some(reconciled.status);
         }
 
         let providers = providers.into_iter().flatten().collect::<Vec<_>>();
@@ -512,17 +524,11 @@ impl QuotaUsageService {
             auto_refresh: AutoRefreshConfig::default(),
         };
 
-        if success_count == 0 {
-            if let Some(previous) = cached_previous {
-                return apply_provider_state_and_rebuild(QuotaOverview {
-                    partial_failures: overview.partial_failures,
-                    generated_at: overview.generated_at,
-                    ..previous.overview
-                });
-            }
+        // A failed live fetch must not persist as a successful refresh, or the
+        // next "updated at" / auto-refresh hint would pretend empty numbers are fresh.
+        if success_count > 0 {
+            persist_provider_state_for_overview(&overview, &refreshed_provider_ids);
         }
-
-        persist_provider_state_for_overview(&overview, &refreshed_provider_ids);
 
         apply_provider_state_and_rebuild(overview)
     }
@@ -567,55 +573,63 @@ impl QuotaUsageService {
         }
 
         let descriptor = provider.descriptor();
-        let refreshed_status =
+        let previous = overview
+            .providers
+            .iter()
+            .find(|existing| existing.id == provider_id)
+            .cloned();
+        let (incoming, collect_failed, collect_issue) =
             match tokio::time::timeout(provider.timeout(), provider.collect()).await {
-                Ok(Ok(status)) => {
-                    persist_provider_state_for_provider(
-                        &status.id,
-                        provider_switch_enabled(&status.id),
-                    );
-                    status
+                Ok(Ok(status)) => (status, false, None),
+                Ok(Err(error)) => {
+                    let message = error.to_string();
+                    (
+                        error_status(&descriptor, message.clone()),
+                        true,
+                        Some(QuotaFetchIssue {
+                            provider_id: descriptor.id.clone(),
+                            provider_label: descriptor.label.clone(),
+                            message,
+                        }),
+                    )
                 }
-                Ok(Err(error)) => error_status(&descriptor, error.to_string()),
-                Err(_) => error_status(&descriptor, "Usage detection timed out".to_string()),
+                Err(_) => {
+                    let message = "Usage detection timed out".to_string();
+                    (
+                        error_status(&descriptor, message.clone()),
+                        true,
+                        Some(QuotaFetchIssue {
+                            provider_id: descriptor.id.clone(),
+                            provider_label: descriptor.label.clone(),
+                            message,
+                        }),
+                    )
+                }
             };
+        let reconciled =
+            reconcile_provider_refresh(incoming, previous.as_ref(), collect_issue, collect_failed);
+        if reconciled.succeeded {
+            persist_provider_state_for_provider(
+                &reconciled.status.id,
+                provider_switch_enabled(&reconciled.status.id),
+            );
+        }
 
         if let Some(existing) = overview
             .providers
             .iter_mut()
             .find(|existing| existing.id == provider_id)
         {
-            *existing = refreshed_status;
+            *existing = reconciled.status;
         } else {
-            overview.providers.push(refreshed_status);
+            overview.providers.push(reconciled.status);
         }
 
         overview
             .partial_failures
             .retain(|issue| issue.provider_id != provider_id);
-        if matches!(
-            overview
-                .providers
-                .iter()
-                .find(|provider| provider.id == provider_id)
-                .map(|provider| &provider.fetch_state.status),
-            Some(FetchStateStatus::Error)
-        ) {
-            if let Some(provider) = overview
-                .providers
-                .iter()
-                .find(|provider| provider.id == provider_id)
-            {
-                overview.partial_failures.push(QuotaFetchIssue {
-                    provider_id: provider.id.clone(),
-                    provider_label: provider.label.clone(),
-                    message: provider
-                        .fetch_state
-                        .message
-                        .clone()
-                        .unwrap_or_else(|| "Provider refresh failed".to_string()),
-                });
-            }
+        if let Some(issue) = reconciled.issue {
+            overview.partial_failures.push(issue);
         }
 
         let generated_at = unix_now();
@@ -631,7 +645,6 @@ struct ProviderRefreshResult {
     index: usize,
     status: ProviderStatus,
     issue: Option<QuotaFetchIssue>,
-    refreshed_provider_id: Option<String>,
     succeeded: bool,
 }
 
@@ -643,7 +656,6 @@ async fn refresh_provider_status(
     match tokio::time::timeout(provider.timeout(), provider.collect()).await {
         Ok(Ok(status)) => ProviderRefreshResult {
             index,
-            refreshed_provider_id: Some(status.id.clone()),
             status,
             issue: None,
             succeeded: true,
@@ -658,7 +670,6 @@ async fn refresh_provider_status(
                     provider_label: descriptor.label.clone(),
                     message,
                 }),
-                refreshed_provider_id: None,
                 succeeded: false,
             }
         }
@@ -672,10 +683,80 @@ async fn refresh_provider_status(
                     provider_label: descriptor.label.clone(),
                     message,
                 }),
-                refreshed_provider_id: None,
                 succeeded: false,
             }
         }
+    }
+}
+
+struct ReconciledProviderRefresh {
+    status: ProviderStatus,
+    issue: Option<QuotaFetchIssue>,
+    refreshed_provider_id: Option<String>,
+    succeeded: bool,
+}
+
+fn has_retained_quota_snapshot(status: &ProviderStatus) -> bool {
+    status.usage_summary.is_some()
+        || status.subscription_summary.is_some()
+        || status.detail_sections.iter().any(|section| {
+            !matches!(section.title.as_str(), "Fetch pipeline" | "Setup")
+                && !section.rows.is_empty()
+        })
+}
+
+fn is_failed_live_snapshot(status: &ProviderStatus) -> bool {
+    matches!(
+        status.fetch_state.status,
+        FetchStateStatus::Error | FetchStateStatus::Unavailable
+    ) && status.auth_state.status == AuthStateStatus::Detected
+        && !has_retained_quota_snapshot(status)
+}
+
+/// Keep the last usable snapshot when a live fetch fails (network, timeout, API).
+/// First-time failures still surface the empty error/unavailable row.
+fn reconcile_provider_refresh(
+    incoming: ProviderStatus,
+    previous: Option<&ProviderStatus>,
+    mut issue: Option<QuotaFetchIssue>,
+    collect_failed: bool,
+) -> ReconciledProviderRefresh {
+    let failed = collect_failed || is_failed_live_snapshot(&incoming);
+    if !failed {
+        return ReconciledProviderRefresh {
+            refreshed_provider_id: Some(incoming.id.clone()),
+            status: incoming,
+            issue: None,
+            succeeded: true,
+        };
+    }
+
+    if issue.is_none() {
+        issue = Some(QuotaFetchIssue {
+            provider_id: incoming.id.clone(),
+            provider_label: incoming.label.clone(),
+            message: incoming
+                .fetch_state
+                .message
+                .clone()
+                .unwrap_or_else(|| "Provider refresh failed".to_string()),
+        });
+    }
+
+    if let Some(previous) = previous.filter(|status| has_retained_quota_snapshot(status)) {
+        return ReconciledProviderRefresh {
+            status: previous.clone(),
+            issue,
+            refreshed_provider_id: None,
+            succeeded: false,
+        };
+    }
+
+    ReconciledProviderRefresh {
+        status: incoming,
+        issue,
+        refreshed_provider_id: None,
+        succeeded: false,
     }
 }
 

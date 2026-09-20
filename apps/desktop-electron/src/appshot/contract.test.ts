@@ -140,7 +140,10 @@ describe("AppShot Electron DTO contract (web-compatible)", () => {
       "Atmos Desktop Use",
     );
     expect(perms[0]!.recovery_action?.manual_steps.join(" ")).toContain(
-      "Left⇧+Right⇧",
+      "restart Atmos Desktop Use",
+    );
+    expect(perms[0]!.recovery_action?.manual_steps.join(" ")).not.toContain(
+      "restart Atmos if",
     );
     expect(perms[1]!.recovery_action?.manual_steps.join(" ")).toContain(
       "Atmos Desktop Use",

@@ -66,7 +66,7 @@ export function AppPermissionsTool({
         `${cliPrefix} permissions reset all ${shellEscape(bundleId)} -d ${shellEscape(udid)}`,
       );
       if (res.exitCode !== 0) {
-        setError(res.stderr.trim() || `serve-sim permissions failed (exit ${res.exitCode})`);
+        setError(res.stderr.trim() || `Permissions failed (exit ${res.exitCode})`);
         return;
       }
       setState({});

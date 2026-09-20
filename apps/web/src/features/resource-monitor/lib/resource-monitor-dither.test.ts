@@ -30,6 +30,10 @@ const sessionNameSrc = readFileSync(
   join(import.meta.dir, "../components/ResourceMonitorSessionName.tsx"),
   "utf8",
 );
+const classesSrc = readFileSync(
+  join(import.meta.dir, "./resource-monitor-classes.ts"),
+  "utf8",
+);
 
 describe("resource monitor dither structure", () => {
   test("UsageBar is a single-stage DitherFunnel without CSS scaleX", () => {
@@ -116,10 +120,12 @@ describe("resource monitor dither structure", () => {
   });
 
   test("session titles reuse agent icons and fall back to the Terminal icon", () => {
+    expect(sessionNameSrc).toContain("ResourceMonitorSessionIcon");
     expect(sessionNameSrc).toContain("AgentIcon");
     expect(sessionNameSrc).toContain('iconType === "built-in"');
     expect(sessionNameSrc).toContain('iconType === "custom"');
     expect(sessionNameSrc).toContain("TerminalIcon");
+    expect(sessionNameSrc).toContain("showIcon");
   });
 
   test("Footer swaps Monitor for usage on hover with reduced-motion support", () => {
@@ -162,11 +168,34 @@ describe("resource monitor dither structure", () => {
     expect(hierarchySrc).toContain('t("spaceBadgeAria"');
   });
 
+  test("session rows show a TUI or Chat UI kind chip after the title", () => {
+    expect(hierarchySrc).toContain("data-resource-monitor-session-kind");
+    expect(hierarchySrc).toContain('t("kindTui")');
+    expect(hierarchySrc).toContain('t("kindChatUi")');
+    expect(hierarchySrc).toContain('t("agentSessions")');
+    expect(hierarchySrc).toContain("RM_CHIP");
+    expect(classesSrc).toContain("bg-foreground/15");
+    expect(classesSrc).toContain("dark:bg-background");
+    expect(classesSrc).not.toMatch(/RM_CHIP[\s\S]*bg-secondary/);
+    expect(classesSrc).not.toMatch(/RM_CHIP[\s\S]*bg-accent/);
+  });
+
   test("session rows share one padded hover surface and hide the locate icon", () => {
     expect(hierarchySrc).toContain("data-resource-monitor-session-row");
     expect(hierarchySrc).toContain("RM_ROW_INTERACTIVE");
     expect(hierarchySrc).not.toContain("<Locate");
+    expect(hierarchySrc).toContain("group/session");
+    expect(hierarchySrc).toContain("group/trigger");
+    expect(hierarchySrc).toContain("group-hover/session:opacity-0");
+    expect(hierarchySrc).toContain("group-hover/session:opacity-100");
     expect(hierarchySrc).toContain(
+      "group-data-[state=closed]/trigger:-rotate-90",
+    );
+    expect(hierarchySrc).toContain("transition-opacity duration-150");
+    expect(hierarchySrc).toContain("transition-[opacity,transform] duration-150");
+    expect(hierarchySrc).toContain("ResourceMonitorSessionIcon");
+    expect(hierarchySrc).toContain("ChevronDown");
+    expect(hierarchySrc).not.toContain(
       "group inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground",
     );
     expect(hierarchySrc).not.toContain(

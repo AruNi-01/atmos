@@ -19,23 +19,33 @@ import {
   verticalListSortingStrategy,
   type DragEndEvent,
 } from "@workspace/ui";
-import { Command, Inbox, List } from "lucide-react";
-import { useShallow } from "zustand/react/shallow";
+import { Inbox, List } from "lucide-react";
 import { AgentAttentionIndicator } from "@/features/agent/components/AgentAttentionIndicator";
-import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
+import { AgentStatusIndicator } from "@/features/agent/components/AgentStatusIndicator";
 import {
   type AttentionReason,
   useAgentAttentionStore,
 } from "@/features/agent/store/agent-attention-store";
-import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
-import type { OpenFile } from "@/features/editor/store/use-editor-store";
+import { AGENT_STATE, useAgentStatusStore } from "@/features/agent/store/agent-status-store";
+import {
+  resolveAgentChatAttentionReason,
+  shouldConfirmCloseAgentChat,
+} from "@/features/agent/lib/agent-chat-close-confirm";
+import {
+  getEditorDisplayPath,
+  type OpenFile,
+} from "@/features/editor/store/use-editor-store";
 import type { CenterStageUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
 import {
   FIXED_TERMINAL_TAB_VALUE,
   TERMINAL_TAB_VALUE_PREFIX,
   useTerminalStore,
 } from "@/features/terminal/store/use-terminal-store";
-import { stableAgentPaneId } from "@/features/terminal/store/terminal-store-helpers";
+import {
+  EMPTY_TERMINAL_TAB_PANES,
+  getScopeKey,
+  stableAgentPaneId,
+} from "@/features/terminal/store/terminal-store-helpers";
 import { cn } from "@/shared/lib/utils";
 
 /** Cap each group column so long labels truncate instead of stretching the popover. */
@@ -49,6 +59,11 @@ export {
   CENTER_STRIP_POSITION_HOTKEYS,
   CENTER_STRIP_SHORTCUT_LIMIT,
 } from "@/app-shell/center-stage-tab-model";
+export {
+  CenterStageShortcutTooltipBody,
+  CenterStageTabKindChip,
+  ShortcutHint,
+} from "@/app-shell/center-stage-tab-tooltip";
 
 export type TabGroupItem = {
   id: string;
@@ -68,7 +83,7 @@ export type TabGroupItem = {
     | "github-pr"
     | "github-issue"
     | "github-action"
-    | "github-commit"
+    | "git-commit"
     | "github"
     | "browser"
     | "simulator"
@@ -77,8 +92,13 @@ export type TabGroupItem = {
     | "review"
     | "run"
     | "files"
-    | "pt-design";
+    | "pt-design"
+    | "agent-chat";
   file?: OpenFile;
+  /** Agent chat id (kind === "agent-chat"). Draft tabs have none. */
+  chatId?: string | null;
+  /** Agent provider id for the chat tab icon (kind === "agent-chat"). */
+  providerId?: string | null;
   /** Center browser instance id (for kind === "browser"). */
   browserId?: string;
   /** Internal preview browser tab id (for kind === "browser"). */
@@ -137,7 +157,7 @@ export function FileIcon({ name, className }: { name: string; className?: string
 
 // Inner component: only subscribes to agent store, receives pane IDs as stable prop.
 function TerminalTabAgentIndicator({ stablePaneIds }: { stablePaneIds: string[] }) {
-  const state = useAgentHooksStore((s) => {
+  const state = useAgentStatusStore((s) => {
     if (stablePaneIds.length === 0) return AGENT_STATE.IDLE;
     let hasRunning = false;
     for (const stablePaneId of stablePaneIds) {
@@ -161,7 +181,7 @@ function TerminalTabAgentIndicator({ stablePaneIds }: { stablePaneIds: string[] 
   // Live run/permission indicator takes precedence when active.
   if (state !== AGENT_STATE.IDLE) {
     return (
-      <AgentHookStatusIndicator
+      <AgentStatusIndicator
         state={state}
         variant="compact"
         placement="center_terminal"
@@ -178,15 +198,44 @@ function TerminalTabAgentIndicator({ stablePaneIds }: { stablePaneIds: string[] 
 
 // Outer component keeps terminal and agent store subscriptions in separate render scopes.
 export function TerminalTabAgentIndicatorWithPanes({ contextId, tabId }: { contextId: string; tabId: string }) {
-  const stablePaneIds = useTerminalStore(
-    useShallow((s) => {
-      const panes = s.getPanes(contextId, tabId);
-      return Object.values(panes)
-        .map((p) => (p.tmuxWindowName ? stableAgentPaneId(contextId, p.tmuxWindowName) : null))
-        .filter((id): id is string => id !== null);
-    })
+  const panesRecord = useTerminalStore(
+    (s) => s.workspacePanes[getScopeKey(contextId, tabId)] ?? EMPTY_TERMINAL_TAB_PANES,
+  );
+  const stablePaneIds = React.useMemo(
+    () =>
+      Object.values(panesRecord)
+        .map((p) =>
+          p.tmuxWindowName ? stableAgentPaneId(contextId, p.tmuxWindowName) : null,
+        )
+        .filter((id): id is string => id !== null),
+    [contextId, panesRecord],
   );
   return <TerminalTabAgentIndicator stablePaneIds={stablePaneIds} />;
+}
+
+export function AgentChatTabStatusIndicator({ chatId }: { chatId: string }) {
+  const state = useAgentStatusStore((s) => s.getAgentStateForChatId(chatId));
+  const attentionReason = useAgentAttentionStore((s) =>
+    resolveAgentChatAttentionReason(chatId, s.panes),
+  );
+
+  if (!shouldConfirmCloseAgentChat({ chatId, occupancy: state, attentionReason })) {
+    return null;
+  }
+  if (state !== AGENT_STATE.IDLE) {
+    return (
+      <AgentStatusIndicator
+        state={state}
+        variant="compact"
+        placement="center_terminal"
+        className="ml-0.5"
+      />
+    );
+  }
+  if (attentionReason) {
+    return <AgentAttentionIndicator reason={attentionReason} className="ml-0.5" size={12} />;
+  }
+  return null;
 }
 
 const TAB_GROUP_LABEL_SELECTOR = "[data-tab-group-label]";
@@ -223,7 +272,9 @@ export function SortableTabGroupItem({
   const contentRef = React.useRef<HTMLDivElement>(null);
   const [isLabelTruncated, setIsLabelTruncated] = React.useState(false);
   const [tooltipOpen, setTooltipOpen] = React.useState(false);
-  const tooltipLabel = tab.file?.path ?? tab.label;
+  const tooltipLabel = tab.file
+    ? getEditorDisplayPath(tab.file.path)
+    : tab.label;
 
   React.useLayoutEffect(() => {
     const root = contentRef.current;
@@ -375,7 +426,7 @@ export function CenterStageTabGroupPopover({
                 <section
                   key={group.key}
                   className={cn(
-                    "flex max-h-[396px] min-h-0 w-max shrink-0 flex-col overflow-hidden rounded-md border border-border/45 bg-muted/45 backdrop-blur-md dark:bg-background/72",
+                    "flex max-h-[396px] min-h-0 w-max shrink-0 flex-col overflow-hidden rounded-xl border border-border/45 bg-muted/45 backdrop-blur-md dark:bg-background/72",
                     TAB_GROUP_COLUMN_MAX_WIDTH_CLASS,
                   )}
                 >
@@ -513,31 +564,6 @@ function splitBySectionKey(
 
 export function isTerminalCenterTabValue(value: string | null | undefined): value is string {
   return value === FIXED_TERMINAL_TAB_VALUE || !!value?.startsWith(TERMINAL_TAB_VALUE_PREFIX);
-}
-
-export function ShortcutHint({ digit }: { digit: number | string }) {
-  return (
-    <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-      <Command className="size-3" />
-      <span className="text-xs">{digit}</span>
-    </kbd>
-  );
-}
-
-export function CenterStageShortcutTooltipBody({
-  children,
-  digit,
-}: {
-  children: React.ReactNode;
-  digit?: number | string | null;
-}) {
-  if (digit == null || digit === "") return children;
-  return (
-    <div className="flex items-center gap-2">
-      {children}
-      <ShortcutHint digit={digit} />
-    </div>
-  );
 }
 
 export function getRelativePath(path: string, basePath?: string): string {

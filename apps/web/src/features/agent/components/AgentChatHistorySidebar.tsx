@@ -3,35 +3,31 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@workspace/ui";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@workspace/ui/components/ui/dropdown-menu";
-import { Bot, Check, ChevronDown, Folder, FolderOpen, Loader2, MessageCircle, Plus } from "lucide-react";
-import type { AgentChatSessionItem } from "@/api/rest-api";
+import { Bot, ChevronDown, Folder, FolderOpen, Loader2, Plus } from "lucide-react";
 import type { RegistryAgent } from "@/api/ws-api";
 import type { Project } from "@/shared/types/domain";
+import type { AgentChatHistoryRow } from "@/features/agent/lib/agent-chat-thread";
+import { isAgentScratchCwd } from "@/features/agent/lib/agent-chat-working-directory";
 import { AgentIcon } from "./AgentIcon";
+import { ChatAgentPicker } from "./ChatAgentPicker";
 
 interface AgentChatHistorySidebarProps {
   className?: string;
   reserveTrafficLightsInset?: boolean;
-  historySessions: AgentChatSessionItem[];
+  historySessions: AgentChatHistoryRow[];
   historyHasMore: boolean;
   historyLoading: boolean;
   historyCursor: string | null;
   historyResumeUnsupportedReason: string | null;
   historyUnsupportedReason: string | null;
   loadHistorySessions: (cursor?: string) => Promise<void>;
-  handleSelectHistorySession: (s: AgentChatSessionItem) => void;
+  handleSelectHistorySession: (row: AgentChatHistoryRow) => void;
   handleCreateNewSession: (targetRegistryId?: string) => Promise<void>;
-  isConnecting: boolean;
+  onPreferredRegistryChange?: (registryId: string) => void;
   installedAgents: RegistryAgent[];
   defaultRegistryId: string;
   activeRegistryId: string;
-  activeAcpSessionId: string | null;
+  activeChatId: string | null;
   activeAgentName: string | null;
   canCreateNewSession: boolean;
   projects: Project[];
@@ -42,7 +38,7 @@ type HistoryGroup = {
   cwd: string | null;
   name: string;
   newestTime: number;
-  sessions: AgentChatSessionItem[];
+  sessions: AgentChatHistoryRow[];
 };
 
 function normalizeCwd(cwd: string | null | undefined): string | null {
@@ -97,8 +93,10 @@ function resolveCwdGroupName(
   projects: Project[],
   noCwdLabel: string,
   atmosWorkspaceLabel: string,
+  threadLabel: string,
 ): string {
   if (!cwd) return noCwdLabel;
+  if (isAgentScratchCwd(cwd)) return threadLabel;
   const normalizedCwd = normalizePathForMatch(cwd);
   if (!normalizedCwd) return noCwdLabel;
 
@@ -131,7 +129,7 @@ function resolveCwdGroupName(
   return unknownAtmosWorkspaceLabel(normalizedCwd, atmosWorkspaceLabel) ?? cwdGroupName(cwd, noCwdLabel);
 }
 
-function sessionTimeValue(session: AgentChatSessionItem): number {
+function sessionTimeValue(session: AgentChatHistoryRow): number {
   return session.updated_at ? Date.parse(session.updated_at) || 0 : 0;
 }
 
@@ -159,9 +157,10 @@ function formatRelativeTime(
 }
 
 function groupHistorySessions(
-  sessions: AgentChatSessionItem[],
+  sessions: AgentChatHistoryRow[],
   noCwdLabel: string,
   atmosWorkspaceLabel: string,
+  threadLabel: string,
   projects: Project[],
 ): HistoryGroup[] {
   const groups = new Map<string, HistoryGroup>();
@@ -180,7 +179,7 @@ function groupHistorySessions(
     groups.set(key, {
       key,
       cwd,
-      name: resolveCwdGroupName(cwd, projects, noCwdLabel, atmosWorkspaceLabel),
+      name: resolveCwdGroupName(cwd, projects, noCwdLabel, atmosWorkspaceLabel, threadLabel),
       newestTime: timeValue,
       sessions: [session],
     });
@@ -206,11 +205,11 @@ export function AgentChatHistorySidebar({
   loadHistorySessions,
   handleSelectHistorySession,
   handleCreateNewSession,
-  isConnecting,
+  onPreferredRegistryChange,
   installedAgents,
   defaultRegistryId,
   activeRegistryId,
-  activeAcpSessionId,
+  activeChatId,
   activeAgentName,
   canCreateNewSession,
   projects,
@@ -221,12 +220,12 @@ export function AgentChatHistorySidebar({
       historySessions,
       t("historySidebar.noCwd"),
       t("historySidebar.atmosWorkspace"),
+      t("composer.workingDirectory.thread"),
       projects,
     ),
     [historySessions, projects, t],
   );
   const [collapsedGroups, setCollapsedGroups] = React.useState<Record<string, boolean>>({});
-  const [agentPickerOpen, setAgentPickerOpen] = React.useState(false);
   const [selectedRegistryId, setSelectedRegistryId] = React.useState("");
   const newSessionControlRef = React.useRef<HTMLDivElement | null>(null);
   const agentLabelMeasureRef = React.useRef<HTMLSpanElement | null>(null);
@@ -240,6 +239,10 @@ export function AgentChatHistorySidebar({
     installedAgents[0] ??
     null;
   const selectedAgentLabel = selectedAgent?.name ?? activeAgentName ?? t("historySidebar.agentFallback");
+  const installedAgentById = React.useMemo(
+    () => new Map(installedAgents.map((agent) => [agent.id, agent])),
+    [installedAgents],
+  );
 
   React.useEffect(() => {
     if (!selectedRegistryId) return;
@@ -301,22 +304,26 @@ export function AgentChatHistorySidebar({
             <button
               type="button"
               className="flex min-w-0 flex-1 items-center gap-2 px-3 text-left text-sm font-medium text-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
-              disabled={!canCreateNewSession || isConnecting}
+              disabled={!canCreateNewSession}
               onClick={() => void handleCreateNewSession(selectedAgent?.id)}
             >
               <Plus className="size-4 shrink-0" />
               <span className="truncate">{t("historySidebar.newSession")}</span>
             </button>
 
-            <DropdownMenu
-              open={agentPickerOpen}
-              onOpenChange={setAgentPickerOpen}
-            >
-              <DropdownMenuTrigger asChild>
+            <ChatAgentPicker
+              agents={installedAgents}
+              value={effectiveSelectedRegistryId}
+              align="end"
+              onChange={(agentId) => {
+                setSelectedRegistryId(agentId);
+                onPreferredRegistryChange?.(agentId);
+              }}
+              trigger={
                 <button
                   type="button"
                   className="group/agent-selector relative flex h-full min-w-0 max-w-[50%] shrink-0 items-center px-2 text-left text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-                  disabled={installedAgents.length === 0 || isConnecting}
+                  disabled={installedAgents.length === 0}
                   aria-label={t("historySidebar.selectAgentAria")}
                   title={selectedAgentLabel}
                 >
@@ -350,41 +357,8 @@ export function AgentChatHistorySidebar({
                     <ChevronDown className="ml-1 size-3 shrink-0" />
                   </span>
                 </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64 p-1">
-                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                  {t("historySidebar.agentForNewSession")}
-                </div>
-                <div className="max-h-64 overflow-y-auto">
-                  {installedAgents.map((agent) => {
-                    const selected = selectedAgent?.id === agent.id;
-                    return (
-                      <DropdownMenuItem
-                        key={agent.id}
-                        className="cursor-pointer"
-                        onSelect={() => {
-                          setSelectedRegistryId(agent.id);
-                          setAgentPickerOpen(false);
-                        }}
-                      >
-                        <AgentIcon
-                          registryId={agent.id}
-                          name={agent.name}
-                          size={16}
-                          isCustom={agent.install_method === "custom"}
-                          registryIcon={agent.icon}
-                        />
-                        <span className="min-w-0 flex-1 truncate">{agent.name}</span>
-                        {selected ? <Check className="size-3.5 shrink-0 text-primary" /> : null}
-                      </DropdownMenuItem>
-                    );
-                  })}
-                  {installedAgents.length === 0 ? (
-                    <div className="px-2 py-3 text-xs text-muted-foreground">{t("historySidebar.noInstalledAgent")}</div>
-                  ) : null}
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              }
+            />
           </div>
         </div>
       </div>
@@ -419,7 +393,7 @@ export function AgentChatHistorySidebar({
                     ) : (
                       <FolderOpen className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                     )}
-                    <span className="truncate" title={group.cwd ?? undefined}>
+                    <span className="truncate" title={group.name}>
                       {group.name}
                     </span>
                     <span className="ml-auto shrink-0 text-[11px] font-normal text-muted-foreground">
@@ -435,13 +409,12 @@ export function AgentChatHistorySidebar({
                     <div className="min-h-0 overflow-hidden">
                       <div className="ml-5 space-y-0.5 pl-2">
                         {group.sessions.map((session) => {
-                          const isActive =
-                            activeAcpSessionId === session.acp_session_id &&
-                            (!activeRegistryId || activeRegistryId === session.registry_id);
+                          const isActive = activeChatId === session.chat_id;
                           const relativeTime = formatRelativeTime(session.updated_at, t);
+                          const sessionAgent = installedAgentById.get(session.provider_id);
                           return (
                             <button
-                              key={`${session.registry_id}:${session.acp_session_id}`}
+                              key={session.chat_id}
                               type="button"
                               className={cn(
                                 "group flex h-9 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-sm",
@@ -452,7 +425,14 @@ export function AgentChatHistorySidebar({
                               title={session.title ?? undefined}
                               onClick={() => handleSelectHistorySession(session)}
                             >
-                              <MessageCircle className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                              <AgentIcon
+                                registryId={session.provider_id}
+                                name={sessionAgent?.name ?? session.provider_id}
+                                size={16}
+                                isCustom={sessionAgent?.install_method === "custom"}
+                                registryIcon={sessionAgent?.icon}
+                                className="text-muted-foreground"
+                              />
                               <span className="min-w-0 flex-1 truncate font-medium">
                                 {session.title || t("historySidebar.newChat")}
                               </span>

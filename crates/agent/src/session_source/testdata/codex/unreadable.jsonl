@@ -1,0 +1,2 @@
+this is not json
+{"timestamp":"2026-04-06T14:48:33.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Recovered after bad line."}]}}

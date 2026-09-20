@@ -11,10 +11,13 @@ import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
 import { resolveCenterOpenContextId } from "@/app-shell/center-space/center-open-context";
 import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
 import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
+import { buildCenterHostTabHref } from "@/app-shell/center-stage-project-context";
+import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 
 export function useOpenGithubCenterTab() {
   const t = useTranslations("github.centerTabs");
   const router = useAppRouter();
+  const projects = useProjects();
   const { effectiveContextId: hostContextId } = useContextParams();
   const paintContextId = useCenterPaintContextId();
   const drawerNav = useTaskGithubDrawerNav();
@@ -24,9 +27,6 @@ export function useOpenGithubCenterTab() {
   const openIssue = useGithubCenterTabsStore((state) => state.openIssue);
   const openActionRun = useGithubCenterTabsStore(
     (state) => state.openActionRun,
-  );
-  const openCommit = useGithubCenterTabsStore(
-    (state) => state.openCommit,
   );
 
   /**
@@ -39,12 +39,10 @@ export function useOpenGithubCenterTab() {
       const targetHost = hostIdFromCenterKey(contextId);
       const currentHost = hostContextId ? hostIdFromCenterKey(hostContextId) : "";
       if (targetHost && targetHost !== currentHost) {
-        router.push(
-          `/workspace?id=${encodeURIComponent(targetHost)}&tab=${encodeURIComponent(value)}`,
-        );
+        router.push(buildCenterHostTabHref(targetHost, projects, value));
       }
     },
-    [hostContextId, router],
+    [hostContextId, projects, router],
   );
 
   const resolveContextId = React.useCallback(
@@ -143,50 +141,6 @@ export function useOpenGithubCenterTab() {
     [activateTab, drawerNav, openActionRun, resolveContextId, t],
   );
 
-  const openCommitTab = React.useCallback(
-    ({
-      owner,
-      repo,
-      sha,
-      subject,
-      authorName,
-      contextId,
-    }: {
-      owner: string;
-      repo: string;
-      sha: string;
-      subject: string;
-      authorName: string;
-      contextId?: string | null;
-    }) => {
-      if (drawerNav?.active) {
-        return drawerNav.openCommit({
-          owner,
-          repo,
-          sha,
-          subject,
-          authorName,
-          contextId,
-        });
-      }
-      const targetContextId = resolveContextId(contextId);
-      if (!targetContextId) return false;
-      const shortSha = sha.substring(0, 7);
-      const tab = openCommit(targetContextId, {
-        label: `${shortSha} ${subject}`.substring(0, 60),
-        owner,
-        repo,
-        sha,
-        subject,
-        authorName,
-        description: subject,
-      });
-      activateTab(tab.value, targetContextId);
-      return true;
-    },
-    [activateTab, drawerNav, openCommit, resolveContextId],
-  );
-
   const openIssueTab = React.useCallback(
     ({
       owner,
@@ -225,5 +179,5 @@ export function useOpenGithubCenterTab() {
     [activateTab, drawerNav, openIssue, resolveContextId, t],
   );
 
-  return { openActionRunTab, openPullRequestTab, openIssueTab, openCommitTab };
+  return { openActionRunTab, openPullRequestTab, openIssueTab };
 }

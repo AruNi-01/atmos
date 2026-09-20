@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useQueryState } from "nuqs";
 import { useContextParams } from "@/shared/hooks/use-context-params";
@@ -22,7 +22,6 @@ import { useGitInfoStore } from '@/features/git/store/use-git-info-store';
 import { useGitStatusQuery } from '@/features/git/hooks/use-git-status-query';
 import { useGitBranchesQuery } from '@/features/git/hooks/use-git-branches-query';
 import { invalidateGitQueries } from '@/features/git/hooks/use-git-changed-files-query';
-import { useGithubPRList } from '@/features/github/hooks/use-github';
 import { useProjectStore } from '@/features/project/store/use-project-store';
 import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
 import { useDialogStore } from '@/app-shell/state/use-dialog-store';
@@ -44,13 +43,11 @@ import { isDesktopRuntime as detectDesktopShell } from '@/shared/lib/desktop-run
 import { useTunnelConnector } from '@/features/connection/hooks/use-tunnel-connector';
 import { useSidebarLayout } from '@/app-shell/SidebarLayoutContext';
 import { APP_HEADER_HEIGHT_CLASS } from '@/app-shell/sidebar-layout-constants';
-import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import {
   ChevronLeft,
   ChevronRight,
   Command,
-  PanelLeftClose,
-  PanelLeftOpen,
+  PanelLeft,
   RotateCw,
 } from "lucide-react";
 import { HeaderWorkspaceJobs } from './HeaderWorkspaceJobs';
@@ -60,10 +57,11 @@ import { getBranchSyncIndicatorState, getSessionUrgency } from './header-parts';
 import { HeaderActionControls } from './header-action-controls';
 import { CenterSpaceSwitcher } from "@/app-shell/center-space/CenterSpaceSwitcher";
 import { HeaderGitContext } from './header-git-context';
+import { isStandaloneAutomationScope } from '@/features/automations/lib/automation-run-landing';
 import { useHeaderFullscreen } from './use-header-fullscreen';
 import { useHeaderHotkeys } from './use-header-hotkeys';
-import { useOpenGithubCenterTab } from '@/features/github/hooks/use-open-github-center-tab';
 import { settingsHref } from '@/features/settings/lib/open-settings';
+import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
 
 const Header: React.FC = () => {
   const pathname = usePathname();
@@ -77,11 +75,14 @@ const Header: React.FC = () => {
 
   const projects = useProjects();
   const updateWorkspaceBranch = useProjectStore(s => s.updateWorkspaceBranch);
-  const setupProgress = useProjectStore(s => s.setupProgress);
+  const currentSetupProgress = useProjectStore((s) =>
+    currentWorkspaceId ? s.setupProgress[currentWorkspaceId] ?? null : null,
+  );
   const { setGlobalSearchOpen, setHeaderHasOpenOverlay } = useDialogStore();
   const t = useTranslations("header");
   const showHeaderQuickOpen = useLayoutSettingsStore((s) => s.showHeaderQuickOpen);
   const showHeaderGitToolbar = useLayoutSettingsStore((s) => s.showHeaderGitToolbar);
+  const hideStandaloneGitChrome = isStandaloneAutomationScope(currentWorkspaceId ?? "");
   const showHeaderRemoteAccess = useLayoutSettingsStore((s) => s.showHeaderRemoteAccess);
   const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
   useEffect(() => {
@@ -102,10 +103,6 @@ const Header: React.FC = () => {
     setTargetBranch,
   } = useGitInfoStore();
 
-  const { openPullRequestTab } = useOpenGithubCenterTab();
-
-  const onWsEvent = useWebSocketStore(s => s.onEvent);
-
   // Find current project based on workspaceId OR projectId
   const currentProject = projects.find(p =>
     (currentWorkspaceId && p.workspaces.some(w => w.id === currentWorkspaceId)) ||
@@ -117,50 +114,12 @@ const Header: React.FC = () => {
   const currentProjectIdForContext = currentProject?.id ?? null;
   const currentProjectMainFilePath = currentProject?.mainFilePath ?? null;
   const currentWorkspaceLocalPath = currentWorkspace?.localPath ?? null;
-  const isSettingUp = isWorkspaceSetupBlocking(
-    currentWorkspaceId ? setupProgress[currentWorkspaceId] : null,
-  );
+  const isSettingUp = isWorkspaceSetupBlocking(currentSetupProgress);
 
   const headerRepoPath = currentWorkspaceLocalPath || currentProjectMainFilePath || editorRepoPath || null;
 
   const statusQuery = useGitStatusQuery(headerRepoPath);
   const currentBranch = statusQuery.data?.current_branch ?? null;
-  const githubOwner = statusQuery.data?.github_owner ?? null;
-  const githubRepo = statusQuery.data?.github_repo ?? null;
-
-  const { data: prListData, refresh: refreshHeaderPrList } = useGithubPRList({
-    owner: githubOwner ?? undefined,
-    repo: githubRepo ?? undefined,
-    branch: currentBranch ?? undefined,
-    state: 'all',
-    enabled: showHeaderGitToolbar,
-  });
-  // Find the most recent PR (highest number) whose head branch matches current branch
-  const currentBranchPR = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const matches = (prListData as any[] | null)?.filter((pr: any) => pr.headRefName === currentBranch) ?? [];
-    if (matches.length === 0) return null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return matches.reduce((latest: any, pr: any) => pr.number > latest.number ? pr : latest, matches[0]);
-  }, [prListData, currentBranch]);
-  const prIconRef = useRef<{ startAnimation: () => void; stopAnimation: () => void } | null>(null);
-
-  useEffect(() => {
-    return onWsEvent('github_branch_pr_status_refreshed', (data: unknown) => {
-      const payload = data as {
-        owner?: string;
-        repo?: string;
-        branch?: string;
-      } | null;
-
-      if (!payload) return;
-      if (payload.owner !== githubOwner) return;
-      if (payload.repo !== githubRepo) return;
-      if (payload.branch !== currentBranch) return;
-
-      void refreshHeaderPrList();
-    });
-  }, [onWsEvent, githubOwner, githubRepo, currentBranch, refreshHeaderPrList]);
 
   const hasUncommittedChanges = statusQuery.data?.has_uncommitted_changes ?? false;
   const hasUnpushedCommits = statusQuery.data?.has_unpushed_commits ?? false;
@@ -182,7 +141,7 @@ const Header: React.FC = () => {
 
   // Available branches — session snapshot + Query (no per-switch local refetch flash)
   const branchesQuery = useGitBranchesQuery(
-    showHeaderGitToolbar && !isSettingUp ? headerRepoPath : null,
+    showHeaderGitToolbar && !isSettingUp && !hideStandaloneGitChrome ? headerRepoPath : null,
   );
   const availableBranches = useMemo(() => {
     const remote = branchesQuery.data?.remote ?? [];
@@ -411,27 +370,24 @@ const Header: React.FC = () => {
     <TooltipProvider>
       <header
         data-app-shell-header=""
+        data-tauri-drag-region={isDesktopDragEnabled ? "true" : undefined}
         onMouseDown={handleDesktopWindowMouseDown}
         className={cn(
-          "relative flex items-center justify-between px-4 select-none transition-[padding] duration-300 ease-out",
+          // Stretch so the empty fillers above the center stage are full header
+          // height. Electron only honors `-webkit-app-region: drag` on a hittable
+          // box — a pointer-events-none overlay and flex gaps do not count.
+          "relative flex px-4 select-none transition-[padding] duration-300 ease-out",
           APP_HEADER_HEIGHT_CLASS,
           isDesktopDragEnabled && "desktop-drag-region",
           // Header spans the full window, including over the left sidebar.
           needsTrafficLightsPadding && "pl-[92px]",
         )}
       >
-        {isDesktopDragEnabled ? (
-          <div
-            className="pointer-events-none absolute inset-0 z-0 desktop-drag-region"
-            data-tauri-drag-region="true"
-          />
-        ) : null}
-
         {/* Left: Identity */}
         <div
           className={cn(
             // gap-6 separates chrome controls (left) from app actions (bell / quick open).
-            "relative z-10 flex items-center gap-6 transition-[opacity,transform] duration-300 ease-out",
+            "relative z-10 desktop-no-drag flex shrink-0 items-center gap-6 transition-[opacity,transform] duration-300 ease-out",
             isDesktopFullscreenExiting ? "opacity-0 translate-x-2" : "opacity-100 translate-x-0"
           )}
         >
@@ -443,9 +399,12 @@ const Header: React.FC = () => {
                   type="button"
                   aria-label={isLeftCollapsed ? t("leftSidebar.expand") : t("leftSidebar.collapse")}
                   onClick={toggleLeftSidebar}
-                  className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  className={cn(
+                    "inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                    panelFoldCursorClass("left", isLeftCollapsed),
+                  )}
                 >
-                  {isLeftCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+                  <PanelLeft className="size-4" />
                 </button>
               </TooltipTrigger>
               <TooltipContent>
@@ -528,14 +487,14 @@ const Header: React.FC = () => {
             </div>
           ) : null}
 
-          {/* App actions (bell + quick open). Parent gap-6 always separates this from chrome,
-              including when the bell is hidden and only Quick Open remains. */}
-          <div className="desktop-no-drag flex shrink-0 items-center gap-1">
+          {/* App actions (bell + quick open). Bell slot owns the gap so Quick Open
+              slides as the bell pops in/out. Parent gap-6 still separates this from chrome. */}
+          <div className="desktop-no-drag flex shrink-0 items-center">
             <HeaderAttentionBell />
             {showHeaderQuickOpen && (currentWorkspace || currentProject) ? (
               <motion.div
                 layout
-                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.8 }}
                 className="min-w-0"
               >
                 <QuickOpen
@@ -548,11 +507,13 @@ const Header: React.FC = () => {
           <HeaderWorkspaceJobs />
         </div>
 
-        <div className="relative z-10 flex min-w-0 items-center gap-5">
-          {showHeaderGitToolbar && (
+        <HeaderWindowDragFiller enabled={isDesktopDragEnabled} />
+
+        <div className="relative z-10 desktop-no-drag flex min-w-0 items-center gap-5">
+          {showHeaderGitToolbar && !hideStandaloneGitChrome && (
             <HeaderGitContext
               branchSyncState={branchSyncState}
-              currentBranchPR={currentBranchPR}
+              currentBranch={currentBranch}
               currentProject={currentProject}
               currentWorkspace={currentWorkspace}
               displayCurrentBranch={displayCurrentBranch}
@@ -565,20 +526,10 @@ const Header: React.FC = () => {
               isLoadingBranches={isLoadingBranches}
               isTargetBranchOpen={isTargetBranchOpen}
               onCancelEditCurrentBranch={handleCancelEditCurrentBranch}
-              onOpenPr={(prNumber, prTitle) => {
-                if (!currentBranch || !githubOwner || !githubRepo) return;
-                openPullRequestTab({
-                  branch: currentBranch,
-                  owner: githubOwner,
-                  prNumber,
-                  repo: githubRepo,
-                  title: prTitle,
-                });
-              }}
               onRefreshChangedFiles={refreshGitStatus}
               onSaveCurrentBranch={handleSaveCurrentBranch}
               onSetTargetBranch={setTargetBranch}
-              prIconRef={prIconRef}
+              repoPath={headerRepoPath}
               setEditedCurrentBranch={setEditedCurrentBranch}
               setIsEditingCurrentBranch={setIsEditingCurrentBranch}
               setIsTargetBranchOpen={setIsTargetBranchOpen}
@@ -590,6 +541,8 @@ const Header: React.FC = () => {
           )}
           <CenterSpaceSwitcher />
         </div>
+
+        <HeaderWindowDragFiller enabled={isDesktopDragEnabled} />
 
         <HeaderActionControls
           activeTunnelConnectors={activeTunnelConnectors}
@@ -664,5 +617,19 @@ const Header: React.FC = () => {
     </TooltipProvider>
   );
 };
+
+function HeaderWindowDragFiller({ enabled }: { enabled: boolean }) {
+  return (
+    <div
+      aria-hidden
+      data-desktop-window-drag=""
+      data-tauri-drag-region={enabled ? "true" : undefined}
+      className={cn(
+        "min-h-0 min-w-0 flex-1 self-stretch",
+        enabled && "desktop-drag-region",
+      )}
+    />
+  );
+}
 
 export default Header;

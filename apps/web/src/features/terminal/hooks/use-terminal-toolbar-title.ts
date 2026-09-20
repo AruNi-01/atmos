@@ -16,7 +16,6 @@ import {
   nextOscTitleAfterIncoming,
   shortenPath,
 } from "@atmos/shared/terminal";
-import { useAgentTitleSettingsStore } from "@/features/settings/store/agent-title-settings-store";
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 import { useContestedCliOwners } from "./use-contested-cli-owners";
 
@@ -46,7 +45,6 @@ export function useTerminalToolbarTitle(options: {
   const [localNativeOscTitle, setLocalNativeOscTitle] = useState<string | undefined>();
   const { storeWrite, configuredAgents, baseTitle, pinnedAgent, customLabel, keepAgentName, keepCwd } = options;
   const contestedOwners = useContestedCliOwners();
-  const showAgentName = useAgentTitleSettingsStore((s) => s.showAgentNameInTerminalTitles);
 
   const storeLive = useTerminalStore(
     useShallow((s) => {
@@ -172,7 +170,6 @@ export function useTerminalToolbarTitle(options: {
       contestedOwners,
       oscTitle: mergedNativeOsc,
       suppressOscTitle: hasCustom,
-      showAgentName,
     });
 
     if (!hasCustom) {
@@ -181,7 +178,7 @@ export function useTerminalToolbarTitle(options: {
 
     const custom = customLabel!.trim();
     // Flags default to on: `undefined` is treated as `true`.
-    const wantAgent = keepAgentName !== false && showAgentName !== false;
+    const wantAgent = keepAgentName !== false;
     const wantCwd = keepCwd !== false;
 
     // Custom labels suppress native OSC suffixes entirely (APP-047 / APP-033).
@@ -191,7 +188,9 @@ export function useTerminalToolbarTitle(options: {
       !showAgentLabel && wantCwd && mergedDynamic
         ? isPathLikeTitle(mergedDynamic)
           ? shortenPath(mergedDynamic)
-          : mergedDynamic
+          : auto.toolbarAgent
+            ? undefined
+            : mergedDynamic
         : undefined;
 
     const displayTitle = [
@@ -206,7 +205,6 @@ export function useTerminalToolbarTitle(options: {
       displayTitle,
       primaryTitle: displayTitle,
       oscSuffix: "",
-      // Keep agent for icon even when the brand name is hidden globally.
       toolbarAgent: auto.toolbarAgent,
     };
   }, [
@@ -222,7 +220,6 @@ export function useTerminalToolbarTitle(options: {
     keepAgentName,
     keepCwd,
     contestedOwners,
-    showAgentName,
   ]);
 
   return { displayTitle, primaryTitle, oscSuffix, toolbarAgent, onTitleChange, onOscTitleChange };

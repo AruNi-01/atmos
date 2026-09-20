@@ -33,6 +33,23 @@ impl WsMessageService {
         Ok(json!({ "success": true }))
     }
 
+    pub(super) async fn handle_agent_default_config_set(
+        &self,
+        req: AgentDefaultConfigSetRequest,
+    ) -> Result<Value> {
+        let registry_id = req.registry_id.trim();
+        let config_id = req.config_id.trim();
+        let value = req.value.trim();
+        if registry_id.is_empty() || config_id.is_empty() || value.is_empty() {
+            return Err(ServiceError::Validation(
+                "registry_id, config_id, and value are required".into(),
+            ));
+        }
+        self.agent_service
+            .set_agent_default_config(registry_id, config_id, value)?;
+        Ok(json!({ "success": true }))
+    }
+
     pub(super) async fn handle_agent_registry_list(
         &self,
         req: AgentRegistryListRequest,
@@ -81,9 +98,12 @@ impl WsMessageService {
             command: req.command,
             args: req.args,
             env: req.env,
-            default_config: None,
+            ..Default::default()
         };
         self.agent_service.add_custom_agent(&agent)?;
+        self.agent_chat()
+            .evict_runtimes_for_provider(&agent.name)
+            .await;
         Ok(json!({ "success": true }))
     }
 
@@ -92,6 +112,9 @@ impl WsMessageService {
         req: CustomAgentRemoveRequest,
     ) -> Result<Value> {
         self.agent_service.remove_custom_agent(&req.name)?;
+        self.agent_chat()
+            .evict_runtimes_for_provider(&req.name)
+            .await;
         Ok(json!({ "success": true }))
     }
 
@@ -113,14 +136,75 @@ impl WsMessageService {
         Ok(json!({ "path": path }))
     }
 
+    pub(super) async fn handle_custom_agent_set_enabled(
+        &self,
+        req: CustomAgentSetEnabledRequest,
+    ) -> Result<Value> {
+        let name = req.name.trim();
+        if name.is_empty() {
+            return Err(ServiceError::Validation("name is required".into()));
+        }
+        self.agent_service
+            .set_custom_agent_enabled(name, req.enabled)?;
+        self.agent_chat().evict_runtimes_for_provider(name).await;
+        Ok(json!({ "success": true }))
+    }
+
+    pub(super) async fn handle_custom_agent_preload(
+        &self,
+        req: CustomAgentPreloadRequest,
+    ) -> Result<Value> {
+        let name = req.name.trim();
+        if name.is_empty() {
+            return Err(ServiceError::Validation("name is required".into()));
+        }
+        self.agent_service.preload_custom_agent(name).await?;
+        Ok(json!({ "success": true }))
+    }
+
+    pub(super) async fn handle_native_agent_list(&self) -> Result<Value> {
+        let agents = self.agent_service.list_native_chat_agents()?;
+        Ok(json!({ "agents": agents }))
+    }
+
+    pub(super) async fn handle_native_agent_set_enabled(
+        &self,
+        req: NativeAgentSetEnabledRequest,
+    ) -> Result<Value> {
+        let id = req.id.trim();
+        if id.is_empty() {
+            return Err(ServiceError::Validation("id is required".into()));
+        }
+        self.agent_service
+            .set_native_chat_agent_enabled(id, req.enabled)?;
+        self.agent_chat().evict_runtimes_for_provider(id).await;
+        Ok(json!({ "success": true }))
+    }
+
+    pub(super) async fn handle_agent_registry_set_enabled(
+        &self,
+        req: AgentRegistrySetEnabledRequest,
+    ) -> Result<Value> {
+        let registry_id = req.registry_id.trim();
+        if registry_id.is_empty() {
+            return Err(ServiceError::Validation("registry_id is required".into()));
+        }
+        self.agent_service
+            .set_registry_agent_enabled(registry_id, req.enabled)?;
+        self.agent_chat()
+            .evict_runtimes_for_provider(registry_id)
+            .await;
+        Ok(json!({ "success": true }))
+    }
+
     pub(super) async fn handle_terminal_agent_models_get(
         &self,
         req: TerminalAgentModelsGetRequest,
     ) -> Result<Value> {
+        let spec = core_service::options_probe_plan_for(&req.agent_id);
         let catalog = self
-            .automation_service
-            .terminal_agent_model_catalog(&req.agent_id, req.refresh.unwrap_or(false))
-            .await?;
-        Ok(json!(catalog))
+            .options_worker
+            .get_cached_or_probing(&spec, req.refresh.unwrap_or(false));
+        Ok(json!(core_service::terminal_options_from(&catalog)))
     }
 }

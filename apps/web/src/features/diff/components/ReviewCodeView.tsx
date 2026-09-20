@@ -33,6 +33,7 @@ import {
   CODE_VIEW_HOST_CLASS,
   getAtmosDiffThemeType,
 } from '@/features/diff/lib/diff-view-constants';
+import { useScrollFadeRef } from '@/features/diff/lib/use-scroll-fade-element';
 import {
   createDiffHeaderPrefixRenderer,
   findDiffItemIdForViewport,
@@ -126,6 +127,7 @@ export function ReviewCodeView({
     useState<string | null>(null);
 
   const codeViewRef = useRef<CodeViewHandle<ReviewAnnotationMeta>>(null);
+  const setCodeViewHost = useScrollFadeRef<HTMLDivElement>();
   const itemIdsRef = useRef<string[]>([]);
   const pendingAppendRef = useRef<CodeViewItem<ReviewAnnotationMeta>[]>([]);
   const scrollActiveIdRef = useRef<string | null>(null);
@@ -991,6 +993,7 @@ export function ReviewCodeView({
         <CodeView
           key={`${groupPath}:${viewerKey}`}
           ref={handleViewerRef}
+          containerRef={setCodeViewHost}
           initialItems={initialItems}
           options={codeViewOptions}
           renderHeaderPrefix={renderHeaderPrefix}

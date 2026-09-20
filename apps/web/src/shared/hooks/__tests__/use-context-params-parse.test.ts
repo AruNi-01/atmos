@@ -30,6 +30,14 @@ describe("parseContextParams", () => {
     });
   });
 
+  test("parses standalone automation job as a workspace scope", () => {
+    expect(parseContextParams("/automation", new URLSearchParams("id=job-1"))).toMatchObject({
+      currentView: "workspace",
+      workspaceId: "automation:job-1",
+      effectiveContextId: "automation:job-1",
+    });
+  });
+
   test("parses standalone surfaces", () => {
     expect(parseContextParams("/token-usage", new URLSearchParams()).currentView).toBe(
       "token-usage",
@@ -41,6 +49,10 @@ describe("parseContextParams", () => {
       "pt-design",
     );
     expect(parseContextParams("/pt-design", new URLSearchParams()).effectiveContextId).toBeNull();
+    expect(parseContextParams("/agent-sessions", new URLSearchParams()).currentView).toBe(
+      "agent-sessions",
+    );
+    expect(parseContextParams("/agent-sessions", new URLSearchParams()).effectiveContextId).toBeNull();
     expect(parseContextParams("/", new URLSearchParams()).currentView).toBe("welcome");
   });
 });

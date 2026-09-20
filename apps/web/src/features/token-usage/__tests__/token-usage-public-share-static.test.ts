@@ -39,6 +39,7 @@ describe("APP-061 static wiring", () => {
     expect(page).toContain("GitHubIcon");
     expect(page).not.toContain("GithubIcon");
     expect(page).toContain("GithubUserHoverCard");
+    expect(page).toContain("XUserHoverCard");
     expect(page).toContain('source="public"');
     expect(page).toContain("https://atmos.land");
     expect(page).toContain("overflow-y-auto");
@@ -51,7 +52,9 @@ describe("APP-061 static wiring", () => {
     expect(boards).toContain("HandleComputerCount");
     expect(boards).toContain("Crown");
     expect(boards).toContain("GithubUserHoverCard");
+    expect(boards).toContain("XUserHoverCard");
     expect(boards).toContain("GithubCell");
+    expect(boards).toContain("XCell");
     expect(boards).toContain('source="public"');
     expect(boards).toContain("LogoSvg");
     expect(boards).toContain("GeistPixelSquare");

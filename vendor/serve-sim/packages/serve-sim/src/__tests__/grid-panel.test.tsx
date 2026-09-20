@@ -87,6 +87,7 @@ describe("GridPanel", () => {
     );
 
     expect(html).not.toContain("github.com");
+    expect(html).not.toContain("EAS Simulator");
     expect(html).not.toContain('title="Open serve-sim"');
     expect(html).not.toContain(">serve-sim<");
   });

@@ -177,7 +177,7 @@ export function TerminalTitleWithAgent({
   const osc = (oscSuffix ?? "").trim();
 
   // Structured path: fixed primary + marquee OSC (requested UX).
-  // Agent name hidden → primary empty → icon + OSC with row gap only (no ` | `).
+  // Agent name is omitted when OSC is present → primary empty → icon + OSC (no ` | `).
   if (primary && osc) {
     return (
       <div className={cn("terminal-title-row", className)} title={`${primary} | ${osc}`}>
@@ -201,7 +201,8 @@ export function TerminalTitleWithAgent({
   }
 
   // Fallback identical to pre-marquee: one string (may already contain " | ").
-  const text = displayTitle.trim() || primary || osc;
+  // Icon-only agent identity still shows the agent name so the toolbar is not empty.
+  const text = displayTitle.trim() || primary || osc || toolbarAgent?.label?.trim() || "";
   return (
     <div className={cn("terminal-title-row", className)} title={text}>
       <span className="terminal-title-icon">{icon}</span>

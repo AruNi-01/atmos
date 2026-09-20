@@ -8,51 +8,63 @@ import {
   PopoverTrigger,
   PopoverContent,
   Button,
+  ScrollArea,
 } from '@workspace/ui';
 import { cn } from "@/shared/lib/utils";
+import { agentStatusApi } from '@/api/rest-api';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
-import { useAgentChatUrl } from '@/features/agent/hooks/use-agent-chat-url';
+
 import { buildUsageCarouselItems } from '@/features/quota-usage/lib/quota-display';
 import { useQuotaOverviewQuery } from '@/features/quota-usage/hooks/use-quota-overview-query';
 import {
-  useAgentHooksStore,
-  type AgentHookSession,
+  useAgentStatusStore,
+  type AgentStatusRecord,
   AGENT_STATE,
   AGENT_TOOL_LABELS,
   AGENT_TOOL_ICON_IDS,
-} from '@/features/agent/store/agent-hooks-store';
+} from '@/features/agent/store/agent-status-store';
 import { useAgentAttentionStore } from '@/features/agent/store/agent-attention-store';
+import { useAgentAttentionSummaryStore } from '@/features/agent/store/agent-attention-summary-store';
+import { useWorkspaceAgentGroupingHoldStore } from '@/features/agent/store/workspace-agent-grouping-hold';
 import { useShallow } from 'zustand/react/shallow';
-import { AgentHookStatusIndicator } from '@/features/agent/components/AgentHookStatusIndicator';
+import { AgentStatusIndicator } from '@/features/agent/components/AgentStatusIndicator';
 import { AgentIcon } from '@/features/agent/components/AgentIcon';
 import { AnimatePresence, motion } from 'motion/react';
 import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
-import { LayoutDashboard, X } from 'lucide-react';
+import { LayoutDashboard, MessagesSquare, X } from 'lucide-react';
 import { ProviderGlyph } from '@/app-shell/QuotaPopover';
-import { BotMessageSquareIcon, type BotMessageSquareHandle } from '@workspace/ui';
 import { NappingBotIcon } from '@/app-shell/NappingBotIcon';
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
-import { useAgentTitleSettingsStore } from '@/features/settings/store/agent-title-settings-store';
+
+import { useAgentActivityStore } from "@/features/agent/store/agent-activity-store";
+import { latestTurnPrompt, toolLineText } from "@/features/agent/lib/agent-observer-graph";
 import { useAppRouter } from '@/shared/hooks/use-app-router';
+import { useAgentChatUrl } from '@/features/agent/hooks/use-agent-chat-url';
 import { LocalServicesFooterItem } from '@/features/local-services/components/LocalServicesFooterItem';
 import { ResourceMonitorFooterItem } from '@/features/resource-monitor/components/ResourceMonitorFooterItem';
 import { effectiveShowResourceMonitor as resolveEffectiveShowResourceMonitor } from '@/features/resource-monitor/lib/resource-monitor-footer-visibility';
 import {
-  isAgentHookSideChatSession,
-  navigateToAgentHookSessionPane,
-  resolveAgentHookContextNames,
-} from '@/features/agent/lib/agent-hook-navigation';
+  isAgentStatusSideChatSession,
+  navigateToAgentStatusSession,
+  parseChatStatusSessionId,
+  resolveAgentStatusContextNames,
+} from '@/features/agent/lib/agent-status-navigation';
+import { useAgentChatCenterTabsStore } from '@/features/agent/store/use-agent-chat-center-tabs';
 import {
   buildFooterAgentOverview,
   FOOTER_AGENT_OVERVIEW_ORDER,
   footerAgentOverviewTotal,
+  footerSessionIdentityKeys,
+  groupFooterOverviewRowsByContext,
   type FooterAgentOverviewBucket,
+  type FooterAgentOverviewRow,
 } from '@/features/agent/lib/footer-agent-overview';
+import { sessionsOccupancyFingerprint } from "@/features/agent/lib/agent-status-fingerprint";
 import {
   findTerminalPaneByStableAgentPaneId,
   uniquePaneTitleForAgentStatus,
-} from '@/features/agent/lib/agent-hook-pane-title';
+} from '@/features/agent/lib/agent-status-pane-title';
 import { resolvePaneToolbarTitle } from '@/features/terminal/lib/terminal-center-tab-presentation';
 import { useContestedCliOwners } from '@/features/terminal/hooks/use-contested-cli-owners';
 import { useTerminalStore } from '@/features/terminal/store/use-terminal-store';
@@ -60,27 +72,104 @@ import { getWorkspaceAgentGroupMeta } from '@/app-shell/sidebar/workspace-status
 import { useTranslations } from 'next-intl';
 import { APP_FOOTER_HEIGHT_CLASS } from '@/app-shell/sidebar-layout-constants';
 
-function groupSessionsByContext(sessions: AgentHookSession[]): Map<string, AgentHookSession[]> {
-  const grouped = new Map<string, AgentHookSession[]>();
-  for (const session of sessions) {
-    const key = session.context_id || session.project_path || "unknown";
-    const list = grouped.get(key) ?? [];
-    list.push(session);
-    grouped.set(key, list);
-  }
-  return grouped;
+function groupSessionsByContext(
+  rows: FooterAgentOverviewRow[],
+): Map<string, FooterAgentOverviewRow[]> {
+  return groupFooterOverviewRowsByContext(rows);
 }
 
-function SessionStateBadge({ state, hoverAction, onAction }: {
-  state: string;
+function footerOverviewBadgeClass(bucket: FooterAgentOverviewBucket): string {
+  if (bucket === "running") return "text-blue-400 bg-blue-500/10";
+  if (bucket === "attention") return "text-emerald-500 bg-emerald-500/10";
+  if (bucket === "permission") return "text-amber-500 bg-amber-500/10";
+  return "text-emerald-500";
+}
+
+function footerOverviewBucketLabel(
+  t: (key: "footer.overviewRunning" | "footer.overviewIdle" | "footer.overviewNeedAttention" | "footer.overviewNeedPermission") => string,
+  bucket: FooterAgentOverviewBucket,
+): string {
+  if (bucket === "running") return t("footer.overviewRunning");
+  if (bucket === "idle") return t("footer.overviewIdle");
+  if (bucket === "attention") return t("footer.overviewNeedAttention");
+  return t("footer.overviewNeedPermission");
+}
+
+function FooterOverviewBucketIcon({
+  bucket,
+}: {
+  bucket: FooterAgentOverviewBucket;
+}) {
+  if (bucket === "running") {
+    return (
+      <span className="inline-flex size-5 shrink-0 items-center justify-center">
+        <AgentStatusIndicator
+          state={AGENT_STATE.RUNNING}
+          variant="compact"
+          placement="footer"
+        />
+      </span>
+    );
+  }
+  const meta = getWorkspaceAgentGroupMeta(bucket === "idle" ? "done" : bucket);
+  const Icon = meta.icon;
+  return (
+    <span className="inline-flex size-5 shrink-0 items-center justify-center">
+      <Icon className={cn("size-3.5", meta.className)} />
+    </span>
+  );
+}
+
+function markFooterSessionIdle(session: AgentStatusRecord) {
+  const keys = footerSessionIdentityKeys(session);
+  const hooks = useAgentStatusStore.getState();
+  const live = hooks.sessions.get(session.session_id);
+  if (live && live.state !== AGENT_STATE.IDLE) {
+    void hooks.forceSessionIdle(session.session_id);
+  }
+  if (keys.length > 0) {
+    const summaries = useAgentAttentionSummaryStore.getState();
+    useAgentAttentionStore.getState().clearMatchingSessionIds(keys);
+    for (const key of keys) summaries.clearPane(key);
+    void agentStatusApi
+      .clearAttention({ stablePaneIds: keys, dismissSummary: true })
+      .catch((error) => {
+        console.warn("[Footer] Failed to clear attention after mark idle:", error);
+      });
+  }
+  const contextId = session.context_id?.trim();
+  if (contextId) {
+    useWorkspaceAgentGroupingHoldStore.getState().clearHold(contextId);
+  }
+}
+
+function SessionStateBadge({
+  bucket,
+  label,
+  idleLabel,
+  clearLabel,
+  hoverAction,
+  onAction,
+}: {
+  bucket: FooterAgentOverviewBucket;
+  label: string;
+  idleLabel: string;
+  clearLabel: string;
   hoverAction: "idle" | "clear" | null;
   onAction: () => void;
 }) {
-  const label = state === AGENT_STATE.PERMISSION_REQUEST ? "PERM" : state.toUpperCase();
   const springTransition = { type: "spring" as const, stiffness: 500, damping: 30 };
+  const hoverLabel = bucket === "idle" ? clearLabel : idleLabel;
 
   return (
-    <div className="relative overflow-hidden shrink-0 h-5 w-[52px]">
+    <div className="relative h-5 shrink-0 overflow-hidden">
+      <span
+        aria-hidden
+        className="invisible grid h-5 items-center px-1.5 py-px font-mono text-[9px] whitespace-nowrap"
+      >
+        <span className="col-start-1 row-start-1">{label}</span>
+        <span className="col-start-1 row-start-1">{hoverLabel}</span>
+      </span>
       <AnimatePresence mode="popLayout" initial={false}>
         {hoverAction === "idle" ? (
           <motion.button
@@ -89,10 +178,10 @@ function SessionStateBadge({ state, hoverAction, onAction }: {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -40, opacity: 0 }}
             transition={springTransition}
-            className="absolute inset-0 flex items-center justify-center text-[9px] font-mono px-1 py-px rounded text-emerald-500 bg-emerald-500/10 cursor-pointer hover:bg-emerald-500/20"
+            className="absolute inset-0 flex cursor-pointer items-center justify-center rounded px-1.5 py-px font-mono text-[9px] whitespace-nowrap text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20"
             onClick={(e) => { e.stopPropagation(); onAction(); }}
           >
-            IDLE
+            {idleLabel}
           </motion.button>
         ) : hoverAction === "clear" ? (
           <motion.button
@@ -101,23 +190,21 @@ function SessionStateBadge({ state, hoverAction, onAction }: {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -40, opacity: 0 }}
             transition={springTransition}
-            className="absolute inset-0 flex items-center justify-center text-[9px] font-mono px-1 py-px rounded text-red-400 bg-red-500/10 cursor-pointer hover:bg-red-500/20"
+            className="absolute inset-0 flex cursor-pointer items-center justify-center rounded px-1.5 py-px font-mono text-[9px] whitespace-nowrap text-red-400 bg-red-500/10 hover:bg-red-500/20"
             onClick={(e) => { e.stopPropagation(); onAction(); }}
           >
-            CLEAR
+            {clearLabel}
           </motion.button>
         ) : (
           <motion.span
-            key={state}
+            key={bucket}
             initial={{ x: 40, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 40, opacity: 0 }}
             transition={springTransition}
             className={cn(
-              "absolute inset-0 flex items-center justify-center text-[9px] font-mono px-1 py-px rounded",
-              state === AGENT_STATE.IDLE && "text-emerald-500",
-              state === AGENT_STATE.RUNNING && "text-blue-400 bg-blue-500/10",
-              state === AGENT_STATE.PERMISSION_REQUEST && "text-amber-500 bg-amber-500/10",
+              "absolute inset-0 flex items-center justify-center rounded px-1.5 py-px font-mono text-[9px] whitespace-nowrap",
+              footerOverviewBadgeClass(bucket),
             )}
           >
             {label}
@@ -130,31 +217,37 @@ function SessionStateBadge({ state, hoverAction, onAction }: {
 
 function SessionRow({
   session,
+  bucket,
   onNavigate,
   onCanvas = false,
   paneTitle,
 }: {
-  session: AgentHookSession;
+  session: AgentStatusRecord;
+  bucket: FooterAgentOverviewBucket;
   onNavigate: () => void;
   onCanvas?: boolean;
   paneTitle?: string | null;
 }) {
   const t = useTranslations("appShell");
   const [hovered, setHovered] = React.useState(false);
-  const forceIdle = useAgentHooksStore((s) => s.forceSessionIdle);
-  const removeSession = useAgentHooksStore((s) => s.removeSession);
-  const isIdle = session.state === AGENT_STATE.IDLE;
+  const removeSession = useAgentStatusStore((s) => s.removeSession);
+  const activity = useAgentActivityStore((s) => s.records.get(session.session_id));
+  const isIdle = bucket === "idle";
 
   const hoverAction = !hovered ? null : isIdle ? "clear" as const : "idle" as const;
   const handleAction = () => {
     if (isIdle) {
       void removeSession(session.session_id);
     } else {
-      void forceIdle(session.session_id);
+      markFooterSessionIdle(session);
     }
   };
 
   const title = paneTitle?.trim();
+  const activityLine =
+    session.state === "running"
+      ? toolLineText(activity)
+      : latestTurnPrompt(activity) ?? toolLineText(activity);
 
   return (
     <div
@@ -164,7 +257,7 @@ function SessionRow({
       onClick={onNavigate}
     >
       <div className="flex min-w-0 items-center gap-1.5">
-        <AgentHookStatusIndicator state={session.state} variant="compact" placement="footer" />
+        <FooterOverviewBucketIcon bucket={bucket} />
         <AgentIcon
           registryId={AGENT_TOOL_ICON_IDS[session.tool] ?? session.tool}
           name={AGENT_TOOL_LABELS[session.tool] ?? session.tool}
@@ -176,7 +269,16 @@ function SessionRow({
             {title}
           </span>
         ) : null}
-        {isAgentHookSideChatSession(session) ? (
+        {activityLine ? (
+          <span className="min-w-0 truncate text-[10px] text-muted-foreground" title={activityLine}>
+            {activityLine}
+          </span>
+        ) : null}
+        {session.surface === "chat" ? (
+          <span className="shrink-0 rounded-sm bg-violet-500/15 px-1 text-[9px] font-medium text-violet-700 dark:text-violet-300">
+            {t("footer.acpChat")}
+          </span>
+        ) : isAgentStatusSideChatSession(session) ? (
           <span className="shrink-0 rounded-sm bg-cyan-500/15 px-1 text-[9px] font-medium text-cyan-700 dark:text-cyan-300">
             {t("footer.sideChat")}
           </span>
@@ -188,7 +290,10 @@ function SessionRow({
         )}
       </div>
       <SessionStateBadge
-        state={session.state}
+        bucket={bucket}
+        label={footerOverviewBucketLabel(t, bucket)}
+        idleLabel={t("footer.overviewIdle")}
+        clearLabel={t("footer.clearSession")}
         hoverAction={hoverAction}
         onAction={handleAction}
       />
@@ -218,66 +323,53 @@ function useContextNameResolver() {
   const projects = useProjects();
   return useCallback(
     (contextId: string | null | undefined) =>
-      resolveAgentHookContextNames(contextId, null, projects),
+      resolveAgentStatusContextNames(contextId, null, projects),
     [projects],
   );
 }
 
-function footerOverviewBucketLabel(
-  t: (key: "footer.overviewRunning" | "footer.overviewIdle" | "footer.overviewNeedAttention" | "footer.overviewNeedPermission") => string,
-  bucket: FooterAgentOverviewBucket,
-): string {
-  if (bucket === "running") return t("footer.overviewRunning");
-  if (bucket === "idle") return t("footer.overviewIdle");
-  if (bucket === "attention") return t("footer.overviewNeedAttention");
-  return t("footer.overviewNeedPermission");
-}
-
-function FooterOverviewBucketIcon({
-  bucket,
-}: {
-  bucket: FooterAgentOverviewBucket;
-}) {
-  if (bucket === "running") {
-    return (
-      <AgentHookStatusIndicator
-        state={AGENT_STATE.RUNNING}
-        variant="compact"
-        placement="footer"
-      />
-    );
-  }
-  const meta = getWorkspaceAgentGroupMeta(bucket === "idle" ? "done" : bucket);
-  const Icon = meta.icon;
-  return <Icon className={cn("size-3 shrink-0", meta.className)} />;
-}
-
 function useFooterAgentOverview() {
-  const sessionsMap = useAgentHooksStore(useShallow((s) => s.sessions));
-  const attentionPanes = useAgentAttentionStore(useShallow((s) => s.panes));
+  const sessionKey = useAgentStatusStore((s) =>
+    sessionsOccupancyFingerprint(s.sessions),
+  );
+  const attentionRevision = useAgentAttentionStore((s) => s.revision);
   return useMemo(
-    () => buildFooterAgentOverview(sessionsMap.values(), attentionPanes.values()),
-    [sessionsMap, attentionPanes],
+    () =>
+      buildFooterAgentOverview(
+        useAgentStatusStore.getState().sessions.values(),
+        useAgentAttentionStore.getState().panes.values(),
+      ),
+    [attentionRevision, sessionKey],
   );
 }
 
-function useAgentHookSessionPaneTitles(
-  sessions: AgentHookSession[],
+function useAgentStatusRecordPaneTitles(
+  sessions: AgentStatusRecord[],
 ): Readonly<Record<string, string>> {
-  const showAgentName = useAgentTitleSettingsStore((s) => s.showAgentNameInTerminalTitles);
   const contestedOwners = useContestedCliOwners();
   const workspacePanes = useTerminalStore((s) => s.workspacePanes);
   const projectWikiPanes = useTerminalStore((s) => s.projectWikiPanes);
   const codeReviewPanes = useTerminalStore((s) => s.codeReviewPanes);
+  const chatTabsByContext = useAgentChatCenterTabsStore((s) => s.tabsByContext);
 
   return useMemo(() => {
     const out: Record<string, string> = {};
     const state = { workspacePanes, projectWikiPanes, codeReviewPanes };
+    const chatTabs = Object.values(chatTabsByContext).flat();
     for (const session of sessions) {
+      if (session.surface === "chat") {
+        const chatId =
+          session.surface_id?.trim() || parseChatStatusSessionId(session.session_id);
+        const title = chatId
+          ? chatTabs.find((tab) => tab.chatId === chatId)?.title?.trim()
+          : "";
+        if (title) out[session.session_id] = title;
+        continue;
+      }
       const paneId = session.pane_id?.trim() || session.session_id;
       const pane = findTerminalPaneByStableAgentPaneId(state, paneId);
       if (!pane) continue;
-      const resolved = resolvePaneToolbarTitle(pane, { contestedOwners, showAgentName });
+      const resolved = resolvePaneToolbarTitle(pane, { contestedOwners });
       const suffix = uniquePaneTitleForAgentStatus(
         resolved.displayTitle,
         AGENT_TOOL_LABELS[session.tool] ?? session.tool,
@@ -290,7 +382,7 @@ function useAgentHookSessionPaneTitles(
     workspacePanes,
     projectWikiPanes,
     codeReviewPanes,
-    showAgentName,
+    chatTabsByContext,
     contestedOwners,
   ]);
 }
@@ -301,36 +393,36 @@ export function AgentStatusPopoverContent({
   isSessionOnCanvas,
 }: {
   embedded?: boolean;
-  onNavigateSession?: (session: AgentHookSession) => void;
-  isSessionOnCanvas?: (session: AgentHookSession) => boolean;
+  onNavigateSession?: (session: AgentStatusRecord) => void;
+  isSessionOnCanvas?: (session: AgentStatusRecord) => boolean;
 } = {}) {
   const t = useTranslations("appShell");
-  const sessionsMap = useAgentHooksStore(useShallow((s) => s.sessions));
-  const clearIdleSessions = useAgentHooksStore((s) => s.clearIdleSessions);
+  const { rows } = useFooterAgentOverview();
+  const clearIdleSessions = useAgentStatusStore((s) => s.clearIdleSessions);
   const router = useAppRouter();
   const projects = useProjects();
 
-  const sessions = useMemo(() => Array.from(sessionsMap.values()), [sessionsMap]);
-  const grouped = useMemo(() => groupSessionsByContext(sessions), [sessions]);
-  const paneTitles = useAgentHookSessionPaneTitles(sessions);
-  const hasIdleSessions = sessions.some((s) => s.state === AGENT_STATE.IDLE);
+  const sessions = useMemo(() => rows.map((row) => row.session), [rows]);
+  const grouped = useMemo(() => groupSessionsByContext(rows), [rows]);
+  const paneTitles = useAgentStatusRecordPaneTitles(sessions);
+  const hasIdleSessions = rows.some((row) => row.bucket === "idle");
   const resolveContextDisplayName = useContextDisplayNameResolver();
   const resolveContextName = useContextNameResolver();
 
-  const navigateToSessionPane = useCallback((session: AgentHookSession) => {
+  const navigateToSessionPane = useCallback((session: AgentStatusRecord) => {
     if (onNavigateSession) {
       onNavigateSession(session);
       return;
     }
-    navigateToAgentHookSessionPane(session, router, projects);
+    navigateToAgentStatusSession(session, router, projects);
   }, [onNavigateSession, router, projects]);
 
-  if (sessions.length === 0) {
+  if (rows.length === 0) {
     return (
       <div
         className={cn(
-          "p-3 text-[11px] text-muted-foreground",
-          embedded && "flex h-full items-center justify-center text-center",
+          "px-3 py-2.5 text-[11px] text-muted-foreground whitespace-nowrap",
+          embedded && "flex h-full w-full items-center justify-center text-center whitespace-normal",
         )}
       >
         {t("footer.noActiveAgentSessions")}
@@ -339,10 +431,14 @@ export function AgentStatusPopoverContent({
   }
 
   return (
-      <div className={cn("p-2 overflow-y-auto", embedded ? "h-full" : "max-h-64")}>
+      <ScrollArea
+        scrollFade
+        className={cn(embedded ? "h-full" : "h-auto w-72 max-h-64")}
+        viewportClassName={cn("p-2", !embedded && "h-auto max-h-64")}
+      >
       <div className="flex items-center justify-between mb-2 px-1">
         <span className="text-[11px] font-semibold text-foreground">
-          {t("footer.agentSessions", { count: sessions.length })}
+          {t("footer.agentSessions", { count: rows.length })}
         </span>
         <div className="flex items-center gap-1">
         <Button
@@ -368,7 +464,7 @@ export function AgentStatusPopoverContent({
     </div>
 
       <div className="space-y-2">
-        {Array.from(grouped.entries()).map(([contextKey, pathSessions]) => {
+        {Array.from(grouped.entries()).map(([contextKey, pathRows]) => {
           const displayName = resolveContextDisplayName(contextKey);
           const { projectName, workspaceName, workspaceDisplayName } = resolveContextName(contextKey);
           const contextLabel = projectName
@@ -382,36 +478,34 @@ export function AgentStatusPopoverContent({
               >
                 {contextLabel}
               </div>
-              {pathSessions.map((session) => (
+              {pathRows.map((row) => (
                 <SessionRow
-                  key={session.session_id}
-                  session={session}
-                  paneTitle={paneTitles[session.session_id]}
-                  onCanvas={isSessionOnCanvas?.(session) ?? false}
-                  onNavigate={() => navigateToSessionPane(session)}
+                  key={row.session.session_id}
+                  session={row.session}
+                  bucket={row.bucket}
+                  paneTitle={paneTitles[row.session.session_id]}
+                  onCanvas={isSessionOnCanvas?.(row.session) ?? false}
+                  onNavigate={() => navigateToSessionPane(row.session)}
                 />
               ))}
             </div>
           );
         })}
       </div>
-    </div>
+    </ScrollArea>
   );
 }
 
 function AcpChatButton({ onClick }: { onClick: () => void }) {
   const t = useTranslations("appShell");
-  const iconRef = useRef<BotMessageSquareHandle>(null);
   return (
     <button
       type="button"
       aria-label={t("footer.openAgentChat")}
       className="inline-flex h-5 items-center gap-1 rounded-sm bg-transparent px-1 text-[10px] text-muted-foreground hover:bg-accent/60 hover:text-foreground"
       onClick={onClick}
-      onMouseEnter={() => iconRef.current?.startAnimation()}
-      onMouseLeave={() => iconRef.current?.stopAnimation()}
     >
-      <BotMessageSquareIcon ref={iconRef} size={12} />
+      <MessagesSquare className="size-3" />
       <span className="whitespace-nowrap">{t("footer.acpChat")}</span>
     </button>
   );
@@ -521,8 +615,8 @@ function AgentStatusOverviewTrigger() {
 
 const Footer: React.FC = () => {
   const t = useTranslations("appShell");
-  const connectionState = useWebSocketStore(s => s.connectionState);
   const [, setAgentChatOpen] = useAgentChatUrl();
+  const connectionState = useWebSocketStore(s => s.connectionState);
   const launchpadAgentsEnabled = useExperimentSettingsStore((s) => s.launchpadAgentsEnabled);
   const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
   const showLocalServices = useLayoutSettingsStore((s) => s.showLocalServices);
@@ -691,7 +785,7 @@ const Footer: React.FC = () => {
               <PopoverContent
                 side="top"
                 align="end"
-                className="w-[28rem] max-w-[calc(100vw-1.5rem)] p-0"
+                className="w-fit max-w-[calc(100vw-1.5rem)] overflow-x-hidden overflow-y-hidden p-0"
               >
                 <AgentStatusPopoverContent />
               </PopoverContent>
@@ -701,7 +795,7 @@ const Footer: React.FC = () => {
             <div className="h-3 w-px bg-border" />
           ) : null}
           {showRightAcp ? (
-            <AcpChatButton onClick={() => setAgentChatOpen(true)} />
+            <AcpChatButton onClick={() => void setAgentChatOpen(true)} />
           ) : null}
         </div>
       ) : null}

@@ -101,7 +101,7 @@ export function TerminalSelectionToolbar({
     <div
       ref={toolbarRef}
       className={cn(
-        "absolute z-30 flex w-max flex-nowrap items-center gap-1 whitespace-nowrap rounded-md border border-border/70 bg-background/95 p-1 text-xs shadow-lg backdrop-blur-md",
+        "absolute z-30 flex w-max flex-nowrap items-center gap-1 whitespace-nowrap rounded-xl border border-border/70 bg-background/95 p-1 text-xs shadow-lg backdrop-blur-md",
         className,
       )}
       style={{ top: position.top, left: position.left }}

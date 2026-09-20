@@ -3,9 +3,11 @@
 import React from "react";
 import { cn } from "@workspace/ui";
 import { Button } from "@workspace/ui/components/ui/button";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { PanelLeft } from "lucide-react";
 
 import { useSidebarPeekVisibility } from "@/app-shell/use-sidebar-peek-visibility";
+import { ResizeFollowMark } from "@/app-shell/ResizeFollowMark";
+import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
 
 export function AgentChatHistorySidebarToggle({
   collapsed,
@@ -30,19 +32,16 @@ export function AgentChatHistorySidebarToggle({
       variant="ghost"
       size="icon"
       onClick={onToggle}
-      className={
+      className={cn(
         className ??
-        // desktop-no-drag: Electron header drag-region steals clicks without this.
-        "desktop-no-drag size-9 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
-      }
+          // desktop-no-drag: Electron header drag-region steals clicks without this.
+          "desktop-no-drag size-9 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground",
+        panelFoldCursorClass("left", collapsed),
+      )}
       aria-label={label}
       title={label}
     >
-      {collapsed ? (
-        <PanelLeftOpen className={iconClassName ?? "size-[18px]"} />
-      ) : (
-        <PanelLeftClose className={iconClassName ?? "size-[18px]"} />
-      )}
+      <PanelLeft className={iconClassName ?? "size-[18px]"} />
     </Button>
   );
 }
@@ -101,13 +100,10 @@ export function AgentChatHistorySidebarFrame({
         <div
           role="separator"
           aria-orientation="vertical"
-          className={cn(
-            "group relative flex h-full w-px shrink-0 cursor-col-resize items-center justify-center bg-transparent touch-none",
-            "before:absolute before:inset-y-0 before:left-1/2 before:w-2 before:-translate-x-1/2",
-          )}
+          className="relative h-full w-3 -mx-1.5 shrink-0 cursor-col-resize overflow-visible bg-transparent touch-none"
           onMouseDown={onResizeStart}
         >
-          <div className="pointer-events-none h-full w-px bg-border/80 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
+          <ResizeFollowMark axis="vertical" dragging={isResizing} />
         </div>
       ) : null}
     </>
@@ -149,12 +145,15 @@ function AgentChatHistoryPeekShell({
           type="button"
           variant="ghost"
           size="icon"
-          className="absolute left-2 top-2 z-50 size-8 rounded-md bg-background/75 text-muted-foreground shadow-sm ring-1 ring-border/60 backdrop-blur-md hover:bg-muted hover:text-foreground"
+          className={cn(
+            "absolute left-2 top-2 z-50 size-8 rounded-md bg-background/75 text-muted-foreground shadow-sm ring-1 ring-border/60 backdrop-blur-md hover:bg-muted hover:text-foreground",
+            panelFoldCursorClass("left", true),
+          )}
           aria-label={expandLabel}
           title={expandLabel}
           onClick={onExpand}
         >
-          <PanelLeftOpen className="size-4" />
+          <PanelLeft className="size-4" />
         </Button>
       ) : null}
       <div

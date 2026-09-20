@@ -3,10 +3,11 @@
 import * as React from 'react';
 import { Slot } from 'radix-ui';
 import { cva, VariantProps } from 'class-variance-authority';
-import { PanelLeftIcon } from 'lucide-react';
+import { PanelLeft } from 'lucide-react';
 import { type Transition } from 'motion/react';
 
 import { useIsMobile } from '../../../../hooks/use-mobile';
+import { panelFoldCursorClass } from '../../../../lib/panel-fold';
 import { cn } from '../../../../lib/utils';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
@@ -292,7 +293,7 @@ function Sidebar({
 type SidebarTriggerProps = React.ComponentProps<typeof Button>;
 
 function SidebarTrigger({ className, onClick, ...props }: SidebarTriggerProps) {
-  const { toggleSidebar } = useSidebar();
+  const { toggleSidebar, state } = useSidebar();
 
   return (
     <Button
@@ -300,14 +301,18 @@ function SidebarTrigger({ className, onClick, ...props }: SidebarTriggerProps) {
       data-slot="sidebar-trigger"
       variant="ghost"
       size="icon"
-      className={cn('size-7', className)}
+      className={cn(
+        'size-7',
+        panelFoldCursorClass('left', state === 'collapsed'),
+        className,
+      )}
       onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
         onClick?.(event);
         toggleSidebar();
       }}
       {...props}
     >
-      <PanelLeftIcon />
+      <PanelLeft />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   );

@@ -369,7 +369,7 @@ export function buildRuntimeManifest(
   const clientHost = clientLoopbackHost(host);
   return {
     version: 1,
-    source: options?.source ?? "desktop-electron",
+    source: options?.source ?? "runtime-manager",
     pid,
     started_at: options?.startedAt ?? new Date().toISOString(),
     api: {
@@ -409,54 +409,19 @@ export function getOwnedServerPid(): number | null {
 }
 
 /**
- * Stop the Atmos Server only when this Electron process started it.
- * Safe no-op when Server was reused (another owner) or already gone.
+ * APP-076: Desktop never owns Runtime. Quit must not stop a shared Server.
+ * Always a no-op (`shared_runtime`).
  */
 export function stopOwnedAtmosServer(): {
   stopped: boolean;
   pid: number | null;
   reason: string;
 } {
-  const pid = ownedServerPid;
-  if (pid == null) {
-    return { stopped: false, pid: null, reason: "not_owned" };
-  }
-  try {
-    process.kill(pid, 0);
-  } catch {
-    ownedServerPid = null;
-    return { stopped: false, pid, reason: "already_dead" };
-  }
-  try {
-    process.kill(pid, "SIGTERM");
-  } catch (e) {
-    ownedServerPid = null;
-    return {
-      stopped: false,
-      pid,
-      reason: `sigterm_failed: ${e instanceof Error ? e.message : String(e)}`,
-    };
-  }
-  // Best-effort: if still alive shortly after, SIGKILL (sync sleep via spawn).
-  try {
-    execFileSync("sleep", ["0.4"], { stdio: "ignore" });
-  } catch {
-    /* ignore */
-  }
-  try {
-    process.kill(pid, 0);
-    try {
-      process.kill(pid, "SIGKILL");
-    } catch {
-      /* ignore */
-    }
-    ownedServerPid = null;
-    return { stopped: true, pid, reason: "sigkill" };
-  } catch {
-    ownedServerPid = null;
-    return { stopped: true, pid, reason: "sigterm" };
-  }
+  ownedServerPid = null;
+  return { stopped: false, pid: null, reason: "shared_runtime" };
 }
+
+
 
 /** Test helper */
 export function setOwnedServerPidForTest(pid: number | null): void {

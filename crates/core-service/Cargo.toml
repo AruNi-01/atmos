@@ -8,6 +8,7 @@ quota-usage = { path = "../quota-usage" }
 local-model-runtime = { path = "../local-model-runtime" }
 infra = { path = "../infra" }
 core-engine = { path = "../core-engine" }
+runtime-manager = { path = "../runtime-manager", default-features = false, features = ["client"] }
 agent = { path = "../agent" }
 llm = { path = "../llm" }
 sea-orm = { version = "1.1", features = ["sqlx-sqlite", "runtime-tokio-rustls"] }
@@ -25,6 +26,7 @@ dirs = "5.0"
 rand = "0.8"
 regex = "1.11.1"
 uuid = { version = "1.0", features = ["v4"] }
+which = "6.0"
 libc = "0.2"
 chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.10"
@@ -35,6 +37,7 @@ base64 = "0.22"
 cron = "0.12"
 
 [dev-dependencies]
+agent = { path = "../agent", features = ["test-support"] }
 tempfile = "3"
 tracing-subscriber = { version = "0.3", features = ["fmt"] }
 sea-orm-migration = { version = "1.1", default-features = false, features = ["sqlx-sqlite", "runtime-tokio-rustls"] }

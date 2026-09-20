@@ -1,0 +1,5 @@
+{
+  "jsonrpc": "2.0",
+  "method": "_x.ai/billing/status",
+  "params": { "ok": true }
+}

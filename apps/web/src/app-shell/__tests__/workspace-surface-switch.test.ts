@@ -21,6 +21,7 @@ import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-wo
 import { setCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
 import { makeCenterSpaceKey } from "@/app-shell/center-space/center-space";
 import { bindPaintContextIdReader } from "@/app-shell/center-space/center-space-url";
+import { getVisualActivePaintId } from "@/app-shell/workspace-surface-activity";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -42,6 +43,10 @@ describe("parseWorkspaceContextHref", () => {
     expect(parseWorkspaceContextHref("/project/?id=p-1").contextId).toBe("p-1");
     expect(parseWorkspaceContextHref("/project/?id=p-1").view).toBe("project");
     expect(parseWorkspaceContextHref("/agents").contextId).toBeNull();
+    expect(parseWorkspaceContextHref("/automation?id=job-1").view).toBe("workspace");
+    expect(parseWorkspaceContextHref("/automation?id=job-1").contextId).toBe(
+      "automation:job-1",
+    );
   });
 
   it("detects explicit tab param", () => {
@@ -197,6 +202,7 @@ describe("promoteWorkspaceSurfaceSwitch + prepareWorkspaceContextNavigation", ()
     expect(b.hasAttribute("inert")).toBe(false);
     expect(b.classList.contains("hidden")).toBe(false);
     expect(b.style.contentVisibility).toBe("");
+    expect(getVisualActivePaintId()).toBe("ws-b");
   });
 
   it("prime does not claim cold targets and clears stale visual lead", () => {

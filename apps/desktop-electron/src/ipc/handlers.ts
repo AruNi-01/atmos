@@ -19,6 +19,10 @@ import type { DesktopCommandHandler, DesktopInvokeArgs } from "../types.js";
 import * as cookies from "../cookies/service.js";
 import type { ProviderKind } from "../tunnel/service.js";
 import { collectDesktopShellMetrics } from "../metrics/desktop-shell-metrics.js";
+import {
+  retainNativeNotification,
+  waitForNativeNotificationResult,
+} from "../notifications/native-notification.js";
 
 async function electron() {
   return import("electron");
@@ -229,7 +233,9 @@ export function createAllHandlers(
       // a cached pre-rebrand app icon for com.atmos.desktop.
       const iconArg = typeof args.icon === "string" ? args.icon : "";
       const { Notification, nativeImage } = await electron();
-      if (!Notification.isSupported()) return null;
+      if (!Notification.isSupported()) {
+        return { ok: false, code: "unsupported" as const };
+      }
 
       let icon: string | ReturnType<typeof nativeImage.createFromDataURL> | undefined;
       if (iconArg.startsWith("data:image/")) {
@@ -254,8 +260,13 @@ export function createAllHandlers(
       const notification = new Notification({
         title,
         body,
+        silent: false,
         ...(icon ? { icon } : {}),
       });
+      // Settings tests run while Atmos is focused. Electron asks macOS to
+      // present a banner in that case, but only if this object stays alive
+      // until addNotificationRequest completes.
+      retainNativeNotification(notification);
       notification.on("click", () => {
         void (async () => {
           try {
@@ -279,8 +290,20 @@ export function createAllHandlers(
           }
         })();
       });
+      const result = waitForNativeNotificationResult(notification);
       notification.show();
-      return null;
+      return result;
+    },
+
+    async ensure_notification_permission() {
+      const { Notification } = await electron();
+      if (!Notification.isSupported()) {
+        return { ok: false, code: "unsupported" as const };
+      }
+      // Constructing a Notification initializes the macOS presenter, which
+      // requests alert/sound/badge authorization. No banner is shown.
+      new Notification({ title: "Atmos" });
+      return { ok: true };
     },
 
     async open_in_external_editor(args) {
@@ -804,20 +827,52 @@ export function createAllHandlers(
       return client.desktopUseDoctor();
     },
     async desktop_use_grant_permissions(args) {
-      const client = await import("../desktop-use/client.js");
       const raw =
         typeof args?.target === "string" ? args.target.trim().toLowerCase() : "all";
       const target =
         raw === "accessibility" || raw === "screen_recording" || raw === "all"
           ? raw
           : "all";
-      const result = (await client.desktopUseGrantPermissions(target)) as {
-        ok?: boolean;
-        host_app_path?: string | null;
-        host_app_name?: string | null;
-        accessibility_pane?: boolean;
-        [key: string]: unknown;
-      };
+      const locale =
+        typeof args?.locale === "string"
+          ? args.locale
+          : typeof args?.lang === "string"
+            ? args.lang
+            : undefined;
+      const {
+        GRANT_PANEL_HEIGHT,
+        GRANT_PANEL_WIDTH,
+      } = await import("../desktop-use/grant-overlay.js");
+      const {
+        grantOverlaySourceOriginFromAnchor,
+        parseViewportAnchor,
+      } = await import("../macos-app-permissions.js");
+      const { openDesktopUseGrantFlow } = await import(
+        "../desktop-use/host-grant.js"
+      );
+      const anchor = parseViewportAnchor(args?.anchor);
+      let sourceOrigin: { x: number; y: number } | undefined;
+      if (anchor) {
+        const host = await hostWindowFromArgs(args, state);
+        if (host && !host.isDestroyed()) {
+          try {
+            const cb = host.getContentBounds();
+            sourceOrigin = grantOverlaySourceOriginFromAnchor(
+              cb,
+              anchor,
+              GRANT_PANEL_WIDTH,
+              GRANT_PANEL_HEIGHT,
+            );
+          } catch {
+            /* overlay picks Atmos window center */
+          }
+        }
+      }
+      const result = await openDesktopUseGrantFlow({
+        target,
+        locale,
+        sourceOrigin,
+      });
 
       // Re-arm AppShot dual-shift after host grant (inject listens on host AX).
       if (process.platform === "darwin") {
@@ -827,92 +882,6 @@ export function createAllHandlers(
         } catch {
           /* non-fatal */
         }
-      }
-
-      // Same drag-to-list fly overlay for Accessibility and Screen Recording
-      // (only the System Settings privacy pane differs).
-      const wantsDrag =
-        target === "accessibility" ||
-        target === "screen_recording" ||
-        target === "all" ||
-        result?.accessibility_pane === true;
-      const hostPath =
-        typeof result?.host_app_path === "string" ? result.host_app_path : "";
-      if (wantsDrag && hostPath && process.platform === "darwin") {
-        const { showAccessibilityGrantOverlay } = await import(
-          "../desktop-use/grant-overlay.js"
-        );
-        const locale =
-          typeof args?.locale === "string"
-            ? args.locale
-            : typeof args?.lang === "string"
-              ? args.lang
-              : undefined;
-        const rawAnchor = args?.anchor;
-        let anchor:
-          | { x: number; y: number; width: number; height: number }
-          | undefined;
-        if (rawAnchor && typeof rawAnchor === "object") {
-          const a = rawAnchor as Record<string, unknown>;
-          const x = typeof a.x === "number" ? a.x : Number(a.x);
-          const y = typeof a.y === "number" ? a.y : Number(a.y);
-          const width =
-            typeof a.width === "number" ? a.width : Number(a.width);
-          const height =
-            typeof a.height === "number" ? a.height : Number(a.height);
-          if (
-            Number.isFinite(x) &&
-            Number.isFinite(y) &&
-            Number.isFinite(width) &&
-            Number.isFinite(height) &&
-            width > 0 &&
-            height > 0
-          ) {
-            anchor = { x, y, width, height };
-          }
-        }
-        // Convert viewport-relative button rect → screen points via host window.
-        // Panel is 460×128 (grant-overlay PANEL_WIDTH / PANEL_HEIGHT).
-        const PANEL_W = 460;
-        const PANEL_H = 128;
-        let sourceOrigin: { x: number; y: number } | undefined;
-        if (anchor) {
-          const host = await hostWindowFromArgs(args, state);
-          if (host && !host.isDestroyed()) {
-            try {
-              const cb = host.getContentBounds();
-              sourceOrigin = {
-                x: Math.round(
-                  cb.x + anchor.x + anchor.width / 2 - PANEL_W / 2,
-                ),
-                y: Math.round(
-                  cb.y + anchor.y + anchor.height / 2 - PANEL_H / 2,
-                ),
-              };
-            } catch {
-              /* fall through — overlay picks Atmos window center */
-            }
-          }
-        }
-        // "all" ends on Accessibility (screen recording pane is opened first).
-        const purpose =
-          target === "screen_recording"
-            ? "screen_recording"
-            : "accessibility";
-        const overlay = showAccessibilityGrantOverlay({
-          hostAppPath: hostPath,
-          hostAppName:
-            typeof result?.host_app_name === "string"
-              ? result.host_app_name
-              : undefined,
-          locale,
-          purpose,
-          sourceOrigin,
-        });
-        return {
-          ...result,
-          drag_overlay: overlay,
-        };
       }
       return result;
     },
@@ -952,6 +921,38 @@ export function createAllHandlers(
       );
       closeAccessibilityGrantOverlay();
       return { ok: true };
+    },
+
+    async macos_app_permissions_status() {
+      const { queryAtmosAppPermissions } = await import(
+        "../macos-app-permissions.js"
+      );
+      return queryAtmosAppPermissions();
+    },
+    async macos_app_permissions_grant(args) {
+      const { grantAtmosAppPermission, parseViewportAnchor } = await import(
+        "../macos-app-permissions.js"
+      );
+      const raw =
+        typeof args?.target === "string" ? args.target.trim().toLowerCase() : "";
+      const target =
+        raw === "screen_recording" ? "screen_recording" : "accessibility";
+      const locale =
+        typeof args?.locale === "string"
+          ? args.locale
+          : typeof args?.lang === "string"
+            ? args.lang
+            : undefined;
+      const reason =
+        args?.reason === "host_shortcuts" ? "host_shortcuts" : undefined;
+      const host = await hostWindowFromArgs(args, state);
+      return grantAtmosAppPermission({
+        target,
+        locale,
+        reason,
+        anchor: parseViewportAnchor(args?.anchor),
+        hostWindow: host,
+      });
     },
 
     // --- tunnel ---

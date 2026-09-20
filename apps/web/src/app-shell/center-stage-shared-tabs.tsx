@@ -28,17 +28,18 @@ import {
   GitMergeIcon,
   GitCommitHorizontal,
   GitGraph,
-  Github,
   Globe,
+  MessagesSquare,
   Play,
-  Smartphone,
   SquareTerminal as TerminalIcon,
   Workflow,
 } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
+import { SimulatorTabIcon } from "@/features/simulator/components/SimulatorTabIcon";
 
 import {
   EDITOR_REVIEW_DIFF_PREFIX,
-  getEditorSourcePath,
+  getEditorDisplayPath,
   isConflictResolveEditorPath,
   isReviewGroupEditorPath,
   type OpenFile,
@@ -49,6 +50,7 @@ import { useTerminalCenterTabPresentation } from "@/features/terminal/hooks/use-
 import { cn } from "@/shared/lib/utils";
 import { CenterTabHeldShortcut } from "@/app-shell/HeldShortcutBadge";
 import {
+  AgentChatTabStatusIndicator,
   CenterStageShortcutTooltipBody,
   TerminalTabAgentIndicatorWithPanes,
   type TabGroupItem,
@@ -163,26 +165,35 @@ export type CenterStageSurfaceTabVariant =
   | "github-pr"
   | "github-issue"
   | "github-action"
-  | "github-commit"
+  | "git-commit"
   | "browser";
 
 export function CenterStageTabList({
   actions,
+  afterTabs,
   children,
   className,
   onValueChange,
+  orientation = "horizontal",
   value,
 }: {
+  /** Always-right chrome (fullscreen, tab groups). */
   actions?: React.ReactNode;
+  /** Follows the last tab; pins to the strip end when tabs overflow. */
+  afterTabs?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
   onValueChange?: (value: string) => void;
+  orientation?: "horizontal" | "vertical";
   value: string;
 }) {
+  const vertical = orientation === "vertical";
   return (
     <div
       className={cn(
-        "desktop-no-drag relative z-20 flex shrink-0 items-center gap-1.5 px-2 py-1",
+        vertical
+          ? "desktop-no-drag relative z-20 flex shrink-0 flex-col items-stretch gap-0.5 px-1 py-2"
+          : "desktop-no-drag relative z-20 flex w-full shrink-0 items-center gap-0.5 px-2 py-1",
         className,
       )}
     >
@@ -190,16 +201,36 @@ export function CenterStageTabList({
         value={value}
         onValueChange={onValueChange}
         variant="pill"
-        className="flex min-h-0 min-w-0 flex-1 items-center"
+        orientation={orientation}
+        className={
+          vertical
+            ? "flex h-full min-h-0 min-w-0 flex-[0_1_auto] flex-col items-stretch"
+            : "flex min-h-0 min-w-0 flex-[0_1_auto] items-center"
+        }
       >
         <MotionTabsList
-          className="flex h-8 w-full min-w-0 justify-start gap-0.5 overflow-hidden bg-background p-0.5"
+          className={
+            vertical
+              ? "flex h-full w-11 min-h-0 max-h-full flex-col items-center justify-start overflow-hidden bg-[color-mix(in_oklab,var(--popover),black_10%)] p-1"
+              : "flex h-8 min-w-0 max-w-full justify-start overflow-hidden bg-background py-0.5 pl-0.5 pr-0"
+          }
           indicatorClassName={CENTER_STAGE_TAB_INDICATOR_CLASS}
+          trailing={afterTabs}
         >
           {children}
-          {actions}
         </MotionTabsList>
       </MotionTabs>
+      {actions ? (
+        <div
+          className={
+            vertical
+              ? "mt-auto flex shrink-0 items-center"
+              : "ml-auto flex shrink-0 items-center"
+          }
+        >
+          {actions}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -207,18 +238,28 @@ export function CenterStageTabList({
 export function CenterStageScrollableTabs({
   children,
   className,
+  orientation = "horizontal",
   scrollableTabsRef,
   ...rest
 }: {
   children: React.ReactNode;
   className?: string;
+  orientation?: "horizontal" | "vertical";
   scrollableTabsRef?: React.Ref<HTMLDivElement | null>;
 } & React.HTMLAttributes<HTMLDivElement>) {
+  const vertical = orientation === "vertical";
   return (
     <div
       ref={scrollableTabsRef}
-      className={cn("flex min-w-0 flex-1 items-center overflow-x-auto no-scrollbar", className)}
+      className={cn(
+        vertical
+          ? "flex min-h-0 flex-1 flex-col overflow-y-auto no-scrollbar"
+          : "flex min-w-0 flex-1 items-center overflow-x-auto no-scrollbar",
+        className,
+      )}
       {...rest}
+      data-center-tabs-scroll=""
+      data-orientation={orientation}
     >
       {children}
     </div>
@@ -235,7 +276,8 @@ export function CenterStageStickyTabActions({
   return (
     <div
       className={cn(
-        "pointer-events-auto z-20 flex h-7 shrink-0 items-center gap-0.5",
+        // Above the list-level active pill (z-0); opaque so scroll cannot show it through + / group chrome.
+        "pointer-events-auto relative isolate z-20 flex h-7 shrink-0 items-center gap-0.5 bg-background",
         className,
       )}
       onPointerDown={(event) => event.stopPropagation()}
@@ -247,30 +289,46 @@ export function CenterStageStickyTabActions({
 
 export function CenterStageOverviewTab({
   className,
-  tooltipContent,
+  closeLabel,
+  label,
+  onClose,
+  onContextMenu,
+  shortcutDigit = 0,
   value = "overview",
 }: {
   className?: string;
-  tooltipContent?: React.ReactNode;
+  closeLabel?: string;
+  label: string;
+  onClose?: () => void;
+  onContextMenu?: (event: React.MouseEvent) => void;
+  shortcutDigit?: number | null;
   value?: string;
 }) {
-  const t = useTranslations("appShell.centerStageSharedTabs");
-
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <CenterStageTab
           value={value}
+          aria-label={label}
           onPointerDown={(event) => {
             preventNonPrimaryTabActivate(event);
             event.stopPropagation();
           }}
-          className={cn(CENTER_STAGE_ICON_TAB_CLASS, className)}
+          onContextMenu={onContextMenu}
+          className={className}
         >
-          <LayoutDashboard className="size-3.5" />
+          <CenterStageTabIconSlot closeLabel={closeLabel} onClose={onClose}>
+            <LayoutDashboard className="size-3.5" />
+          </CenterStageTabIconSlot>
+          <span className="max-w-[180px] truncate whitespace-nowrap">{label}</span>
+          <CenterTabHeldShortcut digit={shortcutDigit} />
         </CenterStageTab>
       </TooltipTrigger>
-      <TooltipContent side="bottom">{tooltipContent ?? t("overview")}</TooltipContent>
+      <TooltipContent side="bottom">
+        <CenterStageShortcutTooltipBody digit={shortcutDigit}>
+          {label}
+        </CenterStageShortcutTooltipBody>
+      </TooltipContent>
     </Tooltip>
   );
 }
@@ -391,7 +449,7 @@ export function CenterStageSurfaceContentTab({
               <Circle className="size-3.5 shrink-0" />
             ) : variant === "github-action" ? (
               <Workflow className="size-3.5 shrink-0" />
-            ) : variant === "github-commit" ? (
+            ) : variant === "git-commit" ? (
               <GitCommitHorizontal className="size-3.5 shrink-0" />
             ) : variant === "browser" ? (
               <BrowserTabFavicon faviconUrl={faviconUrl} />
@@ -550,7 +608,7 @@ export function CenterStageTabGroupItemContent({
     );
   }
 
-  if (tab.kind === "github-pr" || tab.kind === "github-issue" || tab.kind === "github-action" || tab.kind === "github-commit") {
+  if (tab.kind === "github-pr" || tab.kind === "github-issue" || tab.kind === "github-action" || tab.kind === "git-commit") {
     return (
       <>
         {leading(
@@ -572,7 +630,12 @@ export function CenterStageTabGroupItemContent({
   if (tab.kind === "simulator") {
     return (
       <>
-        {leading(<Smartphone className="size-3.5 shrink-0" />)}
+        {leading(
+          <SimulatorTabIcon
+            className="size-3.5 shrink-0"
+            contextId={effectiveContextId}
+          />,
+        )}
         {label(tab.label)}
       </>
     );
@@ -637,6 +700,24 @@ export function CenterStageTabGroupItemContent({
       <>
         {leading(<BrowserTabFavicon faviconUrl={tab.faviconUrl} />)}
         {label(tab.label)}
+      </>
+    );
+  }
+
+  if (tab.kind === "agent-chat") {
+    const providerId = tab.providerId?.trim() || "";
+    const chatId = tab.chatId?.trim() || "";
+    return (
+      <>
+        {leading(
+          providerId ? (
+            <AgentIcon registryId={providerId} name={providerId} size={14} />
+          ) : (
+            <MessagesSquare className="size-3.5 shrink-0" />
+          ),
+        )}
+        {label(tab.label)}
+        {chatId ? <AgentChatTabStatusIndicator chatId={chatId} /> : null}
       </>
     );
   }
@@ -706,7 +787,7 @@ export function CenterStageOpenFileTab({
 }) {
   const variant = variantProp ?? getCenterStageSurfaceTabVariant(file.path);
   const isReviewDiff = variant === "review-diff";
-  const displayPath = displayPathProp ?? getEditorSourcePath(file.path);
+  const displayPath = displayPathProp ?? getEditorDisplayPath(file.path);
 
   return (
     <CenterStageSurfaceContentTab

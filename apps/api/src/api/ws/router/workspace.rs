@@ -46,98 +46,6 @@ impl WsMessageService {
             tracing::warn!("Failed to initialize target branch: {e}");
         }
 
-        if let Err(error) = self
-            .workspace_service
-            .ensure_worktree_ready(workspace.model.guid.clone())
-            .await
-        {
-            tracing::error!(
-                "[handle_workspace_create] Failed to prepare worktree for {}: {}",
-                workspace.model.guid,
-                error
-            );
-
-            if let Err(cleanup_error) = self
-                .workspace_service
-                .soft_delete_workspace(&workspace.model.guid)
-                .await
-            {
-                tracing::warn!(
-                    "[handle_workspace_create] Failed to clean up workspace {} after worktree error: {}",
-                    workspace.model.guid,
-                    cleanup_error
-                );
-            }
-
-            return Err(error);
-        }
-
-        if !req.attachments.is_empty() {
-            if let Err(error) = self
-                .workspace_service
-                .write_workspace_attachments(workspace.model.guid.clone(), req.attachments.clone())
-                .await
-            {
-                tracing::warn!(
-                    "[handle_workspace_create] Failed to write attachments for {}: {}",
-                    workspace.model.guid,
-                    error
-                );
-            }
-        }
-
-        if req.github_issue.is_some()
-            || req.github_pr.is_some()
-            || req
-                .initial_requirement
-                .as_deref()
-                .map(str::trim)
-                .map(|value| !value.is_empty())
-                .unwrap_or(false)
-        {
-            if let Err(error) = self
-                .workspace_service
-                .write_workspace_requirement(
-                    workspace.model.guid.clone(),
-                    req.initial_requirement.clone(),
-                    req.github_issue.clone(),
-                    req.github_pr.clone(),
-                )
-                .await
-            {
-                tracing::warn!(
-                    "[handle_workspace_create] Failed to pre-fill requirement.md for {}: {}",
-                    workspace.model.guid,
-                    error
-                );
-            }
-        }
-
-        self.queue_workspace_gitignore_compensation(
-            workspace.model.guid.clone(),
-            req.project_guid.clone(),
-            workspace.local_path.clone(),
-        );
-
-        let workspace_setup_plan = Self::build_workspace_setup_plan(
-            &self.project_service,
-            &req.project_guid,
-            req.initial_requirement.as_deref(),
-            workspace.github_issue.as_ref(),
-            workspace.github_pr.is_some(),
-            req.auto_extract_todos,
-        )
-        .await;
-        let next_setup_step = workspace_setup_plan
-            .as_ref()
-            .and_then(|plan| {
-                plan.steps
-                    .iter()
-                    .copied()
-                    .find(|step| *step != WorkspaceSetupStep::CreateWorktree)
-            })
-            .or(Some(WorkspaceSetupStep::Ready));
-
         if let Some(manager) = self.ws_manager.get().cloned() {
             let project_service = self.project_service.clone();
             let workspace_id = workspace.model.guid.clone();
@@ -148,7 +56,11 @@ impl WsMessageService {
             let github_issue = workspace.github_issue.clone();
             let has_github_pr = workspace.github_pr.is_some();
             let auto_extract_todos = req.auto_extract_todos;
-            let cached_workspace_setup_plan = workspace_setup_plan.clone();
+            let create_extras = Some(super::workspace_setup::WorkspaceSetupCreateExtras {
+                attachments: req.attachments.clone(),
+                github_pr: req.github_pr.clone(),
+                worktree_path: workspace.local_path.clone(),
+            });
 
             let workspace_service = self.workspace_service.clone();
             tokio::spawn(async move {
@@ -164,8 +76,9 @@ impl WsMessageService {
                     github_issue,
                     has_github_pr,
                     auto_extract_todos,
-                    next_setup_step,
-                    cached_workspace_setup_plan,
+                    None,
+                    None,
+                    create_extras,
                 )
                 .await;
             });
@@ -412,9 +325,7 @@ impl WsMessageService {
         }
 
         if settings.close_acp_on_archive {
-            self.agent_session_service
-                .close_workspace_sessions(&guid)
-                .await;
+            self.agent_chat().close_workspace(&guid).await;
         }
 
         Ok(json!({ "success": true }))
@@ -508,6 +419,7 @@ impl WsMessageService {
                     req.auto_extract_todos,
                     Some(failed_step),
                     None,
+                    None,
                 )
                 .await;
             });
@@ -552,6 +464,7 @@ impl WsMessageService {
                     has_github_pr,
                     auto_extract_todos,
                     Some(WorkspaceSetupStep::Ready),
+                    None,
                     None,
                 )
                 .await;
@@ -630,6 +543,7 @@ impl WsMessageService {
                     auto_extract_todos,
                     Some(start_step),
                     None,
+                    None,
                 )
                 .await;
             });
@@ -682,6 +596,7 @@ impl WsMessageService {
                 auto_extract_todos,
                 Some(WorkspaceSetupStep::RunSetupScript),
                 None,
+                None,
             )
             .await;
         });
@@ -729,6 +644,7 @@ impl WsMessageService {
                     has_github_pr,
                     auto_extract_todos,
                     Some(WorkspaceSetupStep::RunSetupScript),
+                    None,
                     None,
                 )
                 .await;

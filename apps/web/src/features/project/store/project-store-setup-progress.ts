@@ -114,36 +114,14 @@ export function getSetupStepOrder(
   return SETUP_STEP_ORDER[stepKey] ?? -1;
 }
 
-function getInitialAsyncSetupState(input: {
-  hasGithubIssue: boolean;
-  hasRequirementStep: boolean;
-  autoExtractTodos: boolean;
-  hasSetupScript: boolean;
-}): Pick<WorkspaceSetupProgress, "status" | "stepKey" | "stepTitle" | "success"> {
-  // requirement.md is now pre-filled synchronously during workspace creation,
-  // so the post-create flow no longer surfaces a "write_requirement" step.
-  if (input.autoExtractTodos) {
-    return {
-      status: "creating",
-      stepKey: "extract_todos",
-      stepTitle: runtimeT('setupProgress.stepTitles.extractingInitialTodos'),
-      success: true,
-    };
-  }
-
-  if (input.hasSetupScript) {
-    return {
-      status: "setting_up",
-      stepKey: "run_setup_script",
-      stepTitle: runtimeT('setupProgress.stepTitles.runningSetupScript'),
-      success: true,
-    };
-  }
-
+function getInitialAsyncSetupState(): Pick<
+  WorkspaceSetupProgress,
+  "status" | "stepKey" | "stepTitle" | "success"
+> {
   return {
-    status: "completed",
-    stepKey: "ready",
-    stepTitle: runtimeT('setupProgress.stepTitles.readyToBuild'),
+    status: "creating",
+    stepKey: "create_worktree",
+    stepTitle: runtimeT("setupProgress.stepTitles.creatingWorkspace"),
     success: true,
   };
 }
@@ -155,12 +133,7 @@ export function buildInitialWorkspaceSetupProgress(input: {
 }): WorkspaceSetupProgress {
   return {
     workspaceId: input.workspaceId,
-    ...getInitialAsyncSetupState({
-      hasGithubIssue: !!input.setupContext?.hasGithubIssue,
-      hasRequirementStep: !!input.setupContext?.hasRequirementStep,
-      autoExtractTodos: !!input.setupContext?.autoExtractTodos,
-      hasSetupScript: !!input.setupContext?.hasSetupScript,
-    }),
+    ...getInitialAsyncSetupState(),
     output: "",
     setupContext: input.setupContext,
     retryContext: input.retryContext,

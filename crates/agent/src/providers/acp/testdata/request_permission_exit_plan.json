@@ -1,0 +1,24 @@
+{
+  "sessionId": "sess_1",
+  "toolCall": {
+    "toolCallId": "call_exit_1",
+    "title": "Exit plan mode",
+    "kind": "switch_mode",
+    "status": "pending",
+    "rawInput": {
+      "plan": "# Cursor plan\n\n- Inspect\n- Ship"
+    }
+  },
+  "options": [
+    {
+      "optionId": "allow-once",
+      "name": "Yes",
+      "kind": "allow_once"
+    },
+    {
+      "optionId": "reject-once",
+      "name": "No",
+      "kind": "reject_once"
+    }
+  ]
+}

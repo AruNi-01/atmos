@@ -1,0 +1,8 @@
+{
+  "jsonrpc": "2.0",
+  "id": 9,
+  "method": "_x.ai/rewind/points",
+  "params": {
+    "sessionId": "sess_grok_1"
+  }
+}

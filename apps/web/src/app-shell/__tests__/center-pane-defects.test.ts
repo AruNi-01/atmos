@@ -380,6 +380,7 @@ describe("warm multi-pane active retention", () => {
       visibleTerminalTabs: undefined,
       openFiles: undefined,
       githubTabs: undefined,
+      gitCommitTabs: undefined,
       browserTabs: undefined,
       currentView: undefined,
       currentProject: undefined,
@@ -405,6 +406,7 @@ describe("warm multi-pane active retention", () => {
       handleCreateTerminalCenterTab: undefined,
       handleTerminalPaneClosed: undefined,
       handleCloseGithubTab: undefined,
+      handleCloseGitCommitTab: undefined,
       onGithubPullRequestChanged: undefined,
     };
     expect(
@@ -538,6 +540,15 @@ describe("hydration-safe reconcile", () => {
         layoutHydrated: true,
       }),
     ).toBe(true);
+    expect(
+      areOpenTabIdListSourcesHydrated({
+        editorHydrated: true,
+        githubHydrated: true,
+        browserHydrated: true,
+        layoutHydrated: true,
+        agentChatHydrated: false,
+      }),
+    ).toBe(false);
 
     const stage = readFileSync(join(import.meta.dir, "../CenterStage.tsx"), "utf8");
     expect(stage).toContain("React.useLayoutEffect(() => {\n    hydratePaneLayout();");
@@ -607,7 +618,9 @@ describe("independent pane order", () => {
 
   it("seeds a new single-pane layout from legacy strip prefs", () => {
     expect(applyLegacyStripOrder(["b", "a", "c"], ["a", "b"])).toEqual(["a", "b", "c"]);
-    expect(resolvePaneTabStripOrder([], ["a", "b"])).toEqual(["a", "b"]);
+    expect(resolvePaneTabStripOrder([], ["a", "b"])).toEqual([]);
+    expect(resolvePaneTabStripOrder(null, ["a", "b"])).toEqual(["a", "b"]);
+    expect(resolvePaneTabStripOrder(undefined, ["a", "b"])).toEqual(["a", "b"]);
   });
 
   it("scopes tab-group order keys per pane and falls back to unscoped migration", () => {

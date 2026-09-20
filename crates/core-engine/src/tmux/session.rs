@@ -33,7 +33,10 @@ fn parse_pane_process_line(line: &str) -> Option<TmuxPaneProcess> {
 }
 
 pub(super) fn session_name_from_workspace_id(workspace_id: &str) -> String {
-    workspace_id.replace('-', "_")
+    // tmux treats `:` as the session:window separator. Standalone automations
+    // use synthetic ids like `automation:{guid}`; leaving the colon in the
+    // session name makes `has-session` miss and `new-session` collide.
+    workspace_id.replace(['-', ':'], "_")
 }
 
 pub(super) fn parse_workspace_id_from_session_name(session_name: &str) -> String {
@@ -633,11 +636,16 @@ impl TmuxEngine {
 mod tests {
     use super::{
         parse_pane_processes, parse_workspace_id_from_session_name,
-        preferred_existing_session_name, session_name_from_names,
+        preferred_existing_session_name, session_name_from_names, session_name_from_workspace_id,
     };
 
     #[test]
     fn test_session_name_generation() {
+        assert_eq!(session_name_from_workspace_id("abc-def-123"), "abc_def_123");
+        assert_eq!(
+            session_name_from_workspace_id("automation:c637f166-6b43-4086-abee-dae7876951a6"),
+            "automation_c637f166_6b43_4086_abee_dae7876951a6"
+        );
         assert_eq!(session_name_from_names("myproj", "myws"), "myproj_myws");
 
         assert_eq!(

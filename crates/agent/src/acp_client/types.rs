@@ -31,6 +31,12 @@ pub struct PermissionRequest {
     pub risk_level: RiskLevel,
     /// Permission options presented by the agent (may be empty for legacy agents)
     pub options: Vec<PermissionOption>,
+    /// Multi-question AskUser cards when raw_input carries `questions[]`.
+    #[serde(default)]
+    pub questions: Vec<crate::contract::AgentAskQuestion>,
+    /// Structured createPlan todos for ApprovalCard To-dos (not markdown `- [ ]`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub plan_todos: Vec<crate::contract::AgentPlanDocumentTodo>,
 }
 
 /// User response to permission request
@@ -55,6 +61,76 @@ pub struct AuthRequiredPayload {
     pub request_id: String,
     pub methods: Vec<AuthMethodSummary>,
     pub message: String,
+}
+
+pub const AUTH_REQUIRED_ERROR_PREFIX: &str = "ACP_AUTH_REQUIRED::";
+
+pub fn encode_auth_required(
+    methods: Vec<AuthMethodSummary>,
+    message: impl Into<String>,
+) -> Result<String, String> {
+    if methods.is_empty() {
+        return Err(
+            "Agent requires authentication, but no auth methods were advertised".to_string(),
+        );
+    }
+    let payload = AuthRequiredPayload {
+        request_id: uuid::Uuid::new_v4().to_string(),
+        methods,
+        message: message.into(),
+    };
+    let json = serde_json::to_string(&payload)
+        .map_err(|error| format!("Serialize auth payload failed: {error}"))?;
+    Ok(format!("{AUTH_REQUIRED_ERROR_PREFIX}{json}"))
+}
+
+pub fn parse_auth_required_error(raw: &str) -> Option<AuthRequiredPayload> {
+    let idx = raw.find(AUTH_REQUIRED_ERROR_PREFIX)?;
+    let json_part = raw[idx + AUTH_REQUIRED_ERROR_PREFIX.len()..].trim();
+    let parsed: AuthRequiredPayload = serde_json::from_str(json_part).ok()?;
+    if parsed.request_id.is_empty() || parsed.methods.is_empty() {
+        return None;
+    }
+    Some(parsed)
+}
+
+pub fn auth_methods_from_json(value: &serde_json::Value) -> Vec<AuthMethodSummary> {
+    let items = value
+        .get("authMethods")
+        .or_else(|| value.get("auth_methods"))
+        .and_then(|item| item.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let mut methods = Vec::new();
+    for item in items {
+        let id = item
+            .get("id")
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .filter(|id| !id.is_empty());
+        let Some(id) = id else {
+            continue;
+        };
+        let name = item
+            .get("name")
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+            .unwrap_or(id)
+            .to_string();
+        let description = item
+            .get("description")
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+            .map(ToOwned::to_owned);
+        methods.push(AuthMethodSummary {
+            id: id.to_string(),
+            name,
+            description,
+        });
+    }
+    methods
 }
 
 /// ACP implementation metadata advertised by an agent.
@@ -153,6 +229,9 @@ pub struct StreamDelta {
     pub delta: String,
     pub done: bool,
     pub usage: Option<StreamUsage>,
+    /// ACP `sessionId` for this chunk. Child subagent sessions differ from the parent.
+    #[serde(default)]
+    pub session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -167,6 +246,12 @@ pub struct StreamUsage {
 pub enum AgentToolCallContentItem {
     Text {
         text: String,
+    },
+    /// Still image from ACP `ContentBlock::Image` / image blob resources.
+    Image {
+        url: Option<String>,
+        path: Option<String>,
+        mime: Option<String>,
     },
     Diff {
         path: Option<String>,
@@ -184,24 +269,44 @@ pub struct ToolCallUpdate {
     pub tool_call_id: String,
     /// Parent tool call ID when this tool call belongs to a nested/subagent invocation.
     pub parent_tool_call_id: Option<String>,
+    /// ACP `sessionId` for this tool. Child subagent sessions differ from the parent.
+    #[serde(default)]
+    pub session_id: Option<String>,
     pub tool: String,
     pub description: String,
+    /// ACP protocol `ToolKind` slug (`read`, `execute`, `other`, …). Absent on patches.
+    #[serde(default)]
+    pub acp_kind: Option<String>,
     pub status: ToolCallStatus,
     /// Raw input params (e.g. {"path": "src/lib.rs"} for Read)
     pub raw_input: Option<serde_json::Value>,
     /// Structured content emitted by the tool call.
     pub content: Vec<AgentToolCallContentItem>,
+    /// ACP `locations` (files this call read or produced).
+    #[serde(default)]
+    pub locations: Vec<String>,
     /// Raw output or content from tool execution
     pub raw_output: Option<serde_json::Value>,
     pub detail: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ToolCallStatus {
     Running,
     Completed,
     Failed,
+}
+
+impl ToolCallStatus {
+    /// ACP `tool_call_update` omits `status` and the schema default is
+    /// `in_progress`. A later title/output patch must not reopen a terminal call.
+    pub fn merge_patch(prev: Self, incoming: Self) -> Self {
+        match (prev, incoming) {
+            (Self::Completed | Self::Failed, Self::Running) => prev,
+            _ => incoming,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

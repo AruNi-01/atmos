@@ -47,6 +47,7 @@ export function collectDiffGroupTabs(
   extras?: {
     gitHistory?: { visible: boolean; label: string };
     changes?: { visible: boolean; label: string };
+    gitCommits?: Array<{ id: string; value: string; label: string }>;
   },
 ): TabGroupItem[] {
   const diffTabs: TabGroupItem[] = openFiles
@@ -81,5 +82,60 @@ export function collectDiffGroupTabs(
     });
   }
 
+  if (extras?.gitCommits?.length) {
+    const insertAt =
+      (extras.changes?.visible ? 1 : 0) + (extras.gitHistory?.visible ? 1 : 0);
+    diffTabs.splice(
+      insertAt,
+      0,
+      ...extras.gitCommits.map((tab) => ({
+        id: tab.id,
+        label: tab.label,
+        value: tab.value,
+        kind: "git-commit" as const,
+      })),
+    );
+  }
+
   return diffTabs;
+}
+
+export type AgentChatGroupTabInput = {
+  id: string;
+  value: string;
+  title: string;
+  chatId: string | null;
+  providerId: string | null;
+  openedAt: number;
+};
+
+/** Chat center tabs in open order (oldest first), matching the strip default. */
+export function collectAgentChatGroupTabs(
+  tabs: readonly AgentChatGroupTabInput[],
+): TabGroupItem[] {
+  return [...tabs]
+    .sort((left, right) => left.openedAt - right.openedAt)
+    .map((tab) => ({
+      id: tab.id,
+      label: tab.title,
+      value: tab.value,
+      kind: "agent-chat" as const,
+      chatId: tab.chatId,
+      providerId: tab.providerId,
+    }));
+}
+
+export function collectSimulatorGroupTabs(
+  visible: boolean,
+  label: string,
+): TabGroupItem[] {
+  if (!visible) return [];
+  return [
+    {
+      id: "simulator",
+      label,
+      value: "simulator",
+      kind: "simulator",
+    },
+  ];
 }

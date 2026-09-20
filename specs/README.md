@@ -138,17 +138,30 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-059** | Browser Use experience kernel (unify envelope, first-success `state`, pick handoff, host+Settings) | `specs/APP/APP-059_browser-host-and-settings/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-060** | Vendor serve-sim (compiled helper, on-demand `~/.atmos`, embed preview) | `specs/APP/APP-060_vendor-serve-sim/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-061** | Token Usage public share (`atmos.land/tok/@handle`; one snapshot; claim-once handle) | `specs/APP/APP-061_token-usage-public-share/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
-| **APP-062** | PT Design — full product: package (MCP + Ink CLI/Skill) + Atmos left sidebar → center stage | `specs/APP/APP-062_pt-design/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-062** | PT Design — full product: package (MCP + Ink CLI/Skill) + Atmos left sidebar → center stage. **Successor model: APP-075.** | `specs/APP/APP-062_pt-design/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-063** | Token Usage Computer scope (All Computers / per-Computer via Relay; device uniqueness) | `specs/APP/APP-063_token-usage-computer-scope/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-064** | API Contract Hardening (no oRPC; typed `WsAction → input → output`; event catalog) | `specs/APP/APP-064_api-contract-hardening/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-065** | Agent-First Product CLI (typed resource CLI + `POST /api/cli/invoke` reusing WsAction + `atmos-cli` system skill; no backward compat) | `specs/APP/APP-063_agent-first-product-cli/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-066** | Resource Monitor (Computer/Atmos/Project/Workspace CPU + memory; local Electron shell) | `specs/APP/APP-066_resource-monitor/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `PROGRESS.md`, `REVIEW.md`) |
-| **APP-067** | Agent Observer (hook **turns** retained after Idle; computer-scoped React Flow: Atmos → Project → Workspace → Agent → Subagent) | `specs/APP/APP-067_agent-activity-graph/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-067** | Document Editor (editable markdown live preview in the file tab; not Notion-like / not BlockNote) | `specs/APP/APP-067_document-editor/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`; source PRDs in `source/`) |
+| **APP-067-observer** | Agent Observer (hook **turns** retained after Idle; computer-scoped React Flow: Atmos → Project → Workspace → Agent → Subagent) | `specs/APP/APP-067_agent-activity-graph/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-067-chat** | Atmos Agent Chat (center-stage Agent Chat workspace; ACP as provider only; no backward compat) | `specs/APP/APP-067_atmos_agent_abs/` (`IDEA.md`, `BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-068** | Agent Chat architecture optimize (Atmos descriptor + small runtime + tool/event contract; native Claude/Codex/OpenCode/Pi; ACP for others) | `specs/APP/APP-068_agent_chat_arch_optimize/` (`IDEA.md`, `BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `reference/`) |
+| **APP-069** | Agent Chat hits, Grok host, fork/rewind (promotes APP-068 N1 / Grok-from-N3 / N4; crates not embedded) | `specs/APP/APP-069_agent_chat_hits_and_session_ops/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-070** | Device Preview: iOS + Android, exclusive workspace claims, vendored serve-emu | `specs/APP/APP-070_simulator-optimize-add-android/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-071** | Device Preview agent control (screenshot / tap / swipe / type / press via CLI + skill) | `specs/APP/APP-071_device-preview-agent-control/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-072** | Automation execute modes (Headless Spawn / Terminal Agent / Agent Chat) | `specs/APP/APP-072_automation-execute-modes/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-073** | Device Preview chrome and inventory (serve-sim 0.1.48, appearance + Android camera chrome, add/boot/shutdown) | `specs/APP/APP-073_device-preview-chrome-and-inventory/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-074** | CodeMirror git blame hover (current-line commit + Atmos card; default-on header setting) | `specs/APP/APP-074_codemirror-git-blame/` (`PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-075** | Agent Sessions (CLI session browser; preview; lazy Chat import; TUI resume; transcript search) | `specs/APP/APP-075_agent-sessions/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-075** | PT Design Interactive Canvas (v2: PTX SoT, real DOM, Edit/Interact; successor to APP-062 wireframe model) | `specs/APP/APP-075_pt-design-interactive-canvas/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`; source in `source/`) |
+| **APP-076** | Shared session Runtime (one user-session Server; Desktop is a shell; CLI lazy-ensure; Desktop Use via Server) | `specs/APP/APP-076_shared-session-runtime/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **QUALITY-001** | Large File Code Debt Cleanup | `specs/APP/QUALITY-001_large-file-code-debt-cleanup/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-002** | Spec Test Execution Loop | `specs/APP/QUALITY-002_spec-test-execution-loop/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-003** | Playwright E2E Harness | `specs/APP/QUALITY-003_playwright-e2e-harness/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-004** | Architecture Review | `specs/APP/QUALITY-004_architecture-review/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-005** | TypeScript 7 Upgrade | `specs/APP/QUALITY-005_typescript-7-upgrade/` (`TECH.md`, `TEST.md`) |
+| **QUALITY-006** | Idempotent Agent Chat Event Model (append-only text + byte offsets, part tree, tool status lattice, log equals wire) | `specs/APP/QUALITY-006_agent-event-identity/` (`TECH.md`, `TEST.md`) |
 
 ### Landing
 

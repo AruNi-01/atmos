@@ -1,0 +1,210 @@
+{
+  "sessions": [
+    {
+      "id": "ses_top",
+      "directory": "/tmp/fixture-proj",
+      "title": "Fixture session",
+      "time_created": 1700000000000,
+      "time_updated": 1700000005000,
+      "parent_id": null,
+      "model": "{\"id\":\"big-pickle\",\"providerID\":\"opencode\"}"
+    },
+    {
+      "id": "ses_child",
+      "directory": "/tmp/fixture-proj",
+      "title": "Child session",
+      "time_created": 1700000002000,
+      "time_updated": 1700000004000,
+      "parent_id": "ses_top",
+      "model": null
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg_user",
+      "session_id": "ses_top",
+      "time_created": 1700000000100,
+      "time_updated": 1700000000100,
+      "data": { "role": "user" }
+    },
+    {
+      "id": "msg_assistant",
+      "session_id": "ses_top",
+      "time_created": 1700000000200,
+      "time_updated": 1700000000400,
+      "data": { "role": "assistant" }
+    },
+    {
+      "id": "msg_child_user",
+      "session_id": "ses_child",
+      "time_created": 1700000000340,
+      "time_updated": 1700000000340,
+      "data": { "role": "user" }
+    },
+    {
+      "id": "msg_child_asst",
+      "session_id": "ses_child",
+      "time_created": 1700000000350,
+      "time_updated": 1700000000360,
+      "data": { "role": "assistant" }
+    }
+  ],
+  "parts": [
+    {
+      "id": "prt_user_text",
+      "message_id": "msg_user",
+      "session_id": "ses_top",
+      "time_created": 1700000000100,
+      "time_updated": 1700000000100,
+      "data": { "type": "text", "text": "List the files" }
+    },
+    {
+      "id": "prt_step_start",
+      "message_id": "msg_assistant",
+      "session_id": "ses_top",
+      "time_created": 1700000000200,
+      "time_updated": 1700000000200,
+      "data": { "type": "step-start", "snapshot": "snap" }
+    },
+    {
+      "id": "prt_reasoning",
+      "message_id": "msg_assistant",
+      "session_id": "ses_top",
+      "time_created": 1700000000210,
+      "time_updated": 1700000000210,
+      "data": { "type": "reasoning", "text": "Need to list the directory." }
+    },
+    {
+      "id": "prt_text",
+      "message_id": "msg_assistant",
+      "session_id": "ses_top",
+      "time_created": 1700000000220,
+      "time_updated": 1700000000220,
+      "data": { "type": "text", "text": "Running ls." }
+    },
+    {
+      "id": "prt_tool",
+      "message_id": "msg_assistant",
+      "session_id": "ses_top",
+      "time_created": 1700000000230,
+      "time_updated": 1700000000300,
+      "data": {
+        "type": "tool",
+        "callID": "call_1",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": { "command": "ls" },
+          "output": "README.md\n",
+          "title": "bash"
+        }
+      }
+    },
+    {
+      "id": "prt_step_finish",
+      "message_id": "msg_assistant",
+      "session_id": "ses_top",
+      "time_created": 1700000000310,
+      "time_updated": 1700000000310,
+      "data": { "type": "step-finish", "reason": "stop" }
+    },
+    {
+      "id": "prt_patch",
+      "message_id": "msg_assistant",
+      "session_id": "ses_top",
+      "time_created": 1700000000320,
+      "time_updated": 1700000000320,
+      "data": { "type": "patch", "hash": "abc", "files": ["/tmp/fixture-proj/README.md"] }
+    },
+    {
+      "id": "prt_task",
+      "message_id": "msg_assistant",
+      "session_id": "ses_top",
+      "time_created": 1700000000325,
+      "time_updated": 1700000000325,
+      "data": {
+        "type": "tool",
+        "callID": "call_task",
+        "tool": "task",
+        "state": {
+          "status": "completed",
+          "title": "Explore files",
+          "input": {
+            "subagent_type": "explore",
+            "description": "Explore files",
+            "prompt": "Look at README"
+          },
+          "metadata": { "sessionId": "ses_child" },
+          "output": "task_id: ses_child (for resuming to continue this task if needed)\n\n<task_result>done</task_result>"
+        }
+      }
+    },
+    {
+      "id": "prt_question",
+      "message_id": "msg_assistant",
+      "session_id": "ses_top",
+      "time_created": 1700000000326,
+      "time_updated": 1700000000326,
+      "data": {
+        "type": "tool",
+        "callID": "call_q",
+        "tool": "question",
+        "state": {
+          "status": "completed",
+          "input": {
+            "questions": [
+              {
+                "question": "Ship it?",
+                "header": "Ship",
+                "options": [{ "label": "Yes" }, { "label": "No" }]
+              }
+            ]
+          },
+          "output": "User has answered your questions: \"Ship it?\"=\"Yes\"."
+        }
+      }
+    },
+    {
+      "id": "prt_file",
+      "message_id": "msg_assistant",
+      "session_id": "ses_top",
+      "time_created": 1700000000330,
+      "time_updated": 1700000000330,
+      "data": { "type": "file", "mime": "text/plain", "filename": "README.md" }
+    },
+    {
+      "id": "prt_child_user",
+      "message_id": "msg_child_user",
+      "session_id": "ses_child",
+      "time_created": 1700000000340,
+      "time_updated": 1700000000340,
+      "data": { "type": "text", "text": "Look at README" }
+    },
+    {
+      "id": "prt_child_text",
+      "message_id": "msg_child_asst",
+      "session_id": "ses_child",
+      "time_created": 1700000000350,
+      "time_updated": 1700000000350,
+      "data": { "type": "text", "text": "<task_result>README looks good.</task_result>" }
+    },
+    {
+      "id": "prt_child_read",
+      "message_id": "msg_child_asst",
+      "session_id": "ses_child",
+      "time_created": 1700000000355,
+      "time_updated": 1700000000360,
+      "data": {
+        "type": "tool",
+        "callID": "call_child_read",
+        "tool": "read",
+        "state": {
+          "status": "completed",
+          "input": { "path": "/tmp/fixture-proj/README.md" },
+          "output": "# Demo",
+          "title": "read"
+        }
+      }
+    }
+  ]
+}

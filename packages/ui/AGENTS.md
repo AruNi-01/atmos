@@ -7,8 +7,8 @@
 ## Build And Test
 
 - **Typecheck**: `cd packages/ui && bun run typecheck`
-- **Add Component**: `cd packages/ui && bun run ui:add` (shadcn CLI)
-- No build step — this is a library package
+- **Add Component**: from repo root, `bunx --bun shadcn add <name> -c packages/ui` (or `cd packages/ui && bun run ui:add <name>`). `components.json` aliases are `@workspace/ui/...`, not `@/`.
+- No build step — this package is compiled **inside the Next app**. `@/` is an app alias (`apps/web/src/*`), not a per-package alias. Shared UI code must import `@workspace/ui/lib/utils` (or a relative path), the same pattern as the official shadcn monorepo.
 
 ---
 
@@ -47,6 +47,7 @@ packages/ui/
 - Put reusable icons in `src/components/icons/`
 - Put animated icons in `src/components/icons/`, not `src/components/ui/`
 - `src/components/ui/` is for composable UI primitives/components, not icon assets
+- Lucide v1 removed brand marks; use `Github` / `Gitlab` from `components/icons/lucide-brand-icons` (or the package barrel) instead of importing them from `lucide-react`. Prefer animated `GithubIcon` for marketing hover treatments.
 
 ---
 
@@ -61,4 +62,5 @@ packages/ui/
 - Keep components atomic and reusable
 - Use semantic CSS variables for theming
 - Keep icon placement consistent: reusable icon files live under `src/components/icons/`
+- Import other files in this package with `@workspace/ui/...` or a relative path. Do not use `@/` — Next/Turbopack has one import map per app and will resolve `@/` as `apps/web/src`.
 

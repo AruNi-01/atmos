@@ -24,38 +24,41 @@ pub struct AutomationAgentCapability {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TerminalAgentModelOption {
+pub struct TerminalAgentOption {
     pub id: String,
     pub label: String,
     #[serde(default)]
     pub group: Option<String>,
     #[serde(default)]
     pub is_default: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thinking: Option<agent::AgentThinkingSupport>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum TerminalAgentModelCatalogStatus {
+pub enum TerminalAgentOptionsStatus {
     Ok,
     Unsupported,
     AuthRequired,
     Error,
+    Probing,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum TerminalAgentModelCatalogSource {
+pub enum TerminalAgentOptionsSource {
     Live,
     Cache,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TerminalAgentModelCatalog {
+pub struct TerminalAgentOptions {
     pub agent_id: String,
-    pub status: TerminalAgentModelCatalogStatus,
-    pub models: Vec<TerminalAgentModelOption>,
+    pub status: TerminalAgentOptionsStatus,
+    pub models: Vec<TerminalAgentOption>,
     pub message: Option<String>,
-    pub source: TerminalAgentModelCatalogSource,
+    pub source: TerminalAgentOptionsSource,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -244,6 +247,8 @@ enum TerminalAgentModelListParser {
     LineList,
     GrokLineList,
     KiroJson,
+    Json,
+    DroidHelp,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -286,15 +291,16 @@ struct ResolvedTerminalAgent {
     enabled: bool,
 }
 
-const MODEL_CATALOG_TTL: Duration = Duration::from_secs(300);
-const MODEL_CATALOG_ERROR_TTL: Duration = Duration::from_secs(30);
+const TERMINAL_OPTIONS_TTL: Duration = Duration::from_secs(300);
+const TERMINAL_OPTIONS_ERROR_TTL: Duration = Duration::from_secs(30);
 
-static MODEL_CATALOG_CACHE: OnceLock<Mutex<HashMap<String, CachedModelCatalog>>> = OnceLock::new();
+static TERMINAL_OPTIONS_CACHE: OnceLock<Mutex<HashMap<String, CachedTerminalAgentOptions>>> =
+    OnceLock::new();
 
 #[derive(Debug, Clone)]
-struct CachedModelCatalog {
+struct CachedTerminalAgentOptions {
     stored_at: Instant,
-    catalog: TerminalAgentModelCatalog,
+    options: TerminalAgentOptions,
 }
 
 pub fn automation_agent_capabilities() -> Result<Vec<AutomationAgentCapability>> {
@@ -419,11 +425,8 @@ pub fn validate_agent_run_config(
     resolve_automation_agent_with_config(agent_id, run_config).map(|_| ())
 }
 
-pub fn terminal_agent_model_catalog(
-    agent_id: &str,
-    refresh: bool,
-) -> Result<TerminalAgentModelCatalog> {
-    let cache = MODEL_CATALOG_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+pub fn terminal_agent_options(agent_id: &str, refresh: bool) -> Result<TerminalAgentOptions> {
+    let cache = TERMINAL_OPTIONS_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
     if !refresh {
         if let Some(cached) = cache
             .lock()
@@ -433,20 +436,20 @@ pub fn terminal_agent_model_catalog(
             .get(agent_id)
             .cloned()
         {
-            let ttl = if matches!(cached.catalog.status, TerminalAgentModelCatalogStatus::Ok) {
-                MODEL_CATALOG_TTL
+            let ttl = if matches!(cached.options.status, TerminalAgentOptionsStatus::Ok) {
+                TERMINAL_OPTIONS_TTL
             } else {
-                MODEL_CATALOG_ERROR_TTL
+                TERMINAL_OPTIONS_ERROR_TTL
             };
             if cached.stored_at.elapsed() <= ttl {
-                let mut catalog = cached.catalog.clone();
-                catalog.source = TerminalAgentModelCatalogSource::Cache;
+                let mut catalog = cached.options.clone();
+                catalog.source = TerminalAgentOptionsSource::Cache;
                 return Ok(catalog);
             }
         }
     }
 
-    let catalog = probe_terminal_agent_model_catalog(agent_id)?;
+    let catalog = probe_terminal_agent_options(agent_id)?;
     cache
         .lock()
         .map_err(|_| {
@@ -454,33 +457,12 @@ pub fn terminal_agent_model_catalog(
         })?
         .insert(
             agent_id.to_string(),
-            CachedModelCatalog {
+            CachedTerminalAgentOptions {
                 stored_at: Instant::now(),
-                catalog: catalog.clone(),
+                options: catalog.clone(),
             },
         );
     Ok(catalog)
-}
-
-fn agent_yolo_mode_enabled() -> bool {
-    let path = dirs::home_dir()
-        .map(|home| {
-            home.join(".atmos")
-                .join("config")
-                .join("function_settings.json")
-        })
-        .unwrap_or_else(|| PathBuf::from("function_settings.json"));
-    let Ok(raw) = std::fs::read_to_string(path) else {
-        return true;
-    };
-    let Ok(value) = serde_json::from_str::<Value>(&raw) else {
-        return true;
-    };
-    value
-        .get("agent_cli")
-        .and_then(|agent_cli| agent_cli.get("yolo_mode"))
-        .and_then(|mode| mode.as_bool())
-        .unwrap_or(true)
 }
 
 fn definition_launch_flags(definition: &TerminalAgentDefinition, yolo: bool) -> (String, String) {
@@ -571,7 +553,8 @@ fn resolve_terminal_agents_with_settings(
     settings: TerminalCodeAgentFile,
 ) -> Vec<ResolvedTerminalAgent> {
     let mut resolved = Vec::with_capacity(built_ins.len() + settings.agents.len());
-    let yolo = agent_yolo_mode_enabled();
+    // Automations run unattended, so launch flags always skip confirmation.
+    let yolo = true;
 
     for definition in built_ins {
         let (default_params, default_interactive) = definition_launch_flags(&definition, yolo);
@@ -655,43 +638,43 @@ fn resolve_terminal_agents_with_settings(
     resolved
 }
 
-fn probe_terminal_agent_model_catalog(agent_id: &str) -> Result<TerminalAgentModelCatalog> {
+fn probe_terminal_agent_options(agent_id: &str) -> Result<TerminalAgentOptions> {
     let Some(agent) = resolved_terminal_agents()?
         .into_iter()
         .find(|agent| agent.id == agent_id)
     else {
-        return Ok(build_model_catalog(
+        return Ok(build_terminal_agent_options(
             agent_id,
-            TerminalAgentModelCatalogStatus::Unsupported,
+            TerminalAgentOptionsStatus::Unsupported,
             Vec::new(),
             Some(format!("Agent `{agent_id}` is not configured.")),
-            TerminalAgentModelCatalogSource::Live,
+            TerminalAgentOptionsSource::Live,
         ));
     };
 
     let Some(model_list) = agent.model_list.clone().filter(|spec| spec.supported) else {
-        return Ok(build_model_catalog(
+        return Ok(build_terminal_agent_options(
             &agent.id,
-            TerminalAgentModelCatalogStatus::Unsupported,
+            TerminalAgentOptionsStatus::Unsupported,
             Vec::new(),
             Some(format!(
                 "Agent `{}` does not expose a live model list.",
                 agent.id
             )),
-            TerminalAgentModelCatalogSource::Live,
+            TerminalAgentOptionsSource::Live,
         ));
     };
 
     let support = automation_support(&agent);
     let Some(executable_path) = support.executable_path else {
-        return Ok(build_model_catalog(
+        return Ok(build_terminal_agent_options(
             &agent.id,
-            TerminalAgentModelCatalogStatus::Error,
+            TerminalAgentOptionsStatus::Error,
             Vec::new(),
             Some(support.unavailable_reason.unwrap_or_else(|| {
                 format!("{} is not installed or is not executable.", agent.cmd)
             })),
-            TerminalAgentModelCatalogSource::Live,
+            TerminalAgentOptionsSource::Live,
         ));
     };
 
@@ -704,12 +687,12 @@ fn probe_terminal_agent_model_catalog(agent_id: &str) -> Result<TerminalAgentMod
     let output = match Command::new(&executable_path).args(&args).output() {
         Ok(output) => output,
         Err(error) => {
-            return Ok(build_model_catalog(
+            return Ok(build_terminal_agent_options(
                 &agent.id,
-                TerminalAgentModelCatalogStatus::Error,
+                TerminalAgentOptionsStatus::Error,
                 Vec::new(),
                 Some(format!("Failed to run model list command: {error}")),
-                TerminalAgentModelCatalogSource::Live,
+                TerminalAgentOptionsSource::Live,
             ));
         }
     };
@@ -720,11 +703,11 @@ fn probe_terminal_agent_model_catalog(agent_id: &str) -> Result<TerminalAgentMod
 
     if !output.status.success() {
         let status = if looks_like_auth_required(&combined) {
-            TerminalAgentModelCatalogStatus::AuthRequired
+            TerminalAgentOptionsStatus::AuthRequired
         } else {
-            TerminalAgentModelCatalogStatus::Error
+            TerminalAgentOptionsStatus::Error
         };
-        let fallback = if matches!(status, TerminalAgentModelCatalogStatus::AuthRequired) {
+        let fallback = if matches!(status, TerminalAgentOptionsStatus::AuthRequired) {
             "Authentication is required before models can be listed.".to_string()
         } else {
             format!(
@@ -736,43 +719,43 @@ fn probe_terminal_agent_model_catalog(agent_id: &str) -> Result<TerminalAgentMod
                     .unwrap_or_else(|| "unknown".to_string())
             )
         };
-        return Ok(build_model_catalog(
+        return Ok(build_terminal_agent_options(
             &agent.id,
             status,
             Vec::new(),
             Some(non_empty(&combined).unwrap_or(fallback)),
-            TerminalAgentModelCatalogSource::Live,
+            TerminalAgentOptionsSource::Live,
         ));
     }
 
-    let models = match parse_model_catalog_output(&stdout, model_list.parser) {
+    let models = match parse_terminal_agent_options_output(&stdout, model_list.parser) {
         Ok(models) if !models.is_empty() => models,
         Ok(_) => {
-            return Ok(build_model_catalog(
+            return Ok(build_terminal_agent_options(
                 &agent.id,
-                TerminalAgentModelCatalogStatus::Error,
+                TerminalAgentOptionsStatus::Error,
                 Vec::new(),
                 Some("Model list command returned no models.".to_string()),
-                TerminalAgentModelCatalogSource::Live,
+                TerminalAgentOptionsSource::Live,
             ));
         }
         Err(error) => {
-            return Ok(build_model_catalog(
+            return Ok(build_terminal_agent_options(
                 &agent.id,
-                TerminalAgentModelCatalogStatus::Error,
+                TerminalAgentOptionsStatus::Error,
                 Vec::new(),
                 Some(error),
-                TerminalAgentModelCatalogSource::Live,
+                TerminalAgentOptionsSource::Live,
             ));
         }
     };
 
-    Ok(build_model_catalog(
+    Ok(build_terminal_agent_options(
         &agent.id,
-        TerminalAgentModelCatalogStatus::Ok,
+        TerminalAgentOptionsStatus::Ok,
         models,
         None,
-        TerminalAgentModelCatalogSource::Live,
+        TerminalAgentOptionsSource::Live,
     ))
 }
 
@@ -820,14 +803,14 @@ fn non_empty(value: &str) -> Option<String> {
     (!value.is_empty()).then(|| value.to_string())
 }
 
-fn build_model_catalog(
+fn build_terminal_agent_options(
     agent_id: &str,
-    status: TerminalAgentModelCatalogStatus,
-    models: Vec<TerminalAgentModelOption>,
+    status: TerminalAgentOptionsStatus,
+    models: Vec<TerminalAgentOption>,
     message: Option<String>,
-    source: TerminalAgentModelCatalogSource,
-) -> TerminalAgentModelCatalog {
-    TerminalAgentModelCatalog {
+    source: TerminalAgentOptionsSource,
+) -> TerminalAgentOptions {
+    TerminalAgentOptions {
         agent_id: agent_id.to_string(),
         status,
         models,
@@ -836,45 +819,42 @@ fn build_model_catalog(
     }
 }
 
-fn parse_model_catalog_output(
+fn parse_terminal_agent_options_output(
     output: &str,
     parser: TerminalAgentModelListParser,
-) -> std::result::Result<Vec<TerminalAgentModelOption>, String> {
+) -> std::result::Result<Vec<TerminalAgentOption>, String> {
     let models = match parser {
-        TerminalAgentModelListParser::LineList => parse_line_model_catalog(output),
-        TerminalAgentModelListParser::GrokLineList => parse_grok_model_catalog(output),
-        TerminalAgentModelListParser::KiroJson => parse_json_model_catalog(output)?,
+        TerminalAgentModelListParser::LineList => parse_line_terminal_agent_options(output),
+        TerminalAgentModelListParser::GrokLineList => parse_grok_terminal_agent_options(output),
+        TerminalAgentModelListParser::KiroJson | TerminalAgentModelListParser::Json => {
+            parse_json_terminal_agent_options(output)?
+        }
+        TerminalAgentModelListParser::DroidHelp => parse_droid_help_terminal_agent_options(output),
     };
     Ok(dedupe_model_options(models))
 }
 
-fn parse_line_model_catalog(output: &str) -> Vec<TerminalAgentModelOption> {
-    output
-        .lines()
-        .filter_map(|line| {
-            let trimmed = line.trim();
-            if trimmed.is_empty() {
-                return None;
-            }
-            let lower = trimmed.to_ascii_lowercase();
-            if lower.contains("available model") || lower == "models" || lower == "model" {
-                return None;
-            }
-            let normalized = trimmed.trim_start_matches(['-', '*', '•', ' ']).trim();
-            if normalized.is_empty() || normalized.ends_with(':') {
-                return None;
-            }
-            let (id, is_default) = strip_default_model_suffix(normalized);
-            if id.is_empty() {
-                return None;
-            }
-            Some(TerminalAgentModelOption {
-                id: id.clone(),
-                label: id,
-                group: None,
-                is_default,
-            })
-        })
+fn option_from_agent_model(model: agent::AgentModel) -> TerminalAgentOption {
+    TerminalAgentOption {
+        id: model.id,
+        label: model.label,
+        group: model.group,
+        is_default: model.is_default,
+        thinking: model.thinking,
+    }
+}
+
+fn parse_line_terminal_agent_options(output: &str) -> Vec<TerminalAgentOption> {
+    agent::parse_line_list(output)
+        .into_iter()
+        .map(option_from_agent_model)
+        .collect()
+}
+
+fn parse_droid_help_terminal_agent_options(output: &str) -> Vec<TerminalAgentOption> {
+    agent::parse_droid_help(output)
+        .into_iter()
+        .map(option_from_agent_model)
         .collect()
 }
 
@@ -889,7 +869,7 @@ fn strip_default_model_suffix(value: &str) -> (String, bool) {
     (trimmed.to_string(), false)
 }
 
-fn parse_grok_model_catalog(output: &str) -> Vec<TerminalAgentModelOption> {
+fn parse_grok_terminal_agent_options(output: &str) -> Vec<TerminalAgentOption> {
     output
         .lines()
         .skip_while(|line| !line.trim().eq_ignore_ascii_case("available models:"))
@@ -901,43 +881,45 @@ fn parse_grok_model_catalog(output: &str) -> Vec<TerminalAgentModelOption> {
             }
             let normalized = trimmed.trim_start_matches(['-', '*', '•', ' ']).trim();
             let (id, is_default) = strip_default_model_suffix(normalized);
-            (!id.is_empty()).then_some(TerminalAgentModelOption {
+            (!id.is_empty()).then_some(TerminalAgentOption {
                 label: id.clone(),
                 id,
                 group: None,
                 is_default,
+                thinking: None,
             })
         })
         .collect()
 }
 
-fn parse_json_model_catalog(
+fn parse_json_terminal_agent_options(
     output: &str,
-) -> std::result::Result<Vec<TerminalAgentModelOption>, String> {
+) -> std::result::Result<Vec<TerminalAgentOption>, String> {
     let value: Value = serde_json::from_str(output)
         .map_err(|error| format!("Failed to parse model catalog JSON: {error}"))?;
-    Ok(parse_json_model_catalog_value(&value))
+    Ok(parse_json_terminal_agent_options_value(&value))
 }
 
-fn parse_json_model_catalog_value(value: &Value) -> Vec<TerminalAgentModelOption> {
+fn parse_json_terminal_agent_options_value(value: &Value) -> Vec<TerminalAgentOption> {
     match value {
         Value::Array(items) => items.iter().filter_map(model_option_from_json).collect(),
         Value::Object(map) => ["models", "items", "data"]
             .iter()
             .find_map(|key| map.get(*key))
-            .map(parse_json_model_catalog_value)
+            .map(parse_json_terminal_agent_options_value)
             .unwrap_or_default(),
         _ => Vec::new(),
     }
 }
 
-fn model_option_from_json(value: &Value) -> Option<TerminalAgentModelOption> {
+fn model_option_from_json(value: &Value) -> Option<TerminalAgentOption> {
     match value {
-        Value::String(model) => non_empty(model).map(|id| TerminalAgentModelOption {
+        Value::String(model) => non_empty(model).map(|id| TerminalAgentOption {
             label: id.clone(),
             id,
             group: None,
             is_default: false,
+            thinking: None,
         }),
         Value::Object(map) => {
             let id = ["id", "name", "model", "value"]
@@ -957,19 +939,20 @@ fn model_option_from_json(value: &Value) -> Option<TerminalAgentModelOption> {
                 .iter()
                 .find_map(|key| map.get(*key)?.as_bool())
                 .unwrap_or(false);
-            Some(TerminalAgentModelOption {
+            Some(TerminalAgentOption {
                 id,
                 label,
                 group,
                 is_default,
+                thinking: None,
             })
         }
         _ => None,
     }
 }
 
-fn dedupe_model_options(models: Vec<TerminalAgentModelOption>) -> Vec<TerminalAgentModelOption> {
-    let mut deduped: Vec<TerminalAgentModelOption> = Vec::with_capacity(models.len());
+fn dedupe_model_options(models: Vec<TerminalAgentOption>) -> Vec<TerminalAgentOption> {
+    let mut deduped: Vec<TerminalAgentOption> = Vec::with_capacity(models.len());
     for model in models {
         if !deduped.iter().any(|existing| existing.id == model.id) {
             deduped.push(model);
@@ -1503,11 +1486,21 @@ mod tests {
             && agent.stdout_parser == StdoutParser::CodexJsonl));
         assert!(agents.iter().any(|agent| agent.id == "cursor"
             && agent.cmd == "cursor-agent"
+            && agent.interactive_params.as_deref() == Some("--trust")
             && agent
                 .yolo_params
                 .as_deref()
                 .is_some_and(|p| p.contains("--force --print"))
-            && agent.yolo_interactive_params.as_deref() == Some("--yolo")));
+            && agent.yolo_interactive_params.as_deref() == Some("--yolo --trust")));
+        assert!(agents.iter().any(|agent| agent.id == "gemini"
+            && agent.interactive_params.as_deref() == Some("--skip-trust")
+            && agent.yolo_interactive_params.as_deref() == Some("--yolo --skip-trust")));
+        assert!(agents.iter().any(|agent| agent.id == "commandcode"
+            && agent.interactive_params.as_deref() == Some("--trust --skip-onboarding")));
+        assert!(agents
+            .iter()
+            .any(|agent| agent.id == "pi"
+                && agent.interactive_params.as_deref() == Some("--approve")));
         assert!(agents.iter().any(|agent| {
             agent.id == "antigravity"
                 && agent.cmd == "agy"
@@ -1854,8 +1847,8 @@ mod tests {
     }
 
     #[test]
-    fn line_model_catalog_strips_default_suffix() {
-        let models = parse_line_model_catalog(
+    fn line_terminal_agent_options_strips_default_suffix() {
+        let models = parse_line_terminal_agent_options(
             "Available models:\n* grok-4.5 (default)\n- grok-composer-2.5-fast\n\n",
         );
         assert_eq!(models.len(), 2);
@@ -1866,8 +1859,22 @@ mod tests {
     }
 
     #[test]
-    fn grok_model_catalog_ignores_status_preamble() {
-        let models = parse_grok_model_catalog(
+    fn line_terminal_agent_options_parses_cursor_labels_and_current() {
+        let models = parse_line_terminal_agent_options(
+            "Available models\n\nauto - Auto (default)\ngemini-3.5-flash - Gemini 3.5 Flash (current)\n\nTip: use --model <id>\n",
+        );
+        assert_eq!(models.len(), 2);
+        assert_eq!(models[0].id, "auto");
+        assert_eq!(models[0].label, "Auto");
+        assert!(!models[0].is_default);
+        assert_eq!(models[1].id, "gemini-3.5-flash");
+        assert_eq!(models[1].label, "Gemini 3.5 Flash");
+        assert!(models[1].is_default);
+    }
+
+    #[test]
+    fn grok_terminal_agent_options_ignores_status_preamble() {
+        let models = parse_grok_terminal_agent_options(
             "You are logged in with grok.com.\n\nDefault model: grok-4.5\n\nAvailable models:\n  * grok-4.5 (default)\n  - grok-composer-2.5-fast\n",
         );
         assert_eq!(

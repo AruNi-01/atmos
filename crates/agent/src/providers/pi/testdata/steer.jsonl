@@ -1,0 +1,3 @@
+{"id":"pi-rpc-8","type":"response","command":"steer","success":true}
+{"type":"queue_update","steering":["only src/"],"followUp":[]}
+{"type":"agent_settled"}

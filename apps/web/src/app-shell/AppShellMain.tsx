@@ -7,6 +7,7 @@ import { PushPageStack, usePushPageTransition } from "@workspace/ui";
 
 import CenterStage from "@/app-shell/CenterStage";
 import Footer from "@/app-shell/Footer";
+import { AutomationStalePromptBanner } from "@/features/automations/components/AutomationStalePromptBanner";
 import Header from "@/app-shell/Header";
 import { HeldShortcutPrefixListener } from "@/app-shell/HeldShortcutPrefixListener";
 import LeftSidebar from "@/app-shell/LeftSidebar";
@@ -118,9 +119,14 @@ export function AppShellMain() {
               >
                 <div
                   data-center-stage-body
-                  className="min-h-0 flex-1 overflow-hidden"
+                  className="relative min-h-0 flex-1 overflow-hidden"
                 >
                   <CenterStage />
+                  <div className="pointer-events-none absolute right-4 bottom-4 z-20">
+                    <div className="pointer-events-auto">
+                      <AutomationStalePromptBanner />
+                    </div>
+                  </div>
                 </div>
                 <Footer />
               </div>

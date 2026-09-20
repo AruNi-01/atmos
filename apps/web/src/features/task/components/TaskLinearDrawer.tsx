@@ -20,12 +20,12 @@ import {
   CalendarClock,
   ExternalLink,
   FolderKanban,
-  Github,
   Rocket,
   Signal,
   Tag,
   UserRound,
 } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { LinearIcon } from "@workspace/ui/components/icons/linear-icon";
 import type {
   LinearGithubRefPayload,

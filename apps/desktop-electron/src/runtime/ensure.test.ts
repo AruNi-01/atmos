@@ -11,6 +11,7 @@ import {
   setOwnedServerPidForTest,
   stopOwnedAtmosServer,
 } from "./ensure.ts";
+import { desktopQuitShouldStopRuntime } from "./ownership.ts";
 
 describe("Server data dir + quit ownership", () => {
   it("defaults to shared ~/.atmos/data/desktop (not desktop-electron sandbox)", () => {
@@ -38,19 +39,16 @@ describe("Server data dir + quit ownership", () => {
     }
   });
 
-  it("stopOwnedAtmosServer no-ops when this process did not start Server", () => {
+  it("stopOwnedAtmosServer never kills shared Runtime (APP-076)", () => {
     setOwnedServerPidForTest(null);
     const r = stopOwnedAtmosServer();
     expect(r.stopped).toBe(false);
-    expect(r.reason).toBe("not_owned");
-  });
-
-  it("stopOwnedAtmosServer reports already_dead for stale pid", () => {
-    // PID unlikely to exist
+    expect(r.reason).toBe("shared_runtime");
     setOwnedServerPidForTest(999_999_991);
-    const r = stopOwnedAtmosServer();
-    expect(r.stopped).toBe(false);
-    expect(r.reason).toBe("already_dead");
+    const r2 = stopOwnedAtmosServer();
+    expect(r2.stopped).toBe(false);
+    expect(r2.reason).toBe("shared_runtime");
+    expect(desktopQuitShouldStopRuntime()).toBe(false);
   });
 
   it("electronServerPath prepends Homebrew bins for GUI-launched Server", () => {
@@ -85,7 +83,7 @@ describe("runtime manifest schema", () => {
     });
     expect(manifest).toEqual({
       version: 1,
-      source: "desktop-electron",
+      source: "runtime-manager",
       pid: 76309,
       started_at: startedAt,
       api: {

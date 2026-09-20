@@ -23,3 +23,13 @@ pub use support::browser::{
     load_manual_cursor_session_token, BrowserCookieSource,
 };
 pub use support::browser_access::{browser_cookie_spec, BrowserCookieSpec};
+
+/// First stored API key for a quota provider (`~/.atmos/data/quota-usage/provider_config.json`).
+pub fn stored_provider_api_key(provider_id: &str) -> Option<String> {
+    config::provider_config_api_key(provider_id)
+}
+
+/// Persist an API key into the shared quota-usage provider config.
+pub fn store_provider_api_key(provider_id: &str, api_key: &str) -> String {
+    config::add_provider_api_key(provider_id, None, api_key.to_string())
+}

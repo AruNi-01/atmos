@@ -1,0 +1,34 @@
+{
+  "source": "live cursor-agent --print --mode plan --output-format stream-json 2026.09.02",
+  "note": "Print stream uses createPlanToolCall; ACP Chat maps via _toolName createPlan / ExtMethod cursor/create_plan",
+  "toolCallId": "tool_live_create_plan",
+  "title": "Create plan",
+  "kind": "other",
+  "status": "pending",
+  "rawInput": {
+    "_toolName": "createPlan",
+    "plan": "# 添加 hello.txt\n\n## 步骤\n\n1. 在 [`/tmp/probe/hello.txt`](/tmp/probe/hello.txt) 创建文件\n2. 写入内容：`Hello World`（单行，无尾随换行可选）\n3. 确认文件存在且内容正确\n",
+    "todos": [
+      {
+        "id": "create-file",
+        "content": "创建 hello.txt 并写入 Hello World",
+        "status": "TODO_STATUS_PENDING",
+        "createdAt": "1788673552113",
+        "updatedAt": "1788673552113",
+        "dependencies": []
+      },
+      {
+        "id": "verify",
+        "content": "确认文件内容正确",
+        "status": "TODO_STATUS_PENDING",
+        "createdAt": "1788673552113",
+        "updatedAt": "1788673552113",
+        "dependencies": []
+      }
+    ],
+    "overview": "在仓库根目录新增 `hello.txt`，内容为 `Hello World`。",
+    "name": "Add hello.txt",
+    "isProject": false,
+    "phases": []
+  }
+}

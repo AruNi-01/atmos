@@ -1,16 +1,23 @@
 use serde_json::Value;
 use tracing::debug;
 
-use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind};
+use super::{extract_cwd, resolve_session_id};
+use crate::service::agent_status::{
+    AgentOccupancy, AgentStatusContext, AgentStatusService, AgentToolType, OccupancyUpdateKind,
+};
 
-pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &AtmosContext) {
+pub(super) fn handle_event(
+    service: &AgentStatusService,
+    payload: &Value,
+    ctx: &AgentStatusContext,
+) {
     let hook_event = payload
         .get("hook_event_name")
         .and_then(|v| v.as_str())
         .unwrap_or("");
 
-    let session_id = service.resolve_session_id(payload, AgentToolType::Ampcode, ctx);
-    let project_path = AgentHooksService::extract_cwd(payload).map(String::from);
+    let session_id = resolve_session_id(payload, AgentToolType::Ampcode, ctx);
+    let project_path = extract_cwd(payload).map(String::from);
 
     debug!(
         "ampcode hook event: {} session_id={}",
@@ -23,10 +30,10 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
             service.update_state(
                 &session_id,
                 AgentToolType::Ampcode,
-                AgentHookState::Idle,
+                AgentOccupancy::Idle,
                 project_path,
                 ctx,
-                StateUpdateKind::NewTurn,
+                OccupancyUpdateKind::NewTurn,
             );
         }
         // Agent begins a turn → Running
@@ -34,23 +41,23 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
             service.update_state(
                 &session_id,
                 AgentToolType::Ampcode,
-                AgentHookState::Running,
+                AgentOccupancy::Running,
                 project_path,
                 ctx,
-                StateUpdateKind::NewTurn,
+                OccupancyUpdateKind::NewTurn,
             );
         }
         // Tool events → Running, idempotent: skip broadcast if already Running
         "ToolCall" | "ToolResult" => {
             let current = service.sessions.read().get(&session_id).map(|s| s.state);
-            if current != Some(AgentHookState::Running) {
+            if current != Some(AgentOccupancy::Running) {
                 service.update_state(
                     &session_id,
                     AgentToolType::Ampcode,
-                    AgentHookState::Running,
+                    AgentOccupancy::Running,
                     project_path,
                     ctx,
-                    StateUpdateKind::Progress,
+                    OccupancyUpdateKind::Progress,
                 );
             }
         }
@@ -61,10 +68,10 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
             service.update_state(
                 &session_id,
                 AgentToolType::Ampcode,
-                AgentHookState::Idle,
+                AgentOccupancy::Idle,
                 project_path,
                 ctx,
-                StateUpdateKind::TerminalIdle,
+                OccupancyUpdateKind::TerminalIdle,
             );
         }
         _ => {
@@ -79,66 +86,66 @@ mod tests {
 
     #[test]
     fn session_start_sets_idle() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let payload = serde_json::json!({
             "hook_event_name": "SessionStart",
             "session_id": "s1",
         });
-        handle_event(&service, &payload, &AtmosContext::default());
-        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
+        handle_event(&service, &payload, &AgentStatusContext::default());
+        assert_eq!(service.get_all_sessions()[0].state, AgentOccupancy::Idle);
     }
 
     #[test]
     fn agent_start_sets_running() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let payload = serde_json::json!({
             "hook_event_name": "AgentStart",
             "session_id": "s1",
         });
-        handle_event(&service, &payload, &AtmosContext::default());
-        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Running);
+        handle_event(&service, &payload, &AgentStatusContext::default());
+        assert_eq!(service.get_all_sessions()[0].state, AgentOccupancy::Running);
     }
 
     #[test]
     fn tool_call_idempotent_when_already_running() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let start = serde_json::json!({ "hook_event_name": "AgentStart", "session_id": "s1" });
         let tool_call = serde_json::json!({ "hook_event_name": "ToolCall", "session_id": "s1", "tool": "bash" });
-        handle_event(&service, &start, &AtmosContext::default());
-        handle_event(&service, &tool_call, &AtmosContext::default());
+        handle_event(&service, &start, &AgentStatusContext::default());
+        handle_event(&service, &tool_call, &AgentStatusContext::default());
         let sessions = service.get_all_sessions();
         assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].state, AgentHookState::Running);
+        assert_eq!(sessions[0].state, AgentOccupancy::Running);
     }
 
     #[test]
     fn agent_end_sets_idle() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let start = serde_json::json!({ "hook_event_name": "AgentStart", "session_id": "s1" });
         let end = serde_json::json!({
             "hook_event_name": "AgentEnd",
             "session_id": "s1",
             "status": "done",
         });
-        handle_event(&service, &start, &AtmosContext::default());
-        handle_event(&service, &end, &AtmosContext::default());
-        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
+        handle_event(&service, &start, &AgentStatusContext::default());
+        handle_event(&service, &end, &AgentStatusContext::default());
+        assert_eq!(service.get_all_sessions()[0].state, AgentOccupancy::Idle);
     }
 
     #[test]
     fn agent_end_error_and_cancelled_also_set_idle() {
         for status in ["error", "cancelled"] {
-            let service = AgentHooksService::new();
+            let service = AgentStatusService::new();
             let start = serde_json::json!({ "hook_event_name": "AgentStart", "session_id": "s1" });
             let end = serde_json::json!({
                 "hook_event_name": "AgentEnd",
                 "session_id": "s1",
                 "status": status,
             });
-            handle_event(&service, &start, &AtmosContext::default());
-            handle_event(&service, &end, &AtmosContext::default());
+            handle_event(&service, &start, &AgentStatusContext::default());
+            handle_event(&service, &end, &AgentStatusContext::default());
             let sessions = service.get_all_sessions();
-            assert_eq!(sessions[0].state, AgentHookState::Idle, "status={}", status);
+            assert_eq!(sessions[0].state, AgentOccupancy::Idle, "status={}", status);
         }
     }
 }

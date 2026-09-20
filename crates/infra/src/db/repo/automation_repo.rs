@@ -124,6 +124,7 @@ impl<'a> AutomationRepo<'a> {
             last_run_guid: Set(None),
             last_status: Set(None),
             run_count: Set(0),
+            execute_mode: Set(input.execute_mode),
         };
 
         Ok(model.insert(self.db).await?)
@@ -185,6 +186,9 @@ impl<'a> AutomationRepo<'a> {
         }
         if let Some(value) = input.trigger_config_json {
             active.trigger_config_json = Set(value);
+        }
+        if let Some(value) = input.execute_mode {
+            active.execute_mode = Set(value);
         }
 
         Ok(active.update(self.db).await?)
@@ -441,6 +445,12 @@ impl<'a> AutomationRepo<'a> {
             completed_at: Set(None),
             exit_code: Set(None),
             cancellation_requested: Set(false),
+            execute_mode: Set(input.execute_mode),
+            surface_kind: Set(input.surface_kind),
+            surface_session_id: Set(input.surface_session_id),
+            surface_scope_id: Set(input.surface_scope_id),
+            stale_prompted_at: Set(None),
+            stale_prompt_dismissed: Set(false),
         };
 
         let txn = self.db.begin().await?;
@@ -473,6 +483,75 @@ impl<'a> AutomationRepo<'a> {
             .order_by_asc(automation_run::Column::StartedAt)
             .all(self.db)
             .await?)
+    }
+
+    pub async fn list_standalone_automations(&self) -> Result<Vec<automation::Model>> {
+        Ok(automation::Entity::find()
+            .filter(automation::Column::IsDeleted.eq(false))
+            .filter(automation::Column::TargetKind.eq("standalone"))
+            .order_by_asc(automation::Column::DisplayName)
+            .all(self.db)
+            .await?)
+    }
+
+    pub async fn list_stale_interactive_candidates(
+        &self,
+        older_than: NaiveDateTime,
+    ) -> Result<Vec<automation_run::Model>> {
+        Ok(automation_run::Entity::find()
+            .filter(automation_run::Column::IsDeleted.eq(false))
+            .filter(automation_run::Column::Status.eq("running"))
+            .filter(automation_run::Column::ExecuteMode.is_in(["terminal", "chat"]))
+            .filter(automation_run::Column::StartedAt.lte(older_than))
+            .filter(automation_run::Column::StalePromptedAt.is_null())
+            .order_by_asc(automation_run::Column::StartedAt)
+            .all(self.db)
+            .await?)
+    }
+
+    pub async fn mark_stale_prompted(
+        &self,
+        run_guid: &str,
+        prompted_at: NaiveDateTime,
+    ) -> Result<automation_run::Model> {
+        let run = self
+            .find_run_by_guid(run_guid)
+            .await?
+            .ok_or_else(|| InfraError::Custom("Automation run not found".into()))?;
+        let mut active: automation_run::ActiveModel = run.into();
+        active.updated_at = Set(Utc::now().naive_utc());
+        active.stale_prompted_at = Set(Some(prompted_at));
+        Ok(active.update(self.db).await?)
+    }
+
+    pub async fn dismiss_stale_prompt(&self, run_guid: &str) -> Result<automation_run::Model> {
+        let run = self
+            .find_run_by_guid(run_guid)
+            .await?
+            .ok_or_else(|| InfraError::Custom("Automation run not found".into()))?;
+        let mut active: automation_run::ActiveModel = run.into();
+        active.updated_at = Set(Utc::now().naive_utc());
+        active.stale_prompt_dismissed = Set(true);
+        Ok(active.update(self.db).await?)
+    }
+
+    pub async fn update_run_surface(
+        &self,
+        run_guid: &str,
+        surface_kind: Option<String>,
+        surface_session_id: Option<String>,
+        surface_scope_id: Option<String>,
+    ) -> Result<automation_run::Model> {
+        let run = self
+            .find_run_by_guid(run_guid)
+            .await?
+            .ok_or_else(|| InfraError::Custom("Automation run not found".into()))?;
+        let mut active: automation_run::ActiveModel = run.into();
+        active.updated_at = Set(Utc::now().naive_utc());
+        active.surface_kind = Set(surface_kind);
+        active.surface_session_id = Set(surface_session_id);
+        active.surface_scope_id = Set(surface_scope_id);
+        Ok(active.update(self.db).await?)
     }
 
     pub async fn claim_github_delivery(
@@ -740,6 +819,7 @@ pub struct CreateAutomationRecord {
     pub trigger_config_json: Option<String>,
     pub instructions_path: String,
     pub artifact_root: String,
+    pub execute_mode: String,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -759,6 +839,7 @@ pub struct UpdateAutomationRecord {
     pub trigger_enabled: Option<bool>,
     pub trigger_status: Option<String>,
     pub trigger_config_json: Option<Option<String>>,
+    pub execute_mode: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -784,6 +865,10 @@ pub struct CreateAutomationRunRecord {
     pub tmux_window_name: Option<String>,
     pub tmux_window_index: Option<i32>,
     pub started_at: NaiveDateTime,
+    pub execute_mode: String,
+    pub surface_kind: Option<String>,
+    pub surface_session_id: Option<String>,
+    pub surface_scope_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -868,6 +953,221 @@ mod tests {
                 .unwrap();
             assert!(matches!(result, GithubDeliveryClaimResult::Claimed(_)));
         }
+    }
+
+    fn sample_automation(
+        guid: &str,
+        execute_mode: &str,
+        target_kind: &str,
+    ) -> CreateAutomationRecord {
+        CreateAutomationRecord {
+            guid: guid.to_string(),
+            display_name: "Daily health".to_string(),
+            agent_id: "codex".to_string(),
+            agent_config_json: None,
+            target_kind: target_kind.to_string(),
+            project_guid: None,
+            workspace_guid: None,
+            schedule_enabled: false,
+            schedule_kind: None,
+            schedule_expr: None,
+            schedule_timezone: "UTC".to_string(),
+            next_run_at: None,
+            trigger_kind: "manual".to_string(),
+            trigger_enabled: false,
+            trigger_status: "active".to_string(),
+            trigger_config_json: None,
+            instructions_path: "/tmp/i.md".to_string(),
+            artifact_root: "/tmp".to_string(),
+            execute_mode: execute_mode.to_string(),
+        }
+    }
+
+    fn sample_run(
+        automation_guid: &str,
+        run_guid: &str,
+        execute_mode: &str,
+        started_at: chrono::NaiveDateTime,
+    ) -> CreateAutomationRunRecord {
+        CreateAutomationRunRecord {
+            guid: run_guid.to_string(),
+            automation_guid: automation_guid.to_string(),
+            agent_id: Some("codex".to_string()),
+            agent_label: Some("Codex".to_string()),
+            agent_config_json: Some(r#"{"kind":"chat","provider_id":"claude"}"#.to_string()),
+            trigger_kind: "manual".to_string(),
+            trigger_source_json: None,
+            status: "running".to_string(),
+            target_kind: "new_workspace".to_string(),
+            project_guid: Some("proj-1".to_string()),
+            workspace_guid: Some("ws-created".to_string()),
+            created_workspace_guid: Some("ws-created".to_string()),
+            cwd: "/tmp/ws".to_string(),
+            run_dir: "/tmp/run".to_string(),
+            prompt_path: "/tmp/run/p.md".to_string(),
+            result_path: "/tmp/run/f.md".to_string(),
+            run_json_path: "/tmp/run/r.json".to_string(),
+            tmux_session_name: None,
+            tmux_window_name: None,
+            tmux_window_index: None,
+            started_at,
+            execute_mode: execute_mode.to_string(),
+            surface_kind: Some("chat".to_string()),
+            surface_session_id: Some("chat-1".to_string()),
+            surface_scope_id: Some("ws-created".to_string()),
+        }
+    }
+
+    #[tokio::test]
+    async fn s1_create_persists_headless_execute_mode() {
+        let db = setup_db().await;
+        let repo = AutomationRepo::new(&db);
+        repo.create_automation(sample_automation("auto-1", "headless", "standalone"))
+            .await
+            .unwrap();
+        let stored = repo
+            .find_automation_by_guid("auto-1")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(stored.execute_mode, "headless");
+    }
+
+    #[tokio::test]
+    async fn s14_new_workspace_run_persists_created_workspace_guid() {
+        let db = setup_db().await;
+        let repo = AutomationRepo::new(&db);
+        repo.create_automation(sample_automation("auto-1", "terminal", "new_workspace"))
+            .await
+            .unwrap();
+        repo.create_run(sample_run(
+            "auto-1",
+            "run-1",
+            "terminal",
+            Utc::now().naive_utc(),
+        ))
+        .await
+        .unwrap();
+        let run = repo.find_run_by_guid("run-1").await.unwrap().unwrap();
+        assert_eq!(run.created_workspace_guid.as_deref(), Some("ws-created"));
+        assert_eq!(run.surface_scope_id.as_deref(), Some("ws-created"));
+        assert_eq!(run.status, "running");
+    }
+
+    #[tokio::test]
+    async fn s21_chat_surface_metadata_survives_reload() {
+        let db = setup_db().await;
+        let repo = AutomationRepo::new(&db);
+        repo.create_automation(sample_automation("auto-1", "chat", "standalone"))
+            .await
+            .unwrap();
+        repo.create_run(sample_run(
+            "auto-1",
+            "run-1",
+            "chat",
+            Utc::now().naive_utc(),
+        ))
+        .await
+        .unwrap();
+        let run = repo.find_run_by_guid("run-1").await.unwrap().unwrap();
+        assert_eq!(run.execute_mode, "chat");
+        assert_eq!(run.surface_kind.as_deref(), Some("chat"));
+        assert_eq!(run.surface_session_id.as_deref(), Some("chat-1"));
+        assert!(run
+            .agent_config_json
+            .as_deref()
+            .unwrap()
+            .contains(r#""kind":"chat""#));
+    }
+
+    #[tokio::test]
+    async fn s24_standalone_create_does_not_insert_project() {
+        let db = setup_db().await;
+        let repo = AutomationRepo::new(&db);
+        let before = crate::db::entities::project::Entity::find()
+            .count(&db)
+            .await
+            .unwrap();
+        repo.create_automation(sample_automation("auto-1", "terminal", "standalone"))
+            .await
+            .unwrap();
+        let after = crate::db::entities::project::Entity::find()
+            .count(&db)
+            .await
+            .unwrap();
+        assert_eq!(before, after);
+        assert_eq!(before, 0);
+        let listed = repo.list_standalone_automations().await.unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].guid, "auto-1");
+    }
+
+    #[tokio::test]
+    async fn already_running_run_is_visible_to_repo() {
+        let db = setup_db().await;
+        let repo = AutomationRepo::new(&db);
+        repo.create_automation(sample_automation("auto-1", "terminal", "standalone"))
+            .await
+            .unwrap();
+        repo.create_run(sample_run(
+            "auto-1",
+            "run-1",
+            "terminal",
+            Utc::now().naive_utc(),
+        ))
+        .await
+        .unwrap();
+        assert!(repo.has_running_run_for_automation("auto-1").await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn s32_s33_stale_prompt_scan_and_dismiss_keep_running() {
+        let db = setup_db().await;
+        let repo = AutomationRepo::new(&db);
+        repo.create_automation(sample_automation("auto-1", "terminal", "standalone"))
+            .await
+            .unwrap();
+        repo.create_automation(sample_automation("auto-2", "headless", "standalone"))
+            .await
+            .unwrap();
+        let started_at = Utc::now().naive_utc() - ChronoDuration::minutes(61);
+        repo.create_run(sample_run("auto-1", "run-1", "terminal", started_at))
+            .await
+            .unwrap();
+        repo.create_run(sample_run("auto-2", "run-headless", "headless", started_at))
+            .await
+            .unwrap();
+
+        let older_than = Utc::now().naive_utc() - ChronoDuration::hours(1);
+        let candidates = repo
+            .list_stale_interactive_candidates(older_than)
+            .await
+            .unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].guid, "run-1");
+
+        let prompted_at = Utc::now().naive_utc();
+        let prompted = repo
+            .mark_stale_prompted("run-1", prompted_at)
+            .await
+            .unwrap();
+        assert_eq!(prompted.status, "running");
+        assert!(prompted.stale_prompted_at.is_some());
+        assert!(!prompted.stale_prompt_dismissed);
+
+        let dismissed = repo.dismiss_stale_prompt("run-1").await.unwrap();
+        assert_eq!(dismissed.status, "running");
+        assert!(dismissed.stale_prompt_dismissed);
+        assert!(dismissed.completed_at.is_none());
+
+        let reloaded = repo.find_run_by_guid("run-1").await.unwrap().unwrap();
+        assert_eq!(reloaded.status, "running");
+        assert!(reloaded.stale_prompt_dismissed);
+        assert!(repo
+            .list_stale_interactive_candidates(older_than)
+            .await
+            .unwrap()
+            .is_empty());
     }
 
     #[tokio::test]

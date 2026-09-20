@@ -1,0 +1,15 @@
+{
+  "sessionId": "01a0aa67-90b6-7f52-826d-a9947de25aef",
+  "update": {
+    "sessionUpdate": "subagent_spawned",
+    "subagent_id": "01a0aa67-9404-7771-b043-b2101c138e4f",
+    "attempt_id": "at1.a43b4691b6a34c4babe960788cfb5aee",
+    "parent_session_id": "01a0aa67-90b6-7f52-826d-a9947de25aef",
+    "parent_prompt_id": "18dce77d-1bf0-4c94-aad4-80d5abd1aab2",
+    "child_session_id": "01a0aa67-9404-7771-b043-b2101c138e4f",
+    "subagent_type": "general-purpose",
+    "description": "goal plan writer",
+    "effective_context_source": "new",
+    "model": "grok-4.6"
+  }
+}

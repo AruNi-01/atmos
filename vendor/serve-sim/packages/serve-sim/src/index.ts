@@ -19,6 +19,7 @@ import { textToKeyEvents, UnsupportedCharacterError, sendKeyEventsToWs } from ".
 import { dirnameOf, sleepSync, isPortFree, servePreview } from "./runtime";
 import { killPortHolder } from "./ports";
 import { findBootedDevice, resolveDevice } from "./device";
+import { runStreamDebugLog, startStreamDebugLog } from "./stream-debug-log";
 import { permissions } from "./permissions";
 import { uiSettings } from "./ui-settings";
 import { debugCli, debugHelper, debugState } from "./debug";
@@ -35,6 +36,7 @@ import {
   sendCameraHelperCommand as sendHelperCommand,
 } from "./camera-helper";
 import { parseIceUrlList, streamHelperArgs, streamSettingsEqual } from "./stream-runtime-args";
+import { MAX_MJPEG_STREAM_FPS, MAX_VIDEO_STREAM_FPS } from "./stream-settings";
 import { hostServeSimBin, isBunVirtualPath } from "./host-bin";
 
 // `import.meta.dir` is Bun-only; resolve once via fileURLToPath so the bundled
@@ -1639,6 +1641,7 @@ async function serve(
   options: {
     stream?: StreamRuntimeOptions;
     metricsCorsOrigins?: string[];
+    debugStreamPath?: string;
   } = {},
 ) {
   // Boot the target simulators; the preview server streams them in-process
@@ -1702,6 +1705,16 @@ async function serve(
     }
   };
   process.on("exit", clearAll);
+
+  if (options.debugStreamPath) {
+    const logger = startStreamDebugLog({
+      path: options.debugStreamPath,
+      statsUrl: (device) =>
+        `http://127.0.0.1:${boundPort}/helper/${encodeURIComponent(device)}/webrtc/stats`,
+    });
+    runStreamDebugLog(targetDevices, logger);
+      console.log(`  - Stream debug: recording to ${options.debugStreamPath}`);
+  }
 
   const exposedToLan = host !== "127.0.0.1" && host !== "localhost" && host !== "::1";
   const networkIP = getLocalNetworkIP();
@@ -1804,8 +1817,8 @@ program
   .option("--turn-credential <credential>", "TURN credential")
   .option(
     "--mjpeg-fps <fps>",
-    "MJPEG frame rate (1-120)",
-    (value) => parseNumberInRange(value, "--mjpeg-fps", 1, 120, true),
+    `MJPEG frame rate (1-${MAX_MJPEG_STREAM_FPS})`,
+    (value) => parseNumberInRange(value, "--mjpeg-fps", 1, MAX_MJPEG_STREAM_FPS, true),
   )
   .option(
     "--mjpeg-quality <quality>",
@@ -1824,8 +1837,13 @@ program
   )
   .option(
     "--video-fps <fps>",
-    "H.264/WebRTC frame rate (1-120)",
-    (value) => parseNumberInRange(value, "--video-fps", 1, 120, true),
+    `H.264/WebRTC frame rate (1-${MAX_VIDEO_STREAM_FPS})`,
+    (value) => parseNumberInRange(value, "--video-fps", 1, MAX_VIDEO_STREAM_FPS, true),
+  )
+  .option(
+    "--debug-stream <path>",
+    "Record sender-side stream statistics once a second to an NDJSON file. Needs the preview " +
+      "server and --transport webrtc.",
   )
   .option(
     "--metrics-cors-origin <origin>",
@@ -1928,6 +1946,22 @@ Examples:
       || wasProvided("codec")
       || webRtcOptionProvided
       || encoderOptionNames.some(wasProvided);
+    const debugStreamPath = opts.debugStream?.trim();
+    if (opts.debugStream !== undefined) {
+      // Every run mode that would record nothing useful, rather than accepting the flag and
+      // writing empty samples for the whole session.
+      const unusable = !debugStreamPath
+        ? "--debug-stream needs a file path, for example --debug-stream ./stream.ndjson"
+        : opts.detach || opts.preview === false
+          ? "--debug-stream needs the preview server, so drop --detach/--no-preview."
+          : stream.transport !== "webrtc"
+            ? "--debug-stream records sender statistics, which only exist on --transport webrtc."
+            : null;
+      if (unusable !== null) {
+        console.error(unusable);
+        process.exit(1);
+      }
+    }
     if (opts.detach) {
       const states = await detach(devices, startPort ?? 3100, stream, streamOptionsProvided);
       printStatesJSON(states);
@@ -1937,6 +1971,7 @@ Examples:
       await serve(startPort ?? 3200, devices, startPort !== undefined, loopbackHost(opts.host), {
         stream,
         metricsCorsOrigins: opts.metricsCorsOrigin,
+        debugStreamPath,
       });
     }
   });

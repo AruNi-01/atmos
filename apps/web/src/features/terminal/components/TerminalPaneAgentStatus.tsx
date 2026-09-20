@@ -1,9 +1,9 @@
 "use client";
 
 import { AgentAttentionIndicator } from "@/features/agent/components/AgentAttentionIndicator";
-import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
+import { AgentStatusIndicator } from "@/features/agent/components/AgentStatusIndicator";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
-import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
+import { AGENT_STATE, useAgentStatusStore } from "@/features/agent/store/agent-status-store";
 
 /**
  * Live agent-hook status + sticky need-attention for one terminal pane.
@@ -20,12 +20,12 @@ export function TerminalPaneAgentStatus({
   // Only show status for this specific pane – do NOT fall back to context-level
   // state, which would cause all windows in the same workspace to show RUNNING
   // whenever any one of them has an agent active.
-  const paneState = useAgentHooksStore((s) => s.getAgentStateForPaneId(paneId));
+  const paneState = useAgentStatusStore((s) => s.getAgentStateForPaneId(paneId));
   const attentionReason = useAgentAttentionStore((s) => s.panes.get(paneId)?.reason ?? null);
 
   if (paneState !== AGENT_STATE.IDLE) {
     return (
-      <AgentHookStatusIndicator
+      <AgentStatusIndicator
         state={paneState}
         variant="full"
         placement="terminal_panel"

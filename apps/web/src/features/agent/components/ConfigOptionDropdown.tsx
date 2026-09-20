@@ -12,9 +12,17 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  cn,
 } from "@workspace/ui";
-import type { AgentConfigOption } from "@/features/agent/hooks/use-agent-session";
+import type { AgentConfigOption } from "@/features/agent/lib/agent-chat-types";
 import type { RegistryAgent } from "@/api/ws-api";
+import {
+  configKindMatches,
+  configPickerGroupMessageKey,
+  isThinkingConfigId,
+  thinkingLevelMessageKey,
+  permissionModeMessageKey,
+} from "@/features/agent/lib/agent-chat-thread";
 
 export function ConfigOptionDropdown({
   opt,
@@ -23,6 +31,8 @@ export function ConfigOptionDropdown({
   setConfigOption,
   setAgentDefaultConfig,
   setInstalledAgents,
+  icon,
+  triggerClassName,
 }: {
   opt: AgentConfigOption;
   registryId: string;
@@ -30,16 +40,33 @@ export function ConfigOptionDropdown({
   setConfigOption: (id: string, val: string) => void;
   setAgentDefaultConfig: (id: string, val: string) => void;
   setInstalledAgents: React.Dispatch<React.SetStateAction<RegistryAgent[]>>;
+  icon?: React.ReactNode;
+  triggerClassName?: string;
 }) {
   const t = useTranslations("Agent.components");
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const groupKey = configPickerGroupMessageKey(opt.id);
+  const groupName = groupKey ? t(`chatPanel.pickers.${groupKey}`) : (opt.name || opt.id);
+
+  const optionLabel = (value: string, name?: string) => {
+    if (isThinkingConfigId(opt.id, opt.category)) {
+      const key = thinkingLevelMessageKey(value);
+      if (key) return t(`chatPanel.pickers.thinkingLevels.${key}`);
+    }
+    if (configKindMatches(opt.id, opt.category, "permission_mode")) {
+      const key = permissionModeMessageKey(value);
+      if (key) return t(`chatPanel.pickers.permissionModes.${key}`);
+    }
+    return name || value;
+  };
 
   const filteredOptions = opt.options.filter(o => {
     if (!search) return true;
     const s = search.toLowerCase();
     return (o.name || o.value).toLowerCase().includes(s) || o.value.toLowerCase().includes(s);
   });
+  const showSearch = opt.options.length > 15;
 
   return (
     <div className="flex items-center gap-1">
@@ -56,22 +83,28 @@ export function ConfigOptionDropdown({
           if (!open) setSearch("");
         }}
       >
-        <SelectTrigger className="h-8 text-xs min-w-[100px] border-border/50 bg-muted/20">
-          <SelectValue placeholder={opt.name || opt.id} />
+        <SelectTrigger className={cn("h-8 w-auto min-w-0 gap-1.5 border-0 bg-transparent px-2 text-xs shadow-none hover:bg-muted/60 dark:bg-transparent dark:hover:bg-muted/60 data-[state=open]:bg-muted/60 dark:data-[state=open]:bg-muted/60", triggerClassName)}>
+          {icon}
+          <SelectValue placeholder={groupName} />
         </SelectTrigger>
-        <SelectContent>
-          {opt.options.length > 15 && (
-            <div className="p-1.5 border-b border-border/50 sticky top-0 bg-popover z-10 mb-1">
-              <input
-                className="w-full bg-transparent text-xs px-2 py-1 outline-none placeholder:text-muted-foreground/50 border border-border/50 rounded focus:border-ring"
-                placeholder={t("configOptionDropdown.searchPlaceholder")}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => e.stopPropagation()}
-                autoFocus
-              />
-            </div>
-          )}
+        <SelectContent
+          className="max-h-[min(20rem,var(--radix-select-content-available-height))]"
+          header={
+            showSearch ? (
+              <div className="border-b border-border/50 p-1.5">
+                <input
+                  className="w-full rounded border border-border/50 bg-transparent px-2 py-1 text-xs outline-none placeholder:text-muted-foreground/50 focus:border-ring"
+                  placeholder={t("configOptionDropdown.searchPlaceholder")}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  autoFocus
+                />
+              </div>
+            ) : null
+          }
+        >
           {filteredOptions.length === 0 ? (
             <div className="p-2 text-xs text-muted-foreground text-center">{t("configOptionDropdown.noResults")}</div>
           ) : (
@@ -106,7 +139,7 @@ export function ConfigOptionDropdown({
                     setSearch("");
                   }}
                 >
-                  <span className="truncate">{o.name || o.value}</span>
+                  <span className="truncate">{optionLabel(o.value, o.name)}</span>
                 </SelectItem>
               );
               return (

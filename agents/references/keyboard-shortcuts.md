@@ -27,6 +27,8 @@ useHotkeys(
 
 `preventDefault` in the renderer cannot stop OS-reserved hotkeys such as screenshot **⌘⇧3 / ⌘⇧4 / ⌘⇧5 / ⌘⇧6**. Desktop swallows those chords **only for the key event that happens while Atmos is frontmost** (`apps/desktop-electron/src/host-shortcuts.ts`, consuming CGEventTap). Desktop Use is **not** required: the tap runs in Atmos (Electron) once Accessibility is granted; Desktop Use inject is an optional extra when that host is already installed. System screenshot hotkeys stay enabled — do **not** globally disable WindowServer symbolic hotkeys. The shell then notifies the renderer over the `host-shortcut` IPC event. Do **not** replay the chord with `sendInputEvent` — that can re-trigger Screenshot.app. Electron `globalShortcut` cannot preempt Screenshot.app. Add new OS-colliding accelerators to `os-reserved-shortcuts.ts` (and the native tap keycode list) rather than only handling them in React.
 
+**Do not request Accessibility at launch.** If the tap is not trusted, the first time macOS Screenshot.app steals ⌘⇧3–6 while Atmos was frontmost, show the drag-to-list grant overlay (with a short why-this-permission line) — never `isTrustedAccessibilityClient(true)`. Settings → Privacy Grant uses the same overlay without the extra line. Other features that need Atmos.app Accessibility / Screen Recording must follow this same lazy overlay path.
+
 ⌘1–9 / ⌘⇧1–9 are center-region shortcuts (any center tab, not only Terminal). They must use capture-phase listeners plus last-pointer tracking so a click on a non-focusable Files/Overview/GitHub panel still counts as center focus.
 
 ---

@@ -27,7 +27,7 @@ export function PageFilterButton({
           type="button"
           variant="outline"
           size="sm"
-          className="relative h-11 shrink-0 gap-1.5 rounded-xl px-3"
+          className="relative h-11 sm:h-11 shrink-0 gap-1.5 rounded-xl px-3"
           aria-label={label}
         >
           {activeCount > 0 ? (

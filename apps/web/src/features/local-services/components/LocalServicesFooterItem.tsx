@@ -8,6 +8,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  ScrollArea,
 } from "@workspace/ui";
 
 import { useComputerQueryScope } from "@/api/query/query-scope";
@@ -16,8 +17,11 @@ import { localServiceOpenUrl } from "@/features/local-services/lib/local-service
 import { localServicesScanQueryOptions } from "@/features/local-services/lib/local-services-query-options";
 import type { LocalService } from "@/features/local-services/types";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
+import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useLocalServicesScanQuery } from "@/features/local-services/hooks/use-local-services-query";
 import { ensureSurface } from "@/features/browser/lib/ensure-browser-surface";
+import { resolveCenterOpenContextId } from "@/app-shell/center-space/center-open-context";
+import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
 import { LocalServiceList } from "./LocalServiceList";
 
 const FOOTER_REQUEST = {
@@ -28,6 +32,8 @@ export function LocalServicesFooterItem() {
   const t = useTranslations("localServices.footerItem");
   const [open, setOpen] = React.useState(false);
   const router = useAppRouter();
+  const { effectiveContextId: hostContextId } = useContextParams();
+  const paintContextId = useCenterPaintContextId();
   const queryClient = useQueryClient();
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
@@ -61,21 +67,22 @@ export function LocalServicesFooterItem() {
   const handleOpen = React.useCallback((service: LocalService) => {
     const openUrl = localServiceOpenUrl(service);
     if (!openUrl) return;
-    const contextId = service.owner.workspace_id || service.owner.project_id;
-    if (service.owner.workspace_id) {
-      router.push(`/workspace?id=${encodeURIComponent(service.owner.workspace_id)}`);
-    } else if (service.owner.project_id) {
-      router.push(`/project?id=${encodeURIComponent(service.owner.project_id)}`);
-    } else {
+    const ownerId = service.owner.workspace_id || service.owner.project_id;
+    if (!ownerId) {
       window.open(openUrl, "_blank", "noopener,noreferrer");
       setOpen(false);
       return;
     }
-    if (contextId) {
-      void ensureSurface({ contextId, url: openUrl });
+    if (service.owner.workspace_id) {
+      router.push(`/workspace?id=${encodeURIComponent(service.owner.workspace_id)}`);
+    } else {
+      router.push(`/project?id=${encodeURIComponent(ownerId)}`);
     }
+    const paintId =
+      resolveCenterOpenContextId(ownerId, hostContextId, paintContextId) || ownerId;
+    void ensureSurface({ contextId: paintId, url: openUrl });
     setOpen(false);
-  }, [router]);
+  }, [hostContextId, paintContextId, router]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -95,8 +102,16 @@ export function LocalServicesFooterItem() {
           </span>
         </button>
       </PopoverTrigger>
-      <PopoverContent side="top" align="start" className="w-[420px] p-0">
-        <div className="max-h-[420px] overflow-y-auto p-3">
+      <PopoverContent
+        side="top"
+        align="start"
+        className="w-[420px] overflow-x-hidden overflow-y-hidden p-0"
+      >
+        <ScrollArea
+          className="h-auto w-full max-h-[min(420px,var(--radix-popover-content-available-height))]"
+          scrollFade
+          viewportClassName="h-auto max-h-[min(420px,var(--radix-popover-content-available-height))] p-3"
+        >
           {error ? (
             <div className="mb-3 rounded border border-destructive/30 bg-destructive/10 px-2 py-1 text-[10px] text-destructive">
               {error}
@@ -110,7 +125,7 @@ export function LocalServicesFooterItem() {
             onOpen={handleOpen}
             onRefresh={() => void forceRefresh()}
           />
-        </div>
+        </ScrollArea>
       </PopoverContent>
     </Popover>
   );

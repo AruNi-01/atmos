@@ -1,6 +1,7 @@
 import React from "react";
 import { Button } from "@workspace/ui";
-import { Github, LoaderCircle, RotateCw } from "lucide-react";
+import { LoaderCircle, RotateCw } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { cn } from "@/shared/lib/utils";
 
 export function ActionsActionBar({

@@ -26,6 +26,20 @@ import {
 } from "../lib/terminal-xterm-preview";
 import { useTerminalAppearanceSettingsStore } from "@/features/settings/store/terminal-appearance-settings-store";
 import { useTerminalWebSocket } from "../hooks/use-terminal-websocket";
+import { publishTerminalOutput } from "../lib/terminal-output-bus";
+import {
+  HIDDEN_PTY_CONNECT_GRID,
+  shouldConnectHiddenPty,
+} from "../lib/terminal-hidden-connect";
+import {
+  isTerminalKeepAlivePanel,
+  shouldPaintTerminalSurface,
+  trimHiddenTerminalWriteBuffer,
+} from "../lib/terminal-hidden-write";
+import {
+  isPaintContextVisuallyActive,
+  subscribeVisualActivePaintId,
+} from "@/app-shell/workspace-surface-activity";
 import type { TerminalProps, TerminalSnapshot } from "../types/index";
 import { getRuntimeApiConfig, wsBase } from "@/shared/lib/desktop-runtime";
 import { createTerminalLinkProvider } from "../lib/terminal-link-routing";
@@ -94,8 +108,8 @@ import type { TerminalSelectionSnapshot } from "../types";
 import { createAgentHookInterruptInference } from "@/features/agent/lib/agent-hook-interrupt-inference";
 import {
   findSessionForPaneId,
-  useAgentHooksStore,
-} from "@/features/agent/store/agent-hooks-store";
+  useAgentStatusStore,
+} from "@/features/agent/store/agent-status-store";
 import {
   isShellPreexecCommandOscTitle,
   isTmuxIndexTitle,
@@ -237,6 +251,7 @@ const Terminal = ({
   onAddSelectionAsContext,
   onStartSideChatForSelection,
   surfaceActive = true,
+  connectWhileHidden = false,
   ref,
 }: TerminalProps & { ref?: React.Ref<TerminalRef>; onInputWhileReadOnly?: () => void }) => {
   const cursorStyle = useTerminalAppearanceSettingsStore((state) => state.cursorStyle);
@@ -261,6 +276,8 @@ const Terminal = ({
   // this over reading layout so hop does not force reflow for hidden xterms.
   const surfaceActiveRef = useRef(surfaceActive);
   surfaceActiveRef.current = surfaceActive;
+  const connectWhileHiddenRef = useRef(connectWhileHidden);
+  connectWhileHiddenRef.current = connectWhileHidden;
   // Keep title callbacks in sync to avoid stale closures in OSC handlers
   const onTitleChangeRef = useRef(onTitleChange);
   useEffect(() => { onTitleChangeRef.current = onTitleChange; });
@@ -292,14 +309,14 @@ const Terminal = ({
         return `${wsId}:${windowName}`;
       },
       getSession: (id) => {
-        const sessions = useAgentHooksStore.getState().sessions;
+        const sessions = useAgentStatusStore.getState().sessions;
         return sessions.get(id) ?? findSessionForPaneId(sessions, id);
       },
       forceSessionIdle: (id) => {
-        const sessions = useAgentHooksStore.getState().sessions;
+        const sessions = useAgentStatusStore.getState().sessions;
         const session = sessions.get(id) ?? findSessionForPaneId(sessions, id);
         if (!session) return;
-        void useAgentHooksStore.getState().forceSessionIdle(session.session_id);
+        void useAgentStatusStore.getState().forceSessionIdle(session.session_id);
       },
     });
     interruptInferenceRef.current = inference;
@@ -518,11 +535,13 @@ const Terminal = ({
   const rafScheduledRef = useRef(false);
   const destructiveCoalesceUntilRef = useRef(0);
   const outputTextDecoderRef = useRef(new TextDecoder());
+  const paintLiveRef = useRef(true);
   const INTERACTIVE_OUTPUT_FAST_PATH_MAX = 512;
   const DESTRUCTIVE_COALESCE_MS = 32;
 
   const flushPendingWrites = useCallback(() => {
     rafScheduledRef.current = false;
+    if (!paintLiveRef.current) return;
     if (performance.now() < destructiveCoalesceUntilRef.current) {
       rafScheduledRef.current = true;
       requestAnimationFrame(flushPendingWrites);
@@ -538,27 +557,53 @@ const Terminal = ({
     }
   }, []);
 
+  const syncPaintLive = useCallback(() => {
+    paintLiveRef.current = shouldPaintTerminalSurface({
+      visuallyActiveWorkspace: isPaintContextVisuallyActive(workspaceId),
+      keepAlivePanel: isTerminalKeepAlivePanel(containerRef.current),
+    });
+    if (paintLiveRef.current && pendingWriteRef.current.length > 0 && !rafScheduledRef.current) {
+      rafScheduledRef.current = true;
+      requestAnimationFrame(flushPendingWrites);
+    }
+  }, [flushPendingWrites, workspaceId]);
+
+  useEffect(() => {
+    syncPaintLive();
+    return subscribeVisualActivePaintId(() => {
+      syncPaintLive();
+    });
+  }, [syncPaintLive]);
+
+  useEffect(() => {
+    syncPaintLive();
+  }, [surfaceActive, syncPaintLive]);
+
   const handleOutput = useCallback((data: string | Uint8Array) => {
+    publishTerminalOutput(sessionId, data);
     if (data.length > 0) {
       const term = terminalRef.current;
       const destructive = shouldAvoidTerminalWriteFastPath(data);
       if (destructive) {
         destructiveCoalesceUntilRef.current = performance.now() + DESTRUCTIVE_COALESCE_MS;
       }
-      const canFastPath =
-        term &&
-        !rafScheduledRef.current &&
-        pendingWriteRef.current.length === 0 &&
-        data.length > 0 &&
-        data.length <= INTERACTIVE_OUTPUT_FAST_PATH_MAX &&
-        !destructive &&
-        performance.now() >= destructiveCoalesceUntilRef.current;
-
-      if (canFastPath) {
-        term.write(cloneTerminalWriteChunk(data));
+      pendingWriteRef.current.push(cloneTerminalWriteChunk(data));
+      if (!paintLiveRef.current) {
+        pendingWriteRef.current = trimHiddenTerminalWriteBuffer(pendingWriteRef.current);
       } else {
-        pendingWriteRef.current.push(cloneTerminalWriteChunk(data));
-        if (!rafScheduledRef.current) {
+        const canFastPath =
+          term &&
+          !rafScheduledRef.current &&
+          pendingWriteRef.current.length === 1 &&
+          data.length > 0 &&
+          data.length <= INTERACTIVE_OUTPUT_FAST_PATH_MAX &&
+          !destructive &&
+          performance.now() >= destructiveCoalesceUntilRef.current;
+
+        if (canFastPath) {
+          pendingWriteRef.current = [];
+          term.write(cloneTerminalWriteChunk(data));
+        } else if (!rafScheduledRef.current) {
           rafScheduledRef.current = true;
           requestAnimationFrame(flushPendingWrites);
         }
@@ -577,7 +622,7 @@ const Terminal = ({
         listener(text);
       }
     }
-  }, [flushPendingWrites, onData, scheduleInputReady, status]);
+  }, [flushPendingWrites, onData, scheduleInputReady, sessionId, status]);
 
   const handleConnected = useCallback(() => {
     markTerminalSessionLive(sessionId);
@@ -1541,6 +1586,22 @@ const Terminal = ({
     };
     const connectWhenVisible = () => {
       if (cancelled || connectStarted) return;
+      if (
+        shouldConnectHiddenPty({
+          surfaceActive: surfaceActiveRef.current,
+          connectWhileHidden: connectWhileHiddenRef.current,
+        })
+      ) {
+        connectStarted = true;
+        void (async () => {
+          const runtimeWsUrl = await buildRuntimeWsUrl();
+          if (cancelled) return;
+          const separator = runtimeWsUrl.includes("?") ? "&" : "?";
+          const { cols, rows } = HIDDEN_PTY_CONNECT_GRID;
+          connect(`${runtimeWsUrl}${separator}cols=${cols}&rows=${rows}`);
+        })();
+        return;
+      }
       scheduleConnectCheck();
     };
     const scheduleVisibilityPoll = () => {

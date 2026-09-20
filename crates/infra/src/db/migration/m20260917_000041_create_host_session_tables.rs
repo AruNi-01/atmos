@@ -1,0 +1,199 @@
+use sea_orm_migration::prelude::*;
+
+#[derive(DeriveMigrationName)]
+pub struct Migration;
+
+#[async_trait::async_trait]
+impl MigrationTrait for Migration {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .create_table(
+                Table::create()
+                    .table(HostSession::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(HostSession::Guid)
+                            .string()
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(HostSession::CreatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(HostSession::UpdatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(HostSession::IsDeleted)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(ColumnDef::new(HostSession::SessionKey).string().not_null())
+                    .col(ColumnDef::new(HostSession::ProviderId).string().not_null())
+                    .col(ColumnDef::new(HostSession::NativeId).string().not_null())
+                    .col(ColumnDef::new(HostSession::Title).string().not_null())
+                    .col(ColumnDef::new(HostSession::Cwd).string().not_null())
+                    .col(ColumnDef::new(HostSession::ProjectName).string().not_null())
+                    .col(
+                        ColumnDef::new(HostSession::StartedAt)
+                            .date_time()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(HostSession::LastActiveAt)
+                            .date_time()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(HostSession::MessageCount).integer().null())
+                    .col(ColumnDef::new(HostSession::Model).string().null())
+                    .col(ColumnDef::new(HostSession::SourcePath).string().not_null())
+                    .col(ColumnDef::new(HostSession::ParentNativeId).string().null())
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx-host_session-session_key")
+                    .table(HostSession::Table)
+                    .col(HostSession::SessionKey)
+                    .unique()
+                    .if_not_exists()
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx-host_session-provider")
+                    .table(HostSession::Table)
+                    .col(HostSession::ProviderId)
+                    .col(HostSession::IsDeleted)
+                    .if_not_exists()
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx-host_session-project")
+                    .table(HostSession::Table)
+                    .col(HostSession::ProjectName)
+                    .col(HostSession::IsDeleted)
+                    .if_not_exists()
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx-host_session-last_active")
+                    .table(HostSession::Table)
+                    .col(HostSession::LastActiveAt)
+                    .col(HostSession::IsDeleted)
+                    .if_not_exists()
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx-host_session-parent")
+                    .table(HostSession::Table)
+                    .col(HostSession::ParentNativeId)
+                    .col(HostSession::IsDeleted)
+                    .if_not_exists()
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(HostSessionSync::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(HostSessionSync::Guid)
+                            .string()
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(HostSessionSync::CreatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(HostSessionSync::UpdatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(HostSessionSync::IsDeleted)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(HostSessionSync::LastSyncedAt)
+                            .date_time()
+                            .not_null(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .drop_table(Table::drop().table(HostSessionSync::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(HostSession::Table).to_owned())
+            .await?;
+        Ok(())
+    }
+}
+
+#[derive(Iden)]
+enum HostSession {
+    Table,
+    Guid,
+    CreatedAt,
+    UpdatedAt,
+    IsDeleted,
+    SessionKey,
+    ProviderId,
+    NativeId,
+    Title,
+    Cwd,
+    ProjectName,
+    StartedAt,
+    LastActiveAt,
+    MessageCount,
+    Model,
+    SourcePath,
+    ParentNativeId,
+}
+
+#[derive(Iden)]
+enum HostSessionSync {
+    Table,
+    Guid,
+    CreatedAt,
+    UpdatedAt,
+    IsDeleted,
+    LastSyncedAt,
+}

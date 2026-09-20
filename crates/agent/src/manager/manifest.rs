@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -15,7 +16,10 @@ pub(crate) struct InstallManifest {
     #[serde(alias = "entries")]
     pub registry: Vec<ManifestEntry>,
     #[serde(default)]
-    pub custom_agents: std::collections::HashMap<String, CustomAgentEntry>,
+    pub custom_agents: HashMap<String, CustomAgentEntry>,
+    /// Chat native hosts (`claude` / `codex` / `opencode` / `pi` / `grok`). Default off.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub native_chat_agents: HashMap<String, NativeAgentEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,6 +38,9 @@ pub(crate) struct ManifestEntry {
         skip_serializing_if = "Option::is_none"
     )]
     pub default_config: Option<std::collections::HashMap<String, String>>,
+    /// Chat picker overlay. `None` uses the default for this registry id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,6 +58,16 @@ pub(crate) struct CustomAgentEntry {
         skip_serializing_if = "Option::is_none"
     )]
     pub default_config: Option<std::collections::HashMap<String, String>>,
+    /// Built-ins default off (`None` / missing). User-added customs default on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+}
+
+/// Overlay for a Chat native host. Missing / `None` means disabled.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub(crate) struct NativeAgentEntry {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
 }
 
 pub(crate) fn manifest_path() -> Result<PathBuf> {
@@ -127,7 +144,7 @@ pub(crate) fn upsert_manifest_entry(manifest: &mut InstallManifest, entry: Manif
     if let Some(existing) = manifest
         .registry
         .iter_mut()
-        .find(|e| e.registry_id == entry.registry_id && e.install_method == entry.install_method)
+        .find(|e| e.registry_id == entry.registry_id)
     {
         let mut entry = entry;
         let default_config = entry
@@ -138,9 +155,11 @@ pub(crate) fn upsert_manifest_entry(manifest: &mut InstallManifest, entry: Manif
             .installed_version
             .take()
             .or(existing.installed_version.take());
+        let enabled = entry.enabled.or(existing.enabled.take());
         *existing = entry;
         existing.default_config = default_config;
         existing.installed_version = installed_version;
+        existing.enabled = enabled;
         return;
     }
     manifest.registry.push(entry);

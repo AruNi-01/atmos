@@ -1,16 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  isCenterToolTabValue,
-  PT_DESIGN_TAB_VALUE,
-} from "@/app-shell/center-tool-tabs";
 import { ptDesignSceneStorageKey } from "@/features/pt-design/storage-key";
 
 describe("PT Design Atmos host wiring", () => {
-  test("center tool tab registry accepts pt-design", () => {
-    expect(PT_DESIGN_TAB_VALUE).toBe("pt-design");
-    expect(isCenterToolTabValue("pt-design")).toBe(true);
+  test("S23 center tool tab registry accepts pt-design", () => {
+    const tabs = readFileSync(join(import.meta.dir, "../center-tool-tabs.ts"), "utf8");
+    expect(tabs).toContain('export const PT_DESIGN_TAB_VALUE = "pt-design"');
+    expect(tabs).toContain("PT_DESIGN_TAB_VALUE,");
+    expect(tabs).toContain("CENTER_TOOL_TAB_VALUES");
+    expect(ptDesignSceneStorageKey("x")).toBe("pt-design/v2/x");
   });
 
   test("launchpad includes pt-design", () => {
@@ -45,6 +44,7 @@ describe("PT Design Atmos host wiring", () => {
       "utf8",
     );
     expect(sidebar).not.toContain("onOpenPtDesign");
+    expect(sidebar).not.toContain("ptDesignLaunchpadHref");
     expect(sidebar).not.toContain('url.searchParams.set("tab", "pt-design")');
     expect(sidebar).not.toContain("useOpenToolCenterTab");
     expect(sidebar).not.toMatch(/useQueryState\(\s*["']tab["']/);
@@ -62,7 +62,7 @@ describe("PT Design Atmos host wiring", () => {
       join(import.meta.dir, "../workspace-center-frame.tsx"),
       "utf8",
     );
-    expect(frame).toContain("PtDesignCenterPanel");
+    expect(frame).toContain("PtDesignHostStage");
     expect(frame).toContain("pt-design");
   });
 
@@ -70,7 +70,8 @@ describe("PT Design Atmos host wiring", () => {
     const en = readFileSync(join(import.meta.dir, "../../../messages/en.json"), "utf8");
     const zh = readFileSync(join(import.meta.dir, "../../../messages/zh.json"), "utf8");
     expect(en).toContain("\"ptDesign\": \"Prototype Design\"");
-    expect(zh).toContain("\"ptDesign\": \"Prototype Design\"");
+    expect(zh).toContain("\"ptDesign\": \"原型设计\"");
+    expect(zh).not.toContain("\"ptDesign\": \"Prototype Design\"");
     expect(en).not.toMatch(/"ptDesign": "PT Design"/);
     expect(zh).not.toMatch(/"ptDesign": "PT Design"/);
   });
@@ -91,7 +92,7 @@ describe("PT Design Atmos host wiring", () => {
       join(import.meta.dir, "../../features/pt-design/storage-key.ts"),
       "utf8",
     );
-    expect(key).toContain("`pt-design:scene:${contextId}`");
+    expect(key).toContain("`pt-design/v2/${contextId}`");
     expect(panel).toContain("useTranslations");
     expect(panel).toContain("shareCopy");
     expect(panel).toContain("collabServerUrl");
@@ -100,8 +101,24 @@ describe("PT Design Atmos host wiring", () => {
     expect(panel).toContain("library={library}");
     expect(panel).toContain("agentBridge");
     expect(panel).toContain("clientId={contextId}");
+    expect(panel).toContain("documentMeta");
+    expect(panel).toContain("hostMetaForContext");
     expect(panel).toContain("AgentSurfaceIsland");
     expect(panel).toContain("relative h-full");
+    expect(panel).toContain("onBack={onBack}");
+  });
+
+  test("library adapter writes persist documents and overwrites the same file", () => {
+    const adapter = readFileSync(
+      join(import.meta.dir, "../../features/pt-design/library-adapter.ts"),
+      "utf8",
+    );
+    expect(adapter).toContain("persistFromLibraryBody");
+    expect(adapter).toContain("overwrite: true");
+    expect(adapter).toContain("ptx: persist.ptx");
+    expect(adapter).toContain("canvas: persist.canvas");
+    expect(adapter).not.toContain("That file has no scene");
+    expect(adapter).not.toContain("scene,");
   });
 
   test("no-context center stage opens Prototype Design from /pt-design or a legacy tab", () => {
@@ -115,23 +132,77 @@ describe("PT Design Atmos host wiring", () => {
     );
     expect(support).toContain("PtDesignStandaloneStage");
     expect(support).toContain('currentView === "pt-design" || ptDesignOpen');
-    expect(stage).toContain('ptDesignOpen={tabFromUrl === "pt-design"}');
+    expect(stage).toContain('ptDesignOpen={storedLastTab === "pt-design" || tabFromUrl === "pt-design"}');
   });
 
-  test("standalone page uses the global scene key while workspace tabs stay per context", () => {
-    expect(ptDesignSceneStorageKey("global")).toBe("pt-design:scene:global");
-    expect(ptDesignSceneStorageKey("ws-1")).toBe("pt-design:scene:ws-1");
+  test("S23 / S28 standalone page uses the v2 scene key while workspace tabs stay per context", () => {
+    expect(ptDesignSceneStorageKey("global")).toBe("pt-design/v2/global");
+    expect(ptDesignSceneStorageKey("ws-1")).toBe("pt-design/v2/ws-1");
     const standalone = readFileSync(
       join(import.meta.dir, "../../features/pt-design/PtDesignStandaloneStage.tsx"),
       "utf8",
     );
     expect(standalone).toContain('PT_DESIGN_GLOBAL_CONTEXT_ID = "global"');
+    expect(standalone).toContain("PtDesignOverview");
     expect(standalone).toContain("PtDesignCenterPanel");
+    expect(standalone).toContain("onBack");
+    expect(standalone).not.toContain("pt-design-standalone-canvas");
+    expect(standalone).not.toContain("foreignHref");
+    const tabBar = readFileSync(
+      join(import.meta.dir, "../CenterStageTabBar.tsx"),
+      "utf8",
+    );
+    expect(tabBar).toContain("usePtDesignOpenTitle");
+    expect(tabBar).toContain("ptDesignTabTitle");
+    expect(tabBar).toContain("PencilRuler");
+    const overview = readFileSync(
+      join(import.meta.dir, "../../features/pt-design/PtDesignOverview.tsx"),
+      "utf8",
+    );
+    expect(overview).toContain("listPtDesignDocs");
+    expect(overview).toContain("pt-design-overview");
+    expect(overview).toContain("pt-design-search");
+    expect(overview).toContain("pt-design-new");
+    expect(overview).toContain("justify-between");
+    expect(overview).toContain("pt-design-card-pin");
+    expect(overview).toContain("hover:bg-muted");
+    expect(overview).toContain("object-contain");
+    expect(overview).toContain('loading="lazy"');
+    expect(overview).toContain("usePtDesignPreviewSrc");
+    expect(overview).toContain("viewChanged ? { opacity: 0, y: 8 } : false");
+    expect(overview).toContain("setDesign(item.id)");
+    expect(overview).toContain("movePtDesign");
+    expect(overview).toContain("MinimalCard");
+    expect(overview).not.toContain("pushWorkspaceDeepLink");
+    const pinnedAt = overview.indexOf("grouped.pinned");
+    const globalAt = overview.indexOf("grouped.global");
+    const projectsAt = overview.indexOf("{grouped.projects.map");
+    expect(pinnedAt).toBeGreaterThan(0);
+    expect(globalAt).toBeGreaterThan(pinnedAt);
+    expect(projectsAt).toBeGreaterThan(globalAt);
+    expect(overview).not.toContain("grouped.workspace");
+    expect(overview).toContain("OverviewSection");
+    const host = readFileSync(
+      join(import.meta.dir, "../../features/pt-design/PtDesignHostStage.tsx"),
+      "utf8",
+    );
+    expect(host).toContain("if (!active || !design)");
+    expect(host).not.toContain("designVisibleInHost");
+    expect(host).toContain("ptDesignHostForFrame");
+    expect(overview).not.toContain("useVirtualizer");
+    expect(overview).not.toContain("PtDesignApp");
+    expect(overview).not.toContain("OverlayHost");
+    expect(overview).not.toContain("Excalidraw");
+    expect(overview).not.toContain("<aside");
+    expect(overview).not.toMatch(/text-transform:\s*uppercase/);
     const frame = readFileSync(
       join(import.meta.dir, "../workspace-center-frame.tsx"),
       "utf8",
     );
-    expect(frame).toContain("<KeptPtDesignCenterPanel contextId={contextId} />");
+    expect(frame).toContain("<KeptPtDesignHostStage");
+    expect(frame).toContain("contextId={contextId}");
+    expect(frame).toContain("isProject={isProject}");
+    expect(frame).toContain("active={isUrlSyncedActive && visible}");
   });
 
   test("hosted collab invites skip onboarding and open a fullscreen guest board", () => {
@@ -182,5 +253,41 @@ describe("PT Design Atmos host wiring", () => {
     );
     expect(stack).toContain("!shiftBase || reduce || !presented");
     expect(stack).toContain("presented && shiftBase && !reduce && \"will-change-transform\"");
+  });
+
+  test("S23 invoke still uses pt_design_bridge_* on the main /ws", () => {
+    const api = readFileSync(join(import.meta.dir, "../../api/ws-api.ts"), "utf8");
+    expect(api).toContain('wsRequest("pt_design_bridge_register"');
+    expect(api).toContain('wsRequest("pt_design_bridge_unregister"');
+    expect(api).toContain('wsRequest("pt_design_agent_dispatch_result"');
+    const bridge = readFileSync(
+      join(import.meta.dir, "../../features/pt-design/use-pt-design-agent-bridge.ts"),
+      "utf8",
+    );
+    expect(bridge).toContain("pt_design_agent_dispatch");
+  });
+
+  test("S24 host mode labels are sentence case Edit / Interact", () => {
+    const en = readFileSync(join(import.meta.dir, "../../../messages/en.json"), "utf8");
+    expect(en).toContain('"edit": "Edit"');
+    expect(en).toContain('"interact": "Interact"');
+    expect(en).not.toContain('"edit": "EDIT"');
+    expect(en).not.toContain('"interact": "INTERACT"');
+    expect(en).toContain('"all": "All"');
+    expect(en).toContain('"pin": "Pin"');
+    expect(en).toContain('"unpin": "Unpin"');
+    expect(en).toContain('"rename": "Rename"');
+    expect(en).toContain('"delete": "Delete"');
+    expect(en).toContain('"searchPlaceholder": "Search designs"');
+    expect(en).toContain('"filter": "Filters"');
+    expect(en).toContain('"back": "Back"');
+    expect(en).not.toContain('"all": "ALL"');
+    const zh = readFileSync(join(import.meta.dir, "../../../messages/zh.json"), "utf8");
+    expect(zh).toContain('"all": "全部"');
+    expect(zh).toContain('"pin": "置顶"');
+    expect(zh).toContain('"searchPlaceholder": "搜索设计"');
+    expect(zh).toContain('"filter": "筛选"');
+    expect(zh).toContain('"back": "返回"');
+    expect(zh).not.toContain('"all": "All"');
   });
 });

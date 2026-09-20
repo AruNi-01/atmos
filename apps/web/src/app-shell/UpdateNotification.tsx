@@ -43,7 +43,7 @@ export default function UpdateNotification() {
     <div
       className={cn(
         'fixed bottom-6 left-6 z-[100] w-[340px]',
-        'bg-popover text-popover-foreground border shadow-lg rounded-lg p-4',
+        'bg-popover text-popover-foreground border shadow-lg rounded-xl p-4',
         'animate-in fade-in slide-in-from-bottom-4 duration-300',
       )}
     >

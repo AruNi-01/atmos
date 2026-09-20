@@ -9,6 +9,13 @@ import {
 } from '@/features/connection/lib/connection-instance';
 import { getActiveInstanceId, useConnectionStore } from '@/features/connection/store/connection-store';
 import { useUiPrefStore, type UiPrefSlice } from '@/shared/stores/use-ui-pref-store';
+import {
+  fileRecentsEqual,
+  upsertFileRecents,
+  type CenterFileRecent,
+} from '@/shared/lib/center-file-recents';
+
+export type { CenterFileRecent };
 
 function useActiveInstanceId() {
   return useConnectionStore(s => s.activeInstanceId);
@@ -51,11 +58,15 @@ const DEFAULT_AGENT_PREFS: AgentUiPrefs = {
 
 export interface AgentLastSession {
   registryId: string;
-  acpSessionId: string;
+  chatId?: string | null;
+  /** @deprecated pre-APP-067 ACP identity; ignored when restoring history */
+  acpSessionId?: string;
   cwd: string | null;
   workspaceId: string | null;
   projectId: string | null;
   updatedAt: number;
+  modelId?: string | null;
+  thinkingId?: string | null;
 }
 
 export function useAgentUiPrefs(): [
@@ -95,8 +106,11 @@ export function readAgentLastSession(contextKey: string): AgentLastSession | nul
   const value = useUiPrefStore.getState().readSlice(instanceId, 'agent', DEFAULT_AGENT_PREFS)
     .lastSessionByContext[contextKey];
   if (!value || typeof value === 'string') return null;
-  if (!value.registryId || !value.acpSessionId) return null;
-  return value;
+  if (!value.registryId) return null;
+  return {
+    ...value,
+    chatId: value.chatId?.trim() || null,
+  };
 }
 
 export function writeAgentLastSession(contextKey: string, session: AgentLastSession): void {
@@ -119,10 +133,23 @@ export function clearAgentLastSession(contextKey: string): void {
     'agent',
     prev => {
       const next = { ...prev.lastSessionByContext };
-      delete next[contextKey];
+      for (const key of Object.keys(next)) {
+        if (lastSessionKeyMatchesContext(key, contextKey)) {
+          delete next[key];
+        }
+      }
       return { ...prev, lastSessionByContext: next };
     },
     DEFAULT_AGENT_PREFS,
+  );
+}
+
+function lastSessionKeyMatchesContext(key: string, contextKey: string): boolean {
+  if (!contextKey) return false;
+  if (key === contextKey || key.startsWith(`${contextKey}:`)) return true;
+  return (
+    key.startsWith(`workspace:${contextKey}`) ||
+    key.startsWith(`project:${contextKey}`)
   );
 }
 
@@ -221,6 +248,33 @@ export interface CenterStageUiPrefs {
   tabStripOrderByContext: Record<string, string[]>;
   /** @deprecated Kept for reading old prefs only; pin feature removed. */
   pinnedTabsByContext?: Record<string, Record<string, number>>;
+  filesExplorerCollapsed?: boolean;
+  filesExplorerWidth?: number;
+  /** @deprecated Prefer `changesExplorerByScope`; kept as fallback for unscoped reads. */
+  changesExplorerCollapsed?: boolean;
+  /** @deprecated Prefer `changesExplorerByScope`; kept as fallback for unscoped reads. */
+  changesExplorerWidth?: number;
+  /**
+   * Per Changes list fold state. Keys are `changes` (landing) or
+   * `diff-group://…` paths — each DiffGroup option is isolated.
+   */
+  changesExplorerByScope?: Record<
+    string,
+    { collapsed?: boolean; width?: number }
+  >;
+  fileRecentsByContext?: Record<string, CenterFileRecent[]>;
+}
+
+const CENTER_EXPLORER_DEFAULT_WIDTH = 260;
+const CENTER_EXPLORER_MIN_WIDTH = 130;
+const CENTER_EXPLORER_MAX_WIDTH = 480;
+
+function clampStoredExplorerWidth(width: number): number {
+  if (!Number.isFinite(width)) return CENTER_EXPLORER_DEFAULT_WIDTH;
+  return Math.min(
+    CENTER_EXPLORER_MAX_WIDTH,
+    Math.max(CENTER_EXPLORER_MIN_WIDTH, Math.round(width)),
+  );
 }
 
 const DEFAULT_CENTER_STAGE: CenterStageUiPrefs = {
@@ -228,7 +282,226 @@ const DEFAULT_CENTER_STAGE: CenterStageUiPrefs = {
   wikiPageByContext: {},
   tabGroupOrderByContext: {},
   tabStripOrderByContext: {},
+  filesExplorerCollapsed: false,
+  filesExplorerWidth: CENTER_EXPLORER_DEFAULT_WIDTH,
+  changesExplorerCollapsed: false,
+  changesExplorerWidth: CENTER_EXPLORER_DEFAULT_WIDTH,
+  changesExplorerByScope: {},
+  fileRecentsByContext: {},
 };
+
+const EMPTY_CENTER_FILE_RECENTS: CenterFileRecent[] = [];
+
+export type CenterExplorerKindPref = 'files' | 'changes';
+
+export type CenterExplorerLayoutPrefs = {
+  filesCollapsed: boolean;
+  filesWidth: number;
+  /** Legacy shared Changes prefs (fallback when no scope id). */
+  changesCollapsed: boolean;
+  changesWidth: number;
+};
+
+export type ChangesExplorerScopeLayout = {
+  collapsed: boolean;
+  width: number;
+};
+
+function explorerLayoutFromSlice(slice: CenterStageUiPrefs): CenterExplorerLayoutPrefs {
+  return {
+    filesCollapsed: slice.filesExplorerCollapsed === true,
+    filesWidth: clampStoredExplorerWidth(
+      slice.filesExplorerWidth ?? CENTER_EXPLORER_DEFAULT_WIDTH,
+    ),
+    changesCollapsed: slice.changesExplorerCollapsed === true,
+    changesWidth: clampStoredExplorerWidth(
+      slice.changesExplorerWidth ?? CENTER_EXPLORER_DEFAULT_WIDTH,
+    ),
+  };
+}
+
+function changesScopeLayoutFromSlice(
+  slice: CenterStageUiPrefs,
+  foldScopeId: string,
+): ChangesExplorerScopeLayout {
+  const scoped = slice.changesExplorerByScope?.[foldScopeId];
+  return {
+    collapsed:
+      scoped?.collapsed === true ||
+      (scoped?.collapsed == null && slice.changesExplorerCollapsed === true),
+    width: clampStoredExplorerWidth(
+      scoped?.width ?? slice.changesExplorerWidth ?? CENTER_EXPLORER_DEFAULT_WIDTH,
+    ),
+  };
+}
+
+function patchChangesScope(
+  prev: CenterStageUiPrefs,
+  foldScopeId: string,
+  patch: { collapsed?: boolean; width?: number },
+): CenterStageUiPrefs {
+  const current = prev.changesExplorerByScope?.[foldScopeId];
+  return {
+    ...prev,
+    changesExplorerByScope: {
+      ...prev.changesExplorerByScope,
+      [foldScopeId]: {
+        collapsed: patch.collapsed ?? current?.collapsed,
+        width: patch.width ?? current?.width,
+      },
+    },
+  };
+}
+
+export function useCenterExplorerLayout(): [
+  CenterExplorerLayoutPrefs,
+  {
+    setCollapsed: (
+      kind: CenterExplorerKindPref,
+      collapsed: boolean,
+      foldScopeId?: string,
+    ) => void;
+    toggleCollapsed: (kind: CenterExplorerKindPref, foldScopeId?: string) => void;
+    setWidth: (
+      kind: CenterExplorerKindPref,
+      width: number,
+      foldScopeId?: string,
+    ) => void;
+    changesForScope: (foldScopeId: string) => ChangesExplorerScopeLayout;
+  },
+] {
+  const prefs = useCenterStageUiPrefs();
+  const layout = explorerLayoutFromSlice(prefs);
+
+  const changesForScope = useCallback(
+    (foldScopeId: string) => changesScopeLayoutFromSlice(prefs, foldScopeId),
+    [prefs],
+  );
+
+  const setCollapsed = useCallback(
+    (kind: CenterExplorerKindPref, collapsed: boolean, foldScopeId?: string) => {
+      const instanceId = useConnectionStore.getState().activeInstanceId;
+      useUiPrefStore.getState().patchSlice(
+        instanceId,
+        'centerStage',
+        (prev) => {
+          if (kind === 'files') {
+            return { ...prev, filesExplorerCollapsed: collapsed };
+          }
+          if (foldScopeId) {
+            return patchChangesScope(prev, foldScopeId, { collapsed });
+          }
+          return { ...prev, changesExplorerCollapsed: collapsed };
+        },
+        DEFAULT_CENTER_STAGE,
+      );
+    },
+    [],
+  );
+
+  const toggleCollapsed = useCallback(
+    (kind: CenterExplorerKindPref, foldScopeId?: string) => {
+      const instanceId = useConnectionStore.getState().activeInstanceId;
+      useUiPrefStore.getState().patchSlice(
+        instanceId,
+        'centerStage',
+        (prev) => {
+          if (kind === 'files') {
+            const current = explorerLayoutFromSlice(prev);
+            return { ...prev, filesExplorerCollapsed: !current.filesCollapsed };
+          }
+          if (foldScopeId) {
+            const current = changesScopeLayoutFromSlice(prev, foldScopeId);
+            return patchChangesScope(prev, foldScopeId, {
+              collapsed: !current.collapsed,
+            });
+          }
+          const current = explorerLayoutFromSlice(prev);
+          return { ...prev, changesExplorerCollapsed: !current.changesCollapsed };
+        },
+        DEFAULT_CENTER_STAGE,
+      );
+    },
+    [],
+  );
+
+  const setWidth = useCallback(
+    (kind: CenterExplorerKindPref, width: number, foldScopeId?: string) => {
+      const next = clampStoredExplorerWidth(width);
+      const instanceId = useConnectionStore.getState().activeInstanceId;
+      useUiPrefStore.getState().patchSlice(
+        instanceId,
+        'centerStage',
+        (prev) => {
+          if (kind === 'files') {
+            return { ...prev, filesExplorerWidth: next };
+          }
+          if (foldScopeId) {
+            return patchChangesScope(prev, foldScopeId, { width: next });
+          }
+          return { ...prev, changesExplorerWidth: next };
+        },
+        DEFAULT_CENTER_STAGE,
+      );
+    },
+    [],
+  );
+
+  return [layout, { setCollapsed, toggleCollapsed, setWidth, changesForScope }];
+}
+
+export function setCenterExplorerCollapsed(
+  kind: CenterExplorerKindPref,
+  collapsed: boolean,
+  foldScopeId?: string,
+): void {
+  const instanceId = useConnectionStore.getState().activeInstanceId;
+  useUiPrefStore.getState().patchSlice(
+    instanceId,
+    'centerStage',
+    (prev) => {
+      if (kind === 'files') {
+        return { ...prev, filesExplorerCollapsed: collapsed };
+      }
+      if (foldScopeId) {
+        return patchChangesScope(prev, foldScopeId, { collapsed });
+      }
+      return { ...prev, changesExplorerCollapsed: collapsed };
+    },
+    DEFAULT_CENTER_STAGE,
+  );
+}
+
+export function useCenterFileRecents(contextId: string): CenterFileRecent[] {
+  const prefs = useCenterStageUiPrefs();
+  return prefs.fileRecentsByContext?.[contextId] ?? EMPTY_CENTER_FILE_RECENTS;
+}
+
+export function recordCenterFileRecents(
+  contextId: string,
+  incoming: readonly CenterFileRecent[],
+): void {
+  if (!contextId || incoming.length === 0) return;
+  const instanceId = useConnectionStore.getState().activeInstanceId;
+  const prev = useUiPrefStore
+    .getState()
+    .readSlice(instanceId, 'centerStage', DEFAULT_CENTER_STAGE);
+  const current = prev.fileRecentsByContext?.[contextId] ?? EMPTY_CENTER_FILE_RECENTS;
+  const next = upsertFileRecents(current, incoming);
+  if (fileRecentsEqual(current, next)) return;
+  useUiPrefStore.getState().patchSlice(
+    instanceId,
+    'centerStage',
+    (slice) => ({
+      ...slice,
+      fileRecentsByContext: {
+        ...(slice.fileRecentsByContext ?? {}),
+        [contextId]: next,
+      },
+    }),
+    DEFAULT_CENTER_STAGE,
+  );
+}
 
 export function useCenterStageUiPrefs(): CenterStageUiPrefs {
   const instanceId = useActiveInstanceId();
@@ -245,6 +518,9 @@ export function useCenterStageUiPrefs(): CenterStageUiPrefs {
 
 export function setCenterStageLastTab(contextId: string, tab: string): void {
   const instanceId = useConnectionStore.getState().activeInstanceId;
+  const prev = useUiPrefStore.getState().readSlice(instanceId, 'centerStage', DEFAULT_CENTER_STAGE)
+    .lastTabByContext?.[contextId];
+  if (prev === tab) return;
   useUiPrefStore.getState().patchSlice(
     instanceId,
     'centerStage',

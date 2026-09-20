@@ -34,7 +34,7 @@ export function shouldIgnoreDockWhileOverSource(
 }
 
 /**
- * Only another pane is a valid dock. Source borders, the 4px mosaic gap, and
+ * Only another pane is a valid dock. Source borders, the 2px mosaic gap, and
  * empty chrome around the grid stay inert — same as Terminal pane drag.
  */
 export function shouldSuppressCenterPaneDockHover(

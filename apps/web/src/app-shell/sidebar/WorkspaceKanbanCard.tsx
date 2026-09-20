@@ -4,9 +4,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
   cn,
   useDraggable,
   useDroppable,
@@ -16,9 +13,9 @@ import {
   Archive,
   MoreHorizontal,
   Pin,
-  Timer,
   Trash2,
 } from "lucide-react";
+import { AutomationChip } from "@/features/automations/components/AutomationChip";
 import { WorkspaceAgentStatusMark } from "@/features/agent/components/WorkspaceAgentStatusMark";
 import { WorkspacePrSummary } from "@/features/github/components/WorkspacePrSummary";
 import { WorkspaceLinearSummary } from "@/features/task/components/WorkspaceLinearSummary";
@@ -137,7 +134,7 @@ export function KanbanWorkspaceCard({
     githubPr: workspace.githubPr,
     branch: workspace.branch,
     repoPath: prRepoPath,
-    interested: cardProperties.pull_request,
+    interested: !isAutomation && cardProperties.pull_request,
   });
   const openManagedPullRequest = React.useCallback(() => {
     if (!managedPr) return;
@@ -211,7 +208,7 @@ export function KanbanWorkspaceCard({
       tabIndex={0}
       {...{ [SIDEBAR_SHORTCUT_TARGET_ATTR]: workspaceShortcutKey }}
       className={cn(
-        "relative w-full cursor-pointer rounded-md bg-background p-3 text-left shadow-xs outline-none",
+        "relative w-full cursor-pointer rounded-2xl bg-background p-3 text-left shadow-xs outline-none",
         "focus-visible:ring-1 focus-visible:ring-ring",
         workspace.isPinned
           ? "border border-border"
@@ -246,22 +243,8 @@ export function KanbanWorkspaceCard({
             ) : null}
             {cardProperties.project ? (
               <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground">
+                {isAutomation ? <AutomationChip compact /> : null}
                 {projectName}
-                {isAutomation && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span
-                        className="inline-flex cursor-default items-center"
-                        aria-label={t("workspaceContent.automationWorkspace")}
-                      >
-                        <Timer className="size-3 text-muted-foreground" />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p>{t("workspaceContent.automationWorkspace")}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
               </span>
             ) : null}
             {/* When workspace title is hidden, keep agent status scannable on the header row. */}
@@ -341,6 +324,9 @@ export function KanbanWorkspaceCard({
       {cardProperties.workspace_name ? (
         <div className="mb-2 flex items-start gap-2">
           <div className="flex min-w-0 flex-1 items-start gap-1.5">
+            {isAutomation && !cardProperties.project ? (
+              <AutomationChip compact className="mt-0.5" />
+            ) : null}
             <h3 className="min-w-0 flex-1 line-clamp-2 text-sm font-semibold">{workspaceTitle}</h3>
             {cardProperties.agent_status ? (
               <WorkspaceAgentStatusMark
@@ -519,7 +505,7 @@ export function DraggableWorkspaceCard(props: React.ComponentProps<typeof Kanban
       }}
     >
       <div className={cn(
-        "rounded-md",
+        "rounded-2xl",
         isRecentlyDropped && "bg-primary/20 ring-2 ring-primary animate-pulse transition-all duration-500 ease-out",
       )}>
         <KanbanWorkspaceCard
@@ -551,7 +537,7 @@ export function KanbanDragPreview({
   availableLabels?: WorkspaceLabel[];
 }) {
   return (
-    <div className="w-full origin-[20%_20%] rotate-[2.6deg] rounded-md shadow-2xl ring-1 ring-border/40">
+    <div className="w-full origin-[20%_20%] rotate-[2.6deg] rounded-2xl shadow-2xl ring-1 ring-border/40">
       <KanbanWorkspaceCard
         workspace={item.preview.workspace}
         projectId={item.projectId}

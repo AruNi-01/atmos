@@ -21,6 +21,7 @@ function baseWarm(overrides: Partial<WorkspaceCenterFrameProps> = {}): Workspace
     visibleTerminalTabs: undefined,
     openFiles: undefined,
     githubTabs: undefined,
+    gitCommitTabs: undefined,
     browserTabs: undefined,
     currentView: undefined,
     currentProject: undefined,
@@ -46,6 +47,7 @@ function baseWarm(overrides: Partial<WorkspaceCenterFrameProps> = {}): Workspace
     handleCreateTerminalCenterTab: undefined,
     handleTerminalPaneClosed: undefined,
     handleCloseGithubTab: undefined,
+    handleCloseGitCommitTab: undefined,
     onGithubPullRequestChanged: undefined,
     ...overrides,
   };

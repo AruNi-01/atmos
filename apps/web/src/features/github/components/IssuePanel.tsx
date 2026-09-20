@@ -8,6 +8,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  ScrollArea,
 } from "@workspace/ui";
 import { Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -134,7 +135,11 @@ export const IssuePanel = React.forwardRef<
         aria-hidden
       />
 
-      <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-2 pb-2 pt-0">
+      <ScrollArea
+        scrollFade
+        className="min-h-0 min-w-0 flex-1"
+        viewportClassName="px-2 pb-2 pt-0"
+      >
         {loading ? (
           <div className="flex min-h-40 items-center justify-center text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
@@ -218,7 +223,7 @@ export const IssuePanel = React.forwardRef<
             nextLabel={t("nextPage")}
           />
         ) : null}
-      </div>
+      </ScrollArea>
     </div>
   );
 });

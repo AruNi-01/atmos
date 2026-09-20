@@ -3,116 +3,92 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import {
+  PreviewRail,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  type PreviewRailItem,
   cn,
 } from "@workspace/ui";
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@workspace/ui/components/ui/hover-card";
-import { Bot, User } from "lucide-react";
+import { Bot, ChevronDown, ChevronUp, User } from "lucide-react";
 import type { RegistryAgent } from "@/api/ws-api";
+import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
+import { assistantCopyText, textFromParts } from "@/features/agent/lib/agent-chat-events";
 import {
-  getAssistantCopyText,
-  type ThreadEntry,
-} from "@/features/agent/lib/agent/thread";
+  stepUserMessageIndex,
+  TIMELINE_RAIL_MAX_RATIO,
+  timelineRailItemSize,
+} from "@/features/agent/lib/agent-chat-message-nav";
 import { AgentIcon } from "./AgentIcon";
 
+type TimelineAgent = Pick<RegistryAgent, "id" | "name"> & {
+  icon?: string | null;
+  install_method?: string;
+};
+
 interface AgentMessageTimelineNavProps {
-  activeAgent: RegistryAgent | null;
-  entries: ThreadEntry[];
-  userEntryIndices: number[];
-  activeEntryIndex: number;
-  onSelectEntry: (entryIndex: number) => void;
+  activeAgent: TimelineAgent | null;
+  messages: AgentMessage[];
+  userMessageIndices: number[];
+  activeMessageIndex: number;
+  onSelectMessage: (messageIndex: number) => void;
 }
 
 interface MessageTimelineItem {
-  entryIndex: number;
-  turnNumber: number;
+  messageIndex: number;
+  messageNumber: number;
   userText: string;
   assistantSummary: string;
   fileCount: number;
   isStreaming: boolean;
 }
 
-const timelineNavClassName = cn(
-  "agent-message-timeline-nav absolute right-1 top-1/2 z-20 flex max-h-[min(62vh,420px)] -translate-y-1/2 flex-col items-end overflow-y-auto overflow-x-visible py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-  "[&_.agent-message-timeline-bar]:[--agent-message-timeline-scale-x:0.58]",
-  "[&_.agent-message-timeline-bar]:[--agent-message-timeline-scale-y:1]",
-  "[&_.agent-message-timeline-bar]:scale-x-[var(--agent-message-timeline-scale-x)]",
-  "[&_.agent-message-timeline-bar]:scale-y-[var(--agent-message-timeline-scale-y)]",
-  "[&_.agent-message-timeline-bar]:transition-[transform,opacity]",
-  "[&_.agent-message-timeline-bar]:duration-200",
-  "[&_.agent-message-timeline-bar]:ease-[cubic-bezier(0.22,1,0.36,1)]",
-  "motion-reduce:[&_.agent-message-timeline-bar]:transition-none",
-);
-
-const timelineItemClassName = cn(
-  "agent-message-timeline-item group flex h-4 w-9 items-center justify-end rounded-sm pr-1 outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-);
+const TIMELINE_STEP_BUTTON_PX = 24;
+const TIMELINE_CLUSTER_GAP_PX = 4;
+const TIMELINE_RAIL_CHROME_PX = TIMELINE_STEP_BUTTON_PX * 2 + TIMELINE_CLUSTER_GAP_PX * 2;
 
 function normalizePreviewText(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
-function getLastAssistantText(entry: Extract<ThreadEntry, { role: "assistant" }>): string {
-  for (let index = entry.blocks.length - 1; index >= 0; index -= 1) {
-    const block = entry.blocks[index];
-    if (block.type !== "text") continue;
-
-    const text = normalizePreviewText(block.content);
-    if (text) return text;
-  }
-
-  return "";
-}
-
 function getAssistantSummary(
-  entries: ThreadEntry[],
+  messages: AgentMessage[],
   startIndex: number,
   endIndex: number,
 ): { summary: string; isStreaming: boolean } {
-  const fallbackParts: string[] = [];
-  let finalText = "";
+  let summary = "";
   let isStreaming = false;
 
   for (let index = startIndex + 1; index < endIndex; index += 1) {
-    const entry = entries[index];
-    if (!entry || entry.role !== "assistant") continue;
-    if (entry.isStreaming) isStreaming = true;
-
-    const text = getLastAssistantText(entry);
-    if (text) finalText = text;
-
-    const fallbackText = normalizePreviewText(getAssistantCopyText(entry));
-    if (fallbackText) fallbackParts.push(fallbackText);
+    const message = messages[index];
+    if (!message || message.role !== "assistant") continue;
+    if (message.streaming) isStreaming = true;
+    const text = normalizePreviewText(assistantCopyText(message));
+    if (text) summary = text;
   }
 
-  return {
-    summary: finalText || fallbackParts.join(" "),
-    isStreaming,
-  };
+  return { summary, isStreaming };
 }
 
 function buildTimelineItems(
-  entries: ThreadEntry[],
-  userEntryIndices: number[],
+  messages: AgentMessage[],
+  userMessageIndices: number[],
   emptyUserMessage: string,
 ): MessageTimelineItem[] {
-  return userEntryIndices.flatMap((entryIndex, navIndex) => {
-    const entry = entries[entryIndex];
-    if (!entry || entry.role !== "user") return [];
+  return userMessageIndices.flatMap((messageIndex, navIndex) => {
+    const message = messages[messageIndex];
+    if (!message || message.role !== "user") return [];
 
-    const nextUserEntryIndex = userEntryIndices[navIndex + 1] ?? entries.length;
-    const assistant = getAssistantSummary(entries, entryIndex, nextUserEntryIndex);
-    const userText = normalizePreviewText(entry.content) || emptyUserMessage;
+    const nextUserIndex = userMessageIndices[navIndex + 1] ?? messages.length;
+    const assistant = getAssistantSummary(messages, messageIndex, nextUserIndex);
 
     return [{
-      entryIndex,
-      turnNumber: navIndex + 1,
-      userText,
+      messageIndex,
+      messageNumber: navIndex + 1,
+      userText: normalizePreviewText(textFromParts(message.parts)) || emptyUserMessage,
       assistantSummary: assistant.summary,
-      fileCount: entry.files?.length ?? 0,
+      fileCount: message.parts.filter((part) => part.type === "attachment").length,
       isStreaming: assistant.isStreaming,
     }];
   });
@@ -123,124 +99,202 @@ function getAttachmentLabel(count: number, t: ReturnType<typeof useTranslations>
   return count === 1 ? t("attachment.one") : t("attachment.other", { count });
 }
 
-function getTimelineBarScale(navIndex: number, activeNavIndex: number, hoveredNavIndex: number | null) {
-  if (hoveredNavIndex == null) {
-    return {
-      x: navIndex === activeNavIndex ? 1 : 0.58,
-      y: 1,
-    };
-  }
-
-  const distance = Math.abs(navIndex - hoveredNavIndex);
-  if (distance === 0) return { x: 1.55, y: 1.35 };
-  if (distance === 1) return { x: 1.22, y: 1.16 };
-  if (distance === 2) return { x: 0.95, y: 1.08 };
-  if (distance === 3) return { x: 0.78, y: 1 };
-  return { x: 0.66, y: 1 };
-}
-
 export function AgentMessageTimelineNav({
   activeAgent,
-  entries,
-  userEntryIndices,
-  activeEntryIndex,
-  onSelectEntry,
+  messages,
+  userMessageIndices,
+  activeMessageIndex,
+  onSelectMessage,
 }: AgentMessageTimelineNavProps) {
   const t = useTranslations("Agent.components.timelineNav");
-  const [hoveredNavIndex, setHoveredNavIndex] = React.useState<number | null>(null);
   const items = React.useMemo(
-    () => buildTimelineItems(entries, userEntryIndices, t("untitledMessage")),
-    [entries, t, userEntryIndices],
+    () => buildTimelineItems(messages, userMessageIndices, t("untitledMessage")),
+    [messages, t, userMessageIndices],
   );
 
-  if (items.length === 0) return null;
+  const railItems = React.useMemo<PreviewRailItem[]>(
+    () => items.map((item) => {
+      const assistantSummary =
+        item.assistantSummary || (item.isStreaming ? t("assistantResponding") : t("assistantPending"));
+      return {
+        id: String(item.messageIndex),
+        label: item.userText,
+        ariaLabel: t("jumpToMessage", {
+          messageNumber: item.messageNumber,
+          userText: item.userText,
+        }),
+        description: assistantSummary,
+      };
+    }),
+    [items, t],
+  );
 
-  const selectedNavIndex = items.findIndex((item) => item.entryIndex === activeEntryIndex);
-  const activeNavIndex = selectedNavIndex >= 0 ? selectedNavIndex : items.length - 1;
+  const previewById = React.useMemo(() => {
+    const map = new Map<string, MessageTimelineItem>();
+    for (const item of items) map.set(String(item.messageIndex), item);
+    return map;
+  }, [items]);
+
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const [containerHeight, setContainerHeight] = React.useState(0);
+  const showRail = items.length > 1;
+
+  React.useLayoutEffect(() => {
+    const node = rootRef.current;
+    if (!node || !showRail) return;
+    const read = () => {
+      const next = Math.round(node.getBoundingClientRect().height);
+      setContainerHeight((current) => (current === next ? current : next));
+    };
+    read();
+    const observer = new ResizeObserver(read);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [showRail]);
+
+  if (!showRail) return null;
+
+  const selectedNavIndex = items.findIndex((item) => item.messageIndex === activeMessageIndex);
+  const activeItem = items[selectedNavIndex >= 0 ? selectedNavIndex : items.length - 1];
+  const catalogIndex = activeItem?.messageIndex ?? activeMessageIndex;
+  const itemSize = timelineRailItemSize(items.length, containerHeight, TIMELINE_RAIL_CHROME_PX);
+  const railMaxHeight = containerHeight > 0
+    ? Math.min(
+        containerHeight * TIMELINE_RAIL_MAX_RATIO,
+        Math.max(0, containerHeight - TIMELINE_RAIL_CHROME_PX),
+      )
+    : undefined;
+  const previousIndex = stepUserMessageIndex(userMessageIndices, catalogIndex, "previous");
+  const nextIndex = stepUserMessageIndex(userMessageIndices, catalogIndex, "next");
 
   return (
     <div
-      className={timelineNavClassName}
-      aria-label={t("navigation")}
-      onPointerLeave={() => setHoveredNavIndex(null)}
-      role="navigation"
+      ref={rootRef}
+      className="agent-message-timeline-nav pointer-events-none absolute inset-y-0 left-0 z-20 flex w-8 min-h-0 items-center justify-center overflow-visible"
     >
-      {items.map((item, navIndex) => {
-        const isActive = navIndex === activeNavIndex;
-        const isEmphasized = hoveredNavIndex == null ? isActive : hoveredNavIndex === navIndex;
-        const scale = getTimelineBarScale(navIndex, activeNavIndex, hoveredNavIndex);
-        const attachmentLabel = getAttachmentLabel(item.fileCount, t);
-        const assistantSummary =
-          item.assistantSummary || (item.isStreaming ? t("assistantResponding") : t("assistantPending"));
-
-        return (
-          <HoverCard key={item.entryIndex} closeDelay={120} openDelay={80}>
-            <HoverCardTrigger asChild>
-              <button
-                type="button"
-                aria-current={isActive ? "true" : undefined}
-                aria-label={t("jumpToMessage", { turnNumber: item.turnNumber, userText: item.userText })}
-                className={timelineItemClassName}
-                onClick={() => onSelectEntry(item.entryIndex)}
-                onPointerEnter={() => setHoveredNavIndex(navIndex)}
-                onPointerLeave={() => setHoveredNavIndex(null)}
+      <TooltipProvider delayDuration={200}>
+        <div className="pointer-events-auto flex min-h-0 flex-col items-center gap-1">
+        <TimelineStepButton
+          direction="previous"
+          label={t("previousMessage")}
+          disabled={previousIndex == null}
+          onClick={() => {
+            if (previousIndex == null) return;
+            onSelectMessage(previousIndex);
+          }}
+        />
+        <div
+          className="min-h-0 w-4 max-h-[90%]"
+          style={railMaxHeight != null ? { maxHeight: railMaxHeight } : undefined}
+        >
+          <PreviewRail
+          items={railItems}
+          label={t("navigation")}
+          orientation="vertical"
+          activeId={activeItem ? String(activeItem.messageIndex) : undefined}
+          highlightActive
+          previewSide="before"
+          itemSize={itemSize}
+          onItemSelect={(item) => onSelectMessage(Number(item.id))}
+          className={cn(
+            "relative flex h-fit w-4 min-h-0 items-center overflow-visible",
+            "[&_[data-slot=preview-rail-tick]]:!origin-left [&_[data-slot=preview-rail-tick]]:rounded-full [&_[data-slot=preview-rail-tick]]:!w-3.5",
+            "[&_[data-slot=preview-rail-item]]:!w-4 [&_[data-slot=preview-rail-item]]:justify-center",
+          )}
+          railClassName="w-4"
+          previewContainerClassName="inset-y-0 left-full right-auto ml-3 w-[min(22rem,calc(100vw-4rem))]"
+          previewClassName="w-full max-w-sm"
+          renderPreview={(item) => {
+            const row = previewById.get(item.id);
+            if (!row) return null;
+            const attachmentLabel = getAttachmentLabel(row.fileCount, t);
+            const assistantSummary = typeof item.description === "string"
+              ? item.description
+              : row.assistantSummary;
+            return (
+              <div
+                data-slot="preview-rail-card"
+                className="rounded-2xl border border-border/70 bg-popover/95 p-4 shadow-xl backdrop-blur"
               >
-                <span
-                  className={cn(
-                    "agent-message-timeline-bar h-[3px] w-5 origin-right rounded-full",
-                    isEmphasized
-                      ? "bg-foreground opacity-90 [--agent-message-timeline-scale-x:1]"
-                      : "bg-muted-foreground/35 opacity-75 group-hover:bg-foreground/75 group-hover:opacity-100",
-                  )}
-                  style={{
-                    "--agent-message-timeline-scale-x": String(scale.x),
-                    "--agent-message-timeline-scale-y": String(scale.y),
-                  } as React.CSSProperties}
-                />
-              </button>
-            </HoverCardTrigger>
-            <HoverCardContent
-              align="center"
-              side="left"
-              sideOffset={10}
-              collisionPadding={12}
-              className="w-[min(360px,calc(100vw-2rem))] rounded-xl border-border/70 bg-popover/95 p-4 shadow-xl backdrop-blur"
-            >
-              <div className="min-w-0 space-y-2.5">
-                <div className="flex min-w-0 items-start gap-2">
-                  <User className="mt-0.5 size-4 shrink-0 text-foreground/80" aria-hidden="true" />
-                  <p className="line-clamp-2 min-w-0 text-[13px] font-semibold leading-5 text-popover-foreground">
-                    {item.userText}
-                  </p>
-                </div>
-                <div className="flex min-w-0 items-start gap-2">
-                  <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center text-muted-foreground" aria-hidden="true">
-                    {activeAgent ? (
-                      <AgentIcon
-                        registryId={activeAgent.id}
-                        name={activeAgent.name}
-                        size={16}
-                        isCustom={activeAgent.install_method === "custom"}
-                        registryIcon={activeAgent.icon}
-                      />
-                    ) : (
-                      <Bot className="size-4" />
-                    )}
-                  </span>
-                  <p className="line-clamp-3 min-w-0 text-[12px] leading-5 text-muted-foreground">
-                    {assistantSummary}
-                  </p>
-                </div>
-                {attachmentLabel && (
-                  <div className="pl-6 text-[11px] leading-4 text-muted-foreground/80">
-                    {attachmentLabel}
+                <div className="min-w-0 space-y-2.5">
+                  <div className="flex min-w-0 items-start gap-2">
+                    <User className="mt-0.5 size-4 shrink-0 text-foreground/80" aria-hidden="true" />
+                    <p className="line-clamp-2 min-w-0 text-[13px] font-semibold leading-5 text-popover-foreground">
+                      {item.label}
+                    </p>
                   </div>
-                )}
+                  <div className="flex min-w-0 items-start gap-2">
+                    <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center text-muted-foreground" aria-hidden="true">
+                      {activeAgent ? (
+                        <AgentIcon
+                          registryId={activeAgent.id}
+                          name={activeAgent.name}
+                          size={16}
+                          isCustom={activeAgent.install_method === "custom"}
+                          registryIcon={activeAgent.icon}
+                        />
+                      ) : (
+                        <Bot className="size-4" />
+                      )}
+                    </span>
+                    <p className="line-clamp-3 min-w-0 text-[12px] leading-5 text-muted-foreground">
+                      {assistantSummary}
+                    </p>
+                  </div>
+                  {attachmentLabel ? (
+                    <div className="pl-6 text-[11px] leading-4 text-muted-foreground/80">
+                      {attachmentLabel}
+                    </div>
+                  ) : null}
+                </div>
               </div>
-            </HoverCardContent>
-          </HoverCard>
-        );
-      })}
+            );
+          }}
+          />
+        </div>
+        <TimelineStepButton
+          direction="next"
+          label={t("nextMessage")}
+          disabled={nextIndex == null}
+          onClick={() => {
+            if (nextIndex == null) return;
+            onSelectMessage(nextIndex);
+          }}
+        />
+        </div>
+      </TooltipProvider>
     </div>
+  );
+}
+
+function TimelineStepButton({
+  direction,
+  label,
+  disabled,
+  onClick,
+}: {
+  direction: "previous" | "next";
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  const Icon = direction === "previous" ? ChevronUp : ChevronDown;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          aria-label={label}
+          data-agent-chat-timeline-step={direction}
+          onClick={onClick}
+          className="inline-flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+        >
+          <Icon className="size-4" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
   );
 }

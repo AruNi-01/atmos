@@ -37,6 +37,7 @@ import {
 import { useWelcomeComposerAttachments } from "@/features/welcome/hooks/use-welcome-composer-attachments";
 import { useWelcomeMentionSearch } from "@/features/welcome/hooks/use-welcome-mention-search";
 import {
+  COLLAPSED_SLASH_SECTIONS,
   useWelcomeSlashNavigation,
   type SlashCommandOption,
   type WelcomeSlashPopoverState,
@@ -63,6 +64,13 @@ import {
   resolveViewRunLogsPromptText,
   VIEW_RUN_LOGS_SLASH_COMMAND_ID,
 } from "@/features/browser/lib/run-log-context";
+import { getPreferredRunLogWindow } from "@/features/browser/lib/run-log-active-window";
+import {
+  buildDevicePreviewSlashCommand,
+  DEVICE_PREVIEW_SLASH_COMMAND_ID,
+  loadDevicePreviewPrompt,
+  matchesDevicePreviewSlashQuery,
+} from "@/features/simulator/lib/device-preview-agent-prompt";
 import { runLogApi } from "@/features/browser/lib/run-log-api";
 import {
   getAgentContextDragItems,
@@ -191,7 +199,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   surfaceActive = true,
 }, ref) {
   const t = useTranslations("terminal.agentInput");
-  const { effectiveContextId } = useContextParams();
+  const { effectiveContextId, workspaceId: routeWorkspaceId } = useContextParams();
   const {
     enabled: richInputEnabled,
     triggerBarVisible,
@@ -329,6 +337,14 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         buildViewRunLogsSlashCommand({
           label: t("viewRunLogsCommand.label"),
           description: t("viewRunLogsCommand.description"),
+        }),
+      );
+    }
+    if (matchesDevicePreviewSlashQuery(query)) {
+      commands.push(
+        buildDevicePreviewSlashCommand({
+          label: t("devicePreviewCommand.label"),
+          description: t("devicePreviewCommand.description"),
         }),
       );
     }
@@ -617,7 +633,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         setSlashPopover(null);
         setSlashPopoverView("menu");
         void resolveViewRunLogsPromptText(localPath, (root) =>
-          runLogApi.resolveLatest(root),
+          runLogApi.resolveLatest(root, getPreferredRunLogWindow(root)),
         ).then((promptText) => {
           composerRef.current?.applyAiContextAtRange(
             popover.slashOffset,
@@ -626,6 +642,23 @@ export const TerminalAgentInputOverlay = React.forwardRef<
             promptText,
           );
         });
+        return;
+      }
+      if (command.id === DEVICE_PREVIEW_SLASH_COMMAND_ID) {
+        const popover = slashPopover;
+        if (!popover) return;
+        setSlashPopover(null);
+        setSlashPopoverView("menu");
+        void loadDevicePreviewPrompt(routeWorkspaceId ?? effectiveContextId).then(
+          (promptText) => {
+            composerRef.current?.applyAiContextAtRange(
+              popover.slashOffset,
+              popover.query.length,
+              "device-preview",
+              promptText,
+            );
+          },
+        );
         return;
       }
       if (command.id === BROWSER_USE_SLASH_COMMAND_ID) {
@@ -721,8 +754,10 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     [
       allSkills,
       createCapturePromptContext,
+      effectiveContextId,
       enterDisableSkillsView,
       localPath,
+      routeWorkspaceId,
       slashPopover,
     ],
   );
@@ -763,11 +798,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setSlashPopoverView("menu");
     setSkillDisableFilter("");
     setSkillDisableSessionActions([]);
-    setExpandedSections({
-      skills: false,
-      projects: false,
-      agents: false,
-    });
+    setExpandedSections({ ...COLLAPSED_SLASH_SECTIONS });
   }, [setExpandedSections]);
 
   /**
@@ -792,11 +823,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setSlashPopoverView("menu");
     setSkillDisableFilter("");
     setSkillDisableSessionActions([]);
-    setExpandedSections({
-      skills: false,
-      projects: false,
-      agents: false,
-    });
+    setExpandedSections({ ...COLLAPSED_SLASH_SECTIONS });
   }, [setExpandedSections]);
 
   const handleTextChange = React.useCallback(
@@ -1455,7 +1482,7 @@ function SideChatAgentPicker({
 
   return (
     <div
-      className="pointer-events-auto fixed bottom-20 left-1/2 z-[2147483647] w-[min(92vw,320px)] -translate-x-1/2 rounded-md border border-border/70 bg-popover p-1 text-sm text-popover-foreground shadow-lg"
+      className="pointer-events-auto fixed bottom-20 left-1/2 z-[2147483647] w-[min(92vw,320px)] -translate-x-1/2 rounded-xl border border-border/70 bg-popover p-1 text-sm text-popover-foreground shadow-lg"
       onMouseDown={(event) => {
         onInteraction?.(event);
         event.stopPropagation();

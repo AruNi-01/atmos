@@ -266,7 +266,7 @@ export function TerminalSideChatModal({
         ref={modalRef}
         tabIndex={-1}
         className={cn(
-          "pointer-events-auto absolute flex min-w-0 flex-col overflow-hidden rounded-md border border-border/70 bg-background shadow-[0_22px_60px_rgba(0,0,0,0.38)] outline-none transition-opacity duration-200",
+          "pointer-events-auto absolute flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-background shadow-[0_22px_60px_rgba(0,0,0,0.38)] outline-none transition-opacity duration-200",
           isFocusedWithin ? "opacity-100" : "opacity-75",
         )}
         onContextMenu={(event) => {

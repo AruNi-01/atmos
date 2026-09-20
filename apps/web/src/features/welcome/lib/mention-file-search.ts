@@ -78,17 +78,64 @@ function rankNameMatch(name: string, queryLower: string): RankedMentionFile["sco
   return 30 + matchIndex * 0.01 + name.length * 0.0001;
 }
 
+function mentionListingBucket(item: MentionFileCandidate) {
+  return item.isHidden ? 2 : item.isDir ? 1 : 0;
+}
+
+function sortMentionListing(items: MentionFileCandidate[]): MentionFileCandidate[] {
+  return [...items].sort((a, b) => {
+    const bucketDiff = mentionListingBucket(a) - mentionListingBucket(b);
+    if (bucketDiff !== 0) return bucketDiff;
+    return a.relativePath.localeCompare(b.relativePath);
+  });
+}
+
 function sortRankedMentionFiles(items: RankedMentionFile[]) {
   return [...items].sort((a, b) => {
     if (a.score !== b.score) return a.score - b.score;
 
-    const bucket = (item: MentionFileCandidate) =>
-      item.isHidden ? 2 : item.isDir ? 1 : 0;
-    const bucketDiff = bucket(a) - bucket(b);
+    const bucketDiff = mentionListingBucket(a) - mentionListingBucket(b);
     if (bucketDiff !== 0) return bucketDiff;
 
     return a.relativePath.localeCompare(b.relativePath);
   });
+}
+
+/**
+ * First-level files and folders under `directoryPrefix`.
+ * Empty prefix = project/workspace root. `pages/` = entries one segment deeper.
+ */
+function firstLevelUnderPrefix(
+  entries: MentionFileCandidate[],
+  directoryPrefix: string,
+): MentionFileCandidate[] {
+  const lowerPrefix = directoryPrefix.toLowerCase();
+  const prefixLen = directoryPrefix.length;
+  return entries.filter((item) => {
+    if (prefixLen === 0) return !item.relativePath.includes("/");
+    const lowerPath = item.relativePath.toLowerCase();
+    if (!lowerPath.startsWith(lowerPrefix)) return false;
+    const rest = item.relativePath.slice(prefixLen);
+    return rest.length > 0 && !rest.includes("/");
+  });
+}
+
+function takeMentionListing(
+  entries: MentionFileCandidate[],
+  directoryPrefix: string,
+): MentionFileCandidate[] {
+  return sortMentionListing(firstLevelUnderPrefix(entries, directoryPrefix)).slice(
+    0,
+    MENTION_FILE_RESULT_LIMIT,
+  );
+}
+
+/** Empty `@` or a trailing `dir/` prefix should list immediately (no debounce). */
+export function isImmediateMentionListingQuery(rawQuery: string): boolean {
+  const query = rawQuery.trim().replace(/\\/g, "/");
+  if (!query) return true;
+  const slashIndex = query.lastIndexOf("/");
+  return slashIndex >= 0 && query.slice(slashIndex + 1).trim().length === 0;
 }
 
 function stripRank(item: RankedMentionFile): MentionFileCandidate {
@@ -137,13 +184,15 @@ function takeMentionResults(ranked: RankedMentionFile[]): MentionFileCandidate[]
  * Filter project file/folder candidates for the composer `@` mention popover.
  *
  * Matching rules:
+ * - Empty query lists the **first-level** files and folders of the current
+ *   project/workspace (both files and directories).
  * - Only the file/folder **name** is searched (not the full relative path).
  * - Case-insensitive **contains** match (`*keyword*`) — characters on either
  *   side of the keyword are allowed; prefix is not required.
  * - Hidden files/folders (names starting with `.`) are included when present
  *   in the candidate list (caller loads the tree with `showHidden: true`).
- * - A trailing path prefix (`dir/`) still scopes results under that directory;
- *   the segment after the last `/` is matched against names only.
+ * - A trailing path prefix (`dir/`) lists first-level files and folders under
+ *   that directory; a name after the last `/` is matched against descendants.
  * - Results are capped at {@link MENTION_FILE_RESULT_LIMIT}, with a few slots
  *   reserved for non-prefix contains hits so ranking does not look prefix-only.
  */
@@ -152,7 +201,7 @@ export function filterMentionFileCandidates(
   rawQuery: string,
 ): MentionFileCandidate[] {
   const query = rawQuery.trim().replace(/\\/g, "/");
-  if (!query) return [];
+  if (!query) return takeMentionListing(entries, "");
 
   let searchEntries = entries;
   let searchQuery = query;
@@ -169,15 +218,7 @@ export function filterMentionFileCandidates(
     });
     searchQuery = query.slice(slashIndex + 1).trim();
     if (!searchQuery) {
-      return [...searchEntries]
-        .sort((a, b) => {
-          const bucket = (item: MentionFileCandidate) =>
-            item.isHidden ? 2 : item.isDir ? 1 : 0;
-          const bucketDiff = bucket(a) - bucket(b);
-          if (bucketDiff !== 0) return bucketDiff;
-          return a.relativePath.localeCompare(b.relativePath);
-        })
-        .slice(0, MENTION_FILE_RESULT_LIMIT);
+      return takeMentionListing(entries, directoryPrefix);
     }
   }
 

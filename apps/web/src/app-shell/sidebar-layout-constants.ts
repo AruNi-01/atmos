@@ -41,6 +41,21 @@ export const SIDEBAR_PEEK_CONTENT_PT_CLASS = "pt-2.5";
 export const LEFT_SIDEBAR_DIVIDER_GUTTER_PX = CENTER_STAGE_GUTTER_X_PX;
 export const LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS = "pr-1";
 export const LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS = "mr-1";
+/**
+ * Overlay vertical thumbs sit in the same `pr-1`/`mr-1` strip as the
+ * sidebar↔center resize mark. Default ScrollBar `m-1` would inset the thumb
+ * onto the rows and leave that gutter empty for the mark alone.
+ */
+export const LEFT_SIDEBAR_DIVIDER_GUTTER_SCROLLBAR_CLASS =
+  "[&_[data-slot=scroll-area-scrollbar][data-orientation=vertical]]:me-0";
+
+/**
+ * One-column workspace group titles stick to the list scrollport while that
+ * group's rows scroll underneath, then release as the next group arrives.
+ * ScrollArea `scrollFade` measures these `.sticky` nodes and starts the mask
+ * on the rows below the stuck title.
+ */
+export const LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS = "sticky top-0 z-10 bg-sidebar";
 
 /** Shell behind the floating card — matches sidebar so gutters read as inset. */
 export const CENTER_STAGE_SHELL_CLASS =
@@ -53,16 +68,6 @@ export const CENTER_STAGE_SHELL_CLASS =
 export const CENTER_STAGE_RADIUS_CLASS = "rounded-xl";
 export const CENTER_STAGE_RADIUS_CSS = "var(--radius-xl)";
 
-/** Inset a hover resize hairline so it does not run through rounded-xl corners. */
-export const RESIZE_HAIRLINE_CORNER_INSET_CSS = CENTER_STAGE_RADIUS_CSS;
-
-/**
- * Root sidebar↔center hairline. The handle spans the full column (card +
- * footer); the painted line stays on the floating card face only.
- */
-export const ROOT_RESIZE_HAIRLINE_TOP_CSS = `calc(${CENTER_STAGE_GUTTER_Y_PX}px + ${CENTER_STAGE_RADIUS_CSS})`;
-export const ROOT_RESIZE_HAIRLINE_BOTTOM_CSS = `calc(${APP_FOOTER_HEIGHT_PX}px + ${CENTER_STAGE_GUTTER_Y_PX}px + ${CENTER_STAGE_RADIUS_CSS})`;
-
 /**
  * Floating card chrome. Keep overflow-hidden off this node — clipping the
  * ring against the radius double-paints the left edge in light mode.
@@ -71,12 +76,14 @@ export const CENTER_STAGE_CARD_CLASS =
   "desktop-no-drag relative h-full min-h-0 rounded-xl bg-background ring-1 ring-border/40";
 /** Inner clip so pane content follows the card radius without eating the ring. */
 export const CENTER_STAGE_CARD_CLIP_CLASS =
-  "h-full min-h-0 overflow-hidden rounded-[inherit]";
+  "relative h-full min-h-0 overflow-hidden rounded-[inherit]";
 
 /** Column above the center-stage footer — drawer insets and stage fullscreen fill this. */
 export const CENTER_STAGE_BODY_ATTR = "data-center-stage-body";
 /** Visual floating card inside the center-stage shell. */
 export const CENTER_STAGE_CARD_ATTR = "data-center-stage-card";
+/** Inner clip node of the floating card — expand/fullscreen fills this, not the gutter. */
+export const CENTER_STAGE_CARD_CLIP_ATTR = "data-center-stage-card-clip";
 /** Root row under the header: left sidebar + center + footer. */
 export const APP_SHELL_PANEL_LAYOUT_ATTR = "data-app-shell-panel-layout";
 /** Center column (stage + footer). Fullscreen must not pin to this — it includes the footer. */

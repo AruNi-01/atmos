@@ -102,25 +102,22 @@ function publishEvent(event: StandaloneSurfaceEvent): void {
 
 /**
  * Standalone surface identity.
- * Browser keys include browserContextId so each browser instance has its own
- * window handoff (sidebar vs each center browser).
+ * The 4th slot is the instance (browserContextId, or Agent Chat tab/conversation)
+ * so popping out one surface does not pause every other tab.
  */
 export function makeStandaloneSurfaceKey(
   surface: "browser" | "agent-chat",
   workspaceId?: string | null,
   projectId?: string | null,
-  browserContextId?: string | null,
+  surfaceInstanceId?: string | null,
 ): string {
-  if (surface === "browser") {
-    // browserContextId may contain ":" (e.g. center-browser:uuid) — encode it.
-    return [
-      "browser",
-      workspaceId || "",
-      projectId || "",
-      encodeURIComponent(browserContextId || ""),
-    ].join(":");
-  }
-  return ["agent-chat", workspaceId || "", projectId || ""].join(":");
+  // instance id may contain ":" (e.g. center-browser:uuid, agent-chat:draft:uuid).
+  return [
+    surface,
+    workspaceId || "",
+    projectId || "",
+    encodeURIComponent(surfaceInstanceId || ""),
+  ].join(":");
 }
 
 export function isStandaloneSurfaceOpen(key: string): boolean {

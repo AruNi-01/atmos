@@ -18,12 +18,19 @@ import {
 } from "@/app-shell/center-space/center-space-fan";
 import { useCenterSpaceStore } from "@/app-shell/center-space/center-space-store";
 import {
+  createDefaultLayout,
   createEmptyCenterLayout,
+  DEFAULT_PANE_ID,
+  getPane,
   isFreshEmptyCenterLayout,
+  splitPane,
 } from "@/app-shell/center-pane/center-pane-layout";
 import { useCenterPaneLayoutStore } from "@/app-shell/center-pane/center-pane-layout-store";
 import { getWorkspaceTerminalTabs } from "@/features/terminal/store/terminal-store-helpers";
-import { resolveCenterStageProjectContext } from "@/app-shell/center-stage-project-context";
+import {
+  buildCenterHostTabHref,
+  resolveCenterStageProjectContext,
+} from "@/app-shell/center-stage-project-context";
 import { globalKey, readJson } from "@/shared/lib/browser-store";
 
 const dir = join(import.meta.dir, "..");
@@ -109,6 +116,12 @@ describe("center space keys", () => {
       "/Users/me/atmos/worktrees/blastoise",
     );
     expect(fromSpace.currentProject?.id).toBe(fromHost.currentProject?.id);
+    expect(buildCenterHostTabHref("ws-1", projects, "files")).toBe(
+      "/workspace?id=ws-1&tab=files",
+    );
+    expect(buildCenterHostTabHref("proj-1", projects, "files")).toBe(
+      "/project?id=proj-1&tab=files",
+    );
   });
 
   it("does not allocate a new spaces array on empty host reads", () => {
@@ -185,6 +198,7 @@ describe("center space wiring", () => {
     const stageTabs = readFileSync(join(dir, "center-stage-tabs.tsx"), "utf8");
     expect(stageTabs).toContain("stableAgentPaneId");
     expect(tabBar).toContain("newSpaceDialogTitle");
+    expect(tabBar).toContain("newSpaceDialogDescription");
     expect(tabBar).toContain("confirmCreateSpace");
     expect(tabBar).toContain("newSpace");
     expect(stage).toContain("openNewCenterSpace");
@@ -284,12 +298,10 @@ describe("center space wiring", () => {
     expect(setThumbBlock).toContain("markCenterLayoutDirty({ disk: false })");
   });
 
-  it("does not invent a default terminal tab for extra spaces", () => {
+  it("does not invent a default terminal tab for extra spaces or hosts", () => {
     const extra = "ws-1::space::space-abc";
     expect(getWorkspaceTerminalTabs({ workspaceTerminalTabs: {} }, extra)).toEqual([]);
-    expect(
-      getWorkspaceTerminalTabs({ workspaceTerminalTabs: {} }, "ws-1")[0]?.id,
-    ).toBe("terminal");
+    expect(getWorkspaceTerminalTabs({ workspaceTerminalTabs: {} }, "ws-1")).toEqual([]);
   });
 
   it("does not seed extra spaces from the current open-tab list", () => {
@@ -301,5 +313,41 @@ describe("center space wiring", () => {
     expect(isFreshEmptyCenterLayout(layout)).toBe(true);
     expect(layout.panes[0]?.tabIds).toEqual([]);
     expect(createEmptyCenterLayout().panes[0]?.tabIds).toEqual([]);
+  });
+
+  it("seeds a new host workspace as an empty center when no tabs are open", () => {
+    useCenterPaneLayoutStore.setState({ byContext: {}, hydrated: true });
+    const layout = useCenterPaneLayoutStore.getState().ensureLayout("ws-1", [], "");
+    expect(isFreshEmptyCenterLayout(layout)).toBe(true);
+    expect(layout.panes[0]?.tabIds).toEqual([]);
+  });
+
+  it("does not prune a live host mosaic when membership is temporarily empty", () => {
+    const live = splitPane(
+      createDefaultLayout(["terminal", "files"], "files"),
+      { direction: "right" },
+    );
+    useCenterPaneLayoutStore.setState({
+      byContext: { "ws-1": live },
+      hydrated: true,
+    });
+    const after = useCenterPaneLayoutStore.getState().ensureLayout("ws-1", [], "");
+    expect(after.panes).toHaveLength(2);
+    expect(getPane(after, DEFAULT_PANE_ID)!.tabIds).toEqual(["terminal", "files"]);
+    expect(isFreshEmptyCenterLayout(after)).toBe(false);
+  });
+
+  it("restores wiped host membership as a single pane", () => {
+    useCenterPaneLayoutStore.setState({
+      byContext: { "ws-1": createEmptyCenterLayout() },
+      hydrated: true,
+    });
+    const restored = useCenterPaneLayoutStore
+      .getState()
+      .ensureLayout("ws-1", ["terminal", "files"], "files");
+    expect(isFreshEmptyCenterLayout(restored)).toBe(false);
+    expect(restored.panes).toHaveLength(1);
+    expect(getPane(restored, DEFAULT_PANE_ID)!.tabIds).toEqual(["terminal", "files"]);
+    expect(getPane(restored, DEFAULT_PANE_ID)!.activeTabId).toBe("files");
   });
 });

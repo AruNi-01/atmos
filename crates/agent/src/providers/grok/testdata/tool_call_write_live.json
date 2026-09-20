@@ -1,0 +1,54 @@
+{
+  "started": {
+    "sessionUpdate": "tool_call",
+    "toolCallId": "call_live_write_1",
+    "title": "write",
+    "kind": "other",
+    "status": "pending",
+    "rawInput": {
+      "file_path": "/tmp/atmos-grok-perm.txt",
+      "content": "hi"
+    }
+  },
+  "updated": {
+    "sessionUpdate": "tool_call_update",
+    "toolCallId": "call_live_write_1",
+    "title": "Write `/tmp/atmos-grok-perm.txt`",
+    "kind": "edit",
+    "status": "pending",
+    "rawInput": {
+      "path": "/tmp/atmos-grok-perm.txt"
+    }
+  },
+  "completed": {
+    "sessionUpdate": "tool_call_update",
+    "toolCallId": "call_live_write_1",
+    "title": "",
+    "kind": "other",
+    "status": "completed",
+    "rawInput": {},
+    "rawOutput": {
+      "type": "SearchReplace",
+      "EditsApplied": {
+        "old_string": "",
+        "new_string": "hi",
+        "tool_output_for_prompt": "The file /tmp/atmos-grok-perm.txt has been created.",
+        "tool_output_for_prompt_concise": "The file /tmp/atmos-grok-perm.txt has been created.",
+        "absolute_path": "/tmp/atmos-grok-perm.txt",
+        "edits": {
+          "details": [
+            {
+              "old_string": "",
+              "old_line": 1,
+              "new_string": "hi",
+              "new_line": 1,
+              "context_before": "",
+              "context_after": "",
+              "line_prefix": ""
+            }
+          ]
+        }
+      }
+    }
+  }
+}

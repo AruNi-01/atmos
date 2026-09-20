@@ -3,6 +3,7 @@ import {
   automationNotificationHref,
   isAppFocused,
   isNotificationClickAction,
+  parseDesktopNotificationResult,
   shouldShowSystemNotification,
 } from "../notifications";
 
@@ -65,7 +66,7 @@ describe("isNotificationClickAction", () => {
   test("accepts agent_hook and automation actions", () => {
     expect(
       isNotificationClickAction({
-        kind: "agent_hook",
+        kind: "agent_status",
         session_id: "s1",
         context_id: "ws-1",
         pane_id: "ws-1:win",
@@ -83,7 +84,7 @@ describe("isNotificationClickAction", () => {
   test("rejects incomplete or unknown payloads", () => {
     expect(isNotificationClickAction(null)).toBe(false);
     expect(isNotificationClickAction({})).toBe(false);
-    expect(isNotificationClickAction({ kind: "agent_hook" })).toBe(false);
+    expect(isNotificationClickAction({ kind: "agent_status" })).toBe(false);
     expect(isNotificationClickAction({ kind: "automation" })).toBe(false);
     expect(isNotificationClickAction({ kind: "other", session_id: "x" })).toBe(false);
   });
@@ -97,6 +98,26 @@ describe("automationNotificationHref", () => {
     expect(automationNotificationHref("auto-1", "run-9")).toBe(
       "/automations?automationId=auto-1&automationRun=run-9&automationTab=history",
     );
+  });
+});
+
+describe("parseDesktopNotificationResult", () => {
+  test("treats null as posted for older desktop shells", () => {
+    expect(parseDesktopNotificationResult(null)).toEqual({ ok: true });
+  });
+
+  test("surfaces permission denials from the desktop shell", () => {
+    expect(
+      parseDesktopNotificationResult({
+        ok: false,
+        code: "permission_denied",
+        error: "Notifications are not allowed",
+      }),
+    ).toEqual({
+      ok: false,
+      code: "permission_denied",
+      error: "Notifications are not allowed",
+    });
   });
 });
 

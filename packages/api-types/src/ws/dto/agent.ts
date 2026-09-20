@@ -40,6 +40,12 @@ export type AgentConfigSetRequest = {
   api_key: string;
 };
 
+export type AgentDefaultConfigSetRequest = {
+  registry_id: string;
+  config_id: string;
+  value: string;
+};
+
 export type RegistryAgent = {
   id: string;
   name: string;
@@ -53,6 +59,11 @@ export type RegistryAgent = {
   installed: boolean;
   installed_version?: string;
   default_config?: Record<string, string>;
+  provision_kind?: "native" | "adapter";
+  native_executable?: string | null;
+  terminal_agent_id?: string | null;
+  can_remove?: boolean;
+  enabled?: boolean;
 };
 
 export type AgentRegistryListRequest = {
@@ -88,6 +99,11 @@ export type CustomAgent = {
   args: string[];
   env: Record<string, string>;
   default_config?: Record<string, string>;
+  display_name?: string | null;
+  description?: string | null;
+  builtin?: boolean;
+  has_overlay?: boolean;
+  enabled?: boolean;
 };
 
 export type CustomAgentAddRequest = {
@@ -105,6 +121,11 @@ export type CustomAgentNameRequest = {
   name: string;
 };
 
+export type CustomAgentSetEnabledRequest = {
+  name: string;
+  enabled: boolean;
+};
+
 export type CustomAgentJsonResponse = {
   json: string;
 };
@@ -115,4 +136,27 @@ export type CustomAgentSetJsonRequest = {
 
 export type CustomAgentManifestPathResponse = {
   path: string;
+};
+
+export type NativeChatAgent = {
+  id: string;
+  name: string;
+  description: string;
+  executable: string;
+  enabled: boolean;
+  cli_present: boolean;
+};
+
+export type NativeChatAgentListResponse = {
+  agents: NativeChatAgent[];
+};
+
+export type NativeAgentSetEnabledRequest = {
+  id: string;
+  enabled: boolean;
+};
+
+export type AgentRegistrySetEnabledRequest = {
+  registry_id: string;
+  enabled: boolean;
 };

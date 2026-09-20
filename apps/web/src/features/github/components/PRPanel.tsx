@@ -14,6 +14,7 @@ import {
   TooltipTrigger,
   TooltipContent,
   TooltipProvider,
+  ScrollArea,
 } from '@workspace/ui';
 import { formatDistanceToNow, format } from 'date-fns';
 import { enUS, zhCN } from 'date-fns/locale';
@@ -86,7 +87,11 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
   return (
     <TooltipProvider delayDuration={400}>
       <div className="flex h-full w-full min-w-0 flex-col overflow-hidden">
-        <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto no-scrollbar p-2">
+        <ScrollArea
+          scrollFade
+          className="min-h-0 min-w-0 flex-1"
+          viewportClassName="p-2"
+        >
           {loading && !prs ? (
             <div className="flex min-h-40 items-center justify-center text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
@@ -228,7 +233,7 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
               />
             </div>
           )}
-        </div>
+        </ScrollArea>
       </div>
     </TooltipProvider>
   );

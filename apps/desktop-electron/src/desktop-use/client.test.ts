@@ -13,10 +13,17 @@ import {
   resolveCliRequirementPath,
   resolveDesktopUseManifestPath,
   versionGt,
+  desktopUseRuntimeUrl,
   DESKTOP_USE_MANIFEST_ENV,
 } from "./client.ts";
 
 describe("desktop-use client", () => {
+  it("builds Runtime Desktop Use URLs on loopback (APP-076)", () => {
+    expect(desktopUseRuntimeUrl("/api/desktop-use/status", { host: "127.0.0.1", port: 30303 })).toBe(
+      "http://127.0.0.1:30303/api/desktop-use/status",
+    );
+  });
+
   it("resolves only the canonical ~/.atmos/bin path", () => {
     const path = resolveAtmosCliPath({ home: "/Users/test" });
     expect(path).toBe(join("/Users/test", ".atmos", "bin", "atmos"));

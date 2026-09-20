@@ -6,18 +6,23 @@ import { useAppRouter } from '@/shared/hooks/use-app-router';
 import { useQueryState } from 'nuqs';
 import { useContextParams } from '@/shared/hooks/use-context-params';
 import { useSidebarLayout } from '@/app-shell/SidebarLayoutContext';
-import { LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS } from '@/app-shell/sidebar-layout-constants';
+import {
+    LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+    LEFT_SIDEBAR_DIVIDER_GUTTER_SCROLLBAR_CLASS,
+} from '@/app-shell/sidebar-layout-constants';
 import { centerStageParams } from '@/shared/lib/nuqs/searchParams';
 import { cn } from "@workspace/ui";
 import { useAppStorage } from "@atmos/shared";
 import type { Project } from '@/shared/types/domain';
 import { useProjectStore } from '@/features/project/store/use-project-store';
 import {
-  useProjects,
   useWorkspaceLabels,
   useGroups,
   useProjectBootstrapQuery,
 } from '@/features/project/hooks/use-project-bootstrap-query';
+import { useProjectsWithStandaloneAutomations } from '@/features/automations/hooks/use-projects-with-standalone-automations';
+import { STANDALONE_GROUP_ID } from '@/features/automations/lib/standalone-sidebar';
+import { parseStandaloneScope, standaloneJobHref } from '@/features/automations/lib/automation-run-landing';
 import {
   createGroup,
   deleteGroup,
@@ -133,7 +138,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     // Full catalog — used for selection/existence/current context. Never replace this with a
     // filtered list: hiding attention-only rows would make the app think the active workspace
     // was deleted and route to welcome (`router.replace('/')`).
-    const projects = useProjects();
+    const projects = useProjectsWithStandaloneAutomations();
     const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
     const attentionContextKey = useAgentAttentionStore(selectAttentionContextKey);
     // Display-only subset for the sidebar tree when the header attention filter is on.
@@ -200,9 +205,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         updateWorkspaceLabel,
         updateWorkspaceLabels,
         markWorkspaceVisited,
+        markProjectVisited,
         reorderProjects,
         reorderWorkspaces,
-        setupProgress,
     } = useProjectStore(
         useShallow(s => ({
             deleteProject: s.deleteProject,
@@ -220,9 +225,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             updateWorkspaceLabel: s.updateWorkspaceLabel,
             updateWorkspaceLabels: s.updateWorkspaceLabels,
             markWorkspaceVisited: s.markWorkspaceVisited,
+            markProjectVisited: s.markProjectVisited,
             reorderProjects: s.reorderProjects,
             reorderWorkspaces: s.reorderWorkspaces,
-            setupProgress: s.setupProgress,
         }))
     );
 
@@ -261,7 +266,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         JSON.stringify(serializeWorkspaceSidebarFilters(EMPTY_WORKSPACE_KANBAN_FILTERS)),
     );
     const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(
-        currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents' || currentView === 'automations' || currentView === 'disk-analyzer' || currentView === 'token-usage' || currentView === 'agent-observer' || currentView === 'tasks' || currentView === 'pt-design'
+        currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents' || currentView === 'automations' || currentView === 'disk-analyzer' || currentView === 'token-usage' || currentView === 'agent-observer' || currentView === 'tasks' || currentView === 'pt-design' || currentView === 'agent-sessions'
     );
     const [isPinnedSectionCollapsed, setIsPinnedSectionCollapsed] = useState(false);
     const [isPinnedDividerHovered, setIsPinnedDividerHovered] = useState(false);
@@ -364,6 +369,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 .then((settings) => {
                     if (settingsScopeVersionRef.current !== scopeVersion) return;
 
+                    // Sidebar grouping only — Tasks board uses `workspace_kanban_view.grouping_mode`.
                     const groupingModeSetting = settings.workspace_sidebar?.grouping_mode;
                     const nextGroupingMode = parseSidebarGroupingMode(groupingModeSetting);
                     persistedGroupingModeRef.current = nextGroupingMode;
@@ -505,9 +511,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const currentSidebarRouteKey = `${currentView}:${currentProjectId ?? ''}:${currentWorkspaceId ?? ''}`;
     const currentWorkspace = currentProject?.workspaces.find(w => w.id === currentWorkspaceId);
     const currentEffectivePath = currentWorkspace?.localPath ?? currentProject?.mainFilePath ?? null;
-    const isSettingUp = isWorkspaceSetupBlocking(
-        currentWorkspaceId ? setupProgress[currentWorkspaceId] : null,
+    const currentSetupProgress = useProjectStore((s) =>
+        currentWorkspaceId ? s.setupProgress[currentWorkspaceId] ?? null : null,
     );
+    const isSettingUp = isWorkspaceSetupBlocking(currentSetupProgress);
     const startCreating = useWorkspaceCreationStore((s) => s.startCreating);
     const bindWorkspace = useWorkspaceCreationStore((s) => s.bindWorkspace);
     const failCreating = useWorkspaceCreationStore((s) => s.failCreating);
@@ -637,6 +644,54 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         };
     }, [currentView, currentWorkspaceId, isLoading, markWorkspaceVisited, projects]);
 
+    const pendingVisitedProjectRef = useRef<string | null>(null);
+    const lastVisitedProjectRef = useRef<string | null>(null);
+    const visitedProjectMarkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(() => {
+        if (currentView !== 'project' || !currentProjectId) {
+            pendingVisitedProjectRef.current = null;
+            lastVisitedProjectRef.current = null;
+            if (visitedProjectMarkTimerRef.current) {
+                clearTimeout(visitedProjectMarkTimerRef.current);
+                visitedProjectMarkTimerRef.current = null;
+            }
+            return;
+        }
+
+        if (isLoading) {
+            return;
+        }
+
+        if (lastVisitedProjectRef.current === currentProjectId) {
+            return;
+        }
+
+        const projectExists = projects.some((project) => project.id === currentProjectId);
+        if (!projectExists) {
+            return;
+        }
+
+        pendingVisitedProjectRef.current = currentProjectId;
+        if (visitedProjectMarkTimerRef.current) {
+            clearTimeout(visitedProjectMarkTimerRef.current);
+        }
+        visitedProjectMarkTimerRef.current = setTimeout(() => {
+            visitedProjectMarkTimerRef.current = null;
+            const id = pendingVisitedProjectRef.current;
+            if (!id) return;
+            pendingVisitedProjectRef.current = null;
+            lastVisitedProjectRef.current = id;
+            void markProjectVisited(id);
+        }, 750);
+
+        return () => {
+            if (visitedProjectMarkTimerRef.current) {
+                clearTimeout(visitedProjectMarkTimerRef.current);
+                visitedProjectMarkTimerRef.current = null;
+            }
+        };
+    }, [currentView, currentProjectId, isLoading, markProjectVisited, projects]);
+
     useLeftSidebarFileTreeSync({
         currentEffectivePath,
         currentProjectId,
@@ -716,6 +771,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     }, []);
 
     const handleAddProjectToGroup = useCallback(async (projectId: string, groupId: string) => {
+        if (projectId === STANDALONE_GROUP_ID) return;
         try {
             const project = projects.find((item) => item.id === projectId);
             if (!project) {
@@ -1028,7 +1084,15 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             const target = collectSidebarShortcutTargets(document)[digit - 1];
             if (!target) return false;
             if (target.kind === "workspace") {
+                const jobGuid = parseStandaloneScope(target.id);
+                if (jobGuid) {
+                    router.push(standaloneJobHref(jobGuid));
+                    return true;
+                }
                 router.push(`/workspace?id=${target.id}`);
+                return true;
+            }
+            if (target.id === STANDALONE_GROUP_ID) {
                 return true;
             }
             router.push(`/project?id=${target.id}`);
@@ -1051,6 +1115,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     );
 
     const handleQuickAddWorkspace = async (projectId: string) => {
+        if (projectId === STANDALONE_GROUP_ID) return;
         const jobId = startCreating({
             originKey: getWorkspaceCreateOriginKey({
                 currentView,
@@ -1168,6 +1233,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     };
 
     const handleSelectProjectMain = useCallback((id: string) => {
+        if (id === STANDALONE_GROUP_ID) return;
         router.push(`/project?id=${id}`);
     }, [router]);
 
@@ -1202,7 +1268,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     };
 
     const handleEnterWorkspaceFromSidebarKanban = useCallback((projectId: string, workspaceId: string) => {
-        void projectId;
+        const jobGuid = parseStandaloneScope(workspaceId);
+        if (jobGuid || projectId === STANDALONE_GROUP_ID) {
+            router.push(standaloneJobHref(jobGuid ?? workspaceId));
+            return;
+        }
         router.push(`/workspace?id=${workspaceId}`);
     }, [router]);
 
@@ -1255,7 +1325,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             activeProjectId={currentProjectId}
             activeWorkspaceId={currentWorkspaceId}
             availableLabels={workspaceLabels}
-            className="no-scrollbar"
             expandedProjectIds={expandedProjects}
             flattenedWorkspaces={flattenedWorkspaces}
             isAnyProjectDragging={isAnyProjectDragging}
@@ -1514,7 +1583,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     return (
         <>
-            <aside className="@container flex h-full w-full flex-col select-none bg-sidebar text-sidebar-foreground">
+            <aside
+                className={cn(
+                    "@container flex h-full w-full flex-col select-none bg-sidebar text-sidebar-foreground",
+                    LEFT_SIDEBAR_DIVIDER_GUTTER_SCROLLBAR_CLASS,
+                )}
+            >
                 {/* Launchpad — wait for first load attempt to avoid default-config flash */}
                 {launchpadSettled ? (
                     <LeftSidebarLaunchpadBlock

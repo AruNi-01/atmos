@@ -6,7 +6,8 @@ use crate::relay::relay_client::RelayRequest;
 use core_service::{
     AutomationArtifactGetReq, AutomationCancelRunReq, AutomationContinueInTerminalReq,
     AutomationCreateReq, AutomationDeleteReq, AutomationGetReq, AutomationListReq,
-    AutomationRunGetReq, AutomationRunListReq, AutomationRunNowReq, AutomationSchedulePreviewReq,
+    AutomationRunCompleteReq, AutomationRunGetReq, AutomationRunListReq, AutomationRunNowReq,
+    AutomationRunPathsReq, AutomationRunStaleDismissReq, AutomationSchedulePreviewReq,
     AutomationUpdateReq,
 };
 
@@ -73,6 +74,36 @@ impl WsMessageService {
         req: AutomationCancelRunReq,
     ) -> Result<Value> {
         let result = self.automation_service.cancel_run(&req.run_guid).await?;
+        Ok(json!(result))
+    }
+
+    pub(super) async fn handle_automation_run_complete(
+        &self,
+        req: AutomationRunCompleteReq,
+    ) -> Result<Value> {
+        let result = self
+            .automation_service
+            .complete_run(&req.run_guid, req.failed, req.message)
+            .await?;
+        Ok(json!(result))
+    }
+
+    pub(super) async fn handle_automation_run_paths(
+        &self,
+        req: AutomationRunPathsReq,
+    ) -> Result<Value> {
+        let result = self.automation_service.run_paths(&req.run_guid).await?;
+        Ok(json!(result))
+    }
+
+    pub(super) async fn handle_automation_run_stale_dismiss(
+        &self,
+        req: AutomationRunStaleDismissReq,
+    ) -> Result<Value> {
+        let result = self
+            .automation_service
+            .dismiss_stale_prompt(&req.run_guid)
+            .await?;
         Ok(json!(result))
     }
 

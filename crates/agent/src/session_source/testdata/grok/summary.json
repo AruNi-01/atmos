@@ -1,0 +1,12 @@
+{
+  "info": {
+    "id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "cwd": "/tmp/demo"
+  },
+  "generated_title": "Read the demo readme",
+  "session_summary": "User asked to read README",
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:10:00Z",
+  "current_model_id": "grok-4.6",
+  "num_messages": 4
+}

@@ -117,17 +117,19 @@ export function EditorSettingsSection() {
     lineWrap,
     bracketMatching,
     minimap,
-    breadcrumbs,
     lineHighlight,
     gitIntegration,
+    gitBlame,
+    mdToggleDefaultOpen,
     loadSettings,
     setAutoSave,
     setLineWrap,
     setBracketMatching,
     setMinimap,
-    setBreadcrumbs,
     setLineHighlight,
     setGitIntegration,
+    setGitBlame,
+    setMdToggleDefaultOpen,
   } = useEditorSettingsStore();
   const {
     diffStyle,
@@ -186,12 +188,6 @@ export function EditorSettingsSection() {
           <Switch checked={minimap} onCheckedChange={(checked) => void setMinimap(!!checked)} />
         </SettingsGroupRow>
         <SettingsGroupRow
-          title={t('rows.breadcrumbs.title')}
-          description={t('rows.breadcrumbs.description')}
-        >
-          <Switch checked={breadcrumbs} onCheckedChange={(checked) => void setBreadcrumbs(!!checked)} />
-        </SettingsGroupRow>
-        <SettingsGroupRow
           title={t('rows.lineHighlight.title')}
           description={t('rows.lineHighlight.description')}
         >
@@ -207,6 +203,24 @@ export function EditorSettingsSection() {
           <Switch
             checked={gitIntegration}
             onCheckedChange={(checked) => void setGitIntegration(!!checked)}
+          />
+        </SettingsGroupRow>
+        <SettingsGroupRow
+          title={t('rows.gitBlame.title')}
+          description={t('rows.gitBlame.description')}
+        >
+          <Switch
+            checked={gitBlame}
+            onCheckedChange={(checked) => void setGitBlame(!!checked)}
+          />
+        </SettingsGroupRow>
+        <SettingsGroupRow
+          title={t('rows.expandToggles.title')}
+          description={t('rows.expandToggles.description')}
+        >
+          <Switch
+            checked={mdToggleDefaultOpen}
+            onCheckedChange={(checked) => void setMdToggleDefaultOpen(!!checked)}
           />
         </SettingsGroupRow>
       </SettingsGroupCard>

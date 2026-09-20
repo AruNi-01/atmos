@@ -62,12 +62,19 @@ const PRIORITY_COLOR_MAP: Record<WorkspacePriority, string> = {
 const TIME_COLUMN_ORDER = ["today", "yesterday", "last_7_days", "last_30_days", "older"] as const;
 
 /**
- * Soft column board tint. Uses color-mix so hex, rgb(), and rgba() all work
- * (appending "10" only works for 6-digit hex and is nearly invisible on dark UI).
+ * Pale column wash that keeps the group hue.
+ *
+ * Light: mix the swatch toward white, then into the page (the wash that
+ * already looked right). Dark: do not reuse that pastel — mixing it into
+ * a dark page shifts yellow→brown. Keep `h`, lift L, ease C instead.
+ *
+ * `light-dark()` follows the board's `color-scheme`.
  */
-export function columnBackgroundTint(color: string | null | undefined, alphaPercent = 16): string {
+export function columnBackgroundTint(color: string | null | undefined): string {
   const base = resolveBoardColor(color);
-  return `color-mix(in srgb, ${base} ${alphaPercent}%, transparent)`;
+  const light = `color-mix(in oklch, color-mix(in oklch, ${base} 30%, white) 14%, var(--background))`;
+  const dark = `oklch(from ${base} 0.20 calc(c * 0.14) h)`;
+  return `light-dark(${light}, ${dark})`;
 }
 
 function parseCssColorToRgb(

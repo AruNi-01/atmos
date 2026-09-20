@@ -608,6 +608,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
     const jobId = startCreating({
       originKey,
       label: name.trim() || null,
+      blocking: true,
     });
     try {
       const finalDisplayName = prPreview

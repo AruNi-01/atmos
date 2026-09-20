@@ -24,7 +24,6 @@ import {
   GitMerge,
   GitPullRequest,
   GitPullRequestClosed,
-  Github,
   LoaderCircle,
   MessageSquare,
   RefreshCw,
@@ -34,6 +33,7 @@ import {
   XCircle,
   type LucideIcon,
 } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 
 import type { GithubInstallation, GithubRepository } from "@/features/automations/lib/github-trigger-relay";
 import type { GithubEventFamily, GithubInt64 } from "@/features/automations/types";

@@ -62,6 +62,8 @@ cd packages/ui
 bun ui:add <component-name>
 ```
 
+`components.json` aliases point at `@workspace/ui/...`, so `bunx shadcn add -c packages/ui` generates package imports instead of `@/`. `@/` is the Next **app** alias and is not resolved from this package.
+
 ---
 
 ### 4. Custom Components (`src/components/`)

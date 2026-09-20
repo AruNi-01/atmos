@@ -61,6 +61,7 @@ export function ShortcutsSettingsSection() {
         shortcuts={[
           { keys: ['⌘', '0'], description: t('groups.centerStageTabs.items.overview') },
           { keys: ['⌘', '1-9'], description: t('groups.centerStageTabs.items.tabByPosition') },
+          { keys: ['⌘', 'L'], description: t('groups.centerStageTabs.items.focusAgentChat') },
         ]}
       />
       <ShortcutGroup
@@ -90,6 +91,7 @@ export function ShortcutsSettingsSection() {
         shortcuts={[
           { keys: ['⌘', 'S'], description: t('groups.editor.items.saveCurrentFile') },
           { keys: ['⌘', 'F'], description: t('groups.editor.items.findInEditor') },
+          { keys: ['⌘', 'G'], description: t('groups.editor.items.toggleAgentInput') },
         ]}
       />
       <ShortcutGroup

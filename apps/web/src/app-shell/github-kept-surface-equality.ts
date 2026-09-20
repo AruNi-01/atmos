@@ -29,8 +29,5 @@ export function githubKeptSurfacePropsAreEqual(
   if (a.kind === "github-action" && b.kind === "github-action") {
     return a.runId === b.runId;
   }
-  if (a.kind === "github-commit" && b.kind === "github-commit") {
-    return a.sha === b.sha && a.subject === b.subject && a.authorName === b.authorName;
-  }
   return false;
 }

@@ -1,0 +1,54 @@
+{
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "_x.ai/ask_user_question",
+  "params": {
+    "sessionId": "01a07140-e282-76f3-997f-e87f301cca14",
+    "toolCallId": "call_c50fc3dabb3e4d21922da09b",
+    "questions": [
+      {
+        "question": "你希望优化的具体方向是什么？",
+        "header": "优化方向",
+        "options": [
+          {
+            "label": "性能优化",
+            "description": "启动速度、运行时性能、内存占用、打包体积等"
+          },
+          {
+            "label": "架构/代码优化",
+            "description": "模块结构、依赖关系、可维护性、技术债务清理"
+          },
+          {
+            "label": "开发者体验优化",
+            "description": "CLI 交互、文档、调试、本地开发流程等"
+          },
+          {
+            "label": "用户体验优化",
+            "description": "前端界面、交互流程、响应速度等"
+          }
+        ],
+        "multiSelect": true
+      },
+      {
+        "question": "这个 Plan 的用途是什么？",
+        "header": "计划用途",
+        "options": [
+          {
+            "label": "正式 Spec",
+            "description": "按项目规范写入 specs/ 目录（BRAINSTORM/PRD/TECH/TEST），可进入实施流程"
+          },
+          {
+            "label": "内部规划文档",
+            "description": "简单的优化方案概述，不需要走完整 specs 流程"
+          },
+          {
+            "label": "PRD/TECH 草案",
+            "description": "直接写 PRD 或 TECH 文档"
+          }
+        ],
+        "multiSelect": null
+      }
+    ],
+    "mode": "default"
+  }
+}

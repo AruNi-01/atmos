@@ -191,6 +191,10 @@ private func u32(_ v: Int) -> UInt32 {
         await engine.closeWebRTCSession(sessionId)
     }
 
+    @NodeMethod func webRTCSenderStats(_ sessionId: String) async throws -> String {
+        try await engine.webRTCSenderStats(sessionId: sessionId.isEmpty ? nil : sessionId)
+    }
+
     @NodeMethod func screenSize() async -> [String: any NodePropertyConvertible] {
         let dimensions = await engine.currentScreenSize()
         return ["width": dimensions.width, "height": dimensions.height]

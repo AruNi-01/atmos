@@ -17,10 +17,9 @@ import {
   type DragMoveEvent,
   type DragStartEvent,
 } from "@workspace/ui";
-import {
-  CENTER_STAGE_RADIUS_CLASS,
-  RESIZE_HAIRLINE_CORNER_INSET_CSS,
-} from "@/app-shell/sidebar-layout-constants";
+import { ResizeFollowMark } from "@/app-shell/ResizeFollowMark";
+import { resizeFollowSeamFromGap } from "@/app-shell/resize-follow-mark";
+import { CENTER_STAGE_RADIUS_CLASS } from "@/app-shell/sidebar-layout-constants";
 import {
   normalizeCenterPaneLayout,
   type CenterPane,
@@ -52,9 +51,12 @@ import { buildCenterPaneLivePreview } from "@/app-shell/center-pane/center-pane-
 import {
   centerPaneFullscreenTileStyle,
   centerPaneLeafTileStyle,
+  CENTER_PANE_LEAF_GAP_PX,
 } from "@/app-shell/center-pane/center-pane-leaf-metrics";
 
 import "./center-pane-grid.css";
+
+const CENTER_PANE_RESIZE_SEAM = resizeFollowSeamFromGap(CENTER_PANE_LEAF_GAP_PX);
 
 export type CenterPaneGridProps = {
   layout: CenterPaneLayout;
@@ -447,6 +449,7 @@ function SplitHandle({
   onResizeEnd: () => void;
 }) {
   const isRow = split.direction === "row";
+  const [resizing, setResizing] = React.useState(false);
   const startResize = React.useCallback(
     (event: React.PointerEvent) => {
       event.preventDefault();
@@ -463,6 +466,7 @@ function SplitHandle({
         ? rootRect.left + split.parent.left * rootRect.width
         : rootRect.top + split.parent.top * rootRect.height;
       handle.setAttribute("data-resizing", "");
+      setResizing(true);
       onResizeStart();
 
       const onMove = (ev: PointerEvent) => {
@@ -474,6 +478,7 @@ function SplitHandle({
       };
       const onUp = () => {
         handle.removeAttribute("data-resizing");
+        setResizing(false);
         onResizeEnd();
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
@@ -489,7 +494,7 @@ function SplitHandle({
       role="separator"
       aria-orientation={isRow ? "vertical" : "horizontal"}
       className={cn(
-        "group absolute z-20 touch-none",
+        "absolute z-20 overflow-visible touch-none",
         isRow
           ? "w-2 -ml-1 cursor-col-resize"
           : "h-2 -mt-1 cursor-row-resize",
@@ -509,40 +514,12 @@ function SplitHandle({
       }
       onPointerDown={startResize}
     >
-      <CenterPaneResizeHairline orientation={isRow ? "vertical" : "horizontal"} />
+      <ResizeFollowMark
+        axis={isRow ? "vertical" : "horizontal"}
+        dragging={resizing}
+        seam={CENTER_PANE_RESIZE_SEAM}
+      />
     </div>
-  );
-}
-
-function CenterPaneResizeHairline({
-  orientation,
-}: {
-  orientation: "vertical" | "horizontal";
-}) {
-  const vertical = orientation === "vertical";
-  return (
-    <span
-      aria-hidden
-      data-resize-hairline={orientation}
-      className={cn(
-        "pointer-events-none absolute bg-transparent",
-        "group-hover:bg-border/50 group-data-[resizing]:bg-border/50",
-        vertical
-          ? "left-1/2 w-px -translate-x-1/2"
-          : "top-1/2 h-px -translate-y-1/2",
-      )}
-      style={
-        vertical
-          ? {
-              top: RESIZE_HAIRLINE_CORNER_INSET_CSS,
-              bottom: RESIZE_HAIRLINE_CORNER_INSET_CSS,
-            }
-          : {
-              left: RESIZE_HAIRLINE_CORNER_INSET_CSS,
-              right: RESIZE_HAIRLINE_CORNER_INSET_CSS,
-            }
-      }
-    />
   );
 }
 

@@ -15,7 +15,51 @@ mock.module("geist/font/pixel", () => ({
   GeistPixelSquare: { className: "geist-pixel" },
 }));
 
-const { BreakoutErrorPage } = await import("@/shared/components/breakout-error-page");
+mock.module("@workspace/ui", () => ({
+  cn: (...values: Array<string | false | null | undefined>) =>
+    values.filter(Boolean).join(" "),
+  Button: ({
+    children,
+    className,
+    variant = "default",
+    render,
+    ...props
+  }: {
+    children?: React.ReactNode;
+    className?: string;
+    variant?: string;
+    render?: React.ReactElement;
+    [key: string]: unknown;
+  }) => {
+    const variantClass =
+      variant === "default"
+        ? "bg-primary"
+        : variant === "ghost"
+          ? "hover:bg-accent"
+          : "";
+    const mergedClass = [variantClass, className].filter(Boolean).join(" ");
+    if (React.isValidElement(render)) {
+      return React.cloneElement(
+        render as React.ReactElement<Record<string, unknown>>,
+        { className: mergedClass, ...props },
+        children,
+      );
+    }
+    return (
+      <button type="button" className={mergedClass} {...props}>
+        {children}
+      </button>
+    );
+  },
+}));
+
+const {
+  ATMOS_BRICK_COLS,
+  ATMOS_BRICK_PATTERN,
+  ATMOS_BRICK_ROWS,
+  BALL_SPEED,
+  BreakoutErrorPage,
+} = await import("@/shared/components/breakout-error-page");
 
 function renderErrorPage(node: React.ReactElement): HTMLElement {
   const html = renderToStaticMarkup(
@@ -36,6 +80,108 @@ function actionKinds(container: HTMLElement): string[] {
 }
 
 describe("BreakoutErrorPage", () => {
+  it("uses a wide full-bleed ATMOS brick mask for 404 and 500 breakout art", () => {
+    expect(ATMOS_BRICK_ROWS).toBe(9);
+    expect(ATMOS_BRICK_COLS).toBe(43);
+    expect(ATMOS_BRICK_PATTERN).toHaveLength(9);
+    expect(ATMOS_BRICK_PATTERN.every((row) => row.length === 43)).toBe(true);
+    expect(ATMOS_BRICK_PATTERN.every((row) => /^[.#]+$/.test(row))).toBe(true);
+
+    // Letter slots: A(0-6) gap T(9-15) gap M(18-24) gap O(27-33) gap S(36-42)
+    const letterSlices = (start: number) =>
+      ATMOS_BRICK_PATTERN.map((row) => row.slice(start, start + 7));
+
+    expect(letterSlices(0)).toEqual([
+      "..###..",
+      ".#...#.",
+      "#.....#",
+      "#.....#",
+      "#######",
+      "#.....#",
+      "#.....#",
+      "#.....#",
+      "#.....#",
+    ]);
+    expect(letterSlices(9)).toEqual([
+      "#######",
+      "...#...",
+      "...#...",
+      "...#...",
+      "...#...",
+      "...#...",
+      "...#...",
+      "...#...",
+      "...#...",
+    ]);
+    expect(letterSlices(18)).toEqual([
+      "#.....#",
+      "##...##",
+      "#.#.#.#",
+      "#..#..#",
+      "#.....#",
+      "#.....#",
+      "#.....#",
+      "#.....#",
+      "#.....#",
+    ]);
+    expect(letterSlices(27)).toEqual([
+      "..###..",
+      ".#...#.",
+      "#.....#",
+      "#.....#",
+      "#.....#",
+      "#.....#",
+      "#.....#",
+      ".#...#.",
+      "..###..",
+    ]);
+    expect(letterSlices(36)).toEqual([
+      ".#####.",
+      "#.....#",
+      "#......",
+      "#......",
+      ".#####.",
+      "......#",
+      "......#",
+      "#.....#",
+      ".#####.",
+    ]);
+  });
+
+  it("keeps a modestly faster initial ball speed", () => {
+    expect(BALL_SPEED.wide.dx).toBeGreaterThan(5.2);
+    expect(Math.abs(BALL_SPEED.wide.dy)).toBeGreaterThan(5.4);
+    expect(BALL_SPEED.narrow.dx).toBeGreaterThan(4.1);
+    expect(Math.abs(BALL_SPEED.narrow.dy)).toBeGreaterThan(4.7);
+    // Not extreme — stay under arcade-chaos speeds.
+    expect(BALL_SPEED.wide.dx).toBeLessThan(9);
+    expect(Math.abs(BALL_SPEED.wide.dy)).toBeLessThan(10);
+  });
+
+  it("positions the overlay higher under the brick field (full opacity when ready)", () => {
+    const container = renderErrorPage(<BreakoutErrorPage kind="notFound" />);
+    const overlay = container.querySelector("[data-breakout-overlay]");
+
+    expect(overlay?.getAttribute("data-playing")).toBe("false");
+    expect(overlay?.className).toContain("top-[44%]");
+    expect(overlay?.className).toContain("sm:top-[58%]");
+    expect(overlay?.className).toContain("transition-opacity");
+    expect(overlay?.className.includes("opacity-[0.18]")).toBe(false);
+  });
+
+  it("wires playing-state fade classes for button hover restore", async () => {
+    // Static markup cannot drive the canvas loop; assert the dimming contract
+    // is present so hover-on-action can restore opacity while playing.
+    const source = await Bun.file(
+      new URL("../breakout-error-page.tsx", import.meta.url),
+    ).text();
+
+    expect(source).toContain('status === "playing"');
+    expect(source).toContain("opacity-[0.18]");
+    expect(source).toContain("has-[[data-error-action]:hover]:opacity-100");
+    expect(source).toContain('data-playing={isPlaying ? "true" : "false"}');
+  });
+
   it("keeps a home escape on server errors alongside retry", () => {
     const container = renderErrorPage(
       <BreakoutErrorPage kind="server" onRetry={() => {}} />,

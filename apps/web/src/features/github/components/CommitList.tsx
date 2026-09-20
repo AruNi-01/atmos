@@ -2,7 +2,8 @@
 
 import React, { useState, useCallback } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { GitCommit as GitCommitIcon, Copy, Check, Github, Loader2 } from 'lucide-react';
+import { GitCommit as GitCommitIcon, Copy, Check, Loader2 } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@workspace/ui';
 import { formatDistanceToNow, format } from 'date-fns';
 import { enUS, zhCN } from 'date-fns/locale';

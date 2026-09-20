@@ -15,6 +15,8 @@ import {
 } from "@/features/terminal/public";
 import {
   buildLocatedPanePath,
+  isResourceMonitorAgentStatusNavigationTarget,
+  isResourceMonitorTerminalNavigationTarget,
   locationMatchesDestination,
   navigateToResourceMonitorSession,
   runResourceMonitorSessionNavigation,
@@ -695,5 +697,26 @@ describe("navigate dest-commit-before-switch contract", () => {
     expect(src).not.toContain("useAgentAttentionStore");
     expect(src).not.toContain("raise(");
     expect(src).not.toContain("navigateToAgentHook");
+  });
+});
+
+describe("Resource Monitor navigation target kinds", () => {
+  test("distinguishes terminal locate from agent-status chat jumps", () => {
+    const terminal = { location: location(), routeKind: "workspace" as const };
+    const chat = {
+      session: {
+        session_id: "chat:chat-1",
+        tool: "grok-build" as const,
+        state: "running" as const,
+        timestamp: "2026-09-09T00:00:00.000Z",
+        context_id: "ws-1",
+        surface: "chat" as const,
+        surface_id: "chat-1",
+      },
+    };
+    expect(isResourceMonitorTerminalNavigationTarget(terminal)).toBe(true);
+    expect(isResourceMonitorAgentStatusNavigationTarget(terminal)).toBe(false);
+    expect(isResourceMonitorAgentStatusNavigationTarget(chat)).toBe(true);
+    expect(isResourceMonitorTerminalNavigationTarget(chat)).toBe(false);
   });
 });

@@ -161,7 +161,7 @@ export function AutomationListPanel({
     // Must fill the absolute inset parent; flex-1 alone does nothing there and
     // the panel grows with content, so outer overflow-hidden clips with no scroll.
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background/50">
-      <ScrollArea className="min-h-0 flex-1 scrollbar-on-hover">
+      <ScrollArea className="min-h-0 flex-1" scrollFade>
         <div className="mx-auto w-full max-w-6xl px-6 sm:px-8">
           <div className="space-y-2 pb-8 pt-10">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

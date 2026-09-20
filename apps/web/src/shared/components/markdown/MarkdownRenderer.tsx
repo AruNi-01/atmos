@@ -10,10 +10,10 @@ import rehypeSanitize from 'rehype-sanitize';
 import remarkBreaks from 'remark-breaks';
 import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui';
-import { Images, ArrowRightLeft, FileDiff, Code } from 'lucide-react';
-import { parsePatchFiles } from '@pierre/diffs';
-import { PatchDiff } from '@pierre/diffs/react';
-import { MermaidViewerModal } from './MermaidViewerModal';
+import { FileDiff, Code } from 'lucide-react';
+import { isMarkdownPatchCode, MarkdownPatchDiff } from './MarkdownPatchDiff';
+import { MermaidBlock } from './MermaidBlock';
+import { isMermaidFenceLanguage } from './mermaid-view';
 import {
   CodeBlock,
   CodeBlockHeader,
@@ -25,6 +25,15 @@ import { resolveRelativeMarkdownPath } from "@/shared/lib/markdown-links";
 import { CopyButton } from '@/shared/components/code-block/copy-button';
 import { ExpandButton } from '@/shared/components/code-block/expand-button';
 import { highlight, DualThemes, type Languages } from '@/shared/utils/shiki';
+import {
+  MARKDOWN_TABLE_CLASS,
+  MARKDOWN_TABLE_HEAD_CLASS,
+  MARKDOWN_TABLE_ROW_CLASS,
+  MARKDOWN_TABLE_TD_CLASS,
+  MARKDOWN_TABLE_TH_CLASS,
+  MARKDOWN_TABLE_WRAP_CLASS,
+} from '@/shared/components/markdown/markdown-table';
+import { useIsCodeFenceIncomplete } from 'streamdown';
 
 const LANG_ALIASES: Record<string, string> = {
   sh: 'bash',
@@ -131,7 +140,7 @@ function PlainTextWithLineNumbers({ code }: { code: string }) {
   const lines = code.split('\n');
 
   return (
-    <pre className="py-3">
+    <pre className="shiki-line-numbers py-3">
       <code>
         {lines.map((line, idx) => (
           <span key={idx} className="line block px-3 py-0.5 text-[13px] leading-relaxed">
@@ -143,206 +152,9 @@ function PlainTextWithLineNumbers({ code }: { code: string }) {
   );
 }
 
-type MermaidOutputMode = 'svg' | 'ascii';
-
-function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
-  const t = useTranslations("shared.markdownRenderer");
-  const mermaidErrorTextRef = useRef({
-    renderFailed: t("mermaid.errors.renderFailed"),
-    failed: t("mermaid.errors.failed"),
-    notLoaded: t("mermaid.errors.notLoaded"),
-  });
-  const [error, setError] = useState<string | null>(null);
-  const [renderedSvg, setRenderedSvg] = useState<string | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [outputMode, setOutputMode] = useState<MermaidOutputMode>('svg');
-  const [asciiText, setAsciiText] = useState<string | null>(null);
-  const [asciiError, setAsciiError] = useState<string | null>(null);
-  const [asciiLoading, setAsciiLoading] = useState(false);
-
-  useEffect(() => {
-    mermaidErrorTextRef.current = {
-      renderFailed: t("mermaid.errors.renderFailed"),
-      failed: t("mermaid.errors.failed"),
-      notLoaded: t("mermaid.errors.notLoaded"),
-    };
-  }, [t]);
-
-  useEffect(() => {
-    if (!code?.trim()) return;
-    setError(null);
-    setRenderedSvg(null);
-    let cancelled = false;
-
-    import('mermaid').then((mermaid) => {
-      if (cancelled) return;
-      try {
-        mermaid.default.initialize({
-          startOnLoad: false,
-          theme: isDark ? 'dark' : 'default',
-          securityLevel: 'strict',
-        });
-        const id = `mermaid-${Math.random().toString(36).slice(2)}`;
-        mermaid.default.render(id, code).then(({ svg }) => {
-          if (cancelled) return;
-          setRenderedSvg(svg);
-        }).catch((err: Error) => {
-          if (!cancelled) setError(err.message || mermaidErrorTextRef.current.renderFailed);
-        }).finally(() => {
-          document.querySelectorAll(`body > #${CSS.escape(id)}, body > #d${CSS.escape(id)}`).forEach(el => el.remove());
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : mermaidErrorTextRef.current.failed);
-      }
-    }).catch(() => setError(mermaidErrorTextRef.current.notLoaded));
-
-    return () => { cancelled = true; };
-  }, [code, isDark]);
-
-  const handleToggleMode = useCallback(() => {
-    if (outputMode === 'ascii') {
-      setOutputMode('svg');
-      return;
-    }
-    setOutputMode('ascii');
-    if (asciiText !== null) return;
-
-    setAsciiLoading(true);
-    setAsciiError(null);
-    import('beautiful-mermaid').then(({ renderMermaidAscii }) => {
-      try {
-        const result = renderMermaidAscii(code);
-        setAsciiText(result);
-      } catch (err) {
-        setAsciiError(err instanceof Error ? err.message : t("mermaid.errors.asciiRenderFailed"));
-      } finally {
-        setAsciiLoading(false);
-      }
-    }).catch(() => {
-      setAsciiError(t("mermaid.errors.loadAsciiRendererFailed"));
-      setAsciiLoading(false);
-    });
-  }, [outputMode, asciiText, code, t]);
-
-  if (error) {
-    return (
-      <div className="my-4 p-4 rounded-lg border border-destructive/50 bg-destructive/5 text-destructive text-sm">
-        {error}
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <CodeBlock className="my-4">
-        <CodeBlockHeader>
-          <CodeBlockGroup>
-            <Images className="size-4" />
-            <span className="text-xs uppercase tracking-wider">{t("mermaid.title")}</span>
-          </CodeBlockGroup>
-          <CodeBlockGroup>
-            <button
-              onClick={handleToggleMode}
-              title={outputMode === 'svg' ? t("mermaid.switchToAscii") : t("mermaid.switchToSvg")}
-              className={cn(
-                "flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md border cursor-pointer",
-                "transition-all duration-200 ease-in-out",
-                "border-neutral-300 dark:border-neutral-600",
-                "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100",
-                "hover:bg-neutral-100 dark:hover:bg-neutral-800",
-                "active:scale-95"
-              )}
-            >
-              <ArrowRightLeft key={`icon-${outputMode}`} className="size-3 animate-in fade-in-0 duration-200" />
-              <span key={outputMode} className="animate-in fade-in-0 slide-in-from-bottom-1 duration-200">
-                {outputMode === 'svg' ? 'ASCII' : 'SVG'}
-              </span>
-            </button>
-            <CopyButton content={outputMode === 'ascii' && asciiText ? asciiText : code} />
-          </CodeBlockGroup>
-        </CodeBlockHeader>
-
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => renderedSvg && outputMode === 'svg' && setModalOpen(true)}
-          onKeyDown={(e) => {
-            if ((e.key === 'Enter' || e.key === ' ') && renderedSvg && outputMode === 'svg') {
-              e.preventDefault();
-              setModalOpen(true);
-            }
-          }}
-          className={cn(
-            "mermaid-container flex justify-center overflow-hidden rounded-lg bg-background p-4",
-            outputMode === 'svg'
-              ? "cursor-pointer hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              : "hidden"
-          )}
-          aria-label={t("mermaid.clickToEnlarge")}
-          dangerouslySetInnerHTML={renderedSvg ? { __html: renderedSvg } : undefined}
-        />
-
-        {outputMode === 'ascii' && (
-          <CodeBlockContent className="bg-background">
-            {asciiLoading ? (
-              <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
-                {t("mermaid.renderingAscii")}
-              </div>
-            ) : asciiError ? (
-              <div className="p-4 text-destructive text-sm">{asciiError}</div>
-            ) : asciiText ? (
-              <pre className="p-4 text-[13px] leading-relaxed overflow-x-auto font-mono whitespace-pre">
-                {asciiText}
-              </pre>
-            ) : null}
-          </CodeBlockContent>
-        )}
-      </CodeBlock>
-
-      {renderedSvg && (
-        <MermaidViewerModal
-          open={modalOpen}
-          onOpenChange={setModalOpen}
-          svgContent={renderedSvg}
-          isDark={isDark}
-        />
-      )}
-    </>
-  );
-}
-
-function isValidSingleFilePatch(patch: string): boolean {
-  try {
-    const parsed = parsePatchFiles(patch);
-    return parsed.length === 1 && parsed[0].files.length === 1;
-  } catch {
-    return false;
-  }
-}
-
-function SafePatchDiff({ code, isDark }: { code: string; isDark: boolean }) {
-  const isValid = React.useMemo(() => isValidSingleFilePatch(code), [code]);
-
-  if (!isValid) {
-    return <PlainTextWithLineNumbers code={code} />;
-  }
-
-  return (
-    <PatchDiff
-      patch={code}
-      options={{
-        theme: isDark ? 'pierre-dark' : 'pierre-light',
-        diffStyle: 'unified',
-        overflow: 'wrap',
-        disableLineNumbers: false,
-        disableFileHeader: true,
-      }}
-    />
-  );
-}
-
 export function MarkdownCodeBlock({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'>) {
   const t = useTranslations("shared.markdownRenderer");
+  const fenceIncomplete = useIsCodeFenceIncomplete();
   const match = /language-(\w+)/.exec(className || '');
   const language = match ? match[1] : '';
   const codeText = String(children).replace(/\n$/, '');
@@ -370,9 +182,6 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
 
   const normalizedLang = language ? normalizeLang(language) : '';
   const isDiffLang = normalizedLang === 'diff';
-  const isValidPatch = /^@@\s[+-]/m.test(codeText) && (
-    codeText.includes('--- ') || codeText.includes('diff --git ')
-  );
 
   const isInline = !className && !String(children).includes('\n');
 
@@ -384,27 +193,12 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
     );
   }
 
-  if (language === 'mermaid') {
-    return <MermaidBlock code={codeText} isDark={!!isDark} />;
+  if (isMermaidFenceLanguage(language)) {
+    return <MermaidBlock code={codeText} isDark={!!isDark} fenceIncomplete={fenceIncomplete} />;
   }
 
-  if (isValidPatch) {
-    return (
-      <CodeBlock className="my-4">
-        <CodeBlockHeader>
-          <CodeBlockGroup>
-            <FileDiff className="size-4 shrink-0" />
-            <span className="text-xs uppercase tracking-wider">{t("common.diff")}</span>
-          </CodeBlockGroup>
-          <CodeBlockGroup>
-            <CopyButton content={codeText} />
-          </CodeBlockGroup>
-        </CodeBlockHeader>
-        <CodeBlockContent ref={contentRef} expanded={expanded} className="!px-0">
-          <SafePatchDiff code={codeText} isDark={!!isDark} />
-        </CodeBlockContent>
-      </CodeBlock>
-    );
+  if (isMarkdownPatchCode(codeText)) {
+    return <MarkdownPatchDiff code={codeText} />;
   }
 
   const hasLang = !!language;
@@ -450,25 +244,77 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
   );
 }
 
+/**
+ * Element styles live on the nodes themselves (like tables) so headings / hr
+ * still look right when MarkdownRenderer sits under a parent `.not-prose`
+ * (Tailwind Typography skips all `.prose` rules for those descendants).
+ */
 const DEFAULT_MARKDOWN_COMPONENTS: Components = {
   code: MarkdownCodeBlock,
   pre: ({ children }) => <>{children}</>,
+  h1: ({ node: _node, className, children, ...props }) => (
+    <h1
+      className={cn(
+        "mt-6 mb-3 text-2xl font-semibold tracking-tight text-foreground first:mt-0",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </h1>
+  ),
+  h2: ({ node: _node, className, children, ...props }) => (
+    <h2
+      className={cn(
+        "mt-5 mb-2.5 text-xl font-semibold tracking-tight text-foreground first:mt-0",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </h2>
+  ),
+  h3: ({ node: _node, className, children, ...props }) => (
+    <h3
+      className={cn(
+        "mt-4 mb-2 text-lg font-semibold text-foreground first:mt-0",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </h3>
+  ),
+  h4: ({ node: _node, className, children, ...props }) => (
+    <h4
+      className={cn(
+        "mt-3 mb-1.5 text-base font-semibold text-foreground first:mt-0",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </h4>
+  ),
+  hr: ({ node: _node, className, ...props }) => (
+    <hr className={cn("my-6 border-border", className)} {...props} />
+  ),
   table: ({ children }) => (
-    <div className="not-prose my-4 overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700/50">
-      <table className="w-full text-sm">{children}</table>
+    <div className={MARKDOWN_TABLE_WRAP_CLASS}>
+      <table className={MARKDOWN_TABLE_CLASS}>{children}</table>
     </div>
   ),
   thead: ({ children }) => (
-    <thead className="bg-zinc-100 dark:bg-zinc-800/80">{children}</thead>
+    <thead className={MARKDOWN_TABLE_HEAD_CLASS}>{children}</thead>
   ),
   th: ({ children, style }) => (
-    <th className="px-4 py-2.5 text-left font-semibold text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/50" style={style}>{children}</th>
+    <th className={MARKDOWN_TABLE_TH_CLASS} style={style}>{children}</th>
   ),
   td: ({ children, style }) => (
-    <td className="px-4 py-2.5 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700/50" style={style}>{children}</td>
+    <td className={MARKDOWN_TABLE_TD_CLASS} style={style}>{children}</td>
   ),
   tr: ({ children }) => (
-    <tr className="even:bg-zinc-50 dark:even:bg-zinc-800/40">{children}</tr>
+    <tr className={MARKDOWN_TABLE_ROW_CLASS}>{children}</tr>
   ),
 };
 
@@ -478,15 +324,54 @@ interface MarkdownRendererProps {
   /** When set, intercepts relative .md links and calls this instead of navigating */
   wikiBasePath?: string;
   onWikiLinkNavigate?: (slug: string, hash?: string) => void;
+  /** Expand `<details>` blocks on first render unless the file already set `open`. */
+  detailsOpenByDefault?: boolean;
 }
 
-export function MarkdownRenderer({ children, className, wikiBasePath, onWikiLinkNavigate }: MarkdownRendererProps) {
+function detailsFileOpen(open: unknown): boolean {
+  return open === true || open === "" || open === "open";
+}
+
+function MarkdownDetails({
+  children,
+  open,
+  startOpen = false,
+  ...props
+}: React.ComponentProps<"details"> & { startOpen?: boolean }) {
+  const ref = React.useRef<HTMLDetailsElement>(null);
+  React.useLayoutEffect(() => {
+    const node = ref.current;
+    if (node) node.open = startOpen;
+  }, [startOpen]);
+  return (
+    <details {...props} ref={ref}>
+      {children}
+    </details>
+  );
+}
+
+export function MarkdownRenderer({
+  children,
+  className,
+  wikiBasePath,
+  onWikiLinkNavigate,
+  detailsOpenByDefault = false,
+}: MarkdownRendererProps) {
   const { resolvedTheme } = useTheme();
 
   const components = React.useMemo(() => {
-    if (!wikiBasePath || !onWikiLinkNavigate) return DEFAULT_MARKDOWN_COMPONENTS;
+    const details: Components["details"] = ({ children, open, ...props }) => (
+      <MarkdownDetails
+        {...props}
+        startOpen={detailsFileOpen(open) || detailsOpenByDefault}
+      >
+        {children}
+      </MarkdownDetails>
+    );
+    const base: Components = { ...DEFAULT_MARKDOWN_COMPONENTS, details };
+    if (!wikiBasePath || !onWikiLinkNavigate) return base;
     return {
-      ...DEFAULT_MARKDOWN_COMPONENTS,
+      ...base,
       a: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
         if (!href) return <a {...props}>{children}</a>;
         const resolved = resolveRelativeMarkdownPath(wikiBasePath, href);
@@ -513,7 +398,7 @@ export function MarkdownRenderer({ children, className, wikiBasePath, onWikiLink
         return <a href={href} {...props}>{children}</a>;
       },
     };
-  }, [wikiBasePath, onWikiLinkNavigate]);
+  }, [wikiBasePath, onWikiLinkNavigate, detailsOpenByDefault]);
 
   return (
     <div className={cn(
@@ -521,6 +406,8 @@ export function MarkdownRenderer({ children, className, wikiBasePath, onWikiLink
       "prose-img:inline-block prose-img:m-0 prose-p:my-2 prose-a:break-all",
       "[&_ul.contains-task-list]:list-none [&_ul.contains-task-list]:pl-0",
       "[&_li.task-list-item]:list-none [&_li.task-list-item]:pl-0",
+      "[&_li.task-list-item]:flex [&_li.task-list-item]:items-start [&_li.task-list-item]:gap-2",
+      "[&_li.task-list-item>input]:mt-1 [&_li.task-list-item>input]:shrink-0",
       "[&_picture]:inline-block [&_img]:inline-block [&_img]:m-0 [&_svg]:inline-block [&_svg]:align-middle [&_svg]:m-0",
       resolvedTheme === 'dark' && "prose-invert",
       className,

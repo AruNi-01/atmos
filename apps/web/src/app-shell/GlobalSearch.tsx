@@ -4,6 +4,7 @@ import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useR
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useFocusRestore } from '@/shared/hooks/use-focus-restore';
 import { useAppRouter } from '@/shared/hooks/use-app-router';
+import { useAgentChatUrl } from '@/features/agent/hooks/use-agent-chat-url';
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useTheme } from 'next-themes';
 import { useTranslations } from 'next-intl';
@@ -22,10 +23,12 @@ import {
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { fsApi, type SearchMatch, type FileTreeNode } from '@/api/ws-api';
 import { useFileTreeQuery } from '@/features/files/hooks/use-file-tree-query';
-import { llmProvidersModalParams, agentChatParams, leftSidebarParams, centerStageParams } from '@/shared/lib/nuqs/searchParams';
+import { llmProvidersModalParams, centerStageParams } from '@/shared/lib/nuqs/searchParams';
 import { useWorkspaceContext } from '@/features/workspace/hooks/use-workspace-context';
 import { useSidebarLayout } from '@/app-shell/SidebarLayoutContext';
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
+import { useWorkbenchLocale } from '@/providers/app/workbench-intl-provider';
+import { useCenterPaintContextId } from '@/app-shell/center-space/use-center-paint-context-id';
 import {
   type AppSearchItem,
   type SearchTab,
@@ -34,6 +37,7 @@ import { buildGlobalSearchItems } from '@/app-shell/global-search-app-items';
 import {
   CommitSubView,
   GlobalSearchMainView,
+  NoteSubView,
   TodoSubView,
   UsageSubView,
   type GroupedAppItems,
@@ -125,8 +129,10 @@ function scoreFileSearchItem(file: { name: string; path: string }, query: string
 export function GlobalSearch() {
   const t = useTranslations('appShell.globalSearch');
   const router = useAppRouter();
+  const [, setAgentChatOpen] = useAgentChatUrl();
   const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl, currentView } = useContextParams();
   const { setTheme } = useTheme();
+  const { setLocale } = useWorkbenchLocale();
 
   const isGlobalSearchOpen = useDialogStore(s => s.isGlobalSearchOpen);
   const { onCloseAutoFocusPrevent } = useFocusRestore(isGlobalSearchOpen);
@@ -139,20 +145,19 @@ export function GlobalSearch() {
 
   const projects = useProjects();
   const quickAddWorkspace = useProjectStore(s => s.quickAddWorkspace);
-  const setupProgress = useProjectStore(s => s.setupProgress);
+  const currentSetupProgress = useProjectStore((s) =>
+    currentWorkspaceId ? s.setupProgress[currentWorkspaceId] ?? null : null,
+  );
   const openFile = useEditorStore(s => s.openFile);
 
   // URL-param driven modals
   const [, setLlmProvidersOpen] = useQueryState("llmProvidersModal", llmProvidersModalParams.llmProvidersModal);
-  const [, setAgentChatOpen] = useQueryState("chat", agentChatParams.chat);
-  const [, setLeftSidebarTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
   const [, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
 
-  const { isLeftCollapsed, setIsLeftCollapsed } = useSidebarLayout();
+  const { isLeftCollapsed, toggleLeftSidebar } = useSidebarLayout();
+  const centerContextId = useCenterPaintContextId();
 
-  const launchpadTerminalsEnabled = useExperimentSettingsStore((s) => s.launchpadTerminalsEnabled);
-  const launchpadAgentsEnabled = useExperimentSettingsStore((s) => s.launchpadAgentsEnabled);
-  const automationsEnabled = useExperimentSettingsStore((s) => s.automationsEnabled);
+  const centerWikiTabEnabled = useExperimentSettingsStore((s) => s.centerWikiTabEnabled);
   const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
 
   useEffect(() => {
@@ -229,6 +234,10 @@ export function GlobalSearch() {
     updateTaskStatus: todoUpdateTaskStatus,
     updateTaskContent: todoUpdateTaskContent,
     deleteTask: todoDeleteTask,
+    note: workspaceNote,
+    noteLoading: workspaceNoteLoading,
+    loadNote: loadWorkspaceNote,
+    saveNote: saveWorkspaceNote,
   } = useWorkspaceContext(contextId);
 
   // Load tasks when entering TODO sub-view
@@ -237,6 +246,12 @@ export function GlobalSearch() {
       todoLoadTasks(currentEffectivePath);
     }
   }, [subView, currentEffectivePath, todoLoadTasks]);
+
+  useEffect(() => {
+    if (subView === 'note' && currentEffectivePath) {
+      void loadWorkspaceNote(currentEffectivePath);
+    }
+  }, [subView, currentEffectivePath, loadWorkspaceNote]);
 
   // Keyboard shortcut to open search
   useHotkeys('mod+k', () => setGlobalSearchOpen(!isGlobalSearchOpen), {
@@ -326,9 +341,7 @@ export function GlobalSearch() {
     }
   }, [selectedValue]);
 
-  const isSettingUp = isWorkspaceSetupBlocking(
-    currentWorkspaceId ? setupProgress[currentWorkspaceId] : null,
-  );
+  const isSettingUp = isWorkspaceSetupBlocking(currentSetupProgress);
   const startCreating = useWorkspaceCreationStore((s) => s.startCreating);
   const bindWorkspace = useWorkspaceCreationStore((s) => s.bindWorkspace);
   const failCreating = useWorkspaceCreationStore((s) => s.failCreating);
@@ -382,6 +395,7 @@ export function GlobalSearch() {
       projects,
       router,
       setTheme,
+      setLocale,
       setGlobalSearchOpen,
       setCreateProjectOpen,
       setSelectedProjectId,
@@ -389,26 +403,26 @@ export function GlobalSearch() {
       quickAddWorkspace,
       isFullScreen,
       toggleFullScreen,
+      toggleLeftSidebar,
+      isLeftCollapsed,
       currentProject,
       currentWorkspace,
       currentWorkspaceId,
       currentEffectivePath,
-      launchpadTerminalsEnabled,
-      launchpadAgentsEnabled,
-      automationsEnabled,
-      isLeftCollapsed,
+      centerContextId,
+      centerWikiTabEnabled,
       setLlmProvidersOpen,
-      setAgentChatOpen,
-      setLeftSidebarTab,
       setCanvasOpen,
-      setIsLeftCollapsed,
       setSubView,
       startCreating,
       bindWorkspace,
       failCreating,
       createOriginKey,
+      openModalAgentChat: () => {
+        void setAgentChatOpen(true);
+      },
     });
-  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, toggleFullScreen, currentProject, setLlmProvidersOpen, setAgentChatOpen, setLeftSidebarTab, setCanvasOpen, isLeftCollapsed, setIsLeftCollapsed, currentWorkspaceId, currentWorkspace, launchpadTerminalsEnabled, launchpadAgentsEnabled, automationsEnabled, currentEffectivePath, startCreating, bindWorkspace, failCreating, createOriginKey]);
+  }, [projects, router, setTheme, setLocale, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, toggleFullScreen, toggleLeftSidebar, isLeftCollapsed, currentProject, currentWorkspace, currentWorkspaceId, currentEffectivePath, centerContextId, centerWikiTabEnabled, setLlmProvidersOpen, setCanvasOpen, startCreating, bindWorkspace, failCreating, createOriginKey, setAgentChatOpen]);
 
   // Filter app items with deterministic matching. Single-word keyword hits must be exact
   // to keep broad keyword phrases from pulling unrelated results into the command palette.
@@ -456,10 +470,13 @@ export function GlobalSearch() {
       'new-workspace': [],
       'quick-open': [],
       launchpad: [],
+      surface: [],
       modal: [],
       todo: [],
+      note: [],
       commit: [],
       usage: [],
+      command: [],
     };
 
     filteredAppItems.forEach(item => {
@@ -490,16 +507,17 @@ export function GlobalSearch() {
   }, [globalSearchTab, searchQuery, isGlobalSearchOpen, firstAppItemId, firstFilePath, firstCodeValue]);
 
   const handleFileSelect = (path: string) => {
-    // Search results open in pinned mode since user explicitly searched for them
-    openFile(path, currentWorkspaceId ?? undefined, { preview: false });
+    const contextId = centerContextId;
+    if (!contextId) return;
+    openFile(path, contextId, { preview: false });
     setGlobalSearchOpen(false);
   };
 
   const handleCodeResultSelect = (match: SearchMatch) => {
-    if (currentEffectivePath) {
+    const contextId = centerContextId;
+    if (currentEffectivePath && contextId) {
       const fullPath = `${currentEffectivePath}/${match.file_path}`;
-      // Search results open in pinned mode since user explicitly searched for them
-      openFile(fullPath, currentWorkspaceId ?? undefined, { preview: false });
+      openFile(fullPath, contextId, { preview: false });
       setGlobalSearchOpen(false);
     }
   };
@@ -533,6 +551,16 @@ export function GlobalSearch() {
           updateTaskStatus={todoUpdateTaskStatus}
           updateTaskContent={todoUpdateTaskContent}
           deleteTask={todoDeleteTask}
+          onBack={() => setSubView(null)}
+        />
+      ) : subView === 'note' ? (
+        <NoteSubView
+          currentProject={currentProject}
+          currentWorkspace={currentWorkspace}
+          currentEffectivePath={currentEffectivePath}
+          note={workspaceNote}
+          noteLoading={workspaceNoteLoading}
+          saveNote={saveWorkspaceNote}
           onBack={() => setSubView(null)}
         />
       ) : subView === 'usage' ? (

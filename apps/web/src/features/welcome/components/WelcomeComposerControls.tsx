@@ -52,6 +52,7 @@ export function WelcomeAgentSelector({
   trigger,
   triggerPlacement,
   contentAlign,
+  showRunConfig,
   variant = "floating",
 }: {
   availableAgents: AgentMenuOption[];
@@ -67,9 +68,29 @@ export function WelcomeAgentSelector({
   trigger?: React.ReactNode;
   triggerPlacement?: "notch" | "inline";
   contentAlign?: "start" | "center" | "end";
-  variant?: "floating" | "menu";
+  showRunConfig?: boolean;
+  variant?: "floating" | "menu" | "panel";
 }) {
   const t = useTranslations("Welcome.components.composerControls");
+
+  if (variant === "panel") {
+    return (
+      <TerminalAgentSelectorWithRunConfig
+        variant="panel"
+        options={availableAgents}
+        value={selectedAgentId}
+        onValueChange={onSelectAgent}
+        open={open}
+        onOpenChange={onOpenChange}
+        runConfig={selectedAgentId ? runConfigByAgentId[selectedAgentId] ?? null : null}
+        runConfigByAgentId={runConfigByAgentId}
+        onRunConfigChange={onRunConfigChange}
+        onInteraction={onInteraction}
+        purpose={purpose}
+        showRunConfig={showRunConfig}
+      />
+    );
+  }
 
   if (variant === "menu") {
     return (

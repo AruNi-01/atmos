@@ -1,0 +1,29 @@
+{
+  "sessionId": "sess_ask_1",
+  "toolCall": {
+    "toolCallId": "call_ask_1",
+    "title": "AskQuestion: Pick a probe color?",
+    "kind": "other",
+    "status": "pending",
+    "rawInput": {
+      "questions": [
+        {
+          "prompt": "Pick a probe color?",
+          "options": ["Blue", "Red"]
+        }
+      ]
+    }
+  },
+  "options": [
+    {
+      "optionId": "allow-once",
+      "name": "Allow",
+      "kind": "allow_once"
+    },
+    {
+      "optionId": "reject-once",
+      "name": "Reject",
+      "kind": "reject_once"
+    }
+  ]
+}

@@ -24,6 +24,7 @@ import {
 import { useDiffWorkerPoolReady } from '@/features/diff/components/DiffWorkerPoolProvider';
 import { DiffCodeViewSettingsMenu } from '@/features/diff/components/DiffCodeViewSettingsMenu';
 import { ATMOS_DIFF_THEME, buildSharedDiffViewOptions, CODE_VIEW_HOST_CLASS, getAtmosDiffThemeType } from '@/features/diff/lib/diff-view-constants';
+import { useScrollFadeRef } from '@/features/diff/lib/use-scroll-fade-element';
 import { useDiffSettingsStore } from '@/features/settings/store/diff-settings-store';
 import {
   findDiffItemIdAtScrollTop,
@@ -61,6 +62,8 @@ interface PRFilesTabProps {
   url?: string | null;
   agentFixContext?: AgentFixContextRef | null;
   onCodeViewTopBoundaryWheel?: (deltaY: number) => void;
+  /** Scroll the file list to this path once the diff viewer is ready. */
+  focusFilePath?: string | null;
 }
 
 function groupCommentsByPath(comments: ReviewComment[]): Map<string, ReviewComment[][]> {
@@ -233,12 +236,14 @@ export function PRFilesTab({
   reviewComments = [],
   title,
   url,
+  focusFilePath,
 }: PRFilesTabProps) {
   const t = useTranslations('github.prFilesTab');
   const { resolvedTheme } = useTheme();
   const workerPoolReady = useDiffWorkerPoolReady();
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [viewerMounted, setViewerMounted] = useState(false);
+  const scrolledFocusRef = useRef<string | null>(null);
   const {
     diffStyle,
     showBackgrounds,
@@ -257,6 +262,7 @@ export function PRFilesTab({
   );
   const pathByFileNameRef = useRef<Map<string, string>>(new Map());
   const codeViewRef = useRef<CodeViewHandle<PrAnnotationMeta | undefined>>(null);
+  const setCodeViewHost = useScrollFadeRef<HTMLDivElement>();
   const codeViewScrollTopRef = useRef(0);
   const itemIdsRef = useRef<string[]>([]);
   const scrollActiveIdRef = useRef<string | null>(null);
@@ -549,6 +555,24 @@ export function PRFilesTab({
   );
 
   useEffect(() => {
+    if (!focusFilePath) return;
+    if (!orderedFiles.some((file) => file.filename === focusFilePath)) return;
+    setSelectedPath(focusFilePath);
+  }, [focusFilePath, orderedFiles]);
+
+  useEffect(() => {
+    if (!viewerMounted || !focusFilePath) return;
+    if (!itemIds.includes(focusFilePath)) return;
+    const scrollKey = `${codeViewMountKey}:${focusFilePath}`;
+    if (scrolledFocusRef.current === scrollKey) return;
+    const frame = requestAnimationFrame(() => {
+      scrollCodeViewToItem(codeViewRef.current, focusFilePath, { behavior: 'smooth' });
+      scrolledFocusRef.current = scrollKey;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [codeViewMountKey, focusFilePath, itemIds, viewerMounted]);
+
+  useEffect(() => {
     const instance = codeViewRef.current?.getInstance();
     if (instance == null) return;
     codeViewScrollTopRef.current = instance.getScrollTop();
@@ -665,6 +689,7 @@ export function PRFilesTab({
             <CodeView
               key={codeViewMountKey}
               ref={handleViewerRef}
+              containerRef={setCodeViewHost}
               initialItems={codeViewItems}
               options={codeViewOptions}
               renderAnnotation={renderAnnotation}

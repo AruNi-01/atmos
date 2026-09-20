@@ -20,23 +20,13 @@ describe("desktop-use quit lifecycle", () => {
     expect(branding).toContain("applyHostAppIcon");
   });
 
-  it("stops the host daemon on real quit, not window hide", () => {
+  it("does not kill shared Runtime or host daemon on Desktop quit (APP-076)", () => {
     const main = readFileSync(join(root, "main.ts"), "utf8");
-    expect(main).toContain("stopDesktopUseOnAppQuit");
-    expect(main).toContain("desktop-use/lifecycle");
+    expect(main).toContain("desktopQuitShouldStopRuntime");
     expect(main).toContain("before-quit");
-    const hideHandler = main.slice(
-      main.indexOf('app.on("window-all-closed"'),
-      main.indexOf('app.on("activate"'),
-    );
-    expect(hideHandler).not.toContain("stopDesktopUseOnAppQuit");
-  });
-
-  it("uses CLI stop plus host serve pkill, no vendor process name", () => {
     const src = readFileSync(join(root, "desktop-use/lifecycle.ts"), "utf8");
-    expect(src).toContain("desktopUseDriverStop");
-    expect(src).toContain("Atmos Desktop Use.app/Contents/MacOS/.*serve");
-    expect(src).toContain("isAtmosCliInstalled");
+    expect(src).toContain("APP-076");
+    expect(src).not.toContain("desktopUseDriverStop");
     expect(src.toLowerCase()).not.toContain("cua-driver");
     expect(src.toLowerCase()).not.toContain("trycua");
   });
@@ -46,5 +36,7 @@ describe("desktop-use quit lifecycle", () => {
     expect(client).toMatch(
       /desktopUseDriverStop\([^)]*timeoutMs = 8_000/,
     );
+    expect(client).toContain("DRIVER_RESTART_DEBOUNCE_MS");
+    expect(client).toContain("driverRestartInFlight");
   });
 });

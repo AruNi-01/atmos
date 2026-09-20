@@ -348,6 +348,13 @@ impl ProjectService {
         Ok(repo.update_name(&guid, &name).await?)
     }
 
+    pub async fn mark_visited(&self, guid: String) -> Result<()> {
+        let repo = ProjectRepo::new(&self.db);
+        Ok(repo
+            .update_last_visited_at(&guid, chrono::Utc::now().naive_utc())
+            .await?)
+    }
+
     /// Get project maximized terminal ID
     pub async fn get_maximized_terminal_id(&self, guid: String) -> Result<Option<String>> {
         let repo = ProjectRepo::new(&self.db);
@@ -396,6 +403,7 @@ mod tests {
             target_branch: Set(None),
             maximized_terminal_id: Set(None),
             trusted_scripts_hash: Set(None),
+            last_visited_at: Set(None),
         }
         .insert(&db)
         .await
@@ -669,5 +677,30 @@ mod tests {
         let scripts = ProjectScripts::empty();
         assert!(scripts.trusted);
         assert!(scripts.hash.is_none());
+    }
+
+    #[tokio::test]
+    async fn mark_visited_sets_last_visited_at() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let (service, guid) = project_with_root(root.path()).await;
+
+        let before = service
+            .get_project(guid.clone())
+            .await
+            .expect("get")
+            .expect("project");
+        assert!(before.last_visited_at.is_none());
+
+        service
+            .mark_visited(guid.clone())
+            .await
+            .expect("mark visited");
+
+        let after = service
+            .get_project(guid)
+            .await
+            .expect("get")
+            .expect("project");
+        assert!(after.last_visited_at.is_some());
     }
 }

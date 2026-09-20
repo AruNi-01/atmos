@@ -11,17 +11,24 @@ export type FunctionSettingsUpdateRequest = {
   value: unknown;
 };
 
-export type TerminalAgentModelOption = {
+export type TerminalAgentModelThinking = {
+  type: string;
+  options?: string[];
+  arg?: string | null;
+};
+
+export type TerminalAgentOption = {
   id: string;
   label: string;
   group?: string | null;
   is_default?: boolean;
+  thinking?: TerminalAgentModelThinking | null;
 };
 
-export type TerminalAgentModelCatalog = {
+export type TerminalAgentOptions = {
   agent_id: string;
-  status: "ok" | "unsupported" | "auth_required" | "error";
-  models: TerminalAgentModelOption[];
+  status: "ok" | "unsupported" | "auth_required" | "error" | "probing";
+  models: TerminalAgentOption[];
   message: string | null;
   source: "live" | "cache";
 };
@@ -102,6 +109,7 @@ export type AgentBehaviourSettings = {
   attention_summary_delay_mins?: number;
   attention_summary_agent_id?: string | null;
   attention_summary_model?: string | null;
+  followup_policy?: "queue" | "steer";
 };
 
 export type AgentBehaviourSettingsUpdateRequest = {
@@ -110,6 +118,7 @@ export type AgentBehaviourSettingsUpdateRequest = {
   attention_summary_delay_mins?: number | null;
   attention_summary_agent_id?: string | null;
   attention_summary_model?: string | null;
+  followup_policy?: "queue" | "steer" | null;
 };
 
 export type PushServerType = "ntfy" | "bark" | "gotify" | "custom_webhook";

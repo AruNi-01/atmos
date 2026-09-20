@@ -437,7 +437,9 @@ export const systemApi = {
    * List tmux windows for a workspace
    */
   listTmuxWindows: async (workspaceId: string): Promise<{ windows: TmuxWindow[] }> => {
-    return fetchApi<{ windows: TmuxWindow[] }>(`/api/system/tmux-windows/${workspaceId}`);
+    return fetchApi<{ windows: TmuxWindow[] }>(
+      `/api/system/tmux-windows/${encodeURIComponent(workspaceId)}`,
+    );
   },
 
   /**
@@ -447,7 +449,9 @@ export const systemApi = {
     workspaceId: string,
     tmuxWindowName: string,
   ): Promise<{ killed: boolean; message?: string }> => {
-    return fetchApi<{ killed: boolean; message?: string }>(`/api/system/tmux-window/${workspaceId}`, {
+    return fetchApi<{ killed: boolean; message?: string }>(
+      `/api/system/tmux-window/${encodeURIComponent(workspaceId)}`,
+      {
       method: 'POST',
       body: JSON.stringify({ tmux_window_name: tmuxWindowName }),
     });
@@ -488,7 +492,7 @@ export const systemApi = {
     if (params.workspace_name) {
       search.set("workspace_name", params.workspace_name);
     }
-    return fetchApi(`/api/system/tmux-capture/${workspaceId}?${search.toString()}`);
+    return fetchApi(`/api/system/tmux-capture/${encodeURIComponent(workspaceId)}?${search.toString()}`);
   },
 
   /**
@@ -639,9 +643,18 @@ export const agentHooksApi = {
     );
   },
 
+  /** Resolve contested short CLI names (e.g. bare `agent`) to a product owner. */
+  getCliIdentity: async (command = 'agent'): Promise<CliIdentityResponse> => {
+    return fetchHooksApi<CliIdentityResponse>(
+      `/hooks/cli-identity?command=${encodeURIComponent(command)}`,
+    );
+  },
+};
+
+export const agentStatusApi = {
   forceSessionIdle: async (sessionId: string): Promise<{ ok: boolean }> => {
     return fetchHooksApi<{ ok: boolean }>(
-      `/hooks/sessions/${encodeURIComponent(sessionId)}/force-idle`,
+      `/agent-status/sessions/${encodeURIComponent(sessionId)}/force-idle`,
       { method: 'POST' },
     );
   },
@@ -652,7 +665,7 @@ export const agentHooksApi = {
   ): Promise<{ ok: boolean }> => {
     const suffix = options?.keepActivity ? "?keep_activity=1" : "";
     return fetchHooksApi<{ ok: boolean }>(
-      `/hooks/sessions/${encodeURIComponent(sessionId)}${suffix}`,
+      `/agent-status/sessions/${encodeURIComponent(sessionId)}${suffix}`,
       { method: "DELETE" },
     );
   },
@@ -660,35 +673,29 @@ export const agentHooksApi = {
   listActivity: async (): Promise<{
     sessions: import("@atmos/api-types/ws/dto/events").AgentActivity[];
   }> => {
-    return fetchHooksApi("/hooks/activity");
+    return fetchHooksApi("/agent-status/activity");
   },
 
   /** Sticky need-attention latches held in API memory (survives browser refresh). */
   listAttention: async (): Promise<{ attention: AgentAttentionLatchDto[] }> => {
-    return fetchHooksApi<{ attention: AgentAttentionLatchDto[] }>('/hooks/attention');
+    return fetchHooksApi<{ attention: AgentAttentionLatchDto[] }>('/agent-status/attention');
   },
 
-  /**
-   * Workspace Agent grouping snapshot held in API memory (sessions + attention).
-   * Survives browser refresh until the local API process restarts.
-   */
   listWorkspaceAgentGroups: async (): Promise<{
     groups: WorkspaceAgentGroupSnapshotDto[];
   }> => {
     return fetchHooksApi<{ groups: WorkspaceAgentGroupSnapshotDto[] }>(
-      '/hooks/workspace-agent-groups',
+      '/agent-status/workspace-agent-groups',
     );
   },
 
   clearAttention: async (input: {
     stablePaneId?: string;
     stablePaneIds?: string[];
-    /** RFC3339: only clear latches raised at or before this (dismiss race guard). */
     notAfter?: string;
-    /** Also drop auto-summary chrome. Focus-ack omits this; Dismiss / send set it. */
     dismissSummary?: boolean;
   }): Promise<{ cleared: string[] }> => {
-    return fetchHooksApi<{ cleared: string[] }>('/hooks/attention/clear', {
+    return fetchHooksApi<{ cleared: string[] }>('/agent-status/attention/clear', {
       method: 'POST',
       body: JSON.stringify({
         stable_pane_id: input.stablePaneId,
@@ -699,19 +706,11 @@ export const agentHooksApi = {
     });
   },
 
-  /** Unattended task-complete auto-summaries held in API memory. */
   listAttentionSummaries: async (): Promise<{
     summaries: AgentAttentionSummaryDto[];
   }> => {
     return fetchHooksApi<{ summaries: AgentAttentionSummaryDto[] }>(
-      '/hooks/attention/summaries',
-    );
-  },
-
-  /** Resolve contested short CLI names (e.g. bare `agent`) to a product owner. */
-  getCliIdentity: async (command = 'agent'): Promise<CliIdentityResponse> => {
-    return fetchHooksApi<CliIdentityResponse>(
-      `/hooks/cli-identity?command=${encodeURIComponent(command)}`,
+      '/agent-status/attention/summaries',
     );
   },
 };
@@ -839,69 +838,39 @@ export const agentApi = {
    * - Without both: General AI assistant, temp context
    */
   createSession: async (
-    workspaceId: string | null | undefined,
-    projectId: string | null | undefined,
-    registryId: string,
-    authMethodId?: string | null,
+    _workspaceId: string | null | undefined,
+    _projectId: string | null | undefined,
+    _registryId: string,
+    _authMethodId?: string | null,
   ): Promise<CreateAgentSessionResponse> => {
-    return fetchApi<CreateAgentSessionResponse>('/api/agent/session', {
-      method: 'POST',
-      body: JSON.stringify({
-        workspace_id: workspaceId || null,
-        project_id: projectId || null,
-        registry_id: registryId,
-        auth_method_id: authMethodId || null,
-      }),
-    });
+    throw new Error("Agent Chat uses agent_chat_create on main /ws; REST session create is gone");
   },
 
   /**
    * Resume an existing native ACP session by agent-owned session id.
    */
   resumeSession: async (
-    registryId: string,
-    acpSessionId: string,
-    cwd?: string | null,
-    workspaceId?: string | null,
-    projectId?: string | null,
-    authMethodId?: string | null,
+    _registryId: string,
+    _acpSessionId: string,
+    _cwd?: string | null,
+    _workspaceId?: string | null,
+    _projectId?: string | null,
+    _authMethodId?: string | null,
   ): Promise<ResumeAgentSessionResponse> => {
-    return fetchApi<ResumeAgentSessionResponse>(
-      '/api/agent/session/resume',
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          registry_id: registryId,
-          acp_session_id: acpSessionId,
-          cwd: cwd || null,
-          workspace_id: workspaceId || null,
-          project_id: projectId || null,
-          auth_method_id: authMethodId || null,
-        }),
-      }
-    );
+    throw new Error("Agent Chat uses agent_chat_send to continue; REST session resume is gone");
   },
 
   /**
    * List native ACP sessions for one agent.
    */
-  listSessions: async (params: {
+  listSessions: async (_params: {
     registry_id: string;
     cwd?: string | null;
     limit?: number;
     cursor?: string;
     auth_method_id?: string | null;
   }): Promise<ListAgentSessionsResponse> => {
-    const search = new URLSearchParams();
-    search.set('registry_id', params.registry_id);
-    if (params.cwd) search.set('cwd', params.cwd);
-    if (params.limit) search.set('limit', String(params.limit));
-    if (params.cursor) search.set('cursor', params.cursor);
-    if (params.auth_method_id) search.set('auth_method_id', params.auth_method_id);
-    const qs = search.toString();
-    return fetchApi<ListAgentSessionsResponse>(
-      `/api/agent/sessions${qs ? `?${qs}` : ''}`
-    );
+    throw new Error("Agent Chat lists Atmos conversations; REST session list is gone");
   },
 
   logoutAgent: async (
@@ -920,14 +889,18 @@ export const agentApi = {
   },
 
   /**
-   * Upload attachment files to workspace .atmos/attachments/ directory.
-   * Returns the saved file paths that can be referenced in agent prompts.
+   * Upload attachment files. Pass `chatId` to store under the
+   * conversation directory; otherwise files go to `{localPath}/.atmos/attachments/`.
    */
   uploadAttachments: async (
     localPath: string,
-    files: { url: string; filename?: string; mediaType?: string }[]
+    files: { url: string; filename?: string; mediaType?: string }[],
+    chatId?: string | null,
   ): Promise<{ paths: string[] }> => {
     const formData = new FormData();
+    if (chatId) {
+      formData.append('chat_id', chatId);
+    }
     formData.append('local_path', localPath);
 
     for (const file of files) {
@@ -1079,8 +1052,8 @@ export const ptDesignApi = {
     return fetchApi<PtDesignLibraryList>("/api/pt-design/documents");
   },
 
-  getDocument: async (name: string): Promise<{ name: string; body: { scene?: unknown } }> => {
-    return fetchApi<{ name: string; body: { scene?: unknown } }>(
+  getDocument: async (name: string): Promise<{ name: string; body: unknown }> => {
+    return fetchApi<{ name: string; body: unknown }>(
       `/api/pt-design/documents/${encodeURIComponent(name)}`,
     );
   },

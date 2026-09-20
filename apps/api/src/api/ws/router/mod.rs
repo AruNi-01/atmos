@@ -3,6 +3,7 @@
 //! This service processes incoming WebSocket requests and delegates to appropriate services.
 //! All communication uses the Request/Response pattern with JSON messages.
 
+mod agent_chat;
 mod agents;
 mod automation;
 mod center_layout;
@@ -12,7 +13,9 @@ mod git;
 mod github;
 mod github_job_log_split;
 mod group;
+mod host_session;
 mod linear;
+mod link_preview;
 mod local_model;
 mod local_services;
 mod permission_access;
@@ -31,6 +34,7 @@ mod workspace_gitignore;
 mod workspace_notifications;
 mod workspace_setup;
 
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use super::{message::*, subscription::ConnectionTaskRegistry, WsManager, WsMessageHandler};
@@ -42,14 +46,15 @@ use core_service::service::canvas_agent_relay::{
 use local_model_runtime::LocalRuntimeManager;
 use quota_usage::QuotaUsageService;
 use serde_json::{json, Value};
-use tokio::sync::OnceCell;
-
-use crate::simulator::SimulatorRuntime;
+use tokio::sync::{OnceCell, RwLock};
 
 use core_service::{
-    AgentService, AgentSessionService, AutomationService, DiskAnalyzerService, GroupService,
-    LinearService, LocalServicesService, NotificationService, ProjectService,
-    ResourceMonitorService, ReviewService, TerminalService, WorkspaceService,
+    builtin_options_probe_plans, default_agent_data_dir, default_chats_dir, options_probe_dir,
+    AgentChatService, AgentChatStore, AgentService, AgentServiceOptionsResolver, AutomationService,
+    DefaultAgentProviderFactory, DeviceControlService, DevicePreviewService, DiskAnalyzerService,
+    GroupService, HostSessionService, LinearService, LocalServicesService, NotificationService,
+    OptionsPrefetchWorker, ProjectService, ResourceMonitorService, ReviewService, TerminalService,
+    WorkspaceProjectOwnerLookup, WorkspaceService, PREFETCH_POLL,
 };
 use core_service::{Result, ServiceError};
 use sea_orm_migration::sea_orm::DatabaseConnection;
@@ -66,7 +71,6 @@ pub struct WsMessageService {
     group_service: Arc<GroupService>,
     terminal_service: Arc<TerminalService>,
     agent_service: Arc<AgentService>,
-    agent_session_service: Arc<AgentSessionService>,
     automation_service: Arc<AutomationService>,
     review_service: Arc<ReviewService>,
     quota_usage_service: Arc<QuotaUsageService>,
@@ -81,7 +85,12 @@ pub struct WsMessageService {
     linear_service: LinearService,
     ws_manager: OnceCell<Arc<WsManager>>,
     local_model_manager: Arc<LocalRuntimeManager>,
-    simulator: Arc<SimulatorRuntime>,
+    simulator: Arc<DevicePreviewService>,
+    device_control: Arc<DeviceControlService>,
+    agent_chat_service: Arc<AgentChatService>,
+    host_session_service: Arc<HostSessionService>,
+    options_worker: Arc<OptionsPrefetchWorker>,
+    agent_chat_subs: Arc<RwLock<HashMap<String, HashSet<String>>>>,
 }
 
 impl WsMessageService {
@@ -92,7 +101,6 @@ impl WsMessageService {
         group_service: Arc<GroupService>,
         terminal_service: Arc<TerminalService>,
         agent_service: Arc<AgentService>,
-        agent_session_service: Arc<AgentSessionService>,
         automation_service: Arc<AutomationService>,
         review_service: Arc<ReviewService>,
         quota_usage_service: Arc<QuotaUsageService>,
@@ -117,6 +125,44 @@ impl WsMessageService {
             Arc::clone(&local_services_service),
             Arc::new(ResourceMetricsEngine::new()),
         ));
+        let agent_chat_service = Arc::new(AgentChatService::new(
+            Arc::new(AgentChatStore::new(default_chats_dir())),
+            Arc::new(DefaultAgentProviderFactory::new(Arc::clone(&agent_service))),
+        ));
+        let host_session_service = Arc::new(
+            HostSessionService::with_defaults(
+                AgentChatStore::new(default_chats_dir()),
+                Arc::clone(&db),
+            )
+            .with_workspace_lookup(Arc::clone(&project_service), Arc::clone(&workspace_service)),
+        );
+        resource_monitor_service.set_chat_service(Arc::clone(&agent_chat_service));
+        let options_worker = Arc::new(
+            OptionsPrefetchWorker::with_plans(
+                default_agent_data_dir(),
+                agent::OptionsProbe::with_acp_probe(
+                    options_probe_dir(),
+                    Box::new(agent::StdioAcpOptionsProbe::new(Arc::new(
+                        AgentServiceOptionsResolver::new(Arc::clone(&agent_service)),
+                    ))),
+                ),
+                PREFETCH_POLL,
+                builtin_options_probe_plans(),
+            )
+            .attach_agent_service(Arc::clone(&agent_service)),
+        );
+        agent_chat_service.set_options_worker(Arc::clone(&options_worker));
+        automation_service.attach_agent_chat(Arc::clone(&agent_chat_service));
+
+        let simulator =
+            Arc::new(DevicePreviewService::new().expect("device preview pins must parse"));
+        let device_control = Arc::new(DeviceControlService::new(
+            Arc::clone(&simulator),
+            Arc::new(WorkspaceProjectOwnerLookup::new(
+                Arc::clone(&workspace_service),
+                Arc::clone(&project_service),
+            )),
+        ));
 
         Self {
             fs_engine: FsEngine::new(),
@@ -128,7 +174,6 @@ impl WsMessageService {
             group_service,
             terminal_service,
             agent_service,
-            agent_session_service,
             automation_service,
             review_service,
             quota_usage_service,
@@ -143,7 +188,12 @@ impl WsMessageService {
             linear_service: LinearService::new(db),
             ws_manager: OnceCell::new(),
             local_model_manager: Arc::new(LocalRuntimeManager::new()),
-            simulator: Arc::new(SimulatorRuntime::new()),
+            simulator,
+            device_control,
+            agent_chat_service,
+            host_session_service,
+            options_worker,
+            agent_chat_subs: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -155,11 +205,116 @@ impl WsMessageService {
         Arc::clone(&self.local_services_service)
     }
 
+    pub fn host_session_service(&self) -> Arc<HostSessionService> {
+        Arc::clone(&self.host_session_service)
+    }
+
     pub fn set_ws_manager(&self, manager: Arc<WsManager>) -> Result<()> {
         self.ws_manager
             .set(manager)
             .map_err(|_| ServiceError::Processing("WS Manager already set".to_string()))?;
+        self.spawn_agent_chat_fanout();
+        self.spawn_agent_chat_idle_reaper();
         Ok(())
+    }
+
+    fn spawn_agent_chat_idle_reaper(&self) {
+        let agent_chat = Arc::clone(&self.agent_chat_service);
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                let mins = std::fs::read_to_string(
+                    dirs::home_dir()
+                        .unwrap_or_else(|| std::path::PathBuf::from("."))
+                        .join(".atmos")
+                        .join("config")
+                        .join("agent")
+                        .join("terminal_code_agent.json"),
+                )
+                .ok()
+                .and_then(|content| serde_json::from_str::<serde_json::Value>(&content).ok())
+                .and_then(|value| {
+                    value
+                        .get("idle_session_timeout_mins")
+                        .and_then(|timeout| timeout.as_u64())
+                })
+                .unwrap_or(30)
+                .max(1);
+                agent_chat
+                    .unload_idle(std::time::Duration::from_secs(mins.saturating_mul(60)))
+                    .await;
+            }
+        });
+    }
+
+    fn spawn_agent_chat_fanout(&self) {
+        let Some(manager) = self.ws_manager.get().cloned() else {
+            return;
+        };
+        let mut events = self.agent_chat_service.subscribe();
+        let subs = Arc::clone(&self.agent_chat_subs);
+        let manager_events = Arc::clone(&manager);
+        let agent_chat = Arc::clone(&self.agent_chat_service);
+        tokio::spawn(async move {
+            let mut last_seq: HashMap<String, u64> = HashMap::new();
+            loop {
+                match events.recv().await {
+                    Ok(event) => {
+                        last_seq.insert(event.chat_id.clone(), event.revision);
+                        let conns = {
+                            let map = subs.read().await;
+                            map.get(&event.chat_id).cloned().unwrap_or_default()
+                        };
+                        if let Ok(payload) = serde_json::to_value(&event) {
+                            let message = WsMessage::notification(WsEvent::AgentChatEvent, payload);
+                            for conn_id in conns {
+                                let _ = manager_events.send_to(&conn_id, &message).await;
+                            }
+                        }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                        tracing::warn!(
+                            "agent chat event fan-out lagged; replaying non-text recent events"
+                        );
+                        let subscribed = {
+                            let map = subs.read().await;
+                            map.clone()
+                        };
+                        for (chat_id, conns) in subscribed {
+                            let after = last_seq.get(&chat_id).copied().unwrap_or(0);
+                            for event in agent_chat.events_after(&chat_id, after) {
+                                last_seq.insert(chat_id.clone(), event.revision);
+                                if let Ok(payload) = serde_json::to_value(&event) {
+                                    let message =
+                                        WsMessage::notification(WsEvent::AgentChatEvent, payload);
+                                    for conn_id in &conns {
+                                        let _ = manager_events.send_to(conn_id, &message).await;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                }
+            }
+        });
+        let mut catalog_rx = self.options_worker.subscribe();
+        let manager_catalog = manager;
+        tokio::spawn(async move {
+            loop {
+                match catalog_rx.recv().await {
+                    Ok(update) => {
+                        if let Ok(payload) = serde_json::to_value(&update) {
+                            let message =
+                                WsMessage::notification(WsEvent::AgentOptionsUpdated, payload);
+                            let _ = manager_catalog.broadcast(&message).await;
+                        }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                }
+            }
+        });
     }
 
     /// Process a WebSocket request and return a response.
@@ -176,6 +331,7 @@ impl WsMessageService {
                     }
                     ServiceError::Validation(_) => "validation_error",
                     ServiceError::NotFound(_) => "not_found",
+                    ServiceError::DeviceControl(err) => err.code(),
                     _ => "error",
                 };
                 WsMessage::error(&request_id, error_code, e.to_string())
@@ -302,6 +458,10 @@ impl WsMessageService {
             WsAction::GitSync => self.handle_git_sync(parse_request(request.data)?),
             WsAction::GitLog => self.handle_git_log(parse_request(request.data)?),
             WsAction::GitHistory => self.handle_git_history(parse_request(request.data)?),
+            WsAction::GitFileBlame => self.handle_git_file_blame(parse_request(request.data)?),
+            WsAction::GitCommitDetail => {
+                self.handle_git_commit_detail(parse_request(request.data)?)
+            }
 
             // Usage
             WsAction::QuotaGetOverview => {
@@ -379,6 +539,10 @@ impl WsMessageService {
             }
             WsAction::ProjectValidatePath => {
                 self.handle_fs_validate_git_path(parse_request(request.data)?)
+            }
+            WsAction::ProjectMarkVisited => {
+                self.handle_project_mark_visited(parse_request(request.data)?)
+                    .await
             }
 
             // Group (APP-044)
@@ -702,6 +866,10 @@ impl WsMessageService {
                 self.handle_agent_config_set(parse_request(request.data)?)
                     .await
             }
+            WsAction::AgentDefaultConfigSet => {
+                self.handle_agent_default_config_set(parse_request(request.data)?)
+                    .await
+            }
             WsAction::AgentRegistryList => {
                 self.handle_agent_registry_list(parse_request(request.data)?)
                     .await
@@ -730,6 +898,128 @@ impl WsMessageService {
             }
             WsAction::CustomAgentGetManifestPath => {
                 self.handle_custom_agent_get_manifest_path().await
+            }
+            WsAction::CustomAgentSetEnabled => {
+                self.handle_custom_agent_set_enabled(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::CustomAgentPreload => {
+                self.handle_custom_agent_preload(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::NativeAgentList => self.handle_native_agent_list().await,
+            WsAction::NativeAgentSetEnabled => {
+                self.handle_native_agent_set_enabled(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentRegistrySetEnabled => {
+                self.handle_agent_registry_set_enabled(parse_request(request.data)?)
+                    .await
+            }
+
+            WsAction::AgentChatCreate => {
+                self.handle_agent_chat_create(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatList => {
+                self.handle_agent_chat_list(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatGet => {
+                self.handle_agent_chat_get(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatMessages => {
+                self.handle_agent_chat_messages(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatRename => {
+                self.handle_agent_chat_rename(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatConfigure => {
+                self.handle_agent_chat_configure(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatDelete => {
+                self.handle_agent_chat_delete(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatSubscribe => {
+                self.handle_agent_chat_subscribe(conn_id, parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatBackfill => {
+                self.handle_agent_chat_backfill(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatUnsubscribe => {
+                self.handle_agent_chat_unsubscribe(conn_id, parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatSend => {
+                self.handle_agent_chat_send(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatSteer => {
+                self.handle_agent_chat_steer(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatQueueAdd => {
+                self.handle_agent_chat_queue_add(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatQueueUpdate => {
+                self.handle_agent_chat_queue_update(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatQueueReorder => {
+                self.handle_agent_chat_queue_reorder(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatQueueDelete => {
+                self.handle_agent_chat_queue_delete(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatCancel => {
+                self.handle_agent_chat_cancel(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatPermissionRespond => {
+                self.handle_agent_chat_permission_respond(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatSessionOpRespond => {
+                self.handle_agent_chat_session_op_respond(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentOptionsGet => {
+                self.handle_agent_options_get(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatPrefsGet => self.handle_agent_chat_prefs_get(),
+            WsAction::AgentChatPrefsSet => {
+                self.handle_agent_chat_prefs_set(parse_request(request.data)?)
+            }
+            WsAction::HostSessionList => {
+                let req = if request.data.is_null() {
+                    HostSessionListRequest::default()
+                } else {
+                    parse_request(request.data)?
+                };
+                self.handle_host_session_list(req).await
+            }
+            WsAction::HostSessionGet => {
+                self.handle_host_session_get(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::HostSessionResumeChat => {
+                self.handle_host_session_resume_chat(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::HostSessionResumeTui => {
+                self.handle_host_session_resume_tui(parse_request(request.data)?)
+                    .await
             }
 
             // Automation
@@ -810,6 +1100,18 @@ impl WsMessageService {
             }
             WsAction::AutomationGithubEventRouteDelete => {
                 self.handle_automation_github_event_route_delete(request.data)
+                    .await
+            }
+            WsAction::AutomationRunComplete => {
+                self.handle_automation_run_complete(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AutomationRunPaths => {
+                self.handle_automation_run_paths(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AutomationRunStaleDismiss => {
+                self.handle_automation_run_stale_dismiss(parse_request(request.data)?)
                     .await
             }
 
@@ -1154,10 +1456,33 @@ impl WsMessageService {
                 self.handle_disk_analyzer_disk_info(parse_request(request.data)?)
             }
 
-            WsAction::SimulatorProbe => self.handle_simulator_probe(),
+            WsAction::SimulatorProbe => self.handle_simulator_probe().await,
             WsAction::SimulatorStart => self.handle_simulator_start(request.data).await,
             WsAction::SimulatorStop => self.handle_simulator_stop(request.data).await,
             WsAction::SimulatorStatus => self.handle_simulator_status(request.data).await,
+            WsAction::SimulatorList => self.handle_simulator_list(request.data).await,
+            WsAction::SimulatorScreenshot => self.handle_simulator_screenshot(request.data).await,
+            WsAction::SimulatorTap => self.handle_simulator_tap(request.data).await,
+            WsAction::SimulatorSwipe => self.handle_simulator_swipe(request.data).await,
+            WsAction::SimulatorType => self.handle_simulator_type(request.data).await,
+            WsAction::SimulatorPress => self.handle_simulator_press(request.data).await,
+            WsAction::SimulatorInventory => self.handle_simulator_inventory(request.data).await,
+            WsAction::SimulatorCreate => self.handle_simulator_create(request.data).await,
+            WsAction::SimulatorBoot => self.handle_simulator_boot(request.data).await,
+            WsAction::SimulatorShutdown => self.handle_simulator_shutdown(request.data).await,
+            WsAction::SimulatorDelete => self.handle_simulator_delete(request.data).await,
+            WsAction::SimulatorAppearanceGet => {
+                self.handle_simulator_appearance_get(request.data).await
+            }
+            WsAction::SimulatorAppearanceSet => {
+                self.handle_simulator_appearance_set(request.data).await
+            }
+            WsAction::SimulatorCameraInject => {
+                self.handle_simulator_camera_inject(request.data).await
+            }
+            WsAction::SimulatorCameraClear => {
+                self.handle_simulator_camera_clear(request.data).await
+            }
 
             // Resource Monitor (APP-066)
             WsAction::ResourceMonitorGet => self.handle_resource_monitor_get(request.data).await,
@@ -1171,6 +1496,8 @@ impl WsMessageService {
             WsAction::ResourceMonitorKillLeaked => {
                 self.handle_resource_monitor_kill_leaked(request.data).await
             }
+
+            WsAction::LinkPreview => self.handle_link_preview(request.data).await,
         }
     }
 
@@ -1368,6 +1695,9 @@ impl WsMessageHandler for WsMessageService {
 
     async fn on_connect(&self, conn_id: &str) {
         tracing::info!("[WsMessageService] Client connected: {}", conn_id);
+        if conn_id.starts_with("web-") || conn_id.starts_with("desktop-") {
+            self.options_worker.on_web_connect();
+        }
     }
 
     async fn on_disconnect(&self, conn_id: &str) {
@@ -1378,6 +1708,13 @@ impl WsMessageHandler for WsMessageService {
         self.disk_analyzer_service
             .remove_connection_sessions(conn_id);
         self.abort_resource_monitor_subscription(conn_id);
+        if conn_id.starts_with("web-") || conn_id.starts_with("desktop-") {
+            self.options_worker.on_web_disconnect();
+        }
+        let mut subs = self.agent_chat_subs.write().await;
+        for conns in subs.values_mut() {
+            conns.remove(conn_id);
+        }
     }
 }
 

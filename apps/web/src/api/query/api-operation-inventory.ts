@@ -560,6 +560,16 @@ export const apiOperationInventory = [
     phase: "extended",
     status: "complete",
   },
+  {
+    domain: "agentRegistry",
+    operation: "nativeChatAgentList",
+    transport: "websocket-request",
+    classification: "query",
+    legacyOwner: "agent manager hook/component local state",
+    queryKeyRoot: "queryKeys.computer.nativeChatAgentList",
+    phase: "extended",
+    status: "complete",
+  },
 
   // ──────────────────────────────────────────────────────────────────────────
   // DEFERRED: ACP session list (infinite pagination, complex multi-root merge)
@@ -619,7 +629,7 @@ export const apiOperationInventory = [
     operation: "agentHookSessions",
     transport: "websocket-request",
     classification: "deferred",
-    legacyOwner: "useAgentHooksStore",
+    legacyOwner: "useAgentStatusStore",
     phase: "deferred",
     status: "deferred",
     rationale: "Requires separate live-lifecycle design; deferred in APP-035.",
@@ -629,7 +639,7 @@ export const apiOperationInventory = [
     operation: "agentHookStateChanged",
     transport: "websocket-event",
     classification: "deferred",
-    legacyOwner: "useAgentHooksStore",
+    legacyOwner: "useAgentStatusStore",
     phase: "deferred",
     status: "deferred",
     rationale: "Deferred with agentHookSessions.",

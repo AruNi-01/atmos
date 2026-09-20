@@ -62,7 +62,18 @@ describe("agent-attention-store", () => {
     expect(store.getPaneReason("ws-1:main")).toBe("permission_request");
   });
 
-  test("notifyPaneFocused clears attention immediately", () => {
+  test("notifyPaneFocused clears task_complete immediately", () => {
+    const store = useAgentAttentionStore.getState();
+    store.raise({
+      stablePaneId: "ws-1:main",
+      contextId: "ws-1",
+      reason: "task_complete",
+    });
+    store.notifyPaneFocused("ws-1:main");
+    expect(store.hasPaneAttention("ws-1:main")).toBe(false);
+  });
+
+  test("notifyPaneFocused keeps pending permission_request latched", () => {
     const store = useAgentAttentionStore.getState();
     store.raise({
       stablePaneId: "ws-1:main",
@@ -70,7 +81,9 @@ describe("agent-attention-store", () => {
       reason: "permission_request",
     });
     store.notifyPaneFocused("ws-1:main");
-    expect(store.hasPaneAttention("ws-1:main")).toBe(false);
+    expect(store.hasPaneAttention("ws-1:main")).toBe(true);
+    expect(store.getPaneReason("ws-1:main")).toBe("permission_request");
+    expect(store.getAttentionCount()).toBe(1);
   });
 
   test("deferred auto-focus keeps attention until the dwell window", () => {
@@ -79,7 +92,7 @@ describe("agent-attention-store", () => {
     store.raise({
       stablePaneId: "ws-1:main",
       contextId: "ws-1",
-      reason: "permission_request",
+      reason: "task_complete",
     });
     store.notifyPaneFocused("ws-1:main", { ack: "deferred" });
     expect(store.hasPaneAttention("ws-1:main")).toBe(true);
@@ -88,6 +101,21 @@ describe("agent-attention-store", () => {
     jest.advanceTimersByTime(1);
     expect(useAgentAttentionStore.getState().hasPaneAttention("ws-1:main")).toBe(
       false,
+    );
+  });
+
+  test("deferred auto-focus never clears pending permission_request", () => {
+    jest.useFakeTimers();
+    const store = useAgentAttentionStore.getState();
+    store.raise({
+      stablePaneId: "ws-1:main",
+      contextId: "ws-1",
+      reason: "permission_request",
+    });
+    store.notifyPaneFocused("ws-1:main", { ack: "deferred" });
+    jest.advanceTimersByTime(ATTENTION_AUTO_CLEAR_MS + 1000);
+    expect(useAgentAttentionStore.getState().hasPaneAttention("ws-1:main")).toBe(
+      true,
     );
   });
 
@@ -111,7 +139,7 @@ describe("agent-attention-store", () => {
     store.raise({
       stablePaneId: "ws-1:main",
       contextId: "ws-1",
-      reason: "permission_request",
+      reason: "task_complete",
     });
     store.notifyPaneFocused("ws-1:main", { ack: "deferred" });
     store.notifyPaneFocused("ws-1:other", { ack: "deferred" });
@@ -121,13 +149,13 @@ describe("agent-attention-store", () => {
     );
   });
 
-  test("deferred auto-focus clears attention latched under a session alias", () => {
+  test("deferred auto-focus clears task_complete latched under a session alias", () => {
     jest.useFakeTimers();
     const store = useAgentAttentionStore.getState();
     store.raise({
       stablePaneId: "agent-session-uuid",
       contextId: "ws-1",
-      reason: "permission_request",
+      reason: "task_complete",
       sessionId: "ws-1:main",
     });
     store.notifyPaneFocused("ws-1:main", { ack: "deferred" });
@@ -154,13 +182,29 @@ describe("agent-attention-store", () => {
     );
   });
 
+  test("raise permission while focused stays latched", () => {
+    jest.useFakeTimers();
+    const store = useAgentAttentionStore.getState();
+    store.notifyPaneFocused("ws-1:main");
+    store.raise({
+      stablePaneId: "ws-1:main",
+      contextId: "ws-1",
+      reason: "permission_request",
+    });
+    jest.advanceTimersByTime(ATTENTION_AUTO_CLEAR_MS + 1000);
+    expect(useAgentAttentionStore.getState().hasPaneAttention("ws-1:main")).toBe(
+      true,
+    );
+    expect(useAgentAttentionStore.getState().getAttentionCount()).toBe(1);
+  });
+
   test("repeated deferred auto-focus does not restart the dwell window", () => {
     jest.useFakeTimers();
     const store = useAgentAttentionStore.getState();
     store.raise({
       stablePaneId: "ws-1:main",
       contextId: "ws-1",
-      reason: "permission_request",
+      reason: "task_complete",
     });
     store.notifyPaneFocused("ws-1:main", { ack: "deferred" });
     jest.advanceTimersByTime(1000);
@@ -209,7 +253,9 @@ describe("agent-attention-store", () => {
       contextId: "ws-1",
       reason: "permission_request",
     });
-    store.notifyPaneFocused("ws-1:main");
+    // Focus alone must not clear permission; explicit clear simulates resolve.
+    store.clearPane("ws-1:main");
+    expect(store.hasPaneAttention("ws-1:main")).toBe(false);
     expect(
       useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1"),
     ).toBe(false);
@@ -304,19 +350,31 @@ describe("agent-attention-store", () => {
     ).toBe("Shipped the recap.");
   });
 
-  test("notifyPaneFocused clears attention when focus key matches sessionId alias", () => {
+  test("notifyPaneFocused clears task_complete when focus key matches sessionId alias", () => {
     const store = useAgentAttentionStore.getState();
     // Raised under agent session key; sessionId records the stable pane identity.
     store.raise({
       stablePaneId: "agent-session-uuid",
       contextId: "ws-1",
-      reason: "permission_request",
+      reason: "task_complete",
       sessionId: "ws-1:main",
     });
     expect(store.hasPaneAttention("agent-session-uuid")).toBe(true);
     // Terminal focus uses the reconstructed workspace:window key.
     store.notifyPaneFocused("ws-1:main");
     expect(store.hasPaneAttention("agent-session-uuid")).toBe(false);
+  });
+
+  test("notifyPaneFocused keeps permission when focus key matches sessionId alias", () => {
+    const store = useAgentAttentionStore.getState();
+    store.raise({
+      stablePaneId: "chat:abc",
+      contextId: "ws-1",
+      reason: "permission_request",
+      sessionId: "chat:abc",
+    });
+    store.notifyPaneFocused("chat:abc");
+    expect(store.hasPaneAttention("chat:abc")).toBe(true);
   });
 
   test("raise under stable pane id clears on matching focus", () => {

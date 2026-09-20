@@ -17,6 +17,8 @@ interface EditorSettingsState {
   breadcrumbs: boolean;
   lineHighlight: boolean;
   gitIntegration: boolean;
+  gitBlame: boolean;
+  mdToggleDefaultOpen: boolean;
   loaded: boolean;
   loading: boolean;
   loadSettings: () => Promise<void>;
@@ -27,6 +29,8 @@ interface EditorSettingsState {
   setBreadcrumbs: (breadcrumbs: boolean) => Promise<void>;
   setLineHighlight: (lineHighlight: boolean) => Promise<void>;
   setGitIntegration: (gitIntegration: boolean) => Promise<void>;
+  setGitBlame: (gitBlame: boolean) => Promise<void>;
+  setMdToggleDefaultOpen: (mdToggleDefaultOpen: boolean) => Promise<void>;
 }
 
 type SettingsLocale = 'en' | 'zh';
@@ -57,6 +61,8 @@ export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => 
   breadcrumbs: true,
   lineHighlight: true,
   gitIntegration: true,
+  gitBlame: true,
+  mdToggleDefaultOpen: true,
   loaded: false,
   loading: false,
 
@@ -75,6 +81,8 @@ export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => 
         breadcrumbs: settings.editor?.breadcrumbs ?? true,
         lineHighlight: settings.editor?.line_highlight ?? true,
         gitIntegration: settings.editor?.git_integration ?? true,
+        gitBlame: settings.editor?.git_blame ?? true,
+        mdToggleDefaultOpen: settings.editor?.md_toggle_default_open ?? true,
         loaded: true,
         loading: false,
       });
@@ -197,6 +205,38 @@ export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => 
       await functionSettingsApi.update('editor', 'git_integration', gitIntegration);
     } catch {
       set({ gitIntegration: previous });
+      toastManager.add({
+        title: editorSettingsT('syncFailedTitle'),
+        description: editorSettingsT('syncFailedDescription'),
+        type: 'error',
+      });
+    }
+  },
+
+  setGitBlame: async (gitBlame) => {
+    const previous = get().gitBlame;
+    set({ gitBlame });
+
+    try {
+      await functionSettingsApi.update('editor', 'git_blame', gitBlame);
+    } catch {
+      set({ gitBlame: previous });
+      toastManager.add({
+        title: editorSettingsT('syncFailedTitle'),
+        description: editorSettingsT('syncFailedDescription'),
+        type: 'error',
+      });
+    }
+  },
+
+  setMdToggleDefaultOpen: async (mdToggleDefaultOpen) => {
+    const previous = get().mdToggleDefaultOpen;
+    set({ mdToggleDefaultOpen });
+
+    try {
+      await functionSettingsApi.update('editor', 'md_toggle_default_open', mdToggleDefaultOpen);
+    } catch {
+      set({ mdToggleDefaultOpen: previous });
       toastManager.add({
         title: editorSettingsT('syncFailedTitle'),
         description: editorSettingsT('syncFailedDescription'),

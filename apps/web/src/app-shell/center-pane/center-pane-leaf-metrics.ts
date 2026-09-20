@@ -1,7 +1,7 @@
 import { CENTER_STAGE_FULLSCREEN_Z_INDEX } from "@/app-shell/center-stage-fullscreen";
 
 /** Gap between adjacent mosaic cards. Outer edges sit on the stage gutter. */
-export const CENTER_PANE_LEAF_GAP_PX = 4;
+export const CENTER_PANE_LEAF_GAP_PX = 2;
 const EDGE_EPS = 0.001;
 
 export type CenterPaneLeafBox = {

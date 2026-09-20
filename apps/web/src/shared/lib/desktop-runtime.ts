@@ -26,6 +26,13 @@ const isDesktopBuild =
   process.env.NEXT_PUBLIC_BUILD_TARGET === 'desktop' ||
   process.env.BUILD_TARGET === 'desktop';
 
+function isLocalWebBuild(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_BUILD_TARGET === 'local-web' ||
+    process.env.BUILD_TARGET === 'local-web'
+  );
+}
+
 const loopbackApiPort = (): number =>
   parseInt(process.env.NEXT_PUBLIC_API_PORT || '30303', 10);
 
@@ -209,7 +216,9 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
 }
 
 /**
- * HTTP fetch target. In browser dev, same-origin `/api` is proxied to loopback (see next.config rewrites).
+ * HTTP fetch target. In browser `next dev` (no static export), same-origin `/api`
+ * is proxied to loopback (see next.config rewrites). `local-web` / Desktop static
+ * export has no those rewrites — REST must hit the loopback API port.
  * WebSocket and PTY still use {@link getRuntimeApiConfig} (direct loopback port).
  */
 export async function getRuntimeHttpConfig(): Promise<ApiConfig> {
@@ -233,6 +242,16 @@ export async function getRuntimeHttpConfig(): Promise<ApiConfig> {
 
   if (isDesktopBuild) {
     cachedHttpConfig = desktopBuildFallbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+    return cachedHttpConfig;
+  }
+
+  // `BUILD_TARGET=local-web` is a static export: Next has no `/api` rewrites, and
+  // `trailingSlash` 308s `/api/pt-design/documents` into a 404 HTML page.
+  if (isLocalWebBuild()) {
+    cachedHttpConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+    debugLog(
+      `getRuntimeHttpConfig: local-web loopback ${cachedHttpConfig.host}:${cachedHttpConfig.port}`,
+    );
     return cachedHttpConfig;
   }
 

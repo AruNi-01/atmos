@@ -18,15 +18,19 @@ import {
   getSidebarPeekOverlayWidthPx,
   SidebarPeekShell,
 } from "@/app-shell/SidebarPeekShell";
+import { ResizeFollowMark } from "@/app-shell/ResizeFollowMark";
 import {
+  CENTER_STAGE_GUTTER_X_PX,
   DEFAULT_LEFT_SIDEBAR_SIZE,
-  ROOT_RESIZE_HAIRLINE_BOTTOM_CSS,
-  ROOT_RESIZE_HAIRLINE_TOP_CSS,
   ROOT_SIDEBAR_LAYOUT_AUTO_SAVE_ID,
 } from "@/app-shell/sidebar-layout-constants";
+import { resizeFollowSeamAt } from "@/app-shell/resize-follow-mark";
 import { NewWorkspaceWelcomeOverlay } from "@/app-shell/NewWorkspaceWelcomeOverlay";
+import { WorkspaceSetupBlockingOverlay } from "@/app-shell/WorkspaceSetupBlockingOverlay";
 import { ensureBrowserAgentTabListener } from "@/features/browser/hooks/use-browser-agent-tab-bridge";
 import { registerBrowserHostChrome } from "@/features/browser/lib/ensure-browser-surface";
+
+const ROOT_RESIZE_SEAM = resizeFollowSeamAt(CENTER_STAGE_GUTTER_X_PX);
 
 interface PanelLayoutProps {
   leftSidebar: React.ReactNode;
@@ -277,7 +281,14 @@ export function PanelLayout({
         <ResizeHandle
           onDragging={handleDividerDragging}
           hitAreaMargins={{ fine: 2, coarse: 4 }}
-          hideHairline={isLeftCollapsed}
+          hideMark={isLeftCollapsed}
+          onFold={() => {
+            if (isLeftCollapsed) {
+              leftPanelRef.current?.expand();
+            } else {
+              leftPanelRef.current?.collapse();
+            }
+          }}
         />
 
         <Panel
@@ -294,6 +305,7 @@ export function PanelLayout({
         </Panel>
       </PanelGroup>
 
+      <WorkspaceSetupBlockingOverlay />
       <NewWorkspaceWelcomeOverlay />
     </div>
   );
@@ -302,7 +314,8 @@ export function PanelLayout({
 interface ResizeHandleProps {
   onDragging: (isDragging: boolean) => void;
   className?: string;
-  hideHairline?: boolean;
+  hideMark?: boolean;
+  onFold?: () => void;
   hitAreaMargins?: {
     fine: number;
     coarse: number;
@@ -312,7 +325,8 @@ interface ResizeHandleProps {
 function ResizeHandle({
   onDragging,
   className,
-  hideHairline = false,
+  hideMark = false,
+  onFold,
   hitAreaMargins,
 }: ResizeHandleProps) {
   const [dragging, setDragging] = useState(false);
@@ -324,25 +338,16 @@ function ResizeHandle({
       }}
       hitAreaMargins={hitAreaMargins}
       className={cn(
-        // Hit target stays full height; the painted hairline is inset so it
-        // does not run through the center card corners or into the footer.
-        "relative z-20 flex w-px items-center justify-center bg-transparent group touch-none",
+        "relative z-20 w-3 -mx-1.5 overflow-visible bg-transparent touch-none",
         className
       )}
     >
-      <span aria-hidden className="absolute inset-y-0 -left-1 -right-1.5" />
-      {hideHairline ? null : (
-        <span
-          aria-hidden
-          data-resize-hairline="root"
-          className={cn(
-            "pointer-events-none absolute left-0 w-px",
-            dragging ? "bg-border/50" : "bg-transparent group-hover:bg-border/50",
-          )}
-          style={{
-            top: ROOT_RESIZE_HAIRLINE_TOP_CSS,
-            bottom: ROOT_RESIZE_HAIRLINE_BOTTOM_CSS,
-          }}
+      {hideMark ? null : (
+        <ResizeFollowMark
+          axis="vertical"
+          dragging={dragging}
+          seam={ROOT_RESIZE_SEAM}
+          onFold={onFold}
         />
       )}
     </PanelResizeHandle>

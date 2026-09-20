@@ -11,6 +11,7 @@ import {
   Textarea,
   TabsSubtle,
   TabsSubtleItem,
+  ScrollArea,
   useDrawerCloseReserve,
 } from "@workspace/ui";
 import { GithubUserHoverCard } from "@/features/github/components/GithubUserHoverCard";
@@ -19,13 +20,11 @@ import {
   Check,
   Eye,
   FileText,
-  Github,
   GitBranch,
   GitPullRequest,
   MessageSquare,
   Loader2,
-  PanelRightClose,
-  PanelRightOpen,
+  PanelRight,
   PenLine,
   RotateCw,
   Settings2,
@@ -35,6 +34,7 @@ import {
   User,
   XCircle,
 } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import {
   Command,
   CommandEmpty,
@@ -56,6 +56,7 @@ import {
 } from "@/features/github/hooks/use-github";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 import { cn } from "@/shared/lib/utils";
+import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
 import { SidebarSection } from "@/features/github/lib/pr-detail-parts";
 import type { TimelineItem } from "@/features/github/lib/pr-detail-parts";
 import {
@@ -65,6 +66,7 @@ import {
   LabelsList,
 } from "@/features/github/lib/pr-detail-sidebar";
 import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
+import { useOpenGitCommitCenterTab } from "@/features/git/hooks/use-open-git-commit-center-tab";
 import { useRepoPrListQuery } from "@/features/github/hooks/use-github-pr-query";
 import { groupConsecutiveTimelineCommits } from "@/features/github/lib/timeline-commits";
 import {
@@ -109,7 +111,7 @@ export function IssueDetailView({
   const t = useTranslations("github.issueDetail");
   const reserveClose = useDrawerCloseReserve();
   const relativeTimeLocale = locale.startsWith("zh") ? zhCN : enUS;
-  const { openCommitTab } = useOpenGithubCenterTab();
+  const { openCommitTab } = useOpenGitCommitCenterTab();
   const { data: issue, loading } = useGithubIssueDetail(
     issueNumber,
     owner,
@@ -211,15 +213,14 @@ export function IssueDetailView({
           {headerTrailing}
           <button
             type="button"
-            className="flex size-7 items-center justify-center rounded-md opacity-70 hover:bg-muted hover:opacity-100"
+            className={cn(
+              "flex size-7 items-center justify-center rounded-md opacity-70 hover:bg-muted hover:opacity-100",
+              panelFoldCursorClass("right", sidebarCollapsed),
+            )}
             onClick={() => setSidebarCollapsed((value) => !value)}
             title={sidebarCollapsed ? t("showSidebar") : t("hideSidebar")}
           >
-            {sidebarCollapsed ? (
-              <PanelRightOpen className="size-3.5" />
-            ) : (
-              <PanelRightClose className="size-3.5" />
-            )}
+            <PanelRight className="size-3.5" />
           </button>
         </div>
       </header>
@@ -234,8 +235,8 @@ export function IssueDetailView({
         <>
         <div className="flex min-h-0 flex-1 gap-3 text-sm">
           <div className="min-w-0 flex-1 overflow-hidden">
-            <div className="h-full overflow-y-auto pr-1 pb-16">
-              <div className="sticky top-0 z-20 bg-background pb-3 pt-1">
+            <ScrollArea scrollFade className="h-full" viewportClassName="pr-1 pb-16">
+              <div className="min-w-0 pt-1 pb-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <CircleDot
@@ -269,7 +270,8 @@ export function IssueDetailView({
                     ) : null}
                   </div>
                 </div>
-                <div className="mt-4 border-t border-border/40 pt-3">
+              </div>
+                <div className="sticky top-0 z-20 border-t border-border/40 bg-background pb-3 pt-3">
                   <TabsSubtle
                     activeLabel
                     idPrefix={`issue-${issue.number}`}
@@ -292,7 +294,6 @@ export function IssueDetailView({
                     />
                   </TabsSubtle>
                 </div>
-              </div>
 
               <div
                 className={cn("pt-4", activeTab !== "description" && "hidden")}
@@ -390,7 +391,7 @@ export function IssueDetailView({
                   <IssueDiscussionComposer issue={issue} t={t} />
                 </div>
               ) : null}
-            </div>
+            </ScrollArea>
           </div>
 
           <IssueMetadataSidebar
@@ -708,7 +709,7 @@ function IssueTimelineItem({
   owner: string;
   repo: string;
 }) {
-  const { openCommitTab } = useOpenGithubCenterTab();
+  const { openCommitTab } = useOpenGitCommitCenterTab();
   const login = item.author?.login ?? t("unknownUser");
   const time = item.createdAt
     ? formatDistanceToNow(new Date(item.createdAt), { addSuffix: true, locale })
@@ -800,10 +801,11 @@ function IssueMetadataSidebar({
   return (
     <div
       className={cn(
-        "hidden shrink-0 flex-col overflow-y-auto overflow-x-hidden transition-[max-width,opacity] duration-200 ease-out lg:flex",
+        "hidden shrink-0 flex-col overflow-hidden transition-[max-width,opacity] duration-200 ease-out lg:flex",
         collapsed ? "max-w-0 opacity-0" : "max-w-[240px] opacity-100",
       )}
     >
+      <ScrollArea scrollFade className="h-full min-h-0">
       <div className="flex w-[240px] flex-col gap-5 px-2 pt-1 text-xs">
         <SidebarSection
           title={t("sidebar.assignees")}
@@ -862,6 +864,7 @@ function IssueMetadataSidebar({
           t={t}
         />
       </div>
+      </ScrollArea>
     </div>
   );
 }

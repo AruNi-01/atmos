@@ -7,6 +7,7 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react";
+import { isResizeClickGesture } from "@/app-shell/resize-click-fold";
 
 const HISTORY_SIDEBAR_DEFAULT_WIDTH = 320;
 const HISTORY_SIDEBAR_MIN_WIDTH = 248;
@@ -59,26 +60,14 @@ export function useAgentChatHistorySidebarLayout({
   const handleHistorySidebarResizeStart = useCallback((e: ReactMouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    const start = { x: e.clientX, y: e.clientY };
     const frame = historySidebarFrameRef.current;
     const startWidth = clampHistorySidebarWidth(
       frame?.getBoundingClientRect().width ?? historySidebarWidth,
     );
-    historyResizeState.current = {
-      startX: e.clientX,
-      startWidth,
-      currentWidth: startWidth,
-      frame,
-    };
-    setIsHistorySidebarResizing(true);
-    setHistorySidebarPreviewWidth(startWidth);
-    if (frame) {
-      frame.style.width = `${startWidth}px`;
-    }
-
+    let dragStarted = false;
     const previousCursor = document.body.style.cursor;
     const previousUserSelect = document.body.style.userSelect;
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
     let restoredDocumentInteraction = false;
     const restoreDocumentInteraction = () => {
       if (restoredDocumentInteraction) return;
@@ -87,7 +76,32 @@ export function useAgentChatHistorySidebarLayout({
       document.body.style.userSelect = previousUserSelect;
     };
 
+    const beginDrag = () => {
+      if (dragStarted) return;
+      dragStarted = true;
+      historyResizeState.current = {
+        startX: start.x,
+        startWidth,
+        currentWidth: startWidth,
+        frame,
+      };
+      setIsHistorySidebarResizing(true);
+      setHistorySidebarPreviewWidth(startWidth);
+      if (frame) {
+        frame.style.width = `${startWidth}px`;
+      }
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    };
+
     const handleMove = (ev: MouseEvent) => {
+      if (
+        !dragStarted &&
+        isResizeClickGesture(start, { x: ev.clientX, y: ev.clientY })
+      ) {
+        return;
+      }
+      beginDrag();
       const state = historyResizeState.current;
       if (!state) return;
       const dx = ev.clientX - state.startX;
@@ -102,7 +116,17 @@ export function useAgentChatHistorySidebarLayout({
       });
     };
 
-    const handleUp = () => {
+    const handleUp = (ev: MouseEvent) => {
+      if (
+        !dragStarted &&
+        isResizeClickGesture(start, { x: ev.clientX, y: ev.clientY })
+      ) {
+        setHistorySidebarCollapsed(true);
+        restoreDocumentInteraction();
+        historyResizeAbortController.current?.abort();
+        historyResizeAbortController.current = null;
+        return;
+      }
       const finalWidth = historyResizeState.current?.currentWidth ?? historySidebarWidth;
       if (historyResizeAnimationFrame.current !== null) {
         window.cancelAnimationFrame(historyResizeAnimationFrame.current);

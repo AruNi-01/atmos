@@ -315,7 +315,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
         }}
       >
         <PopoverAnchor asChild>
-          <div className="flex items-center gap-0.5 rounded-md border border-border bg-popover p-0.5 shadow-md">
+          <div className="flex items-center gap-0.5 rounded-xl border border-border bg-popover p-0.5 shadow-md">
             <Button
               variant="ghost"
               size="icon"

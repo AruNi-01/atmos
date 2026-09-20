@@ -1,19 +1,23 @@
 /**
- * Agent activity indicator style catalog.
+ * Placement + persistence for activity indicators.
  *
- * Combines:
- * - Unicode spinners already used in Atmos (unicode-animations)
- * - AIcss Orbs (https://www.aicss.dev/components/orbs)
+ * Visual catalog (unicode / orbs / stars) lives in `@workspace/ui`.
+ * `"random"` here is the saved unicode-only random tile, not ActivityIndicator's
+ * `style="random"` (which defaults to every group).
  */
 
 import {
-  HELIX_VARIANTS,
-  LATTICE_VARIANTS,
-  LENS_VARIANTS,
-  MORPH_VARIANTS,
-  RING_VARIANTS,
-  type OrbVariant,
-} from "@/features/agent/components/orbs/Orb";
+  ACTIVITY_STYLES_BY_GROUP,
+  ORB_VARIANT_IDS,
+  UNICODE_SPINNER_IDS,
+  isOrbIndicatorId,
+  isUnicodeSpinnerId,
+  type UnicodeSpinnerId,
+} from "@workspace/ui/components/ui/activity-indicator-catalog";
+import type { OrbVariant } from "@workspace/ui/components/ui/orb";
+
+export type { UnicodeSpinnerId };
+export { UNICODE_SPINNER_IDS, ORB_VARIANT_IDS, isOrbIndicatorId };
 
 /** Placements that can pick their own running indicator. */
 export type AgentIndicatorPlacement =
@@ -21,22 +25,6 @@ export type AgentIndicatorPlacement =
   | "center_terminal"
   | "terminal_panel"
   | "footer";
-
-/** Unicode spinner names historically used in Atmos agent status UI. */
-export const UNICODE_SPINNER_IDS = [
-  "braille",
-  "helix",
-  "scan",
-  "cascade",
-  "orbit",
-  "snake",
-  "breathe",
-  "pulse",
-  "dna",
-  "rain",
-] as const;
-
-export type UnicodeSpinnerId = (typeof UNICODE_SPINNER_IDS)[number];
 
 /** Special id: pick a random unicode spinner per mount (legacy full-indicator behavior). */
 export const RANDOM_UNICODE_ID = "random" as const;
@@ -61,14 +49,6 @@ export interface IndicatorStyleOption {
   label: string;
 }
 
-export const ORB_VARIANT_IDS: readonly OrbVariant[] = [
-  ...LATTICE_VARIANTS,
-  ...LENS_VARIANTS,
-  ...RING_VARIANTS,
-  ...HELIX_VARIANTS,
-  ...MORPH_VARIANTS,
-];
-
 export const UNICODE_STYLE_OPTIONS: readonly IndicatorStyleOption[] = [
   { id: RANDOM_UNICODE_ID, family: "unicode", label: "Random" },
   ...UNICODE_SPINNER_IDS.map(
@@ -81,10 +61,18 @@ export const UNICODE_STYLE_OPTIONS: readonly IndicatorStyleOption[] = [
 ];
 
 function orbFamily(id: OrbVariant): IndicatorFamily {
-  if ((LATTICE_VARIANTS as readonly string[]).includes(id)) return "lattice";
-  if ((LENS_VARIANTS as readonly string[]).includes(id)) return "lens";
-  if ((RING_VARIANTS as readonly string[]).includes(id)) return "ring";
-  if ((HELIX_VARIANTS as readonly string[]).includes(id)) return "helix";
+  if ((ACTIVITY_STYLES_BY_GROUP.lattice as readonly string[]).includes(id)) {
+    return "lattice";
+  }
+  if ((ACTIVITY_STYLES_BY_GROUP.lens as readonly string[]).includes(id)) {
+    return "lens";
+  }
+  if ((ACTIVITY_STYLES_BY_GROUP.ring as readonly string[]).includes(id)) {
+    return "ring";
+  }
+  if ((ACTIVITY_STYLES_BY_GROUP.helix as readonly string[]).includes(id)) {
+    return "helix";
+  }
   return "morph";
 }
 
@@ -139,14 +127,10 @@ export function isAgentActivityIndicatorId(
   return typeof value === "string" && VALID_IDS.has(value);
 }
 
-export function isOrbIndicatorId(id: AgentActivityIndicatorId): id is OrbVariant {
-  return (ORB_VARIANT_IDS as readonly string[]).includes(id);
-}
-
 export function isUnicodeIndicatorId(
   id: AgentActivityIndicatorId,
 ): id is UnicodeSpinnerId | typeof RANDOM_UNICODE_ID {
-  return id === RANDOM_UNICODE_ID || (UNICODE_SPINNER_IDS as readonly string[]).includes(id);
+  return id === RANDOM_UNICODE_ID || isUnicodeSpinnerId(id);
 }
 
 /** Defaults match the previous compact braille spinner everywhere. */

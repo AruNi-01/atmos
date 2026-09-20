@@ -1,0 +1,108 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OpenCode",
+    "version": "recorded-2026-09-01"
+  },
+  "paths": {
+    "/doc": {
+      "get": { "responses": { "200": { "description": "OpenAPI spec" } } }
+    },
+    "/event": {
+      "get": { "responses": { "200": { "description": "SSE bus" } } }
+    },
+    "/global/health": {
+      "get": { "responses": { "200": { "description": "health" } } }
+    },
+    "/session": {
+      "post": { "responses": { "200": { "description": "create session" } } }
+    },
+    "/session/{id}": {
+      "get": { "responses": { "200": { "description": "session" }, "404": { "description": "missing" } } }
+    },
+    "/session/{id}/prompt_async": {
+      "post": { "responses": { "204": { "description": "Prompt accepted" } } }
+    },
+    "/session/{id}/abort": {
+      "post": { "responses": { "200": { "description": "aborted" } } }
+    },
+    "/session/{id}/message": {
+      "get": { "responses": { "200": { "description": "messages" } } }
+    },
+    "/session/{id}/permissions/{permissionID}": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["response"],
+                "properties": {
+                  "response": { "enum": ["once", "always", "reject"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "permission processed" } }
+      }
+    },
+    "/session/{id}/question/{requestID}/reply": {
+      "post": { "responses": { "204": { "description": "question reply" } } }
+    },
+    "/session/{id}/question/{requestID}/reject": {
+      "post": { "responses": { "204": { "description": "question reject" } } }
+    },
+    "/session/{id}/fork": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "messageID": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "forked session" } }
+      }
+    },
+    "/session/{id}/revert": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["messageID"],
+                "properties": {
+                  "messageID": { "type": "string" },
+                  "partID": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "reverted" } }
+      }
+    },
+    "/session/{id}/unrevert": {
+      "post": { "responses": { "200": { "description": "unreverted" } } }
+    },
+    "/config/providers": {
+      "get": { "responses": { "200": { "description": "providers" } } }
+    },
+    "/command": {
+      "get": { "responses": { "200": { "description": "slash commands and skills" } } }
+    },
+    "/skill": {
+      "get": { "responses": { "200": { "description": "skills" } } }
+    },
+    "/instance/dispose": {
+      "post": { "responses": { "200": { "description": "disposed" } } }
+    }
+  }
+}

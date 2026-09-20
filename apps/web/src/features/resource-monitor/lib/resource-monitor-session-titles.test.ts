@@ -84,6 +84,7 @@ describe("buildResourceMonitorSessionTitleMap", () => {
     const expected = getTerminalDisplayMeta({
       baseTitle: source.label,
       dynamicTitle: source.dynamicTitle,
+      configuredAgents: source.agent ? [source.agent] : [],
       agent: source.agent,
       oscTitle: source.oscTitle,
     }).displayTitle;
@@ -92,8 +93,8 @@ describe("buildResourceMonitorSessionTitleMap", () => {
       "ws-a": { pane1: source },
     });
     expect(expected.length).toBeGreaterThan(0);
-    expect(expected).toContain("Claude Code");
-    expect(expected).toContain("Review the PR");
+    expect(expected).toBe("Review the PR");
+    expect(expected).not.toContain("|");
     expect(titles.get("sess-agent")).toBe(expected);
     expect(
       resolveResourceMonitorSessionTitle("sess-agent", "1", titles, "Unnamed session"),

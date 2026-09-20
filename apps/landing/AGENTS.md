@@ -108,7 +108,7 @@ apps/landing/
 ### Marketing Media
 - Source projects for generated videos, audio, and social assets live under `marketing/creative/`.
 - `public/videos/` holds local dev copies synced from `marketing/creative/`. **Pages/production** loads demo MP4s and posters from R2 via `NEXT_PUBLIC_ASSETS_BASE_URL` + `landing/videos/<filename>` (see `src/lib/landing-assets.ts`).
-- Feature Showcase sphere covers use prebuilt `*-poster.jpg` stills next to each demo MP4 (not runtime video frame capture). After adding or replacing a feature demo video, regenerate posters with `bash apps/landing/scripts/generate-feature-posters.sh`, upload to R2 under `landing/videos/`, and update filenames in `feature-showcase.tsx`.
+- Feature Showcase posters use prebuilt `*-poster.jpg` stills next to each demo MP4 (not runtime video frame capture). After adding or replacing a feature demo video, regenerate posters with `bash apps/landing/scripts/generate-feature-posters.sh`, upload to R2 under `landing/videos/`, and update filenames in `feature-showcase.tsx`.
 - Do not create HyperFrames source projects inside `apps/landing`.
 
 ---
@@ -122,3 +122,13 @@ apps/landing/
 ### ALWAYS
 - Use shared UI components from `@workspace/ui`
 - Keep content translations in sync
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

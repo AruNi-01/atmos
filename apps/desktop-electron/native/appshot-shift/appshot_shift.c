@@ -69,6 +69,8 @@ static CGEventRef tap_callback(CGEventTapProxy proxy, CGEventType type,
   if (type != kCGEventFlagsChanged || !event) return event;
 
   CGEventFlags flags = CGEventGetFlags(event);
+  bool extra = (flags & (kCGEventFlagMaskCommand | kCGEventFlagMaskAlternate |
+                         kCGEventFlagMaskControl)) != 0;
   bool shift_active = (flags & kCGEventFlagMaskShift) != 0;
   int64_t keycode =
       CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
@@ -76,6 +78,11 @@ static CGEventRef tap_callback(CGEventTapProxy proxy, CGEventType type,
   ShiftSide side = SIDE_NONE;
   if (keycode == VK_LEFT_SHIFT) side = SIDE_LEFT;
   else if (keycode == VK_RIGHT_SHIFT) side = SIDE_RIGHT;
+
+  if (extra) {
+    observe(&g_chord, SIDE_LEFT, false);
+    return event;
+  }
 
   if (side != SIDE_NONE) {
     atomic_store(&g_last_edge_side, (int)side);
@@ -249,25 +256,32 @@ int atmos_appshot_shift_run_blocking(void) {
  *
  * Socket path: $ATMOS_HOME/desktop-use/appshot-shift.sock
  *          or: $HOME/.atmos/desktop-use/appshot-shift.sock
- * Protocol: NDJSON lines {"t":"chord"} / {"t":"ready","ax":bool} /
- *           {"t":"digit","digit":3-6} (screenshot chords swallowed only while
- *           Atmos is frontmost)
+ * Protocol: NDJSON lines
+ *   {"t":"captured",...} / {"t":"need_grant","missing":[...]} /
+ *   {"t":"ignored","reason":"..."} / {"t":"ready","ax":bool,"tap":bool} /
+ *   {"t":"digit","digit":3-6} (screenshot chords swallowed only while Atmos
+ *   is frontmost). Legacy {"t":"chord"} is not emitted by current inject.
  */
 #if defined(ATMOS_APPSHOT_SHIFT_HOST_INJECT)
+#include "appshot_window_capture.h"
 #include <crt_externs.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/un.h>
 
 enum { kHostShiftMaxClients = 4 };
 
 static int g_host_listen_fd = -1;
 static int g_host_clients[kHostShiftMaxClients];
+static pthread_mutex_t g_host_mu = PTHREAD_MUTEX_INITIALIZER;
 static pthread_t g_host_broker_thread;
 static atomic_bool g_host_broker_started = false;
+static atomic_bool g_capture_busy = false;
+static uint64_t g_last_capture_ms = 0;
 
 static void host_shift_socket_path(char *out, size_t out_len) {
   const char *atmos_home = getenv("ATMOS_HOME");
@@ -283,8 +297,15 @@ static void host_shift_socket_path(char *out, size_t out_len) {
   snprintf(out, out_len, "/tmp/atmos-appshot-shift.sock");
 }
 
+static uint64_t host_now_ms(void) {
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  return (uint64_t)tv.tv_sec * 1000ull + (uint64_t)(tv.tv_usec / 1000);
+}
+
 static void host_shift_broadcast(const char *line) {
   size_t n = strlen(line);
+  pthread_mutex_lock(&g_host_mu);
   for (int i = 0; i < kHostShiftMaxClients; i++) {
     int fd = g_host_clients[i];
     if (fd < 0) continue;
@@ -294,6 +315,21 @@ static void host_shift_broadcast(const char *line) {
       g_host_clients[i] = -1;
     }
   }
+  pthread_mutex_unlock(&g_host_mu);
+}
+
+static void *host_capture_thread(void *arg) {
+  (void)arg;
+#if defined(__APPLE__)
+  pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
+#endif
+  char *line = atmos_appshot_host_capture_now();
+  if (line) {
+    host_shift_broadcast(line);
+    free(line);
+  }
+  atomic_store(&g_capture_busy, false);
+  return NULL;
 }
 
 static void host_shift_mkdir_p_parent(const char *sock_path) {
@@ -347,6 +383,7 @@ static void host_shift_accept_clients(void) {
     int cfd = accept(g_host_listen_fd, NULL, NULL);
     if (cfd < 0) break;
     int slot = -1;
+    pthread_mutex_lock(&g_host_mu);
     for (int i = 0; i < kHostShiftMaxClients; i++) {
       if (g_host_clients[i] < 0) {
         slot = i;
@@ -354,14 +391,18 @@ static void host_shift_accept_clients(void) {
       }
     }
     if (slot < 0) {
+      pthread_mutex_unlock(&g_host_mu);
       close(cfd);
       continue;
     }
     g_host_clients[slot] = cfd;
+    pthread_mutex_unlock(&g_host_mu);
     int ax = atmos_appshot_shift_ax_trusted();
-    char ready[64];
-    snprintf(ready, sizeof(ready), "{\"t\":\"ready\",\"ax\":%s}\n",
-             ax ? "true" : "false");
+    int tap = atmos_appshot_shift_status() == 2;
+    char ready[96];
+    snprintf(ready, sizeof(ready),
+             "{\"t\":\"ready\",\"ax\":%s,\"tap\":%s}\n",
+             ax ? "true" : "false", tap ? "true" : "false");
     (void)send(cfd, ready, strlen(ready), 0);
   }
 }
@@ -539,7 +580,20 @@ static void *host_shift_broker_main(void *arg) {
     host_shift_accept_clients();
     int chords = atmos_appshot_shift_take_chord();
     for (int i = 0; i < chords; i++) {
-      host_shift_broadcast("{\"t\":\"chord\"}\n");
+      uint64_t now = host_now_ms();
+      if (g_last_capture_ms != 0 && now - g_last_capture_ms < 500) {
+        continue;
+      }
+      if (atomic_exchange(&g_capture_busy, true)) {
+        continue;
+      }
+      g_last_capture_ms = now;
+      pthread_t cap;
+      if (pthread_create(&cap, NULL, host_capture_thread, NULL) != 0) {
+        atomic_store(&g_capture_busy, false);
+        continue;
+      }
+      pthread_detach(cap);
     }
     int digit = atomic_exchange(&g_shot_digit, 0);
     if (digit >= 3 && digit <= 6) {

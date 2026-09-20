@@ -118,6 +118,17 @@ describe("center-stage-tab-activation-stack", () => {
     expect(open.has("browser:x")).toBe(true);
   });
 
+  test("buildOpenCenterTabValues omits wiki unless wikiEnabled", () => {
+    const open = buildOpenCenterTabValues({
+      openFilePaths: [],
+      terminalTabIds: ["terminal"],
+      githubTabValues: [],
+      browserTabValues: [],
+      wikiEnabled: false,
+    });
+    expect(open.has("wiki")).toBe(false);
+  });
+
   test("buildOpenCenterTabValues only includes overview when opted in", () => {
     const open = buildOpenCenterTabValues({
       openFilePaths: [],
@@ -150,6 +161,21 @@ describe("close returns to the tab that opened the closed tab", () => {
     expect(stage).not.toContain("skipLayoutRemove");
     expect(stage).toContain("activateNextAfterClosingRef.current(file.path, { paneId })");
     expect(stage).toContain("activateNextAfterClosing(tab, { paneId })");
+    expect(stage).toContain("const handleCloseAgentChatTab");
+    expect(stage).toContain("performCloseAgentChatCenterTab");
+    expect(stage).toContain("activateNextAfterClosing(value, { paneId })");
+    expect(stage).toContain("agentChatNeedsCloseConfirm");
+  });
+
+  test("agent chat tab close uses the generic MRU path instead of jumping to terminal", () => {
+    const tabBar = readFileSync(
+      join(import.meta.dir, "../CenterStageTabBar.tsx"),
+      "utf8",
+    );
+    expect(tabBar).toContain("handleCloseAgentChatTab(tab.value)");
+    expect(tabBar).not.toContain(
+      'handleCenterStageTabChange(visibleTerminalTabs[0]?.id ?? "overview")',
+    );
   });
 
   test("content-triggered opens record chrome activation instead of attaching only", () => {
@@ -157,7 +183,9 @@ describe("close returns to the tab that opened the closed tab", () => {
       join(import.meta.dir, "../center-stage-activate.ts"),
       "utf8",
     );
-    expect(activate).toContain("recordCenterTabActivation(contextId, tab)");
-    expect(activate).toContain("attachCenterTab(contextId, tab");
+    expect(activate).toContain("recordCenterTabActivation(contextId, resolvedTab)");
+    expect(activate).toContain("ensureFixedTerminalTab");
+    expect(activate).toContain("ensureAutomationTerminalTab");
+    expect(activate).toContain("attachCenterTab(contextId, resolvedTab");
   });
 });

@@ -30,6 +30,8 @@ export function ScreenshotToast({
   onPause,
   onResume,
 }: ScreenshotToastProps) {
+  const isBrowserDownload = Boolean(toast.downloadUrl && toast.downloadName);
+  const isHostFile = Boolean(toast.path);
   const [dragging, setDragging] = useState(false);
   const dragImageRef = useRef<HTMLImageElement | null>(null);
   const dragFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -121,11 +123,11 @@ export function ScreenshotToast({
           type="button"
           onClick={onReveal}
           disabled={toast.status !== "saved"}
-          draggable={toast.status === "saved"}
+          draggable={toast.status === "saved" && isHostFile}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
-          aria-label="Open screenshot in Finder"
-          title="Click to reveal in Finder · drag to copy the file"
+          aria-label={isBrowserDownload ? "Download screenshot again" : "Open screenshot in Finder"}
+          title={isBrowserDownload ? "Download screenshot again" : "Click to reveal in Finder · drag to copy the file"}
           className={`group flex w-full items-center gap-3 pl-2 pr-3.5 py-2 bg-panel border border-white/12 rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.45)] text-left cursor-pointer enabled:hover:bg-[#2a2a2c] disabled:cursor-default [transition:background_0.15s_ease] ${dragging ? "invisible" : ""}`}
         >
           <div className="size-9 rounded-md overflow-hidden bg-white/10 shrink-0 flex items-center justify-center ring-1 ring-white/10 pointer-events-none">
@@ -140,7 +142,9 @@ export function ScreenshotToast({
               {toast.status === "saving" ? "Saving Screenshot…" : "Screenshot Saved"}
             </span>
             {toast.status === "saved" && (
-              <span className="text-[11px] text-white/60">Open in Finder</span>
+              <span className="text-[11px] text-white/60">
+                {isBrowserDownload ? "Download again" : "Open in Finder"}
+              </span>
             )}
           </div>
           {toast.status === "saved" && (

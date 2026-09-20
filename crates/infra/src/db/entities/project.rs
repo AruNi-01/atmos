@@ -27,6 +27,8 @@ pub struct Model {
     /// since (e.g. pulled from the remote) and must be confirmed again before
     /// any script in it runs.
     pub trusted_scripts_hash: Option<String>,
+    /// Last time the user opened this project (or one of its workspaces).
+    pub last_visited_at: Option<DateTime>,
 }
 
 impl_base_entity!(Model);

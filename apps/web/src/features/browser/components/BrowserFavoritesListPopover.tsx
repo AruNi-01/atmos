@@ -59,7 +59,7 @@ export function BrowserFavoritesListPopover({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-background hover:text-foreground"
+          className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-background/50 hover:text-foreground data-[state=open]:bg-background/70 data-[state=open]:text-foreground"
           title={favoritesLabel}
           aria-label={favoritesLabel}
         >

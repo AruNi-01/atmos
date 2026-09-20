@@ -17,13 +17,14 @@ describe("run script tab bar", () => {
       shared.indexOf("export function CenterStageTabList"),
       shared.indexOf("export function CenterStageScrollableTabs"),
     );
-    expect(listBlock.indexOf("{children}")).toBeGreaterThan(0);
-    expect(listBlock.indexOf("{actions}")).toBeGreaterThan(listBlock.indexOf("{children}"));
+    expect(listBlock).toContain("{children}");
+    expect(listBlock).toContain("trailing={afterTabs}");
 
     const runList = runScript.slice(
       runScript.indexOf("<CenterStageTabList"),
       runScript.indexOf("</CenterStageTabList>"),
     );
+    expect(runList).toContain("afterTabs={");
     expect(runList).toContain("<CenterStageScrollableTabs className=\"flex-initial\">");
     expect(runList).toContain("CenterStageStickyTabActions");
     expect(runList).toContain("<Plus className=\"size-3.5\" />");
@@ -40,6 +41,14 @@ describe("run script tab bar", () => {
     expect(runTabSlot).toContain("unlockTerminalTooltip");
     expect(runTabSlot).not.toContain("onClose");
     expect(runScript).not.toContain("setIsLocked(!isLocked)");
+
+    const toolbar = runScript.slice(
+      runScript.indexOf('<div className="flex shrink-0 items-center gap-2 pr-2">'),
+      runScript.indexOf("{/* Content */}"),
+    );
+    expect(toolbar).not.toContain("<Lock");
+    expect(toolbar).not.toContain("<Unlock");
+    expect(toolbar).not.toContain("setIsLocked");
   });
 
   it("ignores Cmd+R when the keep-alive host marked the panel inert", () => {

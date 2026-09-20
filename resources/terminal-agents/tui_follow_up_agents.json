@@ -6,6 +6,10 @@
     {
       "agentId": "hermes",
       "readyPattern": "❯"
+    },
+    {
+      "agentId": "codex",
+      "readyPattern": "Ask Codex|Shift\\+Enter"
     }
   ]
 }

@@ -1,59 +1,151 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import {
-  Attachments,
-  Attachment,
-  AttachmentPreview,
-  AttachmentRemove,
-  PromptInput,
   PromptInputAddAttachmentsButton,
-  PromptInputBody,
-  PromptInputFooter,
-  PromptInputHeader,
-  PromptInputSubmit,
-  PromptInputTextarea,
-  PromptInputTools,
+  PromptInputProvider,
+  cn,
   usePromptInputAttachments,
+  usePromptInputController,
 } from "@workspace/ui";
-import { Square } from "lucide-react";
+import {
+  PromptComposer,
+  type ComposerHandle,
+} from "@/features/welcome/components/PromptComposer";
 import { useDialogStore, type QueuedAgentPrompt } from "@/app-shell/state/use-dialog-store";
-import type { AgentPlan, AgentUsage, AgentTurnUsage, AgentConfigOption } from "@/features/agent/hooks/use-agent-session";
+import { ChatAgentConfigInput } from "./ChatAgentConfigInput";
+import type { AgentPlan, AgentConfigOption } from "@/features/agent/lib/agent-chat-types";
 import type { RegistryAgent } from "@/api/ws-api";
 import type { AgentChatMode } from "@/features/agent/types/index";
-import { registerActiveAgentComposer } from "@/features/agent/lib/agent/active-composer";
-import type { ThreadEntry } from "@/features/agent/lib/agent/thread";
+import {
+  registerActiveAgentComposer,
+  touchActiveAgentComposer,
+} from "@/features/agent/lib/agent/active-composer";
+import type {
+  AgentMessage,
+  GrokGoal,
+  GrokWorkflow,
+  AgentSessionUsage,
+} from "@atmos/api-types/ws/dto/agent-chat";
+import { stopStreamingMessages } from "@/features/agent/lib/agent-chat-events";
+import { expandAgentComposerText } from "@/features/agent/lib/agent-chat-slash-command";
+import { stripSkillDisableSession } from "@/features/skills/lib/skill-disable-protocol";
+import { resolveAgentComposerPlaceholderKind } from "@/features/agent/lib/agent-composer-placeholder";
 import type { AgentActivity } from "../lib/chat-helpers";
+import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import { PlanBlockView } from "./PlanBlockView";
+import { BackgroundCommandsDock } from "./BackgroundCommandsDock";
 import { MessageQueueDock } from "./MessageQueueDock";
-import { ConfigOptionDropdown } from "./ConfigOptionDropdown";
+import { AgentChatAboveComposerOverlays } from "./AgentChatAboveComposerOverlays";
+import { useSubagentOverlay } from "./subagent-overlay-context";
+import type { CurrentTurnSubagentTasks } from "@/features/agent/lib/subagent-tasks";
+import { useAgentComposerPopovers } from "../hooks/use-agent-composer-popovers";
+import type { AgentChatSlashCommand } from "../hooks/use-agent-chat-session";
+import {
+  configKindMatches,
+  isThinkingConfigId,
+} from "../lib/agent-chat-thread";
+import { AgentChatWorkingDirectoryPicker } from "./AgentChatWorkingDirectoryPicker";
+import { AgentComposerAttachments } from "./AgentComposerAttachments";
+import { ContextWindowUsageControl } from "./UsageBadges";
+import { contextWindowStats } from "@/features/agent/lib/context-window-usage";
+import type { AgentChatWorkingDirectory } from "@/features/agent/lib/agent-chat-working-directory";
+import type { Project } from "@/shared/types/domain";
+import {
+  getAgentContextDragItems,
+  hasAgentContextDragData,
+} from "@/shared/lib/agent-context-drag";
+import { normalizeComposerImageFile } from "@/shared/lib/composer-image";
+import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
+import {
+  composerFileUrlFromPath,
+  filesFromComposerParts,
+  filesFromQueuedPrompt,
+  queuedPromptComposerText,
+} from "@/features/agent/lib/agent-composer-attachment";
 
-function PromptInputAttachmentsSection() {
-  const attachments = usePromptInputAttachments();
-  if (attachments.files.length === 0) return null;
+function AttachmentFileInput() {
+  const controller = usePromptInputController();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const open = useCallback(() => inputRef.current?.click(), []);
+
+  useEffect(() => {
+    controller.__registerFileInput(inputRef, open);
+  }, [controller, open]);
+
   return (
-    <PromptInputHeader>
-      <Attachments variant="inline">
-        {attachments.files.map((a) => (
-          <Attachment key={a.id} data={a} onRemove={() => attachments.remove(a.id)}>
-            <AttachmentPreview />
-            <AttachmentRemove />
-          </Attachment>
-        ))}
-      </Attachments>
-    </PromptInputHeader>
+    <input
+      ref={inputRef}
+      type="file"
+      multiple
+      className="hidden"
+      onChange={(event) => {
+        const selected = event.currentTarget.files
+          ? Array.from(event.currentTarget.files)
+          : [];
+        event.currentTarget.value = "";
+        if (selected.length === 0) return;
+        void (async () => {
+          const files = await Promise.all(
+            selected.map((file) => normalizeComposerImageFile(file)),
+          );
+          controller.attachments.add(files);
+        })();
+      }}
+    />
   );
 }
 
-export const AgentPromptComposer = React.memo(function AgentPromptComposer({
-  currentPlan,
-  isResumedSession,
-  queuedPrompts,
-  onRemoveQueuedPrompt,
-  onUpdateQueuedPrompt,
-  onMoveQueuedPrompt,
-  onSubmit,
+async function filesForSubmit(
+  files: Array<{ id: string; url?: string } & import("ai").FileUIPart>,
+): Promise<import("ai").FileUIPart[]> {
+  return Promise.all(
+    files.map(async ({ id: _id, ...item }) => {
+      if (!item.url?.startsWith("blob:")) return item;
+      try {
+        const blob = await fetch(item.url).then((response) => response.blob());
+        const dataUrl = await new Promise<string | null>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(typeof reader.result === "string" ? reader.result : null);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(blob);
+        });
+        return { ...item, url: dataUrl ?? item.url };
+      } catch {
+        return item;
+      }
+    }),
+  );
+}
+
+async function filesFromQueuedItem(item: QueuedAgentPrompt): Promise<File[]> {
+  if (item.files && item.files.length > 0) {
+    return filesFromComposerParts(item.files);
+  }
+  const paths = item.attachmentPaths ?? [];
+  if (paths.length === 0) return [];
+  const cfg = await getRuntimeApiConfig();
+  const base = httpBase(cfg);
+  return filesFromQueuedPrompt(
+    item,
+    base ? (path) => composerFileUrlFromPath(path, base, cfg.token) : undefined,
+  );
+}
+
+function ComposerPromptInput({
+  composerRef,
+  onAtTrigger,
+  onAtCancel,
+  onSlashTrigger,
+  onSlashCancel,
+  onSkillDisableFilterChange,
+  onSkillDisableSessionClosed,
+  skillDisableSessionOpen,
+  closePopovers,
+  localDraft,
+  setLocalDraft,
+  persistedDraftRef,
   canUseCurrentMode,
   isConnected,
   chatMode,
@@ -63,26 +155,52 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   loadingAgents,
   isConnecting,
   isResumingHistory,
+  catalogModelsLoading,
+  catalogModelsReloading,
+  onEmptyModelsOpen,
+  onLoadModels,
   installedAgents,
-  configOptions,
+  modeOption,
+  permissionOption,
+  modelOption,
+  thinkingOption,
+  fastOption,
+  contextOption,
+  modelsLocked,
+  modesLocked,
   registryId,
-  activeAgent,
+  agentLocked,
+  onProviderChange,
   setConfigOption,
-  setAgentDefaultConfig,
-  setInstalledAgents,
-  agentActivity,
+  showStop,
   sendCancel,
   setWaitingForResponse,
-  setEntries,
+  setMessages,
   stoppedRef,
+  workingDirectoryPicker,
+  clearAgentChatDraft,
+  onSubmit,
+  placeholder,
+  landing,
+  editingItem,
+  onFinishEdit,
+  onUpdateQueuedPrompt,
+  sessionUsage,
+  contextUsageOpen,
+  onContextUsageOpenChange,
 }: {
-  currentPlan: AgentPlan | null;
-  isResumedSession: boolean;
-  queuedPrompts: QueuedAgentPrompt[];
-  onRemoveQueuedPrompt: (id: string) => void;
-  onUpdateQueuedPrompt: (id: string, prompt: string) => void;
-  onMoveQueuedPrompt: (id: string, toIndex: number) => void;
-  onSubmit: (message: { text: string; files?: import("ai").FileUIPart[] }) => Promise<void>;
+  composerRef: React.RefObject<ComposerHandle | null>;
+  onAtTrigger: (ctx: import("@/features/welcome/components/PromptComposer").AtTriggerContext) => void;
+  onAtCancel: () => void;
+  onSlashTrigger: (ctx: import("@/features/welcome/components/PromptComposer").SlashTriggerContext) => void;
+  onSlashCancel: () => void;
+  onSkillDisableFilterChange: (filter: string) => void;
+  onSkillDisableSessionClosed: () => void;
+  skillDisableSessionOpen: boolean;
+  closePopovers: () => void;
+  localDraft: string;
+  setLocalDraft: React.Dispatch<React.SetStateAction<string>>;
+  persistedDraftRef: React.MutableRefObject<string>;
   canUseCurrentMode: boolean;
   isConnected: boolean;
   chatMode: AgentChatMode;
@@ -92,21 +210,380 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   loadingAgents: boolean;
   isConnecting: boolean;
   isResumingHistory: boolean;
+  catalogModelsLoading: boolean;
+  catalogModelsReloading?: boolean;
+  onEmptyModelsOpen?: () => void;
+  onLoadModels?: () => void;
+  installedAgents: RegistryAgent[];
+  modeOption: AgentConfigOption | null;
+  permissionOption: AgentConfigOption | null;
+  modelOption: AgentConfigOption | null;
+  thinkingOption: AgentConfigOption | null;
+  fastOption: AgentConfigOption | null;
+  contextOption: AgentConfigOption | null;
+  modelsLocked: boolean;
+  modesLocked: boolean;
+  registryId: string | null;
+  agentLocked: boolean;
+  onProviderChange?: (providerId: string, opts?: { model?: string }) => void;
+  setConfigOption: (id: string, value: string) => void;
+  showStop: boolean;
+  sendCancel: () => void;
+  setWaitingForResponse: React.Dispatch<React.SetStateAction<boolean>>;
+  setMessages: React.Dispatch<React.SetStateAction<AgentMessage[]>>;
+  stoppedRef: React.MutableRefObject<boolean>;
+  workingDirectoryPicker: {
+    projects: Project[];
+    selection: AgentChatWorkingDirectory;
+    onSelect: (next: AgentChatWorkingDirectory) => void;
+  } | null;
+  placeholder: string;
+  clearAgentChatDraft: (
+    workspaceId: string | null,
+    projectId: string | null,
+    mode: AgentChatMode,
+    instanceKey?: string | null,
+  ) => void;
+  onSubmit: (
+    message: { text: string; files?: import("ai").FileUIPart[] },
+    options?: { oneShot?: "queue" | "steer" },
+  ) => Promise<void>;
+  landing: boolean;
+  editingItem: QueuedAgentPrompt | null;
+  onFinishEdit: () => void;
+  onUpdateQueuedPrompt: (id: string, prompt: string) => void | Promise<void>;
+  sessionUsage: AgentSessionUsage | null;
+  contextUsageOpen: boolean;
+  onContextUsageOpenChange: (open: boolean) => void;
+}) {
+  const t = useTranslations("Agent.components");
+  const attachments = usePromptInputAttachments();
+  const formRef = useRef<HTMLFormElement>(null);
+  const hydratedRef = useRef(false);
+  const stashRef = useRef<{ text: string; files: File[] } | null>(null);
+  const attachmentsRef = useRef(attachments);
+  attachmentsRef.current = attachments;
+  const composerLocked = isResumingHistory && !isConnected;
+  const canSubmit = Boolean(
+    expandAgentComposerText(localDraft) || attachments.files.length,
+  ) && !composerLocked && !showStop;
+
+  useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
+    const restored = stripSkillDisableSession(localDraft);
+    if (restored) composerRef.current?.setText(restored);
+    if (restored !== localDraft) setLocalDraft(restored);
+  }, [composerRef, localDraft, setLocalDraft]);
+
+  useEffect(() => {
+    const applyDraft = (text: string, files: File[]) => {
+      const current = attachmentsRef.current;
+      setLocalDraft(text);
+      composerRef.current?.setText(text);
+      current.clear();
+      if (files.length > 0) current.add(files);
+    };
+
+    if (!editingItem) {
+      const stash = stashRef.current;
+      if (!stash) return;
+      stashRef.current = null;
+      applyDraft(stash.text, stash.files);
+      return;
+    }
+
+    const item = editingItem;
+    let cancelled = false;
+    void (async () => {
+      if (!stashRef.current) {
+        stashRef.current = {
+          text: composerRef.current?.getText() ?? localDraft,
+          files: await filesFromComposerParts(attachmentsRef.current.files),
+        };
+      }
+      if (cancelled) return;
+      const text = queuedPromptComposerText(item);
+      applyDraft(text, []);
+      const files = await filesFromQueuedItem(item);
+      if (cancelled) return;
+      if (files.length > 0) attachmentsRef.current.add(files);
+      composerRef.current?.focus();
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // Load once per queued item. Stash is captured on first enter and restored when editing ends.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- localDraft/attachments would retrigger mid-edit
+  }, [composerRef, editingItem?.id, setLocalDraft]);
+
+  return (
+    <>
+      <AttachmentFileInput />
+      <ChatAgentConfigInput
+        value={localDraft}
+        onValueChange={setLocalDraft}
+        disabled={composerLocked}
+        loading={showStop}
+        canSubmit={canSubmit}
+        minRows={landing ? 2 : 1}
+        maxRows={8}
+        formRef={formRef}
+        placeholder={placeholder}
+        installedAgents={installedAgents}
+        registryId={registryId}
+        agentLocked={agentLocked}
+        onProviderChange={onProviderChange}
+        modelOption={modelOption}
+        modelsLocked={modelsLocked}
+        modelsLoading={isConnecting || isResumingHistory || catalogModelsLoading}
+        modelsReloading={catalogModelsReloading}
+        onEmptyModelsOpen={onEmptyModelsOpen}
+        onLoadModels={onLoadModels}
+        modeOption={modeOption}
+        modesLocked={modesLocked}
+        permissionOption={permissionOption}
+        thinkingOption={thinkingOption}
+        fastOption={fastOption}
+        contextOption={contextOption}
+        onConfigChange={(kind, value) => {
+          const option = {
+            model: modelOption,
+            mode: modeOption,
+            permission_mode: permissionOption,
+            thinking: thinkingOption,
+            fast: fastOption,
+            context: contextOption,
+          }[kind];
+          if (option) setConfigOption(option.id, value);
+        }}
+        editor={
+          <PromptComposer
+            ref={composerRef}
+            submitOnEnter={!skillDisableSessionOpen}
+            disabled={composerLocked}
+            placeholder={placeholder}
+            editorClassName={
+              landing
+                ? "min-h-10 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
+                : "min-h-5 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
+            }
+            placeholderClassName="left-0 top-0 text-sm leading-5 text-muted-foreground/55"
+            onTextChange={setLocalDraft}
+            onAtTrigger={onAtTrigger}
+            onAtCancel={onAtCancel}
+            onSlashTrigger={onSlashTrigger}
+            onSlashCancel={onSlashCancel}
+            onSkillDisableFilterChange={onSkillDisableFilterChange}
+            onSkillDisableSessionClosed={onSkillDisableSessionClosed}
+            onImagePaste={(blob, ext) => {
+              const safeExt = ext.replace(/[^a-zA-Z0-9]/g, "") || "png";
+              attachments.add([
+                new File([blob], `paste.${safeExt}`, {
+                  type: blob.type || `image/${safeExt}`,
+                }),
+              ]);
+            }}
+            onSubmit={() => formRef.current?.requestSubmit()}
+          />
+        }
+        leadingAction={
+          <div className="flex min-w-0 items-center gap-1">
+            <PromptInputAddAttachmentsButton className="rounded-2xl bg-transparent shadow-none hover:bg-muted/60 data-pressed:bg-muted/60 dark:bg-transparent dark:hover:bg-muted/60" />
+            {workingDirectoryPicker ? (
+              <AgentChatWorkingDirectoryPicker
+                className="rounded-2xl"
+                projects={workingDirectoryPicker.projects}
+                selection={workingDirectoryPicker.selection}
+                onSelect={workingDirectoryPicker.onSelect}
+              />
+            ) : null}
+            {(loadingAgents || isConnecting || isResumingHistory) && !isConnected ? null : installedAgents.length === 0 ? (
+              <span className="px-2 text-xs text-muted-foreground">{t("composer.noAgent")}</span>
+            ) : null}
+          </div>
+        }
+        header={<AgentComposerAttachments />}
+        onSubmit={async (text) => {
+          const composed = expandAgentComposerText(composerRef.current?.getText() ?? text);
+          if (editingItem) {
+            if (!composed.trim()) return;
+            closePopovers();
+            await onUpdateQueuedPrompt(editingItem.id, composed);
+            onFinishEdit();
+            return;
+          }
+          const files = attachments.files;
+          const previousDraft = localDraft;
+          if (!composed && files.length === 0) {
+            setLocalDraft(previousDraft);
+            return;
+          }
+          const converted = await filesForSubmit(files);
+          closePopovers();
+          setLocalDraft("");
+          composerRef.current?.clear();
+          persistedDraftRef.current = "";
+          clearAgentChatDraft(
+            sessionWorkspaceId,
+            sessionProjectId,
+            chatMode,
+            instanceKey,
+          );
+          attachments.clear();
+          try {
+            await onSubmit({ text: composed, files: converted });
+          } catch {
+            setLocalDraft(previousDraft);
+            composerRef.current?.setText(previousDraft);
+            persistedDraftRef.current = previousDraft;
+            const restored = await filesFromComposerParts(converted);
+            if (restored.length > 0) attachmentsRef.current.add(restored);
+          }
+        }}
+        onStop={
+          showStop
+            ? () => {
+                stoppedRef.current = true;
+                sendCancel();
+                setWaitingForResponse(false);
+                setMessages(stopStreamingMessages);
+              }
+            : undefined
+        }
+        radius="3xl"
+        footerTrailing={
+          <ContextWindowUsageControl
+            usage={sessionUsage}
+            providerId={registryId}
+            open={contextUsageOpen}
+            onOpenChange={onContextUsageOpenChange}
+          />
+        }
+        className={cn(
+          "w-full shadow-none",
+          editingItem && "border-dashed border-info",
+        )}
+      />
+    </>
+  );
+}
+
+export const AgentPromptComposer = React.memo(function AgentPromptComposer({
+  currentPlan,
+  isResumedSession,
+  backgroundTools = [],
+  subagentTasks = { items: [], tools: [] },
+  grokGoal = null,
+  grokWorkflow = null,
+  queuedPrompts,
+  onRemoveQueuedPrompt,
+  onUpdateQueuedPrompt,
+  onMoveQueuedPrompt,
+  onSubmit,
+  agentLocked = false,
+  onProviderChange,
+  canUseCurrentMode,
+  isConnected,
+  chatMode,
+  instanceKey,
+  sessionWorkspaceId,
+  sessionProjectId,
+  loadingAgents,
+  isConnecting,
+  isResumingHistory,
+  catalogModelsLoading = false,
+  catalogModelsReloading = false,
+  onEmptyModelsOpen,
+  onLoadModels,
+  chatId = null,
+  runtimeStatus = null,
+  hasPersistenceHandle = false,
+  installedAgents,
+  configOptions,
+  modelsLocked = false,
+  modesLocked = false,
+  registryId,
+  activeAgent,
+  setConfigOption,
+  agentActivity,
+  sendCancel,
+  setWaitingForResponse,
+  setMessages,
+  stoppedRef,
+  projectPath = null,
+  availableCommands = [],
+  workingDirectoryPicker = null,
+  landing = false,
+  sessionUsage = null,
+  messages = [],
+  subagentOverlay = null,
+  aboveInputOverlay = null,
+  onAboveComposerOverlaysNodeChange,
+}: {
+  currentPlan: AgentPlan | null;
+  isResumedSession: boolean;
+  backgroundTools?: AgentToolCallPart[];
+  subagentTasks?: CurrentTurnSubagentTasks;
+  grokGoal?: GrokGoal | null;
+  grokWorkflow?: GrokWorkflow | null;
+  queuedPrompts: QueuedAgentPrompt[];
+  onRemoveQueuedPrompt: (id: string) => void;
+  onUpdateQueuedPrompt: (id: string, prompt: string) => void | Promise<void>;
+  onMoveQueuedPrompt: (id: string, toIndex: number) => void;
+  onSubmit: (
+    message: { text: string; files?: import("ai").FileUIPart[] },
+    options?: { oneShot?: "queue" | "steer" },
+  ) => Promise<void>;
+  agentLocked?: boolean;
+  onProviderChange?: (providerId: string, opts?: { model?: string }) => void;
+  canUseCurrentMode: boolean;
+  isConnected: boolean;
+  chatMode: AgentChatMode;
+  instanceKey?: string | null;
+  sessionWorkspaceId: string | null;
+  sessionProjectId: string | null;
+  loadingAgents: boolean;
+  isConnecting: boolean;
+  isResumingHistory: boolean;
+  catalogModelsLoading?: boolean;
+  catalogModelsReloading?: boolean;
+  onEmptyModelsOpen?: () => void;
+  onLoadModels?: () => void;
+  chatId?: string | null;
+  runtimeStatus?: string | null;
+  hasPersistenceHandle?: boolean;
   installedAgents: RegistryAgent[];
   configOptions: AgentConfigOption[];
-  registryId: string;
+  modelsLocked?: boolean;
+  modesLocked?: boolean;
+  registryId: string | null;
   activeAgent: RegistryAgent | null;
   setConfigOption: (id: string, value: string) => void;
-  setAgentDefaultConfig: (configId: string, value: string) => void;
-  setInstalledAgents: React.Dispatch<React.SetStateAction<RegistryAgent[]>>;
   agentActivity: AgentActivity;
   sendCancel: () => void;
   setWaitingForResponse: React.Dispatch<React.SetStateAction<boolean>>;
-  setEntries: React.Dispatch<React.SetStateAction<ThreadEntry[]>>;
+  setMessages: React.Dispatch<React.SetStateAction<AgentMessage[]>>;
   stoppedRef: React.MutableRefObject<boolean>;
+  projectPath?: string | null;
+  availableCommands?: AgentChatSlashCommand[];
+  workingDirectoryPicker?: {
+    projects: Project[];
+    selection: AgentChatWorkingDirectory;
+    onSelect: (next: AgentChatWorkingDirectory) => void;
+  } | null;
+  landing?: boolean;
+  sessionUsage?: AgentSessionUsage | null;
+  messages?: AgentMessage[];
+  subagentOverlay?: React.ReactNode;
+  /** Approve / session-op cards — floated in the same lane as context usage. */
+  aboveInputOverlay?: React.ReactNode;
+  onAboveComposerOverlaysNodeChange?: (node: HTMLDivElement | null) => void;
 }) {
   const t = useTranslations("Agent.components");
   const setAgentChatDraft = useDialogStore((s) => s.setAgentChatDraft);
+  const clearAgentChatDraft = useDialogStore((s) => s.clearAgentChatDraft);
   const [localDraft, setLocalDraft] = useState(() =>
     useDialogStore.getState().getAgentChatDraft(
       sessionWorkspaceId,
@@ -116,6 +593,75 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     ),
   );
   const persistedDraftRef = useRef(localDraft);
+  const composerRef = useRef<ComposerHandle | null>(null);
+  const composerSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const [editingQueueId, setEditingQueueId] = useState<string | null>(null);
+  const [contextUsageOpen, setContextUsageOpen] = useState(false);
+  const { close: closeSubagentOverlay } = useSubagentOverlay();
+  const editingItem = editingQueueId
+    ? queuedPrompts.find((item) => item.id === editingQueueId) ?? null
+    : null;
+  const showStop = Boolean(agentActivity.busy && !localDraft.trim() && !editingItem);
+  const contextStats = contextWindowStats(sessionUsage);
+  const showGrokGoalCard = Boolean(grokGoal && grokGoal.status !== "cleared");
+  const hasBackgroundTools = backgroundTools.length > 0;
+  const hasQueuedPrompts = queuedPrompts.length > 0;
+  const hasUpperComposerCards =
+    Boolean(currentPlan && !showGrokGoalCard)
+    || hasBackgroundTools
+    || hasQueuedPrompts;
+
+  useEffect(() => {
+    if (!editingQueueId) return;
+    if (queuedPrompts.some((item) => item.id === editingQueueId)) return;
+    setEditingQueueId(null);
+  }, [editingQueueId, queuedPrompts]);
+
+  useEffect(() => {
+    if (contextStats != null || !contextUsageOpen) return;
+    setContextUsageOpen(false);
+  }, [contextStats, contextUsageOpen]);
+
+  const modeOption = configOptions.find((option) => configKindMatches(option.id, option.category, "mode")) ?? null;
+  const permissionOption =
+    configOptions.find((option) =>
+      configKindMatches(option.id, option.category, "permission_mode"),
+    ) ?? null;
+  const modelOption = configOptions.find((option) => configKindMatches(option.id, option.category, "model")) ?? null;
+  const thinkingOption =
+    configOptions.find((option) => isThinkingConfigId(option.id, option.category)) ?? null;
+  const fastOption =
+    configOptions.find((option) => configKindMatches(option.id, option.category, "fast")) ?? null;
+  const contextOption =
+    configOptions.find((option) => configKindMatches(option.id, option.category, "context")) ?? null;
+  const placeholderKind = resolveAgentComposerPlaceholderKind({
+    canUseCurrentMode,
+    agentName: activeAgent?.name,
+    chatId,
+    runtimeStatus,
+    hasPersistenceHandle,
+  });
+  const placeholder = t(`composer.placeholder.${placeholderKind}`, {
+    agent: activeAgent?.name ?? "",
+  });
+  const {
+    popovers,
+    closePopovers,
+    onAtTrigger,
+    onAtCancel,
+    onSlashTrigger,
+    onSlashCancel,
+    onSkillDisableFilterChange,
+    onSkillDisableSessionClosed,
+    skillDisableSessionOpen,
+  } = useAgentComposerPopovers({
+    availableCommands,
+    projectPath,
+    composerRef,
+    activeProjectId: sessionProjectId,
+    sessionWorkspaceId,
+    agentName: activeAgent?.name,
+  });
 
   useEffect(() => {
     return registerActiveAgentComposer(
@@ -124,32 +670,41 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
       chatMode,
       {
         setDraft: (updater) => {
-          setLocalDraft((previous) =>
-            typeof updater === "function" ? updater(previous) : updater,
-          );
+          const current = composerRef.current?.getText() ?? "";
+          const next = typeof updater === "function" ? updater(current) : updater;
+          setLocalDraft(next);
+          composerRef.current?.setText(next);
         },
+        insertAiContext: (kind, promptText) => {
+          composerRef.current?.focus();
+          composerRef.current?.insertAiContext(kind, promptText);
+        },
+        focus: () => composerRef.current?.focus(),
       },
       instanceKey,
     );
   }, [chatMode, instanceKey, sessionProjectId, sessionWorkspaceId]);
 
   useEffect(() => {
-    if (localDraft === persistedDraftRef.current) return;
+    if (editingItem) return;
+    const toPersist = stripSkillDisableSession(localDraft);
+    if (toPersist === persistedDraftRef.current) return;
 
     const timer = window.setTimeout(() => {
       setAgentChatDraft(
         sessionWorkspaceId,
         sessionProjectId,
         chatMode,
-        localDraft,
+        toPersist,
         instanceKey,
       );
-      persistedDraftRef.current = localDraft;
+      persistedDraftRef.current = toPersist;
     }, 180);
 
     return () => window.clearTimeout(timer);
   }, [
     chatMode,
+    editingItem,
     instanceKey,
     localDraft,
     sessionProjectId,
@@ -158,116 +713,176 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   ]);
 
   return (
-    <div className="shrink-0 px-3 pb-3 pt-px select-none">
-      {(currentPlan || queuedPrompts.length > 0) && (
-        <div className="mx-auto w-[96%] overflow-hidden rounded-t-2xl border border-border/70 border-b-0 bg-background/95">
-          {currentPlan && (
-            <div className={queuedPrompts.length > 0 ? "border-b border-border/70" : ""}>
-              <PlanBlockView plan={currentPlan} embedded defaultOpen={!isResumedSession} />
-            </div>
-          )}
-          {queuedPrompts.length > 0 && (
-            <MessageQueueDock
-              items={queuedPrompts}
-              onRemove={onRemoveQueuedPrompt}
-              onUpdatePrompt={onUpdateQueuedPrompt}
-              onMove={onMoveQueuedPrompt}
-            />
-          )}
-        </div>
-      )}
-      <PromptInput
-        onSubmit={async (msg) => {
-          await onSubmit({ text: msg.text, files: msg.files });
-          setLocalDraft("");
-          persistedDraftRef.current = "";
-        }}
-        className={`w-full border-0 shadow-none rounded-none ${(currentPlan || queuedPrompts.length > 0) ? "rounded-t-none" : "rounded-t-xl"}`}
-        multiple
-      >
-        <PromptInputAttachmentsSection />
-        <PromptInputBody>
-          <PromptInputTextarea
-            data-agent-chat-input="true"
-            data-agent-chat-mode={chatMode}
-            data-agent-chat-instance-key={instanceKey?.trim() || undefined}
-            data-agent-chat-workspace-id={sessionWorkspaceId ?? undefined}
-            data-agent-chat-project-id={sessionProjectId ?? undefined}
-            placeholder={
-              !canUseCurrentMode
-                ? t("composer.placeholder.unavailable")
-                : isConnected
-                  ? t("composer.placeholder.connected")
-                  : t("composer.placeholder.selectAgent")
-            }
-            disabled={!isConnected || !canUseCurrentMode}
-            value={localDraft}
-            onChange={(e) => setLocalDraft(e.currentTarget.value)}
-          />
-        </PromptInputBody>
-        <PromptInputFooter>
-          <PromptInputTools>
-            <PromptInputAddAttachmentsButton />
-            {(loadingAgents || isConnecting || isResumingHistory) && !isConnected ? null : installedAgents.length === 0 ? (
-              <span className="px-2 text-xs text-muted-foreground">{t("composer.noAgent")}</span>
-            ) : null}
-          </PromptInputTools>
-          <div className="flex items-center gap-2">
-            {configOptions?.length > 0 && isConnected && (
-              <div className="flex items-center gap-2">
-                {configOptions
-                  .filter(opt => opt.type === 'select' && opt.options.length > 0)
-                  .map(opt => (
-                    <ConfigOptionDropdown
-                      key={opt.id}
-                      opt={opt}
-                      registryId={registryId}
-                      activeAgent={activeAgent}
-                      setConfigOption={setConfigOption}
-                      setAgentDefaultConfig={setAgentDefaultConfig}
-                      setInstalledAgents={setInstalledAgents}
-                    />
-                  ))}
+    <div
+      className="shrink-0 px-3 pb-3 pt-px select-none"
+      data-agent-chat-composer=""
+      data-agent-chat-mode={chatMode}
+      data-agent-chat-instance-key={instanceKey?.trim() || undefined}
+      data-agent-chat-workspace-id={sessionWorkspaceId ?? undefined}
+      data-agent-chat-project-id={sessionProjectId ?? undefined}
+      data-queue-editing={editingItem ? "true" : undefined}
+      onFocusCapture={() => {
+        touchActiveAgentComposer(
+          sessionWorkspaceId,
+          sessionProjectId,
+          chatMode,
+          instanceKey,
+        );
+      }}
+      onDragOver={(event) => {
+        if (!isConnected || !canUseCurrentMode) return;
+        if (!hasAgentContextDragData(event.dataTransfer)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.dataTransfer.dropEffect = "copy";
+        composerRef.current?.placeCaretAtClientPoint(event.clientX, event.clientY);
+      }}
+      onDrop={(event) => {
+        if (!isConnected || !canUseCurrentMode) return;
+        const items = getAgentContextDragItems(event.dataTransfer);
+        if (!items) return;
+        event.preventDefault();
+        event.stopPropagation();
+        composerRef.current?.placeCaretAtClientPoint(event.clientX, event.clientY);
+        for (const item of items) {
+          const path =
+            item.kind === "directory" && !item.path.endsWith("/")
+              ? `${item.path}/`
+              : item.path;
+          composerRef.current?.insertFileMention(path);
+        }
+      }}
+      onKeyDownCapture={(event) => {
+        if (event.key !== "Escape") return;
+        if (event.target instanceof Element && event.target.closest("[data-markdown-find-panel]")) {
+          return;
+        }
+        if (document.querySelector("[data-markdown-find-panel]")) return;
+        if (subagentOverlay) {
+          event.preventDefault();
+          closeSubagentOverlay();
+          return;
+        }
+        if (!editingQueueId) return;
+        setEditingQueueId(null);
+      }}
+    >
+      <div ref={composerSurfaceRef} className="relative">
+        <AgentChatAboveComposerOverlays
+          composerSurfaceRef={composerSurfaceRef}
+          messages={messages}
+          grokGoal={grokGoal}
+          grokWorkflow={grokWorkflow}
+          currentPlan={currentPlan}
+          subagentTasks={subagentTasks}
+          subagentOverlay={subagentOverlay}
+          aboveInputOverlay={aboveInputOverlay}
+          sessionUsage={sessionUsage}
+          registryId={registryId}
+          contextUsageOpen={contextUsageOpen}
+          onContextUsageClose={() => setContextUsageOpen(false)}
+          hasUpperComposerCards={hasUpperComposerCards}
+          onLaneNodeChange={onAboveComposerOverlaysNodeChange}
+        />
+        {hasUpperComposerCards ? (
+          <div
+            data-agent-composer-upper-cards=""
+            className="relative z-[1] mx-6 overflow-hidden rounded-t-3xl border border-b-0 border-foreground/10 bg-foreground/[0.04]"
+          >
+            {currentPlan && !showGrokGoalCard ? (
+              <div className={
+                hasBackgroundTools || hasQueuedPrompts
+                  ? "border-b border-foreground/10"
+                  : ""
+              }>
+                <PlanBlockView
+                  plan={currentPlan}
+                  embedded
+                  defaultOpen={!isResumedSession}
+                />
               </div>
-            )}
-            <PromptInputSubmit
-              status={agentActivity.busy ? "streaming" : undefined}
-              onStop={
-                agentActivity.busy
-                  ? () => {
-                    stoppedRef.current = true;
-                    sendCancel();
-                    setWaitingForResponse(false);
-                    setEntries((prev) => {
-                      const last = prev[prev.length - 1];
-                      if (last?.role === "assistant") {
-                        const updatedBlocks = last.blocks.map((block) =>
-                          block.type === "tool_call" && block.status === "running"
-                            ? { ...block, status: "completed" as const }
-                            : block
-                        );
-                        return [
-                          ...prev.slice(0, -1),
-                          { ...last, isStreaming: false, blocks: updatedBlocks },
-                        ];
-                      }
-                      return prev;
-                    });
-                  }
-                  : undefined
-              }
-              disabled={!isConnected || !canUseCurrentMode}
-              size={agentActivity.busy ? "sm" : "icon-sm"}
-            >
-              {agentActivity.busy ? (
-                <span className="flex items-center gap-1.5">
-                  <Square className="size-4 shrink-0" />
-                </span>
-              ) : undefined}
-            </PromptInputSubmit>
+            ) : null}
+            {hasBackgroundTools ? (
+              <div className={hasQueuedPrompts ? "border-b border-foreground/10" : ""}>
+                <BackgroundCommandsDock tools={backgroundTools} />
+              </div>
+            ) : null}
+            {queuedPrompts.length > 0 ? (
+              <MessageQueueDock
+                items={queuedPrompts}
+                editingPromptId={editingQueueId}
+                onToggleEdit={(item) => {
+                  setEditingQueueId((current) => (current === item.id ? null : item.id));
+                }}
+                onRemove={(id) => {
+                  onRemoveQueuedPrompt(id);
+                  setEditingQueueId((current) => (current === id ? null : current));
+                }}
+                onMove={onMoveQueuedPrompt}
+              />
+            ) : null}
           </div>
-        </PromptInputFooter>
-      </PromptInput>
+        ) : null}
+        <PromptInputProvider>
+          <ComposerPromptInput
+            composerRef={composerRef}
+            onAtTrigger={onAtTrigger}
+            onAtCancel={onAtCancel}
+            onSlashTrigger={onSlashTrigger}
+            onSlashCancel={onSlashCancel}
+            onSkillDisableFilterChange={onSkillDisableFilterChange}
+            onSkillDisableSessionClosed={onSkillDisableSessionClosed}
+            skillDisableSessionOpen={skillDisableSessionOpen}
+            closePopovers={closePopovers}
+            localDraft={localDraft}
+            setLocalDraft={setLocalDraft}
+            persistedDraftRef={persistedDraftRef}
+            canUseCurrentMode={canUseCurrentMode}
+            isConnected={isConnected}
+            chatMode={chatMode}
+            instanceKey={instanceKey}
+            sessionWorkspaceId={sessionWorkspaceId}
+            sessionProjectId={sessionProjectId}
+            loadingAgents={loadingAgents}
+            isConnecting={isConnecting}
+            isResumingHistory={isResumingHistory}
+            catalogModelsLoading={catalogModelsLoading}
+            catalogModelsReloading={catalogModelsReloading}
+            onEmptyModelsOpen={onEmptyModelsOpen}
+            onLoadModels={onLoadModels}
+            installedAgents={installedAgents}
+            modeOption={modeOption}
+            permissionOption={permissionOption}
+            modelOption={modelOption}
+            thinkingOption={thinkingOption}
+            fastOption={fastOption}
+            contextOption={contextOption}
+            modelsLocked={modelsLocked}
+            modesLocked={modesLocked}
+            registryId={registryId}
+            agentLocked={agentLocked}
+            onProviderChange={onProviderChange}
+            setConfigOption={setConfigOption}
+            showStop={showStop}
+            sendCancel={sendCancel}
+            setWaitingForResponse={setWaitingForResponse}
+            setMessages={setMessages}
+            stoppedRef={stoppedRef}
+            workingDirectoryPicker={workingDirectoryPicker}
+            clearAgentChatDraft={clearAgentChatDraft}
+            onSubmit={onSubmit}
+            placeholder={placeholder}
+            landing={landing}
+            editingItem={editingItem}
+            onFinishEdit={() => setEditingQueueId(null)}
+            onUpdateQueuedPrompt={onUpdateQueuedPrompt}
+            sessionUsage={sessionUsage}
+            contextUsageOpen={contextUsageOpen}
+            onContextUsageOpenChange={setContextUsageOpen}
+          />
+        </PromptInputProvider>
+      </div>
+      {popovers}
     </div>
   );
 });

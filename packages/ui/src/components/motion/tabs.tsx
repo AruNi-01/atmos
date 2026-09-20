@@ -5,6 +5,7 @@
 // transform. Shared-element projection remeasures on sibling layout
 // (center pane mounts) and hitches the pill; compositor CSS does not.
 
+import "./tabs.css";
 import { motion, useReducedMotion } from "motion/react";
 import {
   createContext,
@@ -21,13 +22,16 @@ import {
 } from "react";
 import { EASE_OUT, EASE_OUT_CSS } from "../../lib/ease";
 import { cn } from "../../lib/utils";
+import { indicatorLayoutFromViewport } from "./tab-indicator";
 
 type Variant = "pill" | "underline" | "segment";
+type Orientation = "horizontal" | "vertical";
 
 type Ctx = {
   value: string;
   setValue: (v: string) => void;
   variant: Variant;
+  orientation: Orientation;
 };
 
 const TabsCtx = createContext<Ctx | null>(null);
@@ -52,20 +56,37 @@ function boxesNear(a: IndicatorBox, b: IndicatorBox, eps = 0.5) {
   );
 }
 
-function measureSelectedTab(list: HTMLElement, underline: boolean) {
+function measureSelectedTab(
+  list: HTMLElement,
+  underline: boolean,
+  orientation: Orientation,
+) {
   const selected = list.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
   if (!selected) return null;
   const listRect = list.getBoundingClientRect();
   const tabRect = selected.getBoundingClientRect();
-  const x = tabRect.left - listRect.left + list.scrollLeft;
-  const y = tabRect.top - listRect.top + list.scrollTop;
-  return {
-    x,
-    y: underline ? y + tabRect.height - 1 : y,
-    w: tabRect.width,
-    h: underline ? 1 : tabRect.height,
-    indicatorClassName: selected.dataset.tabIndicatorClass ?? "",
-  };
+  const box = indicatorLayoutFromViewport({
+    tabLeft: tabRect.left,
+    tabTop: tabRect.top,
+    listLeft: listRect.left,
+    listTop: listRect.top,
+    listViewportWidth: listRect.width,
+    listViewportHeight: listRect.height,
+    listOffsetWidth: list.offsetWidth,
+    listOffsetHeight: list.offsetHeight,
+    tabOffsetWidth: selected.offsetWidth,
+    tabOffsetHeight: selected.offsetHeight,
+    scrollLeft: list.scrollLeft,
+    scrollTop: list.scrollTop,
+  });
+  const indicatorClassName = selected.dataset.tabIndicatorClass ?? "";
+  if (underline && orientation === "vertical") {
+    return { x: box.x + box.w - 1, y: box.y, w: 1, h: box.h, indicatorClassName };
+  }
+  if (underline) {
+    return { x: box.x, y: box.y + box.h - 1, w: box.w, h: 1, indicatorClassName };
+  }
+  return { ...box, indicatorClassName };
 }
 
 function readTransform(el: HTMLElement) {
@@ -130,6 +151,7 @@ export function Tabs({
   value,
   onValueChange,
   variant = "pill",
+  orientation = "horizontal",
   children,
   className,
 }: {
@@ -137,6 +159,7 @@ export function Tabs({
   value?: string;
   onValueChange?: (v: string) => void;
   variant?: Variant;
+  orientation?: Orientation;
   children: ReactNode;
   className?: string;
 }) {
@@ -151,8 +174,8 @@ export function Tabs({
     [controlled, onValueChange],
   );
   const contextValue = useMemo(
-    () => ({ value: current, setValue, variant }),
-    [current, setValue, variant],
+    () => ({ value: current, setValue, variant, orientation }),
+    [current, orientation, setValue, variant],
   );
   return (
     <TabsCtx.Provider value={contextValue}>
@@ -171,17 +194,21 @@ export function TabsList({
   children,
   className,
   indicatorClassName,
+  trailing,
 }: {
   children: ReactNode;
   className?: string;
   indicatorClassName?: string;
+  /** Chrome that must stay outside the sliding pill's clip box (e.g. + / overflow). */
+  trailing?: ReactNode;
 }) {
-  const { value, variant } = useTabs();
+  const { value, variant, orientation } = useTabs();
   const reduce = useReducedMotion();
   const listRef = useRef<HTMLDivElement>(null);
   const indicatorRef = useRef<HTMLSpanElement>(null);
   const layoutRef = useRef<IndicatorBox | null>(null);
   const underline = variant === "underline";
+  const vertical = orientation === "vertical";
   const radius = variant === "pill" ? "rounded-full" : "rounded-md";
 
   useLayoutEffect(() => {
@@ -190,7 +217,7 @@ export function TabsList({
     if (!list || !indicator) return;
 
     const place = (animate: boolean) => {
-      const box = measureSelectedTab(list, underline);
+      const box = measureSelectedTab(list, underline, orientation);
       if (!box) return;
       const layout = layoutRef.current;
       if (layout && boxesNear(box, layout)) return;
@@ -223,7 +250,11 @@ export function TabsList({
     };
 
     const selected = list.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    const scroller =
+      list.querySelector<HTMLElement>("[data-center-tabs-scroll]") ?? list;
     const resizeObserver = new ResizeObserver(() => follow(true));
+    resizeObserver.observe(list);
+    if (scroller !== list) resizeObserver.observe(scroller);
     if (selected) resizeObserver.observe(selected);
     const mutationObserver = new MutationObserver(() => follow(true));
     mutationObserver.observe(list, {
@@ -232,8 +263,6 @@ export function TabsList({
       characterData: true,
     });
 
-    const scroller =
-      list.querySelector<HTMLElement>("[data-center-tabs-scroll]") ?? list;
     const onScroll = () => follow(false);
     scroller.addEventListener("scroll", onScroll, { passive: true });
     return () => {
@@ -242,24 +271,76 @@ export function TabsList({
       mutationObserver.disconnect();
       scroller.removeEventListener("scroll", onScroll);
     };
-  }, [reduce, underline, value]);
+  }, [orientation, reduce, underline, value]);
 
+  const indicator = (
+    <span
+      ref={indicatorRef}
+      aria-hidden
+      className={cn(
+        "pointer-events-none absolute top-0 left-0 z-0",
+        underline ? "bg-primary" : cn("bg-primary", radius),
+        indicatorClassName,
+      )}
+    />
+  );
+  const listClassName = cn(
+    listClasses[variant],
+    vertical && "flex-col",
+    vertical && variant === "underline" && "border-b-0 border-r",
+    className,
+  );
+
+  if (!trailing) {
+    return (
+      <div
+        ref={listRef}
+        role="tablist"
+        aria-orientation={orientation}
+        className={listClassName}
+      >
+        {indicator}
+        {children}
+      </div>
+    );
+  }
+
+  // Keep the pill's containing block on the tab track so overflow scroll
+  // cannot paint the indicator over trailing chrome. The track grows only
+  // when the list is width-constrained so trailing pins to the end. Edge
+  // fade is CSS scroll-driven (tabs.css) — never React state on scroll.
   return (
     <div
-      ref={listRef}
       role="tablist"
-      className={cn(listClasses[variant], className)}
+      aria-orientation={orientation}
+      data-orientation={orientation}
+      className={cn(listClassName, "gap-1")}
     >
-      <span
-        ref={indicatorRef}
-        aria-hidden
-        className={cn(
-          "pointer-events-none absolute top-0 left-0 z-0",
-          underline ? "bg-primary" : cn("bg-primary", radius),
-          indicatorClassName,
-        )}
-      />
-      {children}
+      <div
+        ref={listRef}
+        data-center-tabs-track=""
+        data-orientation={orientation}
+        className={
+          vertical
+            ? "relative z-0 flex min-h-0 min-w-0 flex-1 flex-col items-center gap-0.5 self-stretch overflow-hidden"
+            : "relative z-0 flex min-h-0 min-w-0 flex-1 items-center gap-0.5 self-stretch overflow-hidden"
+        }
+      >
+        {indicator}
+        {children}
+        <div
+          aria-hidden
+          data-center-tabs-edge-fade=""
+          className={
+            vertical
+              ? "pointer-events-none absolute inset-x-0 bottom-0 z-10 h-4 bg-gradient-to-t from-background to-transparent backdrop-blur-[4px] [mask-image:linear-gradient(to_top,black,transparent)] [-webkit-mask-image:linear-gradient(to_top,black,transparent)]"
+              : "pointer-events-none absolute inset-y-0 right-0 z-10 w-4 bg-gradient-to-l from-background to-transparent backdrop-blur-[4px] [mask-image:linear-gradient(to_left,black,transparent)] [-webkit-mask-image:linear-gradient(to_left,black,transparent)]"
+          }
+        />
+      </div>
+      <div className="relative z-20 flex shrink-0 items-center self-stretch">
+        {trailing}
+      </div>
     </div>
   );
 }

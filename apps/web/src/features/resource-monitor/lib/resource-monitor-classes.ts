@@ -3,6 +3,9 @@ export const RM_ROW =
 export const RM_ROW_PAD = "w-full px-4";
 export const RM_ROW_INTERACTIVE =
   "mx-2 w-[calc(100%-1rem)] rounded-md px-2 hover:bg-accent";
+/** Metadata chip on hoverable rows. `bg-secondary` is the same token as `hover:bg-accent`. */
+export const RM_CHIP =
+  "h-4 shrink-0 rounded bg-foreground/15 px-1 text-[9px] font-medium dark:bg-background";
 export const RM_NAME = "min-w-0 flex-1";
 export const RM_METRIC =
   "w-[3.25rem] shrink-0 text-right tabular-nums text-muted-foreground";

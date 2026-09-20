@@ -26,6 +26,7 @@ import { useTerminalToolbarTitle } from "@/features/terminal/hooks/use-terminal-
 import { useTerminalSideChats } from "@/features/terminal/hooks/use-terminal-side-chats";
 import { deliverPendingTerminalRun } from "@/features/terminal/lib/terminal-agent-run-delivery";
 import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
+import { addTerminalSelectionAsContext } from "@/features/agent/lib/agent/active-composer";
 import {
   isTerminalAgentInputPinShortcut,
   isTerminalAgentInputShortcut,
@@ -598,14 +599,13 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
               isNewPane={shape.props.isNewTerminal}
               className="h-full"
               terminalScale={terminalViewport.scale}
-              onAddSelectionAsContext={
-                richInputActive
-                  ? (snapshot) => {
-                      activateTerminal();
-                      agentInputOverlayRef.current?.addTerminalSelectionContext(snapshot);
-                    }
-                  : undefined
-              }
+              onAddSelectionAsContext={(snapshot) => {
+                activateTerminal();
+                addTerminalSelectionAsContext(
+                  snapshot,
+                  richInputActive ? agentInputOverlayRef.current : null,
+                );
+              }}
               onStartSideChatForSelection={
                 richInputActive
                   ? (snapshot) => {

@@ -21,6 +21,7 @@ export type CurrentView =
   | "agent-observer"
   | "tasks"
   | "pt-design"
+  | "agent-sessions"
   | "settings";
 
 interface ContextParams {
@@ -85,12 +86,26 @@ export function parseContextParams(
   if (firstSegment === "workspaces") return { ...EMPTY, currentView: "workspaces" };
   if (firstSegment === "terminals") return { ...EMPTY, currentView: "terminals" };
   if (firstSegment === "agents") return { ...EMPTY, currentView: "agents" };
+  if (firstSegment === "automation") {
+    const id = searchParams.get("id");
+    if (id) {
+      const scope = id.startsWith("automation:") ? id : `automation:${id}`;
+      return {
+        ...EMPTY,
+        workspaceId: scope,
+        effectiveContextId: scope,
+        currentView: "workspace",
+      };
+    }
+    return { ...EMPTY, currentView: "welcome" };
+  }
   if (firstSegment === "automations") return { ...EMPTY, currentView: "automations" };
   if (firstSegment === "disk-analyzer") return { ...EMPTY, currentView: "disk-analyzer" };
   if (firstSegment === "token-usage") return { ...EMPTY, currentView: "token-usage" };
   if (firstSegment === "agent-observer") return { ...EMPTY, currentView: "agent-observer" };
   if (firstSegment === "tasks") return { ...EMPTY, currentView: "tasks" };
   if (firstSegment === "pt-design") return { ...EMPTY, currentView: "pt-design" };
+  if (firstSegment === "agent-sessions") return { ...EMPTY, currentView: "agent-sessions" };
   if (firstSegment === "settings") return { ...EMPTY, currentView: "settings" };
 
   return { ...EMPTY, currentView: "welcome" };
@@ -122,11 +137,13 @@ function parseContextParamsFromHref(href: string): ContextParams | null {
  *   /skills?scope=...&skillId=... → skill detail
  *   /terminals               → terminals
  *   /agents                  → agents management
+ *   /automation?id=...       → standalone automation job (workspace-scoped)
  *   /automations             → automations management
  *   /disk-analyzer           → disk analyzer
  *   /token-usage             → token usage dashboard
  *   /tasks                   → task surface
- *   /pt-design               → standalone Prototype Design board
+ *   /pt-design               → Prototype Design overview (saved boards)
+ *   /agent-sessions          → Agent Sessions (host CLI transcripts)
  *   /settings                → settings (shell uses return-path underlay)
  */
 export function useContextParams(): ContextParams {

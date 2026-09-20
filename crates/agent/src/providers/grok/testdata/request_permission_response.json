@@ -1,0 +1,10 @@
+{
+  "jsonrpc": "2.0",
+  "id": 12,
+  "result": {
+    "outcome": {
+      "outcome": "selected",
+      "optionId": "allow-once"
+    }
+  }
+}

@@ -14,7 +14,6 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-  cn,
   toastManager,
 } from '@workspace/ui';
 import {
@@ -22,13 +21,16 @@ import {
   CheckCircle2,
   ChevronDown,
   Copy,
-  KeyRound,
   Laptop,
   Link2,
   LoaderCircle,
+  LogIn,
   RefreshCw,
   Server,
 } from 'lucide-react';
+import { HubSignInDialog } from '@/features/settings/components/HubSignInDialog';
+import { hubConfigured } from '@/api/hub-client';
+import { ensureLocalHubDevice } from '@/features/connection/lib/ensure-local-hub-device';
 import WelcomePage from '@/features/welcome/components/WelcomePage';
 import { AtmosWordmark } from '@/shared/components/ui/AtmosWordmark';
 import { HostedSloganShimmer } from '@/shared/components/ui/HostedSloganShimmer';
@@ -41,22 +43,15 @@ import {
 import {
   createHostedRemoteSession,
   detectHostedLocalServer,
-  ensureHostedAccessTokenReady,
   listHostedRemoteComputers,
 } from '@/features/connection/lib/hosted-connection';
-import { getStoredDeviceCredential } from '@/api/hub-client';
-import { isPlausibleDeviceCredential } from '@/features/connection/lib/atmos-access-token';
 import { REMOTE_COMPUTER_INSTALL_SCRIPT_URL } from '@/features/connection/lib/remote-computer-setup-commands';
 import {
   activateHostedLocalConnection,
   activateHostedRemoteConnection,
 } from '@/features/connection/lib/hosted-connection-actions';
 import { isHostedAtmosOrigin } from '@/shared/lib/desktop-runtime';
-import {
-  saveComputerClientSettings,
-  saveComputerClientSettingsToDisk,
-  type ComputerClientSettingsSaveLocation,
-} from '@/features/connection/lib/sync-computer-client-settings';
+import { saveComputerClientSettings } from '@/features/connection/lib/sync-computer-client-settings';
 import { applyIdentityBearingComputerSettings } from '@/features/connection/lib/query-identity-lifecycle';
 import { HostedLandingLoading } from '@/app-shell/HostedLandingLoading';
 import { useInitialProjectsLoading } from '@/features/project/store/use-initial-projects-loading';
@@ -238,29 +233,18 @@ function HostedConnectionOnboarding({
   const [activeTab, setActiveTab] = useState<'local' | 'remote'>(defaultTab);
   const [relayUrlDraft, setRelayUrlDraft] = useState(relayUrl);
   const [relaySecretDraft, setRelaySecretDraft] = useState(relaySecretKey);
-  const [tokenDraft, setTokenDraft] = useState(accessToken);
   const [listRefreshing, setListRefreshing] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [copiedInstall, setCopiedInstall] = useState(false);
   const [copiedStart, setCopiedStart] = useState(false);
-  const [generatedTokenReveal, setGeneratedTokenReveal] = useState<string | null>(null);
-  const [generatedTokenLocation, setGeneratedTokenLocation] =
-    useState<ComputerClientSettingsSaveLocation | null>(null);
-  const [generatedTokenCopied, setGeneratedTokenCopied] = useState(false);
-  const [accessKeyNotice, setAccessKeyNotice] = useState<{
-    tone: 'default' | 'warning';
-    message: string;
-  } | null>(null);
+  const [signInOpen, setSignInOpen] = useState(false);
   const localProbeStartedRef = useRef(false);
+  const accountSyncStartedRef = useRef(false);
 
   const activeComputers = useMemo(() => computers.filter(row => !row.revoked), [computers]);
-  const hasKey = tokenDraft.trim().length >= 32;
+  const hasAccountDevice = accessToken.trim().length >= 32;
   const connectedRemoteServerId =
     connectionMode === 'relay' && relayWebSocketUrl ? selectedServerId : null;
-
-  useEffect(() => {
-    setTokenDraft(accessToken);
-  }, [accessToken]);
 
   useEffect(() => {
     setRelayUrlDraft(relayUrl);
@@ -270,13 +254,13 @@ function HostedConnectionOnboarding({
     setRelaySecretDraft(relaySecretKey);
   }, [relaySecretKey]);
 
-  const onTokenDraftChange = (value: string) => {
-    setTokenDraft(value);
-    setGeneratedTokenReveal(null);
-    setGeneratedTokenLocation(null);
-    setGeneratedTokenCopied(false);
-    setAccessKeyNotice(null);
-  };
+  useEffect(() => {
+    if (accountSyncStartedRef.current) {
+      return;
+    }
+    accountSyncStartedRef.current = true;
+    void ensureLocalHubDevice();
+  }, []);
 
   const runLocalProbe = useCallback(async () => {
     startChecking();
@@ -302,8 +286,8 @@ function HostedConnectionOnboarding({
 
   const refreshRemoteList = useCallback(
     async (
-      token = tokenDraft,
-      relayUrl = relayUrlDraft,
+      token = accessToken,
+      nextRelayUrl = relayUrlDraft,
       secretKey = relaySecretDraft,
     ): Promise<void> => {
       const trimmed = token.trim();
@@ -312,7 +296,7 @@ function HostedConnectionOnboarding({
       }
       setListRefreshing(true);
       try {
-        const rows = await listHostedRemoteComputers(relayUrl, trimmed, secretKey);
+        const rows = await listHostedRemoteComputers(nextRelayUrl, trimmed, secretKey);
         setComputers(rows);
         setRemoteError(null);
       } catch (err) {
@@ -327,7 +311,7 @@ function HostedConnectionOnboarding({
         setListRefreshing(false);
       }
     },
-    [relaySecretDraft, relayUrlDraft, setComputers, setRemoteError, t, tokenDraft],
+    [accessToken, relaySecretDraft, relayUrlDraft, setComputers, setRemoteError, t],
   );
 
   useEffect(() => {
@@ -336,100 +320,6 @@ function HostedConnectionOnboarding({
     }
     void refreshRemoteList(accessToken, relayUrl, relaySecretKey);
   }, [accessToken, relayUrl, refreshRemoteList, relaySecretKey]);
-
-  const onSaveToken = async () => {
-    const token = tokenDraft.trim();
-    const nextRelayUrl = resolveRelayUrl(relayUrlDraft);
-    const nextRelaySecret = relaySecretDraft.trim();
-    setBusyAction('save-token');
-    try {
-      await ensureHostedAccessTokenReady(nextRelayUrl, token, nextRelaySecret);
-      await applyIdentityBearingComputerSettings({
-        relayUrl: nextRelayUrl,
-        relaySecretKey: nextRelaySecret,
-        accessToken: token,
-      });
-      const saveResult = await saveComputerClientSettings(
-        token,
-        nextRelayUrl,
-        nextRelaySecret,
-      );
-      setAccessKeyNotice({
-        tone: saveResult.persisted ? 'default' : 'warning',
-        message:
-          saveResult.location === 'api'
-            ? t('hosted.remote.notice.savedOnConnectedComputer')
-            : t('hosted.remote.notice.notConnectedCopyBeforeClose'),
-      });
-      await refreshRemoteList(token, nextRelayUrl, nextRelaySecret);
-    } catch (err) {
-      toastManager.add({
-        title: t('hosted.remote.toast.couldNotSaveAccessKeyTitle'),
-        description: err instanceof Error ? err.message : t('hosted.common.tryAgain'),
-        type: 'error',
-      });
-    } finally {
-      setBusyAction(null);
-    }
-  };
-
-  const onGenerateToken = async () => {
-    // APP-056: device credentials come from Hub Account enroll, not local generation.
-    const token = (getStoredDeviceCredential() ?? '').trim();
-    if (!isPlausibleDeviceCredential(token)) {
-      toastManager.add({
-        title: t('hosted.remote.toast.couldNotSaveAccessKeyTitle'),
-        description:
-          'Sign in under Settings → Account, trust this device, then import the device credential.',
-        type: 'error',
-      });
-      return;
-    }
-    const nextRelayUrl = resolveRelayUrl(relayUrlDraft);
-    const nextRelaySecret = relaySecretDraft.trim();
-    setBusyAction('generate-token');
-    try {
-      await ensureHostedAccessTokenReady(nextRelayUrl, token, nextRelaySecret);
-      await applyIdentityBearingComputerSettings({
-        relayUrl: nextRelayUrl,
-        relaySecretKey: nextRelaySecret,
-        accessToken: token,
-      });
-      setTokenDraft(token);
-      setGeneratedTokenReveal(token);
-      setGeneratedTokenLocation(null);
-      setGeneratedTokenCopied(false);
-      setAccessKeyNotice(null);
-      const saveResult = await saveComputerClientSettings(
-        token,
-        nextRelayUrl,
-        nextRelaySecret,
-      );
-      setGeneratedTokenLocation(saveResult.location);
-      await refreshRemoteList(token, nextRelayUrl, nextRelaySecret);
-    } catch (err) {
-      toastManager.add({
-        title: t('hosted.remote.toast.couldNotCreateAccessKeyTitle'),
-        description: err instanceof Error ? err.message : t('hosted.common.tryAgain'),
-        type: 'error',
-      });
-    } finally {
-      setBusyAction(null);
-    }
-  };
-
-  const copyGeneratedToken = async () => {
-    if (!generatedTokenReveal) {
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(generatedTokenReveal);
-      setGeneratedTokenCopied(true);
-      window.setTimeout(() => setGeneratedTokenCopied(false), 2000);
-    } catch {
-      toastManager.add({ title: t('hosted.common.copyFailed'), type: 'error' });
-    }
-  };
 
   const copyLocalCommand = async (text: string, which: 'install' | 'start') => {
     try {
@@ -471,7 +361,7 @@ function HostedConnectionOnboarding({
   };
 
   const onConnectRemote = async (serverId: string) => {
-    const token = tokenDraft.trim();
+    const token = accessToken.trim();
     const nextRelayUrl = resolveRelayUrl(relayUrlDraft);
     const nextRelaySecret = relaySecretDraft.trim();
     setBusyAction(`connect-${serverId}`);
@@ -480,16 +370,15 @@ function HostedConnectionOnboarding({
         relayUrl: nextRelayUrl,
         relaySecretKey: nextRelaySecret,
       });
+      if (token) {
+        void saveComputerClientSettings(token, nextRelayUrl, nextRelaySecret);
+      }
       const session = await createHostedRemoteSession(
         nextRelayUrl,
         token,
         serverId,
         nextRelaySecret,
       );
-      if (token && token !== accessToken) {
-        await applyIdentityBearingComputerSettings({ accessToken: token });
-        void saveComputerClientSettingsToDisk(token, nextRelayUrl, nextRelaySecret);
-      }
       await activateHostedRemoteConnection(serverId, session);
       setConnected('relay');
       onConnected?.();
@@ -647,45 +536,37 @@ function HostedConnectionOnboarding({
                 <section className="rounded-xl border border-border/70 bg-muted/15 p-5">
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 rounded-md border border-border/70 bg-background/70 p-2">
-                      <KeyRound className="size-4 text-foreground" />
+                      <LogIn className="size-4 text-foreground" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h2 className="text-base font-medium text-foreground">{t('hosted.remote.accessKeyTitle')}</h2>
+                      <h2 className="text-base font-medium text-foreground">
+                        {t('hosted.remote.signInTitle')}
+                      </h2>
                       <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                        {t('hosted.remote.accessKeyDescription')}
+                        {t('hosted.remote.signInDescription')}
                       </p>
                     </div>
                   </div>
 
-                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                      <Input
-                        type="password"
-                        value={tokenDraft}
-                        onChange={event => onTokenDraftChange(event.target.value)}
-                        placeholder={t('hosted.remote.accessKeyPlaceholder')}
-                        className="flex-1"
-                      />
-                    <div className="flex gap-2">
+                  <div className="mt-4">
+                    {!hubConfigured() ? (
+                      <p className="text-sm leading-6 text-muted-foreground">
+                        {t('hosted.remote.hubNotConfigured')}
+                      </p>
+                    ) : hasAccountDevice ? (
+                      <p className="text-sm leading-6 text-muted-foreground">
+                        {t('hosted.remote.signedInHint')}
+                      </p>
+                    ) : (
                       <Button
                         type="button"
-                        variant="outline"
-                        onClick={() => void onGenerateToken()}
+                        onClick={() => setSignInOpen(true)}
                         disabled={busyAction !== null}
                       >
-                        {busyAction === 'generate-token' ? (
-                          <LoaderCircle className="mr-2 size-4 animate-spin" />
-                        ) : (
-                          <KeyRound className="mr-2 size-4" />
-                        )}
-                        {t('hosted.remote.generateKey')}
+                        <LogIn className="mr-2 size-4" />
+                        {t('hosted.remote.signIn')}
                       </Button>
-                      <Button onClick={() => void onSaveToken()} disabled={!hasKey || busyAction !== null}>
-                        {busyAction === 'save-token' ? (
-                          <LoaderCircle className="mr-2 size-4 animate-spin" />
-                        ) : null}
-                        {t('hosted.remote.useKey')}
-                      </Button>
-                    </div>
+                    )}
                   </div>
 
                   <Collapsible className="mt-4 overflow-hidden rounded-lg border border-border/70 bg-background/70">
@@ -730,46 +611,6 @@ function HostedConnectionOnboarding({
                     </CollapsibleContent>
                   </Collapsible>
 
-                  {accessKeyNotice ? (
-                    <p
-                      className={cn(
-                        'mt-3 text-sm',
-                        accessKeyNotice.tone === 'warning'
-                          ? 'text-amber-600 dark:text-amber-400'
-                          : 'text-muted-foreground',
-                      )}
-                    >
-                      {accessKeyNotice.message}
-                    </p>
-                  ) : null}
-
-                  {generatedTokenReveal ? (
-                    <div className="mt-4 space-y-2 rounded-lg border border-amber-500/35 bg-amber-500/10 px-4 py-3">
-                      <p className="text-sm font-medium text-foreground">{t('hosted.remote.copyAccessKeyNow')}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {generatedTokenLocation === 'api'
-                          ? t('hosted.remote.generatedKeySaved')
-                          : t('hosted.remote.generatedKeyNotSaved')}
-                      </p>
-                      <pre className="overflow-x-auto break-all rounded-md bg-background/70 px-3 py-2 font-mono text-xs text-foreground">
-                        {generatedTokenReveal}
-                      </pre>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => void copyGeneratedToken()}
-                      >
-                        {generatedTokenCopied ? (
-                          <Check className="mr-2 size-4 text-emerald-500" />
-                        ) : (
-                          <Copy className="mr-2 size-4" />
-                        )}
-                        {generatedTokenCopied ? t('hosted.common.copied') : t('hosted.remote.copyKey')}
-                      </Button>
-                    </div>
-                  ) : null}
-
                   {remoteError ? (
                     <p className="mt-3 text-sm leading-6 text-muted-foreground">{remoteError}</p>
                   ) : null}
@@ -787,7 +628,7 @@ function HostedConnectionOnboarding({
                       variant="outline"
                       size="sm"
                       onClick={() => void refreshRemoteList()}
-                      disabled={!hasKey || listRefreshing || busyAction !== null}
+                      disabled={!hasAccountDevice || listRefreshing || busyAction !== null}
                     >
                       {listRefreshing ? (
                         <LoaderCircle className="mr-2 size-4 animate-spin" />
@@ -823,7 +664,7 @@ function HostedConnectionOnboarding({
                               <Button
                                 variant={isConnected ? 'outline' : 'default'}
                                 onClick={() => void onConnectRemote(computer.server_id)}
-                                disabled={!hasKey || busyAction !== null}
+                                disabled={!hasAccountDevice || busyAction !== null}
                               >
                                 {busyAction === `connect-${computer.server_id}` ? (
                                   <LoaderCircle className="mr-2 size-4 animate-spin" />
@@ -836,16 +677,16 @@ function HostedConnectionOnboarding({
                       </div>
                     ) : (
                       <div className="rounded-lg border border-dashed border-border/80 bg-muted/10 px-4 py-5 text-sm text-muted-foreground">
-                        {hasKey
-                          ? t('hosted.remote.emptyWithKey')
-                          : t('hosted.remote.emptyWithoutKey')}
+                        {hasAccountDevice
+                          ? t('hosted.remote.emptySignedIn')
+                          : t('hosted.remote.emptySignedOut')}
                       </div>
                     )}
                     <RemoteComputerSetupBlock
                       active={activeTab === 'remote'}
-                      hasAccessToken={hasKey}
+                      hasAccessToken={hasAccountDevice}
                       relayUrl={relayUrlDraft}
-                      accessToken={tokenDraft.trim()}
+                      accessToken={accessToken}
                       relaySecretKey={relaySecretDraft}
                       busy={busyAction !== null}
                       className="rounded-lg border border-dashed border-border/80 bg-muted/10 px-4 py-4"
@@ -853,6 +694,7 @@ function HostedConnectionOnboarding({
                   </div>
                 </section>
               </div>
+              <HubSignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
             </TabsContent>
           </Tabs>
         </div>

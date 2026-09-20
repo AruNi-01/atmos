@@ -1,0 +1,22 @@
+{
+  "type": "tool",
+  "callID": "task_1",
+  "tool": "task",
+  "state": {
+    "status": "completed",
+    "title": "Explore tests",
+    "input": {
+      "description": "Inspect tests",
+      "prompt": "Read the test files and report coverage gaps.",
+      "subagent_type": "explore",
+      "background": false
+    },
+    "output": {
+      "task_id": "child-1",
+      "output": "All tests pass."
+    },
+    "metadata": {
+      "task_id": "child-1"
+    }
+  }
+}

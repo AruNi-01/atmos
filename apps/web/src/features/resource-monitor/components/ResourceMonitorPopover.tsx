@@ -3,6 +3,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
+import { useShallow } from "zustand/react/shallow";
 import {
   Badge,
   ScrollArea,
@@ -17,12 +18,19 @@ import { useComputerQueryScope } from "@/api/query/query-scope";
 import { resourceMonitorApi } from "@/api/ws/resource-monitor-api";
 import { cn } from "@/shared/lib/utils";
 import type { ResourceMonitorSnapshot } from "@atmos/api-types/ws/dto/resource-monitor";
+import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
+import { useAgentStatusStore } from "@/features/agent/store/agent-status-store";
+import { useAgentChatCenterTabsStore } from "@/features/agent/store/use-agent-chat-center-tabs";
 import type { DesktopShellMetricsSnapshot } from "@/features/resource-monitor/lib/desktop-shell-metrics";
 import { ResourceMonitorDiskSection } from "@/features/resource-monitor/components/ResourceMonitorDiskSection";
 import { ResourceMonitorHierarchy } from "@/features/resource-monitor/components/ResourceMonitorHierarchy";
 import { ResourceMonitorHostSection } from "@/features/resource-monitor/components/ResourceMonitorHostSection";
 import { isUsageVisible } from "@/features/resource-monitor/lib/resource-monitor-format";
 import type { ResourceHostHistoryPoint } from "@/features/resource-monitor/lib/resource-monitor-host-history";
+import {
+  collectResourceMonitorChatSessions,
+  mergeResourceMonitorChatSessions,
+} from "@/features/resource-monitor/lib/resource-monitor-agent-sessions";
 import type { ResourceMonitorSessionNavigationTarget } from "@/features/resource-monitor/lib/resource-monitor-session-navigation";
 import { buildResourceMonitorSessionDisplayMap } from "@/features/resource-monitor/lib/resource-monitor-session-titles";
 import {
@@ -123,10 +131,35 @@ export function ResourceMonitorPopover({
   const queryClient = useQueryClient();
   const [killingKey, setKillingKey] = React.useState<string | null>(null);
   const workspacePanes = useTerminalStore((s) => s.workspacePanes);
-  const liveDisplays = React.useMemo(
-    () => buildResourceMonitorSessionDisplayMap(workspacePanes),
-    [workspacePanes],
+  const projects = useProjects();
+  const agentSessions = useAgentStatusStore(useShallow((s) => s.sessions));
+  const chatTabsByContext = useAgentChatCenterTabsStore((s) => s.tabsByContext);
+  const chatPlacements = React.useMemo(
+    () =>
+      collectResourceMonitorChatSessions({
+        agentSessions: agentSessions.values(),
+        chatTabsByContext,
+        projects,
+      }),
+    [agentSessions, chatTabsByContext, projects],
   );
+  const listedProjects = React.useMemo(
+    () =>
+      snapshot
+        ? mergeResourceMonitorChatSessions(snapshot.projects, chatPlacements)
+        : [],
+    [snapshot, chatPlacements],
+  );
+  const liveDisplays = React.useMemo(() => {
+    const map = buildResourceMonitorSessionDisplayMap(workspacePanes);
+    for (const chat of chatPlacements) {
+      map.set(chat.sessionId, {
+        displayTitle: chat.name,
+        toolbarAgent: chat.toolbarAgent,
+      });
+    }
+    return map;
+  }, [workspacePanes, chatPlacements]);
   const [sort, setSort] = React.useState<{
     key: ResourceMonitorSortKey;
     direction: ResourceMonitorSortDirection;
@@ -192,7 +225,7 @@ export function ResourceMonitorPopover({
   return (
     <TooltipProvider delayDuration={250}>
       <div
-        className="flex max-h-[min(620px,calc(100vh-1.5rem))] min-h-0 min-w-0 flex-col overflow-hidden"
+        className="flex h-full min-h-0 min-w-0 max-h-[min(620px,calc(100vh-1.5rem))] flex-1 flex-col overflow-hidden"
         data-resource-monitor-state={state}
       >
         <header className="shrink-0 px-3 py-2">
@@ -202,7 +235,10 @@ export function ResourceMonitorPopover({
           </div>
         </header>
 
-        <ScrollArea className="min-h-0 w-full max-w-full flex-1 overflow-x-hidden">
+        <ScrollArea
+          scrollFade
+          className="min-h-0 w-full max-w-full flex-1 overflow-x-hidden"
+        >
           <div className="min-w-0 max-w-full overflow-x-hidden pb-1">
             <ResourceMonitorHostSection
               host={showSnapshot ? snapshot?.host : undefined}
@@ -220,7 +256,7 @@ export function ResourceMonitorPopover({
                 sortKey={sort.key}
                 sortDirection={sort.direction}
                 onSortKeyChange={handleSortKeyChange}
-                snapshotProjects={snapshot.projects}
+                snapshotProjects={listedProjects}
                 snapshotServer={snapshot.server}
                 snapshotShared={snapshot.shared_runtime}
                 snapshotDesktopUse={snapshot.desktop_use}
@@ -228,7 +264,7 @@ export function ResourceMonitorPopover({
                 showUnattributed={showUnattributed}
                 showProjectsEmpty={shouldShowProjectsEmptyCopy(
                   state,
-                  snapshot.projects.length,
+                  listedProjects.length,
                 )}
                 showDesktop={showDesktop}
                 desktop={desktop}

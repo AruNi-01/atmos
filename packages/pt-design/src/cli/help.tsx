@@ -6,13 +6,13 @@ export function HelpApp() {
   return (
     <Box flexDirection="column">
       <Text bold>PT Design</Text>
-      <Text>Prototype wireframes. Agent --json on every command. Not Atmos Canvas.</Text>
+      <Text>Interactive canvas + PTX. Agent --json on every command. Not Atmos Canvas.</Text>
       {PT_DESIGN_TOOL_DEFS.map((def) => (
         <Text key={def.name}>
           {"  "}pt-design {def.cli.join(" ")}
         </Text>
       ))}
-      <Text>{"  "}Open board: POST /api/pt-design/agent/invoke. Offline: --file</Text>
+      <Text>{"  "}Open board: POST /api/pt-design/agent/invoke. Offline: --file .ptd</Text>
     </Box>
   );
 }

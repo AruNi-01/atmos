@@ -47,6 +47,8 @@ export interface ProjectStore {
   pinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
   unpinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
   archiveWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
+  commitPendingWorkspaceArchive: () => Promise<void>;
+  undoPendingWorkspaceArchive: () => { restoreHref: string | null } | null;
   updateWorkspaceName: (projectId: string, workspaceId: string, name: string) => Promise<void>;
   updateWorkspaceBranch: (projectId: string, workspaceId: string, branch: string) => Promise<void>;
   updateWorkspaceWorkflowStatus: (
@@ -73,6 +75,7 @@ export interface ProjectStore {
     labels: WorkspaceLabel[],
   ) => Promise<void>;
   markWorkspaceVisited: (workspaceId: string) => Promise<void>;
+  markProjectVisited: (projectId: string) => Promise<void>;
   addWorkspacesToProject: (projectId: string, workspaceGuids: string[]) => Promise<void>;
 
   updateWorkspacePinOrder: (orderedWorkspaceIds: string[]) => Promise<void>;

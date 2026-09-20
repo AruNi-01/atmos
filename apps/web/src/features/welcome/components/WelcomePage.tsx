@@ -26,6 +26,7 @@ import { useWelcomeProjectContext } from "@/features/welcome/hooks/use-welcome-p
 import { useWelcomeMentionSearch } from "@/features/welcome/hooks/use-welcome-mention-search";
 import { useWelcomeSlashSearch } from "@/features/welcome/hooks/use-welcome-slash-search";
 import {
+  COLLAPSED_SLASH_SECTIONS,
   type SlashCommandOption,
   type WelcomeSlashPopoverState,
   useWelcomeSlashNavigation,
@@ -53,6 +54,13 @@ import {
   resolveViewRunLogsPromptText,
   VIEW_RUN_LOGS_SLASH_COMMAND_ID,
 } from "@/features/browser/lib/run-log-context";
+import { getPreferredRunLogWindow } from "@/features/browser/lib/run-log-active-window";
+import {
+  buildDevicePreviewSlashCommand,
+  DEVICE_PREVIEW_SLASH_COMMAND_ID,
+  loadDevicePreviewPrompt,
+  matchesDevicePreviewSlashQuery,
+} from "@/features/simulator/lib/device-preview-agent-prompt";
 import { runLogApi } from "@/features/browser/lib/run-log-api";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import {
@@ -308,6 +316,14 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         buildViewRunLogsSlashCommand({
           label: t("slashPopover.viewRunLogs.label"),
           description: t("slashPopover.viewRunLogs.description"),
+        }),
+      );
+    }
+    if (matchesDevicePreviewSlashQuery(query)) {
+      commands.push(
+        buildDevicePreviewSlashCommand({
+          label: t("slashPopover.devicePreview.label"),
+          description: t("slashPopover.devicePreview.description"),
         }),
       );
     }
@@ -652,7 +668,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         if (!popover) return;
         setSlashPopover(null);
         void resolveViewRunLogsPromptText(selectedProjectPath, (root) =>
-          runLogApi.resolveLatest(root),
+          runLogApi.resolveLatest(root, getPreferredRunLogWindow(root)),
         ).then((promptText) => {
           composerRef.current?.applyAiContextAtRange(
             popover.slashOffset,
@@ -661,6 +677,22 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
             promptText,
           );
         });
+        return;
+      }
+      if (command.id === DEVICE_PREVIEW_SLASH_COMMAND_ID) {
+        const popover = slashPopover;
+        if (!popover) return;
+        setSlashPopover(null);
+        void loadDevicePreviewPrompt(routeWorkspaceId ?? effectiveContextId).then(
+          (promptText) => {
+            composerRef.current?.applyAiContextAtRange(
+              popover.slashOffset,
+              popover.query.length,
+              "device-preview",
+              promptText,
+            );
+          },
+        );
         return;
       }
       if (command.id === BROWSER_USE_SLASH_COMMAND_ID) {
@@ -730,7 +762,14 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         return;
       }
     },
-    [allSkills, enterDisableSkillsView, selectedProjectPath, slashPopover],
+    [
+      allSkills,
+      effectiveContextId,
+      enterDisableSkillsView,
+      routeWorkspaceId,
+      selectedProjectPath,
+      slashPopover,
+    ],
   );
 
   const {
@@ -742,7 +781,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   } = useWelcomeSlashNavigation({
     enabled: slashPopoverView === "menu",
     filteredAgents,
-    filteredCommands: slashCommands,
+    filteredAtmosCommands: slashCommands,
     filteredProjects,
     filteredSkills,
     onSelectAgent: selectSlashAgent,
@@ -761,11 +800,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     setSlashPopoverView("menu");
     setSkillDisableFilter("");
     setSkillDisableSessionActions([]);
-    setExpandedSections({
-      skills: false,
-      projects: false,
-      agents: false,
-    });
+    setExpandedSections({ ...COLLAPSED_SLASH_SECTIONS });
   }, [setExpandedSections]);
 
   const handleSkillDisableSessionClosed = React.useCallback(() => {
@@ -774,11 +809,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     setSlashPopoverView("menu");
     setSkillDisableFilter("");
     setSkillDisableSessionActions([]);
-    setExpandedSections({
-      skills: false,
-      projects: false,
-      agents: false,
-    });
+    setExpandedSections({ ...COLLAPSED_SLASH_SECTIONS });
   }, [setExpandedSections]);
 
   React.useEffect(() => {
@@ -914,6 +945,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     const jobId = startCreating({
       originKey,
       label: name.trim() || null,
+      blocking: true,
     });
 
     try {
@@ -1197,7 +1229,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
             : null,
         expandedSections,
         filteredAgents,
-        filteredCommands: slashCommands,
+        filteredAtmosCommands: slashCommands,
         filteredProjects,
         filteredSkills,
         isSkillsLoading,
@@ -1214,7 +1246,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         popover: slashPopover,
         setExpandedSections,
         setItemRef: setSlashItemRef,
-        showCommands: slashCommands.length > 0,
+        showAtmosCommands: slashCommands.length > 0,
         view: slashPopoverView,
       }}
       summaryItems={filledSummaryItems}

@@ -48,6 +48,7 @@ import {
 } from "@/app-shell/sidebar/workspace-grouping";
 import { getProjectWorkflowStatus } from "@/app-shell/sidebar/workspace-status";
 import { parseWorkspacePriority } from "@/app-shell/sidebar/workspace-metadata-controls";
+import { isStandaloneSidebarJob } from "@/features/automations/lib/standalone-sidebar";
 
 export type WorkspaceKanbanFilters = {
   statuses: WorkspaceWorkflowStatus[];
@@ -93,7 +94,13 @@ export function filterWorkspaceKanbanEntries<T extends {
   };
 }>(items: T[], filters: WorkspaceKanbanFilters, groups: Group[] = []): T[] {
   return items.filter((item) => {
-    if (!filters.showAutomationWorkspaces && item.workspace.createSource === "automation") return false;
+    if (
+      !filters.showAutomationWorkspaces &&
+      item.workspace.createSource === "automation" &&
+      !isStandaloneSidebarJob(item.projectId, item.workspace.id)
+    ) {
+      return false;
+    }
     if (filters.projectIds.length > 0 && !filters.projectIds.includes(item.projectId)) return false;
     if (filters.statuses.length > 0 && !filters.statuses.includes(item.workspace.workflowStatus)) return false;
     if (filters.priorities.length > 0 && !filters.priorities.includes(item.workspace.priority)) return false;
@@ -296,16 +303,19 @@ export function WorkspaceKanbanFilterMenu({
         ) : (
           <Button
             size="xs"
-            variant="secondary"
+            variant="ghost"
             // Match Task source tabs + trailing tools (h-7). size=xs defaults to sm:h-6.
-            className="relative h-7 gap-1 px-2.5 text-xs sm:h-7"
+            className={cn(
+              "relative h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground sm:h-7",
+              triggerClassName,
+            )}
           >
             {activeFilterCount > 0 ? (
               <span className="absolute -right-1 -top-1 inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
                 {activeFilterCount}
               </span>
             ) : null}
-            <ListFilter className={cn("size-3.5", showLabel && "mr-1")} />
+            <ListFilter className="size-3.5" />
             {showLabel ? t("filter.trigger") : null}
           </Button>
         )}

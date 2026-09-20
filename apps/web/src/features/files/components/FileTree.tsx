@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useCallback, useState, useEffect } from 'react';
+import React, { useMemo, useCallback, useState, useEffect, type ComponentProps } from 'react';
 import { useTree } from '@headless-tree/react';
 import { asyncDataLoaderFeature } from '@headless-tree/core';
 import type { ItemInstance } from '@headless-tree/core';
@@ -8,7 +8,6 @@ import { useTranslations } from 'next-intl';
 import { cn, Loader2, Folder, toastManager } from '@workspace/ui';
 import { FileTreeNode, fsApi } from '@/api/ws-api';
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
-import { useContextParams } from "@/shared/hooks/use-context-params";
 import {
   buildFallbackFileTreeItem,
   buildDuplicateName,
@@ -21,7 +20,24 @@ import {
   type FileTreeMenuState,
   type PendingPanelState,
 } from '../lib/file-tree-utils';
+import {
+  nestTreeItemsByParent,
+  type NestedTreeNode,
+} from '../lib/file-tree-nest';
+import { isFileTreeBranchOpen } from '../lib/file-tree-branch-open';
+import {
+  expandFileTreeRevealAncestors,
+  FILE_TREE_SCROLL_ATTR,
+  fileTreeBranchRevealDelayMs,
+  fileTreeScrollBehavior,
+  resolveFileTreeRowElement,
+  resolveFileTreeScrollElement,
+  scrollFileTreeRowIntoView,
+  waitForFileTreeRowLayout,
+} from '../lib/file-tree-reveal';
 import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
+import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
+import { FileTreeBranch } from './FileTreeBranch';
 import { FileTreeContextMenu } from './FileTreeContextMenu';
 import { FileTreeRow } from './FileTreeRow';
 
@@ -49,6 +65,63 @@ interface FileTreeProps {
   ) => Promise<void> | void;
 }
 
+function FileTreeNodes({
+  nodes,
+  activeFilePath,
+  menuItemPath,
+  highlightedPath,
+  onClick,
+  onDoubleClick,
+  onContextMenu,
+  rootPath,
+}: {
+  nodes: NestedTreeNode<ItemInstance<FileTreeItem>>[];
+  activeFilePath?: string | null;
+  menuItemPath?: string | null;
+  highlightedPath: string | null;
+  onClick: ComponentProps<typeof FileTreeRow>["onClick"];
+  onDoubleClick: ComponentProps<typeof FileTreeRow>["onDoubleClick"];
+  onContextMenu: ComponentProps<typeof FileTreeRow>["onContextMenu"];
+  rootPath?: string | null;
+}) {
+  return nodes.map(({ item, children }) => {
+    const itemData = item.getItemData();
+    if (!itemData) return null;
+
+    return (
+      <React.Fragment key={item.getId()}>
+        <FileTreeRow
+          item={item}
+          itemData={itemData}
+          isActive={activeFilePath === itemData.path}
+          isContextTarget={menuItemPath === itemData.path}
+          isHighlighted={highlightedPath === itemData.path}
+          onClick={onClick}
+          onDoubleClick={onDoubleClick}
+          onContextMenu={onContextMenu}
+          rootPath={rootPath}
+        />
+        {item.isFolder() ? (
+          <FileTreeBranch
+            open={isFileTreeBranchOpen(item.isExpanded(), children.length)}
+          >
+            <FileTreeNodes
+              nodes={children}
+              activeFilePath={activeFilePath}
+              menuItemPath={menuItemPath}
+              highlightedPath={highlightedPath}
+              onClick={onClick}
+              onDoubleClick={onDoubleClick}
+              onContextMenu={onContextMenu}
+              rootPath={rootPath}
+            />
+          </FileTreeBranch>
+        ) : null}
+      </React.Fragment>
+    );
+  });
+}
+
 export const FileTree: React.FC<FileTreeProps> = ({
   data,
   rootPath,
@@ -63,8 +136,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
   onOpenFile,
 }) => {
   const t = useTranslations('files.components');
-  const { effectiveContextId } = useContextParams();
-  const editorContextId = contextId ?? effectiveContextId;
+  const paintContextId = useCenterPaintContextId();
+  const editorContextId = contextId ?? paintContextId;
   const openFile = useEditorStore((s) => s.openFile);
   const pinFile = useEditorStore((s) => s.pinFile);
   const storeActiveFilePath = useEditorStore((s) =>
@@ -109,15 +182,17 @@ export const FileTree: React.FC<FileTreeProps> = ({
   initialItemsMap.forEach((value, key) => knownItemsRef.current.items.set(key, value));
   lazyItemsMap.forEach((value, key) => knownItemsRef.current.items.set(key, value));
 
+  // Prefer knownItemsRef over lazyItemsMap so resolveItem (and loadDirectoryChildren)
+  // stay stable across lazy listDir writes — otherwise the reveal effect re-fires
+  // on every expand/load and hits "Maximum update depth exceeded".
   const resolveItem = useCallback(
     (itemId: string): FileTreeItem | undefined => {
       return (
         initialItemsMap.get(itemId) ||
-        lazyItemsMap.get(itemId) ||
         knownItemsRef.current.items.get(itemId)
       );
     },
-    [initialItemsMap, lazyItemsMap],
+    [initialItemsMap],
   );
 
   useEffect(() => {
@@ -514,6 +589,13 @@ export const FileTree: React.FC<FileTreeProps> = ({
     });
   }, [panelState, selectedItem]);
 
+  // Reveal expands/loads dirs which update lazyItemsMap and can recreate `tree`.
+  // Keep those behind refs so this effect only runs once per reveal request.
+  const loadDirectoryChildrenRef = React.useRef(loadDirectoryChildren);
+  loadDirectoryChildrenRef.current = loadDirectoryChildren;
+  const treeRef = React.useRef(tree);
+  treeRef.current = tree;
+
   useEffect(() => {
     if (!revealEnabled) return;
     if (!fileTreeRevealTarget || !currentProjectPath) return;
@@ -525,6 +607,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
       return;
     }
 
+    const target = fileTreeRevealTarget;
     let cancelled = false;
     if (highlightTimeoutRef.current) {
       clearTimeout(highlightTimeoutRef.current);
@@ -535,7 +618,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
 
     const revealTarget = async () => {
       try {
-        if (fileTreeRevealTarget.path === currentProjectPath) {
+        if (target.path === currentProjectPath) {
           if (!cancelled) {
             setIsTreeHighlighted(true);
             highlightTimeoutRef.current = setTimeout(() => {
@@ -543,43 +626,50 @@ export const FileTree: React.FC<FileTreeProps> = ({
               highlightTimeoutRef.current = null;
             }, 1800);
           }
-          tree.getElement()?.scrollTo({ top: 0, behavior: 'smooth' });
+          const scroller = resolveFileTreeScrollElement(
+            treeRef.current.getElement()?.closest(`[${FILE_TREE_SCROLL_ATTR}]`),
+          );
+          if (scroller instanceof HTMLElement) {
+            scroller.scrollTo({ top: 0, behavior: fileTreeScrollBehavior() });
+          }
           return;
         }
 
-        const relative = fileTreeRevealTarget.path.slice(currentProjectPath.length + 1);
-        const segments = relative.split('/').filter(Boolean);
-        let currentPath = currentProjectPath;
         const revealRequestId = ++revealRequestIdRef.current;
+        const { item: targetItem, expandedAny } = await expandFileTreeRevealAncestors({
+          rootPath: currentProjectPath,
+          targetPath: target.path,
+          loadDirectoryChildren: (path) => loadDirectoryChildrenRef.current(path),
+          getTree: () => treeRef.current,
+          isCancelled: () =>
+            cancelled || revealRequestIdRef.current !== revealRequestId,
+        });
+        if (cancelled || revealRequestIdRef.current !== revealRequestId) return;
 
-        for (const segment of segments) {
-          currentPath = `${currentPath}/${segment}`;
-          await loadDirectoryChildren(currentPath);
-          if (cancelled || revealRequestIdRef.current !== revealRequestId) return;
-          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-          const item = tree.getItemInstance(currentPath);
-          if (item.isFolder() && !item.isExpanded()) {
-            item.expand();
-            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-          }
-        }
-
-        const targetItem = tree.getItemInstance(fileTreeRevealTarget.path);
-        targetItem.setFocused();
-        await targetItem.scrollTo({ block: 'center' });
+        targetItem?.setFocused?.();
+        const row = await waitForFileTreeRowLayout(
+          () => resolveFileTreeRowElement(targetItem, target.path),
+          {
+            isCancelled: () =>
+              cancelled || revealRequestIdRef.current !== revealRequestId,
+            minDelayMs: expandedAny ? fileTreeBranchRevealDelayMs() : 0,
+          },
+        );
+        if (cancelled || revealRequestIdRef.current !== revealRequestId) return;
+        if (row) scrollFileTreeRowIntoView(row);
 
         if (!cancelled) {
-          setHighlightedPath(fileTreeRevealTarget.path);
+          setHighlightedPath(target.path);
           highlightTimeoutRef.current = setTimeout(() => {
-            setHighlightedPath((value) =>
-              value === fileTreeRevealTarget.path ? null : value,
-            );
+            setHighlightedPath((value) => (value === target.path ? null : value));
             highlightTimeoutRef.current = null;
           }, 1800);
         }
+      } catch (error) {
+        console.error('Failed to reveal file tree path', target.path, error);
       } finally {
         if (!cancelled) {
-          clearFileTreeRevealTarget(fileTreeRevealTarget.requestId);
+          clearFileTreeRevealTarget(target.requestId);
         }
       }
     };
@@ -594,9 +684,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
     currentProjectPath,
     editorContextId,
     fileTreeRevealTarget,
-    loadDirectoryChildren,
     revealEnabled,
-    tree,
   ]);
 
   useEffect(() => {
@@ -626,10 +714,14 @@ export const FileTree: React.FC<FileTreeProps> = ({
     );
   }
 
-  const items = tree.getItems();
+  const nestedItems = nestTreeItemsByParent(
+    tree.getItems(),
+    (item) => item.getId(),
+    (item) => item.getItemMeta().parentId,
+  );
 
   return (
-    <div className="relative">
+    <div className="relative px-2">
       <div
         ref={tree.registerElement}
         {...tree.getContainerProps(t('fileTree.containerAriaLabel'))}
@@ -638,39 +730,26 @@ export const FileTree: React.FC<FileTreeProps> = ({
           isTreeHighlighted && 'bg-sidebar-accent/35',
         )}
       >
-        {items.map((item) => {
-          const itemData = item.getItemData();
-          if (!itemData) return null;
-
-          const isActive = activeFilePath === itemData.path;
-          const isContextTarget = menuState?.itemPath === itemData.path;
-          const isHighlighted = highlightedPath === itemData.path;
-
-          return (
-            <FileTreeRow
-              key={item.getId()}
-              item={item}
-              itemData={itemData}
-              isActive={isActive}
-              isContextTarget={isContextTarget}
-              isHighlighted={isHighlighted}
-              onClick={handleItemClick}
-              onDoubleClick={handleItemDoubleClick}
-              onContextMenu={(event, itemPath) => {
-                event.preventDefault();
-                // Always viewport client coords — FileTreeContextMenu portals the
-                // fixed trigger to document.body so canvas/popover transforms
-                // cannot offset the menu.
-                setMenuState({
-                  x: event.clientX,
-                  y: event.clientY,
-                  itemPath,
-                });
-              }}
-              rootPath={rootPath}
-            />
-          );
-        })}
+        <FileTreeNodes
+          nodes={nestedItems}
+          activeFilePath={activeFilePath}
+          menuItemPath={menuState?.itemPath}
+          highlightedPath={highlightedPath}
+          onClick={handleItemClick}
+          onDoubleClick={handleItemDoubleClick}
+          onContextMenu={(event, itemPath) => {
+            event.preventDefault();
+            // Always viewport client coords — FileTreeContextMenu portals the
+            // fixed trigger to document.body so canvas/popover transforms
+            // cannot offset the menu.
+            setMenuState({
+              x: event.clientX,
+              y: event.clientY,
+              itemPath,
+            });
+          }}
+          rootPath={rootPath}
+        />
       </div>
 
       <FileTreeContextMenu

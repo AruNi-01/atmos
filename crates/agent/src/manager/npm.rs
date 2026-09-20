@@ -1,5 +1,10 @@
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
+
 use anyhow::Context;
 use tokio::process::Command;
+use tokio::time::timeout;
 
 use crate::models::{AgentInstallResult, KnownAgent, RegistryInstallResult};
 
@@ -7,49 +12,83 @@ use super::manifest::{load_install_manifest, upsert_manifest_entry, with_manifes
 use super::registry::{fetch_acp_registry, RegistryEntry, RegistryPackageDistribution};
 use super::{AgentError, Result};
 
-pub(crate) async fn is_npm_package_installed_globally(package_spec: &str) -> Result<bool> {
-    let pkg_name = normalize_npm_package_name(package_spec);
-    let output = Command::new("npm")
-        .arg("list")
-        .arg("-g")
-        .arg("--depth=0")
-        .arg("--json")
-        .output()
-        .await
-        .map_err(|e| AgentError::Command(format!("failed to run npm list -g: {}", e)))?;
+const NPM_LIST_TIMEOUT: Duration = Duration::from_secs(8);
+const NPM_LIST_CACHE_TTL: Duration = Duration::from_secs(30);
 
-    if !output.status.success() {
-        return Ok(false);
-    }
-
-    let value: serde_json::Value = serde_json::from_slice(&output.stdout)
-        .map_err(|e| AgentError::Command(format!("failed to parse npm list output: {}", e)))?;
-    if let Some(map) = value.get("dependencies").and_then(|v| v.as_object()) {
-        if map.contains_key(&pkg_name) {
-            return Ok(true);
-        }
-    }
-    Ok(false)
+struct NpmListCache {
+    fetched_at: Instant,
+    packages: HashMap<String, String>,
 }
 
-pub(crate) async fn list_global_npm_packages() -> Result<std::collections::HashMap<String, String>>
-{
-    let output = Command::new("npm")
-        .arg("list")
+fn npm_list_cache() -> &'static Mutex<Option<NpmListCache>> {
+    static CACHE: OnceLock<Mutex<Option<NpmListCache>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(None))
+}
+
+fn cached_npm_packages() -> Option<HashMap<String, String>> {
+    let guard = npm_list_cache().lock().ok()?;
+    let cache = guard.as_ref()?;
+    if cache.fetched_at.elapsed() < NPM_LIST_CACHE_TTL {
+        Some(cache.packages.clone())
+    } else {
+        None
+    }
+}
+
+fn store_npm_packages(packages: HashMap<String, String>) {
+    if let Ok(mut guard) = npm_list_cache().lock() {
+        *guard = Some(NpmListCache {
+            fetched_at: Instant::now(),
+            packages,
+        });
+    }
+}
+
+pub(crate) async fn is_npm_package_installed_globally(package_spec: &str) -> Result<bool> {
+    let pkg_name = normalize_npm_package_name(package_spec);
+    match list_global_npm_packages().await {
+        Ok(map) => Ok(map.contains_key(&pkg_name)),
+        Err(_) => Ok(false),
+    }
+}
+
+pub(crate) async fn list_global_npm_packages() -> Result<HashMap<String, String>> {
+    if let Some(cached) = cached_npm_packages() {
+        return Ok(cached);
+    }
+    let packages = list_global_npm_packages_uncached().await?;
+    store_npm_packages(packages.clone());
+    Ok(packages)
+}
+
+async fn list_global_npm_packages_uncached() -> Result<HashMap<String, String>> {
+    let mut cmd = Command::new("npm");
+    cmd.arg("list")
         .arg("-g")
         .arg("--depth=0")
         .arg("--json")
-        .output()
-        .await
-        .map_err(|e| AgentError::Command(format!("failed to run npm list -g: {}", e)))?;
+        .kill_on_drop(true);
+
+    let output = match timeout(NPM_LIST_TIMEOUT, cmd.output()).await {
+        Ok(Ok(output)) => output,
+        Ok(Err(e)) => {
+            return Err(AgentError::Command(format!(
+                "failed to run npm list -g: {}",
+                e
+            )));
+        }
+        Err(_) => {
+            return Err(AgentError::Command("npm list -g timed out".to_string()));
+        }
+    };
 
     if !output.status.success() {
-        return Ok(std::collections::HashMap::new());
+        return Ok(HashMap::new());
     }
 
     let value: serde_json::Value = serde_json::from_slice(&output.stdout)
         .map_err(|e| AgentError::Command(format!("failed to parse npm list output: {}", e)))?;
-    let mut map = std::collections::HashMap::new();
+    let mut map = HashMap::new();
     if let Some(deps) = value.get("dependencies").and_then(|v| v.as_object()) {
         for (key, dep) in deps {
             if let Some(version) = dep.get("version").and_then(|v| v.as_str()) {
@@ -82,6 +121,7 @@ pub(crate) fn npx_command_preview(spec: &RegistryPackageDistribution) -> String 
     parts.join(" ")
 }
 
+#[allow(dead_code)]
 pub(crate) async fn try_install_from_registry_index(
     agent: &KnownAgent,
 ) -> Result<Option<AgentInstallResult>> {
@@ -125,6 +165,7 @@ pub(crate) async fn try_install_from_registry_index(
     Ok(None)
 }
 
+#[allow(dead_code)]
 pub(crate) async fn install_npm_agent(agent: &KnownAgent) -> Result<AgentInstallResult> {
     let output = Command::new("npm")
         .arg("install")
@@ -151,35 +192,65 @@ pub(crate) async fn install_npm_agent(agent: &KnownAgent) -> Result<AgentInstall
     )))
 }
 
+fn register_npx_manifest(
+    registry_id: &str,
+    package_name: &str,
+    installed_version: Option<String>,
+) -> Result<()> {
+    let reg_id = registry_id.to_string();
+    let pkg_name = package_name.to_string();
+    with_manifest(|manifest| {
+        let existing_default = manifest
+            .registry
+            .iter()
+            .find(|entry| entry.registry_id == reg_id)
+            .and_then(|entry| entry.default_config.clone());
+        upsert_manifest_entry(
+            manifest,
+            ManifestEntry {
+                registry_id: reg_id,
+                install_method: "npx".to_string(),
+                binary_path: None,
+                npm_package: Some(pkg_name),
+                installed_version,
+                default_config: existing_default,
+                enabled: None,
+            },
+        );
+        Ok(())
+    })
+}
+
 pub(crate) async fn install_registry_npx_agent(
     entry: &RegistryEntry,
     registry_id: &str,
     npx_package: &str,
     force_overwrite: bool,
 ) -> Result<RegistryInstallResult> {
+    let new_package_name = normalize_npm_package_name(npx_package);
     if !force_overwrite
         && is_npm_package_installed_globally(npx_package)
             .await
             .unwrap_or(false)
     {
+        let installed_version = list_global_npm_packages()
+            .await
+            .ok()
+            .and_then(|pkgs| pkgs.get(&new_package_name).cloned());
+        register_npx_manifest(registry_id, &new_package_name, installed_version.clone())?;
         return Ok(RegistryInstallResult {
             registry_id: registry_id.to_string(),
-            installed: false,
+            installed: true,
             install_method: "npx".to_string(),
-            message: String::new(),
-            needs_confirmation: Some(true),
-            overwrite_message: Some(format!(
-                "{} ({}) is already installed globally via npm. Install will overwrite/update. Continue?",
-                entry.name,
-                normalize_npm_package_name(npx_package)
-            )),
+            message: format!("Registered existing {} ({})", entry.name, new_package_name),
+            needs_confirmation: None,
+            overwrite_message: None,
         });
     }
 
     // Check if there's an old package to uninstall (package name changed)
     let mut uninstalled_old_package = None;
     let manifest = load_install_manifest().unwrap_or_default();
-    let new_package_name = normalize_npm_package_name(npx_package);
     if let Some(old_entry) = manifest
         .registry
         .iter()
@@ -217,30 +288,7 @@ pub(crate) async fn install_registry_npx_agent(
             .await
             .ok()
             .and_then(|pkgs| pkgs.get(&new_package_name).cloned());
-
-        let reg_id = registry_id.to_string();
-        let pkg_name = new_package_name.clone();
-        let ver = installed_version.clone();
-        let _ = with_manifest(|manifest| {
-            let existing_default = manifest
-                .registry
-                .iter()
-                .find(|e| e.registry_id == reg_id && e.install_method == "npx")
-                .and_then(|e| e.default_config.clone());
-
-            upsert_manifest_entry(
-                manifest,
-                ManifestEntry {
-                    registry_id: reg_id,
-                    install_method: "npx".to_string(),
-                    binary_path: None,
-                    npm_package: Some(pkg_name),
-                    installed_version: ver,
-                    default_config: existing_default,
-                },
-            );
-            Ok(())
-        });
+        register_npx_manifest(registry_id, &new_package_name, installed_version)?;
 
         let message = if let Some(old_package) = uninstalled_old_package {
             format!("Upgraded from {} to {}", old_package, npx_package)

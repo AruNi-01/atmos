@@ -4,6 +4,7 @@ import CoreMedia
 import CoreGraphics
 import IOSurface
 import ObjectiveC
+import StreamingPolicy
 
 typealias ScreenFrameCallback = @convention(block) () -> Void
 typealias ScreenSurfacesChangedCallback = @convention(block) (IOSurface?, IOSurface?) -> Void
@@ -18,8 +19,10 @@ private struct ScreenCallbackBlocks {
 /// Headless simulator frame capture via direct IOSurface access.
 ///
 /// Uses SimulatorKit frame callbacks (via a private Objective-C protocol)
-/// for event-driven capture with zero jitter. Maintains a 5fps idle floor
-/// for late-joining clients.
+/// plus an IOSurface seed poll. Some virtualized SimulatorKit runtimes deliver
+/// frame callbacks well below the display cadence; polling catches those
+/// surface changes without duplicating unchanged frames. Maintains a 5fps idle
+/// floor for late-joining clients.
 ///
 /// Pipeline: IOSurface (shared memory) → CVPixelBuffer (zero-copy) → H.264 encode
 actor FrameCapture {
@@ -29,13 +32,16 @@ actor FrameCapture {
     private var photocopier = Photocopier()
     private var onFrame: ((CVPixelBuffer, CMTime) -> Void)?
     private var frameCount: UInt64 = 0
+    /// Counted by which path produced the frame, callback or idle deadline.
+    private var screenFrameCount: UInt64 = 0
+    private var idleFrameCount: UInt64 = 0
     private(set) var capturedWidth: Int = 0
     private(set) var capturedHeight: Int = 0
-    private var idleTimer: Task<Void, Never>?
+    private var surfacePollTask: Task<Void, Never>?
     private var lastCaptureTime: ContinuousClock.Instant = .now
     private var lastSeeds: [ObjectIdentifier: UInt32] = [:]
-    private var rewireTickCount: Int = 0
-    /// Interval at which the idle timer re-emits the current frame even when
+    private var lastRewireAttempt: ContinuousClock.Instant = .now
+    /// Interval at which the surface poll re-emits the current frame even when
     /// the simulator isn't rendering anything new. This is load-bearing for two
     /// consumers:
     /// 1. Browsers rendering `<img src="…/stream.mjpeg">` only render a multipart
@@ -46,6 +52,10 @@ actor FrameCapture {
     ///    idle sim never gets a cached frame to show.
     /// Re-emitting at ~5 fps fixes both without meaningful CPU cost.
     private static let idleInterval: ContinuousClock.Duration = .milliseconds(200)
+    private static let surfacePollInterval: ContinuousClock.Duration = .nanoseconds(
+        SimulatorCapturePollPolicy.intervalNanoseconds
+    )
+    private static let rewireInterval: ContinuousClock.Duration = .seconds(1)
 
     private var descriptors: [NSObject] = []
     private var callbackUUIDs: [ObjectIdentifier: UUID] = [:]
@@ -73,8 +83,8 @@ actor FrameCapture {
         self.ioClient = io
 
         try wireUpFramebuffer()
-        startIdleTimer()
-        print("[capture] Frame callbacks registered (event-driven) + 5fps idle floor")
+        startSurfacePoller()
+        print("[capture] Frame callbacks registered + 60Hz IOSurface poll + 5fps idle floor")
     }
 
     /// Find all framebuffer display descriptors, register callbacks on each,
@@ -218,31 +228,29 @@ actor FrameCapture {
         )
     }
 
-    private func startIdleTimer() {
-        self.idleTimer = Task { [weak self] in
+    private func startSurfacePoller() {
+        self.surfacePollTask = Task { [weak self] in
             while !Task.isCancelled {
+                try? await Task.sleep(for: Self.surfacePollInterval)
                 guard let self else { return }
-                await self.onIdleTimerTick()
-                try? await Task.sleep(for: Self.idleInterval)
+                await self.onSurfacePollTick()
             }
         }
     }
 
-    private func onIdleTimerTick() {
+    private func onSurfacePollTick() {
         let now = ContinuousClock.now
-        guard (now - self.lastCaptureTime) >= Self.idleInterval else { return }
-        self.captureFrame(force: true)
+        let idleRefreshDue = (now - self.lastCaptureTime) >= Self.idleInterval
+        self.captureFrame(force: idleRefreshDue)
         // Self-heal: if we've never captured a frame, the cached descriptor
-        // is likely stale. Re-wire the pipeline periodically (every ~1s)
+        // is likely stale. Re-wire the pipeline periodically
         // until frames start flowing.
-        if self.frameCount == 0 {
-            self.rewireTickCount += 1
-            if self.rewireTickCount % 5 == 0 {
-                do {
-                    try self.wireUpFramebuffer()
-                } catch {
-                    // Swallow — we'll try again on the next tick.
-                }
+        if self.frameCount == 0, (now - self.lastRewireAttempt) >= Self.rewireInterval {
+            self.lastRewireAttempt = now
+            do {
+                try self.wireUpFramebuffer()
+            } catch {
+                // Swallow — we'll try again on a later tick.
             }
         }
     }
@@ -257,6 +265,10 @@ actor FrameCapture {
             return
         }
         framebufferSurfaces[key] = surface
+    }
+
+    func frameCounts() -> (screen: UInt64, idle: UInt64) {
+        (screen: screenFrameCount, idle: idleFrameCount)
     }
 
     private func captureFrame(force: Bool = false) {
@@ -292,6 +304,7 @@ actor FrameCapture {
 
         lastCaptureTime = .now
         frameCount += 1
+        if force { idleFrameCount += 1 } else { screenFrameCount += 1 }
         // WebRTC consumes this timestamp as the capture presentation time. A
         // frame counter makes sparse/idle frames look 1/60s apart even when
         // they were captured hundreds of milliseconds apart, which confuses
@@ -308,8 +321,8 @@ actor FrameCapture {
     }
 
     func stop() {
-        idleTimer?.cancel()
-        idleTimer = nil
+        surfacePollTask?.cancel()
+        surfacePollTask = nil
 
         unregisterCallbacks()
         descriptors.removeAll()

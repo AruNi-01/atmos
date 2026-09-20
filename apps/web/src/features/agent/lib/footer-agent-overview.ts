@@ -1,10 +1,7 @@
-import {
-  AGENT_STATE,
-  AGENT_TOOL,
-  AGENT_TOOL_LABELS,
-  type AgentHookSession,
-  type AgentToolType,
-} from "@/features/agent/store/agent-hooks-store";
+import type {
+  AgentStatusRecord,
+  AgentToolType,
+} from "@/features/agent/store/agent-status-store";
 import type { PaneAttention } from "@/features/agent/store/agent-attention-store";
 import {
   resolveWorkspaceAgentGroupKey,
@@ -25,7 +22,7 @@ export type FooterAgentOverviewCounts = Record<FooterAgentOverviewBucket, number
 
 export type FooterAgentOverviewRow = {
   bucket: FooterAgentOverviewBucket;
-  session: AgentHookSession;
+  session: AgentStatusRecord;
 };
 
 const EMPTY_COUNTS: FooterAgentOverviewCounts = {
@@ -40,14 +37,19 @@ function emptyCounts(): FooterAgentOverviewCounts {
 }
 
 function isAgentToolType(value: string | undefined): value is AgentToolType {
-  return Boolean(value && value in AGENT_TOOL_LABELS);
+  return typeof value === "string" && value.length > 0;
 }
 
-function sessionIdentityKeys(session: AgentHookSession): string[] {
+/** Session / pane ids used to match hook rows to sticky attention latches. */
+export function footerSessionIdentityKeys(session: AgentStatusRecord): string[] {
   const keys = [session.session_id?.trim(), session.pane_id?.trim()].filter(
     (key): key is string => Boolean(key),
   );
   return [...new Set(keys)];
+}
+
+function sessionIdentityKeys(session: AgentStatusRecord): string[] {
+  return footerSessionIdentityKeys(session);
 }
 
 function latchIdentityKeys(latch: PaneAttention): string[] {
@@ -64,7 +66,7 @@ function footerBucketFromGroupKey(
 }
 
 function findLatchForSession(
-  session: AgentHookSession,
+  session: AgentStatusRecord,
   latches: readonly PaneAttention[],
 ): PaneAttention | undefined {
   const keys = new Set(sessionIdentityKeys(session));
@@ -74,15 +76,15 @@ function findLatchForSession(
   );
 }
 
-function sessionFromAttentionLatch(latch: PaneAttention): AgentHookSession {
-  const tool = isAgentToolType(latch.tool) ? latch.tool : AGENT_TOOL.CLAUDE_CODE;
+function sessionFromAttentionLatch(latch: PaneAttention): AgentStatusRecord {
+  const tool = isAgentToolType(latch.tool) ? latch.tool : "claude-code";
   return {
     session_id: latch.sessionId || latch.stablePaneId,
     tool,
     state:
       latch.reason === "permission_request"
-        ? AGENT_STATE.PERMISSION_REQUEST
-        : AGENT_STATE.IDLE,
+        ? "permission_request"
+        : "idle",
     timestamp: new Date(latch.raisedAt).toISOString(),
     context_id: latch.contextId,
     pane_id: latch.stablePaneId,
@@ -90,7 +92,7 @@ function sessionFromAttentionLatch(latch: PaneAttention): AgentHookSession {
 }
 
 function bucketForSession(
-  session: AgentHookSession,
+  session: AgentStatusRecord,
   latch: PaneAttention | undefined,
 ): FooterAgentOverviewBucket {
   return footerBucketFromGroupKey(
@@ -107,7 +109,7 @@ function bucketForSession(
  * Attention latches without a hook session still count (Need attention / permission).
  */
 export function buildFooterAgentOverview(
-  sessions: Iterable<AgentHookSession>,
+  sessions: Iterable<AgentStatusRecord>,
   attentionPanes: Iterable<PaneAttention>,
 ): { counts: FooterAgentOverviewCounts; rows: FooterAgentOverviewRow[] } {
   const counts = emptyCounts();
@@ -139,7 +141,7 @@ export function buildFooterAgentOverview(
 }
 
 export function countFooterAgentOverview(
-  sessions: Iterable<AgentHookSession>,
+  sessions: Iterable<AgentStatusRecord>,
   attentionPanes: Iterable<PaneAttention>,
 ): FooterAgentOverviewCounts {
   return buildFooterAgentOverview(sessions, attentionPanes).counts;
@@ -147,4 +149,18 @@ export function countFooterAgentOverview(
 
 export function footerAgentOverviewTotal(counts: FooterAgentOverviewCounts): number {
   return FOOTER_AGENT_OVERVIEW_ORDER.reduce((sum, key) => sum + counts[key], 0);
+}
+
+/** Group footer popover rows by project / workspace context. */
+export function groupFooterOverviewRowsByContext(
+  rows: readonly FooterAgentOverviewRow[],
+): Map<string, FooterAgentOverviewRow[]> {
+  const grouped = new Map<string, FooterAgentOverviewRow[]>();
+  for (const row of rows) {
+    const key = row.session.context_id || row.session.project_path || "unknown";
+    const list = grouped.get(key) ?? [];
+    list.push(row);
+    grouped.set(key, list);
+  }
+  return grouped;
 }

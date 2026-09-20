@@ -21,5 +21,7 @@ export const FIXED_TABS = new Set<string>([
 export function shouldSkipLastTabRestoreForUrlTab(
   tabFromUrl: string | null | undefined,
 ): boolean {
-  return Boolean(tabFromUrl && FIXED_TABS.has(tabFromUrl));
+  if (!tabFromUrl) return false;
+  if (FIXED_TABS.has(tabFromUrl)) return true;
+  return tabFromUrl.startsWith("agent-chat:");
 }

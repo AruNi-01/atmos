@@ -15,20 +15,51 @@ const MULTI_WORD_COMMANDS = new Set([
   "node",
 ]);
 
-export function extractCommandName(fullCommand: string): string {
-  const stripped = fullCommand
-    .replace(/^(\s*(sudo|command|env)\s+)*/g, "")
-    .replace(/^\s*\S+=\S+\s+/g, "")
-    .trim();
+const COMMAND_PREFIX_TOKENS = new Set(["sudo", "command", "env"]);
 
-  const parts = stripped.split(/\s+/);
-  if (parts.length === 0 || !parts[0]) return fullCommand;
-
-  const command = parts[0];
-  if (MULTI_WORD_COMMANDS.has(command) && parts.length > 1) {
-    return `${command} ${parts[1]}`;
+function skipCommandWhitespace(value: string, index: number): number {
+  while (index < value.length && /\s/.test(value.charAt(index))) {
+    index += 1;
   }
-  return command;
+  return index;
+}
+
+function scanCommandToken(value: string, index: number): { token: string; next: number } {
+  const start = index;
+  while (index < value.length && !/\s/.test(value.charAt(index))) {
+    index += 1;
+  }
+  return { token: value.slice(start, index), next: index };
+}
+
+export function extractCommandName(fullCommand: string): string {
+  let index = 0;
+  // Linear strip of leading `sudo` / `command` / `env` (must be followed by whitespace).
+  while (true) {
+    const start = skipCommandWhitespace(fullCommand, index);
+    const { token, next } = scanCommandToken(fullCommand, start);
+    if (!COMMAND_PREFIX_TOKENS.has(token)) break;
+    const after = skipCommandWhitespace(fullCommand, next);
+    if (after === next) break;
+    index = after;
+  }
+
+  index = skipCommandWhitespace(fullCommand, index);
+  const assignment = scanCommandToken(fullCommand, index);
+  const eq = assignment.token.indexOf("=");
+  // One leading `FOO=bar` assignment, only when whitespace follows (same as `\S+=\S+\s+`).
+  if (eq > 0 && eq < assignment.token.length - 1) {
+    const after = skipCommandWhitespace(fullCommand, assignment.next);
+    if (after > assignment.next) {
+      index = after;
+    }
+  }
+
+  const command = scanCommandToken(fullCommand, skipCommandWhitespace(fullCommand, index));
+  if (!command.token) return fullCommand;
+  if (!MULTI_WORD_COMMANDS.has(command.token)) return command.token;
+  const arg = scanCommandToken(fullCommand, skipCommandWhitespace(fullCommand, command.next));
+  return arg.token ? `${command.token} ${arg.token}` : command.token;
 }
 
 export function shortenPath(fullPath: string): string {
@@ -169,6 +200,25 @@ function firstCommandToken(value: string): { token: string; rest: string } {
 /** Platform-packaged Grok Build binaries: `grok`, `grok-macos-aarc`, `grok-linux-x86_64`, … */
 function isGrokBuildCommandToken(token: string): boolean {
   return token === "grok" || token.startsWith("grok-");
+}
+
+function sameCliCommandToken(left: string, right: string): boolean {
+  if (!left || !right) return false;
+  if (left === right) return true;
+  return (
+    (left === "grok" && isGrokBuildCommandToken(right)) ||
+    (right === "grok" && isGrokBuildCommandToken(left))
+  );
+}
+
+/** CLI tokens used to match an invocation (`grok --always-approve`), not brand words. */
+function agentCliMatchTokens(agent: TerminalTitleAgent): Set<string> {
+  const tokens = new Set<string>();
+  for (const raw of [agent.command, agent.pipeCommand, ...(agent.aliases ?? [])]) {
+    if (!raw?.trim()) continue;
+    tokens.add(normalizeAgentCommand(raw));
+  }
+  return tokens;
 }
 
 function executablePathMatchToken(value: string): string | undefined {
@@ -768,6 +818,13 @@ export function isShellPreexecCommandOscTitle(osc: string): boolean {
   // Require `&` at end of title or before `;` / another operator-like boundary.
   if (/(?:^|\s)&\s*$/.test(t) || /(?:^|\s)&\s*[;|]/.test(t)) return true;
   if (isTransientShellCommandOscTitle(t)) return true;
+  // Flag-only program invocations (`grok --always-approve`, `claude --yolo`).
+  // oh-my-zsh / similar auto-title copies the typed line; that is not a session
+  // topic. Bare program names (`git`) and subcommands (`git status`) still pass.
+  const tokens = t.split(/\s+/).filter(Boolean);
+  if (tokens.length > 1 && tokens.slice(1).every((tok) => tok.startsWith("-"))) {
+    return true;
+  }
   return false;
 }
 
@@ -888,7 +945,12 @@ export function isRedundantAgentOscTitle(
   const dynamic = context.dynamicTitle?.trim() ?? "";
   if (dynamic) {
     if (dynamic === t || dynamic.toLowerCase() === oscLower) return true;
-    if (normalizeAgentCommand(dynamic) === oscNorm && !/\s/.test(t)) return true;
+    const dynamicNorm = normalizeAgentCommand(dynamic);
+    const sameCli = sameCliCommandToken(dynamicNorm, oscNorm);
+    // Same CLI as the shim command, including args (`grok` vs `grok --always-approve`).
+    // Path-only cwd titles may share a basename with a topic — only collapse the
+    // single-token case there.
+    if (sameCli && !(isPathOnlyTitle(dynamic) && /\s/.test(t))) return true;
   }
 
   const agent = context.toolbarAgent;
@@ -897,13 +959,14 @@ export function isRedundantAgentOscTitle(
   const label = agent.label?.trim() ?? "";
   if (label && label.toLowerCase() === oscLower) return true;
 
-  // Single-token OSC that is just the agent CLI / brand / id (e.g. "claude").
+  const cliTokens = agentCliMatchTokens(agent);
+  // Typed / auto-titled invocation of this agent, with or without args/subcommands.
+  // Session topics do not start with the CLI token (`debugging auth`, not `claude …`).
+  if (oscMatchesAgentCli(oscNorm, cliTokens)) return true;
+
+  // Single-token OSC that is just the agent brand / id (e.g. "claude", "Claude Code").
   if (!/\s/.test(t)) {
-    const tokens = new Set<string>();
-    for (const raw of [agent.command, agent.pipeCommand, ...(agent.aliases ?? [])]) {
-      if (!raw?.trim()) continue;
-      tokens.add(normalizeAgentCommand(raw));
-    }
+    const tokens = new Set<string>(cliTokens);
     if (agent.id) tokens.add(agent.id.toLowerCase());
     if (label) {
       tokens.add(label.toLowerCase());
@@ -913,11 +976,15 @@ export function isRedundantAgentOscTitle(
       if (firstWord) tokens.add(firstWord);
     }
     if (tokens.has(oscNorm) || tokens.has(oscLower)) return true;
-    // Grok packaged binaries: osc "grok-macos-aarc" while agent cmd is "grok"
-    if (tokens.has("grok") && isGrokBuildCommandToken(oscNorm)) return true;
   }
 
   return false;
+}
+
+function oscMatchesAgentCli(token: string, cliTokens: Set<string>): boolean {
+  if (!token) return false;
+  if (cliTokens.has(token)) return true;
+  return cliTokens.has("grok") && isGrokBuildCommandToken(token);
 }
 
 /**
@@ -1070,11 +1137,6 @@ export function getTerminalDisplayTitle<TAgent extends TerminalTitleAgent>(optio
   contestedOwners?: ContestedOwnersMap;
   oscTitle?: string;
   suppressOscTitle?: boolean;
-  /**
-   * When false, hide the detected agent brand text (icon still shown by callers).
-   * Default true. OSC then joins with a space (no ` | `) because primary is empty.
-   */
-  showAgentName?: boolean;
 }) {
   return getTerminalDisplayMeta(options).displayTitle;
 }
@@ -1092,11 +1154,6 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
   oscTitle?: string;
   /** User set a custom pane label — hide OSC suffix. */
   suppressOscTitle?: boolean;
-  /**
-   * When false, hide the detected agent brand text (icon still shown by callers).
-   * Default true. With name hidden, primary is empty so OSC stands alone (no ` | `).
-   */
-  showAgentName?: boolean;
 }): {
   /** Combined title for plain string consumers (tabs, tooltips, a11y). */
   displayTitle: string;
@@ -1114,7 +1171,6 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
     contestedOwners,
     oscTitle,
     suppressOscTitle,
-    showAgentName = true,
   } = options;
   const dynamicTitleIsVersion = isVersionLikeTitle(dynamicTitle);
   // Pane leftover `agent` still brands when the live command is that agent
@@ -1148,24 +1204,20 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
     ? undefined
     : matchedDynamicAgent ?? fallbackAgent ?? (hasLiveDynamicTitle ? undefined : labelAgent);
 
-  // Agent brand is optional: icon stays (callers), name can be hidden to save space.
-  // When hidden, primary is empty so OSC (if any) is shown without a ` | ` separator.
+  // When an OSC/cwd/command title is present, hide agent brand text so the icon
+  // sits next to that title with no ` | `. If there is no other title yet, fall
+  // back to the agent name so tabs/toolbars are not icon-only.
   const nonAgentPrimary =
     (shouldPreferBaseTitleOverDynamic(dynamicTitle, dynamicTitleIsVersion, toolbarAgent)
       ? baseTitle
       : dynamicTitle) ??
     baseTitle ??
     "";
-  const primaryTitle = toolbarAgent
-    ? showAgentName !== false
-      ? toolbarAgent.label
-      : ""
-    : nonAgentPrimary;
+  const primaryTitle = toolbarAgent ? "" : nonAgentPrimary;
 
-  // Redundancy filter still knows the agent brand even when name is hidden,
-  // so bare OSC "claude" does not replace the icon-only brand identity.
-  const oscFilterPrimary =
-    toolbarAgent && showAgentName === false ? toolbarAgent.label : primaryTitle;
+  // Redundancy filter still knows the agent brand so bare OSC "claude"
+  // does not replace the agent identity.
+  const oscFilterPrimary = toolbarAgent ? toolbarAgent.label : primaryTitle;
 
   const oscSuffix =
     suppressOscTitle === true
@@ -1176,14 +1228,26 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
           toolbarAgent,
         });
 
+  const displayTitle = appendNativeOscTitle(primaryTitle, oscTitle, suppressOscTitle === true, {
+    autoDisplayTitle: oscFilterPrimary,
+    dynamicTitle,
+    toolbarAgent,
+  });
+
+  const agentLabel = toolbarAgent?.label?.trim() ?? "";
+  if (agentLabel && !displayTitle.trim() && !oscSuffix.trim()) {
+    return {
+      toolbarAgent,
+      primaryTitle: agentLabel,
+      oscSuffix: "",
+      displayTitle: agentLabel,
+    };
+  }
+
   return {
     toolbarAgent,
     primaryTitle,
     oscSuffix,
-    displayTitle: appendNativeOscTitle(primaryTitle, oscTitle, suppressOscTitle === true, {
-      autoDisplayTitle: oscFilterPrimary,
-      dynamicTitle,
-      toolbarAgent,
-    }),
+    displayTitle,
   };
 }

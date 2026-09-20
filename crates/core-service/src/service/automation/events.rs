@@ -18,6 +18,7 @@ pub enum AutomationDefinitionChange {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(clippy::large_enum_variant)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AutomationEvent {
     DefinitionUpdated {
@@ -40,4 +41,12 @@ pub enum AutomationEvent {
         final_chunk: bool,
     },
     Notification(AutomationNotificationPayload),
+    StalePrompt {
+        automation_guid: String,
+        run_guid: String,
+        display_name: String,
+        execute_mode: String,
+        surface_scope_id: Option<String>,
+        surface_session_id: Option<String>,
+    },
 }

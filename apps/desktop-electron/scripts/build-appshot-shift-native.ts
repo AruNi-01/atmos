@@ -15,6 +15,10 @@ import { fileURLToPath } from "node:url";
 
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const src = join(appRoot, "native/appshot-shift/appshot_shift.c");
+const captureSrc = join(
+  appRoot,
+  "native/appshot-shift/appshot_window_capture.m",
+);
 const hostShortcutsSrc = join(
   appRoot,
   "native/host-shortcuts/host_shortcuts.c",
@@ -40,8 +44,37 @@ function codesignAdHoc(path: string): void {
   }
 }
 
+// Bare `clang` can pick CommandLineTools MacOSX.sdk (e.g. 27.0 TBD files
+// listing arm64e.x1) while the selected Xcode ld cannot parse those
+// architectures. Pin the macosx SDK that matches the active toolchain.
+let cachedMacosSdk: string | undefined;
+
+function macosSdkPath(): string {
+  if (cachedMacosSdk) return cachedMacosSdk;
+  const sdk = spawnSync("xcrun", ["--sdk", "macosx", "--show-sdk-path"], {
+    encoding: "utf8",
+  });
+  const sdkRoot = (sdk.stdout || "").trim();
+  if (sdk.status !== 0 || !sdkRoot || !existsSync(sdkRoot)) {
+    throw new Error(
+      `could not resolve macosx SDK via xcrun: ${sdk.stderr || sdk.stdout || "unknown"}`,
+    );
+  }
+  cachedMacosSdk = sdkRoot;
+  return sdkRoot;
+}
+
+function runClang(args: string[]) {
+  const sdk = macosSdkPath();
+  return spawnSync(
+    "xcrun",
+    ["--sdk", "macosx", "clang", "-isysroot", sdk, ...args],
+    { encoding: "utf8" },
+  );
+}
+
 function buildDylib(out: string, args: string[]): void {
-  const clang = spawnSync("clang", args, { encoding: "utf8" });
+  const clang = runClang(args);
   if (clang.status !== 0) {
     throw new Error(
       `clang failed for ${out}:\n${clang.stderr || clang.stdout || "unknown"}`,
@@ -60,6 +93,7 @@ function main(): void {
     throw new Error(`missing native source: ${src}`);
   }
   mkdirSync(outDir, { recursive: true });
+  console.log(`[build-appshot-native] macosx SDK ${macosSdkPath()}`);
 
   // Electron koffi helper (existing path)
   buildDylib(outHelper, [
@@ -81,6 +115,8 @@ function main(): void {
   if (!existsSync(hostShortcutsSrc)) {
     throw new Error(`missing native source: ${hostShortcutsSrc}`);
   }
+  // No AppKit: this dylib is loaded into Electron. AppKit + LaunchServices
+  // from the tap thread SIGTRAPs PartitionAlloc (display-name → XPC alloc).
   buildDylib(outHostShortcuts, [
     "-dynamiclib",
     "-O2",
@@ -93,22 +129,23 @@ function main(): void {
     "CoreFoundation",
     "-framework",
     "CoreGraphics",
-    "-framework",
-    "AppKit",
-    "-framework",
-    "Foundation",
     "-install_name",
     "@rpath/libatmos_host_shortcuts.dylib",
   ]);
 
-  // Host inject — dual-shift inside Atmos Desktop Use serve process
+  if (!existsSync(captureSrc)) {
+    throw new Error(`missing capture source: ${captureSrc}`);
+  }
+  // Host inject — dual-shift + window capture inside Atmos Desktop Use serve
   buildDylib(outInject, [
     "-dynamiclib",
     "-O2",
+    "-fobjc-arc",
     "-DATMOS_APPSHOT_SHIFT_HOST_INJECT=1",
     "-o",
     outInject,
     src,
+    captureSrc,
     "-framework",
     "ApplicationServices",
     "-framework",
@@ -119,6 +156,8 @@ function main(): void {
     "AppKit",
     "-framework",
     "Foundation",
+    "-weak_framework",
+    "ScreenCaptureKit",
     "-install_name",
     "@rpath/libatmos_appshot_shift_inject.dylib",
   ]);
@@ -127,23 +166,19 @@ function main(): void {
   if (!existsSync(frontmostSrc)) {
     throw new Error(`missing frontmost source: ${frontmostSrc}`);
   }
-  const clang = spawnSync(
-    "clang",
-    [
-      "-O2",
-      "-fobjc-arc",
-      "-o",
-      outFrontmost,
-      frontmostSrc,
-      "-framework",
-      "AppKit",
-      "-framework",
-      "CoreGraphics",
-      "-framework",
-      "Foundation",
-    ],
-    { encoding: "utf8" },
-  );
+  const clang = runClang([
+    "-O2",
+    "-fobjc-arc",
+    "-o",
+    outFrontmost,
+    frontmostSrc,
+    "-framework",
+    "AppKit",
+    "-framework",
+    "CoreGraphics",
+    "-framework",
+    "Foundation",
+  ]);
   if (clang.status !== 0) {
     throw new Error(
       `clang frontmost failed:\n${clang.stderr || clang.stdout || "unknown"}`,

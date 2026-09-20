@@ -35,6 +35,7 @@ import {
   chunkDocLineRange,
   chunkFirstLineFrom,
   classifyChunkKind,
+  gitChunkIndicesForLineRanges,
   lineBgClassForChunk,
   textFromStringContent,
   type GitChunkKind,
@@ -454,17 +455,8 @@ function buildFloatbarActions(view: EditorView, chunkIndex: number): HTMLElement
     const stNow = view.state.field(gitGutterStateField);
     const ch = stNow.chunks[idx];
     if (!ch) return;
-    const targetLineFrom = chunkFirstLineFrom(ch, view.state.doc);
     view.dispatch({ effects: openGitSelection.of(idx) });
-    requestAnimationFrame(() => {
-      const block = view.lineBlockAt(targetLineFrom);
-      const scroller = view.scrollDOM;
-      const targetScrollTop = block.top + block.height / 2 - scroller.clientHeight / 2;
-      scroller.scrollTo({
-        top: Math.max(0, targetScrollTop),
-        behavior: 'smooth',
-      });
-    });
+    scrollGitGutterChunkIntoView(view, idx);
   };
 
   const prev = mkBtn(
@@ -932,6 +924,57 @@ const gitChangeGutter = gutter({
       ),
     ),
 });
+
+function openGitGutterChunkIndices(view: EditorView, indices: number[]): boolean {
+  const gs = view.state.field(gitGutterStateField, false);
+  if (!gs) return false;
+  if (gs.chunks.length === 0) return false;
+  if (indices.length === 0) return true;
+  if (indices.every((index) => gs.selectedIndices.has(index))) return true;
+  view.dispatch({
+    effects: indices.map((index) => openGitSelection.of(index)),
+  });
+  return true;
+}
+
+function scrollGitGutterChunkIntoView(view: EditorView, chunkIndex: number): void {
+  const gs = view.state.field(gitGutterStateField, false);
+  const chunk = gs?.chunks[chunkIndex];
+  if (!chunk) return;
+  const targetLineFrom = chunkFirstLineFrom(chunk, view.state.doc);
+  requestAnimationFrame(() => {
+    const block = view.lineBlockAt(targetLineFrom);
+    const scroller = view.scrollDOM;
+    const targetScrollTop = block.top + block.height / 2 - scroller.clientHeight / 2;
+    scroller.scrollTo({
+      top: Math.max(0, targetScrollTop),
+      behavior: "smooth",
+    });
+  });
+}
+
+export function openAllGitGutterChunks(view: EditorView): boolean {
+  const gs = view.state.field(gitGutterStateField, false);
+  if (!gs) return false;
+  const opened = openGitGutterChunkIndices(
+    view,
+    gs.chunks.map((_, index) => index),
+  );
+  if (opened) scrollGitGutterChunkIntoView(view, 0);
+  return opened;
+}
+
+export function openGitGutterChunksForLineRanges(
+  view: EditorView,
+  ranges: readonly { startLine: number; endLine: number }[],
+): boolean {
+  const gs = view.state.field(gitGutterStateField, false);
+  if (!gs) return false;
+  return openGitGutterChunkIndices(
+    view,
+    gitChunkIndicesForLineRanges(gs.chunks, view.state.doc, ranges),
+  );
+}
 
 /**
  * Git gutter: per-line bars, line backgrounds, expandable hunk panel above the first line.

@@ -3,10 +3,20 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  displayReasonFromProbe,
+  displayReasonFromStart,
   iframeSrc,
+  parseSimulatorDeviceMessage,
+  probeCanStart,
   setupActionForReason,
+  simulatorHelperReachable,
+  startablePlatforms,
   SIMULATOR_TAB_VALUE,
+  type SimulatorPlatformProbe,
+  type SimulatorProbe,
 } from "../types";
+import { parseSimulatorError } from "../lib/simulator-errors";
+import { isAndroidAvdName } from "../lib/simulator-inventory";
 import { useSimulatorCenterTabStore } from "../store/use-simulator-center-tab";
 
 const repoRoot = join(import.meta.dir, "../../../../../..");
@@ -14,13 +24,20 @@ const repoRoot = join(import.meta.dir, "../../../../../..");
 describe("simulator url + reasons", () => {
   it("forces loopback iframe urls", () => {
     expect(iframeSrc("http://127.0.0.1:3200", "UDID")).toContain("device=UDID");
+    expect(iframeSrc("http://127.0.0.1:3200", "UDID", "zh")).toContain("lang=zh");
     expect(iframeSrc("http://0.0.0.0:3200/?device=UDID")).toContain("127.0.0.1");
   });
 
   it("maps setup reasons to real buttons", () => {
-    expect(setupActionForReason("not_desktop")?.id).toBe("needDesktop");
+    expect(setupActionForReason("not_desktop")?.id).toBe("retry");
+    expect(setupActionForReason("not_desktop")?.kind).toBe("retry");
     expect(setupActionForReason("xcode_missing")?.id).toBe("installXcode");
     expect(setupActionForReason("no_device")?.id).toBe("openXcode");
+    expect(setupActionForReason("android_sdk_missing")?.id).toBe("installAndroidSdk");
+    expect(setupActionForReason("adb_missing")?.id).toBe("installAndroidSdk");
+    expect(setupActionForReason("emulator_missing")?.id).toBe("installAndroidSdk");
+    expect(setupActionForReason("no_avd")?.id).toBe("createAvd");
+    expect(setupActionForReason("device_already_claimed")?.id).toBe("retry");
     expect(setupActionForReason("ok")?.id).toBe("start");
     expect(setupActionForReason("helper_missing")?.id).toBe("start");
     expect(setupActionForReason("download_failed")?.kind).toBe("retry");
@@ -49,30 +66,57 @@ describe("control plane", () => {
     expect(client).not.toContain("desktopInvoke");
   });
 
-  it("does not start a helper until the user clicks Start", () => {
+  it("does not start a helper until the user picks iOS or Android", () => {
     const hook = readFileSync(
       join(import.meta.dir, "../hooks/use-simulator-session.ts"),
+      "utf8",
+    );
+    const card = readFileSync(
+      join(import.meta.dir, "../components/SimulatorSetupCard.tsx"),
       "utf8",
     );
     expect(hook).toContain("simulatorApi.probe()");
     expect(hook).toContain("simulatorApi.status(workspaceId)");
     expect(hook).not.toMatch(/if \(!active \|\| !workspaceId\) return;[\s\S]*void run\(\)/);
-    expect(enStartAction()).toBe("Start");
+    expect(hook).toContain("setPlatform(workspaceId, opts.platform)");
+    expect(card).toContain('onStart("ios")');
+    expect(card).toContain('onStart("android")');
+    expect(card).toContain('platform="ios"');
+    expect(card).toContain('platform="android"');
+    expect(card).toContain('size="xl"');
+    expect(card).toContain('className="min-w-0 flex-1"');
+    expect(card).not.toContain("flex-col gap-2");
+    expect(card).not.toContain("bg-card");
+    expect(card).not.toContain("rounded-xl border");
+    expect(enSimulatorActions().startIos).toBe("Start iOS");
+    expect(enSimulatorActions().startAndroid).toBe("Start Android");
   });
 });
-
-function enStartAction(): string {
-  return enSimulatorActions().start;
-}
 
 function enStopAction(): string {
   return enSimulatorActions().stop;
 }
 
-function enSimulatorActions(): { start: string; stop: string } {
+function enSimulatorActions(): {
+  start: string;
+  startIos: string;
+  startAndroid: string;
+  stop: string;
+} {
   const en = JSON.parse(
     readFileSync(join(repoRoot, "apps/web/messages/en.json"), "utf8"),
-  ) as { features: { simulator: { actions: { start: string; stop: string } } } };
+  ) as {
+    features: {
+      simulator: {
+        actions: {
+          start: string;
+          startIos: string;
+          startAndroid: string;
+          stop: string;
+        };
+      };
+    };
+  };
   return en.features.simulator.actions;
 }
 
@@ -86,6 +130,7 @@ describe("no custom phone chrome", () => {
     expect(panel).toContain("data-atmos-guest-iframe");
     expect(panel).toContain("simulator-guest.css");
     expect(panel).not.toContain("SimulatorScreen");
+    expect(panel).not.toContain("DeviceScreen");
     expect(panel).not.toContain("device-shell");
   });
 
@@ -107,13 +152,22 @@ describe("no custom phone chrome", () => {
       "utf8",
     );
     expect(header).not.toContain("SimulatorStopButton");
-    expect(panel).toContain("atmos:simulator-stop");
+    expect(panel).toContain("SIMULATOR_STOP_MESSAGE");
+    expect(panel).toContain("parseSimulatorDeviceMessage");
     expect(panel).toContain("session.disconnect()");
+    expect(panel).toContain("session.start({ udid: device.udid, platform: device.platform })");
     expect(client).toContain("<StopPreviewButton");
+    expect(client).toContain("requestAtmosSimulatorDevice");
     expect(stop).toContain("Power");
     expect(stop).toContain("#f87171");
     expect(stop).toContain("Stop the simulator preview?");
     expect(enStopAction()).toBe("Stop");
+    const stream = readFileSync(
+      join(repoRoot, "vendor/serve-sim/packages/serve-sim/src/client/simulator/useSimStream.ts"),
+      "utf8",
+    );
+    expect(stream).not.toContain('exec("serve-sim --kill")');
+    expect(stream).toContain("atmos:simulator-stop");
   });
 
   it("freezes the guest iframe while host tooltips or sidebar drags use the pointer", () => {
@@ -135,7 +189,7 @@ describe("no custom phone chrome", () => {
     );
     expect(layout).toContain('data-atmos-drag-active');
     expect(layout).toContain("relative z-20");
-    expect(layout).toContain("-right-1.5");
+    expect(layout).toContain("-mx-1.5");
     expect(layout).not.toContain("rightPanelRef");
   });
 });
@@ -144,10 +198,32 @@ describe("i18n", () => {
   it("uses sentence case and translated zh without npx", () => {
     const en = JSON.parse(
       readFileSync(join(repoRoot, "apps/web/messages/en.json"), "utf8"),
-    ) as { features: { simulator: Record<string, unknown> } };
+    ) as {
+      features: {
+        simulator: {
+          tab: string;
+          starting: string;
+          actions: { installAndroidSdk: string; createAvd: string; startIos: string };
+          choosePlatform: { title: string };
+          reasons: { no_avd: { title: string }; not_desktop: { title: string; body: string } };
+        };
+      };
+      appShell: { centerStageTabGroups: { groups: { simulator: string } } };
+    };
     const zh = JSON.parse(
       readFileSync(join(repoRoot, "apps/web/messages/zh.json"), "utf8"),
-    ) as { features: { simulator: Record<string, unknown> } };
+    ) as {
+      features: {
+        simulator: {
+          tab: string;
+          starting: string;
+          actions: { createAvd: string; startIos: string };
+          choosePlatform: { title: string };
+          reasons: { no_avd: { title: string }; not_desktop: { title: string; body: string } };
+        };
+      };
+      appShell: { centerStageTabGroups: { groups: { simulator: string } } };
+    };
     const dump = JSON.stringify(en.features.simulator);
     const zhDump = JSON.stringify(zh.features.simulator);
     expect(dump.toLowerCase()).not.toContain("npx");
@@ -156,6 +232,23 @@ describe("i18n", () => {
     expect(en.features.simulator.tab).toBe("Simulator");
     expect(zh.features.simulator.tab).toBe("模拟器");
     expect(zh.features.simulator.starting).not.toBe(en.features.simulator.starting);
+    expect(en.features.simulator.actions.installAndroidSdk).toBe("Install Android Studio");
+    expect(en.features.simulator.actions.createAvd).toBe("Create an Android virtual device");
+    expect(zh.features.simulator.actions.createAvd).toBe("创建 Android 虚拟设备");
+    expect(en.features.simulator.actions.startIos).toBe("Start iOS");
+    expect(zh.features.simulator.actions.startIos).toBe("启动 iOS");
+    expect(en.features.simulator.choosePlatform.title).toBe("Choose a platform");
+    expect(zh.features.simulator.choosePlatform.title).toBe("选择平台");
+    expect(en.appShell.centerStageTabGroups.groups.simulator).toBe("Simulator");
+    expect(zh.appShell.centerStageTabGroups.groups.simulator).toBe("模拟器");
+    expect(en.features.simulator.reasons.no_avd.title).toBe("No Android virtual device");
+    expect(zh.features.simulator.reasons.no_avd.title).not.toBe(
+      en.features.simulator.reasons.no_avd.title,
+    );
+    expect(en.features.simulator.reasons.not_desktop.title).toBe("Needs this Mac");
+    expect(zh.features.simulator.reasons.not_desktop.body).not.toBe(
+      en.features.simulator.reasons.not_desktop.body,
+    );
   });
 });
 
@@ -167,6 +260,15 @@ describe("center simulator tab", () => {
     );
     expect(tabBar).toContain("onCreateSimulator");
     expect(tabBar).toContain("newSimulator");
+    expect(tabBar).toContain("SimulatorTabIcon");
+
+    const groups = readFileSync(
+      join(import.meta.dir, "../../../app-shell/use-center-stage-tab-groups.ts"),
+      "utf8",
+    );
+    expect(groups).toContain("collectSimulatorGroupTabs");
+    expect(groups).toContain('key: "simulator"');
+    expect(groups).toContain('t("groups.simulator")');
 
     const frame = readFileSync(
       join(import.meta.dir, "../../../app-shell/workspace-center-frame.tsx"),
@@ -217,6 +319,7 @@ describe("center simulator tab", () => {
     expect(hostBin).toContain("/$bunfs/");
     expect(hostBin).toContain("rewriteHostCommand");
     expect(execWs).toContain("rewriteHostCommand(command)");
+    expect(execWs).toContain("isGlobalServeSimKill");
   });
 
   it("does not open the tools pane on first visit", () => {
@@ -226,5 +329,538 @@ describe("center simulator tab", () => {
     );
     expect(client).toMatch(/if \(typeof window === "undefined"\) return false;/);
     expect(client).toMatch(/if \(stored === "1"\) return true;\s*return false;/);
+  });
+});
+
+function blockedPlatform(reason: SimulatorPlatformProbe["reason"]): SimulatorPlatformProbe {
+  return {
+    ready: false,
+    reason,
+    helper_installed: false,
+    helper_version: "0",
+    devices: [],
+  };
+}
+
+function readyPlatform(): SimulatorPlatformProbe {
+  return {
+    ready: true,
+    reason: "ok",
+    helper_installed: true,
+    helper_version: "0",
+    devices: [],
+  };
+}
+
+describe("nested probe reasons", () => {
+  it("starts when either platform is ready and prefers iOS copy when both are blocked", () => {
+    const host: SimulatorProbe = {
+      ready: true,
+      reason: "ok",
+      platform: "macos",
+      arch: "aarch64",
+      macos_version: "15.0",
+      ios: blockedPlatform("xcode_missing"),
+      android: readyPlatform(),
+    };
+    expect(probeCanStart(host)).toBe(true);
+    expect(displayReasonFromProbe(host)).toBe("ok");
+
+    const bothBlocked: SimulatorProbe = {
+      ready: false,
+      reason: "xcode_missing",
+      platform: "macos",
+      arch: "aarch64",
+      macos_version: "15.0",
+      ios: blockedPlatform("xcode_missing"),
+      android: blockedPlatform("android_sdk_missing"),
+    };
+    expect(probeCanStart(bothBlocked)).toBe(false);
+    expect(displayReasonFromProbe(bothBlocked)).toBe("xcode_missing");
+  });
+
+  it("lists startable platforms without defaulting to iOS", () => {
+    expect(
+      startablePlatforms({
+        ready: true,
+        reason: "ok",
+        platform: "macos",
+        arch: "aarch64",
+        macos_version: "15.0",
+        ios: readyPlatform(),
+        android: readyPlatform(),
+      }),
+    ).toEqual(["ios", "android"]);
+    expect(
+      startablePlatforms({
+        ready: true,
+        reason: "ok",
+        platform: "macos",
+        arch: "aarch64",
+        macos_version: "15.0",
+        ios: blockedPlatform("xcode_missing"),
+        android: {
+          ready: false,
+          reason: "helper_missing",
+          helper_installed: false,
+          helper_version: "0",
+          devices: [],
+        },
+      }),
+    ).toEqual(["android"]);
+    expect(
+      startablePlatforms({
+        ready: false,
+        reason: "unsupported_platform",
+        platform: "linux",
+        arch: "x86_64",
+        macos_version: null,
+        ios: blockedPlatform("unsupported_platform"),
+        android: blockedPlatform("unsupported_platform"),
+      }),
+    ).toEqual([]);
+  });
+
+  it("maps no_device to claimed when probe still lists devices", () => {
+    const probe: SimulatorProbe = {
+      ready: true,
+      reason: "ok",
+      platform: "macos",
+      arch: "aarch64",
+      macos_version: "15.0",
+      ios: {
+        ...readyPlatform(),
+        devices: [
+          {
+            udid: "phone-a",
+            name: "iPhone",
+            runtime: "ios",
+            state: "Booted",
+            available: true,
+            platform: "ios",
+            claimed_by_workspace: "ws-a",
+          },
+        ],
+      },
+      android: blockedPlatform("android_sdk_missing"),
+    };
+    expect(displayReasonFromStart("no_device", probe)).toBe("device_already_claimed");
+    expect(displayReasonFromStart("no_device", bothBlockedProbe())).toBe("no_device");
+  });
+});
+
+function bothBlockedProbe(): SimulatorProbe {
+  return {
+    ready: false,
+    reason: "xcode_missing",
+    platform: "macos",
+    arch: "aarch64",
+    macos_version: "15.0",
+    ios: blockedPlatform("xcode_missing"),
+    android: blockedPlatform("android_sdk_missing"),
+  };
+}
+
+describe("local web vs remote computer", () => {
+  it("lets loopback Computers start, including hosted web, and blocks relay", () => {
+    const hook = readFileSync(
+      join(import.meta.dir, "../hooks/use-simulator-session.ts"),
+      "utf8",
+    );
+    expect(hook).not.toContain("isHostedAtmosOrigin()");
+    expect(hook).not.toMatch(/if\s*\(\s*!isDesktopRuntime\(\)\s*\)/);
+    expect(hook).toContain("simulatorHelperReachable(connectionMode)");
+    expect(hook).toContain("simulatorApi.start(workspaceId, opts)");
+    expect(simulatorHelperReachable("local")).toBe(true);
+    expect(simulatorHelperReachable(null)).toBe(true);
+    expect(simulatorHelperReachable("relay")).toBe(false);
+    expect(setupActionForReason("not_desktop")?.kind).toBe("retry");
+  });
+
+  it("parses iframe device-switch messages", () => {
+    expect(parseSimulatorDeviceMessage({ type: "atmos:simulator-device", udid: "Pixel_8", platform: "android" })).toEqual({
+      udid: "Pixel_8",
+      platform: "android",
+    });
+    expect(parseSimulatorDeviceMessage({ type: "atmos:simulator-stop" })).toBeNull();
+    expect(parseSimulatorDeviceMessage({ type: "atmos:simulator-device", udid: "  " })).toBeNull();
+  });
+});
+
+describe("serve-sim pin 0.1.48", () => {
+  it("pins 0.1.48-atmos.1 with Atmos patches and omits simcam from pack", () => {
+    const pin = JSON.parse(
+      readFileSync(
+        join(repoRoot, "crates/core-service/pins/serve-sim-requirement.json"),
+        "utf8",
+      ),
+    ) as { version: string; asset: string };
+    const upstream = readFileSync(join(repoRoot, "vendor/serve-sim/UPSTREAM.md"), "utf8");
+    const patches = readFileSync(join(repoRoot, "vendor/serve-sim/ATMOS-PATCHES.md"), "utf8");
+    const pack = readFileSync(join(repoRoot, "scripts/serve-sim/pack.sh"), "utf8");
+    const pkg = JSON.parse(
+      readFileSync(
+        join(repoRoot, "vendor/serve-sim/packages/serve-sim/package.json"),
+        "utf8",
+      ),
+    ) as { version: string };
+    const index = readFileSync(
+      join(repoRoot, "vendor/serve-sim/packages/serve-sim/src/index.ts"),
+      "utf8",
+    );
+    const hostBin = readFileSync(
+      join(repoRoot, "vendor/serve-sim/packages/serve-sim/src/host-bin.ts"),
+      "utf8",
+    );
+    const stream = readFileSync(
+      join(repoRoot, "vendor/serve-sim/packages/serve-sim/src/client/simulator/useSimStream.ts"),
+      "utf8",
+    );
+    const stop = readFileSync(
+      join(repoRoot, "vendor/serve-sim/packages/serve-sim/src/client/components/stop-preview-button.tsx"),
+      "utf8",
+    );
+
+    expect(pin.version).toBe("0.1.48-atmos.1");
+    expect(pkg.version).toBe(pin.version);
+    expect(pin.asset).toContain(pin.version);
+    expect(upstream).toContain("@expo/serve-sim@0.1.48");
+    expect(upstream).toContain(pin.version);
+    expect(patches).toContain("127.0.0.1");
+    expect(patches).toContain("atmos:simulator-stop");
+    expect(patches).toMatch(/No global `--kill`/);
+    expect(index).toContain("Atmos always binds 127.0.0.1");
+    expect(hostBin).toContain("export function isGlobalServeSimKill");
+    expect(stream).toContain("atmos:simulator-stop");
+    expect(stream).not.toContain('exec("serve-sim --kill")');
+    expect(stop).toContain("atmos:simulator-stop");
+    expect(pack).toContain("Camera dylibs (`dist/simcam/`) are not required");
+    expect(pack).not.toMatch(/cp .*dist\/simcam/);
+    expect(pack).not.toContain("$STAGE/simcam");
+  });
+});
+
+describe("serve-emu vendor + install", () => {
+  it("pins serve-emu under runtime-manager paths without npx or serve-avd", () => {
+    const pin = JSON.parse(
+      readFileSync(
+        join(repoRoot, "crates/core-service/pins/serve-emu-requirement.json"),
+        "utf8",
+      ),
+    ) as { version: string; asset: string; upstream_commit: string };
+    expect(pin.version).toBe("0.0.5-atmos.1");
+    expect(pin.asset).toContain("serve-emu-");
+    expect(pin.upstream_commit).toBe("def2e0d87a60857ba5a303750bcb7de9f5fc7185");
+
+    const pack = readFileSync(join(repoRoot, "scripts/serve-emu/pack.sh"), "utf8");
+    expect(pack).toContain("runtime/serve-emu/${VERSION}");
+    expect(pack).toContain("bun build --compile");
+    expect(pack).toContain("missing $SCRCPY");
+    expect(pack).toContain('cp -R "$UI" "$STAGE/ui"');
+    expect(pack).toContain("missing UI build");
+    expect(pack).not.toContain("npx");
+    expect(pack).not.toContain("serve-avd");
+
+    const uiDir = readFileSync(
+      join(repoRoot, "vendor/serve-emu/packages/serve-emu/src/ui-dir.ts"),
+      "utf8",
+    );
+    expect(uiDir).toContain('join(dirname(exec), "ui")');
+    expect(uiDir).toContain("/$bunfs/");
+
+    const spawn = readFileSync(
+      join(repoRoot, "crates/core-service/src/service/device_preview/production.rs"),
+      "utf8",
+    ).split("#[cfg(test)]")[0];
+    const args = readFileSync(
+      join(repoRoot, "crates/core-service/src/service/device_preview/args.rs"),
+      "utf8",
+    ).split("#[cfg(test)]")[0];
+    expect(spawn).toContain("vendor/scrcpy-server-v4.0");
+    expect(spawn).not.toContain("npx");
+    expect(spawn).not.toContain("serve-avd");
+    expect(args).toContain('"127.0.0.1"');
+    expect(args).not.toContain("npx");
+    expect(args).not.toContain("serve-avd");
+    expect(args).toContain("args_contain_global_kill");
+  });
+
+  it("lists Apache-2.0 serve-emu in NOTICE and vendors the tree", () => {
+    const notice = readFileSync(join(repoRoot, "NOTICE"), "utf8");
+    const license = readFileSync(join(repoRoot, "vendor/serve-emu/LICENSE"), "utf8");
+    const upstream = readFileSync(join(repoRoot, "vendor/serve-emu/UPSTREAM.md"), "utf8");
+    expect(notice).toContain("serve-emu");
+    expect(notice).toContain("Apache License 2.0");
+    expect(notice).toContain("def2e0d87a60857ba5a303750bcb7de9f5fc7185");
+    expect(notice.toLowerCase()).not.toContain("serve-avd");
+    expect(license).toContain("Apache License");
+    expect(upstream).toContain("serve-emu");
+    expect(upstream).toContain("def2e0d87a60857ba5a303750bcb7de9f5fc7185");
+  });
+
+  it("keeps serve-emu chrome selectors aligned with device preview", () => {
+    const app = readFileSync(
+      join(repoRoot, "vendor/serve-emu/packages/serve-emu/src/ui/app.tsx"),
+      "utf8",
+    );
+    const panel = readFileSync(
+      join(repoRoot, "vendor/serve-emu/packages/serve-emu/src/ui/components/device-panel.tsx"),
+      "utf8",
+    );
+    const status = readFileSync(
+      join(repoRoot, "vendor/serve-emu/packages/serve-emu/src/ui/components/status-bar.tsx"),
+      "utf8",
+    );
+    const cli = readFileSync(
+      join(repoRoot, "vendor/serve-emu/packages/serve-emu/src/cli.ts"),
+      "utf8",
+    );
+    expect(app).toContain("useClaimedDeviceLabel");
+    expect(app).toContain("data-atmos-device-identity");
+    expect(app).toContain("data-atmos-device-actions");
+    expect(app).toContain("data-atmos-tools-panel");
+    expect(app).toContain("Stop the emulator preview?");
+    expect(app).toContain("atmos:simulator-stop");
+    expect(app).toContain('useState(false)');
+    expect(status).toContain("Device preview");
+    expect(status).not.toContain(">serve-emu<");
+    expect(panel).toContain('device.kind !== "physical"');
+    expect(panel).toContain("atmos:simulator-device");
+    expect(panel).toContain("requestAtmosDeviceClaim");
+    expect(panel).toContain("This preview is locked to the claimed device.");
+    expect(cli).toContain("Atmos: always bind loopback");
+    expect(cli).not.toContain("serve-avd");
+  });
+});
+
+describe("device preview chrome and inventory", () => {
+  it("keeps appearance and android camera on Atmos chrome around the iframe", () => {
+    const panel = readFileSync(
+      join(import.meta.dir, "../components/SimulatorPanel.tsx"),
+      "utf8",
+    );
+    const appearance = readFileSync(
+      join(import.meta.dir, "../components/SimulatorAppearanceControl.tsx"),
+      "utf8",
+    );
+    const camera = readFileSync(
+      join(import.meta.dir, "../components/SimulatorCameraControl.tsx"),
+      "utf8",
+    );
+    expect(panel).toContain("SimulatorAppearanceControl");
+    expect(panel).toContain("data-atmos-simulator-chrome");
+    expect(panel).toContain('t("appearance")');
+    expect(appearance).toContain('t("appearance")');
+    expect(appearance).toContain('t("light")');
+    expect(appearance).toContain('t("dark")');
+    expect(appearance).toContain('value="light"');
+    expect(appearance).toContain('value="dark"');
+    expect(panel).toContain('claimedPlatform === "android"');
+    expect(camera).toContain('platform === "android"');
+    expect(camera).toContain("if (!show) return null");
+    expect(panel).toContain("<iframe");
+    expect(panel).toContain("data-atmos-guest-iframe");
+    expect(panel).not.toContain("SimulatorScreen");
+    expect(panel).not.toContain("DeviceScreen");
+    expect(panel).not.toContain("toastManager");
+    expect(appearance).not.toContain("toastManager");
+    expect(camera).not.toContain("toastManager");
+    expect(camera).toContain("png_base64");
+    expect(camera).toContain("cameraInject");
+    expect(camera).toContain("cameraClear");
+    expect(camera).toContain("readPngBase64");
+    expect(camera).toContain('t("cameraHelper")');
+    expect(camera).toContain("fn: () => Promise<unknown>");
+  });
+
+  it("lists host devices and gates add/boot when relay is blocked", () => {
+    const panel = readFileSync(
+      join(import.meta.dir, "../components/SimulatorPanel.tsx"),
+      "utf8",
+    );
+    const inventory = readFileSync(
+      join(import.meta.dir, "../components/SimulatorInventoryPanel.tsx"),
+      "utf8",
+    );
+    const create = readFileSync(
+      join(import.meta.dir, "../components/SimulatorCreateDeviceDialog.tsx"),
+      "utf8",
+    );
+    const hook = readFileSync(
+      join(import.meta.dir, "../hooks/use-simulator-inventory.ts"),
+      "utf8",
+    );
+    expect(SIMULATOR_TAB_VALUE).toBe("simulator");
+    expect(panel).toContain('session.reason === "not_desktop"');
+    expect(panel).toContain("SimulatorSetupCard");
+    expect(panel).toContain("SimulatorInventoryPanel");
+    expect(panel).toContain("enabled: active && !relayBlocked");
+    expect(panel).toContain("actionsEnabled={!relayBlocked}");
+    expect(inventory).toContain("actions.addDevice");
+    expect(inventory).toContain("actions.boot");
+    expect(inventory).toContain("actions.shutdown");
+    expect(inventory).toContain("actions.delete");
+    expect(inventory).toContain("actions.preview");
+    expect(inventory).toContain("onPreview");
+    expect(create).toContain("supported_device_types");
+    expect(create).toContain("android.device_types");
+    expect(create).toContain("android.runtimes");
+    expect(create).toContain("isAndroidAvdName");
+    expect(create).not.toContain("simulatorApi.boot");
+    expect(create).not.toContain("simulatorApi.start");
+    expect(hook).toContain("listenSimulatorDevicesChanged");
+    expect(hook).toContain("simulatorApi.inventory");
+    expect(hook).toContain("simulatorApi.create");
+    expect(hook).toContain("simulatorApi.boot");
+    expect(hook).toContain("simulatorApi.shutdown");
+    expect(hook).toContain("simulatorApi.delete");
+    expect(`${panel}\n${inventory}\n${create}\n${hook}`.toLowerCase()).not.toContain(
+      ["device", "hub"].join("-"),
+    );
+    expect(`${panel}\n${inventory}`).not.toContain("uppercase");
+  });
+
+  it("keeps create/boot/shutdown on the Atmos contract, not helper pages", () => {
+    const contract = readFileSync(
+      join(repoRoot, "packages/api-types/src/ws/contract/simulator.ts"),
+      "utf8",
+    );
+    const client = readFileSync(
+      join(import.meta.dir, "../../../api/ws/simulator-api.ts"),
+      "utf8",
+    );
+    const serveSimUi = readFileSync(
+      join(repoRoot, "vendor/serve-sim/packages/serve-sim/src/client/client.tsx"),
+      "utf8",
+    );
+    const serveEmuUi = readFileSync(
+      join(repoRoot, "vendor/serve-emu/packages/serve-emu/src/ui/app.tsx"),
+      "utf8",
+    );
+    for (const action of [
+      "simulator_create",
+      "simulator_boot",
+      "simulator_shutdown",
+      "simulator_delete",
+      "simulator_inventory",
+    ]) {
+      expect(contract).toContain(`${action}:`);
+      expect(client).toContain(`wsRequest("${action}"`);
+    }
+    const exportStart = client.indexOf("export type {");
+    const exported = client.slice(
+      exportStart,
+      client.indexOf('} from "@atmos/api-types/ws/dto/simulator"', exportStart),
+    );
+    expect(exported).toContain("SimulatorDevicePlatform");
+    const helperUi = `${serveSimUi}\n${serveEmuUi}`;
+    expect(helperUi).not.toContain("simulator_create");
+    expect(helperUi).not.toContain("simulator_boot");
+    expect(helperUi).not.toContain("simulator_inventory");
+    expect(helperUi).not.toContain("Add device");
+  });
+
+  it("parses typed simulator errors and android names", () => {
+    expect(parseSimulatorError(new Error("[NO_CLAIM] no live Device Preview claim"))).toBe("no_claim");
+    expect(parseSimulatorError(new Error("[error] Processing error: boot_failed"))).toBe("boot_failed");
+    expect(parseSimulatorError(new Error("[CAMERA_UNAVAILABLE] camera is unavailable"))).toBe(
+      "camera_unavailable",
+    );
+    expect(isAndroidAvdName("Pixel_8")).toBe(true);
+    expect(isAndroidAvdName("Pixel 8")).toBe(false);
+  });
+
+  it("localizes chrome copy in sentence case", () => {
+    const en = JSON.parse(
+      readFileSync(join(repoRoot, "apps/web/messages/en.json"), "utf8"),
+    ) as {
+      features: {
+        simulator: {
+          appearance: string;
+          light: string;
+          dark: string;
+          camera: string;
+          front: string;
+          back: string;
+          cameraHelper: string;
+          choosePng: string;
+          actions: {
+            addDevice: string;
+            boot: string;
+            shutdown: string;
+            delete: string;
+            preview: string;
+            clear: string;
+          };
+          inventory: { empty: string };
+          createDialog: { description: string; androidNameHint: string };
+          reasons: {
+            camera_unavailable: { title: string; body: string };
+            no_claim: { title: string; body: string };
+          };
+        };
+      };
+    };
+    const zh = JSON.parse(
+      readFileSync(join(repoRoot, "apps/web/messages/zh.json"), "utf8"),
+    ) as {
+      features: {
+        simulator: {
+          appearance: string;
+          light: string;
+          dark: string;
+          cameraHelper: string;
+          actions: { addDevice: string; boot: string; shutdown: string };
+          inventory: { empty: string };
+          createDialog: { description: string; androidNameHint: string };
+          reasons: {
+            camera_unavailable: { title: string; body: string };
+            no_claim: { body: string };
+          };
+        };
+      };
+    };
+    const labels = [
+      en.features.simulator.appearance,
+      en.features.simulator.light,
+      en.features.simulator.dark,
+      en.features.simulator.camera,
+      en.features.simulator.front,
+      en.features.simulator.back,
+      en.features.simulator.choosePng,
+      en.features.simulator.actions.addDevice,
+      en.features.simulator.actions.boot,
+      en.features.simulator.actions.shutdown,
+      en.features.simulator.actions.delete,
+      en.features.simulator.actions.preview,
+      en.features.simulator.actions.clear,
+    ];
+    for (const label of labels) {
+      expect(label).not.toBe(label.toUpperCase());
+    }
+    expect(en.features.simulator.light).toBe("Light");
+    expect(en.features.simulator.dark).toBe("Dark");
+    expect(en.features.simulator.actions.addDevice).toBe("Add device");
+    expect(en.features.simulator.actions.boot).toBe("Boot");
+    expect(en.features.simulator.actions.shutdown).toBe("Shut down");
+    expect(en.features.simulator.actions.delete).toBe("Delete");
+    expect(en.features.simulator.actions.preview).toBe("Preview");
+    expect(en.features.simulator.front).toBe("Front");
+    expect(en.features.simulator.back).toBe("Back");
+    expect(en.features.simulator.cameraHelper).toBe(
+      "Reopen the camera in the app to see the new image.",
+    );
+    expect(zh.features.simulator.cameraHelper).not.toBe(en.features.simulator.cameraHelper);
+    expect(zh.features.simulator.createDialog.description).not.toBe(
+      en.features.simulator.createDialog.description,
+    );
+    expect(zh.features.simulator.inventory.empty).not.toBe(en.features.simulator.inventory.empty);
+    expect(zh.features.simulator.reasons.camera_unavailable.body).not.toBe(
+      en.features.simulator.reasons.camera_unavailable.body,
+    );
+    expect(zh.features.simulator.actions.addDevice).not.toBe(en.features.simulator.actions.addDevice);
+    expect(JSON.stringify(en.features.simulator)).not.toMatch(/\b(LIGHT|DARK|BOOT|FRONT|BACK)\b/);
+    expect(JSON.stringify(en.features.simulator).toLowerCase()).not.toContain("npx");
+    expect(JSON.stringify(zh.features.simulator).toLowerCase()).not.toContain("npx");
   });
 });

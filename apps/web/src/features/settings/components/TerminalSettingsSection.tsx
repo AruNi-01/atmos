@@ -77,12 +77,10 @@ export function TerminalSettingsSection({
     enabled: defaultSplitAgentEnabled,
     agentId: defaultSplitAgentId,
     runConfig: defaultSplitAgentRunConfig,
-    applyToNewTerminalTab,
     loadSettings: loadTerminalSplitPrefs,
     setEnabled: setDefaultSplitAgentEnabled,
     setAgentId: setDefaultSplitAgentId,
     setRunConfig: setDefaultSplitAgentRunConfig,
-    setApplyToNewTerminalTab,
   } = useTerminalSplitPrefsStore();
   const [behaviorExpanded, setBehaviorExpanded] = React.useState(true);
   const [richInputExpanded, setRichInputExpanded] = React.useState(true);
@@ -301,16 +299,6 @@ export function TerminalSettingsSection({
                   className="[&>label]:hidden"
                 />
               </div>
-            </SettingsGroupRow>
-            <SettingsGroupRow
-              title={t('defaultSplitAgent.newTerminalTab.title')}
-              description={t('defaultSplitAgent.newTerminalTab.description')}
-            >
-              <Switch
-                checked={applyToNewTerminalTab}
-                onCheckedChange={(value) => void setApplyToNewTerminalTab(!!value)}
-                aria-label={t('defaultSplitAgent.newTerminalTab.title')}
-              />
             </SettingsGroupRow>
           </>
         ) : null}

@@ -18,6 +18,7 @@ import {
   List,
   ListTodo,
   PencilRuler,
+  Layers,
   Plus,
   Presentation,
   Puzzle,
@@ -53,6 +54,7 @@ const ITEM_I18N_KEYS: Record<LaunchpadItemId, string> = {
   'pt-design': 'items.ptDesign',
   tasks: 'items.tasks',
   'new-workspace': 'items.newWorkspace',
+  'agent-sessions': 'items.agentSessions',
 };
 
 /** Icons match LeftSidebarLaunchpad item definitions. */
@@ -69,6 +71,7 @@ const ITEM_ICONS: Record<LaunchpadItemId, LucideIcon> = {
   'pt-design': PencilRuler,
   tasks: ListTodo,
   'new-workspace': Plus,
+  'agent-sessions': Layers,
 };
 
 /** Tab order: Outside (list below Launchpad) → Inside (grid cards). */

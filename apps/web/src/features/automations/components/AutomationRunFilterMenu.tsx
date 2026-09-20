@@ -22,13 +22,13 @@ import {
   Folder,
   FolderGit2,
   FolderPlus,
-  Github,
   LoaderCircle,
   Play,
   Terminal,
   Timer,
   XCircle,
 } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 
 import { PageFilterButton } from "@/shared/components/PageFilterButton";
 import type { AutomationRunSummary, AutomationSummary } from "@/features/automations/types";

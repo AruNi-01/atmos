@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Blocks, Coins, KeyRound, Plus, Trash2 } from "lucide-react";
+import { AlertCircle, Blocks, Coins, KeyRound, Plus, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import {
@@ -21,21 +21,216 @@ import {
   useSortable,
   useTimer,
 } from "@workspace/ui";
+import {
+  Tabs as MotionTabs,
+  TabsList as MotionTabsList,
+  TabsTrigger as MotionTabsTrigger,
+} from "@workspace/ui/components/motion/tabs";
+
+const QUOTA_MODE_TAB_CLASS =
+  "pointer-events-auto h-7 shrink-0 px-2.5 text-xs";
+
+const USAGE_BAR_FILL_MOTION =
+  "origin-left will-change-transform transition-transform duration-300 ease-out motion-reduce:transition-none";
 
 import type { QuotaManualSetupResponse } from "@/api/ws-api";
 
-import { formatCountdownDisplay, usagePortalUrl, type ProviderRegion } from "./quota-popover-utils";
+import {
+  formatCountdownDisplay,
+  quotaMetricShowsBar,
+  usagePortalUrl,
+  usageSegmentFillClass,
+  type ProviderRegion,
+  type QuotaMetricSegment,
+} from "./quota-popover-utils";
 
 const ALL_PROVIDER_ID = "all";
 
-export function UsageBar({ percent }: { percent?: number | null }) {
-  const safePercent = Math.max(0, Math.min(percent ?? 0, 100));
+export function QuotaFetchFailureBanner({
+  message,
+  className,
+}: {
+  message: string;
+  className?: string;
+}) {
   return (
-    <div className="h-3 w-full overflow-hidden rounded-full bg-muted/80">
-      <div
-        className="h-full rounded-full bg-foreground transition-all duration-300"
-        style={{ width: `${safePercent}%` }}
-      />
+    <div
+      role="status"
+      className={cn(
+        "flex items-start gap-3 rounded-[16px] bg-muted/45 px-4 py-3 text-sm text-foreground",
+        className,
+      )}
+    >
+      <AlertCircle className="mt-0.5 size-4 shrink-0" />
+      <div className="line-clamp-2">{message}</div>
+    </div>
+  );
+}
+
+export function UsageBar({
+  percent,
+  segments,
+  className,
+}: {
+  percent?: number | null;
+  segments?: QuotaMetricSegment[];
+  className?: string;
+}) {
+  const visibleSegments = (segments ?? []).filter((segment) => segment.percent > 0);
+  const total = Math.max(0, Math.min(percent ?? 0, 100));
+  const segmentSum = visibleSegments.reduce((sum, segment) => sum + segment.percent, 0);
+  const groupWidth = Math.max(
+    0,
+    Math.min(visibleSegments.length > 0 ? Math.max(total, segmentSum) : total, 100),
+  );
+  const fillStyle = { transform: `scaleX(${groupWidth / 100})` };
+
+  return (
+    <div
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(total)}
+      className={cn("h-1.5 w-full shrink-0 overflow-hidden rounded-full bg-muted", className)}
+    >
+      {visibleSegments.length > 0 ? (
+        <div className={cn("flex h-full w-full gap-px", USAGE_BAR_FILL_MOTION)} style={fillStyle}>
+          {visibleSegments.map((segment, index) => (
+            <div
+              key={segment.label}
+              className={cn(
+                "h-full min-w-1.5 rounded-full",
+                usageSegmentFillClass(segment.label, index),
+              )}
+              style={{ width: `${(segment.percent / segmentSum) * 100}%` }}
+              title={`${segment.label} ${Math.round(segment.percent)}%`}
+            />
+          ))}
+        </div>
+      ) : (
+        <div
+          className={cn("h-full w-full rounded-full bg-foreground", USAGE_BAR_FILL_MOTION)}
+          style={fillStyle}
+        />
+      )}
+    </div>
+  );
+}
+
+export function UsageBarLegend({
+  segments,
+  className,
+}: {
+  segments: QuotaMetricSegment[];
+  className?: string;
+}) {
+  const visibleSegments = segments.filter((segment) => segment.percent > 0);
+  if (visibleSegments.length === 0) return null;
+
+  return (
+    <div className={cn("flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-foreground", className)}>
+      {visibleSegments.map((segment, index) => (
+        <div key={segment.label} className="flex items-center gap-1.5">
+          <span
+            aria-hidden="true"
+            className={cn(
+              "size-2 shrink-0 rounded-full",
+              usageSegmentFillClass(segment.label, index),
+            )}
+          />
+          <span>
+            {segment.label}{" "}
+            <span className="tabular-nums">{Math.round(segment.percent)}%</span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function QuotaModeTabs({
+  value,
+  options,
+  onValueChange,
+}: {
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onValueChange: (value: string) => void;
+}) {
+  if (options.length < 2) return null;
+  return (
+    <MotionTabs value={value} onValueChange={onValueChange} variant="pill" className="w-fit">
+      <MotionTabsList className="h-8 w-fit gap-0.5 p-0.5">
+        {options.map((option) => (
+          <MotionTabsTrigger
+            key={option.value}
+            value={option.value}
+            className={QUOTA_MODE_TAB_CLASS}
+          >
+            {option.label}
+          </MotionTabsTrigger>
+        ))}
+      </MotionTabsList>
+    </MotionTabs>
+  );
+}
+
+export function QuotaMetricUsage({
+  label,
+  percent,
+  segments,
+  usedText,
+  detailText,
+  resetText,
+  compact = false,
+}: {
+  label?: string;
+  percent?: number | null;
+  segments: QuotaMetricSegment[];
+  usedText: string;
+  detailText?: string | null;
+  resetText: ReactNode;
+  compact?: boolean;
+}) {
+  const hasBar = quotaMetricShowsBar(percent);
+  const heading = label
+    ? usedText.trim()
+      ? `${label} · ${usedText}`
+      : label
+    : usedText;
+  const meta = (
+    <div
+      className={cn(
+        "flex items-baseline justify-between gap-4",
+        compact ? "text-[11px]" : "text-xs",
+      )}
+    >
+      <div className="min-w-0 text-xs font-medium text-foreground">
+        {heading}
+      </div>
+      {hasBar ? (
+        <div className="shrink-0 text-right text-foreground/90">
+          {detailText ? (
+            <>
+              <span>{detailText}</span>
+              {resetText ? <span> · </span> : null}
+            </>
+          ) : null}
+          {resetText}
+        </div>
+      ) : null}
+    </div>
+  );
+
+  if (!hasBar) {
+    return <div className={compact ? "mt-1" : "mt-2"}>{meta}</div>;
+  }
+
+  return (
+    <div className={compact ? "space-y-1.5" : "space-y-2"}>
+      {meta}
+      <UsageBar percent={percent} segments={segments} />
+      {segments.length > 0 ? <UsageBarLegend segments={segments} /> : null}
     </div>
   );
 }
@@ -266,6 +461,7 @@ export const PROVIDER_ICON_IDS = new Set([
   "amp",
   "zed",
   "grok",
+  "deepseek",
 ]);
 
 export function ProviderGlyph({

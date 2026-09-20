@@ -5,6 +5,7 @@ import {
   Button,
   Input,
   PushPageStack,
+  ScrollArea,
   Tabs,
   usePushPageTransition,
 } from "@workspace/ui";
@@ -52,7 +53,7 @@ import {
 export const SkillsView: React.FC = () => {
   const t = useTranslations("skills.view");
   const router = useAppRouter();
-  const [{ tab: activeTab, filter: scopeFilter, projects: projectsParam, q: query }, setParams] = useQueryStates(skillsParams);
+  const [{ skillsTab: activeTab, filter: scopeFilter, projects: projectsParam, q: query }, setParams] = useQueryStates(skillsParams);
   const { skillScope, skillId } = useContextParams();
   const {
     phase: pushPhase,
@@ -323,7 +324,7 @@ export const SkillsView: React.FC = () => {
                   </div>
                   <LaunchpadPageTabs
                     value={activeTab}
-                    onValueChange={(value) => void setParams({ tab: value as SkillsTab })}
+                    onValueChange={(value) => void setParams({ skillsTab: value as SkillsTab })}
                     items={[
                       { value: "installed", label: t("tabs.installed"), icon: Download },
                       { value: "market", label: t("tabs.market"), icon: Store },
@@ -377,11 +378,12 @@ export const SkillsView: React.FC = () => {
 
             <Tabs
               value={activeTab}
-              onValueChange={(value) => void setParams({ tab: value as SkillsTab })}
+              onValueChange={(value) => void setParams({ skillsTab: value as SkillsTab })}
               className="flex min-h-0 flex-1 flex-col overflow-hidden"
             >
-              <div className="flex-1 overflow-auto px-8 pb-8 pt-4">
-                <div className="mx-auto w-full max-w-5xl">
+              <ScrollArea className="min-h-0 flex-1" scrollFade>
+                <div className="px-8 pb-8 pt-4">
+                  <div className="mx-auto w-full max-w-5xl">
                   <SkillsInstalledTab
                     isLoading={isLoading}
                     skills={skills}
@@ -408,8 +410,9 @@ export const SkillsView: React.FC = () => {
                     query={query}
                     onClearSearch={() => void setParams({ q: "" })}
                   />
+                  </div>
                 </div>
-              </div>
+              </ScrollArea>
             </Tabs>
           </>
         }

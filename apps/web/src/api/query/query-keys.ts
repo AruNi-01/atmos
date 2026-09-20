@@ -124,9 +124,37 @@ export const queryKeys = {
       repoPath: string,
       params: { branchKey: string | null; limit: number; page: number },
     ) => [...queryKeys.computer.git(scope, repoPath), "log", params] as const,
+    /**
+     * Infinite current-branch commit log (`git_log` offset cursor).
+     * Page param is the skip offset returned as the next page cursor.
+     */
+    gitLogInfinite: (
+      scope: ComputerQueryScope,
+      repoPath: string,
+      params: { branchKey: string | null; limit: number },
+    ) => [...queryKeys.computer.git(scope, repoPath), "logInfinite", params] as const,
     /** Topological commit history pages for the center-tab graph. */
     gitHistory: (scope: ComputerQueryScope, repoPath: string) =>
       [...queryKeys.computer.git(scope, repoPath), "history"] as const,
+    gitLocalCommit: (
+      scope: ComputerQueryScope,
+      repoPath: string,
+      sha: string,
+    ) => [...queryKeys.computer.git(scope, repoPath), "localCommit", sha] as const,
+    /** Whole-file blame ranges. Do not put hover SHA or caret line in this key. */
+    gitFileBlame: (
+      scope: ComputerQueryScope,
+      repoPath: string,
+      filePath: string,
+    ) =>
+      [...queryKeys.computer.git(scope, repoPath), "fileBlame", filePath] as const,
+    /** Lazy git show --shortstat keyed only by commit SHA. */
+    gitCommitDetail: (
+      scope: ComputerQueryScope,
+      repoPath: string,
+      commitHash: string,
+    ) =>
+      [...queryKeys.computer.git(scope, repoPath), "commitDetail", commitHash] as const,
     /** Prefix for all filesystem queries — used for broad reconnect invalidation. */
     filesRoot: (scope: ComputerQueryScope) =>
       [...queryKeys.computer.root(scope), "files"] as const,
@@ -390,6 +418,16 @@ export const queryKeys = {
         params.login,
       ] as const,
 
+    linkPreview: (
+      scope: ComputerQueryScope,
+      params: { url: string },
+    ) =>
+      [
+        ...queryKeys.computer.root(scope),
+        "linkPreview",
+        params.url,
+      ] as const,
+
     /** GitHub: API rate limits (core / search / graphql) for local gh token */
     githubRateLimit: (scope: ComputerQueryScope) =>
       [...queryKeys.computer.root(scope), "github", "rateLimit"] as const,
@@ -545,6 +583,10 @@ export const queryKeys = {
     /** Agent registry: custom agent list */
     customAgentList: (scope: ComputerQueryScope) =>
       [...queryKeys.computer.root(scope), "agentRegistry", "customAgents"] as const,
+
+    /** Agent manager: Chat native hosts (independent of ACP registry) */
+    nativeChatAgentList: (scope: ComputerQueryScope) =>
+      [...queryKeys.computer.root(scope), "agentRegistry", "nativeAgents"] as const,
   },
   relay: {
     root: (scope: RelayQueryScope) =>
@@ -580,6 +622,11 @@ export const queryKeys = {
   publicGithub: {
     userCard: (login: string) =>
       ["atmos", "public", "github", "userCard", login] as const,
+  },
+  /** Unauthenticated FxTwitter (share/leaderboard hover cards). */
+  publicX: {
+    userCard: (username: string) =>
+      ["atmos", "public", "x", "userCard", username] as const,
   },
 } as const;
 

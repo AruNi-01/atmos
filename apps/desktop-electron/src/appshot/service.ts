@@ -13,6 +13,7 @@ import {
   readFileSync,
   renameSync,
   rmSync,
+  unlinkSync,
   writeFileSync,
   statSync,
 } from "node:fs";
@@ -28,6 +29,7 @@ import {
   captureFrontmostWindow,
   readFrontmostWindow,
 } from "./frontmost.js";
+import type { HostShiftCapturedPayload } from "./host-shift.js";
 import { mainLog } from "../main-log.js";
 import {
   CONTEXT_FILE,
@@ -168,7 +170,7 @@ export function buildMacosPermissions(flags: {
       manual_steps: [
         "System Settings → Privacy & Security → Accessibility",
         `Enable ${axProduct} (Left⇧+Right⇧ Appshots and desktop control)`,
-        "Return here and Refresh (restart Atmos if Accessibility stays off)",
+        `Return here and Refresh (restart ${axProduct} if Accessibility stays off)`,
       ],
     }),
     permissionState({
@@ -179,7 +181,7 @@ export function buildMacosPermissions(flags: {
       target: "screen_recording",
       manual_steps: [
         "System Settings → Privacy & Security → Screen & System Audio Recording",
-        `Enable ${screenProduct}, then return here and Refresh (restart the app if it stays off)`,
+        `Enable ${screenProduct}, then return here and Refresh (restart ${screenProduct} if it stays off)`,
       ],
     }),
   ];
@@ -304,20 +306,6 @@ async function macosPermissions(): Promise<AppshotPermissionState[]> {
 }
 
 /**
- * Prompt macOS to trust Atmos (Electron) for Accessibility.
- * Only needed for the pre-ensure dual-shift fallback (no host engine).
- */
-export async function requestElectronAccessibilityPrompt(): Promise<boolean> {
-  if (process.platform !== "darwin") return false;
-  try {
-    const { systemPreferences } = await import("electron");
-    return Boolean(systemPreferences.isTrustedAccessibilityClient(true));
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Report live status and (re)arm the dual-shift listener when Accessibility is on.
  */
 export async function appshotStatus(state?: AppState): Promise<AppshotStatus> {
@@ -355,7 +343,11 @@ export async function appshotStatus(state?: AppState): Promise<AppshotStatus> {
     );
     // Always (re)arm so granting Atmos Accessibility after boot restarts the
     // helper (existing taps do not pick up new TCC without recreate).
-    await ensureTriggerListener(state, triggerCapture, flags.accessibility);
+    await ensureTriggerListener(state, triggerCapture, flags.accessibility, {
+      hostCaptured: stageHostCapturedPreview,
+      needGrant: handleAppshotNeedGrant,
+      hostReady: handleHostShiftReady,
+    });
     const listener = triggerListenerStatus();
     const tapUp = listener.enabled || listener.starting;
     // Product-ready only when Atmos AX is on — otherwise keys never arrive.
@@ -553,12 +545,8 @@ export async function triggerCapture(state: AppState): Promise<void> {
     throw new Error("AppShot capture is only supported on macOS");
   }
 
-  // Dual-shift hot path (generic for all apps):
-  // 1) permissions ∥ SE frontmost (app + pid)
-  // 2) resolve content-window bounds (SE if good; else host list by pid / size)
-  // 3) border flash **in parallel with** host screenshot (crop drops overlay)
-  // 4) crop full-desktop PNG to that window
-  // Do not activate Atmos until after capture completes.
+  // Manual / Electron-helper path (engine not installed, or IPC trigger).
+  // Dual-shift with Desktop Use installed uses stageHostCapturedPreview instead.
   const [permissions, seFrontmost] = await Promise.all([
     macosPermissionsForCapture(),
     readFrontmostWindow().catch(() => null),
@@ -615,43 +603,16 @@ export async function triggerCapture(state: AppState): Promise<void> {
     playCaptureAnimationForFrontmost(systemFrontmost),
   ]);
 
-  const capturedAt = new Date().toISOString();
-  const previewId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  // Retina full-window PNGs often exceed the web inline budget (~512KB data URL).
-  // Always build a bounded thumbnail for the pending popover (Tauri parity).
-  const screenshotPreviewBase64 = await buildScreenshotPreviewBase64(result.png);
-  if (result.png && result.png.length > 0 && !screenshotPreviewBase64) {
-    result.warnings.push(
-      "Screenshot preview was hidden because the inline image payload is too large.",
-    );
-  }
-  // Capture succeeded via host engine — do not attach Electron-only TCC denials.
-  // macosPermissionsForCapture() is a light probe that often reports false for
-  // Screen Recording on Atmos itself while Desktop Use host is granted (and
-  // already produced the PNG). False denials blocked auto-accept and showed
-  // "Permissions required" on a successful preview.
-  const captureSucceeded = Boolean(result.png && result.png.length > 0);
-  const permissionsForPreview = captureSucceeded
-    ? permissions.map((p) =>
-        p.granted
-          ? p
-          : {
-              ...p,
-              granted: true,
-              recovery_action: null,
-            },
-      )
-    : permissions;
-
-  const capture: PendingCapture = {
-    previewId,
+  await presentPendingCapture(state, {
     appName: result.frontmost.appName,
     windowTitle: result.frontmost.windowTitle,
-    capturedAt,
     quality: result.quality,
-    screenshotPng: result.png,
-    screenshotPreviewBase64,
+    png: result.png,
     contextMarkdown: result.contextMarkdown,
+    warnings: result.warnings,
+    bundleId: result.frontmost.bundleId,
+    processId: result.frontmost.processId,
+    windowId: result.frontmost.windowId,
     sourceBounds:
       result.frontmost.x != null &&
       result.frontmost.y != null &&
@@ -664,17 +625,159 @@ export async function triggerCapture(state: AppState): Promise<void> {
             height: result.frontmost.height,
           }
         : null,
+    permissions,
+  });
+}
+
+export async function stageHostCapturedPreview(
+  state: AppState,
+  payload: HostShiftCapturedPayload,
+): Promise<void> {
+  let png: Buffer | null = null;
+  try {
+    if (existsSync(payload.png_path)) {
+      png = readFileSync(payload.png_path);
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    mainLog(`[appshot-capture] host png read failed: ${msg}`, "error");
+  }
+  try {
+    if (existsSync(payload.png_path)) unlinkSync(payload.png_path);
+  } catch {
+    /* tmp cleanup is best-effort */
+  }
+  if (!png || png.length === 0) {
+    await handleAppshotNeedGrant(["screen_recording"]);
+    return;
+  }
+
+  const sourceBounds = {
+    x: payload.x,
+    y: payload.y,
+    width: payload.width,
+    height: payload.height,
+  };
+  const frontmost = {
+    appName: payload.app_name,
+    windowTitle: payload.window_title,
+    bundleId: payload.bundle_id,
+    processId: payload.process_id,
+    windowId: payload.window_id > 0 ? String(payload.window_id) : null,
+    x: payload.x,
+    y: payload.y,
+    width: payload.width,
+    height: payload.height,
+  };
+  const { buildAppshotContextMarkdown } = await import(
+    "../desktop-use/capture.js"
+  );
+  const contextMarkdown = buildAppshotContextMarkdown(frontmost, []);
+  const permissions = await macosPermissionsForCapture();
+
+  await playCaptureAnimationForFrontmost(frontmost);
+  await presentPendingCapture(state, {
+    appName: frontmost.appName,
+    windowTitle: frontmost.windowTitle,
+    quality: payload.quality || "window",
+    png,
+    contextMarkdown,
+    warnings: [],
+    bundleId: frontmost.bundleId,
+    processId: frontmost.processId,
+    windowId: frontmost.windowId,
+    sourceBounds,
+    permissions,
+  });
+}
+
+export async function handleAppshotNeedGrant(missing: string[]): Promise<void> {
+  const target = missing.includes("accessibility") &&
+    !missing.includes("screen_recording")
+    ? "accessibility"
+    : "screen_recording";
+  try {
+    const { openDesktopUseGrantFlow } = await import(
+      "../desktop-use/host-grant.js"
+    );
+    await openDesktopUseGrantFlow({ target });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    mainLog(`[appshot-capture] grant overlay failed: ${msg}`, "warn");
+  }
+}
+
+export async function handleHostShiftReady(info: {
+  ax: boolean;
+  tap: boolean;
+}): Promise<void> {
+  if (info.ax) return;
+  await handleAppshotNeedGrant(["accessibility"]);
+}
+
+async function presentPendingCapture(
+  state: AppState,
+  input: {
+    appName: string;
+    windowTitle: string | null;
+    quality: string;
+    png: Buffer | null;
+    contextMarkdown: string;
+    warnings: string[];
+    bundleId: string | null;
+    processId: number | null;
+    windowId: string | null;
+    sourceBounds: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    } | null;
+    permissions: AppshotPermissionState[];
+  },
+): Promise<void> {
+  const capturedAt = new Date().toISOString();
+  const previewId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const screenshotPreviewBase64 = await buildScreenshotPreviewBase64(input.png);
+  const warnings = [...input.warnings];
+  if (input.png && input.png.length > 0 && !screenshotPreviewBase64) {
+    warnings.push(
+      "Screenshot preview was hidden because the inline image payload is too large.",
+    );
+  }
+  const captureSucceeded = Boolean(input.png && input.png.length > 0);
+  const permissionsForPreview = captureSucceeded
+    ? input.permissions.map((p) =>
+        p.granted
+          ? p
+          : {
+              ...p,
+              granted: true,
+              recovery_action: null,
+            },
+      )
+    : input.permissions;
+
+  const capture: PendingCapture = {
+    previewId,
+    appName: input.appName,
+    windowTitle: input.windowTitle,
+    capturedAt,
+    quality: input.quality,
+    screenshotPng: input.png,
+    screenshotPreviewBase64,
+    contextMarkdown: input.contextMarkdown,
+    sourceBounds: input.sourceBounds,
     permissions: permissionsForPreview,
-    warnings: result.warnings,
-    bundleId: result.frontmost.bundleId,
-    processId: result.frontmost.processId,
-    windowId: result.frontmost.windowId,
+    warnings,
+    bundleId: input.bundleId,
+    processId: input.processId,
+    windowId: input.windowId,
     platform: "macos",
   };
 
   const { expiresInMs } = globalPendingStore.insert(capture);
 
-  // Bring Atmos to front first so the fly destination (top-right chrome) is visible.
   try {
     if (process.platform === "darwin") {
       const { app } = await import("electron");
@@ -697,8 +800,6 @@ export async function triggerCapture(state: AppState): Promise<void> {
     state.mainWindow.focus();
   }
 
-  // Thumbnail arcs from the captured app into Atmos top-right (Appshots entry).
-  // Runs after Atmos is shown so the landing target is on-screen.
   if (
     process.platform === "darwin" &&
     screenshotPreviewBase64 &&
@@ -727,18 +828,15 @@ export async function triggerCapture(state: AppState): Promise<void> {
     }
   }
 
-  // Preview sheet appears as the card lands — closed visual loop.
   state.mainWindow?.webContents.send("atmos:desktop-event:appshot://preview", {
     preview_id: previewId,
     app_name: capture.appName,
-    // Keep empty titles null — preview/history should not invent "Untitled window"
-    // when the app name already identifies the capture.
     window_title: capture.windowTitle?.trim() || null,
     captured_at: capturedAt,
     quality: capture.quality,
     screenshot_preview_base64: capture.screenshotPreviewBase64,
     source_bounds: capture.sourceBounds,
-    permissions,
+    permissions: input.permissions,
     warnings: capture.warnings,
     expires_in_ms: expiresInMs || PREVIEW_EXPIRES_IN_MS,
   });
@@ -859,28 +957,27 @@ export async function openPermissions(target: string): Promise<void> {
   if (process.platform !== "darwin") return;
   const t = target.trim().toLowerCase();
   // Pre-ensure only: dual-shift uses Atmos (Electron). With host engine,
-  // grant goes through Desktop Use host identity (no Electron prompt).
+  // grant goes through Desktop Use host identity (Settings → Privacy).
   const flags = await resolveAppShotPermissionFlags();
-  if (
-    !flags.hostEngineInstalled &&
-    (t === "accessibility" || t === "all" || t === "privacy_security")
-  ) {
-    await requestElectronAccessibilityPrompt();
+  if (flags.hostEngineInstalled) {
+    const target =
+      t === "screen_recording" || t === "screen"
+        ? "screen_recording"
+        : "accessibility";
+    const { openDesktopUseGrantFlow } = await import(
+      "../desktop-use/host-grant.js"
+    );
+    await openDesktopUseGrantFlow({ target });
+    return;
   }
-  const urls: Record<string, string> = {
-    screen_recording:
-      "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
-    screen:
-      "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
-    accessibility:
-      "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
-    privacy_security:
-      "x-apple.systempreferences:com.apple.preference.security?Privacy",
-    all: "x-apple.systempreferences:com.apple.preference.security?Privacy",
-  };
-  const url = urls[t] ?? urls.all!;
-  const { shell } = await import("electron");
-  await shell.openExternal(url);
+  const purpose =
+    t === "screen_recording" || t === "screen"
+      ? "screen_recording"
+      : "accessibility";
+  const { grantAtmosAppPermission } = await import(
+    "../macos-app-permissions.js"
+  );
+  await grantAtmosAppPermission({ target: purpose });
 }
 
 export async function acceptPending(previewId: string): Promise<{

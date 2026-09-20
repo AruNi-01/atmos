@@ -1,22 +1,39 @@
 import React from "react";
 import type { ToolState } from "@workspace/ui";
-import { Brain, FileText, FolderInput, Globe, Pencil, Search, Terminal, Trash2, Wrench } from "lucide-react";
+import { BotMessageSquare, Brain, FileText, FolderInput, Globe, ImageIcon, Pencil, Plug, Search, Sparkles, Terminal, Trash2, Wrench } from "lucide-react";
 import { createTranslator } from "next-intl";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
-import type { AcpPermissionOption } from "@/features/agent/hooks/use-agent-session";
-import type { AssistantEntry, ThreadEntry, ToolCallBlock } from "@/features/agent/lib/agent/thread";
-import { isPlanUpdateToolCall } from "@/features/agent/lib/agent/thread";
+import type { AgentChatPermissionOption } from "@/features/agent/lib/agent-chat-types";
+import type {
+  AgentMessage,
+  AgentPart,
+  AgentSessionOpRequest,
+  AgentToolKind,
+} from "@atmos/api-types/ws/dto/agent-chat";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import {
+  isActiveToolStatus,
+  isSubagentWaitTool,
+  type AgentToolCallPart,
+} from "@/features/agent/lib/agent-tool-kind";
+import { isLiveBackgroundToolCall } from "@/features/agent/lib/agent/background-command";
+import { isNestedSubagentChild } from "@/features/agent/lib/tool-group";
+import { formatAgentToolActivityLine } from "@/features/agent/lib/tool-results/tool-activity-line";
 
 export interface PendingPermission {
   request_id: string;
   tool: string;
   description: string;
   content_markdown?: string;
+  /** Structured createPlan todos for ApprovalCard To-dos (prefer over markdown `- [ ]`). */
+  plan_todos?: Array<{ id?: string | null; content: string; status?: string }>;
   risk_level: string;
-  options: AcpPermissionOption[];
+  options: AgentChatPermissionOption[];
+  questions?: Array<{ id: string; prompt: string; options?: string[] }>;
 }
+
+export type PendingSessionOp = AgentSessionOpRequest;
 
 export interface DiffFileOutput {
   old_content: string;
@@ -26,7 +43,13 @@ export interface DiffFileOutput {
 
 export type AgentActivity =
   | { busy: false }
-  | { busy: true; label: string };
+  | {
+      busy: true;
+      label: string;
+      kind: "thinking" | "working";
+      /** When `none`, the transcript indicator does not append "...". */
+      trail?: "ellipsis" | "none";
+    };
 
 let cachedChatHelpersLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -43,21 +66,22 @@ function chatHelpersT(
     | "tool.execute"
     | "tool.fetch"
     | "tool.delete"
-    | "tool.think"
-    | "tool.labelWithPath"
-    | "tool.executeWithCommand"
-    | "tool.fetchWithUrl"
     | "activity.generating"
     | "activity.reading"
     | "activity.writing"
     | "activity.searching"
-    | "activity.runningCommand"
+    | "activity.executing"
     | "activity.fetching"
     | "activity.deleting"
+    | "activity.moving"
     | "activity.thinking"
     | "activity.working"
     | "activity.streaming"
-    | "download.defaultConversationName",
+    | "activity.creatingSession"
+    | "activity.resumingSession"
+    | "activity.waitingForBackgroundAgent"
+    | "activity.waitingForBackgroundAgents"
+    | "download.defaultChatName",
   fallback: string,
   values?: Record<string, string | number>,
 ): string {
@@ -79,35 +103,6 @@ function chatHelpersT(
   return cachedChatHelpersTranslator(key as never, values);
 }
 
-function localizeToolLabel(tool: string): string {
-  switch (tool.toLowerCase()) {
-    case "read":
-      return chatHelpersT("tool.read", "Read");
-    case "edit":
-      return chatHelpersT("tool.edit", "Edit");
-    case "move":
-      return chatHelpersT("tool.move", "Move");
-    case "search":
-      return chatHelpersT("tool.search", "Search");
-    case "execute":
-      return chatHelpersT("tool.execute", "Execute");
-    case "fetch":
-      return chatHelpersT("tool.fetch", "Fetch");
-    case "delete":
-      return chatHelpersT("tool.delete", "Delete");
-    case "think":
-    case "thought":
-    case "reasoning":
-    case "reason":
-      return chatHelpersT("tool.think", "Think");
-    case "tool":
-    case "other":
-      return chatHelpersT("tool.generic", "Tool");
-    default:
-      return tool;
-  }
-}
-
 export {
   clearAgentLastSession,
   readAgentLastSession,
@@ -116,8 +111,8 @@ export {
   writeAgentLastSession,
 } from '@/shared/stores/use-ui-pref-hooks';
 
-export function getToolIcon(tool: string): React.ReactNode {
-  switch ((tool || "").toLowerCase()) {
+export function getToolKindIcon(kind: AgentToolKind): React.ReactNode {
+  switch (kind) {
     case "read":
       return React.createElement(FileText);
     case "edit":
@@ -128,12 +123,80 @@ export function getToolIcon(tool: string): React.ReactNode {
       return React.createElement(FolderInput);
     case "search":
       return React.createElement(Search);
+    case "web_search":
+      return React.createElement(Search);
     case "execute":
+      return React.createElement(Terminal);
+    case "fetch":
+      return React.createElement(Globe);
+    case "skill":
+      return React.createElement(Sparkles);
+    case "subagent":
+      return React.createElement(BotMessageSquare);
+    case "mcp_list":
+    case "mcp_call":
+      return React.createElement(Plug);
+    case "image_gen":
+      return React.createElement(ImageIcon);
+    case "plan_document":
+      return React.createElement(FileText);
+    default:
+      return React.createElement(Wrench);
+  }
+}
+
+export function getToolIcon(tool: string): React.ReactNode {
+  switch ((tool || "").toLowerCase().replace(/[\s-]+/g, "_")) {
+    case "read":
+    case "readfile":
+    case "read_file":
+    case "view":
+    case "view_file":
+      return React.createElement(FileText);
+    case "edit":
+    case "write":
+    case "write_file":
+    case "searchreplace":
+    case "search_replace":
+    case "str_replace":
+      return React.createElement(Pencil);
+    case "delete":
+      return React.createElement(Trash2);
+    case "move":
+      return React.createElement(FolderInput);
+    case "search":
+    case "grep":
+    case "grepsearch":
+    case "grep_search":
+    case "glob":
+      return React.createElement(Search);
+    case "listdir":
+    case "list_dir":
+    case "list_directory":
+    case "ls":
+      return React.createElement(FolderInput);
+    case "execute":
+    case "bash":
+    case "shell":
+    case "terminal":
+    case "run_command":
       return React.createElement(Terminal);
     case "think":
       return React.createElement(Brain);
     case "fetch":
       return React.createElement(Globe);
+    case "generateimage":
+    case "generate_image":
+    case "image_gen":
+    case "imagegen":
+    case "image_edit":
+    case "imageedit":
+      return React.createElement(ImageIcon);
+    case "createplan":
+    case "create_plan":
+    case "updateplan":
+    case "update_plan":
+      return React.createElement(FileText);
     case "other":
     case "tool":
     default:
@@ -175,51 +238,20 @@ export function getSkillName(raw_input: Record<string, unknown>): string {
 }
 
 export function isTerminalCommand(tool: string): boolean {
-  const t = (tool || "").toLowerCase();
-  return t === "execute" || t === "run_command" || t === "bash" || t === "shell" || t === "terminal";
-}
-
-export function getTerminalCommandString(raw_input?: unknown): string {
-  if (!raw_input || typeof raw_input !== "object") return "";
-  const o = raw_input as Record<string, unknown>;
-  const cmd = o.command ?? o.cmd ?? o.input ?? o.script;
-  return typeof cmd === "string" ? cmd : "";
-}
-
-export function deriveToolDisplayName(tool: string, description: string, raw_input?: unknown): string {
-  if (
-    description &&
-    description !== tool &&
-    !/^(Processing|Executing|Running|Tool)\b/i.test(description)
-  ) {
-    return description;
-  }
-  if (raw_input && typeof raw_input === "object") {
-    const input = raw_input as Record<string, unknown>;
-    const path = (input.file_path ?? input.path) as string | undefined;
-    const command = input.command as string | undefined;
-    const url = input.url as string | undefined;
-    const toolName = (input.tool ?? input.name) as string | undefined;
-
-    if (path) {
-      const shortPath = path.split("/").slice(-2).join("/");
-      const verb = localizeToolLabel(tool);
-      return tool && !["tool", "other"].includes(tool.toLowerCase())
-        ? chatHelpersT("tool.labelWithPath", "{tool}: {path}", { tool: verb, path: shortPath })
-        : shortPath;
-    }
-    if (command) {
-      const shortCmd = command.length > 60 ? `${command.slice(0, 57)}...` : command;
-      return chatHelpersT("tool.executeWithCommand", "Execute: {command}", { command: shortCmd });
-    }
-    if (url) {
-      const shortUrl = url.length > 50 ? `${url.slice(0, 47)}...` : url;
-      return chatHelpersT("tool.fetchWithUrl", "Fetch: {url}", { url: shortUrl });
-    }
-    if (toolName) return String(toolName);
-  }
-  if (tool && !["tool", "other"].includes(tool.toLowerCase())) return localizeToolLabel(tool);
-  return description || chatHelpersT("tool.generic", "Tool");
+  const t = (tool || "").toLowerCase().replace(/[\s-]+/g, "_");
+  return (
+    t === "execute"
+    || t === "run_command"
+    || t === "bash"
+    || t === "shell"
+    || t === "terminal"
+    || t === "command"
+    || t === "run_terminal_cmd"
+    || t === "powershell"
+    || t === "cmd"
+    || t.endsWith("_bash")
+    || t.endsWith("_shell")
+  );
 }
 
 export function isDiffString(s: string): boolean {
@@ -241,16 +273,26 @@ export function isDiffObject(o: unknown): o is DiffFileOutput {
 export function getSessionContextKey(
   workspaceId: string | null,
   projectId: string | null,
-  _mode: string
+  mode: string,
+): string {
+  const suffix = mode.trim() || "default";
+  if (workspaceId) return `workspace:${workspaceId}:${suffix}`;
+  if (projectId) return `project:${projectId}:${suffix}`;
+  return `temp:${suffix}`;
+}
+
+export function legacySessionContextKey(
+  workspaceId: string | null,
+  projectId: string | null,
 ): string {
   if (workspaceId) return `workspace:${workspaceId}`;
   if (projectId) return `project:${projectId}`;
   return "temp";
 }
 
-export function sanitizeConversationFilename(value: string): string {
+export function sanitizeChatFilename(value: string): string {
   const trimmed = value.trim().replace(/[\\/:*?"<>|]/g, "-");
-  return trimmed.length > 0 ? trimmed : chatHelpersT("download.defaultConversationName", "conversation");
+  return trimmed.length > 0 ? trimmed : chatHelpersT("download.defaultChatName", "chat");
 }
 
 export function getLocalTimestampForFilename(date = new Date()): string {
@@ -263,7 +305,7 @@ export function getLocalTimestampForFilename(date = new Date()): string {
   return `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
 }
 
-export function downloadConversationMarkdown(filename: string, markdown: string) {
+export function downloadChatMarkdown(filename: string, markdown: string) {
   const blob = new Blob([markdown], { type: "text/markdown" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -275,44 +317,239 @@ export function downloadConversationMarkdown(filename: string, markdown: string)
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function deriveAgentActivity(entries: ThreadEntry[], waitingFirst: boolean): AgentActivity {
-  const last = entries[entries.length - 1];
+function toolStatusIsActive(status?: string | null): boolean {
+  return isActiveToolStatus(status);
+}
+
+export function runningBackgroundTools(messages: AgentMessage[]): AgentToolCallPart[] {
+  const found: AgentToolCallPart[] = [];
+  const seen = new Set<string>();
+  for (const message of messages) {
+    if (message.role !== "assistant") continue;
+    for (const part of message.parts) {
+      if (part.type !== "tool_call") continue;
+      if (!isLiveBackgroundToolCall(part)) continue;
+      if (seen.has(part.tool_call_id)) continue;
+      seen.add(part.tool_call_id);
+      found.push(part);
+    }
+  }
+  return found;
+}
+
+function toolKindHeadlineLabel(kind: AgentToolKind): string {
+  switch (kind) {
+    case "read":
+      return chatHelpersT("tool.read", "Read");
+    case "edit":
+      return chatHelpersT("tool.edit", "Edit");
+    case "search":
+    case "web_search":
+      return chatHelpersT("tool.search", "Search");
+    case "execute":
+      return chatHelpersT("tool.execute", "Execute");
+    case "fetch":
+      return chatHelpersT("tool.fetch", "Fetch");
+    case "delete":
+      return chatHelpersT("tool.delete", "Delete");
+    case "move":
+      return chatHelpersT("tool.move", "Move");
+    case "skill":
+    case "subagent":
+    case "mcp_list":
+    case "mcp_call":
+    case "image_gen":
+    case "plan_document":
+    case "other":
+      return chatHelpersT("tool.generic", "Tool");
+  }
+}
+
+/** Nested wait/poll tools are parent-process chrome, not child work. */
+function isNestedChildWork(part: AgentPart): boolean {
+  if (!isNestedSubagentChild(part)) return false;
+  return part.type !== "tool_call" || !isSubagentWaitTool(part);
+}
+
+function runningWaitToolCount(message: AgentMessage): number {
+  let count = 0;
+  for (const part of message.parts) {
+    if (part.type !== "tool_call") continue;
+    if (isNestedChildWork(part)) continue;
+    if (!isSubagentWaitTool(part)) continue;
+    if (toolStatusIsActive(part.status)) count += 1;
+  }
+  return count;
+}
+
+function waitingForBackgroundAgentsActivity(count: number): AgentActivity {
+  const n = Math.max(1, count);
+  const label = n === 1
+    ? chatHelpersT(
+      "activity.waitingForBackgroundAgent",
+      "Waiting for 1 background agent to finish",
+    )
+    : chatHelpersT(
+      "activity.waitingForBackgroundAgents",
+      "Waiting for {count} background agents to finish",
+      { count: n },
+    );
+  return { busy: true, label, kind: "working", trail: "none" };
+}
+
+function isParentProcessTool(part: Extract<AgentPart, { type: "tool_call" }>): boolean {
+  if (isSubagentWaitTool(part)) return false;
+  if (part.kind === "subagent") return false;
+  return true;
+}
+
+function activityForToolPart(
+  part: Extract<AgentPart, { type: "tool_call" }>,
+  message: AgentMessage,
+): AgentActivity {
+  if (isSubagentWaitTool(part) && toolStatusIsActive(part.status)) {
+    return waitingForBackgroundAgentsActivity(runningWaitToolCount(message));
+  }
+  return {
+    busy: true,
+    label: formatAgentToolActivityLine(part, toolKindHeadlineLabel(part.kind)),
+    kind: "working",
+    trail: "none",
+  };
+}
+
+/** Session chrome only — create/resume finished but the turn has not produced answer/tools yet. */
+export function isSessionChromeOnly(parts: AgentPart[]): boolean {
+  if (parts.length === 0) return true;
+  return parts.every(
+    (part) =>
+      part.type === "session_lifecycle"
+      || part.type === "session_config_change"
+      || part.type === "session_hint",
+  );
+}
+
+/**
+ * Copy / worked-for / usage footer under an assistant row.
+ * Must not flash after session create: chrome-only rows and live `worked_ms`
+ * without `completed_at` are still in-flight.
+ */
+export function shouldShowAssistantTurnEndedChrome(
+  message: Pick<AgentMessage, "streaming" | "parts" | "worked_ms" | "completed_at" | "usage">,
+  assistantText: string,
+): boolean {
+  if (message.streaming) return false;
+  if (isSessionChromeOnly(message.parts)) return false;
+  // Closed preamble text after tools is still in-flight. Copy / timestamp
+  // chrome waits for `turn_completed` so a later final answer does not look
+  // like a finished turn.
+  if (!message.completed_at) return false;
+  if (assistantText.trim()) return true;
+  if (message.usage) return true;
+  return message.worked_ms != null && message.worked_ms > 0;
+}
+
+/**
+ * Derive the composer/transcript activity indicator.
+ * `turnOpen` is the host busy flag (running turn / waiting permission), not
+ * "waiting for the first assistant row" — after session create the last row is
+ * already an assistant with completed lifecycle chrome, and we must stay busy
+ * until real content or turn_completed.
+ */
+export function deriveAgentActivity(messages: AgentMessage[], turnOpen: boolean): AgentActivity {
+  const last = messages[messages.length - 1];
   if (!last || last.role !== "assistant") {
-    if (waitingFirst) return { busy: true, label: chatHelpersT("activity.generating", "Generating") };
+    if (turnOpen) {
+      return { busy: true, label: chatHelpersT("activity.generating", "Generating"), kind: "working" };
+    }
     return { busy: false };
   }
 
-  const assistant = last;
-  for (let i = assistant.blocks.length - 1; i >= 0; i--) {
-    const block = assistant.blocks[i];
-    if (block.type === "tool_call") {
-      if (isPlanUpdateToolCall(block)) continue;
-      if (block.status === "running") {
-        const tool = block.tool;
-        const label =
-          tool === "Read" ? chatHelpersT("activity.reading", "Reading") :
-            tool === "Edit" ? chatHelpersT("activity.writing", "Writing") :
-              tool === "Search" ? chatHelpersT("activity.searching", "Searching") :
-                tool === "Execute" ? chatHelpersT("activity.runningCommand", "Running command") :
-                  tool === "Fetch" ? chatHelpersT("activity.fetching", "Fetching") :
-                    tool === "Delete" ? chatHelpersT("activity.deleting", "Deleting") :
-                      tool === "Think" || tool === "Thought" || tool === "Reasoning" || tool === "Reason" ? chatHelpersT("activity.thinking", "Thinking") :
-                        tool === "Tool" ? (block.description || chatHelpersT("activity.working", "Working")) :
-                          tool;
-        return { busy: true, label };
+  const session = last.parts.find(
+    (part) => part.type === "session_lifecycle" && toolStatusIsActive(part.status),
+  );
+  if (session?.type === "session_lifecycle") {
+    const label = session.action === "resume"
+      ? chatHelpersT("activity.resumingSession", "Resuming session")
+      : chatHelpersT("activity.creatingSession", "Creating session");
+    return { busy: true, label, kind: "working" };
+  }
+
+  for (let i = last.parts.length - 1; i >= 0; i--) {
+    const part = last.parts[i];
+    if (isNestedChildWork(part)) continue;
+    if (
+      part.type === "tool_call"
+      && toolStatusIsActive(part.status)
+      && !isLiveBackgroundToolCall(part)
+      && isParentProcessTool(part)
+    ) {
+      return activityForToolPart(part, last);
+    }
+  }
+
+  for (let i = last.parts.length - 1; i >= 0; i--) {
+    const part = last.parts[i];
+    if (isNestedChildWork(part)) continue;
+    if (
+      part.type === "tool_call"
+      && toolStatusIsActive(part.status)
+      && isSubagentWaitTool(part)
+    ) {
+      return activityForToolPart(part, last);
+    }
+  }
+
+  for (let i = last.parts.length - 1; i >= 0; i--) {
+    const part = last.parts[i];
+    if (isNestedChildWork(part)) continue;
+    if (
+      part.type === "tool_call"
+      && toolStatusIsActive(part.status)
+      && !isLiveBackgroundToolCall(part)
+    ) {
+      return activityForToolPart(part, last);
+    }
+  }
+
+  if (last.streaming) {
+    for (let i = last.parts.length - 1; i >= 0; i--) {
+      const part = last.parts[i];
+      if (isNestedChildWork(part)) continue;
+      if (part.type === "tool_call") {
+        if (isLiveBackgroundToolCall(part)) continue;
+        if (isSubagentWaitTool(part) && !toolStatusIsActive(part.status)) continue;
+        return activityForToolPart(part, last);
+      }
+      if (part.type === "thinking") {
+        return { busy: true, label: chatHelpersT("activity.thinking", "Thinking"), kind: "thinking" };
+      }
+      if (part.type === "text") {
+        return { busy: true, label: chatHelpersT("activity.streaming", "Streaming"), kind: "working" };
       }
     }
+    return { busy: true, label: chatHelpersT("activity.generating", "Generating"), kind: "working" };
   }
 
-  if (assistant.isStreaming) {
-    for (let i = assistant.blocks.length - 1; i >= 0; i--) {
-      const block = assistant.blocks[i];
-      if (block.type === "thinking") return { busy: true, label: chatHelpersT("activity.thinking", "Thinking") };
-      if (block.type === "text") return { busy: true, label: chatHelpersT("activity.streaming", "Streaming") };
-    }
-    return { busy: true, label: chatHelpersT("activity.streaming", "Streaming") };
+  // Streaming cleared early (e.g. premature settle) but the host turn is still
+  // open — keep generating instead of a false idle/ended state.
+  if (turnOpen) {
+    return { busy: true, label: chatHelpersT("activity.generating", "Generating"), kind: "working" };
   }
 
-  if (waitingFirst) return { busy: true, label: chatHelpersT("activity.generating", "Generating") };
   return { busy: false };
+}
+
+/**
+ * Composer idle is host-turn settlement, not "no open text part".
+ * After the last tool, Grok (and others) sit in prefill with every part
+ * closed — that is still a live turn. Clearing busy here flips the input
+ * back to send and drops Generating.
+ */
+export function shouldClearComposerBusy(
+  payloadType: string,
+  liveTurn: boolean,
+): boolean {
+  if (liveTurn) return false;
+  return payloadType === "turn_completed";
 }

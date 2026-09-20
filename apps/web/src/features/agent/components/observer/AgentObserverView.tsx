@@ -15,12 +15,12 @@ import { useTranslations } from "next-intl";
 import { Button } from "@workspace/ui";
 import { useShallow } from "zustand/react/shallow";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
-import { useAgentHooksStore, AGENT_TOOL_LABELS } from "@/features/agent/store/agent-hooks-store";
+import { useAgentStatusStore, AGENT_TOOL_LABELS } from "@/features/agent/store/agent-status-store";
 import { useAgentActivityStore } from "@/features/agent/store/agent-activity-store";
 import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
-import { navigateToAgentHookSessionPane } from "@/features/agent/lib/agent-hook-navigation";
+import { navigateToAgentStatusSession } from "@/features/agent/lib/agent-status-navigation";
 import {
   buildObserverGraph,
   layoutObserverGraph,
@@ -83,7 +83,7 @@ function ObserverNodeCard({
         <>
           <div className="mt-1 text-[11px] capitalize text-muted-foreground">
             {state}
-            {data.sideChat ? ` · ${t("sideChat")}` : ""}
+            {data.chat ? ` · ${t("chat")}` : data.sideChat ? ` · ${t("sideChat")}` : ""}
             {data.turnCount > 1 ? ` · ${t("turns", { count: data.turnCount })}` : ""}
             {data.todoSummary ? ` · ${data.todoSummary}` : ""}
             {data.childCount ? ` · ${t("children", { count: data.childCount })}` : ""}
@@ -114,7 +114,7 @@ function ObserverNodeCard({
               onOpen();
             }}
           >
-            {t("openPane")}
+            {t(data.chat ? "openChat" : "openPane")}
           </Button>
         </>
       ) : (
@@ -130,7 +130,7 @@ export function AgentObserverView() {
   const t = useTranslations("AgentObserver");
   const router = useAppRouter();
   const projects = useProjects();
-  const sessionsMap = useAgentHooksStore(useShallow((s) => s.sessions));
+  const sessionsMap = useAgentStatusStore(useShallow((s) => s.sessions));
   const activityMap = useAgentActivityStore(useShallow((s) => s.records));
   const computerName = useAtmosComputerStore((s) => s.localComputerDisplayName);
   const connectionState = useWebSocketStore((s) => s.connectionState);
@@ -162,7 +162,7 @@ export function AgentObserverView() {
     (node: ObserverGraphNode) => {
       const session = node.session ?? (node.activity ? sessionFromActivity(node.activity) : null);
       if (!session) return;
-      navigateToAgentHookSessionPane(session, router, projects);
+      navigateToAgentStatusSession(session, router, projects);
     },
     [projects, router],
   );
@@ -293,7 +293,7 @@ export function AgentObserverView() {
             </div>
             <div className="mt-1 text-xs text-muted-foreground">{selected.session?.state}</div>
             <Button className="mt-3" size="sm" onClick={() => openSession(selected)}>
-              {t("openPane")}
+              {selected.chat ? t("openChat") : t("openPane")}
             </Button>
             <ol className="mt-4 space-y-3 text-xs">
               {(selected.activity?.turns ?? []).slice().reverse().map((turn) => (

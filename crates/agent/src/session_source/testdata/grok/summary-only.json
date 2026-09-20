@@ -1,0 +1,12 @@
+{
+  "info": {
+    "id": "cccccccc-cccc-4ccc-8ddd-eeeeeeeeeeee",
+    "cwd": "/tmp/demo"
+  },
+  "generated_title": "Summary only session",
+  "session_summary": "Listed without reading updates",
+  "created_at": "2024-01-01T01:00:00Z",
+  "updated_at": "2024-01-01T01:00:00Z",
+  "current_model_id": "grok-4.6",
+  "num_messages": 1
+}

@@ -1,0 +1,6 @@
+{
+  "tool_call_id": "tc_1",
+  "name": "Bash",
+  "raw_input": { "command": "ls -la" },
+  "raw_output": { "output": "README.md\n", "exit_code": 0 }
+}

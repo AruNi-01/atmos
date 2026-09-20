@@ -224,11 +224,32 @@ impl TmuxEngine {
         Ok(())
     }
 
+    /// Send tmux key names (`Escape`, `C-c`, …) to a window's first pane.
+    ///
+    /// Do not pass `-l`: these are key names, not literal text. Use
+    /// [`Self::send_keys`] / [`Self::send_text_to_window`] for typed input.
+    pub fn send_named_keys(
+        &self,
+        session_name: &str,
+        window_index: u32,
+        keys: &[&str],
+    ) -> Result<()> {
+        if keys.is_empty() {
+            return Ok(());
+        }
+        let target = format!("{}:{}", session_name, window_index);
+        let mut args = Vec::with_capacity(3 + keys.len());
+        args.push("send-keys");
+        args.push("-t");
+        args.push(&target);
+        args.extend(keys.iter().copied());
+        self.run_tmux(&args)?;
+        Ok(())
+    }
+
     /// Send Ctrl-C to a specific window's first pane.
     pub fn interrupt_window(&self, session_name: &str, window_index: u32) -> Result<()> {
-        let target = format!("{}:{}", session_name, window_index);
-        self.run_tmux(&["send-keys", "-t", &target, "C-c"])?;
-        Ok(())
+        self.send_named_keys(session_name, window_index, &["C-c"])
     }
 
     /// Return an existing window by name, or create it when missing.
@@ -323,6 +344,12 @@ impl TmuxEngine {
                 "@atmos_source_tmux_window_name",
                 metadata.source_tmux_window_name.as_deref(),
             ),
+            ("@atmos_origin", metadata.origin.as_deref()),
+            ("@atmos_run_guid", metadata.run_guid.as_deref()),
+            (
+                "@atmos_automation_guid",
+                metadata.automation_guid.as_deref(),
+            ),
         ];
 
         for (key, value) in values {
@@ -345,7 +372,7 @@ impl TmuxEngine {
             "-t",
             &target,
             "-p",
-            "#{@atmos_terminal_kind}\t#{@atmos_side_chat_id}\t#{@atmos_context_id}\t#{@atmos_source_pane_id}\t#{@atmos_source_tmux_window_name}",
+            "#{@atmos_terminal_kind}\t#{@atmos_side_chat_id}\t#{@atmos_context_id}\t#{@atmos_source_pane_id}\t#{@atmos_source_tmux_window_name}\t#{@atmos_origin}\t#{@atmos_run_guid}\t#{@atmos_automation_guid}",
         ])?;
         let mut parts = raw.split('\t').map(|part| {
             let trimmed = part.trim();
@@ -362,6 +389,9 @@ impl TmuxEngine {
             context_id: parts.next().flatten(),
             source_pane_id: parts.next().flatten(),
             source_tmux_window_name: parts.next().flatten(),
+            origin: parts.next().flatten(),
+            run_guid: parts.next().flatten(),
+            automation_guid: parts.next().flatten(),
         })
     }
 
@@ -444,12 +474,29 @@ mod tests {
         // legacy prefix.
         let engine = TmuxEngine::new();
         assert_eq!(engine.session_name("abc-def-123"), "abc_def_123");
+        assert_eq!(
+            engine.session_name("automation:c637f166-6b43-4086-abee-dae7876951a6"),
+            "automation_c637f166_6b43_4086_abee_dae7876951a6"
+        );
     }
 
     #[test]
     fn test_check_installed() {
         let installed = TmuxEngine::check_installed();
         println!("tmux installed: {}", installed);
+    }
+
+    #[test]
+    fn named_keys_are_tmux_key_names_not_literal_text() {
+        let src = include_str!("mod.rs");
+        let start = src.find("pub fn send_named_keys").expect("send_named_keys");
+        let end = src
+            .find("pub fn interrupt_window")
+            .expect("interrupt_window");
+        let block = &src[start..end];
+        assert!(!block.contains("\"-l\""));
+        assert!(block.contains("\"send-keys\""));
+        assert!(src.contains("send_named_keys(session_name, window_index, &[\"C-c\"])"));
     }
 
     #[test]
@@ -473,5 +520,120 @@ mod tests {
                 panic!("tmux unavailability must surface as EngineError::Tmux, got {other}")
             }
         }
+    }
+
+    #[test]
+    fn send_named_keys_delivers_escape_double_escape_and_ctrl_c() {
+        if !TmuxEngine::check_installed() {
+            return;
+        }
+        if std::process::Command::new("python3")
+            .arg("-c")
+            .arg("import tty,termios")
+            .status()
+            .map(|status| !status.success())
+            .unwrap_or(true)
+        {
+            return;
+        }
+
+        assert_eq!(record_named_keys(&["Escape"], 1), vec![0x1b]);
+        assert_eq!(
+            record_named_keys(&["Escape", "Escape"], 2),
+            vec![0x1b, 0x1b]
+        );
+        assert_eq!(record_named_keys(&["C-c"], 1), vec![0x03]);
+    }
+
+    fn record_named_keys(keys: &[&str], byte_count: usize) -> Vec<u8> {
+        // Unix domain sockets on macOS cap the path around 104 bytes.
+        static SEQ: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        let stamp = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let socket_dir = std::env::temp_dir().join(format!("ank{}-{stamp}", std::process::id()));
+        let pane_dir = std::env::temp_dir().join(format!("ankp{}-{stamp}", std::process::id()));
+        std::fs::create_dir_all(&socket_dir).expect("socket dir");
+        std::fs::create_dir_all(&pane_dir).expect("pane dir");
+        let script = pane_dir.join("record.py");
+        let output = pane_dir.join("keys.bin");
+        let ready = pane_dir.join("ready");
+        std::fs::write(
+            &script,
+            r#"
+import os, sys, tty, termios
+path = sys.argv[1]
+ready = sys.argv[2]
+n = int(sys.argv[3])
+fd = sys.stdin.fileno()
+old = termios.tcgetattr(fd)
+tty.setraw(fd)
+open(ready, "w").write("1")
+try:
+    buf = b""
+    while len(buf) < n:
+        chunk = os.read(fd, n - len(buf))
+        if not chunk:
+            break
+        buf += chunk
+finally:
+    termios.tcsetattr(fd, termios.TCSADRAIN, old)
+open(path, "wb").write(buf)
+"#,
+        )
+        .expect("write recorder");
+
+        let engine = TmuxEngine::with_socket_dir(socket_dir);
+        let workspace_id = format!("keys-{}", byte_count);
+        let pane_cwd = pane_dir.to_str().expect("pane cwd");
+        let session_name = engine
+            .create_session(
+                &workspace_id,
+                Some(pane_cwd),
+                Some(&[
+                    "python3".to_string(),
+                    "-u".to_string(),
+                    script.to_string_lossy().into_owned(),
+                    output.to_string_lossy().into_owned(),
+                    ready.to_string_lossy().into_owned(),
+                    byte_count.to_string(),
+                ]),
+                None,
+            )
+            .expect("create isolated tmux session");
+        let windows = engine
+            .list_windows(&session_name)
+            .expect("list windows after create");
+        let index = windows
+            .first()
+            .unwrap_or_else(|| panic!("expected a window in {session_name}"))
+            .index;
+        let ready_deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while !ready.exists() {
+            if std::time::Instant::now() >= ready_deadline {
+                let _ = engine.kill_session(&session_name);
+                panic!("recorder did not enter raw mode before send-keys");
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        engine
+            .send_named_keys(&session_name, index, keys)
+            .unwrap_or_else(|error| panic!("send_named_keys {keys:?}: {error}"));
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        let bytes = loop {
+            if let Ok(buf) = std::fs::read(&output) {
+                if buf.len() >= byte_count {
+                    break buf;
+                }
+            }
+            if std::time::Instant::now() >= deadline {
+                let _ = engine.kill_session(&session_name);
+                panic!(
+                    "recorder timed out waiting for {byte_count} bytes from {keys:?}; got {:?}",
+                    std::fs::read(&output).ok()
+                );
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        };
+        let _ = engine.kill_session(&session_name);
+        bytes
     }
 }

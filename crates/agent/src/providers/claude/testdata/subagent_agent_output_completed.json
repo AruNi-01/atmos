@@ -1,0 +1,15 @@
+{
+  "status": "completed",
+  "agentId": "child1",
+  "agentType": "explore",
+  "content": [
+    {
+      "type": "text",
+      "text": "All tests pass."
+    }
+  ],
+  "totalToolUseCount": 2,
+  "totalDurationMs": 1200,
+  "totalTokens": 800,
+  "prompt": "Inspect the tests"
+}

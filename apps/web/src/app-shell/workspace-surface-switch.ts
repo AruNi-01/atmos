@@ -28,6 +28,10 @@ import {
   paintContextIdForHost,
   shouldKeepExplicitTabOnHostHop,
 } from "@/app-shell/center-space/center-space-url";
+import {
+  publishVisualActivePaintId,
+  resetVisualActivePaintIdForTests,
+} from "@/app-shell/workspace-surface-activity";
 
 function framePaintId(id: string | null): string | null {
   if (!id) return null;
@@ -73,6 +77,7 @@ export function scheduleNonUrgent(fn: () => void): void {
  * {@link isFramePanelVisible}) so flipping the shell reveals real content.
  */
 export function applyWorkspaceFrameVisualDom(activeContextId: string | null): void {
+  publishVisualActivePaintId(activeContextId);
   if (typeof document === "undefined") return;
   const frames = document.querySelectorAll<HTMLElement>("[data-workspace-frame]");
   if (frames.length === 0) return;
@@ -314,6 +319,7 @@ export function resetWorkspaceSwitchSchedulersForTests(): void {
   pendingPromoteLeaves = [];
   lastVisualFlushAt = -Infinity;
   lastPromoteFlushAt = -Infinity;
+  resetVisualActivePaintIdForTests();
 }
 
 export type ParsedContextHref = {
@@ -333,8 +339,17 @@ export type ParsedContextHref = {
 export function parseWorkspaceContextHref(path: string): ParsedContextHref {
   const url = new URL(path, "http://atmos.local");
   const segment = url.pathname.replace(/\/+$/, "").split("/").filter(Boolean)[0] ?? "";
-  const view = segment === "workspace" || segment === "project" ? segment : null;
-  const contextId = view ? url.searchParams.get("id") : null;
+  const view =
+    segment === "workspace" || segment === "project" || segment === "automation"
+      ? segment === "automation"
+        ? "workspace"
+        : segment
+      : null;
+  const rawId = view ? url.searchParams.get("id") : null;
+  const contextId =
+    segment === "automation" && rawId && !rawId.startsWith("automation:")
+      ? `automation:${rawId}`
+      : rawId;
   const hasTabParam = url.searchParams.has("tab");
   const tabParam = hasTabParam ? url.searchParams.get("tab") : null;
   return {

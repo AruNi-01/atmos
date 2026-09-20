@@ -5,18 +5,21 @@ import { screenshotFromToolData } from "@/shared/lib/agent-surface-feed";
 import { instanceIdsFromToolData } from "../lib/pt-design-agent-targets";
 
 describe("describePtDesignAgentCommand", () => {
-  it("maps read and layout tools", () => {
+  it("maps remaining PTX tools", () => {
     expect(describePtDesignAgentCommand("pt_catalog_list").kind).toBe("read");
-    expect(describePtDesignAgentCommand("pt_lint").kind).toBe("read");
-    expect(describePtDesignAgentCommand("pt_layout_grid").kind).toBe("layout");
+    expect(describePtDesignAgentCommand("pt_tools_list").kind).toBe("read");
     expect(describePtDesignAgentCommand("pt_screenshot").kind).toBe("read");
     expect(describePtDesignAgentCommand("pt_screenshot").label.toLowerCase()).toContain("screenshot");
+    expect(describePtDesignAgentCommand("pt_ptx_get").kind).toBe("read");
+    expect(describePtDesignAgentCommand("pt_ptx_apply").kind).toBe("edit");
+    expect(describePtDesignAgentCommand("pt_doc_save").kind).toBe("edit");
   });
 
-  it("includes the component type when placing", () => {
-    const d = describePtDesignAgentCommand("pt_place", { componentType: "card" });
-    expect(d.kind).toBe("create");
-    expect(d.label.toLowerCase()).toContain("card");
+  it("maps Interact runtime agent actions", () => {
+    const described = describePtDesignAgentCommand("pt_runtime_action", { name: "run" });
+    expect(described.kind).toBe("edit");
+    expect(described.label.toLowerCase()).toContain("run");
+    expect(describePtDesignAgentCommand("pt_runtime_action").kind).toBe("edit");
   });
 });
 
@@ -36,15 +39,8 @@ describe("pt-design agent result helpers", () => {
     expect(screenshotFromToolData({ ok: true })).toBeNull();
   });
 
-  it("collects instance ids from place and batch results", () => {
+  it("collects node ids from tool results", () => {
     expect(instanceIdsFromToolData({ instanceId: "a" })).toEqual(["a"]);
-    expect(
-      instanceIdsFromToolData({
-        results: [
-          { ok: true, data: { instanceId: "one" } },
-          { ok: false, data: { instanceId: "nope" } },
-        ],
-      }),
-    ).toEqual(["one"]);
+    expect(instanceIdsFromToolData({ nodeIds: ["run"] })).toEqual(["run"]);
   });
 });

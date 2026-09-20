@@ -1,0 +1,16 @@
+{
+  "sessionId": "01a0aa67-90b6-7f52-826d-a9947de25aef",
+  "update": {
+    "sessionUpdate": "subagent_finished",
+    "subagent_id": "01a0aa76-1a9d-7b12-98a4-c6a7531262dc",
+    "attempt_id": "at1.e6e1de6b9c9f4918b1ec1e3d96d53028",
+    "child_session_id": "01a0aa76-1a9d-7b12-98a4-c6a7531262dc",
+    "status": "completed",
+    "tool_calls": 68,
+    "turns": 1,
+    "duration_ms": 201674,
+    "tokens_used": 58833,
+    "output": "Not Refuted",
+    "will_wake": false
+  }
+}

@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import {
-  agentHooksApi,
+  agentStatusApi,
   type AgentAttentionSummaryDto,
   type AttentionSummaryStatusDto,
 } from "@/api/rest-api";
@@ -141,7 +141,7 @@ export function selectPaneAttentionSummary(
 export async function hydrateAttentionSummariesFromServer(): Promise<void> {
   const revision = useAgentAttentionSummaryStore.getState().revision;
   try {
-    const { summaries } = await agentHooksApi.listAttentionSummaries();
+    const { summaries } = await agentStatusApi.listAttentionSummaries();
     // Skip if a WebSocket update advanced the store while the REST call was in flight.
     if (useAgentAttentionSummaryStore.getState().revision !== revision) return;
     useAgentAttentionSummaryStore.getState().hydrateFromServer(summaries ?? []);
@@ -177,7 +177,7 @@ export function dismissAttentionSummaryChrome(stablePaneId: string): void {
   summaryStore.clearPane(id);
   attentionStore.clearMatchingSessionIds([id]);
 
-  void agentHooksApi
+  void agentStatusApi
     .clearAttention({ stablePaneId: id, notAfter, dismissSummary: true })
     .catch((error) => {
       console.warn(

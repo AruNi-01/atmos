@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useCallback, useRef, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
   Button,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
   ConfirmationAction,
   DndContext,
   DragEndEvent,
@@ -25,8 +25,10 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@workspace/ui";
-import { GripVertical, Pencil, Trash2 } from "lucide-react";
+import { GripVertical, ListOrdered, Pencil, Trash2 } from "lucide-react";
 import type { QueuedAgentPrompt } from "@/app-shell/state/use-dialog-store";
+import { queuedPromptEditText } from "@/features/agent/lib/agent-composer-attachment";
+import { ComposerCollapseGlyph } from "./composer-collapse-glyph";
 
 function HoverScrollableText({
   text,
@@ -108,7 +110,7 @@ export function PermissionActionButton({
     <ConfirmationAction
       variant={variant}
       onClick={onClick}
-      className="min-w-0 max-w-[22rem] flex-1 basis-0 justify-start overflow-hidden px-3"
+      className="min-w-0 max-w-[22rem] flex-1 basis-0 justify-start overflow-hidden rounded-full px-3"
     >
       <HoverScrollableText
         text={label}
@@ -125,11 +127,7 @@ function QueueCard({
   isDragging = false,
   dragHandleProps,
   isEditing = false,
-  editValue,
-  onEditValueChange,
-  onStartEdit,
-  onCancelEdit,
-  onSaveEdit,
+  onToggleEdit,
   onRemove,
   t,
 }: {
@@ -137,33 +135,25 @@ function QueueCard({
   isDragging?: boolean;
   dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
   isEditing?: boolean;
-  editValue?: string;
-  onEditValueChange?: (value: string) => void;
-  onStartEdit: () => void;
-  onCancelEdit: () => void;
-  onSaveEdit: () => void;
+  onToggleEdit: () => void;
   onRemove: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
-  const trimmedValue = (editValue ?? "").trim();
-  const [isHovered, setIsHovered] = useState(false);
-  const showActions = isEditing || isHovered;
+  const text = queuedPromptEditText(item);
 
   return (
     <div
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className={`group/queue ${
+      className={
         isDragging
           ? "bg-background/95 shadow-sm"
           : "bg-transparent"
-      }`}
+      }
     >
       <div className="flex items-center gap-1 px-1.5 py-1">
         <button
           type="button"
           aria-label={t("messageQueue.reorderAria")}
-          className={`flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground ${
+          className={`flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground ${
             isEditing
               ? "cursor-not-allowed opacity-40"
               : "cursor-grab hover:bg-muted hover:text-foreground active:cursor-grabbing"
@@ -174,67 +164,31 @@ function QueueCard({
           <GripVertical className="size-3" />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs text-foreground">
-            {item.displayPrompt ?? item.prompt}
+          <p
+            data-queue-item-editing={isEditing ? "true" : undefined}
+            className="truncate text-xs text-foreground"
+          >
+            {text}
           </p>
         </div>
-        <div
-          className={`flex shrink-0 items-center gap-0 transition-opacity duration-150 ${
-            showActions ? "opacity-100" : "pointer-events-none opacity-0"
-          }`}
-        >
-          <Popover open={isEditing} onOpenChange={(open) => {
-            if (open) {
-              onStartEdit();
-            } else {
-              onCancelEdit();
-            }
-          }}>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant={isEditing ? "secondary" : "ghost"}
-                size="icon-sm"
-                className="size-6 text-muted-foreground hover:text-foreground"
-                aria-label={t("messageQueue.editAria")}
-              >
-                <Pencil className="size-3.5" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              align="end"
-              side="top"
-              className="w-[min(420px,calc(100vw-64px))] border-border/80 p-3"
-            >
-              <div className="space-y-3">
-                <textarea
-                  autoFocus
-                  value={editValue}
-                  onChange={(e) => onEditValueChange?.(e.target.value)}
-                  className="min-h-28 w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-ring"
-                />
-                <div className="flex items-center justify-end gap-2">
-                  <Button type="button" variant="ghost" size="sm" onClick={onCancelEdit}>
-                    {t("common.cancel")}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={onSaveEdit}
-                    disabled={!trimmedValue}
-                  >
-                    {t("common.save")}
-                  </Button>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
+        <div className="flex shrink-0 items-center gap-0">
+          <Button
+            type="button"
+            variant={isEditing ? "secondary" : "ghost"}
+            size="icon-sm"
+            className="size-6 rounded-full text-muted-foreground hover:text-foreground"
+            aria-label={t("messageQueue.editAria")}
+            aria-pressed={isEditing}
+            onClick={onToggleEdit}
+          >
+            <Pencil className="size-3.5" />
+          </Button>
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
             onClick={onRemove}
-            className="size-6 text-muted-foreground hover:text-destructive"
+            className="size-6 rounded-full text-muted-foreground hover:text-destructive"
             aria-label={t("messageQueue.deleteAria")}
           >
             <Trash2 className="size-3.5" />
@@ -247,28 +201,19 @@ function QueueCard({
 
 type SortableQueueCardProps = {
   item: QueuedAgentPrompt;
-  editingPromptId: string | null;
-  editingPromptValue: string;
-  onEditingPromptValueChange: (value: string) => void;
-  onStartEdit: (item: QueuedAgentPrompt) => void;
-  onCancelEdit: () => void;
-  onSaveEdit: (id: string) => void;
+  isEditing: boolean;
+  onToggleEdit: (item: QueuedAgentPrompt) => void;
   onRemove: (id: string) => void;
   t: ReturnType<typeof useTranslations>;
 };
 
 const SortableQueueCard = React.forwardRef<HTMLDivElement, SortableQueueCardProps>(function SortableQueueCard({
   item,
-  editingPromptId,
-  editingPromptValue,
-  onEditingPromptValueChange,
-  onStartEdit,
-  onCancelEdit,
-  onSaveEdit,
+  isEditing,
+  onToggleEdit,
   onRemove,
   t,
 }, forwardedRef) {
-  const isEditing = editingPromptId === item.id;
   const {
     attributes,
     listeners,
@@ -319,11 +264,7 @@ const SortableQueueCard = React.forwardRef<HTMLDivElement, SortableQueueCardProp
         isDragging={isDragging}
         dragHandleProps={{ ...attributes, ...listeners }}
         isEditing={isEditing}
-        editValue={isEditing ? editingPromptValue : item.prompt}
-        onEditValueChange={onEditingPromptValueChange}
-        onStartEdit={() => onStartEdit(item)}
-        onCancelEdit={onCancelEdit}
-        onSaveEdit={() => onSaveEdit(item.id)}
+        onToggleEdit={() => onToggleEdit(item)}
         onRemove={() => onRemove(item.id)}
         t={t}
       />
@@ -334,18 +275,19 @@ SortableQueueCard.displayName = "SortableQueueCard";
 
 export function MessageQueueDock({
   items,
+  editingPromptId,
+  onToggleEdit,
   onRemove,
-  onUpdatePrompt,
   onMove,
 }: {
   items: QueuedAgentPrompt[];
+  editingPromptId: string | null;
+  onToggleEdit: (item: QueuedAgentPrompt) => void;
   onRemove: (id: string) => void;
-  onUpdatePrompt: (id: string, prompt: string) => void;
   onMove: (id: string, toIndex: number) => void;
 }) {
   const t = useTranslations("Agent.components");
-  const [editingPromptId, setEditingPromptId] = useState<string | null>(null);
-  const [editingPromptValue, setEditingPromptValue] = useState("");
+  const [isOpen, setIsOpen] = useState(true);
   const [draggingPromptId, setDraggingPromptId] = useState<string | null>(null);
 
   const draggingPrompt = draggingPromptId
@@ -359,24 +301,6 @@ export function MessageQueueDock({
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
-
-  const handleStartEdit = useCallback((item: QueuedAgentPrompt) => {
-    setEditingPromptId(item.id);
-    setEditingPromptValue(item.displayPrompt ?? item.prompt);
-  }, []);
-
-  const handleCancelEdit = useCallback(() => {
-    setEditingPromptId(null);
-    setEditingPromptValue("");
-  }, []);
-
-  const handleSaveEdit = useCallback((id: string) => {
-    const trimmed = editingPromptValue.trim();
-    if (!trimmed) return;
-    onUpdatePrompt(id, trimmed);
-    setEditingPromptId(null);
-    setEditingPromptValue("");
-  }, [editingPromptValue, onUpdatePrompt]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setDraggingPromptId(String(event.active.id));
@@ -395,66 +319,63 @@ export function MessageQueueDock({
   if (items.length === 0) return null;
 
   return (
-    <div className="bg-muted/20">
-      <div className="flex items-center justify-between border-b border-border/70 px-3 py-1.5">
-        <div className="text-xs font-medium text-foreground/90">{t("messageQueue.title")}</div>
-        <div className="rounded-full bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
-          {items.length}
-        </div>
-      </div>
-      <div className="px-2 py-0.5">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          modifiers={[restrictToVerticalAxis]}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={items.map((item) => item.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            <div className="divide-y divide-border/60">
-              <AnimatePresence initial={false} mode="popLayout">
-                {items.map((item) => (
-                  <SortableQueueCard
-                    key={item.id}
-                    item={item}
-                    editingPromptId={activeEditingPromptId}
-                    editingPromptValue={editingPromptValue}
-                    onEditingPromptValueChange={setEditingPromptValue}
-                    onStartEdit={handleStartEdit}
-                    onCancelEdit={handleCancelEdit}
-                    onSaveEdit={handleSaveEdit}
-                    t={t}
-                    onRemove={(id) => {
-                      onRemove(id);
-                      if (activeEditingPromptId === id) {
-                        handleCancelEdit();
-                      }
-                    }}
-                  />
-                ))}
-              </AnimatePresence>
-            </div>
-          </SortableContext>
-          <DragOverlay>
-            {draggingPrompt ? (
-              <div className="w-[min(560px,calc(100vw-96px))]">
-                <QueueCard
-                  item={draggingPrompt}
-                  isDragging
-                  onStartEdit={NOOP_QUEUE_ACTION}
-                  onCancelEdit={NOOP_QUEUE_ACTION}
-                  onSaveEdit={NOOP_QUEUE_ACTION}
-                  onRemove={NOOP_QUEUE_ACTION}
-                  t={t}
-                />
-              </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
-      </div>
+    <div>
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleTrigger asChild>
+          <div className="group flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-muted/10">
+            <ComposerCollapseGlyph icon={ListOrdered} collapsed={!isOpen} />
+            <span className="text-sm font-medium text-foreground/90">
+              {t("messageQueue.title")}
+            </span>
+            <div className="flex-1" />
+            <span className="mr-1 text-sm text-muted-foreground">{items.length}</span>
+          </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="motion-reduce:data-[state=closed]:animate-none motion-reduce:data-[state=open]:animate-none">
+          <div className="px-2 py-0.5">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              modifiers={[restrictToVerticalAxis]}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={items.map((item) => item.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div>
+                  <AnimatePresence initial={false} mode="popLayout">
+                    {items.map((item) => (
+                      <SortableQueueCard
+                        key={item.id}
+                        item={item}
+                        isEditing={activeEditingPromptId === item.id}
+                        onToggleEdit={onToggleEdit}
+                        t={t}
+                        onRemove={onRemove}
+                      />
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </SortableContext>
+              <DragOverlay>
+                {draggingPrompt ? (
+                  <div className="w-[min(560px,calc(100vw-96px))]">
+                    <QueueCard
+                      item={draggingPrompt}
+                      isDragging
+                      onToggleEdit={NOOP_QUEUE_ACTION}
+                      onRemove={NOOP_QUEUE_ACTION}
+                      t={t}
+                    />
+                  </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }

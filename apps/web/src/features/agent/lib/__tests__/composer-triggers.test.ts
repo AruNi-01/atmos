@@ -1,0 +1,55 @@
+import { describe, expect, it } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { replaceTextareaTrigger } from "@/features/agent/lib/composer-triggers";
+
+describe("agent composer triggers", () => {
+  it("replaces an @ query with a file mention token", () => {
+    expect(replaceTextareaTrigger("see @rea", 4, 3, "@file:README.md ")).toBe(
+      "see @file:README.md ",
+    );
+  });
+
+  it("APP-069 S9 replaces a / query with an available slash command", () => {
+    expect(replaceTextareaTrigger("/pl", 0, 2, "/plan ")).toBe("/plan ");
+    expect(replaceTextareaTrigger("/rewind", 0, 7, "/rewind ")).toBe("/rewind ");
+  });
+
+  it("replaces a / query with an ACP slash command", () => {
+    expect(replaceTextareaTrigger("/pl", 0, 2, "/plan ")).toBe("/plan ");
+  });
+
+  it("clears the / query so a selected command can become a chip", () => {
+    expect(replaceTextareaTrigger("/hooks-list", 0, 10, "")).toBe("");
+    expect(replaceTextareaTrigger("see /comp", 4, 4, "")).toBe("see ");
+  });
+
+  it("inserts selected slash commands and mentions as PromptComposer chips", () => {
+    const source = readFileSync(
+      join(import.meta.dir, "../../hooks/use-agent-composer-popovers.tsx"),
+      "utf8",
+    );
+    expect(source).toContain("applyMentionAtRange");
+    expect(source).toContain("applySlashAtRange");
+    expect(source).toContain('kind: "command"');
+    expect(source).toContain('kind: "file"');
+    expect(source).toContain('kind: "skill"');
+    expect(source).not.toContain("replaceTextareaTrigger");
+    expect(source).not.toContain("onAtCancel: closePopovers");
+    expect(source).not.toContain("onSlashCancel: closePopovers");
+    expect(source).toContain("commandsTitle");
+    expect(source).toContain("atmosCommandsTitle");
+    expect(source).toContain("slashPopover.agentCommands");
+    expect(source).toContain("slashPopover.atmosCommands");
+    expect(source).toContain("filteredAtmosCommands");
+    expect(source).toContain("showAtmosCommands");
+    expect(source).toContain("buildBrowserUseSlashCommand");
+    expect(source).toContain("buildDesktopUseSlashCommand");
+    expect(source).toContain("buildViewRunLogsSlashCommand");
+    expect(source).toContain("buildDevicePreviewSlashCommand");
+    expect(source).toContain("dynamic-skills");
+    expect(source).toContain("BROWSER_USE_SLASH_COMMAND_ID");
+    expect(source).toContain("DESKTOP_USE_SLASH_COMMAND_ID");
+    expect(source).toContain("VIEW_RUN_LOGS_SLASH_COMMAND_ID");
+  });
+});

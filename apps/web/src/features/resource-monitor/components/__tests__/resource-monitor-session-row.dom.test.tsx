@@ -13,6 +13,12 @@ mock.module("@workspace/ui", () => ({
   }: React.HTMLAttributes<HTMLSpanElement> & { children?: React.ReactNode }) => (
     <span {...props}>{children}</span>
   ),
+  Button: ({
+    children,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement> & { children?: React.ReactNode }) => (
+    <button {...props}>{children}</button>
+  ),
   Collapsible: ({
     children,
     defaultOpen: _defaultOpen,
@@ -34,6 +40,16 @@ mock.module("@workspace/ui", () => ({
     <div {...props}>{children}</div>
   ),
   CollapsibleTrigger: ({
+    children,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement> & { children?: React.ReactNode }) => (
+    <button {...props}>{children}</button>
+  ),
+  Popover: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+  PopoverContent: ({ children }: { children?: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  PopoverTrigger: ({
     children,
     ...props
   }: React.ButtonHTMLAttributes<HTMLButtonElement> & { children?: React.ReactNode }) => (
@@ -174,7 +190,7 @@ describe("ResourceMonitorHierarchy session row hover", () => {
     root = null;
   });
 
-  it("keeps the chevron on one padded hover surface without a locate icon", async () => {
+  it("swaps the session icon for a collapse chevron on hover without shifting layout", async () => {
     const onNavigate = mock(() => undefined);
 
     await act(async () => {
@@ -226,16 +242,30 @@ describe("ResourceMonitorHierarchy session row hover", () => {
     expect(trigger).not.toBeNull();
     expect(trigger?.tagName).toBe("BUTTON");
     expect(row?.contains(trigger)).toBe(true);
+    expect(row?.className).toContain("group/session");
+    expect(trigger?.className).toContain("group/trigger");
+    expect(trigger?.className).toContain("size-3");
+    expect(trigger?.className).not.toContain("size-6");
     expect(trigger?.className).toContain("hover:text-foreground");
     expect(trigger?.className).not.toContain("hover:bg-accent");
+    expect(trigger?.innerHTML).toContain("group-hover/session:opacity-0");
+    expect(trigger?.innerHTML).toContain("group-hover/session:opacity-100");
+    expect(trigger?.innerHTML).toContain("duration-150");
+    expect(trigger?.querySelector(".lucide-chevron-down")).not.toBeNull();
+    expect(trigger?.querySelector(".lucide-terminal")).not.toBeNull();
 
     const locate = row?.querySelector(
       "[data-resource-monitor-session-locate]",
     ) as HTMLButtonElement | null;
     expect(locate).not.toBeNull();
+    expect(locate?.querySelector(".lucide-terminal")).toBeNull();
     expect(session?.querySelector("svg.lucide-locate")).toBeNull();
     expect(session?.innerHTML).not.toContain("lucide-locate");
     expect(session?.querySelector("[data-resource-monitor-space-badge]")).toBeNull();
+    expect(
+      session?.querySelector('[data-resource-monitor-session-kind="tui"]'),
+    ).not.toBeNull();
+    expect(session?.textContent).toContain("kindTui");
 
     await act(async () => {
       trigger?.dispatchEvent(
@@ -289,5 +319,89 @@ describe("ResourceMonitorHierarchy session row hover", () => {
     expect(
       container.querySelector("[data-resource-monitor-space-badge]"),
     ).toBeNull();
+  });
+
+  it("lists a Chat UI session with a kind chip and jumps via agent status", async () => {
+    const onNavigate = mock(() => undefined);
+    const chatId = "chat-1";
+    const chatProject: ResourceProjectMetrics = {
+      ...project,
+      sessions: [
+        {
+          session_id: `chat:${chatId}`,
+          name: "Grok Chat",
+          terminal_kind: "chat",
+          usage: {
+            cpu_percent: 0,
+            memory_rss_bytes: 0,
+            process_count: 0,
+          },
+          processes: [],
+          uiKind: "chat",
+          spaceId: "main",
+          agentStatus: {
+            session_id: `chat:${chatId}`,
+            tool: "grok-build",
+            state: "running",
+            timestamp: "2026-09-09T00:00:00.000Z",
+            context_id: PROJECT_ID,
+            surface: "chat",
+            surface_id: chatId,
+            space_id: "main",
+            provider_id: "grok-build",
+          },
+        } as ResourceProjectMetrics["sessions"][number],
+      ],
+    };
+
+    await act(async () => {
+      root?.render(
+        <ResourceMonitorHierarchy
+          sortKey="name"
+          sortDirection="ascending"
+          onSortKeyChange={() => undefined}
+          snapshotProjects={[chatProject]}
+          snapshotServer={USAGE}
+          snapshotShared={USAGE}
+          snapshotDesktopUse={{
+            cpu_percent: 0,
+            memory_rss_bytes: 0,
+            process_count: 0,
+          }}
+          snapshotUnattributed={{
+            cpu_percent: 0,
+            memory_rss_bytes: 0,
+            process_count: 0,
+          }}
+          showUnattributed={false}
+          showProjectsEmpty={false}
+          showDesktop={false}
+          desktopLoading={false}
+          liveDisplays={new Map()}
+          workspacePanes={{}}
+          onNavigate={onNavigate}
+        />,
+      );
+    });
+
+    const session = container.querySelector(
+      `[data-resource-monitor-session][data-session-id="chat:${chatId}"]`,
+    ) as HTMLButtonElement | null;
+    expect(session).not.toBeNull();
+    expect(session?.textContent).toContain("kindChatUi");
+    expect(
+      session?.querySelector('[data-resource-monitor-session-kind="chat"]'),
+    ).not.toBeNull();
+
+    await act(async () => {
+      session?.dispatchEvent(
+        new globalThis.window.Event("click", { bubbles: true }),
+      );
+    });
+    expect(onNavigate).toHaveBeenCalledTimes(1);
+    const target = onNavigate.mock.calls[0]?.[0] as {
+      session?: { surface_id?: string };
+    };
+    expect(target?.session?.surface_id).toBe(chatId);
   });
 });

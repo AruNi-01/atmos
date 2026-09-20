@@ -8,6 +8,8 @@ import {
   type AgentCapabilities,
   type AgentImplementationInfo,
 } from "@/api/rest-api";
+
+export type { AgentAuthRequiredPayload };
 import { getRuntimeApiConfig } from "@/shared/lib/desktop-runtime";
 
 export const AUTH_REQUIRED_ERROR_PREFIX = "ACP_AUTH_REQUIRED::";
@@ -134,6 +136,9 @@ export interface AgentConfigOptionValue {
   value: string;
   name?: string;
   description?: string;
+  group?: string;
+  multiplier?: string;
+  fastMultiplier?: string;
 }
 
 export interface AgentConfigOption {
@@ -168,9 +173,26 @@ export function mergeConfigOptions(
 ): AgentConfigOption[] {
   if (prev.length === 0) return incoming;
 
+  const kind = (option: AgentConfigOption) => {
+    const id = option.id.trim().toLowerCase();
+    const category = option.category?.trim().toLowerCase() ?? "";
+    if (id === "model" || id === "models" || category === "model" || category === "models") return "model";
+    if (id === "mode" || id === "modes" || category === "mode" || category === "modes") return "mode";
+    if (
+      id === "thinking" || id === "think" || id === "thought_level"
+      || id === "effort" || id === "reasoning" || id === "reasoning_effort"
+      || id === "reasoning-effort" || id.includes("reason")
+      || category === "thinking" || category === "think" || category.includes("reason")
+    ) {
+      return "thinking";
+    }
+    return id;
+  };
+
   const merged = [...prev];
   for (const inc of incoming) {
-    const idx = merged.findIndex((o) => o.id === inc.id);
+    const incKind = kind(inc);
+    const idx = merged.findIndex((o) => kind(o) === incKind);
     if (idx >= 0) {
       if (inc.options.length > 0) {
         merged[idx] = inc;

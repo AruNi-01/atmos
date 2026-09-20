@@ -4,6 +4,7 @@ import {
   parseWorkspaceAgentGroupKey,
   resolveHydratedWorkspaceAgentGroupKey,
   resolveRolledAttentionReason,
+  resolveRolledOccupancy,
   resolveWorkspaceAgentGroupKey,
   resolveWorkspaceAgentStatusView,
   WORKSPACE_AGENT_GROUP_ORDER,
@@ -58,6 +59,22 @@ describe("resolveWorkspaceAgentStatusView", () => {
         attentionFilterMode: false,
       }),
     ).toEqual({ kind: "none" });
+  });
+});
+
+describe("resolveRolledOccupancy", () => {
+  it("prefers permission_request over running", () => {
+    expect(resolveRolledOccupancy(["idle", "running", "permission_request"])).toBe(
+      "permission_request",
+    );
+  });
+
+  it("rolls running up when no permission is live", () => {
+    expect(resolveRolledOccupancy(["idle", "running", null])).toBe("running");
+  });
+
+  it("stays idle when every child is idle", () => {
+    expect(resolveRolledOccupancy(["idle", null, undefined])).toBe("idle");
   });
 });
 
@@ -174,7 +191,7 @@ describe("resolveHydratedWorkspaceAgentGroupKey", () => {
       resolveHydratedWorkspaceAgentGroupKey({
         live: "done",
         server: "attention",
-        hooksHydrated: false,
+        statusHydrated: false,
       }),
     ).toBe("attention");
   });
@@ -184,7 +201,7 @@ describe("resolveHydratedWorkspaceAgentGroupKey", () => {
       resolveHydratedWorkspaceAgentGroupKey({
         live: "running",
         server: "attention",
-        hooksHydrated: false,
+        statusHydrated: false,
       }),
     ).toBe("running");
   });
@@ -194,7 +211,7 @@ describe("resolveHydratedWorkspaceAgentGroupKey", () => {
       resolveHydratedWorkspaceAgentGroupKey({
         live: "done",
         server: "permission",
-        hooksHydrated: true,
+        statusHydrated: true,
       }),
     ).toBe("done");
   });

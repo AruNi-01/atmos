@@ -1,0 +1,14 @@
+{
+  "status": "created",
+  "sessionId": "sess_grok_1",
+  "worktreePath": "/tmp/wt",
+  "commit": "abc123",
+  "sourceGitRoot": "/tmp/project",
+  "copiedChanges": {
+    "stagedCopied": 0,
+    "modifiedCopied": 0,
+    "untrackedCopied": 0,
+    "deletionsApplied": 0,
+    "warnings": []
+  }
+}

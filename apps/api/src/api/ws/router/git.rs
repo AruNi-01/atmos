@@ -8,14 +8,16 @@ use core_service::service::git_commit_message::GitCommitMessageGenerator;
 use core_service::{Result, ServiceError};
 
 use super::{
-    DiffContentKind, DiffPreviewKind, GitBlobLocator, GitChangedFilesRequest, GitCommitRequest,
-    GitDiscardUnstagedRequest, GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest,
-    GitFileDiffResponse, GitFilesDiffRequest, GitFilesDiffResponse, GitFilesDiffResult,
-    GitGenerateCommitMessageRequest, GitGetCommitCountRequest, GitGetHeadCommitRequest,
-    GitGetStatusBatchRequest, GitGetStatusBatchResponse, GitGetStatusBatchResult,
-    GitGetStatusRequest, GitHistoryRequest, GitListBranchesRequest, GitLogRequest,
-    GitPatchChunkRequest, GitPullRequest, GitPushRequest, GitRenameBranchRequest, GitStageRequest,
-    GitStatusResponse, GitSyncRequest, GitUnstageRequest, WsEvent, WsMessage, WsMessageService,
+    DiffContentKind, DiffPreviewKind, GitBlameCommit, GitBlameRange, GitBlobLocator,
+    GitChangedFilesRequest, GitCommitDetailRequest, GitCommitDetailResponse, GitCommitRequest,
+    GitDiscardUnstagedRequest, GitDiscardUntrackedRequest, GitFetchRequest, GitFileBlameKind,
+    GitFileBlameRequest, GitFileBlameResponse, GitFileDiffRequest, GitFileDiffResponse,
+    GitFilesDiffRequest, GitFilesDiffResponse, GitFilesDiffResult, GitGenerateCommitMessageRequest,
+    GitGetCommitCountRequest, GitGetHeadCommitRequest, GitGetStatusBatchRequest,
+    GitGetStatusBatchResponse, GitGetStatusBatchResult, GitGetStatusRequest, GitHistoryRequest,
+    GitListBranchesRequest, GitLogRequest, GitPatchChunkRequest, GitPullRequest, GitPushRequest,
+    GitRenameBranchRequest, GitStageRequest, GitStatusResponse, GitSyncRequest, GitUnstageRequest,
+    WsEvent, WsMessage, WsMessageService,
 };
 
 const GIT_BATCH_CONCURRENCY: usize = 8;
@@ -611,5 +613,70 @@ impl WsMessageService {
             "total_count": page.total_count,
             "head_commit_count": page.head_commit_count,
         }))
+    }
+
+    pub(super) fn handle_git_file_blame(&self, req: GitFileBlameRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        let info = self
+            .git_engine
+            .file_blame(&path, &req.file_path)
+            .map_err(|e| ServiceError::Validation(format!("Failed to get git blame: {}", e)))?;
+        Ok(json!(file_blame_to_response(info)))
+    }
+
+    pub(super) fn handle_git_commit_detail(&self, req: GitCommitDetailRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        let info = self
+            .git_engine
+            .commit_detail(&path, &req.commit_hash)
+            .map_err(|e| {
+                ServiceError::Validation(format!("Failed to get git commit detail: {}", e))
+            })?;
+        Ok(json!(GitCommitDetailResponse {
+            hash: info.hash,
+            body: info.body,
+            files_changed: info.files_changed,
+            insertions: info.insertions,
+            deletions: info.deletions,
+        }))
+    }
+}
+
+fn file_blame_to_response(info: core_engine::FileBlameInfo) -> GitFileBlameResponse {
+    GitFileBlameResponse {
+        file_path: info.file_path,
+        blob_id: info.blob_id,
+        kind: match info.kind {
+            core_engine::FileBlameKind::Ok => GitFileBlameKind::Ok,
+            core_engine::FileBlameKind::Binary => GitFileBlameKind::Binary,
+            core_engine::FileBlameKind::TooLarge => GitFileBlameKind::TooLarge,
+            core_engine::FileBlameKind::Untracked => GitFileBlameKind::Untracked,
+        },
+        ranges: info
+            .ranges
+            .into_iter()
+            .map(|range| GitBlameRange {
+                start_line: range.start_line,
+                end_line: range.end_line,
+                commit_hash: range.commit_hash,
+            })
+            .collect(),
+        commits: info
+            .commits
+            .into_iter()
+            .map(|(hash, commit)| {
+                (
+                    hash,
+                    GitBlameCommit {
+                        hash: commit.hash,
+                        short_hash: commit.short_hash,
+                        author_name: commit.author_name,
+                        author_email: commit.author_email,
+                        timestamp: commit.timestamp,
+                        subject: commit.subject,
+                    },
+                )
+            })
+            .collect(),
     }
 }

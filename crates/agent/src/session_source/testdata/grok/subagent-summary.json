@@ -1,0 +1,12 @@
+{
+  "info": {
+    "id": "bbbbbbbb-bbbb-4ccc-8ddd-ffffffffffff",
+    "cwd": "/tmp/demo"
+  },
+  "generated_title": "Nested subagent must not list",
+  "session_summary": "Child session",
+  "created_at": "2024-01-01T00:05:00Z",
+  "updated_at": "2024-01-01T00:06:00Z",
+  "current_model_id": "grok-4.6",
+  "num_messages": 2
+}

@@ -18,6 +18,7 @@ import {
 import {
   DEFAULT_CENTER_SPACE_ID,
   hostIdFromCenterKey,
+  isExtraCenterSpaceKey,
   parseCenterSpaceKey,
 } from "@/app-shell/center-space/center-space";
 import {
@@ -188,6 +189,57 @@ export function createFixedTerminalTab(): TerminalCenterTab {
   };
 }
 
+/** Keep in-memory tabs, or seed Term when tmux already has windows (automation landing). */
+export function terminalTabsAfterUnpersistedHydrate(
+  existingTabs: TerminalCenterTab[],
+  hasTmuxWindows: boolean,
+): TerminalCenterTab[] {
+  if (existingTabs.length > 0) return existingTabs;
+  if (hasTmuxWindows) return [createFixedTerminalTab()];
+  return [];
+}
+
+/** Automation Terminal runs use `auto-{first 8 of run guid}` tmux windows. */
+export function isAutomationTmuxWindowName(name: string): boolean {
+  return name.startsWith("auto-");
+}
+
+export function automationTerminalTabIdFromWindowName(windowName: string): string {
+  return `${TERMINAL_TAB_VALUE_PREFIX}${windowName}`;
+}
+
+export function automationWindowNameFromTerminalTabId(tabId: string): string | null {
+  if (!tabId.startsWith(TERMINAL_TAB_VALUE_PREFIX)) return null;
+  const windowName = tabId.slice(TERMINAL_TAB_VALUE_PREFIX.length);
+  return isAutomationTmuxWindowName(windowName) ? windowName : null;
+}
+
+export function panesMissingTmuxWindows(
+  panes: Record<string, TerminalPaneProps> | undefined,
+  windows: Array<{ name: string }>,
+  workspaceId: string,
+): boolean {
+  if (windows.length === 0) return false;
+  const relevant = tmuxWindowsForPaintContext(workspaceId, windows).filter(
+    (win) => !isAutomationTmuxWindowName(win.name),
+  );
+  if (relevant.length === 0) return false;
+  const known = new Set(
+    Object.values(panes ?? {})
+      .map((pane) => pane.tmuxWindowName)
+      .filter((name): name is string => Boolean(name)),
+  );
+  const missingRelevant = relevant.some((win) => !known.has(win.name));
+  if (!missingRelevant) return false;
+  // Extra automation tabs only own `auto-*` panes. Host windows like `"1"`
+  // are Term's job — treating them as a gap would rehydrate the extra tab
+  // into a new shell split.
+  if (known.size > 0 && relevant.every((win) => !known.has(win.name))) {
+    return false;
+  }
+  return true;
+}
+
 /**
  * Extra center spaces share the host workspace tmux session (same cwd / git).
  * Window names must still be unique: backend create is attach-if-exists, so a
@@ -206,6 +258,18 @@ export function extraCenterSpaceTmuxWindowPrefix(
 
 export function isExtraCenterSpaceTmuxWindowName(name: string): boolean {
   return name.startsWith(EXTRA_SPACE_TMUX_WINDOW_MARK);
+}
+
+/** Host session windows that belong to this paint (extra spaces share the host tmux). */
+export function tmuxWindowsForPaintContext<T extends { name: string }>(
+  paintContextId: string,
+  windows: readonly T[],
+): T[] {
+  const extraPrefix = extraCenterSpaceTmuxWindowPrefix(paintContextId);
+  return windows.filter((win) => {
+    if (extraPrefix) return win.name.startsWith(extraPrefix);
+    return !isExtraCenterSpaceTmuxWindowName(win.name);
+  });
 }
 
 /** Default space windows are unprefixed; extra spaces use `cs__{spaceId}__{local}`. */
@@ -281,6 +345,9 @@ export function samePaneAgent(
   );
 }
 
+/** Stable empty panes record for Zustand snapshots (never allocate `{}` in selectors). */
+export const EMPTY_TERMINAL_TAB_PANES: Record<string, TerminalPaneProps> = {};
+
 export function getScopeKey(
   workspaceId: string,
   terminalTabId: string = FIXED_TERMINAL_TAB_VALUE,
@@ -288,6 +355,20 @@ export function getScopeKey(
   return terminalTabId === FIXED_TERMINAL_TAB_VALUE
     ? workspaceId
     : `${workspaceId}::${terminalTabId}`;
+}
+
+/** True when `scopeKey` is a pane/layout scope of `paintId`, not a sibling extra space. */
+export function isTerminalRuntimeScopeForPaint(scopeKey: string, paintId: string): boolean {
+  if (scopeKey === paintId) return true;
+  if (!scopeKey.startsWith(`${paintId}::`)) return false;
+  if (
+    !isExtraCenterSpaceKey(paintId) &&
+    isExtraCenterSpaceKey(scopeKey) &&
+    hostIdFromCenterKey(scopeKey) === paintId
+  ) {
+    return false;
+  }
+  return true;
 }
 
 export function getTerminalWorkspaceScopeKey(
@@ -321,10 +402,7 @@ export function getWorkspaceTerminalTabs(
   if (Object.prototype.hasOwnProperty.call(state.workspaceTerminalTabs, workspaceId)) {
     return state.workspaceTerminalTabs[workspaceId] ?? [];
   }
-  if (parseCenterSpaceKey(workspaceId).spaceId !== DEFAULT_CENTER_SPACE_ID) {
-    return [];
-  }
-  return [createFixedTerminalTab()];
+  return [];
 }
 
 function findPaneIdsInWorkspacePanes(
@@ -334,7 +412,7 @@ function findPaneIdsInWorkspacePanes(
 ): { paneId: string; terminalTabId: string } | null {
   const prefix = `${workspaceId}::`;
   for (const [scopeKey, panes] of Object.entries(panesByScope)) {
-    if (scopeKey !== workspaceId && !scopeKey.startsWith(prefix)) continue;
+    if (!isTerminalRuntimeScopeForPaint(scopeKey, workspaceId)) continue;
     for (const [paneId, pane] of Object.entries(panes ?? {})) {
       if (pane.tmuxWindowName === tmuxWindowName) {
         return {
@@ -617,13 +695,9 @@ export function createLayoutFromTmuxWindows(
   const panes: Record<string, TerminalPaneProps> = {};
   const paneIds: string[] = [];
 
-  const extraPrefix = extraCenterSpaceTmuxWindowPrefix(workspaceId);
-  for (const win of windows) {
-    if (extraPrefix) {
-      if (!win.name.startsWith(extraPrefix)) continue;
-    } else if (isExtraCenterSpaceTmuxWindowName(win.name)) {
-      continue;
-    }
+  const relevantWindows = tmuxWindowsForPaintContext(workspaceId, windows);
+  for (const win of relevantWindows) {
+    if (isAutomationTmuxWindowName(win.name)) continue;
     const id = uuidv4();
     paneIds.push(id);
     panes[id] = createTerminalPane(workspaceId, win.name, {
@@ -706,22 +780,22 @@ export function evictTerminalWorkspaceRuntimeState(
   delete nextCodeReviewMaximizedIds[workspaceId];
 
   for (const key of Object.keys(nextWorkspacePanes)) {
-    if (key === workspaceId || key.startsWith(`${workspaceId}::`)) {
+    if (isTerminalRuntimeScopeForPaint(key, workspaceId)) {
       delete nextWorkspacePanes[key];
     }
   }
   for (const key of Object.keys(nextWorkspaceLayouts)) {
-    if (key === workspaceId || key.startsWith(`${workspaceId}::`)) {
+    if (isTerminalRuntimeScopeForPaint(key, workspaceId)) {
       delete nextWorkspaceLayouts[key];
     }
   }
   for (const key of Object.keys(nextWorkspaceMaximizedIds)) {
-    if (key === workspaceId || key.startsWith(`${workspaceId}::`)) {
+    if (isTerminalRuntimeScopeForPaint(key, workspaceId)) {
       delete nextWorkspaceMaximizedIds[key];
     }
   }
   for (const key of Object.keys(nextWorkspaceActivePaneIds)) {
-    if (key === workspaceId || key.startsWith(`${workspaceId}::`)) {
+    if (isTerminalRuntimeScopeForPaint(key, workspaceId)) {
       delete nextWorkspaceActivePaneIds[key];
     }
   }
@@ -742,12 +816,12 @@ export function evictTerminalWorkspaceRuntimeState(
   nextCodeReviewInitializingWorkspaces.delete(workspaceId);
 
   for (const key of Array.from(nextHydratedTerminalScopes)) {
-    if (key === workspaceId || key.startsWith(`${workspaceId}::`)) {
+    if (isTerminalRuntimeScopeForPaint(key, workspaceId)) {
       nextHydratedTerminalScopes.delete(key);
     }
   }
   for (const key of Array.from(nextInitializingTerminalScopes)) {
-    if (key === workspaceId || key.startsWith(`${workspaceId}::`)) {
+    if (isTerminalRuntimeScopeForPaint(key, workspaceId)) {
       nextInitializingTerminalScopes.delete(key);
     }
   }
@@ -823,12 +897,12 @@ export function detachTerminalWorkspaceFrontendState(
     }
   }
   for (const key of Array.from(nextHydratedTerminalScopes)) {
-    if (key === workspaceId || key.startsWith(`${workspaceId}::`)) {
+    if (isTerminalRuntimeScopeForPaint(key, workspaceId)) {
       nextHydratedTerminalScopes.delete(key);
     }
   }
   for (const key of Array.from(nextInitializingTerminalScopes)) {
-    if (key === workspaceId || key.startsWith(`${workspaceId}::`)) {
+    if (isTerminalRuntimeScopeForPaint(key, workspaceId)) {
       nextInitializingTerminalScopes.delete(key);
     }
   }

@@ -1,0 +1,11 @@
+{
+  "sessionId": "sess_parent",
+  "update": {
+    "sessionUpdate": "subagent_spawned",
+    "subagent_id": "sa-1",
+    "parent_session_id": "sess_parent",
+    "child_session_id": "sa-1",
+    "subagent_type": "explore",
+    "description": "Read hello2.txt"
+  }
+}

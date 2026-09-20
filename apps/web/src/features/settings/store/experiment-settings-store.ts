@@ -24,10 +24,13 @@ export type {
   LaunchpadPlacement,
 } from '@/features/settings/lib/launchpad-items';
 export {
+  applyLaunchpadHide,
   applyLaunchpadReorder,
   createDefaultLaunchpadItems,
+  isLaunchpadHideTarget,
   isLaunchpadItemId,
   launchpadPreviewPlacement,
+  LAUNCHPAD_DROP_HIDE,
   LAUNCHPAD_DROP_INSIDE,
   LAUNCHPAD_DROP_OUTSIDE,
   LAUNCHPAD_ITEM_IDS,

@@ -121,8 +121,8 @@ fn region_options(provider_id: &str) -> Vec<ProviderManualSetupOption> {
 }
 
 /// Providers that support manual API key input without region selection.
-fn supports_api_key_only(_provider_id: &str) -> bool {
-    false
+fn supports_api_key_only(provider_id: &str) -> bool {
+    matches!(provider_id, "deepseek")
 }
 
 pub(crate) fn provider_manual_setup(provider_id: &str) -> Option<ProviderManualSetup> {

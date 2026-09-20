@@ -1,6 +1,6 @@
 {
   "name": "@expo/serve-sim",
-  "version": "0.1.37-atmos.1",
+  "version": "0.1.48-atmos.1",
   "type": "module",
   "author": {
     "name": "Evan Bacon",
@@ -32,6 +32,7 @@
   ],
   "files": [
     "LICENSE",
+    "NOTICE",
     "dist/serve-sim.js",
     "dist/middleware.js",
     "dist/middleware.cjs",
@@ -89,7 +90,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwindcss": "^4.1.7",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "werift": "^0.24.4"
   },
   "dependencies": {
     "inspect-webkit": "^0.0.5",

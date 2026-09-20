@@ -26,7 +26,8 @@ describe("getInteractiveAgentParams", () => {
     });
     expect(agent("cursor")).toMatchObject({
       cmd: "cursor-agent",
-      yoloInteractiveParams: "--yolo",
+      interactiveParams: "--trust",
+      yoloInteractiveParams: "--yolo --trust",
       modelList: {
         command: ["cursor-agent", "--list-models"],
       },
@@ -43,7 +44,7 @@ describe("getInteractiveAgentParams", () => {
   });
 
   it("honors empty interactive params instead of falling back to automation params", () => {
-    expect(getInteractiveAgentParams(agent("pi"))).toBe("");
+    expect(getInteractiveAgentParams(agent("pi"))).toBe("--approve");
   });
 
   it("uses interactive params for agents with prompt-flag automation commands", () => {
@@ -53,7 +54,7 @@ describe("getInteractiveAgentParams", () => {
   });
 
   it("uses Cursor yolo alias for interactive terminal commands", () => {
-    expect(getInteractiveAgentParams(agent("cursor"))).toBe("--yolo");
+    expect(getInteractiveAgentParams(agent("cursor"))).toBe("--yolo --trust");
     expect(
       buildInteractiveAgentCommand({
         agentId: "cursor",
@@ -67,7 +68,7 @@ describe("getInteractiveAgentParams", () => {
     expect(
       getInteractiveAgentParams(agent("codex"), "exec --json --dangerously-bypass-approvals-and-sandbox"),
     ).toBe("--dangerously-bypass-approvals-and-sandbox");
-    expect(getInteractiveAgentParams(agent("pi"), "-p")).toBe("");
+    expect(getInteractiveAgentParams(agent("pi"), "-p")).toBe("--approve");
     expect(
       getInteractiveAgentParams(agent("openclaw"), "agent --agent main --local --json --message"),
     ).toBe("agent --agent main --local");

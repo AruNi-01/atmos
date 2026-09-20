@@ -66,25 +66,69 @@ pub(crate) fn load_factory_local_storage_tokens() -> Result<Vec<FactoryWorkOsTok
     Ok(tokens)
 }
 
+const FACTORY_CLI_KEYCHAIN_SERVICE: &str = "Factory CLI";
+const FACTORY_CLI_LOGINKEYCHAIN_ACCOUNT: &str = "auth-encryption-key-security-cli";
+const FACTORY_CLI_KEYRING_ACCOUNT: &str = "auth-encryption-key";
+
 pub(crate) fn load_factory_cli_auth_access_token(
 ) -> Result<Option<FactoryCliAuthToken>, ProviderError> {
     let Some(home) = dirs::home_dir() else {
         return Ok(None);
     };
+    load_factory_cli_auth_access_token_from(&home.join(".factory"))
+}
 
-    let auth_payload_path = home.join(".factory").join("auth.v2.file");
-    let auth_key_path = home.join(".factory").join("auth.v2.key");
-    if !auth_payload_path.exists() || !auth_key_path.exists() {
-        return Ok(None);
+pub(crate) fn load_factory_cli_auth_access_token_from(
+    factory_dir: &Path,
+) -> Result<Option<FactoryCliAuthToken>, ProviderError> {
+    // Droid 0.2xx stores the live session as AES-GCM ciphertext plus a
+    // keychain-backed key (`auth.v2.loginkeychain`). The older
+    // `auth.v2.file` + `auth.v2.key` pair is only a fallback and is often
+    // left stale after a later `/login`.
+    if let Some(token) = load_encrypted_cli_token(
+        &factory_dir.join("auth.v2.loginkeychain"),
+        macos_keychain_secret(
+            FACTORY_CLI_KEYCHAIN_SERVICE,
+            FACTORY_CLI_LOGINKEYCHAIN_ACCOUNT,
+        )
+        .as_deref(),
+        "Droid CLI login keychain",
+    )? {
+        return Ok(Some(token));
     }
 
-    let auth_payload = fs::read_to_string(&auth_payload_path).map_err(|error| {
-        ProviderError::Fetch(format!("{}: {error}", auth_payload_path.display()))
-    })?;
-    let auth_key = fs::read_to_string(&auth_key_path)
-        .map_err(|error| ProviderError::Fetch(format!("{}: {error}", auth_key_path.display())))?;
+    if let Some(token) = load_encrypted_cli_token(
+        &factory_dir.join("auth.v2.keyring"),
+        macos_keychain_secret(FACTORY_CLI_KEYCHAIN_SERVICE, FACTORY_CLI_KEYRING_ACCOUNT).as_deref(),
+        "Droid CLI keyring",
+    )? {
+        return Ok(Some(token));
+    }
 
-    let decrypted = match decrypt_droid_auth_v2_payload(&auth_payload, &auth_key) {
+    let keyfile_key = fs::read_to_string(factory_dir.join("auth.v2.key")).ok();
+    load_encrypted_cli_token(
+        &factory_dir.join("auth.v2.file"),
+        keyfile_key.as_deref(),
+        "Droid CLI auth.v2",
+    )
+}
+
+fn load_encrypted_cli_token(
+    payload_path: &Path,
+    key_b64: Option<&str>,
+    source_label: &str,
+) -> Result<Option<FactoryCliAuthToken>, ProviderError> {
+    if !payload_path.exists() {
+        return Ok(None);
+    }
+    let Some(key_b64) = key_b64.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    let auth_payload = match fs::read_to_string(payload_path) {
+        Ok(value) => value,
+        Err(_) => return Ok(None),
+    };
+    let decrypted = match decrypt_droid_auth_v2_payload(&auth_payload, key_b64) {
         Ok(value) => value,
         Err(_) => return Ok(None),
     };
@@ -92,15 +136,26 @@ pub(crate) fn load_factory_cli_auth_access_token(
         Ok(value) => value,
         Err(_) => return Ok(None),
     };
-
     let Some(access_token) = parsed.access_token.filter(|value| !value.trim().is_empty()) else {
         return Ok(None);
     };
-
     Ok(Some(FactoryCliAuthToken {
         access_token,
-        source_label: "Droid CLI auth.v2".to_string(),
+        source_label: source_label.to_string(),
     }))
+}
+
+fn macos_keychain_secret(service: &str, account: &str) -> Option<String> {
+    if !cfg!(target_os = "macos") {
+        return None;
+    }
+    run_command(
+        "/usr/bin/security",
+        &["find-generic-password", "-s", service, "-a", account, "-w"],
+    )
+    .ok()
+    .map(|output| output.trim().to_string())
+    .filter(|value| !value.is_empty())
 }
 
 #[derive(Debug)]
@@ -600,4 +655,93 @@ fn walk_dir(root: &Path) -> Result<Vec<PathBuf>, ProviderError> {
         }
     }
     Ok(paths)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        decrypt_droid_auth_v2_payload, load_encrypted_cli_token,
+        load_factory_cli_auth_access_token_from,
+    };
+    use aes_gcm::aead::{consts::U16, generic_array::GenericArray, Aead, KeyInit};
+    use aes_gcm::AesGcm;
+    use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
+    use base64::Engine;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn encrypt_droid_auth_v2_payload(plaintext: &str, key: &[u8; 32]) -> String {
+        type Aes256GcmWithU16Nonce = AesGcm<aes::Aes256, U16>;
+        let cipher = Aes256GcmWithU16Nonce::new_from_slice(key).expect("cipher");
+        let nonce = [7u8; 16];
+        let sealed = cipher
+            .encrypt(GenericArray::from_slice(&nonce), plaintext.as_bytes())
+            .expect("encrypt");
+        let (ciphertext, tag) = sealed.split_at(sealed.len() - 16);
+        format!(
+            "{}:{}:{}",
+            BASE64_STANDARD.encode(nonce),
+            BASE64_STANDARD.encode(tag),
+            BASE64_STANDARD.encode(ciphertext)
+        )
+    }
+
+    fn temp_factory_dir() -> std::path::PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("atmos-factory-auth-{nanos}"));
+        fs::create_dir_all(&dir).expect("temp dir");
+        dir
+    }
+
+    #[test]
+    fn decrypts_droid_auth_v2_payload() {
+        let key = [9u8; 32];
+        let payload = encrypt_droid_auth_v2_payload(
+            r#"{"access_token":"cli-token","refresh_token":"refresh"}"#,
+            &key,
+        );
+        let decrypted =
+            decrypt_droid_auth_v2_payload(&payload, &BASE64_STANDARD.encode(key)).expect("decrypt");
+        assert!(decrypted.contains("cli-token"));
+    }
+
+    #[test]
+    fn prefers_loginkeychain_file_over_stale_keyfile() {
+        let dir = temp_factory_dir();
+        let live_key = [3u8; 32];
+        let stale_key = [4u8; 32];
+        fs::write(
+            dir.join("auth.v2.loginkeychain"),
+            encrypt_droid_auth_v2_payload(r#"{"access_token":"live-cli"}"#, &live_key),
+        )
+        .expect("write loginkeychain");
+        fs::write(
+            dir.join("auth.v2.file"),
+            encrypt_droid_auth_v2_payload(r#"{"access_token":"stale-cli"}"#, &stale_key),
+        )
+        .expect("write file");
+        fs::write(dir.join("auth.v2.key"), BASE64_STANDARD.encode(stale_key)).expect("write key");
+
+        let live = load_encrypted_cli_token(
+            &dir.join("auth.v2.loginkeychain"),
+            Some(&BASE64_STANDARD.encode(live_key)),
+            "Droid CLI login keychain",
+        )
+        .expect("load live")
+        .expect("token");
+        assert_eq!(live.access_token, "live-cli");
+        assert_eq!(live.source_label, "Droid CLI login keychain");
+
+        // Without a keychain key, skip the live file and use the keyfile pair.
+        let fallback = load_factory_cli_auth_access_token_from(&dir)
+            .expect("load fallback")
+            .expect("token");
+        assert_eq!(fallback.access_token, "stale-cli");
+        assert_eq!(fallback.source_label, "Droid CLI auth.v2");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
 }

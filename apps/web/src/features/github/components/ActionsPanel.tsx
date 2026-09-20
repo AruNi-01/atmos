@@ -1,9 +1,10 @@
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import { useGithubActionsList } from '@/features/github/hooks/use-github';
-import { Clock, Loader2, CheckCircle2, XCircle, Rocket, Github } from 'lucide-react';
+import { Clock, Loader2, CheckCircle2, XCircle, Rocket } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { cn } from '@/shared/lib/utils';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Button } from '@workspace/ui';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Button, ScrollArea } from '@workspace/ui';
 import { formatActionTimestamp, formatActionTimeAgo } from '@/features/github/lib/action-run-time';
 import {
   actionRunBadgeClassName,
@@ -127,8 +128,13 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, enabled = true }
         </div>
       ) : (
         <>
-          <div className="flex-1 overflow-y-auto no-scrollbar p-2 space-y-2">
-            {latestRuns.map((run) => {
+          <ScrollArea
+            scrollFade
+            className="min-h-0 flex-1"
+            viewportClassName="p-2"
+          >
+            <div className="space-y-2">
+              {latestRuns.map((run) => {
               const isCompleted = normalizeActionStatus(run.status) === 'completed';
               const badgeTone = getActionRunBadgeTone({
                 status: run.status,
@@ -208,8 +214,9 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, enabled = true }
                   </div>
                 </div>
               );
-            })}
-          </div>
+              })}
+            </div>
+          </ScrollArea>
 
           <div className="p-3 border-t border-sidebar-border/50 bg-sidebar-accent/5 flex flex-col gap-2">
             <p className="text-[11px] text-muted-foreground leading-normal">

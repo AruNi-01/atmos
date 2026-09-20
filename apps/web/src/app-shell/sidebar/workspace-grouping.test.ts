@@ -4,6 +4,7 @@ import {
   NO_STATUS_WORKSPACE_GROUP_KEY,
   UNTAGGED_WORKSPACE_GROUP_KEY,
   flattenProjects,
+  getProjectRecencySource,
   getSidebarEntryKey,
   getWorkspaceLabelGroupKey,
   getWorkspaceStatusGroupKey,
@@ -237,6 +238,51 @@ describe("groupWorkspaces", () => {
     ).toHaveLength(1);
   });
 
+  it("uses a project last-active time even when it has no workspaces", () => {
+    const empty = project({
+      id: "empty",
+      name: "Empty",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      lastVisitedAt: "2026-04-02T12:00:00.000Z",
+    });
+
+    expect(getProjectRecencySource(empty)).toBe("2026-04-02T12:00:00.000Z");
+    expect(
+      groupWorkspaces(
+        [projectEntry(project({ id: "created-only", name: "Created", createdAt: new Date().toISOString() }))],
+        "time",
+      )[0]?.key,
+    ).toBe("today");
+  });
+
+  it("prefers the later of project last-active and workspace last-active", () => {
+    const olderWorkspace = workspace({
+      id: "ws-older",
+      lastVisitedAt: "2026-04-01T00:00:00.000Z",
+    });
+    const newerWorkspace = workspace({
+      id: "ws-newer",
+      lastVisitedAt: "2026-04-03T00:00:00.000Z",
+    });
+    const withOlderWorkspace = project({
+      id: "proj-own",
+      name: "Own",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      lastVisitedAt: "2026-04-02T00:00:00.000Z",
+      workspaces: [olderWorkspace],
+    });
+    const withNewerWorkspace = project({
+      id: "proj-child",
+      name: "Child",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      lastVisitedAt: "2026-04-02T00:00:00.000Z",
+      workspaces: [newerWorkspace],
+    });
+
+    expect(getProjectRecencySource(withOlderWorkspace)).toBe("2026-04-02T00:00:00.000Z");
+    expect(getProjectRecencySource(withNewerWorkspace)).toBe("2026-04-03T00:00:00.000Z");
+  });
+
   it("puts unknown priority in No priority so the workspace stays visible", () => {
     const groups = groupWorkspaces(
       [entry(workspace({ id: "unknown-priority", priority: "critical" as never }))],
@@ -285,6 +331,55 @@ describe("groupWorkspaces", () => {
         [labelA, labelB],
       ),
     ).toBe(labelB.id);
+  });
+
+  it("keeps a project in done when only a child workspace needs attention", () => {
+    const owner = project({
+      id: "proj-1",
+      name: "Atmos",
+      workspaces: [workspace({ id: "ws-attention" })],
+    });
+    const groups = groupWorkspaces(
+      [entry(workspace({ id: "ws-attention" })), projectEntry(owner)],
+      "agent",
+      {
+        agentGroupKeyByWorkspaceId: {
+          "ws-attention": "attention",
+        },
+      },
+    );
+
+    expect(
+      groups.find((group) => group.key === "attention")?.items.map((item) => getSidebarEntryKey(item)),
+    ).toEqual(["ws-attention"]);
+    expect(
+      groups.find((group) => group.key === "done")?.items.map((item) => getSidebarEntryKey(item)),
+    ).toEqual(["project:proj-1"]);
+  });
+
+  it("puts a project in running only from its own context, not a child workspace", () => {
+    const owner = project({
+      id: "proj-1",
+      name: "Atmos",
+      workspaces: [workspace({ id: "ws-run" })],
+    });
+    const groups = groupWorkspaces(
+      [entry(workspace({ id: "ws-run" })), projectEntry(owner)],
+      "agent",
+      {
+        agentGroupKeyByWorkspaceId: {
+          "proj-1": "done",
+          "ws-run": "running",
+        },
+      },
+    );
+
+    expect(
+      groups.find((group) => group.key === "running")?.items.map((item) => getSidebarEntryKey(item)),
+    ).toEqual(["ws-run"]);
+    expect(
+      groups.find((group) => group.key === "done")?.items.map((item) => getSidebarEntryKey(item)),
+    ).toEqual(["project:proj-1"]);
   });
 
   it("always emits four agent buckets in action-first order", () => {

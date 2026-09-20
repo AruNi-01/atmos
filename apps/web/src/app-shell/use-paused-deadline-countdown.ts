@@ -58,15 +58,15 @@ export function usePausedDeadlineCountdown(input: {
       return;
     }
 
-    if (input.paused) {
-      return;
-    }
-
     if (leftoverRef.current <= 0) {
       if (!completedRef.current) {
         completedRef.current = true;
         onCompleteRef.current();
       }
+      return;
+    }
+
+    if (input.paused) {
       return;
     }
 

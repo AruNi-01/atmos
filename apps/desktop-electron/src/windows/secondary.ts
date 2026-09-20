@@ -84,16 +84,20 @@ export function openAgentChatWindow(
 ): void {
   const q = new URLSearchParams();
   const agent = trimQuery(args.agent);
-  const session = trimQuery(args.session);
+  const chatId = trimQuery(
+    args.chat_id ?? args.chatId ?? args.session,
+  );
   const sessionCwd = trimQuery(args.session_cwd ?? args.sessionCwd);
   const workspaceId = trimQuery(args.workspace_id ?? args.workspaceId);
   const projectId = trimQuery(args.project_id ?? args.projectId);
+  const instanceKey = trimQuery(args.instance_key ?? args.instanceKey);
   const handoffToken = trimQuery(args.handoff_token ?? args.handoffToken);
   if (agent) q.set("agent", agent);
-  if (session) q.set("session", session);
+  if (chatId) q.set("chatId", chatId);
   if (sessionCwd) q.set("sessionCwd", sessionCwd);
   if (workspaceId) q.set("workspaceId", workspaceId);
   if (projectId) q.set("projectId", projectId);
+  if (instanceKey) q.set("instanceKey", instanceKey);
   if (handoffToken) q.set("handoffToken", handoffToken);
   const qs = q.toString();
   openOrFocus(

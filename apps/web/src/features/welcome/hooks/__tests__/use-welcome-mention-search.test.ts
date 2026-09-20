@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 
 import {
   filterMentionFileCandidates,
+  isImmediateMentionListingQuery,
   MENTION_CONTAINS_RESERVE,
   MENTION_FILE_RESULT_LIMIT,
   splitHighlightParts,
@@ -25,27 +26,47 @@ function candidate(
 
 describe("filterMentionFileCandidates", () => {
   const entries: MentionFileCandidate[] = [
+    candidate("README.md"),
     candidate("pages", { isDir: true }),
     candidate("pages/script.ts"),
     candidate("pages/styles.css"),
+    candidate("pages/sub", { isDir: true }),
     candidate("pages/sub/script-helper.ts"),
+    candidate("src", { isDir: true }),
     candidate("src/script.ts"),
+    candidate("apps", { isDir: true }),
     candidate("apps/desktop-electron/native/appshot-shift/appshot_shift.c"),
     candidate("apps/desktop-electron/resources/bin/libatmos_appshot_shift.dylib"),
     candidate("apps/desktop-electron/resources/runtime/__next._full.txt"),
     candidate("apps/desktop-electron/resources/runtime/__next.appshot-permissions.txt"),
+    candidate(".github", { isDir: true, isHidden: true }),
     candidate(".github/workflows/appshot.yml", { isHidden: true }),
     candidate(".appshot-config", { isHidden: true }),
+    candidate("docs", { isDir: true }),
     candidate("docs/unrelated.md"),
     candidate("zz_end_appshot"),
   ];
 
-  it("lists files under the typed directory when the query ends with a slash", () => {
+  it("lists first-level files and folders when the query is empty", () => {
+    expect(filterMentionFileCandidates(entries, "").map((item) => item.relativePath))
+      .toEqual([
+        "README.md",
+        "zz_end_appshot",
+        "apps",
+        "docs",
+        "pages",
+        "src",
+        ".appshot-config",
+        ".github",
+      ]);
+  });
+
+  it("lists first-level files and folders under the typed directory when the query ends with a slash", () => {
     expect(filterMentionFileCandidates(entries, "pages/").map((item) => item.relativePath))
       .toEqual([
         "pages/script.ts",
         "pages/styles.css",
-        "pages/sub/script-helper.ts",
+        "pages/sub",
       ]);
   });
 
@@ -114,6 +135,20 @@ describe("filterMentionFileCandidates", () => {
     expect(prefixIdx).toBeGreaterThanOrEqual(0);
     expect(midIdx).toBeGreaterThanOrEqual(0);
     expect(prefixIdx).toBeLessThan(midIdx);
+  });
+});
+
+describe("isImmediateMentionListingQuery", () => {
+  it("is true for empty @ queries and trailing directory prefixes", () => {
+    expect(isImmediateMentionListingQuery("")).toBe(true);
+    expect(isImmediateMentionListingQuery("   ")).toBe(true);
+    expect(isImmediateMentionListingQuery("pages/")).toBe(true);
+    expect(isImmediateMentionListingQuery("pages\\")).toBe(true);
+  });
+
+  it("is false once a name segment is typed", () => {
+    expect(isImmediateMentionListingQuery("app")).toBe(false);
+    expect(isImmediateMentionListingQuery("pages/script")).toBe(false);
   });
 });
 

@@ -17,11 +17,6 @@ export interface FunctionSettings {
     /** When true (default), agents launch with YOLO / skip-permissions flags. */
     yolo_mode?: boolean;
     /**
-     * When true (default), detected agent brand text is shown in terminal pane
-     * and center-stage tab titles. Icon always shows; when false, only icon + OSC.
-     */
-    show_agent_name_in_terminal_titles?: boolean;
-    /**
      * Running-state activity indicator style ids (unicode spinner or AIcss Orb).
      * See `agent-activity-indicator-styles.ts`.
      */
@@ -29,6 +24,8 @@ export interface FunctionSettings {
     activity_indicator_center_terminal?: string;
     activity_indicator_terminal_panel?: string;
     activity_indicator_footer?: string;
+    /** Agent Chat tool-call folding: compact | standard | detailed. */
+    tool_call_density?: "compact" | "standard" | "detailed";
     saved_run_configs?: TerminalAgentSavedRunConfig[];
   };
   editor?: {
@@ -39,6 +36,8 @@ export interface FunctionSettings {
     breadcrumbs?: boolean;
     line_highlight?: boolean;
     git_integration?: boolean;
+    git_blame?: boolean;
+    md_toggle_default_open?: boolean;
   };
   diff?: {
     diff_style?: "split" | "unified";
@@ -54,9 +53,12 @@ export interface FunctionSettings {
   };
   workspace_kanban_view?: {
     state?: unknown;
+    /** Tasks board grouping — independent of `workspace_sidebar.grouping_mode`. */
+    grouping_mode?: "project" | "group" | "status" | "time" | "label" | "priority" | "agent";
     [key: string]: unknown;
   };
   workspace_sidebar?: {
+    /** Sidebar list grouping — independent of `workspace_kanban_view.grouping_mode`. */
     grouping_mode?: "project" | "group" | "status" | "time" | "label" | "priority" | "agent";
     label_group_order?: string[];
     /** Sidebar list filters — independent of `workspace_kanban_view` board filters. */
@@ -91,12 +93,10 @@ export interface FunctionSettings {
     rich_input_trigger_bar_visible?: boolean;
     /** When true, plain split launches the configured default agent. */
     default_split_agent_enabled?: boolean;
-    /** Explicit default agent id for plain split / optional new-tab launch. */
+    /** Explicit default agent id for plain split. */
     default_split_agent_id?: string | null;
     /** Optional run config for the default split agent. */
     default_split_agent_run_config?: TerminalAgentRunConfigInput | null;
-    /** When true (and enabled), new Terminal tabs also launch the default agent. */
-    default_split_agent_apply_to_new_tab?: boolean;
     /** xterm.js cursorStyle: block | underline | bar. Default underline. */
     cursor_style?: "block" | "underline" | "bar";
     /** When true (default), the terminal caret blinks. */
@@ -312,6 +312,7 @@ export interface AgentBehaviourSettings {
   attention_summary_delay_mins?: number;
   attention_summary_agent_id?: string | null;
   attention_summary_model?: string | null;
+  followup_policy?: "queue" | "steer";
 }
 
 export const agentBehaviourSettingsApi = {

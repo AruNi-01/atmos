@@ -71,6 +71,7 @@ function CanvasChangesWidgetBody({
   const {
     compareMode,
     compareBaseRef,
+    compareAgainstRef,
     compareWorktreeChanges,
     resetCompareMode,
     setCurrentRepoPath,
@@ -148,6 +149,21 @@ function CanvasChangesWidgetBody({
       void compareWorktreeChanges();
     },
     [changesScopeKey, compareWorktreeChanges, repoPath, resetCompareMode],
+  );
+
+  const handleSelectCommitScope = React.useCallback(
+    (commitHash: string) => {
+      const trimmed = commitHash.trim();
+      if (!trimmed) return;
+      setChangesScopeState({
+        key: changesScopeKey,
+        scope: "commit",
+        selectedCommitHash: trimmed,
+        menuOpen: false,
+      });
+      void compareAgainstRef(trimmed);
+    },
+    [changesScopeKey, compareAgainstRef],
   );
 
   const displayedComparedFiles = compareFiles;
@@ -240,8 +256,11 @@ function CanvasChangesWidgetBody({
           untrackedCount={displayedUntrackedFiles.length}
           open={changesScopeMenuOpen}
           isBusy={isMutating}
+          repoPath={repoPath}
+          branchKey={currentBranch}
           onOpenChange={setChangesScopeMenuOpen}
           onSelectScope={handleSelectChangesScope}
+          onSelectCommit={handleSelectCommitScope}
           onStageAll={stageAllChanges}
           onUnstageAll={unstageAllChanges}
           onDiscardTracked={discardAllTrackedChanges}

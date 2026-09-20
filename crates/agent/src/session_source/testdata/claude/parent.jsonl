@@ -1,0 +1,15 @@
+{"type":"custom-title","customTitle":"List src files","sessionId":"aaaaaaaa-bbbb-4ccc-8ddd-111111111111"}
+{"type":"mode","mode":"default","sessionId":"aaaaaaaa-bbbb-4ccc-8ddd-111111111111"}
+{"type":"user","isMeta":true,"uuid":"meta-caveat","timestamp":"2026-04-01T10:00:00.000Z","cwd":"/tmp/fixture-app","sessionId":"aaaaaaaa-bbbb-4ccc-8ddd-111111111111","message":{"role":"user","content":"<local-command-caveat>Caveat: ignore this meta line.</local-command-caveat>"}}
+{"type":"user","uuid":"user-1","timestamp":"2026-04-01T10:00:01.000Z","cwd":"/tmp/fixture-app","sessionId":"aaaaaaaa-bbbb-4ccc-8ddd-111111111111","message":{"role":"user","content":"List the files in src."}}
+{"type":"assistant","uuid":"asst-1","timestamp":"2026-04-01T10:00:02.000Z","cwd":"/tmp/fixture-app","sessionId":"aaaaaaaa-bbbb-4ccc-8ddd-111111111111","message":{"id":"msg-1","role":"assistant","model":"claude-opus-4-6","content":[{"type":"thinking","thinking":"I should list the directory."},{"type":"text","text":"I'll list src."},{"type":"tool_use","id":"tool-bash-1","name":"Bash","input":{"command":"ls src","cwd":"/tmp/fixture-app"}}]}}
+{"type":"user","uuid":"user-2","timestamp":"2026-04-01T10:00:03.000Z","cwd":"/tmp/fixture-app","sessionId":"aaaaaaaa-bbbb-4ccc-8ddd-111111111111","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"tool-bash-1","content":"main.rs\nlib.rs"}]}}
+{"type":"assistant","uuid":"asst-2","timestamp":"2026-04-01T10:00:04.000Z","cwd":"/tmp/fixture-app","sessionId":"aaaaaaaa-bbbb-4ccc-8ddd-111111111111","message":{"role":"assistant","content":[{"type":"text","text":"src has main.rs and lib.rs."}]}}
+{"type":"mystery-host-line","hello":true}
+{"type":"assistant","uuid":"asst-ask","timestamp":"2026-04-01T10:00:04.500Z","cwd":"/tmp/fixture-app","sessionId":"aaaaaaaa-bbbb-4ccc-8ddd-111111111111","message":{"role":"assistant","content":[{"type":"tool_use","id":"ask-1","name":"AskUserQuestion","input":{"questions":[{"question":"Which file?","options":[{"label":"main.rs"},{"label":"lib.rs"}]}]}}]}}
+{"type":"user","uuid":"user-ask","timestamp":"2026-04-01T10:00:04.600Z","cwd":"/tmp/fixture-app","sessionId":"aaaaaaaa-bbbb-4ccc-8ddd-111111111111","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"ask-1","content":"main.rs"}]}}
+{"type":"assistant","uuid":"asst-plan","timestamp":"2026-04-01T10:00:04.700Z","cwd":"/tmp/fixture-app","sessionId":"aaaaaaaa-bbbb-4ccc-8ddd-111111111111","message":{"role":"assistant","content":[{"type":"tool_use","id":"plan-1","name":"ExitPlanMode","input":{"plan":"# Ready to code"}}]}}
+{"type":"user","uuid":"user-plan","timestamp":"2026-04-01T10:00:04.800Z","cwd":"/tmp/fixture-app","sessionId":"aaaaaaaa-bbbb-4ccc-8ddd-111111111111","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"plan-1","content":"approved"}]}}
+{"type":"user","uuid":"user-3","timestamp":"2026-04-01T10:00:05.000Z","cwd":"/tmp/fixture-app","sessionId":"aaaaaaaa-bbbb-4ccc-8ddd-111111111111","message":{"role":"user","content":"Thanks."}}
+{"type":"queue-operation","operation":"enqueue"}
+{"type":"summary","summary":"Listed src files"}

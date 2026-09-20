@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Check, Button } from "@workspace/ui";
+import { Check, Button, ScrollArea } from "@workspace/ui";
 import { FileDiff, FolderOpen, GitBranch } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useGitStore } from "@/features/git/store/use-git-store";
@@ -21,6 +21,10 @@ import {
 } from "@/features/git/lib/git-query-options";
 import { useOpenGitHistoryCenterTab } from "@/features/git/hooks/use-open-git-history-center-tab";
 import { useGitHistoryCenterTabStore } from "@/features/git/store/use-git-history-center-tab";
+import { useChangesScopeBridge } from "@/features/git/store/use-changes-scope-bridge";
+import { buildDiffGroupPath } from "@/features/diff/lib/diff-editor-paths";
+import { useEditorStore } from "@/features/editor/store/use-editor-store";
+import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
 import type { GitChangedFile } from "@/api/ws-api";
 import { useSidebarUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
 import { ChangeSection } from "@/app-shell/sidebar/ChangeSection";
@@ -87,12 +91,11 @@ export function ChangesPanel({
     unstageFiles,
     discardUnstagedChanges,
     discardUntrackedFiles,
-    stageAllUnstaged,
-    stageAllUntracked,
     unstageAll,
     discardAllUnstaged,
     discardAllUntracked,
     compareAgainstDefaultBranch,
+    compareAgainstRef,
     compareWorktreeChanges,
     resetCompareMode,
     isLoading: isMutating,
@@ -240,13 +243,48 @@ export function ChangesPanel({
     ],
   );
 
-  const stageAllUnstagedFn = useCallback(async () => {
-    await stageAllUnstaged(unstagedFiles.map((f) => f.path));
-  }, [stageAllUnstaged, unstagedFiles]);
+  const handleSelectCommitScope = useCallback(
+    (commitHash: string) => {
+      const trimmed = commitHash.trim();
+      if (!trimmed) return;
 
-  const stageAllUntrackedFn = useCallback(async () => {
-    await stageAllUntracked(untrackedFiles.map((f) => f.path));
-  }, [stageAllUntracked, untrackedFiles]);
+      setChangesScopeState({
+        key: changesScopeKey,
+        scope: "commit",
+        selectedCommitHash: trimmed,
+        menuOpen: false,
+        autoSelectScope: false,
+      });
+      if (contextId) {
+        selectHistoryCommit(contextId, trimmed);
+        const groupPath = buildDiffGroupPath("commit");
+        void useEditorStore.getState().openFile(groupPath, contextId, {
+          preview: false,
+        });
+        activateCenterChromeTab(contextId, groupPath, { placement: "focused" });
+      }
+      void compareAgainstRef(trimmed);
+    },
+    [changesScopeKey, compareAgainstRef, contextId, selectHistoryCommit],
+  );
+
+  const pendingScopeRequest = useChangesScopeBridge((s) => s.request);
+  const consumeScopeRequest = useChangesScopeBridge((s) => s.consumeRequest);
+
+  useEffect(() => {
+    if (!pendingScopeRequest) return;
+    if (pendingScopeRequest.scope === "commit") {
+      handleSelectCommitScope(pendingScopeRequest.commitHash);
+    } else {
+      handleSelectChangesScope(pendingScopeRequest.scope);
+    }
+    consumeScopeRequest(pendingScopeRequest.token);
+  }, [
+    consumeScopeRequest,
+    handleSelectChangesScope,
+    handleSelectCommitScope,
+    pendingScopeRequest,
+  ]);
 
   const stageAllChangesFn = useCallback(async () => {
     await stageFiles(collectStageAllPaths(unstagedFiles, untrackedFiles));
@@ -284,8 +322,11 @@ export function ChangesPanel({
           untrackedCount={displayedUntrackedFiles.length}
           open={changesScopeMenuOpen}
           isBusy={isMutating}
+          repoPath={currentProjectPath}
+          branchKey={currentBranch}
           onOpenChange={setChangesScopeMenuOpen}
           onSelectScope={handleSelectChangesScope}
+          onSelectCommit={handleSelectCommitScope}
           onOpenHistory={() => openGitHistoryTab(selectedCommitHash)}
           onStageAll={stageAllChangesFn}
           onUnstageAll={unstageAllFn}
@@ -294,15 +335,19 @@ export function ChangesPanel({
         />
       </div>
 
-      <div
-        className={cn(
-          "min-h-0 flex-1 overflow-y-auto p-2 no-scrollbar",
-          !hasDisplayedChanges &&
-            !isEmptyStateLoading &&
-            "flex items-center justify-center",
-        )}
-      >
-        <div>
+      <div className="min-h-0 flex-1">
+        <ScrollArea
+          scrollFade
+          className="h-full"
+          viewportClassName="p-2"
+        >
+        <div
+          className={cn(
+            !hasDisplayedChanges &&
+              !isEmptyStateLoading &&
+              "flex min-h-full items-center justify-center",
+          )}
+        >
           {!hasDisplayedChanges && !isEmptyStateLoading ? (
             <div
               className={cn(
@@ -418,7 +463,6 @@ export function ChangesPanel({
               viewMode={changesFileViewMode}
               hideHeader
               onUnstage={unstageFiles}
-              onUnstageAll={unstageAllFn}
             />
           ) : (
             <>
@@ -432,8 +476,6 @@ export function ChangesPanel({
                 hideHeader
                 onStage={stageFiles}
                 onDiscard={discardUnstagedChanges}
-                onStageAll={stageAllUnstagedFn}
-                onDiscardAll={discardAllUnstagedFn}
               />
               <ChangeSection
                 kind="untracked"
@@ -445,12 +487,11 @@ export function ChangesPanel({
                 hideHeader
                 onStage={stageFiles}
                 onDiscard={discardUntrackedFiles}
-                onStageAll={stageAllUntrackedFn}
-                onDiscardAll={discardAllUntrackedFn}
               />
             </>
           )}
         </div>
+        </ScrollArea>
       </div>
 
       <CommitActionsContainer

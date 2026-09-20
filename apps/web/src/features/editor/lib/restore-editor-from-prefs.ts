@@ -23,7 +23,7 @@ export function restoreEditorFromInstancePrefs(
   });
   for (const [wsId, ws] of Object.entries(persisted.workspaceStates)) {
     for (const file of ws.openFiles) {
-      void useEditorStore.getState().reloadFileContent(file.path, wsId);
+      void useEditorStore.getState().reloadFileContent(file.path, wsId, { silent: true });
     }
   }
 }

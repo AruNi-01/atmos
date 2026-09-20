@@ -94,6 +94,21 @@ describe("global search focus", () => {
 
     const content = read("../global-search-content.tsx");
     expect(content).toContain("tabIndex={-1}");
+    const inputAt = content.indexOf("CommandInputWithoutBorder");
+    const wellAt = content.indexOf("rounded-t-[20px]");
+    const tabsAt = content.indexOf("<Tabs");
+    const scrollAt = content.indexOf("<ScrollArea");
+    const listAt = content.indexOf("<CommandList");
+    expect(inputAt).toBeGreaterThan(-1);
+    expect(wellAt).toBeGreaterThan(inputAt);
+    expect(tabsAt).toBeGreaterThan(wellAt);
+    expect(scrollAt).toBeGreaterThan(tabsAt);
+    expect(listAt).toBeGreaterThan(scrollAt);
+    expect(content).toContain("<ScrollArea scrollFade>");
+    expect(content).toContain("max-h-none overflow-visible");
+    expect(content).toContain('variant="pill"');
+    expect(content).toContain("h-8 gap-1 bg-transparent p-0.5");
+    expect(content).toContain("h-7 gap-1.5 px-3 text-sm");
 
     const command = readFileSync(
       join(import.meta.dir, "../../../../../packages/ui/src/components/ui/command.tsx"),

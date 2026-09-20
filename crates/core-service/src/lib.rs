@@ -5,30 +5,49 @@ pub mod utils;
 
 pub use error::{Result, ServiceError};
 pub use service::agent::AgentService;
-pub use service::agent_hooks::{
-    generate_attention_summary, resolve_workspace_agent_group_key, AgentActivity,
-    AgentAttentionLatch, AgentAttentionReason, AgentAttentionSummary, AgentChildActivity,
-    AgentHookEvent, AgentHooksService, AgentTodoItem, AgentToolLine, AgentTurn,
-    AttentionSummaryPayload, AttentionSummarySettings, AttentionSummaryStatus,
-    WorkspaceAgentGroupKey, WorkspaceAgentGroupSnapshot,
+pub use service::agent_hooks::{AgentHooksService, AtmosContext};
+pub use service::agent_status::{
+    apply_host_event, chat_status_session_id, generate_attention_summary,
+    parse_chat_status_session_id, provider_to_tool, resolve_workspace_agent_group_key,
+    AgentActivity, AgentAttentionLatch, AgentAttentionReason, AgentAttentionSummary,
+    AgentChildActivity, AgentOccupancy, AgentStatusContext, AgentStatusEvent, AgentStatusRecord,
+    AgentStatusService, AgentStatusUpdate, AgentSurface, AgentTodoItem, AgentToolLine,
+    AgentToolType, AgentTurn, AttentionSummaryPayload, AttentionSummarySettings,
+    AttentionSummaryStatus, WorkspaceAgentGroupKey, WorkspaceAgentGroupSnapshot,
 };
-pub use service::agent_session::{AgentSessionService, LazySessionSpec, ResumeNativeSessionSpec};
+
+pub use service::agent_chat::{
+    agent_chat_prefs_path, builtin_options_probe_plans, default_agent_data_dir, default_chats_dir,
+    load_agent_chat_prefs, load_new_chat_configs, new_chat_configs_path, options_probe_dir,
+    options_probe_plan_for, parse_followup_policy, save_agent_chat_prefs, save_favorite_models,
+    save_last_registry_id, snapshot_from_create_fields, terminal_options_from,
+    upsert_agent_new_chat_config, AgentChatEvent, AgentChatFavoriteModel, AgentChatIndexEntry,
+    AgentChatMeta, AgentChatOrigin, AgentChatPayload, AgentChatPrefs, AgentChatService,
+    AgentChatSnapshot, AgentChatStore, AgentServiceOptionsResolver, CreateAgentChatRequest,
+    DefaultAgentProviderFactory, FollowupPolicy, MessagePart, NewChatConfigsFile,
+    OptionsPrefetchWorker, OptionsUpdated, QueueItem, QueueItemStatus, RuntimeStatus, TurnStatus,
+    PREFETCH_POLL,
+};
 pub use service::automation::{
     ensure_builtin_terminal_agents_upgraded, AutomationAgentCapability, TerminalAgentCliStatus,
-    TerminalAgentModelCatalog, TerminalAgentModelCatalogSource, TerminalAgentModelCatalogStatus,
-    TerminalAgentModelOption,
+    TerminalAgentOption, TerminalAgentOptions, TerminalAgentOptionsSource,
+    TerminalAgentOptionsStatus,
 };
 pub use service::automation::{
-    AutomationArtifact, AutomationArtifactGetReq, AutomationArtifactKind, AutomationCancelRunReq,
-    AutomationContinueInTerminalReq, AutomationContinueInTerminalResponse, AutomationCreateReq,
-    AutomationDeleteReq, AutomationDetail, AutomationEvent, AutomationGetReq, AutomationList,
-    AutomationListReq, AutomationRunDetail, AutomationRunGetReq, AutomationRunList,
-    AutomationRunListReq, AutomationRunNowReq, AutomationRunStatus, AutomationScheduleInput,
-    AutomationScheduleKind, AutomationSchedulePreviewReq, AutomationService, AutomationSummary,
-    AutomationTargetInput, AutomationTargetKind, AutomationTriggerInput, AutomationTriggerKind,
-    AutomationTriggerStatus, AutomationUpdateReq, ExternalTriggerOutcome,
-    ExternalTriggerRejectReason, ExternalTriggerRejection, GithubEventFamily, GithubTriggerConfig,
-    GithubTriggerEvent, GithubTriggerFilters, SchedulePreview,
+    parse_standalone_scope, standalone_definition_dir, standalone_scope_id, AutomationArtifact,
+    AutomationArtifactGetReq, AutomationArtifactKind, AutomationCancelRunReq,
+    AutomationChatAgentConfig, AutomationContinueInTerminalReq,
+    AutomationContinueInTerminalResponse, AutomationCreateReq, AutomationDeleteReq,
+    AutomationDetail, AutomationEvent, AutomationExecuteMode, AutomationGetReq, AutomationList,
+    AutomationListReq, AutomationRunCompleteReq, AutomationRunDetail, AutomationRunGetReq,
+    AutomationRunList, AutomationRunListReq, AutomationRunNowReq, AutomationRunPaths,
+    AutomationRunPathsReq, AutomationRunStaleDismissReq, AutomationRunStatus,
+    AutomationScheduleInput, AutomationScheduleKind, AutomationSchedulePreviewReq,
+    AutomationService, AutomationSummary, AutomationSurfaceKind, AutomationTargetInput,
+    AutomationTargetKind, AutomationTriggerInput, AutomationTriggerKind, AutomationTriggerStatus,
+    AutomationUpdateReq, ExternalTriggerOutcome, ExternalTriggerRejectReason,
+    ExternalTriggerRejection, GithubEventFamily, GithubTriggerConfig, GithubTriggerEvent,
+    GithubTriggerFilters, SchedulePreview,
 };
 pub use service::canvas::{
     AtmosCanvasFile, AtmosCanvasScript, CanvasDocumentFileDto, CanvasDocumentListItem,
@@ -45,8 +64,23 @@ pub use service::center_layout::{
     save_center_layout_to_dir, CenterLayoutDocument, CENTER_LAYOUT_VERSION, MAX_SAVED_LAYOUTS,
     MAX_SPACES_PER_HOST,
 };
+pub use service::device_preview::{
+    Appearance, CameraLens, ClaimOwner, ClaimOwnerLookup, DeviceClaim, DeviceControlError,
+    DeviceControlService, DevicePreviewService, DevicePreviewSwipeInput, DeviceRuntime, DeviceType,
+    HelperKind, InventoryPlatform, MapClaimOwnerLookup, PlatformProbe, PressKey,
+    SimulatorAppearanceResult, SimulatorCameraAck, SimulatorClaimList, SimulatorClaimListItem,
+    SimulatorControlAck, SimulatorDevice, SimulatorDeviceHandle, SimulatorInventory,
+    SimulatorOpError, SimulatorProbe, SimulatorReason, SimulatorScreenshotResult,
+    SimulatorStartResult, WorkspaceProjectOwnerLookup,
+};
 pub use service::disk_analyzer::{DiskAnalyzerScanEvent, DiskAnalyzerService};
 pub use service::group::{GroupDto, GroupMemberDto, GroupService};
+pub use service::host_session::{
+    HostSessionGetResult, HostSessionIndexUpdated, HostSessionListFilter, HostSessionListItem,
+    HostSessionListResult, HostSessionResumeChatResult, HostSessionResumeSupport,
+    HostSessionResumeTuiResult, HostSessionSearchHit, HostSessionSearchStatus, HostSessionService,
+    HostSessionTag,
+};
 pub use service::linear::{
     parse_list_options, parse_oauth_shell, LinearImportPayload, LinearLinkDto, LinearService,
     LinearStatusDto,

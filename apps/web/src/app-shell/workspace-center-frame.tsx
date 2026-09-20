@@ -20,8 +20,10 @@ import {
   getReviewGroupRevisionGuid,
   isConflictResolveEditorPath,
   isConflictResolveReadOnlyPath,
+  isDiffEditorPath,
   isReviewGroupEditorPath,
   useEditorStore,
+  type OpenFile,
 } from "@/features/editor/store/use-editor-store";
 import {
   FIXED_TERMINAL_TAB_VALUE,
@@ -31,6 +33,11 @@ import {
 import { isDiffGroupEditorPath } from "@/features/diff/lib/diff-editor-paths";
 import { useGithubCenterTabsStore } from "@/features/github/store/use-github-center-tabs";
 import { useBrowserCenterTabsStore } from "@/features/browser/store/use-browser-center-tabs";
+import {
+  EMPTY_AGENT_CHAT_TABS,
+  useAgentChatCenterTabsStore,
+} from "@/features/agent/store/use-agent-chat-center-tabs";
+import { AgentChatWorkspace } from "@/features/agent/components/AgentChatWorkspace";
 import {
   browserMountKey,
   editorMountKey,
@@ -47,7 +54,13 @@ import {
 } from "@/app-shell/workspace-surface-policies";
 import { DiscardableHeavySurface } from "@/app-shell/discardable-github-surface";
 import { GithubKeptSurface } from "@/app-shell/keep-alive-center-views";
-import { readCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
+import { GitCommitKeptSurface } from "@/app-shell/keep-alive-git-commit-view";
+import { useGitCommitCenterTabsStore } from "@/features/git/store/use-git-commit-center-tabs";
+import {
+  readCenterStageLastTab,
+  recordCenterFileRecents,
+  useCenterExplorerLayout,
+} from "@/shared/stores/use-ui-pref-hooks";
 import { CENTER_STAGE_RADIUS_CSS } from "@/app-shell/sidebar-layout-constants";
 import { paneHiddenByCenterFullscreen } from "@/app-shell/center-stage-fullscreen";
 import {
@@ -56,6 +69,28 @@ import {
 } from "@/app-shell/center-pane/use-center-pane-slot-boxes";
 import { cn } from "@/shared/lib/utils";
 import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
+import { CenterExplorerLanding } from "@/app-shell/CenterExplorerLanding";
+import { CenterExplorerSidecar } from "@/app-shell/CenterExplorerSidecar";
+import {
+  applyExplorerInsetToPanelStyle,
+  changesExplorerFoldScopeId,
+  collectExplorerSidecarHostPaneIds,
+  explorerSidecarStyle,
+  isCenterExplorerSinglePaneLayout,
+  isChangesExplorerSurfaceTab,
+  isFileExplorerSurfaceTab,
+  paneActiveTabId,
+  regularEditorFilePaths,
+  resolveExplorerSlotBox,
+  stabilizeExplorerHostPaneIds,
+  type CenterExplorerKind,
+} from "@/app-shell/center-explorer-layout";
+import { fileRecentsFromOpenFiles } from "@/app-shell/center-explorer-landing";
+import {
+  registerMdLiveTerminalGrid,
+  unregisterMdLiveTerminalGrid,
+} from "@/features/md-live/lib/md-live-terminal-bridge";
+import type { TerminalGridHandle } from "@/features/terminal/components/TerminalGrid";
 import {
   workspaceCenterFramePropsAreEqual,
   type TerminalQuickOpenAgent,
@@ -64,6 +99,17 @@ import {
 
 export type { TerminalQuickOpenAgent, WorkspaceCenterFrameProps };
 export { workspaceCenterFramePropsAreEqual };
+
+function publishMdLiveTerminalGrid(
+  previous: TerminalGridHandle | null,
+  next: TerminalGridHandle | null,
+): void {
+  if (next) {
+    registerMdLiveTerminalGrid(next);
+    return;
+  }
+  if (previous) unregisterMdLiveTerminalGrid(previous);
+}
 
 function TerminalGridLoadingFallback() {
   return (
@@ -149,10 +195,10 @@ const GithubHubPanel = dynamic(
     ),
   { ssr: false },
 );
-const PtDesignCenterPanel = dynamic(
+const PtDesignHostStage = dynamic(
   () =>
-    import("@/features/pt-design/PtDesignCenterPanel").then(
-      (mod) => mod.PtDesignCenterPanel,
+    import("@/features/pt-design/PtDesignHostStage").then(
+      (mod) => mod.PtDesignHostStage,
     ),
   { ssr: false },
 );
@@ -178,11 +224,12 @@ const KeptGitHistoryPanel = React.memo(GitHistoryPanel);
 const KeptChangesPanel = React.memo(ChangesPanel);
 const KeptReviewCenterPanel = React.memo(ReviewCenterPanel);
 const KeptGithubHubPanel = React.memo(GithubHubPanel);
-const KeptPtDesignCenterPanel = React.memo(PtDesignCenterPanel);
+const KeptPtDesignHostStage = React.memo(PtDesignHostStage);
 const KeptRunScript = React.memo(RunScript);
 const KeptFileTreePanel = React.memo(FileTreePanel);
 
 export const EMPTY_MOUNTED_TAB_IDS: string[] = [];
+const EMPTY_OPEN_FILES: OpenFile[] = [];
 
 function multiPanePanelStyleForPane(
   visible: boolean,
@@ -248,8 +295,38 @@ function hostPaneIdsForTab(
   if (hosts && hosts.length > 0) return [...hosts];
   const owner = tabToPaneId?.[tabId];
   if (owner) return [owner];
-  if (tabHostPaneIds || tabToPaneId) return [];
+  // Overlay always passes pane maps; files/changes may not be keyed yet on the
+  // first paint. Fall back to root so explorers still mount (empty [] hid them).
   return [undefined];
+}
+
+function EditorSurfaceLoadingFallback() {
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-background">
+      <Loader2 className="size-6 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
+
+/**
+ * First paint of a newly opened file is a spinner. CodeMirror / md-live stay
+ * off that commit so a deferred tab switch cannot init them behind Agent Chat.
+ * After the first reveal, the viewer stays mounted for keep-alive hops.
+ */
+function KeepAliveFileViewer({
+  visible,
+  ...props
+}: { visible: boolean } & React.ComponentProps<typeof KeptFileViewer>) {
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    if (!visible || mounted) return;
+    const frame = window.requestAnimationFrame(() => setMounted(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [mounted, visible]);
+  if (!mounted) {
+    return visible ? <EditorSurfaceLoadingFallback /> : null;
+  }
+  return <KeptFileViewer {...props} />;
 }
 
 function WorkspaceCenterFrameImpl({
@@ -269,6 +346,7 @@ function WorkspaceCenterFrameImpl({
   visibleTerminalTabs,
   openFiles,
   githubTabs,
+  gitCommitTabs,
   browserTabs,
   currentView,
   currentProject,
@@ -294,8 +372,10 @@ function WorkspaceCenterFrameImpl({
   handleCreateTerminalCenterTab,
   handleTerminalPaneClosed,
   handleCloseGithubTab,
+  handleCloseGitCommitTab,
   onGithubPullRequestChanged,
 }: WorkspaceCenterFrameProps) {
+  const [explorerLayout, explorerLayoutActions] = useCenterExplorerLayout();
   // Warm path: read identity stores locally so host churn does not rebuild props.
   const storeTerminalTabs = useTerminalStore((s) => s.workspaceTerminalTabs[contextId]);
   const isProjectContext = useTerminalStore((s) => s.workspaceContexts[contextId] ?? false);
@@ -306,17 +386,16 @@ function WorkspaceCenterFrameImpl({
   const storeGithubTabs = useGithubCenterTabsStore(
     (s) => s.tabsByContext[contextId],
   );
+  const storeGitCommitTabs = useGitCommitCenterTabsStore(
+    (s) => s.tabsByContext[contextId],
+  );
   const storeBrowserTabs = useBrowserCenterTabsStore(
     (s) => s.tabsByContext[contextId],
   );
 
   const baseTabs = isUrlSyncedActive
-    ? (visibleTerminalTabs ?? [
-        { id: FIXED_TERMINAL_TAB_VALUE, title: fallbackTerminalTitle, closable: true },
-      ])
-    : storeTerminalTabs ?? [
-        { id: FIXED_TERMINAL_TAB_VALUE, title: fallbackTerminalTitle, closable: true },
-      ];
+    ? (visibleTerminalTabs ?? [])
+    : storeTerminalTabs ?? [];
 
   const tabIds = new Set(baseTabs.map((tab) => tab.id));
   const tabs: TerminalCenterTab[] = [...baseTabs];
@@ -335,20 +414,37 @@ function WorkspaceCenterFrameImpl({
     : isProjectContext;
   const lastTab = readCenterStageLastTab(contextId);
   const contextOpenFiles = isUrlSyncedActive
-    ? (openFiles ?? [])
-    : (storeOpenFiles ?? []);
+    ? (openFiles ?? EMPTY_OPEN_FILES)
+    : (storeOpenFiles ?? EMPTY_OPEN_FILES);
+  const explorerRootPath = isUrlSyncedActive
+    ? (currentWorkspace?.localPath ?? currentProject?.mainFilePath ?? null)
+    : null;
+  const explorerRepoPath = isUrlSyncedActive ? (currentRepoPath ?? null) : null;
+
+  React.useEffect(() => {
+    recordCenterFileRecents(contextId, fileRecentsFromOpenFiles(contextOpenFiles));
+  }, [contextId, contextOpenFiles]);
   const contextGithubTabs = isUrlSyncedActive
     ? (githubTabs ?? [])
     : (storeGithubTabs ?? []);
+  const contextGitCommitTabs = isUrlSyncedActive
+    ? (gitCommitTabs ?? [])
+    : (storeGitCommitTabs ?? []);
   const contextBrowserTabs = isUrlSyncedActive
     ? (browserTabs ?? [])
     : (storeBrowserTabs ?? []);
+  const contextAgentChatTabs =
+    useAgentChatCenterTabsStore(
+      (state) => state.tabsByContext[contextId] ?? EMPTY_AGENT_CHAT_TABS,
+    );
 
   const validTabs = [
     ...tabs.map((tab) => tab.id),
     ...contextOpenFiles.map((f) => f.path),
     ...contextGithubTabs.map((tab) => tab.value),
+    ...contextGitCommitTabs.map((tab) => tab.value),
     ...contextBrowserTabs.map((tab) => tab.value),
+    ...contextAgentChatTabs.map((tab) => tab.value),
     "overview",
     "wiki",
     "project-wiki",
@@ -361,13 +457,12 @@ function WorkspaceCenterFrameImpl({
     "github",
     "files",
     "pt-design",
-    FIXED_TERMINAL_TAB_VALUE,
   ];
   const frameActiveTab = resolveFrameActiveTab({
     isActiveFrame: isActiveContext,
     urlOrEditorTab: isUrlSyncedActive ? activeValue : null,
     lastCenterTab: lastTab,
-    fallbackTab: FIXED_TERMINAL_TAB_VALUE,
+    fallbackTab: tabs[0]?.id ?? "",
     validTabs,
   });
 
@@ -418,6 +513,78 @@ function WorkspaceCenterFrameImpl({
   const hostedPaneIds = (tabId: string) =>
     hostPaneIdsForTab(tabId, tabHostPaneIds, tabToPaneId);
 
+  const regularFilePathSet = React.useMemo(
+    () => new Set(regularEditorFilePaths(contextOpenFiles)),
+    [contextOpenFiles],
+  );
+  const explorerSinglePane = isCenterExplorerSinglePaneLayout({
+    multiActiveTabIds,
+    paneSlotBoxes,
+  });
+  // Hosts follow the pane's *active* tab, not strip membership. Files still
+  // sitting in the tab bar must not keep a sidecar mounted over Agent Chat.
+  const fileExplorerHostPaneIds = stabilizeExplorerHostPaneIds(
+    collectExplorerSidecarHostPaneIds({
+      paneActiveTabById,
+      frameActiveTab,
+      isSurfaceTab: (tabId) => isFileExplorerSurfaceTab(tabId, regularFilePathSet),
+      singlePane: explorerSinglePane,
+    }),
+    { singlePane: explorerSinglePane },
+  );
+  const changesExplorerHostPaneIds = stabilizeExplorerHostPaneIds(
+    collectExplorerSidecarHostPaneIds({
+      paneActiveTabById,
+      frameActiveTab,
+      isSurfaceTab: isChangesExplorerSurfaceTab,
+      singlePane: explorerSinglePane,
+    }),
+    { singlePane: explorerSinglePane },
+  );
+
+  const explorerInsetForPane = React.useCallback(
+    (paneId: string | undefined, kind: CenterExplorerKind) => {
+      const activeTab = paneActiveTabId({
+        paneId,
+        paneActiveTabById,
+        frameActiveTab,
+      });
+      if (kind === "files") {
+        if (explorerLayout.filesCollapsed) return 0;
+        return isFileExplorerSurfaceTab(activeTab, regularFilePathSet)
+          ? explorerLayout.filesWidth
+          : 0;
+      }
+      const foldScopeId = changesExplorerFoldScopeId(activeTab);
+      if (!foldScopeId) return 0;
+      const changesLayout = explorerLayoutActions.changesForScope(foldScopeId);
+      if (changesLayout.collapsed) return 0;
+      return isChangesExplorerSurfaceTab(activeTab) ? changesLayout.width : 0;
+    },
+    [
+      explorerLayout.filesCollapsed,
+      explorerLayout.filesWidth,
+      explorerLayoutActions,
+      frameActiveTab,
+      paneActiveTabById,
+      regularFilePathSet,
+    ],
+  );
+
+  const panelStyleWithExplorer = React.useCallback(
+    (
+      panelTabId: string,
+      visible: boolean,
+      paneId: string | undefined,
+      kind: CenterExplorerKind,
+    ) =>
+      applyExplorerInsetToPanelStyle(
+        panelStyle(panelTabId, visible, paneId),
+        explorerInsetForPane(paneId ?? tabToPaneId?.[panelTabId], kind),
+      ),
+    [explorerInsetForPane, panelStyle, tabToPaneId],
+  );
+
   const planReady = mountPlan.mounted.length > 0;
   const keptGithubTabValuesRef = React.useRef<Set<string>>(new Set());
   {
@@ -427,6 +594,17 @@ function WorkspaceCenterFrameImpl({
     for (const value of [...keptGithubTabValuesRef.current]) {
       if (!openGithubTabValues.has(value)) {
         keptGithubTabValuesRef.current.delete(value);
+      }
+    }
+  }
+  const keptGitCommitTabValuesRef = React.useRef<Set<string>>(new Set());
+  {
+    const openGitCommitTabValues = new Set(
+      contextGitCommitTabs.map((tab) => tab.value),
+    );
+    for (const value of [...keptGitCommitTabValuesRef.current]) {
+      if (!openGitCommitTabValues.has(value)) {
+        keptGitCommitTabValuesRef.current.delete(value);
       }
     }
   }
@@ -483,13 +661,19 @@ function WorkspaceCenterFrameImpl({
               <TerminalGrid
                 ref={
                   isUrlSyncedActive
-                    ? tab.id === FIXED_TERMINAL_TAB_VALUE
-                      ? terminalGridRef
-                      : (instance) => {
-                          if (terminalGridRefs?.current) {
-                            terminalGridRefs.current[tab.id] = instance;
-                          }
+                    ? (instance) => {
+                        if (tab.id === FIXED_TERMINAL_TAB_VALUE) {
+                          const previous = terminalGridRef?.current ?? null;
+                          if (terminalGridRef) terminalGridRef.current = instance;
+                          publishMdLiveTerminalGrid(previous, instance);
+                          return;
                         }
+                        const previous = terminalGridRefs?.current?.[tab.id] ?? null;
+                        if (terminalGridRefs?.current) {
+                          terminalGridRefs.current[tab.id] = instance;
+                        }
+                        publishMdLiveTerminalGrid(previous, instance);
+                      }
                     : undefined
                 }
                 workspaceId={contextId}
@@ -631,13 +815,20 @@ function WorkspaceCenterFrameImpl({
             aria-hidden={!visible}
             inert={!visible ? true : undefined}
             className={cn(lightSurfacePanelClass(visible), interactivePaneClass(visible))}
-            style={panelStyle(file.path, visible, paneId)}
+            style={
+              isDiffGroupEditorPath(file.path)
+                ? panelStyleWithExplorer(file.path, visible, paneId, "changes")
+                : isDiffEditorPath(file.path) || isConflictResolveEditorPath(file.path)
+                  ? panelStyle(file.path, visible, paneId)
+                  : panelStyleWithExplorer(file.path, visible, paneId, "files")
+            }
           >
             {isDiffGroupEditorPath(file.path) && currentRepoPath && isUrlSyncedActive ? (
               <KeptChangesCodeView
                 repoPath={currentRepoPath}
                 groupPath={file.path}
                 contextId={contextId}
+                showChangesExplorerToggle
               />
             ) : isReviewGroupEditorPath(file.path) && isUrlSyncedActive ? (
               <ReviewContextProvider
@@ -672,13 +863,45 @@ function WorkspaceCenterFrameImpl({
                 editorPath={file.path}
               />
             ) : (
-              <KeptFileViewer
+              <KeepAliveFileViewer
+                visible={visible}
                 file={file}
                 className="flex-1"
                 contextId={contextId}
                 surfaceActive={isActiveContext}
+                showFilesExplorerToggle
               />
             )}
+          </div>
+          );
+        });
+      })}
+
+      {contextGitCommitTabs.map((tab) => {
+        const hosts = hostedPaneIds(tab.value);
+        const commitVisible = hosts.some((paneId) => panelVisible(tab.value, paneId));
+        if (commitVisible) keptGitCommitTabValuesRef.current.add(tab.value);
+        const shouldMount =
+          commitVisible || keptGitCommitTabValuesRef.current.has(tab.value);
+        if (!shouldMount) return null;
+        return hosts.map((paneId) => {
+          const paneVisible = panelVisible(tab.value, paneId);
+          return (
+          <div
+            key={`${contextId}-${tab.value}-${paneId ?? "root"}`}
+            data-center-pane-owner={paneId ?? paneOwner(tab.value)}
+            aria-hidden={!paneVisible}
+            inert={!paneVisible ? true : undefined}
+            className={cn(githubKeepAlivePanelClass(paneVisible), interactivePaneClass(paneVisible))}
+          style={panelStyle(tab.value, paneVisible, paneId)}
+          >
+            <DiscardableHeavySurface active={isActiveContext && paneVisible}>
+            <GitCommitKeptSurface
+              tab={tab}
+              active={isActiveContext}
+              onCloseTab={isUrlSyncedActive ? handleCloseGitCommitTab : undefined}
+            />
+            </DiscardableHeavySurface>
           </div>
           );
         });
@@ -754,6 +977,59 @@ function WorkspaceCenterFrameImpl({
         );
       })}
 
+      {contextAgentChatTabs.map((tab) => {
+        const visible = panelVisible(tab.value);
+        return (
+          <div
+            key={`${contextId}-${tab.value}`}
+            data-agent-chat-tab={tab.value}
+            data-center-pane-owner={paneOwner(tab.value)}
+            aria-hidden={!visible}
+            inert={!visible ? true : undefined}
+            className={cn(lightSurfacePanelClass(visible), interactivePaneClass(visible))}
+            style={panelStyle(tab.value, visible)}
+          >
+            <AgentChatWorkspace
+              variant="center"
+              instanceKey={tab.value}
+              paintContextId={contextId}
+              surfaceVisible={visible}
+              chatId={tab.chatId}
+              resumeTranscript={tab.hasMessages}
+              onChatStarted={(chatId, meta) => {
+                useAgentChatCenterTabsStore.getState().bindChat({
+                  contextId,
+                  value: tab.value,
+                  chatId,
+                  title: meta?.title,
+                  cwd: meta?.cwd,
+                  providerId: meta?.providerId,
+                  hasMessages: meta?.hasMessages,
+                });
+              }}
+              onChatUpdated={(chatId, meta) => {
+                useAgentChatCenterTabsStore.getState().patchChat({
+                  contextId,
+                  chatId,
+                  title: meta.title,
+                  providerId: meta.providerId,
+                  cwd: meta.cwd,
+                  hasMessages: meta.hasMessages,
+                });
+              }}
+              onOpenChat={(chatId) => {
+                if (!chatId) return;
+                useAgentChatCenterTabsStore.getState().bindChat({
+                  contextId,
+                  value: tab.value,
+                  chatId,
+                });
+              }}
+            />
+          </div>
+        );
+      })}
+
       {retainSurface("simulator", simulatorTabVisible) &&
         hostedPaneIds("simulator").map((paneId) => {
           const visible = panelVisible("simulator", paneId);
@@ -768,11 +1044,7 @@ function WorkspaceCenterFrameImpl({
         >
           <DiscardableHeavySurface active={isActiveContext && visible}>
           <KeptSimulatorPanel
-            workspaceId={
-              isUrlSyncedActive && currentView === "workspace"
-                ? (currentWorkspace?.id ?? contextId)
-                : contextId
-            }
+            workspaceId={contextId}
             active={isActiveContext}
           />
           </DiscardableHeavySurface>
@@ -812,20 +1084,13 @@ function WorkspaceCenterFrameImpl({
           aria-hidden={!visible}
           inert={!visible ? true : undefined}
           className={cn(lightSurfacePanelClass(visible), interactivePaneClass(visible))}
-          style={panelStyle("changes", visible, paneId)}
+          style={panelStyleWithExplorer("changes", visible, paneId, "changes")}
         >
           <DiscardableHeavySurface active={isActiveContext && visible}>
-          <KeptChangesPanel
+          <CenterExplorerLanding
+            kind="changes"
             contextId={contextId}
-            currentProject={isUrlSyncedActive ? currentProject : undefined}
-            currentProjectPath={isUrlSyncedActive ? (currentRepoPath ?? null) : null}
-            currentWorkspace={isUrlSyncedActive ? currentWorkspace : undefined}
-            projectId={isUrlSyncedActive ? (currentProject?.id ?? null) : null}
-            workspaceId={
-              isUrlSyncedActive && currentView === "workspace"
-                ? (currentWorkspace?.id ?? null)
-                : null
-            }
+            repoPath={explorerRepoPath}
           />
           </DiscardableHeavySurface>
         </div>
@@ -911,21 +1176,13 @@ function WorkspaceCenterFrameImpl({
           aria-hidden={!visible}
           inert={!visible ? true : undefined}
           className={cn(lightSurfacePanelClass(visible), interactivePaneClass(visible))}
-          style={panelStyle("files", visible, paneId)}
+          style={panelStyleWithExplorer("files", visible, paneId, "files")}
         >
           <DiscardableHeavySurface active={isActiveContext && visible}>
-          <KeptFileTreePanel
-            projectName={isUrlSyncedActive ? currentProject?.name : undefined}
-            rootPath={
-              isUrlSyncedActive
-                ? (currentWorkspace?.localPath ?? currentProject?.mainFilePath ?? null)
-                : undefined
-            }
-            currentProjectPath={
-              isUrlSyncedActive ? (currentRepoPath ?? currentWorkspace?.localPath ?? null) : null
-            }
+          <CenterExplorerLanding
+            kind="files"
             contextId={contextId}
-            revealEnabled={isActiveContext}
+            rootPath={explorerRootPath}
           />
           </DiscardableHeavySurface>
         </div>
@@ -945,11 +1202,144 @@ function WorkspaceCenterFrameImpl({
           style={panelStyle("pt-design", visible, paneId)}
         >
           <DiscardableHeavySurface active={isActiveContext && visible}>
-          <KeptPtDesignCenterPanel contextId={contextId} />
+          <KeptPtDesignHostStage
+            contextId={contextId}
+            isProject={isProject}
+            active={isUrlSyncedActive && visible}
+          />
           </DiscardableHeavySurface>
         </div>
           );
         })}
+
+      {fileExplorerHostPaneIds.map((paneId) => {
+        const activeTab = paneActiveTabId({
+          paneId,
+          paneActiveTabById,
+          frameActiveTab,
+        });
+        const showing = isFileExplorerSurfaceTab(activeTab, regularFilePathSet);
+        if (!showing) return null;
+        const hiddenByFullscreen = paneHiddenByCenterFullscreen(
+          fullscreenPaneId,
+          paneId,
+        );
+        const surfaceActive = showing && !hiddenByFullscreen;
+        const takingSpace = surfaceActive && !explorerLayout.filesCollapsed;
+        return (
+          <CenterExplorerSidecar
+            // Single-pane: stable key so pane-id catch-up never remounts the rail.
+            key={
+              explorerSinglePane
+                ? `${contextId}-files-explorer`
+                : `${contextId}-files-explorer-${paneId ?? "root"}`
+            }
+            kind="files"
+            width={explorerLayout.filesWidth}
+            surfaceActive={surfaceActive}
+            collapsed={explorerLayout.filesCollapsed}
+            interactive={Boolean(showing && isActiveContext)}
+            onWidthChange={(next) => explorerLayoutActions.setWidth("files", next)}
+            onCollapse={() => explorerLayoutActions.setCollapsed("files", true)}
+            onExpand={() => explorerLayoutActions.setCollapsed("files", false)}
+            style={explorerSidecarStyle({
+              singlePane: explorerSinglePane,
+              box: resolveExplorerSlotBox(paneId, paneSlotBoxes),
+              width: explorerLayout.filesWidth,
+              takingSpace,
+              radius: CENTER_STAGE_RADIUS_CSS,
+            })}
+          >
+            <DiscardableHeavySurface active={isActiveContext && showing}>
+              <KeptFileTreePanel
+                projectName={isUrlSyncedActive ? currentProject?.name : undefined}
+                rootPath={
+                  isUrlSyncedActive
+                    ? (currentWorkspace?.localPath ?? currentProject?.mainFilePath ?? null)
+                    : undefined
+                }
+                currentProjectPath={
+                  isUrlSyncedActive
+                    ? (currentRepoPath ?? currentWorkspace?.localPath ?? null)
+                    : null
+                }
+                contextId={contextId}
+                revealEnabled={isActiveContext}
+              />
+            </DiscardableHeavySurface>
+          </CenterExplorerSidecar>
+        );
+      })}
+
+      {changesExplorerHostPaneIds.map((paneId) => {
+        const activeTab = paneActiveTabId({
+          paneId,
+          paneActiveTabById,
+          frameActiveTab,
+        });
+        const foldScopeId = changesExplorerFoldScopeId(activeTab);
+        if (!foldScopeId) return null;
+        const showing = activeTab === foldScopeId;
+        if (!showing) return null;
+        const hiddenByFullscreen = paneHiddenByCenterFullscreen(
+          fullscreenPaneId,
+          paneId,
+        );
+        const surfaceActive = showing && !hiddenByFullscreen;
+        const changesLayout = explorerLayoutActions.changesForScope(foldScopeId);
+        const takingSpace = surfaceActive && !changesLayout.collapsed;
+        return (
+          <CenterExplorerSidecar
+            key={
+              explorerSinglePane
+                ? `${contextId}-changes-explorer-${foldScopeId}`
+                : `${contextId}-changes-explorer-${foldScopeId}-${paneId ?? "root"}`
+            }
+            kind="changes"
+            width={changesLayout.width}
+            surfaceActive={surfaceActive}
+            collapsed={changesLayout.collapsed}
+            interactive={Boolean(showing && isActiveContext)}
+            onWidthChange={(next) =>
+              explorerLayoutActions.setWidth("changes", next, foldScopeId)
+            }
+            onCollapse={() =>
+              explorerLayoutActions.setCollapsed("changes", true, foldScopeId)
+            }
+            onExpand={() =>
+              explorerLayoutActions.setCollapsed("changes", false, foldScopeId)
+            }
+            style={explorerSidecarStyle({
+              singlePane: explorerSinglePane,
+              box: resolveExplorerSlotBox(paneId, paneSlotBoxes),
+              width: changesLayout.width,
+              takingSpace,
+              radius: CENTER_STAGE_RADIUS_CSS,
+            })}
+          >
+            <DiscardableHeavySurface active={isActiveContext && showing}>
+              <KeptChangesPanel
+                contextId={contextId}
+                currentProject={isUrlSyncedActive ? currentProject : undefined}
+                currentProjectPath={
+                  isUrlSyncedActive ? (currentRepoPath ?? null) : null
+                }
+                currentWorkspace={
+                  isUrlSyncedActive ? currentWorkspace : undefined
+                }
+                projectId={
+                  isUrlSyncedActive ? (currentProject?.id ?? null) : null
+                }
+                workspaceId={
+                  isUrlSyncedActive && currentView === "workspace"
+                    ? (currentWorkspace?.id ?? null)
+                    : null
+                }
+              />
+            </DiscardableHeavySurface>
+          </CenterExplorerSidecar>
+        );
+      })}
     </div>
   );
 }

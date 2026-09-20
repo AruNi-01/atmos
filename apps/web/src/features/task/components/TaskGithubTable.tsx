@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Button, cn } from "@workspace/ui";
+import { Button, cn, ScrollArea } from "@workspace/ui";
 import {
   ArrowRight,
   CircleDot,
@@ -307,7 +307,8 @@ export function TaskGithubTable({
             (kind === "issues" ? t("empty.noIssues") : t("empty.noPrs"))}
         </div>
       ) : (
-      <ul className="m-0 min-h-0 min-w-0 flex-1 list-none overflow-y-auto overscroll-contain px-1 py-1">
+      <ScrollArea className="min-h-0 min-w-0 flex-1" scrollFade>
+      <ul className="m-0 min-w-0 list-none px-1 py-1">
         {items.map((item) => {
           const fullName = `${item.owner}/${item.repo}`;
           const login = item.author?.login ?? null;
@@ -493,6 +494,7 @@ export function TaskGithubTable({
           );
         })}
       </ul>
+      </ScrollArea>
       )}
     </div>
   );

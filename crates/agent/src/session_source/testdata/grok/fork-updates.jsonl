@@ -1,0 +1,2 @@
+{"timestamp": 1700000200, "method": "session/update", "params": {"sessionId": "ffffffff-ffff-4ccc-8ddd-ffffffffffff", "update": {"sessionUpdate": "user_message_chunk", "content": {"type": "text", "text": "Forked from parent"}}}}
+{"timestamp": 1700000201, "method": "session/update", "params": {"sessionId": "ffffffff-ffff-4ccc-8ddd-ffffffffffff", "update": {"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": "Fork only."}}}}

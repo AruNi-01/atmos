@@ -3,12 +3,15 @@ import type { AgentContract } from "./contract/agent";
 import type { AutomationContract } from "./contract/automation";
 import type { CanvasContract } from "./contract/canvas";
 import type { CenterLayoutContract } from "./contract/center-layout";
+import type { AgentChatContract } from "./contract/agent-chat";
 import type { DiskAnalyzerContract } from "./contract/disk-analyzer";
+import type { HostSessionContract } from "./contract/host-session";
 import type { FsContract } from "./contract/fs";
 import type { GitContract } from "./contract/git";
 import type { GithubContract } from "./contract/github";
 import type { GroupContract } from "./contract/group";
 import type { LinearContract } from "./contract/linear";
+import type { LinkPreviewContract } from "./contract/link-preview";
 import type { LocalModelContract } from "./contract/local-model";
 import type { LocalServicesContract } from "./contract/local-services";
 import type { PermissionContract } from "./contract/permission";
@@ -39,13 +42,16 @@ export type WsContract = FsContract &
   ReviewContract &
   SkillsContract &
   AgentContract &
+  AgentChatContract &
+  HostSessionContract &
   AutomationContract &
   SettingsContract &
   LocalServicesContract &
   LocalModelContract &
   DiskAnalyzerContract &
   SimulatorContract &
-  ResourceMonitorContract;
+  ResourceMonitorContract &
+  LinkPreviewContract;
 
 export type MappedWsAction = keyof WsContract & WsAction;
 /** Empty once every `WsAction` has a `WsContract` row. */

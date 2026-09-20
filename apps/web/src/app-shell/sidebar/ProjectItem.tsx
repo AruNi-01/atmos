@@ -42,7 +42,7 @@ import {
 } from "@workspace/ui";
 import type { Group, Project, WorkspaceLabel, WorkspacePriority } from "@/shared/types/domain";
 import { findGroupIdForMember } from "@/app-shell/sidebar/user-groups";
-import { FolderMinus, FolderPlus, ImageIcon } from "lucide-react";
+import { FolderMinus, FolderPlus, ImageIcon, Timer } from "lucide-react";
 import { WorkspaceItem } from "./WorkspaceItem";
 import { GroupNamePopoverForm } from "@/app-shell/sidebar/GroupNamePopoverForm";
 import {
@@ -56,11 +56,16 @@ import {
 } from "@/features/agent/store/agent-attention-store";
 import type { WorkspaceWorkflowStatus } from "@/shared/types/domain";
 import { FileBrowser } from "@/features/files/components/FileBrowser";
+import { STANDALONE_GROUP_ID } from "@/features/automations/lib/standalone-sidebar";
 import { ProjectLogoMark } from "@/features/project/components/ProjectLogoMark";
 import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import { pickLocalFile } from "@/shared/lib/desktop-directory-picker";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
-import { LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS, LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS } from "@/app-shell/sidebar-layout-constants";
+import {
+  LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS,
+  LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+  LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS,
+} from "@/app-shell/sidebar-layout-constants";
 import { SidebarHeldShortcutBadge } from "@/app-shell/HeldShortcutBadge";
 import { useSidebarShortcutDigit } from "@/app-shell/held-shortcut-prefix-store";
 import { SIDEBAR_SHORTCUT_TARGET_ATTR } from "@/app-shell/shortcut-prefix";
@@ -69,6 +74,11 @@ export interface ProjectItemProps {
   project: Project;
   isExpanded: boolean;
   hideWorkspaceList?: boolean;
+  /**
+   * Stick the project title to the one-column list scrollport while its
+   * workspaces scroll. Nested uses (By Group, two-column) leave this off.
+   */
+  stickyHeader?: boolean;
   disableRowClick?: boolean;
   /**
    * Disable nested workspace row sorting (e.g. By Group sidebar, where a parent
@@ -201,6 +211,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   project,
   isExpanded,
   hideWorkspaceList = false,
+  stickyHeader = false,
   disableRowClick = false,
   workspaceSortingDisabled = false,
   isDragging,
@@ -242,6 +253,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   const t = useTranslations("AppShell.chrome");
   const groupsT = useTranslations("appShell.groups");
   const projectGroupId = findGroupIdForMember(groups, "project", project.id);
+  const isStandaloneGroup = project.id === STANDALONE_GROUP_ID;
   const initialLetter = project.name.charAt(0).toUpperCase();
 
   const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
@@ -249,8 +261,9 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   const projectOwnAttentionReason = useAgentAttentionStore((s) =>
     s.getContextReason(project.id),
   );
-  const childrenVisible =
-    !hideWorkspaceList && isExpanded && project.workspaces.length > 0;
+  // Fold child marks in only when this row hides its workspace list.
+  const rollupChildren =
+    !hideWorkspaceList && !isExpanded && project.workspaces.length > 0;
   // In attention filter mode, parent projects that only host attention workspaces
   // stay visible for structure but are dimmed so the latched rows stand out.
   const dimAsAttentionParent =
@@ -459,6 +472,68 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
     setShowLogoBrowser(false);
   }, [logoInput, onSetLogo, project.id, t]);
 
+  const workspaceList = (
+    <div
+      className={cn(
+        "mt-1 ml-8 space-y-0.5 transition-all duration-300",
+        LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+        isAnyProjectDragging ? "pointer-events-none opacity-0" : "opacity-100"
+      )}
+    >
+      <SortableContext
+        items={
+          workspaceSortingDisabled
+            ? []
+            : visibleUnpinnedWorkspaces.map((workspace) => workspace.id)
+        }
+        strategy={verticalListSortingStrategy}
+      >
+        {visibleUnpinnedWorkspaces.map((ws) => (
+          <WorkspaceItem
+            key={ws.id}
+            workspace={ws}
+            projectId={project.id}
+            projectName={project.name}
+            projectPath={project.mainFilePath}
+            isActive={activeWorkspaceId === ws.id}
+            sortingDisabled={workspaceSortingDisabled}
+            onPin={(wsId) => onPinWorkspace(project.id, wsId)}
+            onUnpin={(wsId) => onUnpinWorkspace(project.id, wsId)}
+            onArchive={(wsId) => onArchiveWorkspace(project.id, wsId)}
+            onDelete={(wsId) => onDeleteWorkspace(project.id, wsId)}
+            onUpdateName={(wsId, name) => onUpdateWorkspaceName(project.id, wsId, name)}
+            onUpdateWorkflowStatus={(wsId, workflowStatus) =>
+              onUpdateWorkspaceWorkflowStatus(project.id, wsId, workflowStatus)
+            }
+            onUpdatePriority={(wsId, priority) =>
+              onUpdateWorkspacePriority(project.id, wsId, priority)
+            }
+            availableLabels={availableLabels}
+            onCreateLabel={onCreateWorkspaceLabel}
+            onUpdateLabel={onUpdateWorkspaceLabel}
+            groups={groups}
+            onSetWorkspaceGroup={onSetWorkspaceGroup}
+            onCreateGroup={onCreateGroup}
+            onUpdateLabels={(wsId, labels) =>
+              onUpdateWorkspaceLabels(project.id, wsId, labels)
+            }
+            suppressInfoPopover={isProjectMenuOpen}
+          />
+        ))}
+      </SortableContext>
+      <WorkspaceListShowMoreLess
+        canShowMore={canShowMore}
+        canShowLess={canShowLess}
+        onShowMore={showMore}
+        onShowLess={showLess}
+        className="ml-4"
+      />
+      {project.workspaces.length === 0 && !attentionFilterMode && (
+        <div className="py-2 text-[12px] text-muted-foreground italic ml-4">{t("leftSidebarControls.noWorkspaces")}</div>
+      )}
+    </div>
+  );
+
   return (
     <div
       className={cn(
@@ -468,6 +543,10 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
       )}
       {...{ [SIDEBAR_SHORTCUT_TARGET_ATTR]: projectShortcutKey }}
     >
+      <div
+        className={cn(stickyHeader && LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS)}
+        {...(stickyHeader ? { "data-sidebar-sticky-group-header": "" } : {})}
+      >
       <div
         className={cn(
             "relative ml-2 flex items-center rounded-sm px-2 py-1.5 hover:bg-sidebar-accent",
@@ -500,7 +579,9 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
               className="size-6 flex items-center justify-center bg-sidebar rounded-md border border-sidebar-border text-[10px] font-bold text-muted-foreground shrink-0 hover:bg-sidebar-accent relative"
               style={{ borderLeft: project.borderColor ? `2px solid ${project.borderColor}` : undefined }}
             >
-              {logoUrl && !hasLogoLoadError ? (
+              {isStandaloneGroup ? (
+                <Timer className="size-3.5" />
+              ) : logoUrl && !hasLogoLoadError ? (
                 <ProjectLogoMark
                   src={logoUrl}
                   className="group-hover/project:hidden"
@@ -509,24 +590,26 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
               ) : (
                 <span className="group-hover/project:hidden transition-all duration-200">{initialLetter}</span>
               )}
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectMain(project.id);
-                      }}
-                      className="hidden group-hover/project:flex items-center justify-center size-full absolute inset-0 text-muted-foreground hover:text-foreground hover:cursor-pointer"
-                    >
-                      <MapPinned className="size-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">
-                    {t("projectItem.mainDirectoryTooltip")}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              {isStandaloneGroup ? null : (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectMain(project.id);
+                        }}
+                        className="hidden group-hover/project:flex items-center justify-center size-full absolute inset-0 text-muted-foreground hover:text-foreground hover:cursor-pointer"
+                      >
+                        <MapPinned className="size-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">
+                      {t("projectItem.mainDirectoryTooltip")}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
             <span
               className={cn(
@@ -541,8 +624,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
             <ProjectAgentStatusMark
               projectId={project.id}
               workspaceIds={project.workspaces.map((ws) => ws.id)}
-              // Collapsed (or no children list): roll up workspace attention onto the project row.
-              rollupAttention={!childrenVisible}
+              rollupChildren={rollupChildren}
             />
           </div>
         </div>
@@ -702,7 +784,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                     <FileCode className="size-4" />
                     <span>{t("projectItem.workspaceScripts")}</span>
                   </DropdownMenuItem>
-                  {(onAddProjectToGroup || onRemoveProjectFromGroup || onCreateGroup) ? (
+                  {!isStandaloneGroup && (onAddProjectToGroup || onRemoveProjectFromGroup || onCreateGroup) ? (
                     <>
                       <DropdownMenuSeparator className="mx-2" />
                       <DropdownMenuSub>
@@ -777,6 +859,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
           </div>
         )}
       </div>
+      </div>
 
       <div
         className={cn(
@@ -797,65 +880,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
             style={project.borderColor ? getVerticalLineStyle(project.borderColor) : undefined}
           />
 
-          <div
-            className={cn(
-              "mt-1 ml-8 space-y-0.5 transition-all duration-300",
-              LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
-              isAnyProjectDragging ? "pointer-events-none opacity-0" : "opacity-100"
-            )}
-          >
-            <SortableContext
-              items={
-                workspaceSortingDisabled
-                  ? []
-                  : visibleUnpinnedWorkspaces.map((workspace) => workspace.id)
-              }
-              strategy={verticalListSortingStrategy}
-            >
-              {visibleUnpinnedWorkspaces.map((ws) => (
-                <WorkspaceItem
-                  key={ws.id}
-                  workspace={ws}
-                  projectId={project.id}
-                  projectName={project.name}
-                  projectPath={project.mainFilePath}
-                  isActive={activeWorkspaceId === ws.id}
-                  sortingDisabled={workspaceSortingDisabled}
-                  onPin={(wsId) => onPinWorkspace(project.id, wsId)}
-                  onUnpin={(wsId) => onUnpinWorkspace(project.id, wsId)}
-                  onArchive={(wsId) => onArchiveWorkspace(project.id, wsId)}
-                  onDelete={(wsId) => onDeleteWorkspace(project.id, wsId)}
-                  onUpdateName={(wsId, name) => onUpdateWorkspaceName(project.id, wsId, name)}
-                  onUpdateWorkflowStatus={(wsId, workflowStatus) =>
-                    onUpdateWorkspaceWorkflowStatus(project.id, wsId, workflowStatus)
-                  }
-                  onUpdatePriority={(wsId, priority) =>
-                    onUpdateWorkspacePriority(project.id, wsId, priority)
-                  }
-                  availableLabels={availableLabels}
-                  onCreateLabel={onCreateWorkspaceLabel}
-                  onUpdateLabel={onUpdateWorkspaceLabel}
-                  groups={groups}
-                  onSetWorkspaceGroup={onSetWorkspaceGroup}
-                  onCreateGroup={onCreateGroup}
-                  onUpdateLabels={(wsId, labels) =>
-                    onUpdateWorkspaceLabels(project.id, wsId, labels)
-                  }
-                  suppressInfoPopover={isProjectMenuOpen}
-                />
-              ))}
-            </SortableContext>
-            <WorkspaceListShowMoreLess
-              canShowMore={canShowMore}
-              canShowLess={canShowLess}
-              onShowMore={showMore}
-              onShowLess={showLess}
-              className="ml-4"
-            />
-            {project.workspaces.length === 0 && !attentionFilterMode && (
-              <div className="py-2 text-[12px] text-muted-foreground italic ml-4">{t("leftSidebarControls.noWorkspaces")}</div>
-            )}
-          </div>
+          {workspaceList}
         </div>
       </div>
       <Dialog

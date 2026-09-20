@@ -4,7 +4,7 @@
 
 ## Scope summary
 
-Keep `AgentHookSession` / `agent_hook_state_changed` as the coarse lifecycle used by APP-058, footer counts, and attention. Add an in-memory **activity** record on `AgentHooksService` whose history unit is an **`AgentTurn`**. Fold tool / child / todo / **prompt** fields in the v1 adapters, **upgrade hook install templates** so those fields actually arrive, expose a REST snapshot + typed WS event, and render a computer-scoped React Flow tree in `apps/web`.
+Keep occupancy (`AgentStatusRecord` / `agent_status_changed`) as the coarse lifecycle used by APP-058, footer counts, and attention. Occupancy adapters are **terminal hooks and Agent Chat**. Add an in-memory **activity** record on `AgentStatusService` whose history unit is an **`AgentTurn`**. Fold tool / child / todo / **prompt** fields from hook payloads **and** `AgentEvent` host events, **upgrade hook install templates** so terminal fields actually arrive, expose a REST snapshot + typed WS event, and render a computer-scoped React Flow tree in `apps/web`.
 
 Idle sweep and pane-focus dismiss continue to drop **session rows**. They do **not** drop activity/turns. No SQLite. No Canvas / tldraw changes. No Token Usage–style Computer picker.
 
@@ -12,8 +12,9 @@ Idle sweep and pane-focus dismiss continue to drop **session rows**. They do **n
 
 | Decision | Rule |
 |----------|------|
-| Parallel model | State map unchanged. Activity is a second map keyed by `session_id`. |
-| History unit | `AgentTurn` opened by prompt-submit / NewTurn, closed by Idle/Stop or the next prompt. |
+| Parallel model | Occupancy map unchanged. Activity is a second map on `AgentStatusService`, keyed by `session_id` (terminal pane id or `chat:{id}`). |
+| Surfaces | Terminal hook sessions and Agent Chat host sessions both fold activity. Chat bind copies `surface=chat`, `surface_id`, `space_id`. |
+| History unit | `AgentTurn` opened by prompt-submit / NewTurn / Chat `UserMessage`, closed by Idle/Stop or the next prompt. Chat `Steer` does not open a turn. |
 | Finished Agents | Stay on the graph while an activity record with `turns.length ≥ 1` exists. |
 | Automatic idle cleanup | `clear_idle_older_than` and client `dismissIdleSessionsForPane` do **not** call activity clear. |
 | Explicit drop | Footer Clear idle, session remove, pane destroy, tool takeover, API process restart **do** drop activity. |
@@ -29,27 +30,29 @@ Idle sweep and pane-focus dismiss continue to drop **session rows**. They do **n
 ```text
 terminal Agent
   → hook command / plugin (v5 bodies) → POST /hooks/<tool>
-apps/api hook routes
-  → AgentHooksService::handle_*          state machine, unchanged rules
-  → ActivityFolder::apply(payload)       NEW
-        sessions: Map<session_id, AgentHookSession>      // existing
-        activity: Map<session_id, AgentActivity>         // NEW, outlives idle row
-        children: Map<session_id, Map<child_id, …>>      // live children only
+Agent Chat
+  → AgentEvent → apply_host_event
+apps/api
+  → AgentHooksService::handle_*          occupancy adapter (terminal)
+  → apply_host_event                     occupancy adapter (chat)
+  → AgentStatusService::observe_hook / observe_host
+        sessions: Map<session_id, AgentStatusRecord>   // occupancy, existing
+        activity: Map<session_id, AgentActivity>       // NEW, outlives idle row
 
-broadcast AgentHookEvent (existing channel, new variants)
-  agent_hook_state_changed
+broadcast AgentStatusEvent (existing channel, new variants)
+  agent_status_changed
   agent_activity_updated            // visible-field change only
-  agent_activity_cleared            // explicit drop / pane destroy / takeover
+  agent_activity_cleared            // explicit drop / pane destroy / takeover / chat delete
 
-GET /hooks/sessions                 existing bootstrap (state chrome)
-GET /hooks/activity                 NEW snapshot (graph + footer one-liner)
-  justified: same class as GET /hooks/sessions — refresh hydrate before WS
+GET /agent-status/sessions          existing bootstrap (state chrome)
+GET /agent-status/activity          NEW snapshot (graph + footer one-liner)
+  justified: same class as GET /agent-status/sessions — refresh hydrate before WS
 
 apps/web
-  features/agent/store/agent-hooks-store.ts     state (unchanged rules)
+  features/agent/store/agent-status-store.ts    occupancy (unchanged rules)
   features/agent/store/agent-activity-store.ts  NEW; ignore pane-focus dismiss
-  features/agent/lib/agent-activity-graph.ts    tree projection
-  features/agent/components/AgentActivityGraphView.tsx
+  features/agent/lib/agent-observer-graph.ts    tree projection
+  features/agent/components/observer/AgentObserverView.tsx
   Launchpad item `agent-observer` → /agent-observer (Center Stage no-host view)
 ```
 
@@ -188,7 +191,7 @@ Hooks remain `timeout: 5` (or current per-event timeouts), `|| true`, `ATMOS_MAN
 
 ### REST
 
-`GET /hooks/activity` — same auth / Computer scope as `GET /hooks/sessions`. Bootstrap after refresh; not a substitute for WS.
+`GET /agent-status/activity` — same auth / Computer scope as `GET /agent-status/sessions`. Bootstrap after refresh; not a substitute for WS.
 
 ```json
 { "sessions": [ /* AgentActivity */ ] }
@@ -196,11 +199,11 @@ Hooks remain `timeout: 5` (or current per-event timeouts), `|| true`, `ATMOS_MAN
 
 Empty `sessions: []` is valid. Include records whose hook session row is gone.
 
-Add `agentHooksApi.listActivity()` next to `listSessions` in `apps/web/src/api/rest-api.ts` (relay HTTP gateway already used by hook REST).
+Add `agentStatusApi.listActivity()` next to occupancy REST in `apps/web/src/api/rest-api.ts` (relay HTTP gateway already used by status REST).
 
 ### WS (APP-064 catalog)
 
-Extend `AgentHookEvent` in `crates/core-service/src/service/agent_hooks.rs` and the forwarder in `apps/api/src/main.rs` (`spawn_agent_hook_forwarder`). Do **not** open a second broadcast channel.
+Extend `AgentStatusEvent` in `crates/core-service/src/service/agent_status/mod.rs` and the forwarder in `apps/api/src/main.rs` (`spawn_agent_status_forwarder`). Do **not** open a second broadcast channel.
 
 ```ts
 agent_activity_updated: { payload: AgentActivity }

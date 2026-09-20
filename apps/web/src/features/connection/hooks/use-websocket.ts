@@ -239,9 +239,9 @@ function ensureSession(): WsSession {
     if (message.type !== "notification") return;
     const eventName = message.payload.event;
     const data = message.payload.data;
-    if (eventName === "agent_hook_state_changed") {
+    if (eventName === "agent_status_changed") {
       console.debug(
-        "[WS] agent_hook_state_changed:",
+        "[WS] agent_status_changed:",
         (data as Record<string, unknown>)?.tool,
         (data as Record<string, unknown>)?.state,
         "listeners:",

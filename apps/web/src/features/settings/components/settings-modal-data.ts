@@ -194,9 +194,8 @@ const SETTINGS_TOPIC_KEYWORDS: Record<string, readonly string[]> = {
     "line wrap",
     "bracket matching",
     "minimap",
-    "breadcrumbs",
     "line highlight",
-    "git integration",
+    "git gutter",
     "layout",
     "side by side",
     "unified",
@@ -252,6 +251,9 @@ const SETTINGS_TOPIC_KEYWORDS: Record<string, readonly string[]> = {
     "yolo",
     "yolo mode",
     "skip permissions",
+    "tool call density",
+    "compact",
+    "detailed",
     "show agent name",
     "terminal titles",
     "behaviour",
@@ -455,6 +457,9 @@ const SETTINGS_TOPIC_KEYWORDS: Record<string, readonly string[]> = {
     "accessibility",
     "screen recording",
     "desktop use",
+    "atmos accessibility",
+    "cmd shift 4",
+    "cmd shift 5",
   ],
   keyboard: [
     "keyboard",
@@ -595,7 +600,7 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
       keywords: ["running agent sessions", "agent hooks"],
     }),
     settingsModalSearchItem("layout.acpAgentChatEntry", {
-      keywords: ["floating acp chat", "footer", "layout", "launchpad"],
+      keywords: ["floating agent chat", "footer", "layout", "launchpad"],
     }),
     settingsModalSearchItem("layout.workspacesLaunchpad", {
       keywords: ["workspaces", "manage workspaces", "launchpad"],
@@ -607,7 +612,7 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
       keywords: ["monitor terminal usage", "manage terminal usage", "launchpad"],
     }),
     settingsModalSearchItem("layout.acpAgentsLaunchpad", {
-      keywords: ["acp chat panel", "gui agent conversations", "footer", "launchpad"],
+      keywords: ["agent chat", "gui agent conversations", "footer", "launchpad"],
     }),
     settingsModalSearchItem("layout.automationsLaunchpad", {
       keywords: ["automation creation", "scheduled runs", "github-triggered automation", "launchpad"],
@@ -651,14 +656,11 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
     settingsModalSearchItem("editor.minimap", {
       keywords: ["right side", "quick navigation"],
     }),
-    settingsModalSearchItem("editor.breadcrumbs", {
-      keywords: ["breadcrumb navigation", "top of editor"],
-    }),
     settingsModalSearchItem("editor.lineHighlight", {
       keywords: ["current line", "matching selections"],
     }),
     settingsModalSearchItem("editor.gitIntegration", {
-      keywords: ["git changes", "diff information"],
+      keywords: ["git gutter", "git changes", "uncommitted", "变更条", "行号"],
     }),
     settingsModalSearchItem("editor.diff", {
       keywords: ["default diff layout", "toolbar view options"],
@@ -692,13 +694,13 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
   ],
   agents: [
     settingsModalSearchItem("codeAgent.defaults", {
-      keywords: ["defaults", "launch flags", "yolo", "agent name", "terminal titles"],
+      keywords: ["defaults", "launch flags", "yolo"],
     }),
     settingsModalSearchItem("codeAgent.yoloMode", {
       keywords: ["yolo", "skip-permissions", "auto-approve", "dangerously-skip-permissions", "restore yolo"],
     }),
-    settingsModalSearchItem("codeAgent.showAgentNameInTerminalTitles", {
-      keywords: ["agent name", "terminal titles", "terminal tabs", "agent icon", "brand name"],
+    settingsModalSearchItem("codeAgent.toolCallDensity", {
+      keywords: ["compact", "detailed", "tool calls", "fold", "collapse", "density", "tool call density"],
     }),
     settingsModalSearchItem("codeAgent.activityIndicators", {
       keywords: ["running-state icon", "unicode spinner", "orbs", "left sidebar", "footer"],
@@ -1067,7 +1069,7 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
       ],
     }),
     settingsModalSearchItem("shortcuts.centerStageTabsShortcuts", {
-      keywords: ["overview tab", "tab position", "switch tab", "center stage tab"],
+      keywords: ["overview tab", "tab position", "switch tab", "center stage tab", "agent chat", "focus prompt"],
     }),
     settingsModalSearchItem("shortcuts.terminalShortcuts", {
       keywords: ["split terminal", "new terminal tab", "close terminal pane", "find in terminal"],
@@ -1095,6 +1097,30 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
     settingsModalSearchItem("permissionAccess.browserCookies", {
       hasDescription: true,
       keywords: ["keychain", "chrome safe storage", "cursor", "cookie"],
+    }),
+    settingsModalSearchItem("permissionAccess.atmosAccessibility", {
+      hasDescription: true,
+      keywords: [
+        "accessibility",
+        "assistive",
+        "cmd shift 4",
+        "cmd shift 5",
+        "sidebar shortcut",
+        "macos permissions",
+      ],
+    }),
+    settingsModalSearchItem("permissionAccess.atmosScreenRecording", {
+      hasDescription: true,
+      keywords: ["screen recording", "appshot", "screenshot", "macos permissions"],
+    }),
+    settingsModalSearchItem("permissionAccess.desktopUsePermissions", {
+      hasDescription: true,
+      keywords: [
+        "desktop use",
+        "accessibility",
+        "screen recording",
+        "control engine",
+      ],
     }),
   ],
   about: [

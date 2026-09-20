@@ -1,20 +1,21 @@
 # DMG installer backdrop
 
-Ultra-minimal classic install window (no brand art / no Atmos title).
+Landscape plus sharp overlays. Finder still supplies **Atmos.app** and the icon-name labels.
 
 | File | Role |
 |------|------|
-| `background.png` | @1x 540×380 |
-| `background@2x.png` | Retina 1080×760 |
+| `background.png` | @1x 642×406 |
+| `background@2x.png` | Retina 1284×812 |
+| `applications-folder.png` | Dmgly Applications glyph (composited + alias icon) |
 
-Contents:
+Icon centers (`electron-builder.yml` `dmg.contents`):
 
-- Top: slogan only (Helvetica Neue Bold) — `Atmosphere for Agentic Builders`
-- Center: solid arrow (App + Applications from Finder)
-- Bottom: same family as slogan — `Drag **Atmos** to Applications to install`
+- Atmos.app: (95, 72)
+- Applications: (367, 213)
+- `iconSize`: 128
 
 ```bash
-python3 scripts/generate-dmg-background.py
+python3 scripts/generate-dmg-background.py /path/to/landscape.png
 ```
 
-Align `electron-builder.yml` `dmg.contents` with script `ICON_L` / `ICON_R` / `ICON_Y`.
+After packaging, `scripts/stamp-dmg-applications-alias.ts` turns the `/Applications` symlink into a Finder alias using `applications-folder.png`, so macOS 26 does not leave an empty well.

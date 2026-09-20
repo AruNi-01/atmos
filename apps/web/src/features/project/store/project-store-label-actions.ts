@@ -2,7 +2,7 @@
 
 import { toastManager } from '@workspace/ui';
 import { getComputerQueryScope } from '@/api/query/query-scope';
-import { wsWorkspaceApi, type WorkspaceLabelModel } from '@/api/ws-api';
+import { wsProjectApi, wsWorkspaceApi, type WorkspaceLabelModel } from '@/api/ws-api';
 import type { WorkspaceLabel } from '@/shared/types/domain';
 import { waitForConnection } from './project-store-connection';
 import type { ProjectStore, ProjectStoreGet, ProjectStoreSet } from './project-store-types';
@@ -23,6 +23,7 @@ type ProjectStoreLabelActions = Pick<
   | 'restoreWorkspaceLabel'
   | 'updateWorkspaceLabels'
   | 'markWorkspaceVisited'
+  | 'markProjectVisited'
 >;
 
 function mapWorkspaceLabelModel(label: WorkspaceLabelModel): WorkspaceLabel {
@@ -161,20 +162,48 @@ export function createProjectStoreLabelActions(
         patchProjectBootstrapSnapshotAt(scope, (current) => {
           let changed = false;
           const projects = current.projects.map((project) => {
-            let projectChanged = false;
+            const containsWorkspace = project.workspaces.some(
+              (workspace) => workspace.id === workspaceId,
+            );
+            if (!containsWorkspace) return project;
+            let workspaceChanged = false;
             const workspaces = project.workspaces.map((workspace) => {
               if (workspace.id !== workspaceId) return workspace;
               if (workspace.lastVisitedAt === visitedAt) return workspace;
-              projectChanged = true;
-              changed = true;
+              workspaceChanged = true;
               return { ...workspace, lastVisitedAt: visitedAt };
             });
-            return projectChanged ? { ...project, workspaces } : project;
+            if (!workspaceChanged && project.lastVisitedAt === visitedAt) {
+              return project;
+            }
+            changed = true;
+            return { ...project, workspaces, lastVisitedAt: visitedAt };
           });
           return changed ? { ...current, projects } : current;
         });
       } catch (error) {
         console.error('Error marking workspace visited:', error);
+      }
+    },
+
+    markProjectVisited: async (projectId: string) => {
+      try {
+        const scope = getComputerQueryScope();
+        await waitForConnection();
+        await wsProjectApi.markVisited(projectId);
+        const visitedAt = new Date().toISOString();
+        patchProjectBootstrapSnapshotAt(scope, (current) => {
+          let changed = false;
+          const projects = current.projects.map((project) => {
+            if (project.id !== projectId) return project;
+            if (project.lastVisitedAt === visitedAt) return project;
+            changed = true;
+            return { ...project, lastVisitedAt: visitedAt };
+          });
+          return changed ? { ...current, projects } : current;
+        });
+      } catch (error) {
+        console.error('Error marking project visited:', error);
       }
     },
   };

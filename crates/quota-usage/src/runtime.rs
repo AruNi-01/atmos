@@ -22,6 +22,7 @@ use crate::providers::{
     claude,
     codex, // commandcode disabled due to API data consistency issues
     cursor,
+    deepseek,
     factory,
     grok,
     mimo,
@@ -68,6 +69,7 @@ pub(crate) enum LiveProviderKind {
     Mimo,
     Zed,
     Grok,
+    DeepSeek,
     // CommandCode disabled due to API data consistency issues
     // CommandCode,
 }
@@ -256,6 +258,17 @@ pub(crate) fn detect_auth(spec: &ProviderSpec) -> AuthState {
         }
     }
 
+    if spec.id == "deepseek" {
+        if let Some(source) = deepseek::overlay_auth_source() {
+            return AuthState {
+                status: AuthStateStatus::Detected,
+                source: Some(source),
+                detail: Some("Detected DeepSeek API token in custom agent overlay".to_string()),
+                setup_hint: Some(spec.setup_hint.to_string()),
+            };
+        }
+    }
+
     if spec.id == "claude" {
         if let Some(source) = claude::keychain_oauth_source() {
             return AuthState {
@@ -315,6 +328,15 @@ pub(crate) fn detect_auth(spec: &ProviderSpec) -> AuthState {
     }
 
     if spec.id == "factory" {
+        if let Ok(Some(source)) = factory::storage::load_factory_cli_auth_access_token() {
+            return AuthState {
+                status: AuthStateStatus::Detected,
+                source: Some(source.source_label),
+                detail: Some("Detected Droid CLI auth token".to_string()),
+                setup_hint: Some(spec.setup_hint.to_string()),
+            };
+        }
+
         if crate::support::browser_access::may_probe_browser_cookies("factory") {
             if let Ok(tokens) = factory::storage::load_factory_local_storage_tokens() {
                 if let Some(token) = tokens.first() {
@@ -326,15 +348,6 @@ pub(crate) fn detect_auth(spec: &ProviderSpec) -> AuthState {
                     };
                 }
             }
-        }
-
-        if let Ok(Some(source)) = factory::storage::load_factory_cli_auth_access_token() {
-            return AuthState {
-                status: AuthStateStatus::Detected,
-                source: Some(source.source_label),
-                detail: Some("Detected Droid CLI auth token".to_string()),
-                setup_hint: Some(spec.setup_hint.to_string()),
-            };
         }
 
         if let Ok(Some(source)) = load_factory_browser_cookie_source() {
@@ -724,7 +737,7 @@ fn provider_specs() -> Vec<ProviderSpec> {
             kind: ProviderKind::Hybrid,
             live_kind: Some(LiveProviderKind::Factory),
             timeout_millis: PROVIDER_TIMEOUT_MILLIS,
-            setup_hint: "Sign in to app.factory.ai first. Atmos prioritizes browser session tokens and then falls back to Droid CLI auth and FACTORY_BEARER_TOKEN.",
+            setup_hint: "Log in with Droid CLI (`droid`) or sign in to app.factory.ai. Atmos uses the Droid CLI session first, then browser tokens and FACTORY_BEARER_TOKEN.",
             auth_env_keys: &[
                 "FACTORY_COOKIE_HEADER",
                 "ATMOS_USAGE_FACTORY_COOKIE_HEADER",
@@ -752,6 +765,16 @@ fn provider_specs() -> Vec<ProviderSpec> {
             // Auth is resolved only via `grok::grok_auth_path` in `detect_grok_auth`
             // (not generic auth_paths / stored API keys).
             auth_env_keys: &[],
+            auth_paths: &[],
+        },
+        ProviderSpec {
+            id: "deepseek",
+            label: "DeepSeek",
+            kind: ProviderKind::Api,
+            live_kind: Some(LiveProviderKind::DeepSeek),
+            timeout_millis: PROVIDER_TIMEOUT_MILLIS,
+            setup_hint: "Add a DeepSeek API token in AI Quota Usage, or set DEEPSEEK_API_KEY. The same token is used by DeepSeek Harness.",
+            auth_env_keys: &["DEEPSEEK_API_KEY"],
             auth_paths: &[],
         },
         ProviderSpec {
@@ -849,6 +872,7 @@ async fn collect_live(
         LiveProviderKind::Mimo => mimo::fetch_mimo_live(client).await,
         LiveProviderKind::Zed => zed::fetch_zed_live(client).await,
         LiveProviderKind::Grok => grok::fetch_grok_live(client).await,
+        LiveProviderKind::DeepSeek => deepseek::fetch_deepseek_live(client).await,
         // CommandCode disabled due to API data consistency issues
         // LiveProviderKind::CommandCode => commandcode::fetch_commandcode_live(client).await,
     }

@@ -1,0 +1,1 @@
+{"type":"control_response","response":{"subtype":"success","request_id":"req_p","response":{"behavior":"allow","updatedInput":{"command":"ls"}}}}

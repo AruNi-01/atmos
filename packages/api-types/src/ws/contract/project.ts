@@ -33,6 +33,7 @@ export type ProjectContract = {
     input: FsValidateGitPathRequest;
     output: FsValidateGitPathResponse;
   };
+  project_mark_visited: { input: ProjectGuidRequest; output: WsSuccess };
   project_check_can_delete: {
     input: ProjectGuidRequest;
     output: ProjectCheckCanDeleteResponse;

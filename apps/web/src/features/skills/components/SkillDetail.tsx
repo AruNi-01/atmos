@@ -14,7 +14,6 @@ import {
   CircleMinus,
   CircleX,
   ChevronRight,
-  ChevronLeft,
   CornerUpRight,
   Loader2,
   getFileIconProps,
@@ -29,6 +28,9 @@ import {
   Panel,
   PanelGroup,
   PanelResizeHandle,
+  PanelLeft,
+  PanelRight,
+  panelFoldCursorClass,
   ImperativePanelHandle,
   Tooltip,
   TooltipContent,
@@ -45,6 +47,7 @@ import { detectCodeLanguage } from '@/shared/lib/code-language';
 import { getAgentStatus, sortAgents } from '../lib/constants';
 import { SkillAgentBadge } from './SkillAgentBadge';
 import { QuickOpen } from '@/app-shell/QuickOpen';
+import { ResizeFollowMark } from '@/app-shell/ResizeFollowMark';
 import { SkillActionsMenu } from './SkillActionsMenu';
 
 const CodeMirrorEditor = dynamic(
@@ -282,19 +285,23 @@ function ResizeHandle({
   className,
 }: ResizeHandleProps) {
   const t = useTranslations('skills.detail');
+  const [dragging, setDragging] = useState(false);
   return (
     <PanelResizeHandle
-      onDragging={onDragging}
+      onDragging={(nextDragging) => {
+        setDragging(nextDragging);
+        onDragging(nextDragging);
+      }}
       className={cn(
-        "relative flex w-px items-center justify-center bg-border hover:bg-border/80 group touch-none z-10",
-        "before:absolute before:inset-y-0 before:-left-1 before:-right-1 before:z-10", // Expand hit area
+        "relative z-10 flex w-3 -mx-1.5 items-center justify-center overflow-visible bg-transparent group touch-none",
         className
       )}
     >
-      {/* Visual Line (1px inherited from w-px parent) */}
-
-      {/* Collapse Hint Button */}
+      <ResizeFollowMark axis="vertical" dragging={dragging} onFold={onCollapse} />
       <button
+        onPointerDown={(e) => {
+          e.stopPropagation();
+        }}
         onClick={(e) => {
           e.stopPropagation();
           onCollapse();
@@ -303,19 +310,14 @@ function ResizeHandle({
         className={cn(
           "absolute z-50 flex size-5 items-center justify-center rounded-full bg-muted border border-border shadow-lg transition-[opacity,transform] duration-200 hover:bg-muted/80 hover:scale-110 opacity-0 group-hover:opacity-100",
           "left-1/2 -translate-x-1/2",
+          panelFoldCursorClass(side, isCollapsed),
           isCollapsed && "hover:opacity-100! hover:bg-accent!"
         )}
       >
-        {side === "left" ? (
-          isCollapsed ? (
-            <ChevronRight className="size-3 text-muted-foreground" />
-          ) : (
-            <ChevronLeft className="size-3 text-muted-foreground" />
-          )
-        ) : isCollapsed ? (
-          <ChevronLeft className="size-3 text-muted-foreground" />
+        {side === "right" ? (
+          <PanelRight className="size-3 text-muted-foreground" />
         ) : (
-          <ChevronRight className="size-3 text-muted-foreground" />
+          <PanelLeft className="size-3 text-muted-foreground" />
         )}
       </button>
     </PanelResizeHandle>
@@ -576,7 +578,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                       <div className="flex flex-col gap-2 overflow-hidden">
                         <div className="flex flex-col gap-1">
                           <h4 className="font-medium text-sm">{t('description.title')}</h4>
-                          <ScrollArea className="max-h-60 overflow-y-auto pr-2">
+                          <ScrollArea className="max-h-60" scrollFade viewportClassName="pr-2">
                             <p className="text-muted-foreground text-xs leading-relaxed">
                               {skill.description}
                             </p>
@@ -637,7 +639,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('files.title')}</span>
             <span className="text-[10px] text-muted-foreground">{skill.files?.length || 0}</span>
           </div>
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1" scrollFade>
             <div>
               {fileTree.map(node => (
                 <TreeItem

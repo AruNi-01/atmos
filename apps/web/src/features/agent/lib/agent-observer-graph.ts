@@ -1,5 +1,5 @@
 import type { AgentActivity, AgentTurn } from "@atmos/api-types/ws/dto/events";
-import type { AgentHookSession } from "@/features/agent/store/agent-hooks-store";
+import type { AgentStatusRecord } from "@/features/agent/store/agent-status-store";
 import type { Project } from "@/shared/types/domain";
 
 export type ObserverNodeKind =
@@ -14,7 +14,7 @@ export type ObserverGraphNode = {
   parentId: string | null;
   kind: ObserverNodeKind;
   label: string;
-  session?: AgentHookSession;
+  session?: AgentStatusRecord;
   activity?: AgentActivity;
   latestPrompt?: string;
   currentToolLine?: string;
@@ -24,6 +24,7 @@ export type ObserverGraphNode = {
   childCount: number;
   todoSummary?: string;
   sideChat: boolean;
+  chat: boolean;
 };
 
 export type ObserverGraphEdge = {
@@ -63,7 +64,7 @@ export function todoSummary(activity: AgentActivity | undefined): string | undef
   return `${done}/${todos.length}`;
 }
 
-export function sessionFromActivity(activity: AgentActivity): AgentHookSession {
+export function sessionFromActivity(activity: AgentActivity): AgentStatusRecord {
   return {
     session_id: activity.session_id,
     tool: activity.tool,
@@ -75,6 +76,10 @@ export function sessionFromActivity(activity: AgentActivity): AgentHookSession {
     terminal_kind: activity.terminal_kind,
     side_chat_id: activity.side_chat_id,
     source_pane_id: activity.source_pane_id,
+    surface: activity.surface,
+    surface_id: activity.surface_id,
+    space_id: activity.space_id,
+    provider_id: activity.provider_id,
   };
 }
 
@@ -115,13 +120,13 @@ export function buildObserverGraph({
   computerName,
 }: {
   projects: Project[];
-  sessions: Iterable<AgentHookSession>;
+  sessions: Iterable<AgentStatusRecord>;
   activity: Iterable<AgentActivity>;
   collapsedIds: Set<string>;
   expandedAgentIds: Set<string>;
   computerName?: string;
 }): ObserverGraph {
-  const sessionMap = new Map<string, AgentHookSession>();
+  const sessionMap = new Map<string, AgentStatusRecord>();
   for (const session of sessions) {
     sessionMap.set(session.session_id, session);
   }
@@ -147,6 +152,7 @@ export function buildObserverGraph({
       extraTurns: 0,
       childCount: 0,
       sideChat: false,
+      chat: false,
     },
   ];
   const edges: ObserverGraphEdge[] = [];
@@ -155,7 +161,7 @@ export function buildObserverGraph({
 
   const members: Array<{
     sessionId: string;
-    session?: AgentHookSession;
+    session?: AgentStatusRecord;
     activity?: AgentActivity;
     projectId: string;
     workspaceId: string | null;
@@ -202,6 +208,7 @@ export function buildObserverGraph({
         extraTurns: 0,
         childCount: 0,
         sideChat: false,
+      chat: false,
       });
       edges.push({
         id: `e-atmos-${projectNodeId}`,
@@ -228,6 +235,7 @@ export function buildObserverGraph({
           extraTurns: 0,
           childCount: 0,
           sideChat: false,
+      chat: false,
         });
         edges.push({
           id: `e-${projectNodeId}-${workspaceNodeId}`,
@@ -248,6 +256,7 @@ export function buildObserverGraph({
     const extraTurns = Math.max(0, turns.length - VISIBLE_TURNS) + (record?.turns_omitted ?? 0);
     const session = member.session ?? (record ? sessionFromActivity(record) : undefined);
     const sideChat = Boolean(session?.side_chat_id || session?.terminal_kind === "side_chat");
+    const chat = session?.surface === "chat" || Boolean(session?.session_id?.startsWith("chat:"));
     const children = record?.children ?? [];
     nodes.push({
       id: agentId,
@@ -264,6 +273,7 @@ export function buildObserverGraph({
       childCount: children.length,
       todoSummary: todoSummary(record),
       sideChat,
+      chat,
     });
     edges.push({
       id: `e-${parentId}-${agentId}`,
@@ -293,6 +303,7 @@ export function buildObserverGraph({
         extraTurns: 0,
         childCount: 0,
         sideChat: false,
+      chat: false,
       });
       const running =
         child.state === "running" || child.current_tool?.state === "pending";

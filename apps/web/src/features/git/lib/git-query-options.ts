@@ -9,7 +9,7 @@ import {
 } from "@/api/query/query-keys";
 import { wsQueryOptions, wsInfiniteQueryOptions } from "@/api/query/computer-query-options";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
-import { gitApi, type GitStatusResponse, type GitChangedFilesResponse, type GitFileDiffResponse, type GitHistoryPage } from "@/api/ws-api";
+import { gitApi, type GitStatusResponse, type GitChangedFilesResponse, type GitFileDiffResponse, type GitFileBlameResponse, type GitCommitDetailResponse, type GitHistoryPage } from "@/api/ws-api";
 
 export type { GitCompareParams, GitFileDiffParams };
 export { GIT_WORKTREE_PARAMS };
@@ -118,6 +118,44 @@ export function gitChangedFilesQueryOptions(
   });
 }
 
+const GIT_BLAME_STALE_MS = 5 * 60_000;
+
+export function gitFileBlameQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  repoPath: string,
+  filePath: string,
+  options?: { enabled?: boolean },
+) {
+  return wsQueryOptions<GitFileBlameResponse>({
+    scope,
+    connectionState,
+    enabled: (options?.enabled ?? true) && Boolean(repoPath) && Boolean(filePath),
+    queryKey: queryKeys.computer.gitFileBlame(scope, repoPath, filePath),
+    queryFn: () => gitApi.getFileBlame(repoPath, filePath),
+    staleTime: GIT_BLAME_STALE_MS,
+    gcTime: GIT_LIST_GC_MS,
+  });
+}
+
+export function gitCommitDetailQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  repoPath: string,
+  commitHash: string,
+  options?: { enabled?: boolean },
+) {
+  return wsQueryOptions<GitCommitDetailResponse>({
+    scope,
+    connectionState,
+    enabled: (options?.enabled ?? true) && Boolean(repoPath) && Boolean(commitHash),
+    queryKey: queryKeys.computer.gitCommitDetail(scope, repoPath, commitHash),
+    queryFn: () => gitApi.getCommitDetail(repoPath, commitHash),
+    staleTime: GIT_LIST_STALE_MS,
+    gcTime: GIT_LIST_GC_MS,
+  });
+}
+
 export function gitFileDiffQueryOptions(
   scope: ComputerQueryScope,
   connectionState: ConnectionState,
@@ -193,6 +231,57 @@ export function gitLogQueryOptions(
         offset: params.page * params.limit,
       });
       return { commits: result?.commits ?? [] };
+    },
+    staleTime: GIT_LIST_STALE_MS,
+    gcTime: GIT_LIST_GC_MS,
+  });
+}
+
+/** Default page size for Changes scope Commit submenu infinite scroll. */
+export const GIT_LOG_INFINITE_PAGE_SIZE = 30;
+
+/**
+ * Current-branch `git_log` infinite query.
+ * Backend pagination is offset-based; pageParam is that offset (skip cursor).
+ */
+export function gitLogInfiniteQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  repoPath: string,
+  params: { branchKey: string | null; limit?: number },
+  options?: { enabled?: boolean },
+) {
+  const limit = params.limit ?? GIT_LOG_INFINITE_PAGE_SIZE;
+  return wsInfiniteQueryOptions<
+    GitLogPage,
+    Error,
+    InfiniteData<GitLogPage>,
+    ReturnType<typeof queryKeys.computer.gitLogInfinite>,
+    number
+  >({
+    scope,
+    connectionState,
+    enabled: options?.enabled,
+    queryKey: queryKeys.computer.gitLogInfinite(scope, repoPath, {
+      branchKey: params.branchKey,
+      limit,
+    }),
+    queryFn: async ({ pageParam }) => {
+      const { useWebSocketStore } = await import(
+        "@/features/connection/hooks/use-websocket"
+      );
+      const result = await useWebSocketStore.getState().send("git_log", {
+        path: repoPath,
+        limit,
+        offset: pageParam,
+      });
+      return { commits: result?.commits ?? [] };
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, _pages, lastPageParam) => {
+      // Match `useGitLog` page*limit offsets; stop when a short page arrives.
+      if (lastPage.commits.length < limit) return undefined;
+      return lastPageParam + limit;
     },
     staleTime: GIT_LIST_STALE_MS,
     gcTime: GIT_LIST_GC_MS,

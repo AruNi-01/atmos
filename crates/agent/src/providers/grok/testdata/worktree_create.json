@@ -1,0 +1,9 @@
+{
+  "jsonrpc": "2.0",
+  "id": 12,
+  "method": "_x.ai/git/worktree/create",
+  "params": {
+    "sessionId": "sess_grok_1",
+    "sourcePath": "/tmp/project"
+  }
+}

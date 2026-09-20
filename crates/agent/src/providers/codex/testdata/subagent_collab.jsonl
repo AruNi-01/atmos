@@ -1,0 +1,4 @@
+{"type":"collabAgentToolCall","id":"collab_1","tool":"spawn_agent","prompt":"Inspect the tests","receiverThreadIds":["child-1"],"status":"completed","agentsStates":{}}
+{"type":"subAgentActivity","id":"activity_1","kind":"started","agentThreadId":"child-1","agentPath":"/root/inspect-tests"}
+{"type":"subAgentActivity","id":"activity_2","kind":"completed","agentThreadId":"child-1","agentPath":"/root/inspect-tests","result":"All tests pass."}
+{"type":"collabAgentToolCall","id":"collab_wait","tool":"wait","status":"completed","receiverThreadIds":["child-1"],"prompt":null,"agentsStates":{"child-1":{"status":"completed"}}}

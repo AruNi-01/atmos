@@ -153,12 +153,6 @@ tokscale-core
   License:  MIT — see vendor/tokscale-core/LICENSE
   Copyright (c) 2025 Junho Yeo
 
-agent-client-protocol-schema
-  Source:   https://github.com/agentclientprotocol/agent-client-protocol
-  Location: vendor/agent-client-protocol-schema/
-  License:  Apache License, Version 2.0 — see vendor/agent-client-protocol-schema/LICENSE
-  Copyright 2025 Zed Industries, Inc. and contributors
-
 -------------------------------------------------------------------------------
 5. Desktop control engine (cua-driver-rs / trycua)
 -------------------------------------------------------------------------------
@@ -278,6 +272,31 @@ Author:   Kevin (@kvnkld) / AIcss
 Notes:    Free-tier copy-paste UI component (React + CSS Module), vendored
           and lightly adapted for Atmos theme (html.dark) and sizing.
           No external runtime dependency beyond the vendored source.
+
+-------------------------------------------------------------------------------
+8b. AIcss Approval Card
+-------------------------------------------------------------------------------
+
+Source:   https://www.aicss.dev/components/approval-card
+Location: packages/ui/src/components/ui/approval-card.tsx
+          packages/ui/src/components/ui/approval-card.module.css
+Author:   Kevin (@kvnkld) / AIcss
+Notes:    Free-tier copy-paste UI component (React + CSS Module), vendored
+          and lightly adapted for Atmos theme (html.dark). Variants:
+          questions / command / plan. No external runtime dependency beyond
+          the vendored source (lucide-react already in @workspace/ui).
+
+-------------------------------------------------------------------------------
+8c. beUI Image Generation
+-------------------------------------------------------------------------------
+
+Source:   https://beui.dev/components/agents/image-generation
+Location: packages/ui/src/components/ui/image-generation.tsx
+Author:   Saurabh / beUI
+Notes:    Free-tier copy-paste UI component (React + motion), vendored and
+          adapted for @workspace/ui import paths. Used by Agent Chat image_gen
+          tool cards. AIcss ImageGenerationCanvas (canvas-only placeholder)
+          remains in the same file for Token Usage share capture.
 
 -------------------------------------------------------------------------------
 9. Great UI Github Card (adapted)
@@ -508,6 +527,191 @@ Notes:    Adapted into @workspace/ui. Typewriter keeps the public
 The MIT License (MIT)
 
 Copyright (c) 2024 Manu Arora
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+16. Great UI Twitter(X) Card (adapted)
+-------------------------------------------------------------------------------
+
+Source:   https://www.great-ui.com/components/twitter-card
+          https://github.com/Saurabh-2607/GreatUI
+Location: apps/web/src/features/x/components/XUserHoverCard.tsx
+License:  MIT
+Author:   Saurabh Sharma / Great UI
+          https://x.com/srbh_here
+          https://x.com/GreatUIHQ
+
+Notes:    Copy-paste React + Tailwind + Motion component. The published
+          shadcn registry item (https://www.great-ui.com/r/twitter-card.json)
+          currently 500s because the registry file path uses parentheses.
+          Source was taken from GreatUI `components/ui/TwitterCard.tsx` and
+          adapted for Atmos (FxTwitter fetch via TanStack Query, design tokens,
+          top/bottom placement, trigger-only mouse-follow / 3D tilt, i18n).
+          Public profile data is loaded from https://api.fxtwitter.com.
+
+The MIT License (MIT)
+
+Copyright (c) Great UI / Saurabh Sharma
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+17. serve-emu (Android preview helper)
+-------------------------------------------------------------------------------
+
+Source:   https://github.com/expo/serve-emu
+Pin:      branch expo
+          commit  def2e0d87a60857ba5a303750bcb7de9f5fc7185
+Location: vendor/serve-emu/
+          Redistributed binary: GitHub Release tag serve-emu-<version>
+          (darwin-arm64 archive extracted to ~/.atmos/runtime/serve-emu/<version>/)
+License:  Apache License 2.0
+Copyright: serve-emu authors (Expo)
+
+This project vendors a modified copy of serve-emu (bind forced to 127.0.0.1,
+preview chrome aligned with vendored serve-sim). The full Apache-2.0 text
+ships at vendor/serve-emu/LICENSE and inside the published archive.
+Atmos changes are listed in vendor/serve-emu/ATMOS-PATCHES.md.
+
+The packed helper may also redistribute scrcpy-server v4.0 (Apache-2.0,
+Genymobile / scrcpy) next to the binary so runtime spawn does not use npx.
+
+-------------------------------------------------------------------------------
+18. Spectrum UI Undo Pill
+-------------------------------------------------------------------------------
+
+Source:   https://ui.spectrumhq.in/docs/undo-pill
+          https://github.com/arihantcodes/spectrum-ui
+Location: packages/ui/src/components/spectrumui/undo-pill.tsx
+License:  Apache License 2.0
+Copyright: Spectrum UI / Arihant Jain
+
+Notes:    Copy-paste React + Tailwind + Motion component, installed via the
+          shadcn registry (`@spectrumui/undo-pill`) and adapted for Atmos
+          (motion/react instead of framer-motion, semantic theme tokens).
+          Full Apache-2.0 text: https://www.apache.org/licenses/LICENSE-2.0
+
+-------------------------------------------------------------------------------
+19. Rare UI Matrix Orb
+-------------------------------------------------------------------------------
+
+Source:   https://github.com/swamimalode07/rare-ui
+          https://rareui.com
+Location: packages/ui/src/components/ui/matrix-orb.tsx
+License:  MIT
+Copyright (c) 2026 Swami Malode
+
+Notes:    Copy-paste React + canvas component, installed from the shadcn
+          registry (`swamimalode07/rare-ui/matrix-orb`) and adapted for Atmos
+          (idle/thinking only, theme-aware seeded colors, compact default).
+          Color helper: packages/ui/src/components/ui/matrix-orb-color.ts.
+
+The MIT License (MIT)
+
+Copyright (c) 2026 Swami Malode
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+20. Rare UI Notification Bell
+-------------------------------------------------------------------------------
+
+Source:   https://github.com/swamimalode07/rare-ui
+          https://rareui.com
+Location: packages/ui/src/components/ui/notification-bell.tsx
+License:  MIT
+Copyright (c) 2026 Swami Malode
+
+Notes:    Copy-paste React + Tailwind + Motion component, installed from the
+          shadcn registry (`swamimalode07/rare-ui/notification-bell`).
+
+The MIT License (MIT)
+
+Copyright (c) 2026 Swami Malode
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+21. Cult UI MinimalCard (adapted)
+-------------------------------------------------------------------------------
+
+Source:   https://github.com/nolly-studio/cult-ui
+          https://www.cult-ui.com/docs/components/minimal-card
+Location: packages/ui/src/components/ui/minimal-card.tsx
+License:  MIT
+Copyright (c) Jordan Gilliam / Nolly Studio
+
+Notes:    Copy-paste React + Tailwind card, adapted for Atmos (semantic theme
+          tokens, optional image actions slot, no next/image).
+
+The MIT License (MIT)
+
+Copyright (c) Jordan Gilliam / Nolly Studio
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

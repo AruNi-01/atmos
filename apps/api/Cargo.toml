@@ -17,6 +17,7 @@ core-service = { path = "../../crates/core-service" }
 llm = { path = "../../crates/llm" }
 local-model-runtime = { path = "../../crates/local-model-runtime" }
 runtime-manager = { path = "../../crates/runtime-manager", default-features = true, features = ["client"] }
+desktop-use = { path = "../../crates/desktop-use" }
 token-usage = { path = "../../crates/token-usage" }
 permission-access = { path = "../../crates/permission-access" }
 
@@ -36,7 +37,7 @@ dotenvy = "0.15"
 dirs = "5.0"
 clap = { workspace = true }
 sha2 = "0.10"
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip", "brotli", "deflate", "cookies", "stream"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
 tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
 http = "1"

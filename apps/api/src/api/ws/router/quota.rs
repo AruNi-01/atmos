@@ -10,6 +10,8 @@ use super::{
     WsMessageService,
 };
 
+const DEEPSEEK_QUOTA_PROVIDER_ID: &str = "deepseek";
+
 impl WsMessageService {
     pub(super) async fn handle_quota_get_overview(
         &self,
@@ -85,6 +87,8 @@ impl WsMessageService {
             .quota_usage_service
             .set_provider_manual_setup(&req.provider_id, req.region, req.api_key)
             .await;
+        self.evict_shared_quota_agent_runtime(&req.provider_id)
+            .await;
         Ok(json!(overview))
     }
 
@@ -96,6 +100,8 @@ impl WsMessageService {
             .quota_usage_service
             .add_provider_api_key(&req.provider_id, req.region, req.api_key)
             .await;
+        self.evict_shared_quota_agent_runtime(&req.provider_id)
+            .await;
         Ok(json!(overview))
     }
 
@@ -106,6 +112,8 @@ impl WsMessageService {
         let overview = self
             .quota_usage_service
             .delete_provider_api_key(&req.provider_id, &req.key_id)
+            .await;
+        self.evict_shared_quota_agent_runtime(&req.provider_id)
             .await;
         Ok(json!(overview))
     }
@@ -154,5 +162,14 @@ impl WsMessageService {
             .await
             .map_err(ServiceError::Validation)?;
         Ok(json!(overview))
+    }
+
+    async fn evict_shared_quota_agent_runtime(&self, provider_id: &str) {
+        if provider_id != DEEPSEEK_QUOTA_PROVIDER_ID {
+            return;
+        }
+        self.agent_chat()
+            .evict_runtimes_for_provider(agent::DEEPSEEK_HARNESS_ID)
+            .await;
     }
 }

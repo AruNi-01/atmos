@@ -18,6 +18,7 @@ import {
 import { GeistPixelSquare } from "geist/font/pixel";
 import LogoSvg from "@workspace/ui/components/logo-svg";
 import { GithubUserHoverCard } from "@/features/github/components/GithubUserHoverCard";
+import { XUserHoverCard } from "@/features/x/components/XUserHoverCard";
 
 import { HandleComputerCount } from "@/features/token-usage/HandleComputerCount";
 import type {
@@ -109,25 +110,31 @@ function useEnterValue(target: number) {
   return value;
 }
 
-function SocialCell({
+function XCell({
   username,
-  href,
+  avatarUrl,
 }: {
   username: string | null | undefined;
-  href: (username: string) => string;
+  avatarUrl?: string | null;
 }) {
   if (!username) {
     return <span className="text-muted-foreground">-</span>;
   }
   return (
-    <a
-      href={href(username)}
-      target="_blank"
-      rel="noreferrer"
-      className="relative z-20 max-w-full truncate text-muted-foreground hover:text-foreground"
+    <XUserHoverCard
+      username={username}
+      avatarUrl={avatarUrl}
+      className="relative z-20 min-w-0 max-w-full"
     >
-      @{username}
-    </a>
+      <a
+        href={`https://x.com/${username}`}
+        target="_blank"
+        rel="noreferrer"
+        className="max-w-full truncate text-muted-foreground hover:text-foreground"
+      >
+        @{username}
+      </a>
+    </XUserHoverCard>
   );
 }
 
@@ -316,10 +323,7 @@ function LeaderRow({
         </span>
       </td>
       <td className="py-1.5 pl-2 text-left text-xs group-hover:bg-muted/60">
-        <SocialCell
-          username={row.x_username}
-          href={(username) => `https://x.com/${username}`}
-        />
+        <XCell username={row.x_username} avatarUrl={row.avatar_url} />
       </td>
       <td className="py-1.5 pl-2 text-left text-xs group-hover:bg-muted/60">
         <GithubCell

@@ -45,3 +45,14 @@ export function attentionBorderClass(reason: AttentionReason | null | undefined)
   }
   return "agent-attention-ring agent-attention-ring-complete";
 }
+
+/** Bottom glow on center-stage tabs (Terminal + Chat). */
+export function attentionTabClass(reason: AttentionReason | null | undefined): string {
+  if (!reason) return "";
+  return cn(
+    "agent-attention-ring-tab",
+    reason === "permission_request"
+      ? "agent-attention-ring-permission"
+      : "agent-attention-ring-complete",
+  );
+}

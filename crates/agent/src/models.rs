@@ -62,6 +62,26 @@ pub struct RegistryAgent {
     pub installed_version: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_config: Option<std::collections::HashMap<String, String>>,
+    /// `native` reuses an official CLI with ACP args. `adapter` is a separate ACP package.
+    #[serde(default)]
+    pub provision_kind: String,
+    /// PATH executable to bind for native agents (e.g. `gemini`, `cursor-agent`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub native_executable: Option<String>,
+    /// Built-in terminal agent id this ACP agent corresponds to, when known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub terminal_agent_id: Option<String>,
+    /// When false, Atmos bound an existing CLI and must not uninstall it.
+    #[serde(default = "default_can_remove")]
+    pub can_remove: bool,
+    /// Chat picker includes this ACP row only when enabled. CLI-backed ACP
+    /// that has a Native Chat sibling defaults off.
+    #[serde(default)]
+    pub enabled: bool,
+}
+
+fn default_can_remove() -> bool {
+    true
 }
 
 /// Launch spec for an installed ACP registry agent. Use when spawning the agent process.
@@ -76,7 +96,7 @@ pub struct AgentLaunchSpec {
 }
 
 /// A custom ACP agent added manually by the user.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CustomAgent {
     /// Display name (e.g. "Kiro Agent", "pi").
     pub name: String,
@@ -93,6 +113,35 @@ pub struct CustomAgent {
     pub env: std::collections::HashMap<String, String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub default_config: Option<std::collections::HashMap<String, String>>,
+    /// UI label; built-ins always set this. User customs omit it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Shipped with Atmos; not from the public ACP registry.
+    #[serde(default)]
+    pub builtin: bool,
+    /// True when the user has a manifest overlay (env, argv, defaults).
+    #[serde(default)]
+    pub has_overlay: bool,
+    /// Chat picker and catalog only include enabled agents. Built-ins default off.
+    #[serde(default)]
+    pub enabled: bool,
+}
+
+/// Chat native host listed in the Agent Manager Native tab.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NativeChatAgent {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub executable: String,
+    /// Chat picker and catalog only include enabled hosts. Default off.
+    #[serde(default)]
+    pub enabled: bool,
+    /// True when `executable` is on PATH. Does not gate the enable switch.
+    #[serde(default)]
+    pub cli_present: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -6,6 +6,7 @@ mod server_invoke;
 
 use api_client::ApiClientArgs;
 use clap::{Parser, Subcommand};
+use commands::automation::{execute_automation, AutomationCommand};
 use commands::browser_use::{execute_cmd as execute_browser_use, BrowserUseCommand};
 use commands::canvas::{execute as execute_canvas, CanvasCommand, CanvasOpts};
 use commands::computer::{execute as execute_computer, ComputerCommand};
@@ -18,6 +19,7 @@ use commands::product::{
 };
 use commands::review::{execute as execute_review, ReviewCommand};
 use commands::runtime::{execute as execute_runtime, RuntimeCommand};
+use commands::simulator::{execute_simulator, SimulatorCommand};
 use commands::update::{execute as execute_update, update_hint_if_needed, UpdateArgs};
 use envelope::{next, CliEnvelope};
 use serde_json::json;
@@ -124,6 +126,16 @@ enum Commands {
         #[command(subcommand)]
         command: BrowserUseCommand,
     },
+    /// Drive a claimed Device Preview simulator
+    Simulator {
+        #[command(subcommand)]
+        command: SimulatorCommand,
+    },
+    /// Complete, inspect, or start an Atmos automation run
+    Automation {
+        #[command(subcommand)]
+        command: AutomationCommand,
+    },
     /// Check for or install CLI updates
     Update(UpdateArgs),
 }
@@ -179,12 +191,15 @@ async fn run() -> i32 {
         Some(Commands::Computer { command }) => {
             wrap_legacy("atmos computer", execute_computer(command).await)
         }
-        Some(Commands::DesktopUse { command }) => {
-            wrap_legacy("atmos desktop-use", execute_desktop_use(command).await)
-        }
+        Some(Commands::DesktopUse { command }) => wrap_legacy(
+            "atmos desktop-use",
+            execute_desktop_use(cli.api, command).await,
+        ),
         Some(Commands::BrowserUse { command }) => {
             wrap_legacy("atmos browser-use", execute_browser_use(command).await)
         }
+        Some(Commands::Simulator { command }) => execute_simulator(cli.api, command).await,
+        Some(Commands::Automation { command }) => execute_automation(cli.api, command).await,
         Some(Commands::Canvas { canvas, command }) => wrap_legacy(
             "atmos canvas",
             execute_canvas(cli.api, canvas, command).await,

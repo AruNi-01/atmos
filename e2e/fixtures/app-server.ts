@@ -73,7 +73,7 @@ function staticExportCommands(): string[] {
       `if [ ! -d "${outDir}" ] || [ ! -f "${outDir}/index.html" ] || [ ! -f "${outDir}/setup.html" -a ! -d "${outDir}/setup" ]; then`,
       `  rm -rf "${outDir}"`,
       `  cd "${repoRoot}"`,
-      `  BUILD_TARGET="local-web" NEXT_TELEMETRY_DISABLED="1" NEXT_PUBLIC_BUILD_TARGET="local-web" NEXT_PUBLIC_API_PORT="${apiPort}" bun --filter web build`,
+      `  BUILD_TARGET="local-web" NEXT_TELEMETRY_DISABLED="1" NEXT_PUBLIC_BUILD_TARGET="local-web" NEXT_PUBLIC_API_PORT="${apiPort}" NEXT_PUBLIC_ATMOS_HUB_URL="https://hub.atmos.land" bun --filter web build`,
       `fi`,
     );
   }
@@ -147,7 +147,7 @@ export function webServerCommand(): string {
 
   if (startNextDev) {
     lines.push(`cd "${webAppDir}"`);
-    lines.push(`NEXT_PUBLIC_API_PORT="${apiPort}" bun ./node_modules/next/dist/bin/next dev --turbopack --port ${webPort}`);
+    lines.push(`NEXT_PUBLIC_API_PORT="${apiPort}" NEXT_PUBLIC_ATMOS_HUB_URL="https://hub.atmos.land" bun ./node_modules/next/dist/bin/next dev --turbopack --port ${webPort}`);
     return shellCommand(lines);
   }
 

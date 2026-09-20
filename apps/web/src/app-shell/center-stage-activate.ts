@@ -18,11 +18,23 @@ import { GIT_HISTORY_TAB_VALUE } from "@/features/git/types";
 import { useSimulatorCenterTabStore } from "@/features/simulator/store/use-simulator-center-tab";
 import { SIMULATOR_TAB_VALUE } from "@/features/simulator/types";
 import {
+  agentChatTabActivationOnContext,
+  isAgentChatTabValue,
+  parseAgentChatTabValue,
+  useAgentChatCenterTabsStore,
+} from "@/features/agent/store/use-agent-chat-center-tabs";
+import {
+  type PaneFocusAck,
+  useAgentAttentionStore,
+} from "@/features/agent/store/agent-attention-store";
+import {
   FIXED_TERMINAL_TAB_VALUE,
   TERMINAL_TAB_VALUE_PREFIX,
   useTerminalStore,
 } from "@/features/terminal/store/use-terminal-store";
+import { automationWindowNameFromTerminalTabId } from "@/features/terminal/store/terminal-store-helpers";
 import { setCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
+import { tabValueBelongsToPaintContext } from "@/app-shell/center-space/center-space-url";
 
 function isTerminalTab(tab: string): boolean {
   return tab === FIXED_TERMINAL_TAB_VALUE || tab.startsWith(TERMINAL_TAB_VALUE_PREFIX);
@@ -33,8 +45,10 @@ function isEncodedContextTab(tab: string): boolean {
     tab.startsWith("github-pr:") ||
     tab.startsWith("github-issue:") ||
     tab.startsWith("github-action:") ||
+    tab.startsWith("git-commit:") ||
     tab.startsWith("github-commit:") ||
-    tab.startsWith("browser:")
+    tab.startsWith("browser:") ||
+    isAgentChatTabValue(tab)
   );
 }
 
@@ -49,36 +63,100 @@ function isEditorFileTab(tab: string): boolean {
 export function activateCenterChromeTab(
   contextId: string,
   tab: string,
-  opts?: { attach?: boolean; placement?: CenterTabAttachPlacement },
+  opts?: {
+    attach?: boolean;
+    placement?: CenterTabAttachPlacement;
+    attentionAck?: PaneFocusAck;
+  },
 ): void {
   if (!contextId || !tab) return;
-  setCenterStageLastTab(contextId, tab);
-  recordCenterTabActivation(contextId, tab);
 
-  if (tab === "overview") {
+  const chatStore = useAgentChatCenterTabsStore.getState();
+  const parsedChatId = parseAgentChatTabValue(tab);
+  let resolvedTab = tab;
+  let boundChatId: string | null = null;
+  if (parsedChatId) {
+    const activation = agentChatTabActivationOnContext(
+      chatStore.tabsByContext,
+      contextId,
+      tab,
+    );
+    if (activation.ignore) return;
+    if (parsedChatId.startsWith("draft:")) {
+      boundChatId = activation.existing?.chatId?.trim() || null;
+    } else {
+      const opened =
+        activation.existing ??
+        chatStore.openTab({ contextId, chatId: parsedChatId });
+      if (opened.contextId !== contextId) return;
+      resolvedTab = opened.value;
+      boundChatId = opened.chatId ?? parsedChatId;
+    }
+  }
+
+  if (
+    (resolvedTab.startsWith("github-") ||
+      resolvedTab.startsWith("git-commit:") ||
+      resolvedTab.startsWith("browser:")) &&
+    !tabValueBelongsToPaintContext(resolvedTab, contextId)
+  ) {
+    return;
+  }
+
+  setCenterStageLastTab(contextId, resolvedTab);
+  recordCenterTabActivation(contextId, resolvedTab);
+
+  if (resolvedTab === "overview") {
     useOverviewCenterTabStore.getState().open(contextId);
   }
-  if (isCenterToolTabValue(tab)) {
-    useToolCenterTabsStore.getState().open(contextId, tab);
+  if (isCenterToolTabValue(resolvedTab)) {
+    useToolCenterTabsStore.getState().open(contextId, resolvedTab);
   }
-  if (tab === SIMULATOR_TAB_VALUE) {
+  if (resolvedTab === SIMULATOR_TAB_VALUE) {
     useSimulatorCenterTabStore.getState().open(contextId);
   }
-  if (tab === GIT_HISTORY_TAB_VALUE) {
+  if (resolvedTab === GIT_HISTORY_TAB_VALUE) {
     useGitHistoryCenterTabStore.getState().open(contextId);
   }
-  if (isTerminalTab(tab)) {
-    useTerminalStore.getState().setActiveTerminalTab(contextId, tab);
+  if (isTerminalTab(resolvedTab)) {
+    const terminalStore = useTerminalStore.getState();
+    const existingTabs = terminalStore.getTerminalTabs(contextId);
+    if (!existingTabs.some((tab) => tab.id === resolvedTab)) {
+      const automationWindow = automationWindowNameFromTerminalTabId(resolvedTab);
+      if (automationWindow) {
+        const ensured = terminalStore.ensureAutomationTerminalTab(contextId, {
+          windowName: automationWindow,
+        });
+        if (ensured) resolvedTab = ensured.id;
+      } else if (resolvedTab === FIXED_TERMINAL_TAB_VALUE) {
+        const ensured = terminalStore.ensureFixedTerminalTab(contextId);
+        resolvedTab = ensured.id;
+      } else {
+        // Foreign `terminal-tab:{uuid}` — do not mint Term or attach it here.
+        return;
+      }
+    }
+    terminalStore.setActiveTerminalTab(contextId, resolvedTab);
+  }
+  if (boundChatId) {
+    useAgentAttentionStore.getState().notifyPaneFocused(`chat:${boundChatId}`, {
+      ack: opts?.attentionAck ?? "immediate",
+    });
+  } else if (parsedChatId) {
+    const focused = useAgentAttentionStore.getState().focusedStablePaneId;
+    if (focused?.startsWith("chat:")) {
+      useAgentAttentionStore.getState().notifyPaneFocused(null);
+    }
   }
 
   const editor = useEditorStore.getState();
-  if (isEditorFileTab(tab)) {
-    editor.setActiveFile(tab, contextId);
+  if (isEditorFileTab(resolvedTab)) {
+    editor.setActiveFile(resolvedTab, contextId);
   } else {
     editor.setActiveFile(null, contextId);
   }
 
   if (opts?.attach !== false) {
-    attachCenterTab(contextId, tab, { placement: opts?.placement });
+    attachCenterTab(contextId, resolvedTab, { placement: opts?.placement });
   }
 }

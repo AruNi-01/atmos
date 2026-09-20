@@ -354,6 +354,12 @@ build-local-runtime *args:
 pack-serve-sim *args:
     bash scripts/serve-sim/pack.sh {{args}}
 
+# Pack vendored serve-emu into a darwin-arm64 archive (APP-070).
+#   just pack-serve-emu
+#   just pack-serve-emu --install
+pack-serve-emu *args:
+    bash scripts/serve-emu/pack.sh {{args}}
+
 # 构建所有 Rust 项目
 build-rust:
     cargo build --release --workspace

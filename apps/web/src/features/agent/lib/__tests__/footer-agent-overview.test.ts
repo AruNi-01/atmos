@@ -1,15 +1,17 @@
 import { describe, expect, it } from "bun:test";
-import type { AgentHookSession } from "@/features/agent/store/agent-hooks-store";
+import type { AgentStatusRecord } from "@/features/agent/store/agent-status-store";
 import type { PaneAttention } from "@/features/agent/store/agent-attention-store";
 import {
   buildFooterAgentOverview,
   countFooterAgentOverview,
   footerAgentOverviewTotal,
+  footerSessionIdentityKeys,
+  groupFooterOverviewRowsByContext,
 } from "../footer-agent-overview";
 
 function session(
-  overrides: Partial<AgentHookSession> & Pick<AgentHookSession, "session_id" | "state">,
-): AgentHookSession {
+  overrides: Partial<AgentStatusRecord> & Pick<AgentStatusRecord, "session_id" | "state">,
+): AgentStatusRecord {
   return {
     tool: "claude-code",
     timestamp: "2026-08-26T00:00:00.000Z",
@@ -57,6 +59,20 @@ describe("buildFooterAgentOverview", () => {
       "ws-1:done",
       "ws-1:orphan",
     ]);
+  });
+
+  it("groups popover rows by workspace context and keeps orphan attention rows", () => {
+    const overview = buildFooterAgentOverview(
+      [
+        session({ session_id: "ws-1:run", state: "running" }),
+        session({ session_id: "ws-2:idle", state: "idle", context_id: "ws-2" }),
+      ],
+      [latch({ stablePaneId: "ws-1:orphan", reason: "task_complete" })],
+    );
+    const grouped = groupFooterOverviewRowsByContext(overview.rows);
+    expect([...grouped.keys()]).toEqual(["ws-1", "ws-2"]);
+    expect(grouped.get("ws-1")?.map((row) => row.bucket)).toEqual(["running", "attention"]);
+    expect(footerSessionIdentityKeys(overview.rows[0].session)).toEqual(["ws-1:run"]);
   });
 
   it("keeps a live running session in running even if a complete latch is still present", () => {

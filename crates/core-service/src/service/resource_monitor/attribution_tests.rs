@@ -1395,6 +1395,61 @@ fn leaked_kill_roots_only_the_clicked_tree() {
     assert_eq!(node_roots, vec![20]);
 }
 
+#[test]
+fn chat_agent_root_claims_spawned_process_instead_of_cwd_other() {
+    let processes = vec![
+        proc_named(80, Some(1), Some("/proj"), "grok", 6.2, 323),
+        proc_named(81, Some(80), Some("/proj"), "zsh", 0.4, 12),
+        proc_named(90, Some(1), Some("/proj"), "node", 0.9, 119),
+    ];
+    let without_chat = attribute(AttributionInput {
+        processes: processes.clone(),
+        server_pid: 1,
+        path_contexts: vec![project("proj", "Atmos", "/proj")],
+        terminals: Vec::new(),
+        port_cache: None,
+        desktop_use_root: None,
+    });
+    assert!(without_chat.projects[0].sessions.is_empty());
+    assert!(without_chat.projects[0]
+        .other_processes
+        .iter()
+        .any(|process| process.name == "grok"));
+
+    let with_chat = attribute(AttributionInput {
+        processes,
+        server_pid: 1,
+        path_contexts: vec![project("proj", "Atmos", "/proj")],
+        terminals: vec![TerminalClaim {
+            session_id: "chat:chat-1".into(),
+            name: Some("Fix monitor".into()),
+            terminal_kind: "chat".into(),
+            context_id: "proj".into(),
+            root_pids: vec![80],
+            missing_root: false,
+        }],
+        port_cache: None,
+        desktop_use_root: None,
+    });
+    let project = &with_chat.projects[0];
+    assert_eq!(project.sessions.len(), 1);
+    assert_eq!(project.sessions[0].session_id, "chat:chat-1");
+    assert_eq!(project.sessions[0].terminal_kind, "chat");
+    assert_eq!(project.sessions[0].usage.process_count, 2);
+    assert_eq!(project.sessions[0].usage.memory_rss_bytes, 335);
+    assert!(
+        !project
+            .other_processes
+            .iter()
+            .any(|process| process.name == "grok" || process.name == "zsh"),
+        "chat-spawned processes must leave Other processes"
+    );
+    assert!(project
+        .other_processes
+        .iter()
+        .any(|process| process.name == "node"));
+}
+
 fn json_object_keys(value: &serde_json::Value) -> HashSet<String> {
     let mut keys = HashSet::new();
     collect_json_keys(value, &mut keys);

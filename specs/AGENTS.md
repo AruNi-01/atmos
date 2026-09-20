@@ -149,6 +149,7 @@ Some specs benefit from a tracked `PROGRESS.md` once implementation begins or is
 - Keep logs concise and sanitized. Do not paste long command output, secrets, tokens, customer data, private URLs, or full stack traces.
 - When updating `Handoff Notes`, follow [`agents/references/compact-instructions.md`](../agents/references/compact-instructions.md). Write a continuation-oriented coding handoff, not a conversation recap.
 - After ship, set `State: shipped`, add the final verification summary, and stop editing. Post-ship quality learning belongs in `IMPROVEMENT.md`.
+- When implementation uses `.agents/skills/atmos-long-task-impl`, the same `PROGRESS.md` also holds the slice kanban (waves, Owns, status). The parent orchestrator is the only writer of that board; do not let impl/review subagents edit it. Schema: `.agents/skills/atmos-long-task-impl/kanban.md`.
 
 **Template**
 

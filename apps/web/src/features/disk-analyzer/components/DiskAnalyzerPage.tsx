@@ -15,6 +15,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  ScrollArea,
   Select,
   SelectContent,
   SelectItem,
@@ -26,7 +27,7 @@ import {
   TooltipTrigger,
   cn,
 } from "@workspace/ui";
-import { AnimatePresence, motion } from "motion/react";
+import { MorphingSwap } from "@/shared/components/morphing-swap";
 import {
   Tabs,
   TabsList,
@@ -40,8 +41,7 @@ import {
   HardDrive,
   LayoutGrid,
   Loader2,
-  PanelRightClose,
-  PanelRightOpen,
+  PanelRight,
   RefreshCw,
   Sparkles,
   Trash2,
@@ -64,9 +64,7 @@ import {
   suggestionTotalSize,
   TOP_N_OPTIONS,
 } from "@/features/disk-analyzer/lib/tree-adapters";
-
-const SCAN_CYCLE_EASE = [0.22, 1, 0.36, 1] as const;
-const SCAN_CYCLE_TRANSITION = { duration: 0.2, ease: SCAN_CYCLE_EASE } as const;
+import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
 
 function DiskAnalyzerScanButton({
   scanning,
@@ -125,27 +123,20 @@ function DiskAnalyzerScanButton({
       ) : (
         <RefreshCw className="size-4" />
       )}
-      <span className="relative inline-grid overflow-hidden leading-none">
-        <span className="invisible col-start-1 row-start-1 whitespace-nowrap" aria-hidden>
-          {[scanningLabel, cancelLabel, rescanLabel].reduce(
-            (longest, item) =>
-              item.length > longest.length ? item : longest,
-            "",
-          )}
-        </span>
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.span
-            key={labelKey}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={SCAN_CYCLE_TRANSITION}
-            className="col-start-1 row-start-1 whitespace-nowrap"
-          >
-            {label}
-          </motion.span>
-        </AnimatePresence>
-      </span>
+      <MorphingSwap
+        stateKey={labelKey}
+        className="whitespace-nowrap"
+        reserve={
+          <span className="whitespace-nowrap">
+            {[scanningLabel, cancelLabel, rescanLabel].reduce(
+              (longest, item) => (item.length > longest.length ? item : longest),
+              "",
+            )}
+          </span>
+        }
+      >
+        {label}
+      </MorphingSwap>
     </Button>
   );
 }
@@ -524,16 +515,12 @@ export function DiskAnalyzerPage() {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                className="text-muted-foreground"
+                className={cn("text-muted-foreground", panelFoldCursorClass("right", !detailsOpen))}
                 aria-label={detailsOpen ? t("hideDetails") : t("showDetails")}
                 title={detailsOpen ? t("hideDetails") : t("showDetails")}
                 onClick={() => setDetailsOpen((open) => !open)}
               >
-                {detailsOpen ? (
-                  <PanelRightClose className="size-4" />
-                ) : (
-                  <PanelRightOpen className="size-4" />
-                )}
+                <PanelRight className="size-4" />
               </Button>
             </div>
           </div>
@@ -760,7 +747,7 @@ export function DiskAnalyzerPage() {
                 )}
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-1.5 py-1.5">
+              <ScrollArea className="min-h-0 flex-1" scrollFade viewportClassName="px-1.5 py-1.5">
                 {analyzer.childList.length === 0 ? (
                   <p className="px-2 py-4 text-center text-xs text-muted-foreground">
                     {analyzer.isLevelLoading ? t("loadingLevel") : t("noChildren")}
@@ -980,7 +967,7 @@ export function DiskAnalyzerPage() {
                       })}
                     </div>
                 )}
-              </div>
+              </ScrollArea>
             </div>
             )}
             </Tabs>

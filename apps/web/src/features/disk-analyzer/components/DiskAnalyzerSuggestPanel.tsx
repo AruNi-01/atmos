@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import {
   Button,
+  ScrollArea,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -71,7 +72,7 @@ export function DiskAnalyzerSuggestPanel({
         </div>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+      <ScrollArea className="min-h-0 flex-1" scrollFade viewportClassName="px-2 pb-3">
         {suggestions.length === 0 ? (
           <p className="px-2 py-6 text-center text-xs text-muted-foreground">
             {ready || !scanning ? t("suggestEmpty") : t("suggestScanning")}
@@ -133,7 +134,7 @@ export function DiskAnalyzerSuggestPanel({
             ) : null}
           </div>
         )}
-      </div>
+      </ScrollArea>
     </div>
   );
 }

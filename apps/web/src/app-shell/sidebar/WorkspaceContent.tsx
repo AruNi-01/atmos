@@ -4,6 +4,11 @@ import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocale, useTranslations } from "next-intl";
 import type { DraggableAttributes, DraggableSyntheticListeners } from "@workspace/ui";
+import { AutomationChip } from "@/features/automations/components/AutomationChip";
+import {
+  parseStandaloneScope,
+  standaloneJobHref,
+} from "@/features/automations/lib/automation-run-landing";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import {
   Pin,
@@ -11,7 +16,6 @@ import {
   Trash2,
   AlertTriangle,
   Pencil,
-  Timer,
   Popover,
   PopoverTrigger,
   PopoverContent,
@@ -205,7 +209,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const workspaceShortcutKey = `workspace:${workspace.id}`;
   const shortcutDigit = useSidebarShortcutDigit(workspaceShortcutKey);
   const ignoreNextClickRef = React.useRef(false);
-  const prStatusInterested = isRowHovered || isInfoPopoverOpen;
+  const prStatusInterested = !isAutomation && (isRowHovered || isInfoPopoverOpen);
   // Prefer worktree path so branch-linked PRs resolve like Header (git status + PR list).
   const prRepoPath = workspace.localPath?.trim() || projectPath?.trim() || null;
   const { presentation: managedPr } = useWorkspacePrStatus({
@@ -254,7 +258,8 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
     // Click is a navigation intent — never open/expand info chrome mid-switch.
     workspaceInfoHoverSession.dismiss();
     setIsEditingName(false);
-    router.push(`/workspace?id=${workspace.id}`);
+    const jobGuid = parseStandaloneScope(workspace.id);
+    router.push(jobGuid ? standaloneJobHref(jobGuid) : `/workspace?id=${workspace.id}`);
   };
 
   const handleTouchStart = React.useCallback((event: React.TouchEvent<HTMLDivElement>) => {
@@ -524,7 +529,9 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                   </button>
                 ) : (
                   <>
-                    {managedPr ? (
+                    {isAutomation ? (
+                      <AutomationChip compact className="group-hover/ws:hidden" />
+                    ) : managedPr ? (
                       <WorkspacePrLifecycleIcon
                         state={managedPr.state}
                         checksTone={managedPr.checksTone}
@@ -560,23 +567,6 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                     <span className="ml-1 font-normal text-muted-foreground/50">/ {projectName}</span>
                   )}
                 </span>
-                {isAutomation && (
-                  <TooltipProvider delayDuration={250}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span
-                          className="inline-flex shrink-0 cursor-default items-center text-muted-foreground"
-                          aria-label={t("workspaceContent.automationWorkspace")}
-                        >
-                          <Timer className="size-3" />
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" align="center" sideOffset={8}>
-                        {t("workspaceContent.automationWorkspace")}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
                 <WorkspaceAgentStatusMark contextId={workspace.id} />
               </div>
               {/* Trailing slot stays in flow so cmd+shift badges can overlay without growing the row. */}

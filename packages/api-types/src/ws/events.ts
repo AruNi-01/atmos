@@ -10,8 +10,8 @@ export const WS_EVENTS = [
   "llm_provider_test_chunk",
   "workspace_delete_progress",
   "project_delete_progress",
-  "agent_hook_state_changed",
-  "agent_hook_sessions_cleared",
+  "agent_status_changed",
+  "agent_status_cleared",
   "agent_activity_updated",
   "agent_activity_cleared",
   "agent_attention_raised",
@@ -31,9 +31,14 @@ export const WS_EVENTS = [
   "automation_run_updated",
   "automation_run_output",
   "automation_notification",
+  "automation_stale_prompt",
   "disk_analyzer_scan_progress",
   "simulator_download_progress",
+  "simulator_devices_changed",
   "resource_monitor_updated",
+  "agent_chat_event",
+  "agent_options_updated",
+  "host_session_index_updated",
 ] as const;
 
 export type WsEvent = (typeof WS_EVENTS)[number];

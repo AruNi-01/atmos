@@ -33,6 +33,14 @@ pub struct TerminalSessionCreateRequest {
     /// tmux window remains without holding a CLI-side reader.
     #[serde(default = "default_true")]
     pub detach_after_create: bool,
+    #[serde(default)]
+    pub origin: Option<String>,
+    #[serde(default)]
+    pub run_guid: Option<String>,
+    #[serde(default)]
+    pub automation_guid: Option<String>,
+    #[serde(default)]
+    pub initial_input: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -80,12 +88,18 @@ pub struct RunLogStartResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunLogResolveLatestRequest {
     pub project_root: String,
+    #[serde(default)]
+    pub preferred_window: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunLogResolveLatestResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub latest_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub other_latest_paths: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

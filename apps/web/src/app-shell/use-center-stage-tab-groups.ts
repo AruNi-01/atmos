@@ -3,6 +3,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { arrayMove, type DragEndEvent } from "@workspace/ui";
+import { usePtDesignOpenTitle } from "@/features/pt-design/lib/use-pt-design-open-title";
 
 import {
   EDITOR_REVIEW_DIFF_PREFIX,
@@ -16,12 +17,15 @@ import {
   writeCenterStageTabGroupOrder,
 } from "@/shared/stores/use-ui-pref-hooks";
 import {
+  collectAgentChatGroupTabs,
   collectDiffGroupTabs,
+  collectSimulatorGroupTabs,
   paneScopedTabGroupKey,
   readPaneTabGroupOrder,
   type GroupedTabColumn,
 } from "@/app-shell/center-stage-tab-groups";
 import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
+import type { GitCommitCenterTab } from "@/features/git/store/use-git-commit-center-tabs";
 import type { BrowserCenterTab } from "@/features/browser/store/use-browser-center-tabs";
 import {
   DEFAULT_PREVIEW_BROWSER_PREFS,
@@ -39,6 +43,15 @@ type TerminalGroupTab = {
   id: string;
   title: string;
   customTitle?: string;
+};
+
+type AgentChatGroupTab = {
+  id: string;
+  value: string;
+  title: string;
+  chatId: string | null;
+  providerId: string | null;
+  openedAt: number;
 };
 
 /** Reorder group tabs only within each section (browser instance / terminal family). */
@@ -168,11 +181,15 @@ export function useCenterStageTabGroups({
   githubHubTabVisible = false,
   filesTabVisible = false,
   ptDesignTabVisible = false,
+  simulatorTabVisible = false,
+  overviewVisible = false,
   githubTabs,
+  gitCommitTabs = [],
   openFiles,
   previewBrowserPrefs = DEFAULT_PREVIEW_BROWSER_PREFS,
   projectWikiTabVisible = false,
   terminalTabs = [],
+  agentChatTabs = [],
 }: {
   browserTabs: BrowserCenterTab[];
   codeReviewTabVisible?: boolean;
@@ -184,20 +201,41 @@ export function useCenterStageTabGroups({
   githubHubTabVisible?: boolean;
   filesTabVisible?: boolean;
   ptDesignTabVisible?: boolean;
+  simulatorTabVisible?: boolean;
+  overviewVisible?: boolean;
   githubTabs: GithubCenterTab[];
+  gitCommitTabs?: GitCommitCenterTab[];
   openFiles: OpenFile[];
   previewBrowserPrefs?: PreviewBrowserPrefs;
   projectWikiTabVisible?: boolean;
   terminalTabs?: TerminalGroupTab[];
+  agentChatTabs?: AgentChatGroupTab[];
 }) {
   const t = useTranslations("appShell.centerStageTabGroups");
   const tabBarT = useTranslations("appShell.centerStageTabBar");
+  const tOverview = useTranslations("ptDesign.overview");
+  const ptDesignTabTitle = usePtDesignOpenTitle(tabBarT("ptDesign"), tOverview("untitled"));
   const browserFallbackLabel = t("browser.newTab");
   const [tabGroupOrderByContext, setTabGroupOrderByContext] =
     React.useState<TabGroupOrderByContext>(() => readCenterStageTabGroupOrder());
 
   const groupedTabItems = React.useMemo(() => {
     const groups: Array<{ key: string; label: string; tabs: TabGroupItem[] }> = [];
+
+    if (overviewVisible) {
+      groups.push({
+        key: "overview",
+        label: t("groups.overview"),
+        tabs: [
+          {
+            id: "overview",
+            label: tabBarT("overview"),
+            value: "overview",
+            kind: "overview",
+          },
+        ],
+      });
+    }
 
     // Sort helper: group tabs by their openedAt timestamp (ascending — oldest first,
     // matching the flat tab-bar order).
@@ -241,6 +279,11 @@ export function useCenterStageTabGroups({
       groups.push({ key: "terminal", label: t("groups.terminal"), tabs: terminalGroupTabs });
     }
 
+    const chatGroupTabs = collectAgentChatGroupTabs(agentChatTabs);
+    if (chatGroupTabs.length > 0) {
+      groups.push({ key: "chat", label: t("groups.chat"), tabs: chatGroupTabs });
+    }
+
     // File tabs (regular editor files, not diffs / reviews / conflicts)
     const fileTabs: TabGroupItem[] = [];
     if (filesTabVisible) {
@@ -254,7 +297,7 @@ export function useCenterStageTabGroups({
     if (ptDesignTabVisible) {
       fileTabs.push({
         id: "pt-design",
-        label: tabBarT("ptDesign"),
+        label: ptDesignTabTitle,
         value: "pt-design",
         kind: "pt-design",
       });
@@ -294,6 +337,11 @@ export function useCenterStageTabGroups({
         visible: changesTabVisible,
         label: tabBarT("changes"),
       },
+      gitCommits: gitCommitTabs.map((tab) => ({
+        id: tab.id,
+        value: tab.value,
+        label: tab.label,
+      })),
     });
     if (diffTabs.length > 0) {
       groups.push({ key: "diff", label: t("groups.diff"), tabs: diffTabs });
@@ -392,6 +440,18 @@ export function useCenterStageTabGroups({
       });
     }
 
+    const simulatorGroupTabs = collectSimulatorGroupTabs(
+      simulatorTabVisible,
+      tabBarT("simulator"),
+    );
+    if (simulatorGroupTabs.length > 0) {
+      groups.push({
+        key: "simulator",
+        label: t("groups.simulator"),
+        tabs: simulatorGroupTabs,
+      });
+    }
+
     // Browser: list every internal tab across all open browser instances.
     // Different browsers are separated by a horizontal rule in the popover.
     const orderedBrowsers = [...browserTabs].sort(byOpenedAt);
@@ -422,20 +482,25 @@ export function useCenterStageTabGroups({
 
     return groups;
   }, [
+    agentChatTabs,
     browserFallbackLabel,
     browserTabs,
     changesTabVisible,
     codeReviewTabVisible,
     filesTabVisible,
     ptDesignTabVisible,
+    ptDesignTabTitle,
     gitHistoryTabVisible,
     githubHubTabVisible,
     githubTabs,
+    gitCommitTabs,
     openFiles,
     previewBrowserPrefs,
     projectWikiTabVisible,
     reviewTabVisible,
     runTabVisible,
+    simulatorTabVisible,
+    overviewVisible,
     t,
     tabBarT,
     terminalTabs,

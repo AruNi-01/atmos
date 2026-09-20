@@ -51,7 +51,10 @@ export function NotifySettingsSection({
   onToggleBrowser: (checked: boolean) => void;
   onToggleDesktop: (checked: boolean) => void;
   onTestBrowser: () => Promise<boolean>;
-  onTestDesktop: () => Promise<boolean>;
+  onTestDesktop: () => Promise<{
+    ok: boolean;
+    code?: "unsupported" | "permission_denied" | "failed";
+  }>;
   onTogglePermissionRequest: (checked: boolean) => void;
   onToggleTaskComplete: (checked: boolean) => void;
   onAddPushServer: (server: PushServerConfig) => Promise<void>;
@@ -174,8 +177,15 @@ export function NotifySettingsSection({
   const handleTestLocalChannel = async (channel: 'browser' | 'desktop') => {
     setTestingLocalChannel(channel);
     let ok = false;
+    let desktopCode: "unsupported" | "permission_denied" | "failed" | undefined;
     try {
-      ok = channel === 'browser' ? await onTestBrowser() : await onTestDesktop();
+      if (channel === 'browser') {
+        ok = await onTestBrowser();
+      } else {
+        const result = await onTestDesktop();
+        ok = result.ok;
+        desktopCode = result.code;
+      }
     } finally {
       setTestingLocalChannel(null);
     }
@@ -185,12 +195,17 @@ export function NotifySettingsSection({
       return;
     }
 
+    const desktopDescription =
+      desktopCode === 'permission_denied'
+        ? t('toasts.desktopPermissionRequired')
+        : t('toasts.desktopTestFailed');
+
     toastManager.add({
       title: t('toasts.testFailed'),
       description:
         channel === 'browser'
           ? t('toasts.browserPermissionRequired')
-          : t('toasts.desktopTestFailed'),
+          : desktopDescription,
       type: 'error',
     });
   };

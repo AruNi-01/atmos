@@ -3,6 +3,7 @@ import {
   WebRtcSignalingError,
   parseWebRtcCloseRequest,
   parseWebRtcOffer,
+  parseWebRtcStatsSessionId,
 } from "../webrtc-signaling";
 
 const sessionId = "07a5f32b-273e-4a30-8f62-8e741a815af1";
@@ -45,5 +46,12 @@ describe("WebRTC signaling validation", () => {
   test("validates close requests independently from offers", () => {
     expect(parseWebRtcCloseRequest({ sessionId })).toEqual({ sessionId });
     expect(() => parseWebRtcCloseRequest({ sessionId: "" })).toThrow(WebRtcSignalingError);
+  });
+
+  test("treats a missing stats session id as every session", () => {
+    expect(parseWebRtcStatsSessionId(null)).toBeUndefined();
+    expect(parseWebRtcStatsSessionId("")).toBeUndefined();
+    expect(parseWebRtcStatsSessionId(sessionId)).toBe(sessionId);
+    expect(() => parseWebRtcStatsSessionId("not-a-uuid")).toThrow(WebRtcSignalingError);
   });
 });

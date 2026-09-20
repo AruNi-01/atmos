@@ -13,24 +13,30 @@ where
 }
 use serde_json::Value;
 
+mod agent_chat;
 mod agents;
 mod disk_analyzer;
 mod fs;
 mod git;
 mod github;
+mod host_session;
 mod linear;
+mod link_preview;
 mod resource_monitor;
 mod review;
 mod skills;
 mod terminal;
 mod workspace;
 
+pub use agent_chat::*;
 pub use agents::*;
 pub use disk_analyzer::*;
 pub use fs::*;
 pub use git::*;
 pub use github::*;
+pub use host_session::*;
 pub use linear::*;
+pub use link_preview::*;
 pub use resource_monitor::*;
 pub use review::*;
 pub use skills::*;
@@ -308,6 +314,10 @@ pub enum WsAction {
     GitLog,
     /// 获取带 parent/ref 的拓扑历史（center-tab graph）
     GitHistory,
+    /// Per-file git blame ranges (APP-074)
+    GitFileBlame,
+    /// Lazy git show --shortstat for a blamed SHA (APP-074)
+    GitCommitDetail,
 
     // ===== Usage 操作 =====
     /// 获取 usage 概览
@@ -354,6 +364,8 @@ pub enum WsAction {
     ProjectDelete,
     /// 验证项目路径
     ProjectValidatePath,
+    /// 记录 Project 最近访问时间
+    ProjectMarkVisited,
 
     // ===== Group 操作 (APP-044) =====
     /// 列出所有 Group
@@ -544,6 +556,8 @@ pub enum WsAction {
     AgentConfigGet,
     /// 设置 Agent API Key
     AgentConfigSet,
+    /// Persist an agent's last-used model/thinking/mode to disk.
+    AgentDefaultConfigSet,
     /// 列出 ACP Registry agents
     AgentRegistryList,
     /// 从 ACP Registry 安装 agent
@@ -563,6 +577,43 @@ pub enum WsAction {
     CustomAgentSetJson,
     /// 获取 acp_servers.json 文件路径
     CustomAgentGetManifestPath,
+    /// 开关内置 / 自定义 ACP agent（内置默认关）
+    CustomAgentSetEnabled,
+    /// 预下载内置 custom agent 的 npx 包（拉完即退出）
+    CustomAgentPreload,
+    /// 列出 Chat native 主机（始终五家；开关默认关）
+    NativeAgentList,
+    /// 开关 Chat native 主机（默认关；不走 ACP 安装）
+    NativeAgentSetEnabled,
+    /// 开关 ACP registry agent 是否出现在 Chat 选择器
+    AgentRegistrySetEnabled,
+
+    AgentChatCreate,
+    AgentChatList,
+    AgentChatGet,
+    AgentChatMessages,
+    AgentChatRename,
+    AgentChatConfigure,
+    AgentChatDelete,
+    AgentChatSubscribe,
+    AgentChatBackfill,
+    AgentChatUnsubscribe,
+    AgentChatSend,
+    AgentChatSteer,
+    AgentChatQueueAdd,
+    AgentChatQueueUpdate,
+    AgentChatQueueReorder,
+    AgentChatQueueDelete,
+    AgentChatCancel,
+    AgentChatPermissionRespond,
+    AgentChatSessionOpRespond,
+    AgentOptionsGet,
+    AgentChatPrefsGet,
+    AgentChatPrefsSet,
+    HostSessionList,
+    HostSessionGet,
+    HostSessionResumeChat,
+    HostSessionResumeTui,
 
     // ===== Automation 操作 =====
     AutomationList,
@@ -585,6 +636,9 @@ pub enum WsAction {
     AutomationGithubRepositories,
     AutomationGithubEventRouteUpsert,
     AutomationGithubEventRouteDelete,
+    AutomationRunComplete,
+    AutomationRunPaths,
+    AutomationRunStaleDismiss,
 
     // ===== GitHub 操作 =====
     /// 获取分支关联的所有 PR 列表
@@ -796,6 +850,36 @@ pub enum WsAction {
     SimulatorStop,
     /// Current claim for a workspace, if any
     SimulatorStatus,
+    /// Live Device Preview claims on this Computer
+    SimulatorList,
+    /// Screenshot the resolved Device Preview claim
+    SimulatorScreenshot,
+    /// Tap normalized coordinates on the resolved claim
+    SimulatorTap,
+    /// Swipe between normalized coordinates on the resolved claim
+    SimulatorSwipe,
+    /// Type text into the resolved claim
+    SimulatorType,
+    /// Press a hardware key on the resolved claim
+    SimulatorPress,
+    /// Host simulator/emulator inventory (catalogs + VMs, not live claims)
+    SimulatorInventory,
+    /// Create an iOS simulator or Android AVD
+    SimulatorCreate,
+    /// Power on a VM without claiming Device Preview
+    SimulatorBoot,
+    /// Power off a VM (stops our claim first)
+    SimulatorShutdown,
+    /// Delete a VM
+    SimulatorDelete,
+    /// Get light/dark appearance on the resolved claim
+    SimulatorAppearanceGet,
+    /// Set light/dark appearance on the resolved claim
+    SimulatorAppearanceSet,
+    /// Inject a camera PNG into a claimed Android emulator
+    SimulatorCameraInject,
+    /// Clear an injected camera PNG on a claimed Android emulator
+    SimulatorCameraClear,
 
     // ===== Resource Monitor (APP-066) =====
     /// One-shot Computer resource snapshot
@@ -806,6 +890,10 @@ pub enum WsAction {
     ResourceMonitorUnsubscribe,
     /// Kill leftover Chrome-for-Testing / agent-browser trees
     ResourceMonitorKillLeaked,
+
+    // ===== Link preview =====
+    /// Fetch Open Graph / HTML metadata for a public http(s) URL
+    LinkPreview,
 }
 
 /// 服务端主动推送的事件类型
@@ -830,10 +918,10 @@ pub enum WsEvent {
     WorkspaceDeleteProgress,
     /// 项目删除进度
     ProjectDeleteProgress,
-    /// Agent hook 状态变更
-    AgentHookStateChanged,
-    /// Idle agent hook sessions were cleared; payload contains removed session IDs
-    AgentHookSessionsCleared,
+    /// Agent occupancy changed
+    AgentStatusChanged,
+    /// Idle agent occupancy rows were cleared; payload contains removed session IDs
+    AgentStatusCleared,
     /// Fine-grained Observer activity (turns/tools/todos/children)
     AgentActivityUpdated,
     /// Observer activity records dropped (explicit clear / pane destroy)
@@ -872,12 +960,18 @@ pub enum WsEvent {
     AutomationRunOutput,
     /// Automation outcome notification
     AutomationNotification,
+    AutomationStalePrompt,
     /// Disk analyzer scan progress / completion (APP-042)
     DiskAnalyzerScanProgress,
     /// serve-sim helper download progress (APP-060)
     SimulatorDownloadProgress,
+    /// Host inventory changed after create/boot/shutdown/delete
+    SimulatorDevicesChanged,
     /// Connection-scoped Computer resource snapshot (APP-066)
     ResourceMonitorUpdated,
+    AgentChatEvent,
+    AgentOptionsUpdated,
+    HostSessionIndexUpdated,
 }
 
 /// 项目删除进度通知数据
@@ -914,6 +1008,11 @@ pub struct ProjectUpdateRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectDeleteRequest {
+    pub guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectMarkVisitedRequest {
     pub guid: String,
 }
 
@@ -1259,6 +1358,8 @@ pub struct AgentBehaviourSettingsUpdateRequest {
     pub attention_summary_agent_id: Option<String>,
     #[serde(default)]
     pub attention_summary_model: Option<String>,
+    #[serde(default)]
+    pub followup_policy: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1328,11 +1429,141 @@ pub struct SimulatorStartRequest {
     pub workspace_id: String,
     #[serde(default)]
     pub udid: Option<String>,
+    #[serde(default)]
+    pub platform: Option<core_engine::DevicePlatform>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimulatorWorkspaceRequest {
     pub workspace_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorListRequest {
+    #[serde(default)]
+    pub workspace_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorScreenshotRequest {
+    pub workspace_id: String,
+    #[serde(default)]
+    pub udid: Option<String>,
+    #[serde(default)]
+    pub platform: Option<core_engine::DevicePlatform>,
+    #[serde(default)]
+    pub out: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorTapRequest {
+    pub workspace_id: String,
+    #[serde(default)]
+    pub udid: Option<String>,
+    #[serde(default)]
+    pub platform: Option<core_engine::DevicePlatform>,
+    pub x: f64,
+    pub y: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorSwipeRequest {
+    pub workspace_id: String,
+    #[serde(default)]
+    pub udid: Option<String>,
+    #[serde(default)]
+    pub platform: Option<core_engine::DevicePlatform>,
+    pub x1: f64,
+    pub y1: f64,
+    pub x2: f64,
+    pub y2: f64,
+    #[serde(default)]
+    pub duration_ms: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorTypeRequest {
+    pub workspace_id: String,
+    #[serde(default)]
+    pub udid: Option<String>,
+    #[serde(default)]
+    pub platform: Option<core_engine::DevicePlatform>,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorPressRequest {
+    pub workspace_id: String,
+    #[serde(default)]
+    pub udid: Option<String>,
+    #[serde(default)]
+    pub platform: Option<core_engine::DevicePlatform>,
+    pub key: core_service::PressKey,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorInventoryRequest {
+    #[serde(default)]
+    pub workspace_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorCreateRequest {
+    pub platform: core_engine::DevicePlatform,
+    pub device_type: String,
+    pub runtime: String,
+    #[serde(default)]
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorDeviceOpRequest {
+    pub workspace_id: String,
+    pub udid: String,
+    pub platform: core_engine::DevicePlatform,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorAppearanceGetRequest {
+    pub workspace_id: String,
+    #[serde(default)]
+    pub udid: Option<String>,
+    #[serde(default)]
+    pub platform: Option<core_engine::DevicePlatform>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorAppearanceSetRequest {
+    pub workspace_id: String,
+    pub appearance: core_service::Appearance,
+    #[serde(default)]
+    pub udid: Option<String>,
+    #[serde(default)]
+    pub platform: Option<core_engine::DevicePlatform>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorCameraInjectRequest {
+    pub workspace_id: String,
+    pub lens: core_service::CameraLens,
+    #[serde(default)]
+    pub path: Option<String>,
+    #[serde(default)]
+    pub png_base64: Option<String>,
+    #[serde(default)]
+    pub udid: Option<String>,
+    #[serde(default)]
+    pub platform: Option<core_engine::DevicePlatform>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorCameraClearRequest {
+    pub workspace_id: String,
+    pub lens: core_service::CameraLens,
+    #[serde(default)]
+    pub udid: Option<String>,
+    #[serde(default)]
+    pub platform: Option<core_engine::DevicePlatform>,
 }
 
 // ===== Local Model Notification Payload =====

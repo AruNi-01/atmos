@@ -1,11 +1,31 @@
 use crate::error::{Result, ServiceError};
 
 use super::agents::resolve_automation_agent;
+use super::execute_mode::{is_known_chat_provider_id, AutomationExecuteMode};
 use super::{AutomationService, AutomationTargetInput, AutomationTargetKind};
 
 impl AutomationService {
     pub(super) fn validate_agent(&self, agent_id: &str) -> Result<()> {
         resolve_automation_agent(agent_id).map(|_| ())
+    }
+
+    pub(super) fn validate_agent_for_mode(
+        &self,
+        mode: AutomationExecuteMode,
+        agent_id: &str,
+    ) -> Result<()> {
+        if agent_id.trim().is_empty() {
+            return Err(ServiceError::Validation("agent_id is required".to_string()));
+        }
+        if mode == AutomationExecuteMode::Chat {
+            if !is_known_chat_provider_id(agent_id) {
+                return Err(ServiceError::Validation(format!(
+                    "Agent `{agent_id}` is not a chat provider."
+                )));
+            }
+            return Ok(());
+        }
+        self.validate_agent(agent_id)
     }
 
     pub(super) async fn validate_target(&self, target: &AutomationTargetInput) -> Result<()> {

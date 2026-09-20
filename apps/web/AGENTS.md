@@ -89,6 +89,7 @@ Spec: [specs/APP/APP-016_atmos-computer/](../../specs/APP/APP-016_atmos-computer
 - UI atoms from `@workspace/ui`; semantic theme tokens (`bg-background`, etc.)
 - Feature-local dialogs live with their feature, not in a global dialog folder.
 - Settings-specific rules: [src/features/settings/components/AGENTS.md](src/features/settings/components/AGENTS.md)
+- **macOS TCC:** Settings → Privacy must show every OS permission Atmos uses (Atmos.app and Desktop Use). Grant via the desktop drag-to-list overlay; never prompt Accessibility at app launch. See [apps/desktop-electron/AGENTS.md](../desktop-electron/AGENTS.md) and [agents/references/keyboard-shortcuts.md](../../agents/references/keyboard-shortcuts.md).
 - Desktop standalone windows for embedded surfaces such as Preview and Agent Chat must be mutually exclusive with their embedded surface. Use the shared standalone handoff helper so the embedded UI shows a paused placeholder with a return button while the standalone window is active.
 
 ---
@@ -115,3 +116,13 @@ Spec: [specs/APP/APP-016_atmos-computer/](../../specs/APP/APP-016_atmos-computer
 - [apps/api/AGENTS.md](../api/AGENTS.md)
 - [packages/api-types/AGENTS.md](../../packages/api-types/AGENTS.md)
 - [packages/relay/AGENTS.md](../../packages/relay/AGENTS.md)
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

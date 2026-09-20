@@ -82,7 +82,7 @@ pub struct TerminalService {
     shims_dir: Option<PathBuf>,
     db: Option<Arc<DatabaseConnection>>,
     /// Optional agent-hooks service so pane destroy can clear hook sessions.
-    agent_hooks: std::sync::RwLock<Option<Arc<super::agent_hooks::AgentHooksService>>>,
+    agent_hooks: std::sync::RwLock<Option<Arc<super::agent_status::AgentStatusService>>>,
     /// Detached pane watchers that keep DEC mouse modes fresh while no browser is attached (APP-054).
     mouse_mode_watches: Arc<MouseModeWatchRegistry>,
     /// APP-055: project-local Run terminal log tee (single writer).
@@ -149,12 +149,16 @@ impl TerminalService {
     }
 
     /// APP-055: resolve preferred latest Run log under project root (if any).
-    pub fn run_log_resolve_latest(&self, project_root: &str) -> Option<String> {
+    pub fn run_log_resolve_latest(
+        &self,
+        project_root: &str,
+        preferred_window: Option<&str>,
+    ) -> Option<run_log_tee::ResolvedRunLog> {
         let root = PathBuf::from(project_root.trim());
         if root.as_os_str().is_empty() {
             return None;
         }
-        RunLogTee::resolve_latest_path(&root).map(|p| p.to_string_lossy().into_owned())
+        RunLogTee::resolve_latest(&root, preferred_window)
     }
 
     fn maybe_bridge_run_log_output(
@@ -184,7 +188,7 @@ impl TerminalService {
     }
 
     /// Wire agent-hooks cleanup when terminal panes / tmux windows are destroyed.
-    pub fn set_agent_hooks_service(&self, service: Arc<super::agent_hooks::AgentHooksService>) {
+    pub fn set_agent_status_service(&self, service: Arc<super::agent_status::AgentStatusService>) {
         *self.agent_hooks.write().expect("agent_hooks lock") = Some(service);
     }
 
@@ -443,6 +447,10 @@ impl TerminalService {
             side_chat_id,
             source_pane_id,
             source_tmux_window_name,
+            origin,
+            run_guid,
+            automation_guid,
+            initial_input,
         } = params;
         let cols = cols.unwrap_or(self.default_cols);
         let rows = rows.unwrap_or(self.default_rows);
@@ -692,20 +700,27 @@ impl TerminalService {
                 ServiceError::Processing(format!("Failed to create tmux window: {}", e))
             })?;
 
-        if terminal_kind == TerminalKind::SideChat {
+        if terminal_kind == TerminalKind::SideChat || origin.as_deref() == Some("automation") {
             let metadata = TmuxWindowAtmosMetadata {
-                terminal_kind: Some("side_chat".to_string()),
+                terminal_kind: if terminal_kind == TerminalKind::SideChat {
+                    Some("side_chat".to_string())
+                } else {
+                    None
+                },
                 side_chat_id: side_chat_id.clone(),
                 context_id: Some(workspace_id.clone()),
                 source_pane_id: source_pane_id_value.map(ToOwned::to_owned),
                 source_tmux_window_name: source_tmux_window_name.clone(),
+                origin: origin.clone(),
+                run_guid: run_guid.clone(),
+                automation_guid: automation_guid.clone(),
             };
             if let Err(error) =
                 self.tmux_engine
                     .set_window_atmos_metadata(&tmux_session, window_index, &metadata)
             {
                 warn!(
-                    "Failed to set side chat tmux metadata for {}:{}: {}",
+                    "Failed to set tmux metadata for {}:{}: {}",
                     tmux_session, window_index, error
                 );
             }
@@ -749,6 +764,16 @@ impl TerminalService {
 
         // Clean up lock from HashMap
         self.release_creation_lock(&tmux_session).await;
+
+        if let Some(input) = initial_input.as_deref().filter(|value| !value.is_empty()) {
+            if result.is_ok() {
+                if let Err(error) = self.send_input(&session_id, input).await {
+                    warn!("Failed to send initial terminal input: {error}");
+                } else if let Err(error) = self.send_enter(&session_id).await {
+                    warn!("Failed to send initial terminal enter: {error}");
+                }
+            }
+        }
 
         result.map(|(rx, _)| (rx, snapshot))
     }

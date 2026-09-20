@@ -20,7 +20,7 @@ const TERMINAL_TAB_PREFIX = "terminal-tab:";
 const BROWSER_TAB_PREFIX = "browser:";
 
 /**
- * Live sessions cannot be cloned across panes (one PTY / one webview).
+ * Live sessions cannot be cloned across panes (one PTY / webview / device).
  * Everything else (Files, Changes, the same editor path, Overview, …) can
  * live in multiple isolated pane strips at once.
  */
@@ -28,7 +28,9 @@ export function isShareableCenterTabId(tabId: string): boolean {
   if (!tabId) return false;
   if (tabId === "terminal" || tabId.startsWith(TERMINAL_TAB_PREFIX)) return false;
   if (tabId.startsWith(BROWSER_TAB_PREFIX)) return false;
+  if (tabId.startsWith("agent-chat:")) return false;
   if (tabId === "project-wiki" || tabId === "code-review") return false;
+  if (tabId === "simulator" || tabId === "run") return false;
   return true;
 }
 /** Sentinel active id for a pane that has no tabs yet (empty launcher state). */
@@ -129,7 +131,10 @@ export function createPaneId(existing: Iterable<string> = []): string {
 
 /** Single pane owning every open tab — matches classic Center Stage. */
 export function createDefaultLayout(tabIds: string[], activeTabId: string): CenterPaneLayout {
-  const ids = tabIds.length > 0 ? [...tabIds] : [activeTabId || "terminal"];
+  if (tabIds.length === 0 && !activeTabId) {
+    return createEmptyCenterLayout();
+  }
+  const ids = tabIds.length > 0 ? [...tabIds] : [activeTabId];
   const active = ids.includes(activeTabId) ? activeTabId : ids[0]!;
   return {
     panes: [
@@ -456,28 +461,29 @@ export function reorderPaneTabIds(
   const pane = getPane(layout, paneId);
   if (!pane) return layout;
   const owned = new Set(pane.tabIds);
-  const nextIds = orderedTabIds.filter((id) => owned.has(id));
+  const nextIds = pinOverviewFront(orderedTabIds.filter((id) => owned.has(id)));
   for (const id of pane.tabIds) {
     if (!nextIds.includes(id)) nextIds.push(id);
   }
-  if (sameStringList(pane.tabIds, nextIds)) {
+  const pinnedIds = pinOverviewFront(nextIds);
+  if (sameStringList(pane.tabIds, pinnedIds)) {
     return layout.tabStripCanonical ? layout : withCanonicalTabStrip(layout);
   }
-  const panes = layout.panes.map((p) => (p.id === paneId ? { ...p, tabIds: nextIds } : p));
+  const panes = layout.panes.map((p) => (p.id === paneId ? { ...p, tabIds: pinnedIds } : p));
   const next: CenterPaneLayout = withCanonicalTabStrip({ ...layout, panes });
   return centerPaneLayoutsEqual(layout, next) ? layout : next;
 }
 
 /**
- * Pane `tabIds` are canonical whenever a layout pane exists (including a
- * remaining single pane after collapse). Legacy `tabStripOrder` is only a
- * fallback for empty panes / one-shot migration of pre-canonical layouts.
+ * Pane `tabIds` are canonical whenever a layout pane exists, including an
+ * intentionally empty split launcher (`[]`). Legacy `tabStripOrder` is only
+ * a fallback when this pane has no strip yet (`null` / `undefined`).
  */
 export function resolvePaneTabStripOrder(
   paneTabIds: readonly string[] | null | undefined,
   legacyStripOrder: readonly string[],
 ): string[] {
-  if (paneTabIds && paneTabIds.length > 0) return [...paneTabIds];
+  if (paneTabIds) return [...paneTabIds];
   return [...legacyStripOrder];
 }
 
@@ -824,6 +830,35 @@ export function planCenterTabAttach(
   const paneId = findPaneIdForTab(layout, tabId);
   if (!paneId) return { action: "open" };
   return { action: "reveal", paneId };
+}
+
+/**
+ * Put a tab on the focused pane strip without activating it.
+ * Used when a background run creates a Term / Chat tab: the user should see
+ * it appear, not be yanked off whatever they are looking at.
+ */
+export function offerTabOnFocusedPane(layout: CenterPaneLayout, tabId: string): CenterPaneLayout {
+  if (!tabId) return layout;
+  const focusedId = layout.focusedPaneId;
+  const focused = getPane(layout, focusedId);
+  if (!focused || isEmptyPane(focused)) return layout;
+  if (focused.tabIds.includes(tabId)) return layout;
+
+  const shareable = isShareableCenterTabId(tabId);
+  const ownedElsewhere = layout.panes.some(
+    (p) => p.id !== focusedId && p.tabIds.includes(tabId),
+  );
+  if (!shareable && ownedElsewhere) return layout;
+
+  const tabIds =
+    tabId === OVERVIEW_TAB_ID
+      ? addPinnedOverview(focused.tabIds)
+      : [...focused.tabIds, tabId];
+  const panes = layout.panes.map((p) =>
+    p.id === focusedId ? { ...p, tabIds } : p,
+  );
+  const next = withCanonicalTabStrip({ ...layout, panes });
+  return centerPaneLayoutsEqual(layout, next) ? layout : next;
 }
 
 /** Open or activate a tab on the focused pane without taking it off siblings. */

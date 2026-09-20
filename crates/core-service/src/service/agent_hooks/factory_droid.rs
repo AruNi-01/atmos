@@ -2,8 +2,11 @@ use serde_json::Value;
 use tracing::debug;
 
 use super::{
-    extract_child_agent_id, is_child_start_event, is_child_stop_event, AgentHookState,
-    AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind,
+    extract_child_agent_id, extract_cwd, is_child_start_event, is_child_stop_event,
+    resolve_session_id,
+};
+use crate::service::agent_status::{
+    AgentOccupancy, AgentStatusContext, AgentStatusService, AgentToolType, OccupancyUpdateKind,
 };
 
 fn extract_tool_name(payload: &Value) -> Option<&str> {
@@ -40,14 +43,18 @@ fn is_idle_notification(message: &str) -> bool {
     lower.contains("waiting for your input") || lower.contains("waiting for input")
 }
 
-pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &AtmosContext) {
+pub(super) fn handle_event(
+    service: &AgentStatusService,
+    payload: &Value,
+    ctx: &AgentStatusContext,
+) {
     let hook_event = payload
         .get("hook_event_name")
         .and_then(|v| v.as_str())
         .unwrap_or("");
 
-    let session_id = service.resolve_session_id(payload, AgentToolType::FactoryDroid, ctx);
-    let project_path = AgentHooksService::extract_cwd(payload).map(String::from);
+    let session_id = resolve_session_id(payload, AgentToolType::FactoryDroid, ctx);
+    let project_path = extract_cwd(payload).map(String::from);
 
     debug!(
         "Factory Droid hook event: {} session_id={}",
@@ -55,7 +62,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
     );
 
     if let Some(existing) = service.sessions.read().get(&session_id) {
-        if existing.tool != AgentToolType::FactoryDroid && existing.state != AgentHookState::Idle {
+        if existing.tool != AgentToolType::FactoryDroid && existing.state != AgentOccupancy::Idle {
             debug!(
                 "Skipping Factory Droid event for session {} actively owned by {}",
                 session_id, existing.tool
@@ -80,10 +87,10 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
             service.update_state(
                 &session_id,
                 AgentToolType::FactoryDroid,
-                AgentHookState::Running,
+                AgentOccupancy::Running,
                 project_path,
                 ctx,
-                StateUpdateKind::Progress,
+                OccupancyUpdateKind::Progress,
             );
         }
         // SubagentStop without agent_id: leave lead state unchanged.
@@ -101,8 +108,8 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                         project_path,
                         ctx,
                         child_id,
-                        AgentHookState::PermissionRequest,
-                        StateUpdateKind::Permission,
+                        AgentOccupancy::PermissionRequest,
+                        OccupancyUpdateKind::Permission,
                     );
                 } else {
                     service.handle_child_origin_event(
@@ -111,8 +118,8 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                         project_path,
                         ctx,
                         child_id,
-                        AgentHookState::Running,
-                        StateUpdateKind::Progress,
+                        AgentOccupancy::Running,
+                        OccupancyUpdateKind::Progress,
                     );
                 }
             }
@@ -123,8 +130,8 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                     project_path,
                     ctx,
                     child_id,
-                    AgentHookState::Running,
-                    StateUpdateKind::Progress,
+                    AgentOccupancy::Running,
+                    OccupancyUpdateKind::Progress,
                 );
             }
             "Stop" | "SessionEnd" | "UserPromptSubmit" | "SessionStart" => {
@@ -143,10 +150,10 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
             service.update_state(
                 &session_id,
                 AgentToolType::FactoryDroid,
-                AgentHookState::Idle,
+                AgentOccupancy::Idle,
                 project_path,
                 ctx,
-                StateUpdateKind::NewTurn,
+                OccupancyUpdateKind::NewTurn,
             );
         }
         "PreToolUse" => {
@@ -155,19 +162,19 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 service.update_state(
                     &session_id,
                     AgentToolType::FactoryDroid,
-                    AgentHookState::PermissionRequest,
+                    AgentOccupancy::PermissionRequest,
                     project_path,
                     ctx,
-                    StateUpdateKind::Permission,
+                    OccupancyUpdateKind::Permission,
                 );
             } else {
                 service.update_state(
                     &session_id,
                     AgentToolType::FactoryDroid,
-                    AgentHookState::Running,
+                    AgentOccupancy::Running,
                     project_path,
                     ctx,
-                    StateUpdateKind::Progress,
+                    OccupancyUpdateKind::Progress,
                 );
             }
         }
@@ -175,20 +182,20 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
             service.update_state(
                 &session_id,
                 AgentToolType::FactoryDroid,
-                AgentHookState::Running,
+                AgentOccupancy::Running,
                 project_path,
                 ctx,
-                StateUpdateKind::NewTurn,
+                OccupancyUpdateKind::NewTurn,
             );
         }
         "PostToolUse" | "PreCompact" => {
             service.update_state(
                 &session_id,
                 AgentToolType::FactoryDroid,
-                AgentHookState::Running,
+                AgentOccupancy::Running,
                 project_path,
                 ctx,
-                StateUpdateKind::Progress,
+                OccupancyUpdateKind::Progress,
             );
         }
         "Notification" => {
@@ -200,10 +207,10 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 service.update_state(
                     &session_id,
                     AgentToolType::FactoryDroid,
-                    AgentHookState::Idle,
+                    AgentOccupancy::Idle,
                     project_path,
                     ctx,
-                    StateUpdateKind::TerminalIdle,
+                    OccupancyUpdateKind::TerminalIdle,
                 );
             } else if is_permission_notification(message) || message.is_empty() {
                 // Empty message kept as permission for backwards compatibility with
@@ -212,10 +219,10 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                     service.update_state(
                         &session_id,
                         AgentToolType::FactoryDroid,
-                        AgentHookState::PermissionRequest,
+                        AgentOccupancy::PermissionRequest,
                         project_path,
                         ctx,
-                        StateUpdateKind::Permission,
+                        OccupancyUpdateKind::Permission,
                     );
                 }
             } else {
@@ -229,10 +236,10 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
             service.update_state(
                 &session_id,
                 AgentToolType::FactoryDroid,
-                AgentHookState::Idle,
+                AgentOccupancy::Idle,
                 project_path,
                 ctx,
-                StateUpdateKind::TerminalIdle,
+                OccupancyUpdateKind::TerminalIdle,
             );
         }
         "SessionEnd" => {
@@ -241,10 +248,10 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 service.update_state(
                     &session_id,
                     AgentToolType::FactoryDroid,
-                    AgentHookState::Idle,
+                    AgentOccupancy::Idle,
                     project_path,
                     ctx,
-                    StateUpdateKind::ForcedIdle,
+                    OccupancyUpdateKind::ForcedIdle,
                 );
             }
         }
@@ -260,7 +267,7 @@ mod tests {
 
     #[test]
     fn factory_droid_pretooluse_sets_running() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let payload = serde_json::json!({
             "hook_event_name": "PreToolUse",
             "session_id": "droid-session",
@@ -268,17 +275,17 @@ mod tests {
             "tool_name": "Execute",
         });
 
-        handle_event(&service, &payload, &AtmosContext::default());
+        handle_event(&service, &payload, &AgentStatusContext::default());
 
         let sessions = service.get_all_sessions();
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].tool, AgentToolType::FactoryDroid);
-        assert_eq!(sessions[0].state, AgentHookState::Running);
+        assert_eq!(sessions[0].state, AgentOccupancy::Running);
     }
 
     #[test]
     fn factory_droid_askuser_sets_permission_request() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let payload = serde_json::json!({
             "hook_event_name": "PreToolUse",
             "session_id": "droid-session",
@@ -286,16 +293,16 @@ mod tests {
             "tool_name": "AskUser",
         });
 
-        handle_event(&service, &payload, &AtmosContext::default());
+        handle_event(&service, &payload, &AgentStatusContext::default());
 
         let sessions = service.get_all_sessions();
         assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].state, AgentHookState::PermissionRequest);
+        assert_eq!(sessions[0].state, AgentOccupancy::PermissionRequest);
     }
 
     #[test]
     fn factory_droid_permission_notification_sets_permission_request() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let payload = serde_json::json!({
             "hook_event_name": "Notification",
             "session_id": "droid-session",
@@ -303,16 +310,16 @@ mod tests {
             "message": "Permission required to continue",
         });
 
-        handle_event(&service, &payload, &AtmosContext::default());
+        handle_event(&service, &payload, &AgentStatusContext::default());
 
         let sessions = service.get_all_sessions();
         assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].state, AgentHookState::PermissionRequest);
+        assert_eq!(sessions[0].state, AgentOccupancy::PermissionRequest);
     }
 
     #[test]
     fn factory_droid_idle_notification_sets_idle() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let running = serde_json::json!({
             "hook_event_name": "UserPromptSubmit",
             "session_id": "droid-session",
@@ -325,17 +332,17 @@ mod tests {
             "message": "Waiting for your input",
         });
 
-        handle_event(&service, &running, &AtmosContext::default());
-        handle_event(&service, &idle, &AtmosContext::default());
+        handle_event(&service, &running, &AgentStatusContext::default());
+        handle_event(&service, &idle, &AgentStatusContext::default());
 
         let sessions = service.get_all_sessions();
         assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].state, AgentHookState::Idle);
+        assert_eq!(sessions[0].state, AgentOccupancy::Idle);
     }
 
     #[test]
     fn factory_droid_subagent_stop_keeps_state() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let running = serde_json::json!({
             "hook_event_name": "UserPromptSubmit",
             "session_id": "droid-session",
@@ -348,18 +355,18 @@ mod tests {
             "agent_id": "child-1",
         });
 
-        handle_event(&service, &running, &AtmosContext::default());
-        handle_event(&service, &subagent_stop, &AtmosContext::default());
+        handle_event(&service, &running, &AgentStatusContext::default());
+        handle_event(&service, &subagent_stop, &AgentStatusContext::default());
 
         let sessions = service.get_all_sessions();
         assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].state, AgentHookState::Running);
+        assert_eq!(sessions[0].state, AgentOccupancy::Running);
     }
 
     #[test]
     fn factory_droid_lead_stop_defers_while_child_active() {
-        let service = AgentHooksService::new();
-        let ctx = AtmosContext::default();
+        let service = AgentStatusService::new();
+        let ctx = AgentStatusContext::default();
         handle_event(
             &service,
             &serde_json::json!({
@@ -388,7 +395,7 @@ mod tests {
             }),
             &ctx,
         );
-        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Running);
+        assert_eq!(service.get_all_sessions()[0].state, AgentOccupancy::Running);
         handle_event(
             &service,
             &serde_json::json!({
@@ -399,12 +406,12 @@ mod tests {
             }),
             &ctx,
         );
-        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
+        assert_eq!(service.get_all_sessions()[0].state, AgentOccupancy::Idle);
     }
 
     #[test]
     fn factory_droid_stop_sets_idle() {
-        let service = AgentHooksService::new();
+        let service = AgentStatusService::new();
         let running = serde_json::json!({
             "hook_event_name": "UserPromptSubmit",
             "session_id": "droid-session",
@@ -416,11 +423,11 @@ mod tests {
             "cwd": "/tmp/project",
         });
 
-        handle_event(&service, &running, &AtmosContext::default());
-        handle_event(&service, &stop, &AtmosContext::default());
+        handle_event(&service, &running, &AgentStatusContext::default());
+        handle_event(&service, &stop, &AgentStatusContext::default());
 
         let sessions = service.get_all_sessions();
         assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].state, AgentHookState::Idle);
+        assert_eq!(sessions[0].state, AgentOccupancy::Idle);
     }
 }

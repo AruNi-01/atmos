@@ -55,6 +55,30 @@ describe("workspace create overlay", () => {
     const header = readFileSync(join(import.meta.dir, "../Header.tsx"), "utf8");
     expect(header).toContain("HeaderWorkspaceJobs");
   });
+
+  test("new workspace worktree prep uses a center-stage blocking overlay", () => {
+    const panel = readFileSync(join(import.meta.dir, "../PanelLayout.tsx"), "utf8");
+    const overlay = readFileSync(
+      join(import.meta.dir, "../WorkspaceSetupBlockingOverlay.tsx"),
+      "utf8",
+    );
+    const dialog = readFileSync(
+      join(import.meta.dir, "../../features/workspace/components/CreateWorkspaceDialog.tsx"),
+      "utf8",
+    );
+    const welcome = readFileSync(
+      join(import.meta.dir, "../../features/welcome/components/WelcomePage.tsx"),
+      "utf8",
+    );
+    const sidebar = readFileSync(join(import.meta.dir, "../LeftSidebar.tsx"), "utf8");
+
+    expect(panel).toContain("WorkspaceSetupBlockingOverlay");
+    expect(overlay).toContain("isWorkspaceSetupBlocking");
+    expect(overlay).toContain("blockingJob");
+    expect(dialog).toContain("blocking: true");
+    expect(welcome).toContain("blocking: true");
+    expect(sidebar).not.toContain("blocking: true");
+  });
 });
 
 describe("header workspace setup grouping", () => {
@@ -71,6 +95,8 @@ describe("header workspace setup grouping", () => {
     expect(source).toContain('side="right"');
     expect(source).toContain("CheckCircle2");
     expect(source).toContain('t("ready")');
+    expect(source).toContain("absolute top-2 right-2");
+    expect(source).not.toContain("flex min-w-0 items-start gap-1");
     expect(source).not.toContain("border-b border-border/60");
     expect(source).not.toContain("backgroundJobs");
     expect(source).not.toContain("showList");
@@ -104,6 +130,7 @@ describe("header workspace setup grouping", () => {
     expect(chip).toContain("HEADER_CHIP_SURFACE_CLASS");
     expect(source).toContain("cancelAutoOpen");
     expect(hook).toContain("WORKSPACE_AUTO_ENTER_DELAY_MS");
+    expect(hook).toContain("enterImmediately");
     expect(hook).toContain("paused:");
     expect(hook).toContain("usePausedDeadlineCountdown");
     expect(countdown).toContain("setInterval");

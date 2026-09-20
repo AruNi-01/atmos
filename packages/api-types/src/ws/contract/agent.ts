@@ -2,6 +2,7 @@ import type { WsEmpty, WsSuccess } from "../dto/common";
 import type {
   AgentConfigSetRequest,
   AgentConfigState,
+  AgentDefaultConfigSetRequest,
   AgentIdRequest,
   AgentInstallResponse,
   AgentListResponse,
@@ -14,7 +15,11 @@ import type {
   CustomAgentListResponse,
   CustomAgentManifestPathResponse,
   CustomAgentNameRequest,
+  CustomAgentSetEnabledRequest,
   CustomAgentSetJsonRequest,
+  AgentRegistrySetEnabledRequest,
+  NativeAgentSetEnabledRequest,
+  NativeChatAgentListResponse,
   RegistryInstallResponse,
 } from "../dto/agent";
 
@@ -23,6 +28,10 @@ export type AgentContract = {
   agent_install: { input: AgentIdRequest; output: AgentInstallResponse };
   agent_config_get: { input: AgentIdRequest; output: AgentConfigState };
   agent_config_set: { input: AgentConfigSetRequest; output: WsSuccess };
+  agent_default_config_set: {
+    input: AgentDefaultConfigSetRequest;
+    output: WsSuccess;
+  };
   agent_registry_list: {
     input: AgentRegistryListRequest;
     output: AgentRegistryListResponse;
@@ -43,5 +52,19 @@ export type AgentContract = {
   custom_agent_get_manifest_path: {
     input: WsEmpty;
     output: CustomAgentManifestPathResponse;
+  };
+  custom_agent_set_enabled: {
+    input: CustomAgentSetEnabledRequest;
+    output: WsSuccess;
+  };
+  custom_agent_preload: { input: CustomAgentNameRequest; output: WsSuccess };
+  native_agent_list: { input: WsEmpty; output: NativeChatAgentListResponse };
+  native_agent_set_enabled: {
+    input: NativeAgentSetEnabledRequest;
+    output: WsSuccess;
+  };
+  agent_registry_set_enabled: {
+    input: AgentRegistrySetEnabledRequest;
+    output: WsSuccess;
   };
 };

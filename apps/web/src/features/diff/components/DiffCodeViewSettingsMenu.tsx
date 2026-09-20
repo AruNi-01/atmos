@@ -16,6 +16,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   Switch,
   ToggleGroup,
@@ -60,34 +61,6 @@ export function DiffCodeViewSettingsMenu({
   const t = useTranslations('diff.codeViewSettings');
   return (
     <div className={cn('flex shrink-0 items-center gap-1', className)}>
-      <button
-        type="button"
-        title={diffStyle === 'split' ? t('switchToUnifiedView') : t('switchToSplitView')}
-        className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-        onClick={() =>
-          onDiffStyleChange(diffStyle === 'split' ? 'unified' : 'split')
-        }
-      >
-        {diffStyle === 'split' ? (
-          <IconDiffSplit className="size-3.5" />
-        ) : (
-          <IconDiffUnified className="size-3.5" />
-        )}
-      </button>
-      <button
-        type="button"
-        title={
-          collapseMode === 'expanded' ? t('collapseAllFiles') : t('expandAllFiles')
-        }
-        className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-        onClick={onToggleCollapseMode}
-      >
-        {collapseMode === 'expanded' ? (
-          <IconExpandAll className="size-3.5" />
-        ) : (
-          <IconCollapsedRow className="size-3.5" />
-        )}
-      </button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
@@ -99,6 +72,31 @@ export function DiffCodeViewSettingsMenu({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-60">
+          <DropdownMenuItem
+            onSelect={() =>
+              onDiffStyleChange(diffStyle === 'split' ? 'unified' : 'split')
+            }
+          >
+            {diffStyle === 'split' ? (
+              <IconDiffSplit className="size-3.5" />
+            ) : (
+              <IconDiffUnified className="size-3.5" />
+            )}
+            {diffStyle === 'split'
+              ? t('switchToUnifiedView')
+              : t('switchToSplitView')}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onToggleCollapseMode}>
+            {collapseMode === 'expanded' ? (
+              <IconExpandAll className="size-3.5" />
+            ) : (
+              <IconCollapsedRow className="size-3.5" />
+            )}
+            {collapseMode === 'expanded'
+              ? t('collapseAllFiles')
+              : t('expandAllFiles')}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator className="mx-1" />
           <DropdownMenuItem
             className="cursor-default p-0"
             onSelect={(e) => e.preventDefault()}

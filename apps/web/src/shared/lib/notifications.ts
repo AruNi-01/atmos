@@ -4,7 +4,7 @@ import { getAgentIconCandidates } from "@/features/agent/lib/agent-icon-candidat
 import {
   AGENT_TOOL_ICON_IDS,
   type AgentToolType,
-} from "@/features/agent/store/agent-hooks-store";
+} from "@/features/agent/store/agent-status-store";
 import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 
 export interface AppNotificationPayload {
@@ -26,12 +26,15 @@ export interface BrowserNotificationOptions {
  */
 export type NotificationClickAction =
   | {
-      kind: "agent_hook";
+      kind: "agent_status";
       session_id: string;
       context_id?: string | null;
       pane_id?: string | null;
       side_chat_id?: string | null;
       source_pane_id?: string | null;
+      surface?: string | null;
+      surface_id?: string | null;
+      space_id?: string | null;
       tool?: string;
       project_path?: string | null;
     }
@@ -78,7 +81,7 @@ export function isNotificationClickAction(
 ): value is NotificationClickAction {
   if (!value || typeof value !== "object") return false;
   const kind = (value as { kind?: unknown }).kind;
-  if (kind === "agent_hook") {
+  if (kind === "agent_status") {
     return typeof (value as { session_id?: unknown }).session_id === "string";
   }
   if (kind === "automation") {
@@ -227,27 +230,74 @@ export function showBrowserNotification(
   return true;
 }
 
+export type DesktopNotificationSendResult =
+  | { ok: true }
+  | {
+      ok: false;
+      code?: "unsupported" | "permission_denied" | "failed";
+      error?: string;
+    };
+
+export function parseDesktopNotificationResult(
+  value: unknown,
+): DesktopNotificationSendResult {
+  if (value && typeof value === "object" && "ok" in value) {
+    const rec = value as {
+      ok?: unknown;
+      code?: unknown;
+      error?: unknown;
+    };
+    if (rec.ok === true) return { ok: true };
+    const code =
+      rec.code === "unsupported" ||
+      rec.code === "permission_denied" ||
+      rec.code === "failed"
+        ? rec.code
+        : "failed";
+    return {
+      ok: false,
+      code,
+      error: typeof rec.error === "string" ? rec.error : undefined,
+    };
+  }
+  return { ok: true };
+}
+
+export async function ensureDesktopNotificationPermission(): Promise<boolean> {
+  if (!isDesktopRuntime()) return false;
+  try {
+    const result = parseDesktopNotificationResult(
+      await desktopInvoke("ensure_notification_permission"),
+    );
+    return result.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function showDesktopNotification(
   payload: AppNotificationPayload,
   options: DesktopNotificationOptions = {},
-): Promise<boolean> {
-  if (!isDesktopRuntime()) return false;
+): Promise<DesktopNotificationSendResult> {
+  if (!isDesktopRuntime()) return { ok: false, code: "unsupported" };
   try {
     const icon =
       options.icon === undefined
         ? await loadNotificationIconDataUrl(DEFAULT_NOTIFICATION_ICON)
         : options.icon;
-    await desktopInvoke("send_notification", {
-      title: payload.title,
-      body: payload.body,
-      data: options.action ?? null,
-      // Content icon. When omitted, use the current brand plate so macOS does
-      // not keep showing a cached pre-rebrand app icon.
-      icon: icon ?? null,
-    });
-    return true;
+    const result = parseDesktopNotificationResult(
+      await desktopInvoke("send_notification", {
+        title: payload.title,
+        body: payload.body,
+        data: options.action ?? null,
+        // Content icon. When omitted, use the current brand plate so macOS does
+        // not keep showing a cached pre-rebrand app icon.
+        icon: icon ?? null,
+      }),
+    );
+    return result;
   } catch {
-    return false;
+    return { ok: false, code: "failed" };
   }
 }
 

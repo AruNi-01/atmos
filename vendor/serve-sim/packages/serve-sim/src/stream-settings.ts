@@ -2,6 +2,9 @@ export type HttpStreamCodec = "auto" | "mjpeg" | "h264";
 export type WebRtcStreamCodec = "vp8" | "vp9" | "h264";
 export type WebRtcIceServer = { urls: string[]; username?: string; credential?: string };
 
+export const MAX_MJPEG_STREAM_FPS = 120;
+export const MAX_VIDEO_STREAM_FPS = 140;
+
 export type StreamSettings = (
   | { transport: "http"; codec?: HttpStreamCodec }
   | { transport: "webrtc"; codec: WebRtcStreamCodec; iceServers?: WebRtcIceServer[] }
@@ -94,16 +97,26 @@ const STREAM_ENCODER_SETTING_KEYS = new Set<keyof StreamEncoderSettings>([
   "h264Fps",
 ]);
 
+const WEBRTC_ENCODER_SETTING_KEYS = new Set<keyof StreamEncoderSettings>([
+  "maxDimension",
+  "h264Bitrate",
+  "h264Fps",
+]);
+
 /** Validate an untrusted PATCH body without silently accepting typos or wrong types. */
 export function parseStreamEncoderSettingsPatch(
   input: unknown,
+  transport?: StreamPlaybackSettings["transport"],
 ): Partial<StreamEncoderSettings> | null {
   if (!input || typeof input !== "object" || Array.isArray(input)) return null;
   const patch = input as Record<string, unknown>;
   const keys = Object.keys(patch);
+  const allowedKeys = transport === "webrtc"
+    ? WEBRTC_ENCODER_SETTING_KEYS
+    : STREAM_ENCODER_SETTING_KEYS;
   if (
     keys.length === 0
-    || keys.some((key) => !STREAM_ENCODER_SETTING_KEYS.has(key as keyof StreamEncoderSettings))
+    || keys.some((key) => !allowedKeys.has(key as keyof StreamEncoderSettings))
   ) {
     return null;
   }
@@ -142,11 +155,11 @@ export function normalizeStreamEncoderSettings(
   fallback: StreamEncoderSettings = DEFAULT_STREAM_ENCODER_SETTINGS,
 ): StreamEncoderSettings {
   return {
-    mjpegFps: integerInRange(input.mjpegFps, fallback.mjpegFps, 1, 120),
+    mjpegFps: integerInRange(input.mjpegFps, fallback.mjpegFps, 1, MAX_MJPEG_STREAM_FPS),
     mjpegQuality: numberInRange(input.mjpegQuality, fallback.mjpegQuality, 0.05, 1),
     maxDimension: integerInRange(input.maxDimension, fallback.maxDimension, 0, 4096),
     h264Bitrate: integerInRange(input.h264Bitrate, fallback.h264Bitrate, 100_000, 50_000_000),
-    h264Fps: integerInRange(input.h264Fps, fallback.h264Fps, 1, 120),
+    h264Fps: integerInRange(input.h264Fps, fallback.h264Fps, 1, MAX_VIDEO_STREAM_FPS),
   };
 }
 
@@ -160,6 +173,30 @@ export function streamEncoderSettingsFrom(
     h264Bitrate: settings.h264Bitrate,
     h264Fps: settings.h264Fps,
   };
+}
+
+export function streamEncoderSettingsForTransport(
+  settings: StreamEncoderSettings,
+  transport: StreamPlaybackSettings["transport"],
+): Partial<StreamEncoderSettings> {
+  if (transport === "webrtc") {
+    return {
+      maxDimension: settings.maxDimension,
+      h264Bitrate: settings.h264Bitrate,
+      h264Fps: settings.h264Fps,
+    };
+  }
+  return {
+    mjpegFps: settings.mjpegFps,
+    mjpegQuality: settings.mjpegQuality,
+    maxDimension: settings.maxDimension,
+    h264Bitrate: settings.h264Bitrate,
+    h264Fps: settings.h264Fps,
+  };
+}
+
+export function isWebRtcTransportLocked(settings: StreamSettings | undefined): boolean {
+  return settings?.transport === "webrtc";
 }
 
 export function streamControlSettingsFrom(
@@ -194,6 +231,24 @@ export function mergeStreamControlSettings(
   patch: Partial<StreamControlSettings>,
 ): StreamControlSettings {
   return normalizeStreamControlSettings({ ...current, ...patch }, current);
+}
+
+export function mergeStreamPlaybackSettings(
+  current: StreamControlSettings,
+  patch: Partial<StreamPlaybackSettings>,
+  transportLocked = false,
+): StreamControlSettings {
+  if (!transportLocked) return mergeStreamControlSettings(current, patch);
+
+  const lockedPatch: Partial<StreamPlaybackSettings> = {};
+  if (patch.webRtcCodec !== undefined) lockedPatch.webRtcCodec = patch.webRtcCodec;
+  if (patch.iceServers !== undefined) lockedPatch.iceServers = patch.iceServers;
+  if (Object.keys(lockedPatch).length === 0) return current;
+
+  return mergeStreamControlSettings(current, {
+    ...lockedPatch,
+    transport: "webrtc",
+  });
 }
 
 /** Apply shared encoder controls without replacing viewer-local playback values. */

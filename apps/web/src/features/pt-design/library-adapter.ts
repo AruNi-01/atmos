@@ -1,5 +1,23 @@
-import { CATALOG_VERSION, type DesignLibrary, type PtScene } from "@atmos/pt-design";
+import {
+  CATALOG_VERSION,
+  persistFromLibraryBody,
+  type DesignLibrary,
+  type PtPersistV2,
+} from "@atmos/pt-design";
 import { ptDesignApi } from "@/api/rest-api";
+
+function libraryFileBody(persist: PtPersistV2) {
+  return {
+    format: "pt-design-file/1",
+    revision: 0,
+    catalogVersion: CATALOG_VERSION,
+    excalidrawCompat: "0.18",
+    ptx: persist.ptx,
+    canvas: persist.canvas,
+    files: persist.files,
+    settings: persist.settings,
+  };
+}
 
 export function httpDesignLibrary(): DesignLibrary {
   return {
@@ -12,24 +30,10 @@ export function httpDesignLibrary(): DesignLibrary {
     },
     async load(name) {
       const doc = await ptDesignApi.getDocument(name);
-      const scene = doc.body?.scene as PtScene | undefined;
-      if (!scene || !Array.isArray(scene.elements)) {
-        throw new Error("That file has no scene.");
-      }
-      return { name: doc.name, scene };
+      return { name: doc.name, persist: persistFromLibraryBody(doc.body) };
     },
-    async save(name, scene) {
-      const saved = await ptDesignApi.putDocument(
-        name,
-        {
-          format: "pt-design-file/1",
-          revision: 0,
-          catalogVersion: CATALOG_VERSION,
-          excalidrawCompat: "0.18",
-          scene,
-        },
-        { overwrite: true },
-      );
+    async save(name, persist) {
+      const saved = await ptDesignApi.putDocument(name, libraryFileBody(persist), { overwrite: true });
       return { name: saved.name };
     },
   };

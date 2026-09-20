@@ -55,9 +55,14 @@ export type {
   FsSearchDirsResponse,
   FsValidateGitPathResponse,
   FsWriteFileResponse,
+  GitBlameCommit,
+  GitBlameRange,
   GitChangedFile,
   GitChangedFilesResponse,
+  GitCommitDetailResponse,
   GitCommitResponse,
+  GitFileBlameKind,
+  GitFileBlameResponse,
   GitFileDiffResponse,
   GitFilesDiffResponse,
   GitFilesDiffResult,
@@ -381,6 +386,20 @@ export const gitApi = {
     });
   },
 
+  getFileBlame: async (path: string, filePath: string) => {
+    return wsRequest("git_file_blame", {
+      path,
+      file_path: filePath,
+    });
+  },
+
+  getCommitDetail: async (path: string, commitHash: string) => {
+    return wsRequest("git_commit_detail", {
+      path,
+      commit_hash: commitHash,
+    });
+  },
+
   /**
    * 列出仓库所有分支
    */
@@ -695,6 +714,10 @@ export const wsProjectApi = {
       guid,
       sidebar_order: sidebarOrder,
     });
+  },
+
+  markVisited: async (guid: string): Promise<{ success: boolean }> => {
+    return wsRequest("project_mark_visited", { guid });
   },
 
   /**

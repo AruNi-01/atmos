@@ -19,6 +19,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  ScrollArea,
   toastManager,
 } from '@workspace/ui';
 import { GithubUserAvatar, GithubUserHoverCard } from '@/features/github/components/GithubUserHoverCard';
@@ -99,9 +100,10 @@ export function PRMetadataSidebar({
   return (
     <TooltipProvider delayDuration={300}>
       <div className={cn(
-        "shrink-0 hidden lg:flex flex-col overflow-y-auto no-scrollbar overflow-x-hidden transition-[max-width,opacity] duration-200 ease-out",
+        "shrink-0 hidden lg:flex flex-col overflow-hidden transition-[max-width,opacity] duration-200 ease-out",
         isSidebarCollapsed ? "max-w-0 opacity-0" : "max-w-[240px] opacity-100"
       )}>
+        <ScrollArea scrollFade className="h-full min-h-0">
         <div className="flex w-[240px] flex-col gap-5 px-2 pt-1 text-xs">
           <SidebarSection title={t('sections.reviewers')} icon={<Eye className="size-3.5" />}>
             <ReviewersList
@@ -163,6 +165,7 @@ export function PRMetadataSidebar({
             />
           )}
         </div>
+        </ScrollArea>
       </div>
     </TooltipProvider>
   );

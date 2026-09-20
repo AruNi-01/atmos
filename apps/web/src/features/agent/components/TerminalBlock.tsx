@@ -1,91 +1,149 @@
 "use client";
 
-import React from "react";
+import { useCallback } from "react";
 import { useTranslations } from "next-intl";
+import { MoreHorizontal } from "lucide-react";
 import {
   AcpTerminal,
-  AcpTerminalHeader,
-  AcpTerminalStatus,
-  AcpTerminalActions,
-  AcpTerminalCopyButton,
   AcpTerminalContent,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@workspace/ui";
-import type { ToolCallBlock } from "@/features/agent/lib/agent/thread";
-import { toolStatusToState, getTerminalCommandString } from "../lib/chat-helpers";
-import { CommandCopyButton } from "./CopyButtons";
-import { ChevronRight, TerminalIcon } from "lucide-react";
+import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
+import { getToolKindIcon } from "../lib/chat-helpers";
+import { isBackgroundToolCall } from "../lib/agent/background-command";
+import { preferredCollapsedToolTitle } from "@/features/agent/lib/tool-results/parse-tool-result";
+import { AgentToolCard, type AgentToolSurface } from "./tool-results/AgentToolCard";
+import { AgentToolEmptyBody } from "./tool-results/AgentToolBodies";
+import { AgentCommandLine } from "./AgentCommandLine";
+import { cn } from "@/shared/lib/utils";
 
-export function TerminalBlock({
-  status,
-  raw_input,
-  raw_output,
-}: ToolCallBlock) {
-  const t = useTranslations("Agent.components");
-  const [isOpen, setIsOpen] = React.useState(false);
-  const state = toolStatusToState(status);
-  const isRunning = state === "input-available";
-  const isError = state === "output-error";
-  const commandStr = getTerminalCommandString(raw_input);
+function executeFields(part: AgentToolCallPart): { command: string; output: string; cwd?: string | null } {
+  const command = part.params?.type === "execute" ? part.params.command : "";
+  const cwd = part.params?.type === "execute" ? part.params.cwd : null;
+  const output = part.result?.type === "execute"
+    ? part.result.output
+    : part.result?.type === "text"
+      ? part.result.text
+      : part.result?.type === "error"
+        ? part.result.message
+        : "";
+  return { command, output, cwd };
+}
 
-  const terminalOutput = (() => {
-    if (raw_output === undefined || raw_output === null) return "";
-    if (typeof raw_output === "string") return raw_output;
-    if (typeof raw_output === "object") {
-      const o = raw_output as Record<string, unknown>;
-      const parts: string[] = [];
-      for (const key of ["output", "stdout", "content", "result", "text"]) {
-        if (typeof o[key] === "string" && o[key]) parts.push(o[key] as string);
-      }
-      if (typeof o["stderr"] === "string" && o["stderr"]) {
-        parts.push(o["stderr"] as string);
-      }
-      if (parts.length > 0) return parts.join("\n");
-      return JSON.stringify(raw_output, null, 2);
-    }
-    return String(raw_output);
-  })();
+function ExecuteCopyMenu({
+  command,
+  output,
+}: {
+  command: string;
+  output: string;
+}) {
+  const t = useTranslations("Agent.components.terminalBlock");
+  const copy = useCallback((text: string) => {
+    const value = text.trimEnd();
+    if (!value) return;
+    void navigator.clipboard.writeText(value).catch(() => {});
+  }, []);
 
   return (
-    <AcpTerminal
-      output={terminalOutput}
-      isStreaming={isRunning}
-      autoScroll
-      className={isError ? "border-red-500/50 w-full" : "w-full"}
-    >
-      <AcpTerminalHeader>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-expanded={isOpen}
-          onClick={() => setIsOpen((value) => !value)}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm text-zinc-400 hover:text-zinc-100"
+          className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+          aria-label={t("moreActions")}
         >
-          <ChevronRight
-            className={`size-4 shrink-0 transition-transform ${isOpen ? "rotate-90" : ""}`}
-          />
-          <TerminalIcon className="size-4 shrink-0" />
-          <span className="shrink-0">{t("terminalBlock.title")}</span>
-          {!isOpen && commandStr ? (
-            <span className="min-w-0 truncate font-mono text-zinc-300">
-              <span className="text-green-400">$</span> {commandStr}
-            </span>
-          ) : null}
+          <MoreHorizontal className="size-3.5" />
         </button>
-        <div className="flex items-center gap-1">
-          <AcpTerminalStatus />
-          <AcpTerminalActions>
-            <AcpTerminalCopyButton />
-          </AcpTerminalActions>
-        </div>
-      </AcpTerminalHeader>
-      {isOpen && commandStr && (
-        <div className="flex items-center border-b border-zinc-800">
-          <div className="flex-1 min-w-0 overflow-x-auto px-4 py-2 font-mono text-sm text-zinc-300">
-            <span className="whitespace-nowrap"><span className="text-green-400">$</span> {commandStr}</span>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-40">
+        <DropdownMenuItem
+          disabled={!command}
+          className="cursor-pointer"
+          onSelect={() => copy(command)}
+        >
+          {t("copyCommand")}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={!output}
+          className="cursor-pointer"
+          onSelect={() => copy(output)}
+        >
+          {t("copyResult")}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+export function TerminalBlock({
+  part,
+  surface = "card",
+  defaultOpen = false,
+}: {
+  part: AgentToolCallPart;
+  surface?: AgentToolSurface;
+  defaultOpen?: boolean;
+}) {
+  const t = useTranslations("Agent.components");
+  const { command, output } = executeFields(part);
+  const commandStr = command;
+  const status = part.status ?? undefined;
+  const running = (status ?? "").toLowerCase() === "running";
+  const background = isBackgroundToolCall(part);
+  const failed = (status ?? "").toLowerCase() === "failed" || part.result?.type === "error";
+  const title = preferredCollapsedToolTitle(part, t("terminalBlock.title"));
+
+  return (
+    <AgentToolCard
+      variant="tool"
+      surface={surface}
+      body="panel"
+      tone={failed ? "error" : "default"}
+      icon={getToolKindIcon("execute")}
+      title={title}
+      titleTooltip={commandStr || title}
+      status={status}
+      shimmer={running && !background}
+      defaultOpen={defaultOpen}
+    >
+      <div className="relative">
+        {commandStr || output ? (
+          <div className="absolute right-1.5 top-1.5 z-10">
+            <ExecuteCopyMenu command={commandStr} output={output} />
           </div>
-          <CommandCopyButton text={commandStr} />
-        </div>
-      )}
-      {isOpen ? <AcpTerminalContent className="max-h-60" /> : null}
-    </AcpTerminal>
+        ) : null}
+        {commandStr ? (
+          <div className="max-h-56 overflow-auto">
+            <AgentCommandLine
+              command={commandStr}
+              className={cn("px-3 pt-2.5 pr-9", !output && "pb-2.5")}
+            />
+          </div>
+        ) : null}
+        {output ? (
+          <div className="max-h-96 overflow-y-auto">
+            <AcpTerminal
+              output={output}
+              isStreaming={running}
+              autoScroll={running}
+              className="rounded-none border-0 bg-transparent text-inherit shadow-none"
+            >
+              <AcpTerminalContent
+                className={cn(
+                  "max-h-none overflow-visible p-0 px-3 pb-2.5 text-[13px] leading-5",
+                  commandStr ? "pt-1" : "pt-2.5",
+                  failed ? "text-destructive" : "text-muted-foreground",
+                )}
+              />
+            </AcpTerminal>
+          </div>
+        ) : commandStr ? null : (
+          <AgentToolEmptyBody status={status} />
+        )}
+      </div>
+    </AgentToolCard>
   );
 }

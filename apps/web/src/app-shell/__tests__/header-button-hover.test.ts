@@ -7,16 +7,17 @@ function read(relativePath: string) {
 }
 
 describe("header button hover", () => {
-  it("gives light chrome a gray well so the white center stage reads as a card", () => {
+  it("gives light chrome an off-white well so the white center stage reads as a card", () => {
     const tokens = read("../../../../../packages/ui/src/styles/globals.css");
     const root = tokens.slice(tokens.indexOf(":root {"), tokens.indexOf(".dark {"));
-    expect(root).toContain("--sidebar: oklch(0.94");
+    expect(root).toContain("--sidebar: #f3f3f3");
     expect(root).toContain("--background: oklch(1 0 0)");
-    expect(root).not.toContain("--sidebar: oklch(0.985");
+    expect(root).toContain("--hover: #e6e6e6");
+    expect(root).toContain("--active: #e6e6e6");
 
     const app = read("../../app/globals.css");
     expect(app).toContain("html.light {");
-    expect(app).toContain("background-color: oklch(0.94 0.003 286)");
+    expect(app).toContain("background-color: #f3f3f3");
   });
 
   it("gives header chips a solid light fill so they do not wash into the titlebar", () => {
@@ -37,6 +38,19 @@ describe("header button hover", () => {
     );
   });
 
+  it("reuses the workspace PR lifecycle icon in header git context", () => {
+    const git = read("../header-git-context.tsx");
+    const header = read("../Header.tsx");
+    expect(git).toContain("WorkspacePrLifecycleIcon");
+    expect(git).toContain("useWorkspacePrStatus");
+    expect(git).toContain("managedPr.checksTone");
+    expect(git).not.toContain("GitPullRequestCreateIcon");
+    expect(git).not.toContain("GitPullRequestClosedIcon");
+    expect(header).not.toContain("useGithubPRList");
+    expect(header).not.toContain("prIconRef");
+    expect(header).not.toContain("currentBranchPR");
+  });
+
   it("makes chrome icon buttons instant, without a color fade", () => {
     const header = read("../Header.tsx");
     expect(header).toContain("hover:bg-accent hover:text-accent-foreground");
@@ -48,7 +62,13 @@ describe("header button hover", () => {
     expect(actions).not.toContain("transition-colors duration-200 ease-out hover:bg-accent");
 
     const bell = read("../HeaderAttentionBell.tsx");
+    expect(bell).toContain("NotificationBell");
+    expect(bell).toContain('color={badgeReason === "permission_request" ? "orange" : "green"}');
+    expect(bell).toContain("BADGE_INSET");
+    expect(bell).toContain("TRAILING_GAP");
+    expect(bell).toContain("scale: 0.45");
     expect(bell).not.toContain("transition-colors duration-200");
+    expect(bell).not.toContain("<Bell");
 
     const quota = read("../QuotaPopover.tsx");
     expect(quota).toContain(

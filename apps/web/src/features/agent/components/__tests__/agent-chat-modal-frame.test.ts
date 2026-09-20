@@ -1,0 +1,299 @@
+import { describe, expect, it } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const panel = readFileSync(
+  join(import.meta.dir, "../AgentChatPanel.tsx"),
+  "utf8",
+);
+
+describe("agent chat modal frame", () => {
+  it("drags and resizes through the DOM, then commits layout once", () => {
+    const dragStart = panel.indexOf("const handleDragStart");
+    const resizeStart = panel.indexOf("const handleResizeStart");
+    const resizeCleanup = panel.indexOf("useEffect(() => {\n    return () => {\n      if (frameRafRef.current != null)");
+    const drag = panel.slice(dragStart, resizeStart);
+    const resize = panel.slice(resizeStart, resizeCleanup);
+
+    expect(drag).toContain("scheduleModalFrame");
+    expect(drag).toContain("commitModalFrame");
+    expect(drag).not.toContain("updateLayout(");
+
+    expect(resize).toContain("scheduleModalFrame");
+    expect(resize).toContain("commitModalFrame");
+    expect(resize).not.toContain("updateLayout(");
+
+    expect(panel).toContain("translate3d");
+    expect(panel).toContain("willChange: \"transform\"");
+  });
+
+  it("overlays the permission card above the composer without shrinking the transcript", () => {
+    expect(panel).toContain('"relative flex min-h-0 w-full shrink-0 flex-col"');
+    expect(panel).toContain('data-agent-chat-approval-overlay=""');
+    expect(panel).toContain("aboveInputOverlay=");
+    expect(panel).toContain("AgentChatComposerDock");
+    expect(panel).toContain("onAboveComposerOverlaysNodeChange=");
+    expect(panel).toContain('data-agent-chat-transcript-bottom-pad=""');
+    expect(panel).toContain("transcriptBottomPadPx");
+    expect(panel).toContain("wideContentClassName={wideContentClassName}");
+    expect(panel).toContain('data-agent-chat-timeline-nav=""');
+    expect(panel).toContain("relative w-8 shrink-0");
+    expect(panel).toContain("gap-3 px-3 py-4");
+    expect(panel).toContain("userMessageIndices.length > 1");
+    expect(panel).toContain("<AgentPromptComposer");
+    expect(panel).toContain("FindPanel");
+    expect(panel).toContain("FindHighlightProvider");
+    expect(panel).toContain("useFindPanel");
+    expect(panel).toContain("TRANSCRIPT_FIND_SCOPE");
+    expect(panel).toContain("seedFromSelection");
+    expect(panel).toContain("keepMessageIndexes");
+    expect(panel).toContain("transcriptFindMessageIndexes");
+    expect(panel).not.toContain('(pendingPermission || pendingSessionOp) && "gap-2"');
+    expect(panel).not.toContain('max-h-[80cqh] shrink');
+    expect(panel).not.toContain("max-h-[80cqh] px-3");
+    expect(panel).not.toContain("max-h-[50cqh] px-3");
+    expect(panel).toContain("min-h-0 min-w-0 w-full max-h-[70cqh]");
+    expect(panel).not.toContain("border-t border-border p-3");
+    const composerSource = readFileSync(
+      join(import.meta.dir, "../AgentPromptComposer.tsx"),
+      "utf8",
+    );
+    const overlaySource = readFileSync(
+      join(import.meta.dir, "../AgentChatAboveComposerOverlays.tsx"),
+      "utf8",
+    );
+    expect(composerSource).toContain("<AgentChatAboveComposerOverlays");
+    expect(composerSource).toContain("[data-markdown-find-panel]");
+    expect(overlaySource).toContain('data-agent-chat-above-composer-overlays=""');
+    expect(overlaySource).toContain(
+      '"pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full min-h-0 flex-col gap-2 has-[.pointer-events-auto]:pb-2"',
+    );
+    const contentAt = panel.indexOf("<ConversationContent");
+    const confirmationAt = panel.indexOf("<AgentPermissionCard");
+    const composerAt = panel.indexOf("<AgentPromptComposer");
+    expect(contentAt).toBeGreaterThan(-1);
+    expect(composerAt).toBeGreaterThan(contentAt);
+    expect(confirmationAt).toBeGreaterThan(composerAt);
+    expect(panel).not.toContain("hideCollapsedDivider");
+  });
+
+  it("keeps the streaming activity status in-flow under the latest transcript message", () => {
+    const contentAt = panel.indexOf("<ConversationContent");
+    const contentEndAt = panel.indexOf("</ConversationContent>");
+    const permissionAt = panel.indexOf("<AgentPermissionCard");
+    const composerAt = panel.indexOf("<AgentPromptComposer");
+    const list = readFileSync(
+      join(import.meta.dir, "../AgentChatTranscriptList.tsx"),
+      "utf8",
+    );
+
+    expect(contentAt).toBeGreaterThan(-1);
+    expect(contentEndAt).toBeGreaterThan(contentAt);
+    expect(composerAt).toBeGreaterThan(contentEndAt);
+    expect(permissionAt).toBeGreaterThan(composerAt);
+
+    const scrollRegion = panel.slice(contentAt, contentEndAt);
+    expect(scrollRegion).toContain("<AgentActivityIndicator");
+    expect(scrollRegion).toContain("activityStatus=");
+    expect(scrollRegion).toContain('ref={bottomRef}');
+    expect(scrollRegion).toContain('data-agent-chat-activity-status=""');
+    expect(scrollRegion).toContain('data-agent-chat-transcript-bottom-pad=""');
+    expect(panel).not.toContain("virtualized absolute rows cannot paint over this");
+
+    expect(list).toContain("activityStatus");
+    expect(list).toContain('data-agent-chat-activity-status=""');
+    expect(list).toContain("item.index === lastIndex");
+    expect(list).toContain("showActivityFooter");
+  });
+
+  it("APP-069 S9 shows the session-op card in the permission slot and lets permission win", () => {
+    expect(panel).toContain("<AgentSessionOpCard");
+    const contentAt = panel.indexOf("<ConversationContent");
+    const permissionBranchAt = panel.indexOf("pendingPermission || pendingSessionOp ?");
+    const permissionAt = panel.indexOf("<AgentPermissionCard");
+    const sessionOpAt = panel.indexOf("<AgentSessionOpCard");
+    const composerAt = panel.indexOf("<AgentPromptComposer");
+    expect(permissionBranchAt).toBeGreaterThan(contentAt);
+    expect(composerAt).toBeGreaterThan(contentAt);
+    expect(permissionAt).toBeGreaterThan(composerAt);
+    expect(sessionOpAt).toBeGreaterThan(permissionAt);
+    expect(panel).toContain("aboveInputOverlay=");
+    expect(panel).toContain("pendingPermission ?");
+    expect(panel).toContain("pendingSessionOp ?");
+    expect(panel).toContain(") : pendingSessionOp ? (");
+  });
+
+  it("APP-069 S9/S10 does not intercept /fork or /rewind in the composer or chat api", () => {
+    const composer = readFileSync(
+      join(import.meta.dir, "../AgentPromptComposer.tsx"),
+      "utf8",
+    );
+    const api = readFileSync(
+      join(import.meta.dir, "../../../../api/ws/agent-chat-api.ts"),
+      "utf8",
+    );
+    expect(composer).not.toMatch(/\/fork|\/rewind/);
+    expect(api).toContain('wsRequest("agent_chat_session_op_respond"');
+    expect(api).not.toContain("wsRequest<");
+    expect(api).not.toMatch(/text\s*=\s*text\.replace/);
+    expect(api).not.toMatch(/\/fork|\/rewind/);
+  });
+
+  it("applies verified session-op / catalog-error / rewind-view wire in the session hook", () => {
+    const session = readFileSync(
+      join(import.meta.dir, "../../hooks/use-agent-chat-session.ts"),
+      "utf8",
+    );
+    expect(session).toContain("setPendingSessionOp(payload.request)");
+    expect(session).toContain('payload.outcome === "failed"');
+    expect(session).toContain("agentChatApi.sessionOpRespond");
+    expect(session).toContain("shouldRetainExistingOptions");
+    expect(session).toContain("applyLiveOptionsSnapshot");
+    expect(session).toContain("toastCatalogSnapshot");
+    expect(session).toContain("refreshSelectedAgentAfterAuth");
+    expect(session).toContain("catalogAuthMethodKind");
+    expect(session).toContain("{ status: \"authenticated\", refresh: passMethodId }");
+    expect(session).toContain("kind === \"token\" && nativeHost");
+    expect(session).toContain("passMethodId && kind === \"token\" ? apiKey");
+    expect(session).toContain("toastCatalogError");
+    expect(session).not.toContain("threadBannerError");
+    expect(session).toContain("agent_options_updated");
+    expect(session).toContain("composerConfigOptions");
+    expect(session).toContain("optionsByAgentRef");
+    expect(session).toContain("agentChatApi.optionsGet(id)");
+    expect(session).toContain("agentChatApi.optionsGet(id, true)");
+    expect(session).toContain("reloadEmptyCatalog");
+    expect(session).toContain("setOptionsRefreshing(true)");
+    expect(session).toContain("catalogModelsReloading: optionsRefreshing");
+    expect(session).toContain("const keepList");
+    const refreshFn = session.slice(
+      session.indexOf("const refreshEmptyCatalog"),
+      session.indexOf("const reloadEmptyCatalog"),
+    );
+    expect(refreshFn).toContain("agentChatApi.optionsGet(id)");
+    expect(refreshFn).not.toContain("optionsGet(id, true)");
+    expect(panel).toContain("onLoadModels={reloadEmptyCatalog}");
+    expect(panel).toContain("catalogModelsReloading={catalogModelsReloading}");
+    expect(panel).toContain("refreshSelectedAgentAfterAuth={refreshSelectedAgentAfterAuth}");
+    expect(session).toContain("setDescriptor(null);\n    setSupportsSteer(false);");
+    expect(session).toContain('payload.type === "rewind_view_updated"');
+    expect(session).toContain('payload.type === "session_forked"');
+    expect(session).toContain("setActiveChatId(childId)");
+  });
+
+  it("keeps one composer instance and glides it from center to the dock", () => {
+    const dock = readFileSync(
+      join(import.meta.dir, "../AgentChatComposerDock.tsx"),
+      "utf8",
+    );
+    expect(panel).toContain("isAgentNewChatLanding");
+    expect(panel).toContain("flex min-h-0 flex-1 flex-col overflow-hidden");
+    expect(panel).toContain("relative z-0 min-h-0 flex-1 overflow-hidden data-[agent-chat-own-send]:z-20");
+    expect(panel).toContain("flex min-h-0 w-full flex-1 pr-1");
+    expect(panel).toContain("AgentChatComposerDock");
+    expect(panel).toContain("landing={isNewChatLanding}");
+    expect(panel).toContain("AgentChatOwnSendRuntime");
+    expect(panel).toContain("ownSendResetKey");
+    expect(panel).toContain("shouldResetOwnSend");
+    expect(panel).not.toContain("ownSendRunwayPx");
+    const ownSend = readFileSync(
+      join(import.meta.dir, "../AgentChatOwnSendRuntime.tsx"),
+      "utf8",
+    );
+    expect(ownSend).toContain("ownSendInvertPx");
+    expect(ownSend).toContain("findSendOrigin");
+    expect(ownSend).not.toContain("stopScroll");
+    expect(ownSend).not.toContain("targetScrollTop");
+    expect(ownSend).not.toContain("ownSendRunwayPx");
+    expect(ownSend).not.toContain("firstSendInvertPx");
+    expect(panel).not.toContain("justify-center overflow-y-auto pb-20");
+    expect(panel).not.toContain('isNewChatLanding ? "hidden" : "flex-1"');
+    expect(dock).toContain("LogoSvg");
+    expect(dock).toContain("h-20 w-auto text-foreground");
+    expect(dock).toContain("heroComposerOffset");
+    expect(dock).not.toContain("atmos-logo-breathe");
+    // 单实例视觉连续性：同面板 bottom→center 和新 tab 挂载都从 dock（y=0）滑到中间。
+    expect(dock).toContain("initial={{ y: 0 }}");
+    expect(dock).toContain("initial={{ opacity: 0, y: -8 }}");
+    expect(panel).not.toContain('t("empty.startTitle")');
+  });
+
+  it("shows a header History popover with search on the modal", () => {
+    expect(panel).toContain('variant === "standalone" || variant === "modal"');
+    expect(panel).toContain("historyTriggerClassName={historyTriggerClassName}");
+
+    const header = readFileSync(
+      join(import.meta.dir, "../AgentChatHeader.tsx"),
+      "utf8",
+    );
+    expect(header).toContain("AgentChatHistoryPopover");
+
+    const popover = readFileSync(
+      join(import.meta.dir, "../AgentChatHistoryPopover.tsx"),
+      "utf8",
+    );
+    expect(popover).toContain("filterAgentChatHistoryRows");
+    expect(popover).toContain('aria-label={t("historyPopover.searchAria")}');
+    expect(popover).toContain("searchPlaceholder");
+    expect(popover).not.toContain("sourceLabel");
+    expect(popover).toContain("agentChatCwdLabel");
+
+    const session = readFileSync(
+      join(import.meta.dir, "../../hooks/use-agent-chat-session.ts"),
+      "utf8",
+    );
+    expect(session).toContain("agentChatHistoryListRequest");
+    const thread = readFileSync(
+      join(import.meta.dir, "../../lib/agent-chat-thread.ts"),
+      "utf8",
+    );
+    expect(thread).toContain('origin: "quick"');
+    expect(thread).toContain("all: true");
+    expect(thread).toContain('input.variant === "standalone"');
+  });
+
+  it("keeps the scroll-to-bottom control centered above the composer", () => {
+    expect(panel).toContain("<AgentChatScrollToBottomButton");
+    expect(panel).toContain("host={aboveComposerOverlaysNode}");
+    expect(panel).toContain("belowCountStore={messagesBelowCountStore}");
+    expect(panel).not.toContain("<ConversationScrollButton");
+    const nav = readFileSync(
+      join(import.meta.dir, "../AgentMessageTimelineNav.tsx"),
+      "utf8",
+    );
+    expect(nav).toContain("inset-y-0 left-0");
+    expect(nav).toContain("flex w-8 min-h-0");
+    expect(nav).toContain("previewContainerClassName=\"inset-y-0 left-full right-auto ml-3");
+    expect(nav).toContain('data-agent-chat-timeline-step={direction}');
+    expect(nav).toContain("stepUserMessageIndex");
+    expect(nav).toContain("timelineRailItemSize");
+    expect(nav).toContain("max-h-[90%]");
+    expect(nav).toContain("ResizeObserver");
+    expect(nav).toContain('t("previousMessage")');
+    expect(nav).toContain('t("nextMessage")');
+    expect(nav).not.toContain("absolute right-4 top-1/2");
+    expect(nav).not.toContain("inset-y-0 right-1");
+    const composerSource = readFileSync(
+      join(import.meta.dir, "../AgentPromptComposer.tsx"),
+      "utf8",
+    );
+    const overlaySource = readFileSync(
+      join(import.meta.dir, "../AgentChatAboveComposerOverlays.tsx"),
+      "utf8",
+    );
+    const overlayAt = overlaySource.indexOf("data-agent-chat-above-composer-overlays");
+    const scrollHostAt = overlaySource.indexOf("data-agent-chat-scroll-button-host");
+    const cardsAt = composerSource.indexOf("data-agent-composer-upper-cards");
+    expect(scrollHostAt).toBeGreaterThan(overlayAt);
+    expect(composerSource.indexOf("<AgentChatAboveComposerOverlays")).toBeLessThan(cardsAt);
+    const scrollButton = readFileSync(
+      join(import.meta.dir, "../AgentChatScrollToBottom.tsx"),
+      "utf8",
+    );
+    expect(scrollButton).not.toContain("hover:w-24");
+    expect(scrollButton).not.toContain("border-dashed");
+    expect(scrollButton).not.toContain("group-hover:max-w");
+    expect(scrollButton).toContain("SlidingNumber");
+    expect(scrollButton).toContain("TextMorph");
+  });
+});

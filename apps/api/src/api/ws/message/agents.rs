@@ -17,6 +17,13 @@ pub struct AgentConfigSetRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentDefaultConfigSetRequest {
+    pub registry_id: String,
+    pub config_id: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentRegistryInstallRequest {
     pub registry_id: String,
     #[serde(default)]
@@ -52,4 +59,27 @@ pub struct CustomAgentRemoveRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CustomAgentSetJsonRequest {
     pub json: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomAgentSetEnabledRequest {
+    pub name: String,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomAgentPreloadRequest {
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NativeAgentSetEnabledRequest {
+    pub id: String,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentRegistrySetEnabledRequest {
+    pub registry_id: String,
+    pub enabled: bool,
 }

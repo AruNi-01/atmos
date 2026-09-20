@@ -108,3 +108,8 @@ export function parseWebRtcCloseRequest(value: unknown): WebRtcCloseRequest {
   }
   return { sessionId: requireSessionId(value.sessionId) };
 }
+
+export function parseWebRtcStatsSessionId(value: string | null): string | undefined {
+  if (value === null || value === "") return undefined;
+  return requireSessionId(value);
+}

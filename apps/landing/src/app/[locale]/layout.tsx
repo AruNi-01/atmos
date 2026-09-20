@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { Geist_Mono } from "next/font/google";
-import { GeistSans } from 'geist/font/sans';
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -9,15 +7,7 @@ import { PostHogProvider } from "@/components/providers/posthog-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { TooltipProvider } from "@workspace/ui/components/ui/tooltip";
 import Header from "@/components/layout/header";
-import { THEME_INIT_SCRIPT } from "@/lib/theme";
-import "../globals.css";
-
-
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { HtmlLang } from "@/components/layout/html-lang";
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ??
@@ -46,48 +36,30 @@ export async function generateMetadata({ params }: Pick<Props, "params">): Promi
 export default async function LocaleLayout({ children, params }: Props) {
   const { locale } = await params;
 
-  // Ensure that the incoming `locale` is valid
   if (!routing.locales.includes(locale as typeof routing.locales[number])) {
     notFound();
   }
 
-  // Enable static rendering
   setRequestLocale(locale);
 
-  // Providing all messages to the client
   const messages = await getMessages();
 
   return (
-    <html lang={locale} suppressHydrationWarning>
-      <head>
-        {/*
-          Use a plain <script> (not next/script) so theme FOUC prevention runs
-          before paint and avoids the React 19 "script tag in component" warning.
-        */}
-        <script
-          id="theme-init"
-          dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }}
-        />
-      </head>
-      <body
-        className={`${GeistSans.variable} ${geistMono.variable} ${GeistSans.className} antialiased`}
+    <PostHogProvider>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="system"
+        enableSystem
+        disableTransitionOnChange
       >
-        <PostHogProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <NextIntlClientProvider messages={messages}>
-              <TooltipProvider>
-                <Header />
-                {children}
-              </TooltipProvider>
-            </NextIntlClientProvider>
-          </ThemeProvider>
-        </PostHogProvider>
-      </body>
-    </html>
+        <NextIntlClientProvider messages={messages}>
+          <HtmlLang locale={locale} />
+          <TooltipProvider>
+            <Header />
+            {children}
+          </TooltipProvider>
+        </NextIntlClientProvider>
+      </ThemeProvider>
+    </PostHogProvider>
   );
 }

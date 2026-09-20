@@ -13,11 +13,12 @@ import type { ImperativePanelHandle } from "@workspace/ui";
 import { useAppStorage } from "@atmos/shared";
 import {
   AlertTriangle,
-  ChevronLeft,
-  ChevronRight,
   LoaderCircle,
+  PanelLeft,
   RotateCw,
 } from "lucide-react";
+import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
+import { ResizeFollowMark } from "@/app-shell/ResizeFollowMark";
 import { useWikiContext } from "@/features/wiki/store/use-wiki-store";
 import { WikiSidebar } from "./WikiSidebar";
 import { WikiContent } from "./WikiContent";
@@ -94,6 +95,13 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
   const sidebarRef = useRef<ImperativePanelHandle>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const foldSidebar = useCallback(() => {
+    if (isSidebarCollapsed) {
+      sidebarRef.current?.expand();
+    } else {
+      sidebarRef.current?.collapse();
+    }
+  }, [isSidebarCollapsed]);
 
   // Handle page selection — load content + sync URL
   const handleSelectPage = useCallback(
@@ -202,31 +210,27 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
         <PanelResizeHandle
           onDragging={setIsDragging}
           className={cn(
-            "relative flex w-px items-center justify-center bg-border hover:bg-border/80 group touch-none",
-            "before:absolute before:inset-y-0 before:-left-1 before:-right-1 before:z-10"
+            "relative flex w-3 -mx-1.5 items-center justify-center overflow-visible bg-transparent group touch-none",
           )}
         >
+          <ResizeFollowMark axis="vertical" dragging={isDragging} onFold={foldSidebar} />
           <button
+            onPointerDown={(e) => {
+              e.stopPropagation();
+            }}
             onClick={(e) => {
               e.stopPropagation();
-              if (isSidebarCollapsed) {
-                sidebarRef.current?.expand();
-              } else {
-                sidebarRef.current?.collapse();
-              }
+              foldSidebar();
             }}
             title={isSidebarCollapsed ? t("expandSidebar") : t("collapseSidebar")}
             className={cn(
-              "absolute z-50 flex size-5 items-center justify-center rounded-full bg-muted border border-border shadow-lg transition-[opacity,transform] duration-200 hover:bg-muted/80 hover:scale-110 opacity-0 group-hover:opacity-100 cursor-pointer",
+              "absolute z-50 flex size-5 items-center justify-center rounded-full bg-muted border border-border shadow-lg transition-[opacity,transform] duration-200 hover:bg-muted/80 hover:scale-110 opacity-0 group-hover:opacity-100",
               "left-1/2 -translate-x-1/2",
+              panelFoldCursorClass("left", isSidebarCollapsed),
               isSidebarCollapsed && "hover:opacity-100! hover:bg-accent!"
             )}
           >
-            {isSidebarCollapsed ? (
-              <ChevronRight className="size-3 text-muted-foreground" />
-            ) : (
-              <ChevronLeft className="size-3 text-muted-foreground" />
-            )}
+            <PanelLeft className="size-3 text-muted-foreground" />
           </button>
         </PanelResizeHandle>
 

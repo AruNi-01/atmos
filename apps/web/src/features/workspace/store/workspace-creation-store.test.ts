@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import {
   getWorkspaceCreateOriginKey,
+  selectAutoOpenJob,
   selectAutoOpenWorkspaceId,
   useWorkspaceCreationStore,
   type WorkspaceCreateJob,
@@ -13,6 +14,7 @@ function job(overrides: Partial<WorkspaceCreateJob> & Pick<WorkspaceCreateJob, "
     originKey: "workspace:origin",
     phase: "creating",
     createdAt: 1,
+    blocking: false,
     ...overrides,
   };
 }
@@ -120,6 +122,17 @@ describe("workspace creation store", () => {
     });
   });
 
+  test("marks New Workspace creates as blocking", () => {
+    const id = useWorkspaceCreationStore.getState().startCreating({
+      originKey: "view:welcome",
+      blocking: true,
+    });
+    expect(selectAutoOpenJob({
+      jobs: useWorkspaceCreationStore.getState().jobs,
+      latestJobId: id,
+    })?.blocking).toBe(true);
+  });
+
   test("keeps the newest create as the auto-open candidate", () => {
     const first = useWorkspaceCreationStore.getState().startCreating({
       originKey: "view:welcome",
@@ -159,6 +172,19 @@ describe("workspace creation store", () => {
         isEnterable: () => true,
       }),
     ).toBeNull();
+  });
+
+  test("queueAgentRun keeps reuseIdlePane so TUI resume does not steal a shell", () => {
+    useWorkspaceCreationStore.getState().queueAgentRun({
+      workspaceId: "ws-1",
+      prompt: "",
+      command: "cd '/src/atmos' && 'codex' 'resume' 'abc'",
+      reuseIdlePane: false,
+    });
+    expect(useWorkspaceCreationStore.getState().pendingAgentRun?.reuseIdlePane).toBe(false);
+    expect(useWorkspaceCreationStore.getState().consumeAgentRun("ws-1")?.command).toBe(
+      "cd '/src/atmos' && 'codex' 'resume' 'abc'",
+    );
   });
 
   test("drops a job once that workspace is opened", () => {

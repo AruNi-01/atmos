@@ -27,6 +27,9 @@ const execFileAsync = promisify(execFile);
 
 export type GrantOverlayPurpose = "accessibility" | "screen_recording";
 
+/** Extra copy for a specific grant scene. Settings Grant leaves this unset. */
+export type GrantOverlayReason = "host_shortcuts";
+
 export type GrantOverlayOptions = {
   hostAppPath: string;
   hostAppName?: string;
@@ -39,12 +42,19 @@ export type GrantOverlayOptions = {
    * center, converted from the host BrowserWindow content bounds).
    */
   sourceOrigin?: { x: number; y: number };
+  /** Optional why-this-permission line (⌘⇧3–6 first press). */
+  reason?: GrantOverlayReason;
+  /** Keep the card at sourceOrigin this long so it is readable before the fly. */
+  holdAtOriginMs?: number;
+  /** After the hold, open System Settings (host-shortcut first-press). */
+  afterHold?: () => void | Promise<void>;
 };
 
 type GrantState = {
   hostAppPath: string;
   hostAppName: string;
   instruction: string;
+  reason: string;
   chipLabel: string;
   /** data:image/... URL for the chip icon, or empty for CSS fallback. */
   iconDataUrl: string;
@@ -71,6 +81,8 @@ let flyAnimActive = false;
 let flyGeneration = 0;
 /** Optional fly start (Grant button screen coords) for the next open. */
 let pendingSourceOrigin: { x: number; y: number } | null = null;
+let pendingHoldAtOriginMs = 0;
+let pendingAfterHold: (() => void | Promise<void>) | null = null;
 /**
  * After the user starts dragging the app chip, freeze placement and drop
  * always-on-top. Otherwise soft-follow keeps re-reading System Settings bounds
@@ -79,8 +91,17 @@ let pendingSourceOrigin: { x: number; y: number } | null = null;
 let positionFollowSuspended = false;
 
 /** Panel outer size (matches reference card proportions). */
-const PANEL_WIDTH = 460;
-const PANEL_HEIGHT = 128;
+export const GRANT_PANEL_WIDTH = 460;
+export const GRANT_PANEL_HEIGHT = 128;
+/** Taller card when a why-this-permission line is present. */
+export const GRANT_PANEL_HEIGHT_WITH_REASON = 188;
+
+const PANEL_WIDTH = GRANT_PANEL_WIDTH;
+const PANEL_HEIGHT = GRANT_PANEL_HEIGHT;
+
+export function grantPanelHeight(hasReason: boolean): number {
+  return hasReason ? GRANT_PANEL_HEIGHT_WITH_REASON : GRANT_PANEL_HEIGHT;
+}
 /** How long to reuse the last System Settings bounds (ms). */
 const SETTINGS_BOUNDS_TTL_MS = 400;
 /** Only move the overlay when it drifts by more than this many points. */
@@ -133,6 +154,17 @@ function buildInstruction(
       ? "to allow Screen Recording"
       : "to allow Accessibility";
   return `Drag ${hostAppName} to the list above ${goal}`;
+}
+
+function buildReason(
+  reason: GrantOverlayReason | undefined,
+  locale?: string,
+): string {
+  if (reason !== "host_shortcuts") return "";
+  if (isZh(locale)) {
+    return "仅在 Atmos 位于前台时需要此权限，避免在 Atmos 中触发系统快捷键。";
+  }
+  return "Needed only while Atmos is frontmost, so system shortcuts don't fire inside Atmos.";
 }
 
 function iconRoots(): string[] {
@@ -258,8 +290,12 @@ function resolveChipIconDataUrl(hostAppPath: string): string {
 
 function panelHtml(state: GrantState, locale?: string): string {
   const instruction = escapeHtml(state.instruction);
+  const reason = escapeHtml(state.reason);
   const chip = escapeHtml(state.chipLabel);
   const closeLabel = isZh(locale) ? "关闭" : "Close";
+  const reasonHtml = reason
+    ? `<div class="reason">${reason}</div>`
+    : "";
   const iconHtml = state.iconDataUrl
     ? `<img class="icon" src="${state.iconDataUrl}" width="28" height="28" alt="" draggable="false" />`
     : `<div class="icon icon-fallback" aria-hidden="true"></div>`;
@@ -327,6 +363,12 @@ function panelHtml(state: GrantState, locale?: string): string {
       color: rgba(255,255,255,0.92);
       letter-spacing: -0.01em;
     }
+    .reason {
+      font-size: 12px;
+      line-height: 1.4;
+      font-weight: 400;
+      color: rgba(255,255,255,0.62);
+    }
     .close {
       -webkit-app-region: no-drag;
       border: 0; background: transparent;
@@ -376,6 +418,7 @@ function panelHtml(state: GrantState, locale?: string): string {
       <div class="instruction">${instruction}</div>
       <button class="close" type="button" title="${closeLabel}" id="close" aria-label="${closeLabel}">✕</button>
     </div>
+    ${reasonHtml}
     <div class="chip" id="chip" draggable="true" title="${chip}">
       ${iconHtml}
       <div class="name">${chip}</div>
@@ -831,9 +874,10 @@ function getFlySourceOrigin(exclude: BrowserWindow): { x: number; y: number } {
     try {
       const [sx, sy] = src.getPosition();
       const [sw, sh] = src.getSize();
+      const ph = grantPanelHeight(Boolean(grantState?.reason));
       return {
         x: Math.round(sx + (sw - PANEL_WIDTH) / 2),
-        y: Math.round(sy + (sh - PANEL_HEIGHT) / 2),
+        y: Math.round(sy + (sh - ph) / 2),
       };
     } catch {
       /* fall through */
@@ -842,9 +886,10 @@ function getFlySourceOrigin(exclude: BrowserWindow): { x: number; y: number } {
 
   const display = screen.getPrimaryDisplay();
   const { width: dw, height: dh, x: dx, y: dy } = display.workArea;
+  const ph = grantPanelHeight(Boolean(grantState?.reason));
   return {
     x: Math.round(dx + (dw - PANEL_WIDTH) / 2),
-    y: Math.round(dy + (dh - PANEL_HEIGHT) / 2),
+    y: Math.round(dy + (dh - ph) / 2),
   };
 }
 
@@ -883,11 +928,16 @@ function flyFromAtmosToSettings(win: BrowserWindow): void {
   const start = getFlySourceOrigin(win);
   applyPanelPosition(win, start.x, start.y, true);
   if (!win.isVisible()) {
-    // Inactive: keep System Settings focused so the user can drop into the list.
-    try {
-      win.showInactive();
-    } catch {
+    if (pendingHoldAtOriginMs > 0) {
+      // First-press: the card must be visible over the left sidebar before Settings.
       win.show();
+    } else {
+      // Inactive: keep System Settings focused so the user can drop into the list.
+      try {
+        win.showInactive();
+      } catch {
+        win.show();
+      }
     }
   }
 
@@ -904,7 +954,24 @@ function flyFromAtmosToSettings(win: BrowserWindow): void {
       positionFollowSuspended;
     if (isStale()) return;
 
-    // 1) Hold at the button while Settings finishes opening; resolve target.
+    const holdMs = pendingHoldAtOriginMs;
+    pendingHoldAtOriginMs = 0;
+    if (holdMs > 0) {
+      await new Promise((r) => setTimeout(r, holdMs));
+      if (isStale()) return;
+    }
+    const afterHold = pendingAfterHold;
+    pendingAfterHold = null;
+    if (afterHold) {
+      try {
+        await afterHold();
+      } catch {
+        /* Settings open is best-effort */
+      }
+      if (isStale()) return;
+    }
+
+    // 1) Hold at the sidebar / button while Settings finishes opening.
     const settings = await waitForSystemSettingsBounds(BOUNDS_WAIT_MS);
     if (isStale()) return;
 
@@ -1180,17 +1247,32 @@ export function showAccessibilityGrantOverlay(
           y: Math.round(opts.sourceOrigin.y),
         }
       : null;
+  pendingHoldAtOriginMs =
+    typeof opts.holdAtOriginMs === "number" &&
+    Number.isFinite(opts.holdAtOriginMs) &&
+    opts.holdAtOriginMs > 0
+      ? Math.min(2000, Math.round(opts.holdAtOriginMs))
+      : 0;
+  pendingAfterHold = typeof opts.afterHold === "function" ? opts.afterHold : null;
 
+  const reason = buildReason(opts.reason, opts.locale);
   grantState = {
     hostAppPath,
     hostAppName,
     instruction: buildInstruction(hostAppName, purpose, opts.locale),
+    reason,
     chipLabel: hostAppName,
     iconDataUrl: resolveChipIconDataUrl(hostAppPath),
     dragPreviewDataUrl: null,
   };
 
+  const height = grantPanelHeight(Boolean(reason));
   if (grantWindow && !grantWindow.isDestroyed()) {
+    try {
+      grantWindow.setSize(PANEL_WIDTH, height);
+    } catch {
+      /* best-effort */
+    }
     loadGrantPanel(grantWindow, grantState, opts.locale);
     return { ok: true };
   }
@@ -1200,7 +1282,7 @@ export function showAccessibilityGrantOverlay(
   // often break HTML5/Electron file drag on macOS.
   const win = new BrowserWindow({
     width: PANEL_WIDTH,
-    height: PANEL_HEIGHT,
+    height,
     frame: false,
     transparent: true,
     resizable: false,
@@ -1246,6 +1328,8 @@ export function closeAccessibilityGrantOverlay(): void {
   lastPlaced = null;
   cachedSettingsBounds = null;
   pendingSourceOrigin = null;
+  pendingHoldAtOriginMs = 0;
+  pendingAfterHold = null;
   const win = grantWindow;
   grantWindow = null;
   if (grantState) grantState.dragPreviewDataUrl = null;

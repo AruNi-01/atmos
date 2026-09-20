@@ -41,6 +41,11 @@ Applies only when editing `../SettingsModal.tsx` and settings-specific subviews 
 - Animated icons use the `ref={iconRef}` hover pattern.
 - Do not use CSS `size-4` for sidebar icons.
 
+## Privacy (macOS permissions)
+
+- Settings → Privacy lists **every OS permission Atmos uses**, as separate identities: Atmos.app (host shortcuts, AppShot fallback) and Atmos Desktop Use (capture / control / dual-shift host).
+- Grant is the drag-to-list overlay that opens System Settings — not the boot-time Accessibility lock dialog. Do not add `isTrustedAccessibilityClient(true)` from Settings or from first-use flows.
+
 ## When adding settings UI
 
 - Match Appearance / Interface: heading outside, muted group, compact rows.

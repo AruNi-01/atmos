@@ -1,0 +1,123 @@
+.cm-atmos-search {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  background: var(--background);
+}
+
+.cm-atmos-search__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cm-atmos-search__title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cm-atmos-search__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.cm-atmos-search__counter {
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.cm-atmos-search__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cm-atmos-search__fields {
+  display: grid;
+  gap: 8px;
+}
+
+.cm-atmos-search__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cm-atmos-search__field {
+  position: relative;
+  min-width: 0;
+  flex: 1;
+}
+
+.cm-atmos-search__input {
+  width: 100%;
+  height: 40px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--background);
+  padding: 0 7.5rem 0 1rem;
+  font-size: 14px;
+  outline: none;
+}
+
+.cm-atmos-search__input:focus {
+  border-color: var(--foreground);
+}
+
+.cm-atmos-search__input[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+.cm-atmos-search__inline-options {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: flex;
+  translate: 0 -50%;
+  align-items: center;
+  gap: 2px;
+}
+
+.cm-atmos-search__icon-button,
+.cm-atmos-search__toggle {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted-foreground);
+}
+
+.cm-atmos-search__icon-button:hover,
+.cm-atmos-search__toggle:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.cm-atmos-search__toggle.is-active {
+  background: color-mix(in srgb, var(--foreground) 10%, transparent);
+  color: var(--foreground);
+}
+
+.cm-atmos-search__toggle-input {
+  display: none;
+}
+
+.cm-atmos-search__icon {
+  width: 14px;
+  height: 14px;
+}
+
+.cm-atmos-search__nav-button.is-hidden {
+  display: none;
+}

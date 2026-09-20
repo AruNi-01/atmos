@@ -1,11 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
 import { OpenFile } from '@/features/editor/store/use-editor-store';
 import {
-  Loader2,
   FileWarning,
   Download,
   ZoomIn,
@@ -15,22 +13,9 @@ import {
 import { useTheme } from 'next-themes';
 import { cn, Button } from '@workspace/ui';
 import { getRuntimeApiConfig, httpBase } from '@/shared/lib/desktop-runtime';
-
-// Dynamic import CodeMirror editor to avoid SSR issues
-function LoadingEditorFallback() {
-  const t = useTranslations("Editor.components");
-  return (
-    <div className="flex items-center justify-center h-full">
-      <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      <span className="sr-only">{t("fileViewer.loadingEditor")}</span>
-    </div>
-  );
-}
-
-const CodeMirrorEditor = dynamic(() => import('./CodeMirrorEditor'), {
-  ssr: false,
-  loading: () => <LoadingEditorFallback />,
-});
+import CodeMirrorEditor from './CodeMirrorEditor';
+import { CenterExplorerToggle } from '@/app-shell/CenterExplorerToggle';
+import { CENTER_EXPLORER_BODY_INSET_CLASS } from '@/app-shell/center-explorer-layout';
 
 
 interface FileViewerProps {
@@ -39,6 +24,8 @@ interface FileViewerProps {
   contextId?: string | null;
   /** False when this tab is mounted but not active (see CenterStage keepMounted file tabs). */
   surfaceActive?: boolean;
+  /** Center-stage editor tabs share a files directory sidecar. */
+  showFilesExplorerToggle?: boolean;
 }
 
 const UnsupportedView: React.FC<{ fileName: string; uri: string; ext?: string }> = ({ fileName, uri, ext }) => {
@@ -194,11 +181,17 @@ const NativeFileViewer: React.FC<{ ext: string; uri: string; fileName: string; o
 
   if (isVideo) {
     return (
-      <div className="h-full w-full flex items-center justify-center bg-black/5">
-        <video controls className="max-w-full max-h-full" onError={onError}>
-          <source src={uri} />
-          {t("fileViewer.browserNoVideo")}
-        </video>
+      <div className="h-full w-full bg-black/5 p-4">
+        <div className="flex h-full w-full items-center justify-center overflow-hidden">
+          <video
+            controls
+            className="max-h-full max-w-full overflow-hidden rounded-xl object-contain"
+            onError={onError}
+          >
+            <source src={uri} />
+            {t("fileViewer.browserNoVideo")}
+          </video>
+        </div>
       </div>
     );
   }
@@ -229,7 +222,13 @@ const NativeFileViewer: React.FC<{ ext: string; uri: string; fileName: string; o
   return <UnsupportedView fileName={fileName} uri={uri} ext={ext} />;
 }
 
-export const FileViewer: React.FC<FileViewerProps> = ({ file, className, contextId, surfaceActive = true }) => {
+export const FileViewer: React.FC<FileViewerProps> = ({
+  file,
+  className,
+  contextId,
+  surfaceActive = true,
+  showFilesExplorerToggle = false,
+}) => {
   const { resolvedTheme } = useTheme();
   const [errorFilePath, setErrorFilePath] = useState<string | null>(null);
   const hasError = errorFilePath === file.path;
@@ -272,24 +271,45 @@ export const FileViewer: React.FC<FileViewerProps> = ({ file, className, context
 
     const isSupported = NATIVE_SUPPORTED.includes(ext);
 
+    const binaryToggleClass =
+      "flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer select-none";
+    const binaryChrome = showFilesExplorerToggle ? (
+      <div
+        data-center-explorer-chrome=""
+        className="flex h-8 shrink-0 items-center justify-end bg-background/50 px-2.5 backdrop-blur-sm"
+      >
+        <CenterExplorerToggle kind="files" className={binaryToggleClass} />
+      </div>
+    ) : null;
+
     if (hasError || !isSupported) {
-      return <UnsupportedView fileName={file.name} uri={uri} ext={ext} />;
+      return (
+        <div className={cn("flex h-full w-full min-h-0 flex-col", className)}>
+          {binaryChrome}
+          <div className={cn("relative min-h-0 flex-1", CENTER_EXPLORER_BODY_INSET_CLASS)}>
+            <UnsupportedView fileName={file.name} uri={uri} ext={ext} />
+          </div>
+        </div>
+      );
     }
 
     return (
       <div
-        className={cn("h-full w-full overflow-hidden bg-background relative", className)}
+        className={cn("flex h-full w-full min-h-0 flex-col overflow-hidden bg-background", className)}
         style={{
           backgroundColor: resolvedTheme === 'dark' ? '#09090b' : '#ffffff'
         }}
       >
-        <NativeFileViewer
-          key={uri} // Remount on file change
-          ext={ext}
-          uri={uri}
-          fileName={file.name}
-          onError={() => setErrorFilePath(file.path)}
-        />
+        {binaryChrome}
+        <div className={cn("relative min-h-0 flex-1 overflow-hidden", CENTER_EXPLORER_BODY_INSET_CLASS)}>
+          <NativeFileViewer
+            key={uri} // Remount on file change
+            ext={ext}
+            uri={uri}
+            fileName={file.name}
+            onError={() => setErrorFilePath(file.path)}
+          />
+        </div>
       </div>
     );
   }
@@ -297,9 +317,10 @@ export const FileViewer: React.FC<FileViewerProps> = ({ file, className, context
   return (
     <CodeMirrorEditor
       file={file}
-      className={className}
+      className={cn("min-h-0 overflow-hidden", className)}
       contextId={contextId}
       surfaceActive={surfaceActive}
+      showFilesExplorerToggle={showFilesExplorerToggle}
     />
   );
 };

@@ -45,6 +45,15 @@ export interface RegistryAgent {
   /** The version currently installed (if installed). May differ from `version` which is the latest. */
   installed_version?: string;
   default_config?: Record<string, string>;
+  /** `native` reuses an official CLI with ACP args. `adapter` is a separate ACP package. */
+  provision_kind?: "native" | "adapter";
+  native_executable?: string | null;
+  /** Built-in terminal agent id this ACP agent corresponds to, when known. */
+  terminal_agent_id?: string | null;
+  /** When false, Atmos bound an existing CLI and must not uninstall it. */
+  can_remove?: boolean;
+  /** Chat picker includes this ACP row only when enabled. */
+  enabled?: boolean;
 }
 
 export interface CustomAgent {
@@ -54,6 +63,20 @@ export interface CustomAgent {
   args: string[];
   env: Record<string, string>;
   default_config?: Record<string, string>;
+  display_name?: string | null;
+  description?: string | null;
+  builtin?: boolean;
+  has_overlay?: boolean;
+  enabled?: boolean;
+}
+
+export interface NativeChatAgent {
+  id: string;
+  name: string;
+  description: string;
+  executable: string;
+  enabled: boolean;
+  cli_present: boolean;
 }
 
 export interface RegistryInstallResponse {
@@ -87,6 +110,17 @@ export const agentApi = {
       api_key: apiKey,
     });
   },
+
+  setDefaultConfig: (
+    registry_id: string,
+    config_id: string,
+    value: string,
+  ): Promise<{ success: boolean }> =>
+    wsRequest("agent_default_config_set", {
+      registry_id,
+      config_id,
+      value,
+    }),
 
   listRegistry: async (
     forceRefresh = false,
@@ -147,5 +181,37 @@ export const agentApi = {
 
   getManifestPath: async (): Promise<{ path: string }> => {
     return wsRequest("custom_agent_get_manifest_path");
+  },
+
+  setCustomAgentEnabled: async (
+    name: string,
+    enabled: boolean,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest("custom_agent_set_enabled", { name, enabled });
+  },
+
+  preloadCustomAgent: async (name: string): Promise<{ success: boolean }> => {
+    return wsRequest("custom_agent_preload", { name }, 180_000);
+  },
+
+  listNativeChatAgents: async (): Promise<{ agents: NativeChatAgent[] }> => {
+    return wsRequest("native_agent_list");
+  },
+
+  setNativeChatAgentEnabled: async (
+    id: string,
+    enabled: boolean,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest("native_agent_set_enabled", { id, enabled });
+  },
+
+  setRegistryAgentEnabled: async (
+    registryId: string,
+    enabled: boolean,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest("agent_registry_set_enabled", {
+      registry_id: registryId,
+      enabled,
+    });
   },
 };

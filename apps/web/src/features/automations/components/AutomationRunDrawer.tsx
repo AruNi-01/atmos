@@ -45,6 +45,8 @@ export function AutomationRunDrawer({
   onCancelRun,
   onFetchArtifact,
   onContinueInTerminal,
+  onContinueInChat,
+  onOpenRunSurface,
 }: {
   run: AutomationRunSummary | null;
   open: boolean;
@@ -61,9 +63,16 @@ export function AutomationRunDrawer({
     kind: AutomationArtifactKind,
   ) => Promise<void>;
   onContinueInTerminal: (run: AutomationRunSummary) => Promise<void>;
+  onContinueInChat: (run: AutomationRunSummary) => Promise<void>;
+  onOpenRunSurface: (run: AutomationRunSummary) => Promise<void>;
 }) {
   const t = useTranslations("automation.runDrawer");
   const insets = useTaskDrawerInsets();
+  const runKey = run?.guid ?? "none";
+  const [chatId, setChatId] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    setChatId(null);
+  }, [runKey]);
 
   const sheetWidth = `calc(100vw - ${insets.left}px - ${insets.right}px - 48px)`;
   const contentStyle = {
@@ -122,6 +131,8 @@ export function AutomationRunDrawer({
                   onCancelRun={onCancelRun}
                   onFetchArtifact={onFetchArtifact}
                   onContinueInTerminal={onContinueInTerminal}
+                  onContinueInChat={onContinueInChat}
+                  onOpenRunSurface={onOpenRunSurface}
                   headerClassName="pr-12"
                 />
               </div>
@@ -151,6 +162,10 @@ export function AutomationRunDrawer({
                       variant="sidebar"
                       publishStatus={false}
                       active={standaloneChatOpen}
+                      instanceKey={runKey}
+                      chatId={chatId}
+                      onChatStarted={setChatId}
+                      onOpenChat={setChatId}
                     />
                   </div>
                 </section>

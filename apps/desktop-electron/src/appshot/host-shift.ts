@@ -6,7 +6,10 @@
  * both capture and the Left⇧+Right⇧ shortcut — no separate Atmos grant.
  *
  * Socket protocol: Unix socket NDJSON at ~/.atmos/desktop-use/appshot-shift.sock
- *   {"t":"chord"} / {"t":"ready","ax":bool} / {"t":"digit","digit":3-6}
+ *   {"t":"captured",...} / {"t":"need_grant","missing":[...]} /
+ *   {"t":"ignored","reason"} / {"t":"ready","ax","tap"} /
+ *   {"t":"digit","digit":3-6}. Legacy {"t":"chord"} means the inject dylib
+ *   is stale — restart Desktop Use, do not recapture from Electron.
  */
 
 import { copyFileSync, existsSync, mkdirSync, statSync } from "node:fs";
@@ -16,8 +19,44 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { app } from "electron";
 import { mainLog } from "../main-log.js";
+import { parseHostShiftLine } from "./host-shift-protocol.js";
 
 export type HostShiftHandle = { stop: () => void; mode: "host-inject" };
+export type { HostShiftCapturedPayload, HostShiftParsedLine } from "./host-shift-protocol.js";
+export { parseHostShiftLine } from "./host-shift-protocol.js";
+
+let staleChordRestartAt = 0;
+
+/** Old inject still emits {"t":"chord"} — reload it; never recapture here. */
+export async function restartHostForStaleChord(): Promise<void> {
+  const now = Date.now();
+  if (now - staleChordRestartAt < 8_000) return;
+  staleChordRestartAt = now;
+  mainLog("[appshot-host-shift] stale chord event — restarting Desktop Use host");
+  try {
+    const client = await import("../desktop-use/client.js");
+    try {
+      await client.desktopUseDriverStop();
+    } catch {
+      /* ignore */
+    }
+    try {
+      await client.desktopUseDoctor();
+    } catch {
+      /* ignore */
+    }
+    try {
+      await client.desktopUseDriverEnsure(false);
+    } catch {
+      /* ignore */
+    }
+  } catch (error) {
+    mainLog(
+      `[appshot-host-shift] stale-chord restart failed: ${error instanceof Error ? error.message : String(error)}`,
+      "warn",
+    );
+  }
+}
 
 export function appshotShiftSocketPath(): string {
   const atmosHome = process.env.ATMOS_HOME?.trim();
@@ -161,6 +200,10 @@ export function startHostShiftSocketListener(
   options: {
     timeoutMs?: number;
     onDigit?: (digit: number) => void;
+    onCaptured?: (payload: HostShiftCapturedPayload) => void;
+    onNeedGrant?: (missing: string[]) => void;
+    onIgnored?: (reason: string) => void;
+    onReady?: (info: { ax: boolean; tap: boolean }) => void;
     retryForever?: boolean;
   } = {},
 ): Promise<HostShiftHandle | null> {
@@ -215,39 +258,39 @@ export function startHostShiftSocketListener(
     };
 
     const handleLine = (line: string) => {
-      const trimmed = line.trim();
-      if (!trimmed) return;
-      let msg: { t?: string; ax?: boolean; msg?: string; digit?: number };
+      const msg = parseHostShiftLine(line);
+      if (!msg) return;
       try {
-        msg = JSON.parse(trimmed) as typeof msg;
-      } catch {
-        return;
-      }
-      if (msg.t === "chord") {
-        try {
-          onChord();
-        } catch (e) {
-          mainLog(
-            `[appshot-host-shift] onChord error: ${e instanceof Error ? e.message : String(e)}`,
-            "error",
-          );
+        switch (msg.t) {
+          case "captured":
+            options.onCaptured?.(msg);
+            break;
+          case "need_grant":
+            options.onNeedGrant?.(msg.missing);
+            break;
+          case "ignored":
+            options.onIgnored?.(msg.reason);
+            break;
+          case "ready":
+            options.onReady?.(msg);
+            break;
+          case "chord":
+            onChord();
+            break;
+          case "digit":
+            options.onDigit?.(msg.digit);
+            break;
+          case "error":
+            mainLog(`[appshot-host-shift] ${msg.msg}`, "error");
+            break;
+          default:
+            break;
         }
-      } else if (
-        msg.t === "digit" &&
-        typeof msg.digit === "number" &&
-        msg.digit >= 3 &&
-        msg.digit <= 6
-      ) {
-        try {
-          options.onDigit?.(msg.digit);
-        } catch (e) {
-          mainLog(
-            `[appshot-host-shift] onDigit error: ${e instanceof Error ? e.message : String(e)}`,
-            "error",
-          );
-        }
-      } else if (msg.t === "error") {
-        mainLog(`[appshot-host-shift] ${msg.msg ?? "error"}`, "error");
+      } catch (e) {
+        mainLog(
+          `[appshot-host-shift] handler error: ${e instanceof Error ? e.message : String(e)}`,
+          "error",
+        );
       }
     };
 

@@ -236,7 +236,7 @@ export function browserKeepAlivePanelClass(visible: boolean): string {
   return opaqueKeepAlivePanelClass(visible);
 }
 
-/** PR / CI / issue / commit — same hide strategy as other loaded light surfaces. */
+/** PR / CI / issue / git commit — same hide strategy as other loaded light surfaces. */
 export function githubKeepAlivePanelClass(visible: boolean): string {
   return opaqueKeepAlivePanelClass(visible);
 }

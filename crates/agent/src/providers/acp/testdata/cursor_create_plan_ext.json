@@ -1,0 +1,41 @@
+{
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "cursor/create_plan",
+  "params": {
+    "sessionId": "sess_live_create_plan",
+    "toolCallId": "toolu_live_create_plan",
+    "name": "Agent Chat 优化收尾",
+    "overview": "梳理当前分支改动与 APP-068/069 待验证项，生成优化计划。",
+    "plan": "# Agent Chat 优化收尾\n\n已梳理当前分支 feat/APP-068-069-agent-chat-native 的改动与 APP-068/069 的待验证项。\n\n## 分层\n\n1. 后端 contract / event_map\n2. core-service apply\n3. web PlanDocument / ApprovalCard\n4. cargo + bun 回归\n5. 手工 Cursor ACP plan 验收\n",
+    "todos": [
+      {
+        "id": "backend-contract",
+        "content": "后端 contract / event_map 收尾",
+        "status": "pending"
+      },
+      {
+        "id": "core-service",
+        "content": "core-service apply 对齐",
+        "status": "pending"
+      },
+      {
+        "id": "web-ui",
+        "content": "web PlanDocument / ApprovalCard",
+        "status": "pending"
+      },
+      {
+        "id": "targeted-tests",
+        "content": "Next 跑通分层 targeted 测试: cargo test agent/core-service/api + bun test agent",
+        "status": "pending"
+      },
+      {
+        "id": "manual-verify",
+        "content": "手工 Cursor ACP plan 验收",
+        "status": "pending"
+      }
+    ],
+    "isProject": false,
+    "phases": []
+  }
+}

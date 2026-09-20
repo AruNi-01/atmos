@@ -19,7 +19,8 @@ import {
   ScrollArea,
 } from '@workspace/ui';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
-import { GitPullRequest, GitBranch, Loader2, X, Check, ChevronDown, Search as SearchIcon, Github } from 'lucide-react';
+import { GitPullRequest, GitBranch, Loader2, X, Check, ChevronDown, Search as SearchIcon } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { cn } from '@/shared/lib/utils';
 import { useGitStore } from '@/features/git/store/use-git-store';
 import { useGitInfoStore } from '@/features/git/store/use-git-info-store';
@@ -160,7 +161,12 @@ export function PRCreateModal({
           </DialogHeader>
 
           {/* Form Content */}
-          <div className="px-8 py-8 space-y-8 max-h-[70vh] overflow-y-auto no-scrollbar">
+          <ScrollArea
+            scrollFade
+            className="h-auto max-h-[70vh] min-h-0 w-full"
+            viewportClassName="max-h-[70vh] px-8 py-8"
+          >
+            <div className="space-y-8">
             {/* Title Field */}
             <div className="space-y-3">
               <Label htmlFor="pr-title" className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80 ml-0.5 flex items-center gap-2">
@@ -223,7 +229,7 @@ export function PRCreateModal({
                         />
                       </div>
                     </div>
-                    <ScrollArea className="h-[200px] mt-1 pr-1 overflow-x-hidden">
+                    <ScrollArea scrollFade className="mt-1 h-[200px] overflow-x-hidden pr-1">
                       <div className="p-1">
                         {isLoadingBranches ? (
                           <div className="p-4 text-[11px] text-muted-foreground text-center flex flex-col items-center gap-2">
@@ -288,7 +294,8 @@ export function PRCreateModal({
                 <span className="text-[11px] text-muted-foreground/70 font-medium tracking-tight">{t('draft.description')}</span>
               </div>
             </div>
-          </div>
+            </div>
+          </ScrollArea>
 
           {/* Footer */}
           <div className="px-8 py-6 border-t border-border/40 bg-muted/10 flex items-center justify-end gap-4 shrink-0">

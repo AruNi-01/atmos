@@ -1,7 +1,10 @@
 mod binary;
+mod builtin_custom;
 mod keyring;
 mod manifest;
+mod native_chat;
 mod npm;
+mod provision;
 mod registry;
 
 use std::fs;
@@ -13,9 +16,17 @@ use crate::models::{
     AgentConfigState, AgentId, AgentInstallResult, AgentLaunchSpec, AgentStatus, KnownAgent,
     RegistryAgent, RegistryInstallResult,
 };
+use crate::policy::canonicalize_chat_provider_id;
 
 // Re-export types that are used by other crates via `crate::manager::AgentError`
+pub use self::builtin_custom::{
+    is_builtin_custom_agent_id, looks_like_missing_llm_api_key, DEEPSEEK_API_KEY_ENV,
+    DEEPSEEK_HARNESS_ID,
+};
 pub(crate) use self::manifest::CustomAgentEntry;
+pub use self::native_chat::{
+    is_native_chat_agent_id, native_chat_launch_spec, native_chat_sibling_id,
+};
 
 #[derive(Debug, Error)]
 pub enum AgentError {
@@ -59,11 +70,11 @@ impl AgentManager {
         vec![
             KnownAgent {
                 id: AgentId::ClaudeCode,
-                registry_id: "claude-code-acp".to_string(),
+                registry_id: "claude-acp".to_string(),
                 name: "Claude Code".to_string(),
                 description: "Anthropic coding agent CLI (ACP compatible)".to_string(),
-                npm_package: "@zed-industries/claude-code-acp".to_string(),
-                executable: "claude-code-acp".to_string(),
+                npm_package: "@agentclientprotocol/claude-agent-acp".to_string(),
+                executable: "claude-agent-acp".to_string(),
                 auth_paths: vec![".claude".to_string()],
             },
             KnownAgent {
@@ -71,8 +82,8 @@ impl AgentManager {
                 registry_id: "codex-acp".to_string(),
                 name: "Codex".to_string(),
                 description: "OpenAI Codex CLI / ACP adapter".to_string(),
-                npm_package: "@openai/codex".to_string(),
-                executable: "codex".to_string(),
+                npm_package: "@agentclientprotocol/codex-acp".to_string(),
+                executable: "codex-acp".to_string(),
                 auth_paths: vec![".codex".to_string()],
             },
             KnownAgent {
@@ -86,10 +97,10 @@ impl AgentManager {
             },
             KnownAgent {
                 id: AgentId::AntigravityCli,
-                registry_id: "antigravity".to_string(),
+                registry_id: "antigravity-acp".to_string(),
                 name: "Antigravity CLI".to_string(),
                 description: "Google Antigravity command line agent".to_string(),
-                npm_package: "@google/antigravity-cli".to_string(),
+                npm_package: String::new(),
                 executable: "agy".to_string(),
                 auth_paths: vec![".gemini/antigravity-cli".to_string()],
             },
@@ -128,11 +139,15 @@ impl AgentManager {
             .find(|a| a.id == id)
             .ok_or_else(|| AgentError::NotFound(id.as_str().to_string()))?;
 
-        if let Some(result) = npm::try_install_from_registry_index(&agent).await? {
-            return Ok(result);
-        }
-
-        npm::install_npm_agent(&agent).await
+        let result = self
+            .install_registry_agent(&agent.registry_id, false)
+            .await?;
+        Ok(AgentInstallResult {
+            id: agent.id,
+            installed: result.installed,
+            install_method: result.install_method,
+            message: result.message,
+        })
     }
 
     pub async fn list_registry_agents(&self, force_refresh: bool) -> Result<Vec<RegistryAgent>> {
@@ -145,12 +160,25 @@ impl AgentManager {
         registry_id: &str,
         force_overwrite: bool,
     ) -> Result<RegistryInstallResult> {
+        if let Some(local) = provision::local_native_by_id(registry_id) {
+            return provision::install_local_native_agent(local);
+        }
+
         let reg = registry::fetch_acp_registry(false).await?;
         let entry = reg
             .agents
             .into_iter()
             .find(|a| a.id == registry_id)
             .ok_or_else(|| AgentError::NotFound(format!("registry agent: {}", registry_id)))?;
+
+        let classified = provision::classify_registry_agent(&entry);
+        if classified.kind == provision::AcpProvisionKind::Native {
+            if let Some(exe) = classified.native_executable.as_deref() {
+                if let Some(path) = provision::which_executable(exe) {
+                    return provision::bind_native_agent(registry_id, &path);
+                }
+            }
+        }
 
         if let Some(npx) = entry.distribution.npx.clone() {
             return npm::install_registry_npx_agent(
@@ -175,30 +203,30 @@ impl AgentManager {
 
     pub async fn remove_registry_agent(&self, registry_id: &str) -> Result<RegistryInstallResult> {
         let m = manifest::load_install_manifest().unwrap_or_default();
-
-        let binary_entry = m
+        let method = m
             .registry
             .iter()
-            .find(|e| e.registry_id == registry_id && e.install_method == "binary");
-        if binary_entry.is_some() {
-            let reg = registry::fetch_acp_registry(false).await?;
-            let r_entry = reg.agents.iter().find(|a| a.id == registry_id);
-            return binary::remove_registry_binary_agent(r_entry.cloned().as_ref(), registry_id);
-        }
+            .find(|e| e.registry_id == registry_id)
+            .map(|e| e.install_method.as_str());
 
-        npm::remove_registry_npx_agent(registry_id).await
+        match method {
+            Some("native") => provision::unbind_native_agent(registry_id),
+            Some("binary") => {
+                let reg = registry::fetch_acp_registry(false).await?;
+                let r_entry = reg.agents.iter().find(|a| a.id == registry_id);
+                binary::remove_registry_binary_agent(r_entry.cloned().as_ref(), registry_id)
+            }
+            _ => npm::remove_registry_npx_agent(registry_id).await,
+        }
     }
 
     pub async fn get_registry_agent_launch_spec(
         &self,
         registry_id: &str,
     ) -> Result<AgentLaunchSpec> {
-        let m = manifest::load_install_manifest()?;
-        let m_entry = m
-            .registry
-            .iter()
-            .find(|e| e.registry_id == registry_id)
-            .ok_or_else(|| AgentError::NotFound(format!("installed agent: {}", registry_id)))?;
+        if let Some(local) = provision::local_native_by_id(registry_id) {
+            return provision::launch_local_native_agent(local);
+        }
 
         let reg = registry::fetch_acp_registry(false).await?;
         let r_entry = reg
@@ -208,6 +236,43 @@ impl AgentManager {
             .ok_or_else(|| {
                 AgentError::NotFound(format!("agent '{}' not in registry", registry_id))
             })?;
+        let classified = provision::classify_registry_agent(r_entry);
+        if classified.kind == provision::AcpProvisionKind::Native {
+            if let Some(exe) = classified.native_executable.as_deref() {
+                if let Some(path) = provision::which_executable(exe) {
+                    return Ok(AgentLaunchSpec {
+                        program: path,
+                        args: classified.args,
+                        env: provision::registry_launch_env(r_entry),
+                    });
+                }
+            }
+        }
+
+        let m = manifest::load_install_manifest()?;
+        let m_entry = m
+            .registry
+            .iter()
+            .find(|e| e.registry_id == registry_id)
+            .ok_or_else(|| AgentError::NotFound(format!("installed agent: {}", registry_id)))?;
+
+        if m_entry.install_method == "native" {
+            let program = m_entry
+                .binary_path
+                .clone()
+                .filter(|path| Path::new(path).exists())
+                .ok_or_else(|| {
+                    AgentError::Command(format!(
+                        "native CLI for '{}' is no longer on disk",
+                        registry_id
+                    ))
+                })?;
+            return Ok(AgentLaunchSpec {
+                program,
+                args: classified.args,
+                env: provision::registry_launch_env(r_entry),
+            });
+        }
 
         if m_entry.install_method == "npx" {
             let npx = r_entry.distribution.npx.as_ref().ok_or_else(|| {
@@ -248,17 +313,59 @@ impl AgentManager {
 
     pub fn list_custom_agents(&self) -> Result<Vec<crate::models::CustomAgent>> {
         let m = manifest::load_install_manifest()?;
-        Ok(m.custom_agents
-            .into_iter()
-            .map(|(name, entry)| crate::models::CustomAgent {
-                name,
-                agent_type: entry.agent_type,
-                command: entry.command,
-                args: entry.args,
-                env: entry.env,
-                default_config: entry.default_config,
-            })
-            .collect())
+        Ok(builtin_custom::merge_builtin_custom_agents(
+            &m.custom_agents,
+        ))
+    }
+
+    pub fn list_native_chat_agents(&self) -> Result<Vec<crate::models::NativeChatAgent>> {
+        let m = manifest::load_install_manifest()?;
+        Ok(native_chat::list_native_chat_agents(&m.native_chat_agents))
+    }
+
+    pub fn set_native_chat_agent_enabled(&self, id: &str, enabled: bool) -> Result<()> {
+        native_chat::require_native_chat_agent_id(id)?;
+        let id = id.to_string();
+        manifest::with_manifest(|m| {
+            if let Some(entry) = m.native_chat_agents.get_mut(&id) {
+                entry.enabled = Some(enabled);
+                return Ok(());
+            }
+            if !enabled {
+                return Ok(());
+            }
+            m.native_chat_agents.insert(
+                id.clone(),
+                manifest::NativeAgentEntry {
+                    enabled: Some(true),
+                },
+            );
+            Ok(())
+        })
+    }
+
+    pub fn set_registry_agent_enabled(&self, registry_id: &str, enabled: bool) -> Result<()> {
+        let id = registry_id.trim();
+        if id.is_empty() {
+            return Err(AgentError::Command("registry_id is required".to_string()));
+        }
+        let id = id.to_string();
+        manifest::with_manifest(|m| {
+            if let Some(entry) = m.registry.iter_mut().find(|entry| entry.registry_id == id) {
+                entry.enabled = Some(enabled);
+                return Ok(());
+            }
+            m.registry.push(manifest::ManifestEntry {
+                registry_id: id,
+                install_method: "native".to_string(),
+                binary_path: None,
+                npm_package: None,
+                installed_version: None,
+                default_config: None,
+                enabled: Some(enabled),
+            });
+            Ok(())
+        })
     }
 
     pub fn set_agent_default_config(
@@ -289,6 +396,14 @@ impl AgentManager {
                 return Ok(());
             }
 
+            if builtin_custom::is_builtin_custom_agent_id(&reg_id)
+                && !m.custom_agents.contains_key(&reg_id)
+            {
+                if let Some(entry) = builtin_custom::builtin_custom_entry(&reg_id) {
+                    m.custom_agents.insert(reg_id.clone(), entry);
+                }
+            }
+
             if let Some(entry) = m.custom_agents.get_mut(&reg_id) {
                 let mut defaults = entry.default_config.clone().unwrap_or_default();
                 defaults.insert(cfg_id.clone(), val.clone());
@@ -308,7 +423,7 @@ impl AgentManager {
             if let Some(name) = found_by_name {
                 if let Some(entry) = m.custom_agents.get_mut(&name) {
                     let mut defaults = entry.default_config.clone().unwrap_or_default();
-                    defaults.insert(cfg_id, val);
+                    defaults.insert(cfg_id.clone(), val.clone());
                     entry.default_config = Some(defaults);
                     tracing::info!(
                         "Successfully updated custom agent default config via case-insensitive match: {}",
@@ -318,12 +433,43 @@ impl AgentManager {
                 }
             }
 
+            // PATH-bound ACP agents (e.g. cursor / Cos) may be chat-ready without a
+            // manifest row yet. Upsert a stub so default prefs persist without ERROR spam.
+            if provision::binding_for_registry_id(&reg_id).is_some()
+                || provision::local_native_by_id(&reg_id).is_some()
+            {
+                if let Some(entry) = m
+                    .registry
+                    .iter_mut()
+                    .find(|e| e.registry_id.eq_ignore_ascii_case(&reg_id))
+                {
+                    let mut defaults = entry.default_config.clone().unwrap_or_default();
+                    defaults.insert(cfg_id, val);
+                    entry.default_config = Some(defaults);
+                } else {
+                    m.registry.push(manifest::ManifestEntry {
+                        registry_id: reg_id.clone(),
+                        install_method: "native".to_string(),
+                        binary_path: None,
+                        npm_package: None,
+                        installed_version: None,
+                        default_config: Some(std::collections::HashMap::from([(cfg_id, val)])),
+                        enabled: None,
+                    });
+                }
+                tracing::info!(
+                    "Upserted default config for known ACP agent '{}' (manifest stub)",
+                    reg_id
+                );
+                return Ok(());
+            }
+
             tracing::warn!(
-                "Agent '{}' not found in manifest at {}",
+                "Agent '{}' not found in manifest at {}; ignoring default config set",
                 reg_id,
                 path.display()
             );
-            Err(AgentError::NotFound(format!("agent not found: {}", reg_id)))
+            Ok(())
         })
     }
 
@@ -345,12 +491,24 @@ impl AgentManager {
     }
 
     pub fn add_custom_agent(&self, agent: &crate::models::CustomAgent) -> Result<()> {
-        let agent = agent.clone();
+        let mut agent = agent.clone();
+        if let Some(builtin) = builtin_custom::builtin_custom_entry(&agent.name) {
+            if agent.command.trim().is_empty() {
+                agent.command = builtin.command;
+            }
+            if agent.args.is_empty() {
+                agent.args = builtin.args;
+            }
+        }
         manifest::with_manifest(|m| {
-            let existing_default = m
-                .custom_agents
-                .get(&agent.name)
-                .and_then(|e| e.default_config.clone());
+            let existing = m.custom_agents.get(&agent.name);
+            let existing_default = existing.and_then(|entry| entry.default_config.clone());
+            let existing_enabled = existing.and_then(|entry| entry.enabled);
+            let enabled = if builtin_custom::is_builtin_custom_agent_id(&agent.name) {
+                existing_enabled
+            } else {
+                existing_enabled.or(Some(true))
+            };
             m.custom_agents.insert(
                 agent.name.clone(),
                 CustomAgentEntry {
@@ -359,10 +517,43 @@ impl AgentManager {
                     args: agent.args.clone(),
                     env: agent.env.clone(),
                     default_config: agent.default_config.clone().or(existing_default),
+                    enabled,
                 },
             );
             Ok(())
         })
+    }
+
+    pub fn set_custom_agent_enabled(&self, name: &str, enabled: bool) -> Result<()> {
+        let name = name.to_string();
+        manifest::with_manifest(|m| {
+            if let Some(entry) = m.custom_agents.get_mut(&name) {
+                entry.enabled = Some(enabled);
+                return Ok(());
+            }
+            if !builtin_custom::is_builtin_custom_agent_id(&name) {
+                return Err(AgentError::NotFound(format!("custom agent: {name}")));
+            }
+            if !enabled {
+                return Ok(());
+            }
+            let mut entry = builtin_custom::builtin_custom_entry(&name)
+                .ok_or_else(|| AgentError::NotFound(format!("custom agent: {name}")))?;
+            entry.enabled = Some(true);
+            m.custom_agents.insert(name.clone(), entry);
+            Ok(())
+        })
+    }
+
+    pub async fn preload_custom_agent(&self, name: &str) -> Result<()> {
+        if !builtin_custom::is_builtin_custom_agent_id(name) {
+            return Err(AgentError::NotFound(format!("custom agent: {name}")));
+        }
+        let m = manifest::load_install_manifest()?;
+        if !builtin_custom::is_builtin_custom_enabled(m.custom_agents.get(name)) {
+            return Err(AgentError::Command(format!("{name} is disabled")));
+        }
+        builtin_custom::preload_builtin_custom_agent(name).await
     }
 
     pub fn remove_custom_agent(&self, name: &str) -> Result<()> {
@@ -375,26 +566,20 @@ impl AgentManager {
 
     pub fn get_custom_agent_launch_spec(&self, name: &str) -> Result<AgentLaunchSpec> {
         let m = manifest::load_install_manifest()?;
+        if builtin_custom::is_builtin_custom_agent_id(name) {
+            if !builtin_custom::is_builtin_custom_enabled(m.custom_agents.get(name)) {
+                return Err(AgentError::NotFound(format!(
+                    "custom agent disabled: {name}"
+                )));
+            }
+            return builtin_custom::builtin_custom_launch_spec(name, m.custom_agents.get(name))
+                .ok_or_else(|| AgentError::NotFound(format!("custom agent: {name}")));
+        }
         let entry = m
             .custom_agents
             .get(name)
             .ok_or_else(|| AgentError::NotFound(format!("custom agent: {}", name)))?;
-        let program = if entry.command.starts_with("~/") {
-            let home = dirs::home_dir()
-                .ok_or_else(|| AgentError::Command("cannot resolve home directory".to_string()))?;
-            home.join(&entry.command[2..]).to_string_lossy().to_string()
-        } else {
-            entry.command.clone()
-        };
-        Ok(AgentLaunchSpec {
-            program,
-            args: entry.args.clone(),
-            env: if entry.env.is_empty() {
-                None
-            } else {
-                Some(entry.env.clone())
-            },
-        })
+        Ok(launch_spec_from_entry(entry))
     }
 
     pub fn get_manifest_path(&self) -> Result<String> {
@@ -447,20 +632,76 @@ impl AgentManager {
         &self,
         registry_id: &str,
     ) -> Option<std::collections::HashMap<String, String>> {
-        let (agent_id, env_var) = match registry_id {
-            "claude-code-acp" => (AgentId::ClaudeCode, "ANTHROPIC_API_KEY"),
-            "codex-acp" => (AgentId::Codex, "OPENAI_API_KEY"),
-            "gemini" => (AgentId::GeminiCli, "GEMINI_API_KEY"),
-            "antigravity" => (AgentId::AntigravityCli, "GEMINI_API_KEY"),
-            _ => return None,
-        };
-        let key = keyring::keyring_get_api_key(agent_id).ok()?;
-        if key.is_empty() {
-            return None;
+        registry_agent_env_overrides(registry_id)
+    }
+}
+
+pub(crate) fn persist_agent_api_key(id: AgentId, api_key: &str) -> std::result::Result<(), String> {
+    let trimmed = api_key.trim();
+    if trimmed.is_empty() {
+        return Err("API key is required".into());
+    }
+    keyring::keyring_set_api_key(id, trimmed).map_err(|error| error.to_string())
+}
+
+/// Keyring env for ACP registry ids and Native Chat hosts (`claude`, `codex`, `pi`).
+pub fn registry_agent_env_overrides(
+    registry_id: &str,
+) -> Option<std::collections::HashMap<String, String>> {
+    let pairs = registry_env_keyring_pairs(registry_id);
+    if pairs.is_empty() {
+        return None;
+    }
+    let mut map = std::collections::HashMap::new();
+    for (agent_id, env_var) in pairs {
+        if let Ok(key) = keyring::keyring_get_api_key(agent_id) {
+            if !key.is_empty() {
+                map.insert(env_var.to_string(), key);
+            }
         }
-        let mut map = std::collections::HashMap::new();
-        map.insert(env_var.to_string(), key);
+    }
+    if map.is_empty() {
+        None
+    } else {
         Some(map)
+    }
+}
+
+fn registry_env_keyring_pairs(registry_id: &str) -> Vec<(AgentId, &'static str)> {
+    match registry_id {
+        "claude-acp" | "claude-code-acp" => vec![(AgentId::ClaudeCode, "ANTHROPIC_API_KEY")],
+        "codex-acp" => vec![(AgentId::Codex, "OPENAI_API_KEY")],
+        "gemini" => vec![(AgentId::GeminiCli, "GEMINI_API_KEY")],
+        "antigravity-acp" | "antigravity" => vec![(AgentId::AntigravityCli, "GEMINI_API_KEY")],
+        other => match canonicalize_chat_provider_id(other) {
+            "claude" => vec![(AgentId::ClaudeCode, "ANTHROPIC_API_KEY")],
+            "codex" => vec![(AgentId::Codex, "OPENAI_API_KEY")],
+            "pi" => vec![
+                (AgentId::GeminiCli, "GEMINI_API_KEY"),
+                (AgentId::ClaudeCode, "ANTHROPIC_API_KEY"),
+                (AgentId::Codex, "OPENAI_API_KEY"),
+            ],
+            _ => Vec::new(),
+        },
+    }
+}
+
+fn launch_spec_from_entry(entry: &CustomAgentEntry) -> AgentLaunchSpec {
+    let program = if let Some(rest) = entry.command.strip_prefix("~/") {
+        dirs::home_dir()
+            .map(|home| home.join(rest).to_string_lossy().to_string())
+            .unwrap_or_else(|| entry.command.clone())
+    } else {
+        entry.command.clone()
+    };
+    AgentLaunchSpec {
+        program,
+        args: entry.args.clone(),
+        env: if entry.env.is_empty() {
+            None
+        } else {
+            Some(entry.env.clone())
+        },
     }
 }
 

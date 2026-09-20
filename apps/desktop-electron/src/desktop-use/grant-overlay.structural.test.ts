@@ -61,6 +61,13 @@ describe("desktop-use grant overlay", () => {
     expect(src).toContain("flyFromAtmosToSettings");
     expect(src).toContain("getFlySourceOrigin");
     expect(src).toContain("sourceOrigin");
+    expect(src).toContain("GrantOverlayReason");
+    expect(src).toContain("host_shortcuts");
+    expect(src).toContain("buildReason");
+    expect(src).toContain("GRANT_PANEL_HEIGHT_WITH_REASON");
+    expect(src).toContain("holdAtOriginMs");
+    expect(src).toContain("afterHold");
+    expect(src).toContain("pendingHoldAtOriginMs");
     expect(src).toContain("easeOutCubic");
     expect(src).toContain("grant-enter");
     // Wait for Settings bounds before committing fly end-point.

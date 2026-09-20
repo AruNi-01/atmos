@@ -7,31 +7,28 @@ import {
   useRef,
   useState,
   type Dispatch,
-  type RefObject,
   type SetStateAction,
 } from "react";
 import { messagesToMarkdown, type ConversationMessage } from "@workspace/ui";
-import type { ThreadEntry } from "@/features/agent/lib/agent/thread";
+import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import {
-  downloadConversationMarkdown,
+  downloadChatMarkdown,
   getLocalTimestampForFilename,
-  sanitizeConversationFilename,
+  sanitizeChatFilename,
   writeDefaultAgentRegistryId,
 } from "../lib/chat-helpers";
 
 interface UseAgentChatUiHandlersParams {
-  conversationRef: RefObject<HTMLDivElement | null>;
   displaySessionTitle: string | null;
-  entries: ThreadEntry[];
+  messages: AgentMessage[];
   exportableMessages: ConversationMessage[];
   panelTitle: string;
   setDefaultRegistryId: Dispatch<SetStateAction<string>>;
 }
 
 export function useAgentChatUiHandlers({
-  conversationRef,
   displaySessionTitle,
-  entries,
+  messages,
   exportableMessages,
   panelTitle,
   setDefaultRegistryId,
@@ -39,87 +36,24 @@ export function useAgentChatUiHandlers({
   const [newSessionAgentsOpen, setNewSessionAgentsOpen] = useState(false);
   const [messageNavIndex, setMessageNavIndex] = useState(-1);
   const closeAgentsMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollToIndexRef = useRef<((index: number) => void) | null>(null);
 
-  const userEntryIndices = useMemo(
-    () => entries.map((entry, index) => (entry.role === "user" ? index : -1)).filter((index) => index >= 0),
-    [entries],
+  const userMessageIndices = useMemo(
+    () => messages.map((message, index) => (message.role === "user" ? index : -1)).filter((index) => index >= 0),
+    [messages],
   );
 
-  const scrollToMessage = useCallback((messageIndex: number) => {
-    const el = conversationRef.current?.querySelector(
-      `[data-entry-index="${messageIndex}"]`,
-    ) as HTMLElement | null;
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
-    }
-    setMessageNavIndex(messageIndex);
-  }, [conversationRef]);
-
   const handleSelectMessage = useCallback((messageIndex: number) => {
-    if (!userEntryIndices.includes(messageIndex)) return;
-    scrollToMessage(messageIndex);
-  }, [scrollToMessage, userEntryIndices]);
+    if (!userMessageIndices.includes(messageIndex)) return;
+    scrollToIndexRef.current?.(messageIndex);
+    setMessageNavIndex(messageIndex);
+  }, [userMessageIndices]);
 
   useEffect(() => {
-    const root = conversationRef.current;
-    if (!root) return;
-    if (userEntryIndices.length === 0) {
+    if (userMessageIndices.length === 0) {
       setMessageNavIndex(-1);
-      return;
     }
-
-    const scrollElement = root.querySelector(".agent-chat-scroll") as HTMLElement | null;
-    if (!scrollElement) return;
-
-    let frame: number | null = null;
-    const entryElements = userEntryIndices
-      .map((entryIndex) => ({
-        entryIndex,
-        el: root.querySelector(`[data-entry-index="${entryIndex}"]`) as HTMLElement | null,
-      }))
-      .filter((entry): entry is { entryIndex: number; el: HTMLElement } => Boolean(entry.el));
-
-    const syncActiveMessageFromScroll = () => {
-      const scrollRect = scrollElement.getBoundingClientRect();
-      const activationLine = Math.min(120, Math.max(56, scrollElement.clientHeight * 0.18));
-      let activeIndex = entryElements[0]?.entryIndex ?? userEntryIndices[0];
-      let firstBelowLine: number | null = null;
-
-      for (const { entryIndex, el } of entryElements) {
-        const top = el.getBoundingClientRect().top - scrollRect.top;
-        if (top <= activationLine) {
-          activeIndex = entryIndex;
-          continue;
-        }
-
-        firstBelowLine ??= entryIndex;
-      }
-
-      if (activeIndex === userEntryIndices[0] && firstBelowLine != null && scrollElement.scrollTop <= 4) {
-        activeIndex = firstBelowLine;
-      }
-
-      setMessageNavIndex((prev) => (prev === activeIndex ? prev : activeIndex));
-    };
-
-    const scheduleSync = () => {
-      if (frame != null) return;
-      frame = window.requestAnimationFrame(() => {
-        frame = null;
-        syncActiveMessageFromScroll();
-      });
-    };
-
-    scheduleSync();
-    scrollElement.addEventListener("scroll", scheduleSync, { passive: true });
-
-    return () => {
-      scrollElement.removeEventListener("scroll", scheduleSync);
-      if (frame != null) {
-        window.cancelAnimationFrame(frame);
-      }
-    };
-  }, [conversationRef, userEntryIndices]);
+  }, [userMessageIndices.length]);
 
   const clearCloseAgentsMenuTimer = useCallback(() => {
     if (closeAgentsMenuTimerRef.current) {
@@ -147,26 +81,28 @@ export function useAgentChatUiHandlers({
 
   useEffect(() => clearCloseAgentsMenuTimer, [clearCloseAgentsMenuTimer]);
 
-  const handleExportConversation = useCallback(() => {
+  const handleExportChat = useCallback(() => {
     if (exportableMessages.length === 0) return;
 
     const timestamp = getLocalTimestampForFilename();
     const markdown = messagesToMarkdown(exportableMessages);
-    downloadConversationMarkdown(
-      `${sanitizeConversationFilename(displaySessionTitle ?? panelTitle ?? "conversation")}-${timestamp}.md`,
+    downloadChatMarkdown(
+      `${sanitizeChatFilename(displaySessionTitle ?? panelTitle ?? "chat")}-${timestamp}.md`,
       markdown,
     );
   }, [displaySessionTitle, exportableMessages, panelTitle]);
 
   return {
-    handleExportConversation,
+    handleExportChat,
     handleOpenNewSessionAgentsMenu,
     handleScheduleCloseNewSessionAgentsMenu,
     handleSelectMessage,
     handleSetDefaultAgent,
     messageNavIndex,
+    setMessageNavIndex,
     newSessionAgentsOpen,
     setNewSessionAgentsOpen,
-    userEntryIndices,
+    scrollToIndexRef,
+    userMessageIndices,
   };
 }

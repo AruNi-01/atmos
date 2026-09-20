@@ -2,7 +2,7 @@
 import { describe, expect, it } from "bun:test";
 
 import type { AgentActivity } from "@atmos/api-types/ws/dto/events";
-import type { AgentHookSession } from "@/features/agent/store/agent-hooks-store";
+import type { AgentStatusRecord } from "@/features/agent/store/agent-status-store";
 import type { Project } from "@/shared/types/domain";
 
 import { readFileSync } from "node:fs";
@@ -13,9 +13,9 @@ import {
   sessionFromActivity,
 } from "../agent-observer-graph";
 import {
-  canNavigateToAgentHookSession,
-  resolveAgentHookNavigationTarget,
-} from "../agent-hook-navigation";
+  canNavigateToAgentStatusSession,
+  resolveAgentStatusNavigationTarget,
+} from "../agent-status-navigation";
 import { DEFAULT_CENTER_SPACE_ID } from "@/app-shell/center-space/center-space";
 import { LAUNCHPAD_ITEM_IDS } from "@/features/settings/lib/launchpad-items";
 
@@ -36,7 +36,7 @@ function project(id: string, name: string, workspaces: Array<{ id: string; name:
   };
 }
 
-function session(partial: Partial<AgentHookSession>): AgentHookSession {
+function session(partial: Partial<AgentStatusRecord>): AgentStatusRecord {
   return {
     session_id: "s1",
     tool: "claude-code",
@@ -225,16 +225,59 @@ describe("Observer pane jump", () => {
       side_chat_id: "side-1",
       terminal_kind: "side_chat",
     });
-    expect(canNavigateToAgentHookSession(asSession)).toBe(true);
-    expect(resolveAgentHookNavigationTarget(asSession)).toEqual(
-      resolveAgentHookNavigationTarget(liveSession),
+    expect(canNavigateToAgentStatusSession(asSession)).toBe(true);
+    expect(resolveAgentStatusNavigationTarget(asSession)).toEqual(
+      resolveAgentStatusNavigationTarget(liveSession),
     );
-    expect(resolveAgentHookNavigationTarget(asSession)).toEqual({
+    expect(resolveAgentStatusNavigationTarget(asSession)).toEqual({
       contextId: "w1",
       spaceId: DEFAULT_CENTER_SPACE_ID,
+      surface: "terminal",
+      chatId: null,
       isSideChat: true,
       sideChatId: "side-1",
       tmuxWindowName: "3",
+    });
+  });
+
+  it("keeps Agent Chat nodes jumpable after the occupancy row is gone", () => {
+    const record = activity({
+      session_id: "chat:abc",
+      context_id: "w1",
+      pane_id: "chat:abc",
+      surface: "chat",
+      surface_id: "abc",
+      space_id: "main",
+      last_state: "idle",
+      turns: [
+        {
+          turn_id: 1,
+          prompt: "fix footer",
+          started_at: "t",
+          tools: [],
+          todos: [],
+          spawned_child_ids: [],
+        },
+      ],
+    });
+    const graph = buildObserverGraph({
+      projects,
+      sessions: [],
+      activity: [record],
+      collapsedIds: new Set(),
+      expandedAgentIds: new Set(),
+    });
+    const node = graph.nodes.find((n) => n.id === "agent:chat:abc");
+    expect(node?.chat).toBe(true);
+    const asSession = sessionFromActivity(record);
+    expect(resolveAgentStatusNavigationTarget(asSession)).toEqual({
+      contextId: "w1",
+      spaceId: "main",
+      surface: "chat",
+      chatId: "abc",
+      isSideChat: false,
+      sideChatId: null,
+      tmuxWindowName: null,
     });
   });
 
@@ -244,9 +287,9 @@ describe("Observer pane jump", () => {
       "utf8",
     );
     expect(source).toContain(
-      'import { navigateToAgentHookSessionPane } from "@/features/agent/lib/agent-hook-navigation"',
+      'import { navigateToAgentStatusSession } from "@/features/agent/lib/agent-status-navigation"',
     );
-    expect(source).toContain("navigateToAgentHookSessionPane(session, router, projects)");
+    expect(source).toContain("navigateToAgentStatusSession(session, router, projects)");
   });
 });
 

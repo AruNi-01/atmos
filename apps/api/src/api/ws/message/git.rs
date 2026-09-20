@@ -393,6 +393,63 @@ fn default_git_log_limit() -> usize {
     30
 }
 
+/// Per-file git blame (APP-074)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitFileBlameRequest {
+    pub path: String,
+    pub file_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GitFileBlameKind {
+    Ok,
+    Binary,
+    TooLarge,
+    Untracked,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitBlameRange {
+    pub start_line: u32,
+    pub end_line: u32,
+    pub commit_hash: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitBlameCommit {
+    pub hash: String,
+    pub short_hash: String,
+    pub author_name: String,
+    pub author_email: String,
+    pub timestamp: i64,
+    pub subject: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitFileBlameResponse {
+    pub file_path: String,
+    pub blob_id: Option<String>,
+    pub kind: GitFileBlameKind,
+    pub ranges: Vec<GitBlameRange>,
+    pub commits: std::collections::HashMap<String, GitBlameCommit>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitCommitDetailRequest {
+    pub path: String,
+    pub commit_hash: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitCommitDetailResponse {
+    pub hash: String,
+    pub body: Option<String>,
+    pub files_changed: u32,
+    pub insertions: u32,
+    pub deletions: u32,
+}
+
 /// 获取拓扑 Git 历史（带 parent hashes 与 refs）请求
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GitHistoryRequest {

@@ -123,18 +123,20 @@ pre.shiki span.line {
   @apply px-4 py-0.5;
 }
 
-/* Shiki Line Numbers */
+/* Shiki Line Numbers. --shiki-line-offset is the 0-based counter
+   start (fileLine - 1) so a Read of lines 40–80 numbers from 40. */
 pre.shiki-line-numbers code {
-  counter-reset: step;
+  counter-reset: step var(--shiki-line-offset, 0);
   counter-increment: step 0;
 }
 
 pre.shiki-line-numbers code:has(.line:nth-child(2)) .line::before {
   content: counter(step);
   counter-increment: step;
-  width: 0.9rem;
+  min-width: 3ch;
+  width: auto;
   margin-right: 1rem;
-  margin-left: 0.1rem;
+  margin-left: 0.25rem;
   display: inline-block;
   @apply text-right font-mono text-xs text-muted-foreground;
 }
@@ -151,7 +153,7 @@ html {
 }
 
 html.light {
-  background-color: oklch(0.94 0.003 286);
+  background-color: #f3f3f3;
   color-scheme: light;
 }
 
@@ -201,6 +203,17 @@ html:not([data-theme-ready="true"]) body {
   opacity: 0;
   pointer-events: none;
   z-index: 0;
+}
+
+/*
+ * Opacity stacking keeps warm WebGL textures composited, so CSS/JS animations
+ * inside those trees would otherwise keep ticking. Pause descendant CSS
+ * animations; JS spinners listen for `atmos:surface-visual` / [inert].
+ */
+[data-workspace-frame][data-tier="warm"] *,
+.atmos-terminal-panel-keepalive *,
+[inert] * {
+  animation-play-state: paused !important;
 }
 
 [data-workspace-frame][data-tier="active"] {
@@ -298,11 +311,13 @@ html:not([data-theme-ready="true"]) body {
     background: transparent;
   }
 
-  /* use-stick-to-bottom hardcodes `scrollbar-gutter: stable both-edges` inline.
-     Classic gutters also drop overlay rubber-banding on the chat transcript. */
-  .agent-chat-scroll {
-    scrollbar-gutter: auto !important;
-  }
+  /*
+   * StickToBottom sets `scrollbar-gutter: stable both-edges` inline so the
+   * centered transcript stays put when overflow (and a classic/thin bar)
+   * appears. Do not override this to `auto`: a right-only overflow gutter
+   * shoves the max-w-3xl chat left the moment the scrollbar shows up.
+   * Classic `::-webkit-scrollbar { width }` is still forbidden (kills bounce).
+   */
 }
 
 /*

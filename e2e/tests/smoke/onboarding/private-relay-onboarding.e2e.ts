@@ -14,7 +14,7 @@ test.describe("smoke onboarding private relay", () => {
     });
     await remoteTab.click();
 
-    await expect(page.getByRole("heading", { name: /Access Key/i })).toBeVisible({
+    await expect(page.getByRole("heading", { name: /Sign in to connect/i })).toBeVisible({
       timeout: 30_000,
     });
 

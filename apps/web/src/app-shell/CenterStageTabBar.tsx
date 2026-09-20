@@ -44,12 +44,13 @@ import {
   FileDiff,
   FolderTree,
   GitBranch,
-  Github,
   Globe,
   Layers,
+  FileText,
   LayoutDashboard,
   LayoutTemplate,
   LoaderCircle,
+  MessagesSquare,
   Maximize2,
   Minimize2,
   PencilRuler,
@@ -62,7 +63,17 @@ import {
   SquareSplitHorizontal,
   SquareTerminal as TerminalIcon,
 } from "lucide-react";
+import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import type { CenterToolTabValue } from "@/app-shell/center-tool-tabs";
+import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { usePtDesignOpenTitle } from "@/features/pt-design/lib/use-pt-design-open-title";
+import { AutomationTabMark } from "@/features/automations/components/AutomationTabMark";
+import { isStandaloneAutomationScope } from "@/features/automations/lib/automation-run-landing";
+import { SimulatorTabIcon } from "@/features/simulator/components/SimulatorTabIcon";
+import {
+  EMPTY_AGENT_CHAT_TABS,
+  useAgentChatCenterTabsStore,
+} from "@/features/agent/store/use-agent-chat-center-tabs";
 import {
   applyHorizontalTabStripWheel,
   scrollActiveTabIntoStripView,
@@ -75,13 +86,14 @@ import {
   type PlusMenuOutsideDismissEvent,
 } from "@/app-shell/center-stage-plus-menu-pointer";
 import { useTranslations } from "next-intl";
-import type { OpenFile } from "@/features/editor/store/use-editor-store";
+import { useEditorStore, type OpenFile } from "@/features/editor/store/use-editor-store";
 import { cn } from "@/shared/lib/utils";
 import { CenterTabHeldShortcut } from "@/app-shell/HeldShortcutBadge";
 import {
   CenterStageShortcutTooltipBody,
   CenterStageTabGroupPopover,
   ShortcutHint,
+  AgentChatTabStatusIndicator,
   TerminalTabAgentIndicatorWithPanes,
   type TabGroupItem,
 } from "@/app-shell/center-stage-tabs";
@@ -97,19 +109,25 @@ import {
   CENTER_STAGE_ICON_TAB_CLASS,
   getCenterStageSurfaceTabVariant,
 } from "@/app-shell/center-stage-shared-tabs";
-import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { attentionTabClass } from "@/features/agent/components/AgentAttentionIndicator";
+import { resolveAgentChatAttentionReason } from "@/features/agent/lib/agent-chat-close-confirm";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import { useTerminalCenterTabPresentation } from "@/features/terminal/hooks/use-terminal-center-tab-presentation";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
-import { stableAgentPaneId } from "@/features/terminal/store/terminal-store-helpers";
-import { useShallow } from "zustand/react/shallow";
+import {
+  EMPTY_TERMINAL_TAB_PANES,
+  getScopeKey,
+  stableAgentPaneId,
+} from "@/features/terminal/store/terminal-store-helpers";
 import type { CenterTabContextMenuState, CenterTabDescriptor } from "@/app-shell/center-stage-tab-model";
 import {
   getCenterStripShortcutDigitForTab,
   orderCenterTabsBySavedOrder,
   preventNonPrimaryTabActivate,
 } from "@/app-shell/center-stage-tab-model";
+import { pinOverviewFront } from "@/app-shell/center-pane/center-pane-layout";
 import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
+import type { GitCommitCenterTab } from "@/features/git/store/use-git-commit-center-tabs";
 import type { BrowserCenterTab } from "@/features/browser/store/use-browser-center-tabs";
 import {
   getActivePreviewBrowserFaviconUrl,
@@ -129,7 +147,10 @@ interface CenterStageTabBarProps {
   browserTabs: BrowserCenterTab[];
   codeReviewTabVisible: boolean;
   effectiveContextId: string;
+  /** Live paint id for creates. Falls back to `effectiveContextId` during hops. */
+  writeContextId?: string | null;
   githubTabs: GithubCenterTab[];
+  gitCommitTabs: GitCommitCenterTab[];
   openFiles: OpenFile[];
   orderedGroupedTabItems: Array<{ key: string; label: string; tabs: TabGroupItem[] }>;
   previewBrowserPrefs: PreviewBrowserPrefs;
@@ -144,21 +165,25 @@ interface CenterStageTabBarProps {
   wikiCenterEligible: boolean;
   wikiRefreshing: boolean;
   /**
-   * Overview is primary-pane only. Secondary multi-pane tab strips pass false
-   * so split panes stay isolated from the overview surface.
+   * Overview is one tab per pane strip. Secondary multi-pane tab strips pass
+   * false so split panes stay isolated from the overview surface.
    */
   overviewVisible?: boolean;
   handleCenterStageTabChange: (value: string) => void;
   handleCloseTabGroupItem: (tab: TabGroupItem) => void;
   handleCloseBrowserTab: (value: string) => void;
   handleCloseFile: (file: OpenFile) => void;
+  handleCloseAgentChatTab: (value: string) => void;
   handleCloseGithubTab: (value: string) => void;
+  handleCloseGitCommitTab: (value: string) => void;
   handleCloseTerminalCenterTab: (tabId: string) => void;
   handleCreateBrowserCenterTab: () => void;
   handleCreateSimulatorCenterTab: () => void;
   handleCreateTerminalCenterTab: () => void;
+  handleCreateAgentChatCenterTab: () => void;
   handleCreateToolCenterTab: (tab: CenterToolTabValue) => void;
   handleCreateOverview?: () => void;
+  handleCloseOverview?: () => void;
   handleCloseSimulatorTab: () => void;
   handleCloseGitHistoryTab: () => void;
   handleCloseToolTab: (tab: CenterToolTabValue) => void;
@@ -180,6 +205,11 @@ interface CenterStageTabBarProps {
   setWikiRefreshTrigger: React.Dispatch<React.SetStateAction<number>>;
   /** Owning mosaic pane — fullscreen expands this pane over sibling center regions. */
   paneId?: string;
+  /**
+   * Tabs this strip may show. Agent Chat is read from a context store inside
+   * the bar; without this allow-list every chat leaks into empty split panes.
+   */
+  allowedTabIds?: ReadonlySet<string>;
   /**
    * Cmd+1–9 targets for this strip. Empty when the pane is not focused so
    * held-⌘ overlays stay isolated to the live pane.
@@ -209,7 +239,9 @@ export function CenterStageTabBar({
   browserTabs,
   codeReviewTabVisible,
   effectiveContextId,
+  writeContextId,
   githubTabs,
+  gitCommitTabs,
   openFiles,
   orderedGroupedTabItems,
   previewBrowserPrefs,
@@ -233,13 +265,17 @@ export function CenterStageTabBar({
   handleCloseTabGroupItem,
   handleCloseBrowserTab,
   handleCloseFile,
+  handleCloseAgentChatTab,
   handleCloseGithubTab,
+  handleCloseGitCommitTab,
   handleCloseTerminalCenterTab,
   handleCreateBrowserCenterTab,
   handleCreateSimulatorCenterTab,
   handleCreateTerminalCenterTab,
+  handleCreateAgentChatCenterTab,
   handleCreateToolCenterTab,
   handleCreateOverview,
+  handleCloseOverview,
   handleCloseSimulatorTab,
   handleCloseGitHistoryTab,
   handleCloseToolTab,
@@ -254,6 +290,7 @@ export function CenterStageTabBar({
   setWikiRefreshing,
   setWikiRefreshTrigger,
   paneId,
+  allowedTabIds,
   stripShortcutTabIds,
   isMultiPane = false,
   onSplitRight,
@@ -265,7 +302,23 @@ export function CenterStageTabBar({
   onCreateSpace,
 }: CenterStageTabBarProps) {
   const t = useTranslations("appShell");
+  const tOverview = useTranslations("ptDesign.overview");
+  const ptDesignTabTitle = usePtDesignOpenTitle(
+    t("centerStageTabBar.ptDesign"),
+    tOverview("untitled"),
+  );
   const newTerminalTabLabel = t("centerStageTabBar.newTerminalTab");
+  const agentChatTabs = useAgentChatCenterTabsStore(
+    (state) => state.tabsByContext[effectiveContextId] ?? EMPTY_AGENT_CHAT_TABS,
+  );
+  const paneAgentChatTabs = React.useMemo(
+    () =>
+      allowedTabIds
+        ? agentChatTabs.filter((tab) => allowedTabIds.has(tab.value))
+        : agentChatTabs,
+    [agentChatTabs, allowedTabIds],
+  );
+  const hideGitChrome = isStandaloneAutomationScope(effectiveContextId);
   const newBrowserLabel = t("centerStageTabBar.newBrowser");
   const newTabMenuLabel = t("centerStageTabBar.newTabMenu");
   // Per-instance so split panes do not share one open popover.
@@ -305,6 +358,7 @@ export function CenterStageTabBar({
     Array<
       | { type: "file"; openedAt: number; file: OpenFile }
       | { type: "github"; openedAt: number; tab: GithubCenterTab }
+      | { type: "git-commit"; openedAt: number; tab: GitCommitCenterTab }
       | { type: "browser"; openedAt: number; tab: BrowserCenterTab }
     >
   >(() => {
@@ -315,12 +369,15 @@ export function CenterStageTabBar({
       ...githubTabs.map(
         (tab) => ({ type: "github" as const, openedAt: tab.openedAt, tab }),
       ),
+      ...gitCommitTabs.map(
+        (tab) => ({ type: "git-commit" as const, openedAt: tab.openedAt, tab }),
+      ),
       ...browserTabs.map(
         (tab) => ({ type: "browser" as const, openedAt: tab.openedAt, tab }),
       ),
     ];
     return items.sort((left, right) => left.openedAt - right.openedAt);
-  }, [browserTabs, githubTabs, openFiles]);
+  }, [browserTabs, gitCommitTabs, githubTabs, openFiles]);
 
   // Fallback visual order when the user has never dragged the strip:
   // terminals → special terminals → surface tabs by open time.
@@ -328,6 +385,15 @@ export function CenterStageTabBar({
   // of the grouped-tab popover order.
   const baseOrderedDescriptors = React.useMemo<CenterTabDescriptor[]>(() => {
     const descriptors: CenterTabDescriptor[] = [];
+
+    if (overviewVisible) {
+      descriptors.push({
+        id: "overview",
+        value: "overview",
+        kind: "overview",
+        label: t("centerStageTabBar.overview"),
+      });
+    }
 
     for (const tab of visibleTerminalTabs) {
       descriptors.push({
@@ -425,7 +491,16 @@ export function CenterStageTabBar({
         id: "pt-design",
         value: "pt-design",
         kind: "pt-design",
-        label: t("centerStageTabBar.ptDesign"),
+        label: ptDesignTabTitle,
+      });
+    }
+
+    for (const tab of paneAgentChatTabs) {
+      descriptors.push({
+        id: tab.value,
+        value: tab.value,
+        kind: "agent-chat",
+        label: tab.title,
       });
     }
 
@@ -458,6 +533,16 @@ export function CenterStageTabBar({
         continue;
       }
 
+      if (item.type === "git-commit") {
+        descriptors.push({
+          id: item.tab.value,
+          value: item.tab.value,
+          kind: "git-commit",
+          label: item.tab.label,
+        });
+        continue;
+      }
+
       descriptors.push({
         id: item.tab.value,
         value: item.tab.value,
@@ -473,22 +558,30 @@ export function CenterStageTabBar({
     codeReviewTabVisible,
     filesTabVisible,
     ptDesignTabVisible,
+    ptDesignTabTitle,
     githubHubTabVisible,
     reviewTabVisible,
     runTabVisible,
     simulatorTabVisible,
     gitHistoryTabVisible,
     orderedSurfaceTabs,
+    overviewVisible,
+    paneAgentChatTabs,
     previewBrowserPrefs,
     projectWikiTabVisible,
     t,
     visibleTerminalTabs,
   ]);
 
-  const orderedDescriptors = React.useMemo(
-    () => orderCenterTabsBySavedOrder(baseOrderedDescriptors, tabStripOrder),
-    [baseOrderedDescriptors, tabStripOrder],
-  );
+  const orderedDescriptors = React.useMemo(() => {
+    const ordered = orderCenterTabsBySavedOrder(baseOrderedDescriptors, tabStripOrder);
+    const ids = pinOverviewFront(ordered.map((tab) => tab.id));
+    const byId = new Map(ordered.map((tab) => [tab.id, tab]));
+    return ids.flatMap((id) => {
+      const tab = byId.get(id);
+      return tab ? [tab] : [];
+    });
+  }, [baseOrderedDescriptors, tabStripOrder]);
 
   const scrollableTabsRef = React.useRef<HTMLDivElement>(null);
 
@@ -505,7 +598,7 @@ export function CenterStageTabBar({
       const oldIndex = ids.indexOf(String(active.id));
       const newIndex = ids.indexOf(String(over.id));
       if (oldIndex < 0 || newIndex < 0) return;
-      onTabStripOrderChange(arrayMove(ids, oldIndex, newIndex));
+      onTabStripOrderChange(pinOverviewFront(arrayMove(ids, oldIndex, newIndex)));
     },
     [onTabStripOrderChange, orderedDescriptors],
   );
@@ -560,6 +653,18 @@ export function CenterStageTabBar({
       stripShortcutTabIds,
       tab.id,
     );
+    if (tab.kind === "overview") {
+      const overviewLabel = t("centerStageTabBar.overview");
+      return (
+        <CenterStageOverviewTab
+          closeLabel={t("centerStageTabBar.closeTab", { tab: overviewLabel })}
+          label={overviewLabel}
+          onClose={() => handleCloseOverview?.()}
+          onContextMenu={(event) => openContextMenu(event, tab)}
+          shortcutDigit={0}
+        />
+      );
+    }
     if (tab.kind === "terminal") {
       const source = visibleTerminalTabs.find((item) => item.id === tab.value);
       if (!source) return null;
@@ -612,7 +717,7 @@ export function CenterStageTabBar({
         <SpecialTerminalTab
           key={tab.id}
           closeLabel={t("centerStageTabBar.closeSimulatorTab")}
-          icon={<Smartphone className="size-3.5 shrink-0" />}
+          icon={<SimulatorTabIcon className="size-3.5 shrink-0" contextId={effectiveContextId} />}
           label={t("centerStageTabBar.simulator")}
           shortcutDigit={shortcutDigit}
           tooltip={t("centerStageTabBar.simulator")}
@@ -725,9 +830,9 @@ export function CenterStageTabBar({
           key={tab.id}
           closeLabel={t("centerStageTabBar.closePtDesignTab")}
           icon={<PencilRuler className="size-3.5 shrink-0" />}
-          label={t("centerStageTabBar.ptDesign")}
+          label={ptDesignTabTitle}
           shortcutDigit={shortcutDigit}
-          tooltip={t("centerStageTabBar.ptDesign")}
+          tooltip={ptDesignTabTitle}
           value="pt-design"
           onClose={() => handleCloseToolTab("pt-design")}
           onContextMenu={(event) => openContextMenu(event, tab)}
@@ -745,6 +850,35 @@ export function CenterStageTabBar({
           onClose={handleCloseFile}
           onContextMenuRequest={(event) => openContextMenu(event, tab)}
           onPreviewPin={(nextFile) => pinFile(nextFile.path, effectiveContextId)}
+        />
+      );
+    }
+
+    if (tab.kind === "agent-chat") {
+      const agentTab = agentChatTabs.find((item) => item.value === tab.value);
+      const providerId = agentTab?.providerId?.trim() || "";
+      const chatId = agentTab?.chatId?.trim() || "";
+      return (
+        <AgentChatCenterTab
+          key={tab.id}
+          chatId={chatId}
+          contextId={effectiveContextId}
+          closeLabel={t("centerStageTabBar.closeTab", { tab: tab.label })}
+          icon={
+            providerId ? (
+              <AgentIcon registryId={providerId} name={providerId} size={14} />
+            ) : (
+              <MessagesSquare className="size-3.5 shrink-0" />
+            )
+          }
+          label={tab.label}
+          shortcutDigit={shortcutDigit}
+          tooltip={tab.label}
+          tooltipKind={t("centerStageTabBar.tooltipKindChatUi")}
+          value={tab.value}
+          trailing={chatId ? <AgentChatTabStatusIndicator chatId={chatId} /> : null}
+          onClose={() => handleCloseAgentChatTab(tab.value)}
+          onContextMenu={(event) => openContextMenu(event, tab)}
         />
       );
     }
@@ -776,6 +910,28 @@ export function CenterStageTabBar({
       );
     }
 
+    const gitCommitTab = gitCommitTabs.find((item) => item.value === tab.value);
+    if (gitCommitTab) {
+      const ownerRepo =
+        gitCommitTab.owner && gitCommitTab.repo
+          ? `${gitCommitTab.owner}/${gitCommitTab.repo}`
+          : null;
+      return (
+        <CenterStageSurfaceContentTab
+          key={tab.id}
+          closeLabel={t("centerStageTabBar.closeTab", { tab: gitCommitTab.label })}
+          name={gitCommitTab.label}
+          onClose={() => handleCloseGitCommitTab(gitCommitTab.value)}
+          onContextMenu={(event) => openContextMenu(event, tab)}
+          path={ownerRepo ?? gitCommitTab.sha.substring(0, 7)}
+          shortcutDigit={shortcutDigit}
+          tooltip={gitCommitTab.description || ownerRepo || gitCommitTab.subject}
+          value={gitCommitTab.value}
+          variant="git-commit"
+        />
+      );
+    }
+
     const githubTab = githubTabs.find((item) => item.value === tab.value);
     if (!githubTab) return null;
     return (
@@ -798,7 +954,7 @@ export function CenterStageTabBar({
     <CenterStageTabList
       value={activeValue}
       onValueChange={handleCenterStageTabChange}
-      actions={
+      afterTabs={
         <CenterStageStickyTabActions>
           <CenterStageNewTabMenu
             browserLabel={newBrowserLabel}
@@ -826,6 +982,15 @@ export function CenterStageTabBar({
             splitDownLabel={t("centerStageTabBar.splitDown")}
             splitRightLabel={t("centerStageTabBar.splitRight")}
             terminalLabel={newTerminalTabLabel}
+            agentChatLabel={t("centerStageTabBar.newAgentChat")}
+            onCreateAgentChat={handleCreateAgentChatCenterTab}
+            markdownLabel={t("centerStageTabBar.newMarkdown")}
+            onCreateMarkdownNote={() => {
+              const path = useEditorStore.getState().openUntitledMarkdown(
+                writeContextId || effectiveContextId,
+              );
+              if (path) handleCenterStageTabChange(path);
+            }}
             overviewLabel={t("centerStageTabBar.overview")}
             overviewAlreadyOpen={overviewVisible}
             savedLayouts={savedLayouts}
@@ -844,11 +1009,17 @@ export function CenterStageTabBar({
             plusMenuTabsLabel={t("centerStageTabBar.plusMenuTabs")}
             plusMenuLayoutLabel={t("centerStageTabBar.plusMenuLayout")}
             newSpaceDialogTitle={t("centerStageTabBar.newSpaceDialogTitle")}
+            newSpaceDialogDescription={t("centerStageTabBar.newSpaceDialogDescription")}
             newSpaceNamePlaceholder={t("centerStageTabBar.newSpaceNamePlaceholder")}
             newSpaceConfirmLabel={t("centerStageTabBar.newSpaceConfirm")}
             newSpaceCancelLabel={t("centerStageTabBar.newSpaceCancel")}
             showPaneFullscreenButton={isMultiPane}
+            hideGitChrome={hideGitChrome}
           />
+        </CenterStageStickyTabActions>
+      }
+      actions={
+        <CenterStageStickyTabActions>
           {isMultiPane ? (
             <CenterStagePaneFullscreenButton
               paneId={paneId}
@@ -875,17 +1046,6 @@ export function CenterStageTabBar({
         </CenterStageStickyTabActions>
       }
     >
-      {overviewVisible ? (
-        <CenterStageOverviewTab
-          tooltipContent={
-            <div className="flex items-center gap-2">
-              <span>{t("centerStageTabBar.overview")}</span>
-              <ShortcutHint digit={0} />
-            </div>
-          }
-        />
-      ) : null}
-
       {wikiCenterEligible ? (
         <Tooltip>
           <TooltipTrigger asChild>
@@ -958,7 +1118,11 @@ export function CenterStageTabBar({
             strategy={horizontalListSortingStrategy}
           >
             {orderedDescriptors.map((tab) => (
-              <SortableCenterStripTab key={tab.id} id={tab.id}>
+              <SortableCenterStripTab
+                key={tab.id}
+                id={tab.id}
+                disabled={tab.kind === "overview"}
+              >
                 {renderDescriptorTab(tab)}
               </SortableCenterStripTab>
             ))}
@@ -971,6 +1135,7 @@ export function CenterStageTabBar({
 
 function isTabGroupItemClosable(tab: TabGroupItem) {
   return (
+    tab.kind === "overview" ||
     tab.kind === "terminal" ||
     tab.kind === "project-wiki" ||
     tab.kind === "code-review" ||
@@ -990,16 +1155,19 @@ function isTabGroupItemClosable(tab: TabGroupItem) {
     tab.kind === "run" ||
     tab.kind === "github" ||
     tab.kind === "files" ||
-    tab.kind === "pt-design"
+    tab.kind === "pt-design" ||
+    tab.kind === "agent-chat"
   );
 }
 
 function SortableCenterStripTab({
   id,
   children,
+  disabled = false,
 }: {
   id: string;
   children: React.ReactNode;
+  disabled?: boolean;
 }) {
   const {
     attributes,
@@ -1008,7 +1176,7 @@ function SortableCenterStripTab({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id });
+  } = useSortable({ id, disabled });
   const { onPointerDown, ...restListeners } = listeners ?? {};
 
   // Only while actively dragging: force grabbing cursor globally so it stays
@@ -1067,19 +1235,32 @@ function TerminalExtraTab({
     fallbackTitle: tab.title,
     customTitle: tab.customTitle,
   });
-  const closeAriaLabel = t("centerStageTabBar.closeTab", { tab: displayTitle });
+  const tabLabel = displayTitle || toolbarAgent?.label || tab.title;
+  const closeAriaLabel = t("centerStageTabBar.closeTab", { tab: tabLabel });
 
-  const stablePaneIds = useTerminalStore(
-    useShallow((s) => {
-      const panes = s.getPanes(effectiveContextId, tab.id);
-      return Object.values(panes)
+  const panesRecord = useTerminalStore(
+    (s) =>
+      s.workspacePanes[getScopeKey(effectiveContextId, tab.id)] ??
+      EMPTY_TERMINAL_TAB_PANES,
+  );
+  const markPanes = React.useMemo(
+    () =>
+      Object.values(panesRecord).map((pane) => ({
+        sessionId: pane.sessionId,
+        tmuxWindowName: pane.tmuxWindowName ?? null,
+      })),
+    [panesRecord],
+  );
+  const stablePaneIds = React.useMemo(
+    () =>
+      Object.values(panesRecord)
         .map((pane) =>
           pane.tmuxWindowName
             ? stableAgentPaneId(effectiveContextId, pane.tmuxWindowName)
             : null,
         )
-        .filter((id): id is string => Boolean(id));
-    }),
+        .filter((id): id is string => Boolean(id)),
+    [effectiveContextId, panesRecord],
   );
   const attentionReason = useAgentAttentionStore((s) => {
     let best: "permission_request" | "task_complete" | null = null;
@@ -1109,11 +1290,7 @@ function TerminalExtraTab({
           value={tab.id}
           onPointerDown={preventNonPrimaryTabActivate}
           onContextMenu={onContextMenu}
-          className={cn(
-            attentionReason && "agent-attention-ring-tab",
-            attentionReason === "permission_request" && "agent-attention-ring-permission",
-            attentionReason === "task_complete" && "agent-attention-ring-complete",
-          )}
+          className={attentionTabClass(attentionReason)}
         >
           <CenterStageTabIconSlot
             closeLabel={closeAriaLabel}
@@ -1121,16 +1298,24 @@ function TerminalExtraTab({
           >
             {tabLeadingIcon}
           </CenterStageTabIconSlot>
-          <span className="max-w-[180px] truncate whitespace-nowrap">
-            {displayTitle}
-          </span>
+          {displayTitle ? (
+            <span className="max-w-[180px] truncate whitespace-nowrap">
+              {displayTitle}
+            </span>
+          ) : null}
+          <AutomationTabMark
+            surface={{ kind: "terminal", panes: markPanes }}
+          />
           <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.id} />
           <CenterTabHeldShortcut digit={shortcutDigit} />
         </CenterStageTab>
       </TooltipTrigger>
       <TooltipContent side="bottom">
-        <CenterStageShortcutTooltipBody digit={shortcutDigit}>
-          <span>{displayTitle}</span>
+        <CenterStageShortcutTooltipBody
+          digit={shortcutDigit}
+          kind={toolbarAgent ? t("centerStageTabBar.tooltipKindTui") : undefined}
+        >
+          <span>{tabLabel}</span>
         </CenterStageShortcutTooltipBody>
       </TooltipContent>
     </Tooltip>
@@ -1284,6 +1469,10 @@ function CenterStageNewTabMenu({
   onCreateBrowser,
   onCreateSimulator,
   onCreateTerminal,
+  onCreateAgentChat,
+  agentChatLabel,
+  onCreateMarkdownNote,
+  markdownLabel,
   onCreateToolTab,
   onCreateOverview,
   onSplitDown,
@@ -1294,12 +1483,14 @@ function CenterStageNewTabMenu({
   onCreateSpace,
   newSpaceLabel,
   newSpaceDialogTitle,
+  newSpaceDialogDescription,
   newSpaceNamePlaceholder,
   newSpaceConfirmLabel,
   newSpaceCancelLabel,
   plusMenuTabsLabel,
   plusMenuLayoutLabel,
   showPaneFullscreenButton,
+  hideGitChrome = false,
 }: {
   browserLabel: string;
   changesLabel: string;
@@ -1332,6 +1523,10 @@ function CenterStageNewTabMenu({
   onCreateBrowser: () => void;
   onCreateSimulator: () => void;
   onCreateTerminal: () => void;
+  onCreateAgentChat: () => void;
+  agentChatLabel: string;
+  onCreateMarkdownNote?: () => void;
+  markdownLabel?: string;
   onCreateToolTab: (tab: CenterToolTabValue) => void;
   onCreateOverview?: () => void;
   onSplitDown?: () => void;
@@ -1342,12 +1537,14 @@ function CenterStageNewTabMenu({
   onCreateSpace?: (name: string) => void;
   newSpaceLabel?: string;
   newSpaceDialogTitle: string;
+  newSpaceDialogDescription: string;
   newSpaceNamePlaceholder: string;
   newSpaceConfirmLabel: string;
   newSpaceCancelLabel: string;
   plusMenuTabsLabel: string;
   plusMenuLayoutLabel: string;
   showPaneFullscreenButton?: boolean;
+  hideGitChrome?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const [plusTab, setPlusTab] = React.useState<"tabs" | "layout">("tabs");
@@ -1524,9 +1721,10 @@ function CenterStageNewTabMenu({
           </button>
         </PopoverTrigger>
         <PopoverContent
-          align="end"
+          align="start"
           side="bottom"
           sideOffset={4}
+          collisionPadding={8}
           data-center-stage-plus-menu=""
           className="z-[2147483646] w-48 overflow-hidden border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
           onOpenAutoFocus={(event) => event.preventDefault()}
@@ -1590,6 +1788,7 @@ function CenterStageNewTabMenu({
           ) : null}
           <button
             type="button"
+            id="create-terminal"
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
             onClick={() => {
               onCreateTerminal();
@@ -1600,6 +1799,31 @@ function CenterStageNewTabMenu({
             <span className="min-w-0 flex-1 truncate">{terminalLabel}</span>
             <ShortcutHint digit="T" />
           </button>
+          <button
+            type="button"
+            id="create-agent-chat"
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+            onClick={() => {
+              onCreateAgentChat();
+              setOpen(false);
+            }}
+          >
+            <MessagesSquare className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate">{agentChatLabel}</span>
+          </button>
+          {onCreateMarkdownNote && markdownLabel ? (
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+            onClick={() => {
+              onCreateMarkdownNote();
+              setOpen(false);
+            }}
+          >
+            <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate">{markdownLabel}</span>
+          </button>
+          ) : null}
           <button
             type="button"
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
@@ -1622,6 +1846,7 @@ function CenterStageNewTabMenu({
             <FolderTree className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{filesLabel}</span>
           </button>
+          {hideGitChrome ? null : (
           <button
             type="button"
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
@@ -1633,6 +1858,8 @@ function CenterStageNewTabMenu({
             <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{changesLabel}</span>
           </button>
+          )}
+          {hideGitChrome ? null : (
           <button
             type="button"
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
@@ -1644,6 +1871,7 @@ function CenterStageNewTabMenu({
             <FileDiff className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{reviewLabel}</span>
           </button>
+          )}
           <button
             type="button"
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
@@ -1655,6 +1883,7 @@ function CenterStageNewTabMenu({
             <Play className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{runLabel}</span>
           </button>
+          {hideGitChrome ? null : (
           <button
             type="button"
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
@@ -1666,6 +1895,7 @@ function CenterStageNewTabMenu({
             <Github className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{githubLabel}</span>
           </button>
+          )}
           <button
             type="button"
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
@@ -1722,8 +1952,9 @@ function CenterStageNewTabMenu({
               </PopoverTrigger>
               <PopoverContent
                 align="start"
-                side="left"
+                side="right"
                 sideOffset={4}
+                collisionPadding={8}
                 data-center-stage-layouts-menu=""
                 className="z-[2147483647] w-48 border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
                 onOpenAutoFocus={(event) => event.preventDefault()}
@@ -1874,6 +2105,7 @@ function CenterStageNewTabMenu({
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>{newSpaceDialogTitle}</DialogTitle>
+            <DialogDescription>{newSpaceDialogDescription}</DialogDescription>
           </DialogHeader>
           <form
             className="space-y-4"
@@ -1943,22 +2175,56 @@ function CenterStageNewTabMenu({
   );
 }
 
+function AgentChatCenterTab({
+  chatId,
+  contextId,
+  ...props
+}: {
+  chatId?: string;
+  contextId: string;
+} & React.ComponentProps<typeof SpecialTerminalTab>) {
+  const attentionReason = useAgentAttentionStore((s) =>
+    resolveAgentChatAttentionReason(chatId, s.panes),
+  );
+  return (
+    <SpecialTerminalTab
+      {...props}
+      contextId={contextId}
+      className={attentionTabClass(attentionReason)}
+      mark={
+        chatId ? (
+          <AutomationTabMark surface={{ kind: "chat", chatId }} />
+        ) : null
+      }
+    />
+  );
+}
+
 function SpecialTerminalTab({
   closeLabel,
   icon,
   label,
   shortcutDigit,
   tooltip,
+  tooltipKind,
   value,
+  trailing,
+  mark,
+  className,
   onClose,
   onContextMenu,
 }: {
   closeLabel: string;
+  contextId?: string;
   icon: React.ReactNode;
   label: string;
   shortcutDigit?: number | null;
   tooltip: string;
+  tooltipKind?: string;
   value: string;
+  trailing?: React.ReactNode;
+  mark?: React.ReactNode;
+  className?: string;
   onClose: () => void;
   onContextMenu?: (event: React.MouseEvent) => void;
 }) {
@@ -1968,18 +2234,21 @@ function SpecialTerminalTab({
         <CenterStageTab
           value={value}
           aria-label={label}
+          className={className}
           onPointerDown={preventNonPrimaryTabActivate}
           onContextMenu={onContextMenu}
         >
           <CenterStageTabIconSlot closeLabel={closeLabel} onClose={onClose}>
             {icon}
           </CenterStageTabIconSlot>
-          <span className="text-pretty">{label}</span>
+          <span className="max-w-[180px] truncate whitespace-nowrap">{label}</span>
+          {mark}
+          {trailing}
           <CenterTabHeldShortcut digit={shortcutDigit} />
         </CenterStageTab>
       </TooltipTrigger>
       <TooltipContent side="bottom">
-        <CenterStageShortcutTooltipBody digit={shortcutDigit}>
+        <CenterStageShortcutTooltipBody digit={shortcutDigit} kind={tooltipKind}>
           {tooltip}
         </CenterStageShortcutTooltipBody>
       </TooltipContent>

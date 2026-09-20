@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
+  collectAgentChatGroupTabs,
   collectDiffGroupTabs,
+  collectSimulatorGroupTabs,
   filterGroupedTabItemsByAllowedIds,
 } from "@/app-shell/center-stage-tab-groups";
 import { EDITOR_DIFF_GROUP_PREFIX } from "@/features/diff/lib/diff-editor-paths";
@@ -60,12 +62,95 @@ describe("collectDiffGroupTabs", () => {
     ]);
   });
 
+  test("places git commit diffs in the diff group after Graph History", () => {
+    const tabs = collectDiffGroupTabs(
+      [file(`${EDITOR_DIFF_GROUP_PREFIX}unstaged`, 1)],
+      {
+        gitHistory: { visible: true, label: "Graph History" },
+        gitCommits: [
+          {
+            id: "git-commit:ws:abc",
+            value: "git-commit:ws:abc",
+            label: "abc Fix",
+          },
+        ],
+      },
+    );
+    expect(tabs.map((tab) => tab.kind)).toEqual([
+      "git-history",
+      "git-commit",
+      "diff-group",
+    ]);
+  });
+
   test("omits Graph History when the tab is closed", () => {
     const tabs = collectDiffGroupTabs(
       [file(`${EDITOR_DIFF_GROUP_PREFIX}branch`, 1)],
       { gitHistory: { visible: false, label: "Graph History" } },
     );
     expect(tabs.map((tab) => tab.kind)).toEqual(["diff-group"]);
+  });
+});
+
+describe("collectAgentChatGroupTabs", () => {
+  test("orders chat tabs by openedAt and keeps draft/provider fields", () => {
+    const tabs = collectAgentChatGroupTabs([
+      {
+        id: "agent-chat:later",
+        value: "agent-chat:later",
+        title: "Later",
+        chatId: "later",
+        providerId: "claude",
+        openedAt: 20,
+      },
+      {
+        id: "agent-chat:draft:1",
+        value: "agent-chat:draft:1",
+        title: "Chat",
+        chatId: null,
+        providerId: null,
+        openedAt: 10,
+      },
+    ]);
+
+    expect(tabs.map((tab) => tab.id)).toEqual([
+      "agent-chat:draft:1",
+      "agent-chat:later",
+    ]);
+    expect(tabs[0]).toMatchObject({
+      kind: "agent-chat",
+      label: "Chat",
+      value: "agent-chat:draft:1",
+      chatId: null,
+      providerId: null,
+    });
+    expect(tabs[1]).toMatchObject({
+      kind: "agent-chat",
+      label: "Later",
+      chatId: "later",
+      providerId: "claude",
+    });
+  });
+
+  test("omits an empty chat group", () => {
+    expect(collectAgentChatGroupTabs([])).toEqual([]);
+  });
+});
+
+describe("collectSimulatorGroupTabs", () => {
+  test("omits the group when the simulator tab is closed", () => {
+    expect(collectSimulatorGroupTabs(false, "Simulator")).toEqual([]);
+  });
+
+  test("adds a simulator column item when the tab is open", () => {
+    expect(collectSimulatorGroupTabs(true, "Simulator")).toEqual([
+      {
+        id: "simulator",
+        label: "Simulator",
+        value: "simulator",
+        kind: "simulator",
+      },
+    ]);
   });
 });
 

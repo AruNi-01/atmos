@@ -16,6 +16,7 @@ import {
   migrateLegacySinglePaneStripOrder,
   normalizeCenterPaneLayout,
   openTabOnFocusedPane,
+  offerTabOnFocusedPane,
   withCanonicalTabStrip,
   reorderPaneTabIds,
   reorderPanes,
@@ -66,6 +67,8 @@ type CenterPaneLayoutStore = {
   resizeRows: (contextId: string, boundaryIndex: number, delta: number) => void;
   setActiveTab: (contextId: string, paneId: string, tabId: string) => void;
   openTab: (contextId: string, tabId: string) => void;
+  /** Append a tab to the focused pane strip without activating it. */
+  offerTab: (contextId: string, tabId: string) => void;
   removeTab: (
     contextId: string,
     tabId: string,
@@ -106,6 +109,7 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
 
   ensureLayout: (contextId, openTabIds, activeTabId, legacyStripOrder = []) => {
     if (!contextId) {
+      if (openTabIds.length === 0) return createEmptyCenterLayout();
       return withCanonicalTabStrip(createDefaultLayout(openTabIds, activeTabId));
     }
     const existing = get().byContext[contextId];
@@ -118,12 +122,26 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
         return get().byContext[contextId] ?? empty;
       }
     }
-    if (existing && isFreshEmptyCenterLayout(normalizeCenterPaneLayout(existing))) {
-      return normalizeCenterPaneLayout(existing);
-    }
     if (existing) {
+      const normalized = normalizeCenterPaneLayout(existing);
+      if (isFreshEmptyCenterLayout(normalized)) {
+        if (openTabIds.length === 0) return normalized;
+        // Extra spaces already returned above. A host empty layout with live
+        // membership is a wiped mosaic (e.g. Launchpad overlay reconcile) —
+        // restore tabs as a single pane. Splits cannot be recovered.
+        const restored = withCanonicalTabStrip(
+          createDefaultLayout(openTabIds, activeTabId),
+        );
+        get().setLayout(contextId, restored);
+        return restored;
+      }
+      // Launchpad overlay / deferred hops report an empty membership list
+      // while keep-alive frames are still mounted. Do not prune a live mosaic.
+      if (openTabIds.length === 0) {
+        return normalized;
+      }
       const reconciled = reconcileOpenTabs(
-        normalizeCenterPaneLayout(existing),
+        normalized,
         openTabIds,
         activeTabId,
       );
@@ -135,6 +153,11 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
         get().setLayout(contextId, migrated);
       }
       return get().byContext[contextId] ?? migrated;
+    }
+    if (openTabIds.length === 0) {
+      const empty = createEmptyCenterLayout();
+      get().setLayout(contextId, empty);
+      return empty;
     }
     const layout = withCanonicalTabStrip(
       createDefaultLayout(openTabIds, activeTabId),
@@ -159,10 +182,7 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
 
   patchLayout: (contextId, updater) => {
     const current =
-      get().byContext[contextId] ??
-      (isExtraCenterSpaceKey(contextId)
-        ? createEmptyCenterLayout()
-        : createDefaultLayout(["terminal"], "terminal"));
+      get().byContext[contextId] ?? createEmptyCenterLayout();
     const next = updater(current);
     if (next === current || centerPaneLayoutsEqual(current, next)) {
       return;
@@ -223,6 +243,11 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
 
   openTab: (contextId, tabId) => {
     get().patchLayout(contextId, (layout) => openTabOnFocusedPane(layout, tabId));
+  },
+
+  offerTab: (contextId, tabId) => {
+    if (!contextId || !tabId || !get().getLayout(contextId)) return;
+    get().patchLayout(contextId, (layout) => offerTabOnFocusedPane(layout, tabId));
   },
 
   removeTab: (contextId, tabId, preferredNextActiveId) => {

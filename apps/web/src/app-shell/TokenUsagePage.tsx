@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Activity } from "lucide-react";
-import { cn } from "@workspace/ui";
+import { cn, ScrollArea } from "@workspace/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
@@ -243,9 +243,10 @@ export function TokenUsagePage() {
       {loading ? (
         <TokenUsageLoadingScreen />
       ) : (
-        <div
+        <ScrollArea
           data-token-usage-page-scroll=""
-          className="relative z-[1] min-h-0 flex-1 overflow-y-auto overscroll-contain"
+          className="relative z-[1] min-h-0 flex-1"
+          scrollFade
         >
           {error ? (
             <div className="mx-auto mt-4 flex max-w-[1100px] items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-4">
@@ -295,7 +296,7 @@ export function TokenUsagePage() {
               </div>
             }
           />
-        </div>
+        </ScrollArea>
       )}
 
       <div

@@ -25,7 +25,7 @@ const CHECKS_POLL_MS = 60_000;
 export type UseWorkspacePrStatusOptions = {
   /** Managed PR snapshot stored on the workspace (create-from-PR / linked). */
   githubPr?: GithubPrPayload | null;
-  /** Workspace branch — used to align with header branch-PR cache keys. */
+  /** Workspace branch — used to resolve the head-branch PR. */
   branch?: string | null;
   /**
    * Project or workspace path for git status (github_owner / github_repo).
@@ -106,13 +106,14 @@ function toManagedPayload(
 }
 
 /**
- * Shared PR lifecycle + checks presentation for workspace list surfaces.
+ * Shared PR lifecycle + checks presentation for workspace list and header git
+ * context.
  *
  * - Stored `githubPr` → paint from snapshot; hydrate detail async; merge branch
- *   list cache when available (Header key).
+ *   list cache when available.
  * - Missing `githubPr` → resolve via **repo-level** PR list (one query per
- *   owner/repo, shared by all rows) filtered by head branch — same rule as
- *   Header (`headRefName === branch`, highest number wins).
+ *   owner/repo, shared by all rows) filtered by head branch
+ *   (`headRefName === branch`, highest number wins).
  */
 export function useWorkspacePrStatus(
   options: UseWorkspacePrStatusOptions,
@@ -157,7 +158,7 @@ export function useWorkspacePrStatus(
     enabled: shouldDiscoverByBranch,
   });
 
-  // When we already have a stored link, still observe the Header branch list
+  // When we already have a stored link, still observe the branch list cache
   // (cache-only) so open/merge state can refresh without an extra WS call.
   const branchPrCacheQuery = useBranchPrListQuery({
     owner: stored ? owner : "",

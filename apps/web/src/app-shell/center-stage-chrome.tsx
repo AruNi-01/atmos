@@ -32,7 +32,9 @@ export function CenterStageSurface({
         data-center-stage-card=""
         className={cn(CENTER_STAGE_CARD_CLASS, isolate && "isolate", cardClassName)}
       >
-        <div className={CENTER_STAGE_CARD_CLIP_CLASS}>{children}</div>
+        <div data-center-stage-card-clip="" className={CENTER_STAGE_CARD_CLIP_CLASS}>
+          {children}
+        </div>
       </div>
     </main>
   );
