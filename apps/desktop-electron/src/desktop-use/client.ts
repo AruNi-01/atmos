@@ -449,10 +449,65 @@ function statusWhenCliUnavailable(cli: DesktopUseCliStatus): DesktopUseStatusJso
   };
 }
 
+/** Loopback Runtime URL for Desktop Use host APIs (APP-076). */
+export function desktopUseRuntimeUrl(
+  path: string,
+  opts?: { host?: string; port?: number },
+): string {
+  const host = opts?.host ?? "127.0.0.1";
+  const port =
+    opts?.port ??
+    (process.env.ATMOS_PORT ? parseInt(process.env.ATMOS_PORT, 10) : 30303);
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return `http://${host}:${port}${normalized}`;
+}
+
+function desktopUsePathForCliArgs(args: string[]): string | null {
+  const joined = args.join(" ");
+  if (joined === "status") return "/api/desktop-use/status";
+  if (joined === "doctor") return "/api/desktop-use/doctor";
+  if (joined === "driver stop") return "/api/desktop-use/driver/stop";
+  if (joined === "driver restart") return "/api/desktop-use/driver/restart";
+  if (joined === "driver check") return "/api/desktop-use/driver/check";
+  if (joined === "driver uninstall") return "/api/desktop-use/driver/uninstall";
+  if (joined === "driver ensure") return "/api/desktop-use/driver/ensure";
+  if (joined.startsWith("driver ensure")) return "/api/desktop-use/driver/ensure?force=true";
+  if (joined === "prefs" || joined === "prefs get") return "/api/desktop-use/prefs";
+  return null;
+}
+
+async function fetchDesktopUseRuntime(
+  path: string,
+  method: "GET" | "POST" | "PUT" = "GET",
+  body?: unknown,
+): Promise<unknown | null> {
+  try {
+    const url = desktopUseRuntimeUrl(path);
+    const res = await fetch(url, {
+      method,
+      signal: AbortSignal.timeout(20_000),
+      headers: body ? { "content-type": "application/json" } : undefined,
+      body: body != null ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { success?: boolean; data?: unknown };
+    if (json && json.success === true) return json.data ?? json;
+    return json;
+  } catch {
+    return null;
+  }
+}
+
 export async function runDesktopUseJson(
   args: string[],
   timeoutMs = 20_000,
 ): Promise<unknown> {
+  const runtimePath = desktopUsePathForCliArgs(args);
+  if (runtimePath) {
+    const method = runtimePath.includes("/driver/") ? "POST" : "GET";
+    const viaRuntime = await fetchDesktopUseRuntime(runtimePath, method);
+    if (viaRuntime != null) return viaRuntime;
+  }
   const cli = resolveAtmosCliPath();
   if (!existsSync(cli)) {
     throw cliNotInstalledError(cli);
@@ -478,6 +533,13 @@ export async function runDesktopUseJson(
 
 export async function desktopUseStatus(): Promise<DesktopUseStatusJson> {
   const cli = await probeAtmosCliWithRequirement();
+  const viaRuntime = await fetchDesktopUseRuntime("/api/desktop-use/status", "GET");
+  if (viaRuntime && typeof viaRuntime === "object") {
+    return {
+      ...(viaRuntime as DesktopUseStatusJson),
+      cli,
+    };
+  }
   if (!cli.installed || cli.update_required) {
     return statusWhenCliUnavailable(cli);
   }
@@ -546,7 +608,18 @@ export async function desktopUseCapture(): Promise<DesktopUseCaptureJson> {
 }
 
 export async function desktopUseDoctor(): Promise<unknown> {
+  const viaRuntime = await fetchDesktopUseRuntime("/api/desktop-use/doctor", "GET");
   const cli = await probeAtmosCliWithRequirement();
+  if (viaRuntime && typeof viaRuntime === "object") {
+    return {
+      ...(viaRuntime as Record<string, unknown>),
+      cli_installed: cli.installed,
+      cli_meets_requirement: cli.meets_requirement !== false,
+      cli_path: cli.path,
+      cli_version: cli.version,
+      cli_min_version: cli.min_cli_version ?? null,
+    };
+  }
   if (!cli.installed) {
     return {
       engine_installed: false,
@@ -606,6 +679,13 @@ export async function desktopUseDriveScreenshot(): Promise<unknown> {
 }
 
 export async function desktopUsePrefsGet(): Promise<{ ok: boolean; prefs: DesktopUsePrefsJson }> {
+  const via = await fetchDesktopUseRuntime("/api/desktop-use/prefs", "GET");
+  if (via && typeof via === "object") {
+    const prefs = (via as { prefs?: DesktopUsePrefsJson }).prefs ?? (via as DesktopUsePrefsJson);
+    if (prefs && typeof prefs.operation_border_enabled === "boolean") {
+      return { ok: true, prefs };
+    }
+  }
   return (await runDesktopUseJson(["prefs", "get"])) as {
     ok: boolean;
     prefs: DesktopUsePrefsJson;
@@ -622,6 +702,18 @@ export async function desktopUsePrefsSet(args: {
   }
   if (typeof args.highlightIdleMs === "number" && Number.isFinite(args.highlightIdleMs)) {
     cliArgs.push("--highlight-idle-ms", String(Math.max(0, Math.floor(args.highlightIdleMs))));
+  }
+  const via = await fetchDesktopUseRuntime("/api/desktop-use/prefs", "PUT", {
+    operation_border_enabled: args.operationBorder ?? true,
+    highlight_idle_ms: args.highlightIdleMs ?? 8000,
+  });
+  if (via && typeof via === "object") {
+    const prefs = (via as DesktopUsePrefsJson).operation_border_enabled !== undefined
+      ? (via as DesktopUsePrefsJson)
+      : (via as { prefs: DesktopUsePrefsJson }).prefs;
+    if (prefs && typeof prefs.operation_border_enabled === "boolean") {
+      return { ok: true, prefs };
+    }
   }
   return (await runDesktopUseJson(cliArgs)) as {
     ok: boolean;

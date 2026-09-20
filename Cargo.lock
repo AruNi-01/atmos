@@ -257,6 +257,7 @@ dependencies = [
  "clap",
  "core-engine",
  "core-service",
+ "desktop-use",
  "dirs 5.0.1",
  "dotenvy",
  "futures-util",

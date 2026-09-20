@@ -102,6 +102,60 @@ pub enum EnsureOutcome {
     Started(RuntimeStatus),
 }
 
+/// Result of the shared ensure classifier (CLI and Desktop must use this).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EnsureClassify {
+    /// Healthy Runtime that serves product UI — do not start a second Server.
+    Reuse,
+    /// No live Runtime — supervisor should spawn Atmos Server.
+    Start,
+}
+
+/// Long-running backend is always Atmos Server, never the `atmos` CLI process.
+pub fn runtime_backend_kind() -> &'static str {
+    "atmos-server"
+}
+
+/// Desktop (and any windowed shell) must not stop the user-session Runtime on quit.
+pub fn desktop_quit_should_stop_runtime() -> bool {
+    false
+}
+
+/// CLI product commands that need Server may start Runtime unless `--no-ensure`.
+pub fn cli_should_lazy_ensure(no_ensure: bool, needs_server: bool) -> bool {
+    needs_server && !no_ensure
+}
+
+/// Product UI HTML (same rule as Desktop probe). Healthz-only processes are not reusable.
+pub fn looks_like_atmos_ui_html(body: &str) -> bool {
+    let lower = body.to_ascii_lowercase();
+    lower.contains("<!doctype html") || lower.contains("<html")
+}
+
+/// Classify ensure. `force_restart` always means Start (caller stops first).
+pub fn classify_ensure(
+    running: bool,
+    healthy: bool,
+    ui_ok: bool,
+    force_restart: bool,
+) -> Result<EnsureClassify, &'static str> {
+    if force_restart {
+        return Ok(EnsureClassify::Start);
+    }
+    if running && healthy && ui_ok {
+        return Ok(EnsureClassify::Reuse);
+    }
+    if running && !healthy {
+        return Err("Runtime process is running but unhealthy. Use --force-restart.");
+    }
+    if running && healthy && !ui_ok {
+        return Err(
+            "Runtime is healthy but not serving the Atmos product UI. Use --force-restart.",
+        );
+    }
+    Ok(EnsureClassify::Start)
+}
+
 pub async fn runtime_status() -> Result<RuntimeStatus, String> {
     collect_status(resolve_runtime_layout().ok().as_ref()).await
 }
@@ -111,19 +165,30 @@ pub async fn ensure_running(options: EnsureOptions) -> Result<EnsureOutcome, Str
     ensure_runtime_installed(&layout)?;
 
     let existing = collect_status(Some(&layout)).await?;
-    if existing.running && !existing.healthy && !options.force_restart {
-        return Err(format!(
-            "Runtime process {} is running but unhealthy at {}. Use --force-restart.",
-            existing
-                .pid
-                .map(|p| p.to_string())
-                .unwrap_or_else(|| "?".into()),
-            existing.url
-        ));
-    }
-
-    if existing.running && !options.force_restart {
-        return Ok(EnsureOutcome::AlreadyRunning(existing));
+    let ui_ok = if existing.running && existing.healthy {
+        is_product_ui_served(&existing.host, existing.port).await
+    } else {
+        false
+    };
+    match classify_ensure(
+        existing.running,
+        existing.healthy,
+        ui_ok,
+        options.force_restart,
+    ) {
+        Ok(EnsureClassify::Reuse) => {
+            return Ok(EnsureOutcome::AlreadyRunning(existing));
+        }
+        Ok(EnsureClassify::Start) => {}
+        Err(msg) => {
+            return Err(format!(
+                "{msg} ({})",
+                existing
+                    .pid
+                    .map(|p| p.to_string())
+                    .unwrap_or_else(|| "?".into())
+            ));
+        }
     }
 
     if existing.running && options.force_restart {
@@ -658,4 +723,93 @@ fn read_runtime_version(layout: &RuntimeLayout) -> Option<String> {
 
 fn runtime_url(host: &str, port: u16) -> String {
     format!("http://{host}:{port}")
+}
+
+async fn is_product_ui_served(host: &str, port: u16) -> bool {
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_millis(1500))
+        .build()
+    {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    let url = format!("{}/", runtime_url(host, port));
+    let Ok(res) = client.get(&url).send().await else {
+        return false;
+    };
+    if !res.status().is_success() {
+        return false;
+    }
+    let Ok(body) = res.text().await else {
+        return false;
+    };
+    looks_like_atmos_ui_html(&body)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn classify_reuses_healthy_product_ui() {
+        assert_eq!(
+            classify_ensure(true, true, true, false).unwrap(),
+            EnsureClassify::Reuse
+        );
+    }
+
+    #[test]
+    fn classify_starts_when_not_running() {
+        assert_eq!(
+            classify_ensure(false, false, false, false).unwrap(),
+            EnsureClassify::Start
+        );
+    }
+
+    #[test]
+    fn classify_rejects_healthz_without_ui() {
+        let err = classify_ensure(true, true, false, false).unwrap_err();
+        assert!(err.contains("product UI"));
+    }
+
+    #[test]
+    fn classify_rejects_unhealthy_running() {
+        assert!(classify_ensure(true, false, false, false).is_err());
+    }
+
+    #[test]
+    fn classify_force_restart_is_start() {
+        assert_eq!(
+            classify_ensure(true, true, true, true).unwrap(),
+            EnsureClassify::Start
+        );
+    }
+
+    #[test]
+    fn ui_html_probe() {
+        assert!(looks_like_atmos_ui_html(
+            "<!DOCTYPE html><html><body>ok</body></html>"
+        ));
+        assert!(looks_like_atmos_ui_html("<html lang=\"en\">x</html>"));
+        assert!(!looks_like_atmos_ui_html(""));
+        assert!(!looks_like_atmos_ui_html("Not Found"));
+    }
+
+    #[test]
+    fn desktop_quit_never_stops_runtime() {
+        assert!(!desktop_quit_should_stop_runtime());
+    }
+
+    #[test]
+    fn cli_lazy_ensure_rules() {
+        assert!(cli_should_lazy_ensure(false, true));
+        assert!(!cli_should_lazy_ensure(true, true));
+        assert!(!cli_should_lazy_ensure(false, false));
+    }
+
+    #[test]
+    fn runtime_backend_is_server_not_cli() {
+        assert_eq!(runtime_backend_kind(), "atmos-server");
+        assert_ne!(runtime_backend_kind(), "atmos-cli");
+    }
 }

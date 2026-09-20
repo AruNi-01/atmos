@@ -21,6 +21,9 @@ pub struct ApiClientArgs {
     /// HTTP deadline in milliseconds. Default 45000.
     #[arg(long, global = true)]
     pub timeout_ms: Option<u64>,
+    /// Do not lazy-start Atmos Runtime when the Server is unreachable.
+    #[arg(long, global = true, default_value_t = false)]
+    pub no_ensure: bool,
 }
 
 pub fn resolve_base_url(args: &ApiClientArgs) -> Result<String, String> {

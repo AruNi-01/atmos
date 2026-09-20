@@ -191,9 +191,10 @@ async fn run() -> i32 {
         Some(Commands::Computer { command }) => {
             wrap_legacy("atmos computer", execute_computer(command).await)
         }
-        Some(Commands::DesktopUse { command }) => {
-            wrap_legacy("atmos desktop-use", execute_desktop_use(command).await)
-        }
+        Some(Commands::DesktopUse { command }) => wrap_legacy(
+            "atmos desktop-use",
+            execute_desktop_use(cli.api, command).await,
+        ),
         Some(Commands::BrowserUse { command }) => {
             wrap_legacy("atmos browser-use", execute_browser_use(command).await)
         }

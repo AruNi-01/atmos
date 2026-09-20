@@ -337,17 +337,13 @@ if (!gotLock) {
           console.warn("[desktop-electron] desktop-use stop on quit failed:", err);
         }
         await stopAllTunnelsBeforeExit();
-        // Production ownership: stop Server only when this process started it.
-        try {
+        // APP-076: user-session Runtime stays up for CLI / other clients.
+        const { desktopQuitShouldStopRuntime } = await import(
+          "./runtime/ownership.js"
+        );
+        if (desktopQuitShouldStopRuntime()) {
           const { stopOwnedAtmosServer } = await import("./runtime/ensure.js");
-          const result = stopOwnedAtmosServer();
-          if (result.stopped) {
-            console.log(
-              `[desktop-electron] stopped owned Atmos Server pid=${result.pid} (${result.reason})`,
-            );
-          }
-        } catch (err) {
-          console.warn("[desktop-electron] stop owned Server failed:", err);
+          stopOwnedAtmosServer();
         }
       } finally {
         app.exit(0);

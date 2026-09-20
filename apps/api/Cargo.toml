@@ -17,6 +17,7 @@ core-service = { path = "../../crates/core-service" }
 llm = { path = "../../crates/llm" }
 local-model-runtime = { path = "../../crates/local-model-runtime" }
 runtime-manager = { path = "../../crates/runtime-manager", default-features = true, features = ["client"] }
+desktop-use = { path = "../../crates/desktop-use" }
 token-usage = { path = "../../crates/token-usage" }
 permission-access = { path = "../../crates/permission-access" }
 

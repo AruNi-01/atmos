@@ -62,21 +62,46 @@ impl InvokeError {
     }
 }
 
+async fn try_lazy_ensure(api: &ApiClientArgs) -> bool {
+    if !runtime_manager::supervisor::cli_should_lazy_ensure(api.no_ensure, true) {
+        return false;
+    }
+    runtime_manager::supervisor::ensure_running(Default::default())
+        .await
+        .is_ok()
+}
+
 /// Invoke a server-side `WsAction` by wire name with JSON `data`.
 pub async fn invoke(api: &ApiClientArgs, action: &str, data: Value) -> Result<Value, InvokeError> {
     let endpoint = build_url(api, "/api/cli/invoke").map_err(InvokeError::Other)?;
     let client = http_client(api).map_err(InvokeError::Other)?;
-    let mut req = client.request(Method::POST, &endpoint).json(&json!({
-        "action": action,
-        "data": data,
-    }));
-    if let Some(token) = resolve_token(api) {
-        req = req.header(AUTHORIZATION, format!("Bearer {token}"));
+    let mut last_unreachable = None;
+    for attempt in 0..2 {
+        let mut req = client.request(Method::POST, &endpoint).json(&json!({
+            "action": action,
+            "data": data,
+        }));
+        if let Some(token) = resolve_token(api) {
+            req = req.header(AUTHORIZATION, format!("Bearer {token}"));
+        }
+        match req.send().await {
+            Ok(resp) => {
+                return invoke_read_response(resp).await;
+            }
+            Err(e) => {
+                last_unreachable = Some(format!("request failed ({endpoint}): {e}"));
+                if attempt == 0 && try_lazy_ensure(api).await {
+                    continue;
+                }
+            }
+        }
     }
-    let resp = req
-        .send()
-        .await
-        .map_err(|e| InvokeError::Unreachable(format!("request failed ({endpoint}): {e}")))?;
+    Err(InvokeError::Unreachable(
+        last_unreachable.unwrap_or_else(|| "request failed".into()),
+    ))
+}
+
+async fn invoke_read_response(resp: reqwest::Response) -> Result<Value, InvokeError> {
     let status = resp.status();
     let body_text = resp
         .text()
@@ -129,17 +154,96 @@ pub async fn invoke(api: &ApiClientArgs, action: &str, data: Value) -> Result<Va
     Ok(value.get("data").cloned().unwrap_or(value))
 }
 
+pub async fn request_json_ensured(
+    api: &ApiClientArgs,
+    method: Method,
+    path: &str,
+    body: Option<Value>,
+) -> Result<Value, InvokeError> {
+    let endpoint = build_url(api, path).map_err(InvokeError::Other)?;
+    let client = http_client(api).map_err(InvokeError::Other)?;
+    let mut last_unreachable = None;
+    let mut resp_ok = None;
+    for attempt in 0..2 {
+        let mut req = client.request(method.clone(), &endpoint);
+        if let Some(token) = resolve_token(api) {
+            req = req.header(AUTHORIZATION, format!("Bearer {token}"));
+        }
+        if let Some(payload) = &body {
+            req = req.json(payload);
+        }
+        match req.send().await {
+            Ok(resp) => {
+                resp_ok = Some(resp);
+                break;
+            }
+            Err(e) => {
+                last_unreachable = Some(format!("request failed ({endpoint}): {e}"));
+                if attempt == 0 && try_lazy_ensure(api).await {
+                    continue;
+                }
+            }
+        }
+    }
+    let Some(resp) = resp_ok else {
+        return Err(InvokeError::Unreachable(
+            last_unreachable.unwrap_or_else(|| "request failed".into()),
+        ));
+    };
+    let status = resp.status();
+    let body_text = resp
+        .text()
+        .await
+        .map_err(|e| InvokeError::Other(format!("read body: {e}")))?;
+    if status.as_u16() == 401 {
+        return Err(InvokeError::Unauthorized(
+            auth_hint_for_status(status)
+                .unwrap_or("unauthorized")
+                .to_string(),
+        ));
+    }
+    if !status.is_success() {
+        return Err(InvokeError::Http {
+            status: status.as_u16(),
+            body: body_text,
+        });
+    }
+    let value: Value = serde_json::from_str(&body_text)
+        .map_err(|e| InvokeError::Other(format!("parse json: {e}")))?;
+    if value.get("success").and_then(|v| v.as_bool()) == Some(true) {
+        return Ok(value.get("data").cloned().unwrap_or(Value::Null));
+    }
+    Ok(value.get("data").cloned().unwrap_or(value))
+}
+
 pub async fn get_json(api: &ApiClientArgs, path: &str) -> Result<Value, InvokeError> {
     let endpoint = build_url(api, path).map_err(InvokeError::Other)?;
     let client = http_client(api).map_err(InvokeError::Other)?;
-    let mut req = client.request(Method::GET, &endpoint);
-    if let Some(token) = resolve_token(api) {
-        req = req.header(AUTHORIZATION, format!("Bearer {token}"));
+    let mut last_unreachable = None;
+    let mut resp_ok = None;
+    for attempt in 0..2 {
+        let mut req = client.request(Method::GET, &endpoint);
+        if let Some(token) = resolve_token(api) {
+            req = req.header(AUTHORIZATION, format!("Bearer {token}"));
+        }
+        match req.send().await {
+            Ok(resp) => {
+                resp_ok = Some(resp);
+                break;
+            }
+            Err(e) => {
+                last_unreachable = Some(format!("request failed ({endpoint}): {e}"));
+                if attempt == 0 && try_lazy_ensure(api).await {
+                    continue;
+                }
+            }
+        }
     }
-    let resp = req
-        .send()
-        .await
-        .map_err(|e| InvokeError::Unreachable(format!("request failed ({endpoint}): {e}")))?;
+    let Some(resp) = resp_ok else {
+        return Err(InvokeError::Unreachable(
+            last_unreachable.unwrap_or_else(|| "request failed".into()),
+        ));
+    };
     let status = resp.status();
     let body_text = resp
         .text()
@@ -168,4 +272,28 @@ pub async fn get_json(api: &ApiClientArgs, path: &str) -> Result<Value, InvokeEr
 
 pub fn wrap_ok(command: &str, result: Value, next_actions: Vec<NextAction>) -> CliEnvelope {
     CliEnvelope::success(command, result, next_actions)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn product_http_lazy_ensures_runtime() {
+        let src = include_str!("server_invoke.rs");
+        assert!(src.contains("fn try_lazy_ensure"));
+        assert!(src.contains("cli_should_lazy_ensure"));
+        assert!(src.contains("ensure_running"));
+        // invoke, get_json, and request_json_ensured all retry after ensure
+        let ensured_fn = src
+            .split("pub async fn request_json_ensured")
+            .nth(1)
+            .expect("request_json_ensured");
+        let ensured_body = ensured_fn.split("pub async fn get_json").next().unwrap();
+        assert!(ensured_body.contains("try_lazy_ensure"));
+        let invoke_fn = src.split("pub async fn invoke").nth(1).unwrap();
+        let invoke_body = invoke_fn
+            .split("async fn invoke_read_response")
+            .next()
+            .unwrap();
+        assert!(invoke_body.contains("try_lazy_ensure"));
+    }
 }
