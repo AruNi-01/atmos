@@ -80,7 +80,12 @@ export function TerminalShortcutBar({
           ]}
           tintColor={theme.colors.terminalChromeTint}
         >
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.content}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.content}
+            style={styles.scroller}
+          >
             <ShortcutPopoverButton actions={CTRL_ACTIONS} label="Ctrl" onAction={fireShortcut} />
             <ShortcutButton label="Esc" onPress={() => fireShortcut("esc")} />
             <ShortcutButton label="Tab" onPress={() => fireShortcut("tab")} />
@@ -212,6 +217,11 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  scroller: {
+    flex: 1,
+    minWidth: 0,
+    overflow: "scroll",
+  },
   row: {
     alignItems: "center",
     flexDirection: "row",
@@ -222,7 +232,7 @@ const styles = StyleSheet.create({
     gap: spacing.terminalKeycapGap,
     minHeight: 44,
     paddingLeft: spacing.terminalChromeX,
-    paddingRight: 12,
+    paddingRight: 20,
     paddingVertical: 4,
   },
   fallback: {},
@@ -230,6 +240,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderCurve: "continuous",
     borderWidth: StyleSheet.hairlineWidth,
+    flexShrink: 0,
     justifyContent: "center",
     minHeight: 36,
     minWidth: 46,
@@ -239,6 +250,6 @@ const styles = StyleSheet.create({
     ...typography.terminalKeycapLabel,
   },
   trailingSpace: {
-    width: 8,
+    width: 16,
   },
 });

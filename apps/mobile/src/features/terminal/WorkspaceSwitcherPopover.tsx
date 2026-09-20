@@ -49,6 +49,7 @@ const styles = StyleSheet.create({
   workspaceTrigger: {
     alignItems: "center",
     flexDirection: "row",
+    flexShrink: 0,
     gap: 4,
     maxWidth: 120,
     minHeight: 36,

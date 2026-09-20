@@ -105,10 +105,12 @@ const styles = StyleSheet.create({
   scroller: {
     flex: 1,
     minWidth: 0,
+    overflow: "scroll",
   },
   tab: {
     borderCurve: "continuous",
     borderRadius: radii.terminalKeycap,
+    flexShrink: 0,
     justifyContent: "center",
     maxWidth: 160,
     minHeight: 32,
