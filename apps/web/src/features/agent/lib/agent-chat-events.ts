@@ -159,6 +159,20 @@ export function currentTurnHasRunningSubagent(messages: AgentMessage[]): boolean
   return false;
 }
 
+function assistantById(
+  messages: AgentMessage[],
+  preferredId?: string,
+): { message: AgentMessage; index: number } | null {
+  const id = preferredId?.trim();
+  if (!id) return null;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index]?.id === id) {
+      return { message: messages[index]!, index };
+    }
+  }
+  return null;
+}
+
 function currentTurnAssistant(
   messages: AgentMessage[],
   preferredId?: string,
@@ -193,7 +207,7 @@ function patchCurrentTurnAssistant(
   preferredId: string | undefined,
   patch: (message: AgentMessage) => AgentMessage,
 ): AgentMessage[] {
-  const existing = currentTurnAssistant(messages, preferredId);
+  const existing = assistantById(messages, preferredId) ?? currentTurnAssistant(messages, preferredId);
   if (existing) {
     return messages.map((item, index) => (index === existing.index ? patch(item) : item));
   }
@@ -426,7 +440,11 @@ function applyTextToMessages(
 ): FoldedChatEvent {
   const store = seedPartStore(messages);
   const durations = collectDurations(messages);
+  const existing = store.parts.get(chunk.part_id);
   const backfill = applyTextChunk(store, chunk);
+  if (existing) {
+    return { messages: projectMessages(messages, store, durations), backfill };
+  }
   const target = ensureCurrentTurnAssistant(messages, chunk.message_id);
   bindPartToMessage(store, chunk.part_id, target.message.id);
   return { messages: projectMessages(target.messages, store, durations), backfill };

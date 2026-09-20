@@ -449,6 +449,66 @@ describe("agent chat fold stays on AgentMessage", () => {
     expect(textFromParts(messages[3]!.parts)).toBe("second");
   });
 
+  it("does not copy a previous turn session lifecycle onto the next assistant", () => {
+    const firstUser = chatEvent("chat-1", 1, {
+      type: "user_message",
+      turn_id: "t1",
+      message_id: "u1",
+      text: "hello",
+    });
+    const lifecycle = chatEvent("chat-1", 2, {
+      type: "session_lifecycle",
+      turn_id: "t1",
+      message_id: "session-t1",
+      action: "create",
+      status: "completed",
+      duration_ms: 10_000,
+    });
+    const firstDelta = textChunk(3, {
+      part_id: "a1:0",
+      message_id: "a1",
+      text: "Hello! How can I help?",
+    });
+    const done = chatEvent("chat-1", 4, { type: "turn_completed", turn_id: "t1" });
+    const secondUser = chatEvent("chat-1", 5, {
+      type: "user_message",
+      turn_id: "t2",
+      message_id: "u2",
+      text: "介绍一下这个项目",
+    });
+    const replayedLifecycle = chatEvent("chat-1", 6, {
+      type: "session_lifecycle",
+      turn_id: "t1",
+      message_id: "session-t1",
+      action: "create",
+      status: "completed",
+      duration_ms: 10_000,
+    });
+    const replayedText = textChunk(7, {
+      part_id: "a1:0",
+      message_id: "a1",
+      text: "Hello! How can I help?",
+    });
+    const secondDelta = textChunk(8, {
+      part_id: "a2:0",
+      message_id: "a2",
+      text: "这是 Atmos",
+    });
+    let messages = foldMessagesFromEvent([], firstUser, "chat-1");
+    messages = foldMessagesFromEvent(messages, lifecycle, "chat-1");
+    messages = foldMessagesFromEvent(messages, firstDelta, "chat-1");
+    messages = foldMessagesFromEvent(messages, done, "chat-1");
+    messages = foldMessagesFromEvent(messages, secondUser, "chat-1");
+    messages = foldMessagesFromEvent(messages, replayedLifecycle, "chat-1");
+    messages = foldMessagesFromEvent(messages, replayedText, "chat-1");
+    messages = foldMessagesFromEvent(messages, secondDelta, "chat-1");
+    expect(messages.map((item) => item.role)).toEqual(["user", "assistant", "user", "assistant"]);
+    expect(messages[1]?.parts.some((part) => part.type === "session_lifecycle")).toBe(true);
+    expect(messages[3]?.parts.some((part) => part.type === "session_lifecycle")).toBe(false);
+    expect(textFromParts(messages[1]!.parts)).toBe("Hello! How can I help?");
+    expect(textFromParts(messages[3]!.parts)).toBe("这是 Atmos");
+  });
+
   it("folds tool calls into the live assistant message", () => {
     const tool = chatEvent("chat-1", 1, {
       type: "tool_call_started",

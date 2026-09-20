@@ -31,8 +31,9 @@ use super::types::{
     AgentChatEvent, AgentChatMeta, AgentChatPayload, AgentChatSessionOpOutcome, AgentChatSnapshot,
     FoldedMessage, MessagePart, Part, PartBody, PendingPermission, PendingSessionOp,
     ResolvedSessionConfig, RuntimeStatus, SessionAdvertisedOption, SessionAdvertisedOptionValue,
-    SessionConfigChange, SessionHintTone, ToolCallState, TranscriptEnvelope, TranscriptEvent,
-    TurnStatus, SESSION_HINT_MODEL_SWITCH_FAILED, SESSION_HINT_MODE_SWITCH_FAILED,
+    SessionConfigChange, SessionHintTone, SessionLifecycleAction, SessionLifecycleStatus,
+    ToolCallState, TranscriptEnvelope, TranscriptEvent, TurnStatus,
+    SESSION_HINT_MODEL_SWITCH_FAILED, SESSION_HINT_MODE_SWITCH_FAILED,
 };
 
 /// Cap for non-text recent events. Text is recovered by per-part backfill, not this ring.
@@ -1916,8 +1917,28 @@ fn stamp_open_thinking_duration(parts: &mut [MessagePart], duration_ms: u64) {
     }
 }
 
-fn overlay_target(messages: &[FoldedMessage], message_id: &str) -> Option<usize> {
-    if let Some(index) = messages.iter().rposition(|item| item.id == message_id) {
+fn message_has_overlay_part(message: &FoldedMessage, part_id: &str) -> bool {
+    message.parts.iter().any(|item| match item {
+        MessagePart::Text {
+            message_id: Some(id),
+            ..
+        } => id == part_id,
+        MessagePart::Thinking {
+            tool_call_id: Some(id),
+            ..
+        } => id == part_id,
+        _ => false,
+    })
+}
+
+fn overlay_target(messages: &[FoldedMessage], part: &Part) -> Option<usize> {
+    if let Some(index) = messages.iter().rposition(|item| item.id == part.message_id) {
+        return Some(index);
+    }
+    if let Some(index) = messages
+        .iter()
+        .rposition(|item| message_has_overlay_part(item, &part.id))
+    {
         return Some(index);
     }
     let start = messages
@@ -1934,7 +1955,7 @@ fn overlay_target(messages: &[FoldedMessage], message_id: &str) -> Option<usize>
 }
 
 fn overlay_tracked_part(messages: &mut Vec<FoldedMessage>, part: &Part) {
-    if let Some(index) = overlay_target(messages, &part.message_id) {
+    if let Some(index) = overlay_target(messages, part) {
         upsert_overlay_part(&mut messages[index], part);
         messages[index].parts = order_assistant_parts(std::mem::take(&mut messages[index].parts));
         if part.closed_at.is_none() && matches!(part.body, PartBody::Text { .. }) {
@@ -2989,6 +3010,81 @@ mod tests {
                 assert_eq!(answer, "final");
             }
             other => panic!("unexpected parts: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn overlay_does_not_clone_a_closed_part_onto_the_next_turn() {
+        let mut snapshot = snapshot_with_assistant();
+        snapshot.messages = vec![
+            FoldedMessage {
+                id: "u1".into(),
+                role: "user".into(),
+                parts: vec![MessagePart::Text {
+                    text: "hello".into(),
+                    parent_tool_call_id: None,
+                    message_id: None,
+                }],
+                created_at: Utc::now(),
+                ..Default::default()
+            },
+            FoldedMessage {
+                id: "session-t1".into(),
+                role: "assistant".into(),
+                parts: vec![
+                    MessagePart::SessionLifecycle {
+                        action: SessionLifecycleAction::Create,
+                        status: SessionLifecycleStatus::Completed,
+                        duration_ms: Some(10_000),
+                        error: None,
+                    },
+                    MessagePart::Text {
+                        text: "Hello! How can I help?".into(),
+                        parent_tool_call_id: None,
+                        message_id: Some("94709822:0".into()),
+                    },
+                ],
+                created_at: Utc::now(),
+                completed_at: Some(Utc::now()),
+                ..Default::default()
+            },
+            FoldedMessage {
+                id: "u2".into(),
+                role: "user".into(),
+                parts: vec![MessagePart::Text {
+                    text: "介绍一下这个项目".into(),
+                    parent_tool_call_id: None,
+                    message_id: None,
+                }],
+                created_at: Utc::now(),
+                ..Default::default()
+            },
+        ];
+        let mut state = runtime();
+        state.parts.insert(
+            "94709822:0".into(),
+            live_part(
+                "94709822:0",
+                "94709822",
+                TextKind::Answer,
+                "Hello! How can I help?",
+                true,
+            ),
+        );
+        overlay_live_state(&mut snapshot, &state);
+        assert_eq!(
+            snapshot
+                .messages
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["u1", "session-t1", "u2"]
+        );
+        match &snapshot.messages[1].parts[..] {
+            [MessagePart::SessionLifecycle { .. }, MessagePart::Text { text, .. }] => {
+                assert_eq!(text, "Hello! How can I help?");
+            }
+            other => panic!("unexpected first-turn parts: {other:?}"),
         }
     }
 

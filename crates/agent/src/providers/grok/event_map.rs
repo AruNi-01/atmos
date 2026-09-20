@@ -117,7 +117,6 @@ pub(crate) fn map_event(
     }
     match event {
         AcpSessionEvent::SessionReady { acp_session_id } => {
-            state.replaying = false;
             state.persistence = Some(AgentPersistenceHandle::new(acp_session_id.clone()));
             Some(wrap(
                 turn_id,

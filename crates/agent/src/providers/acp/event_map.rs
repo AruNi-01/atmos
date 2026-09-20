@@ -32,6 +32,10 @@ pub(crate) struct EventMapState {
     pub pending: VecDeque<AgentEventEnvelope>,
     pub assistant_message_id: Option<String>,
     pub thinking_message_id: Option<String>,
+    /// Last completed host-turn answer. Follow-up ACP streams that replay it
+    /// (Droid) are stripped so they cannot concatenate onto the next turn.
+    last_completed_answer: Option<String>,
+    replay_prefix: String,
     /// ACP exposes no part index, so part ids are `{message_id}:{ordinal}`.
     pub parts: TextParts,
     pub replaying: bool,
@@ -69,6 +73,8 @@ impl EventMapState {
             pending: VecDeque::new(),
             assistant_message_id: None,
             thinking_message_id: None,
+            last_completed_answer: None,
+            replay_prefix: String::new(),
             parts: TextParts::default(),
             replaying,
             capabilities,
@@ -148,7 +154,6 @@ pub(crate) fn map_event(
     }
     match event {
         AcpSessionEvent::SessionReady { acp_session_id } => {
-            state.replaying = false;
             state.persistence = Some(AgentPersistenceHandle::new(acp_session_id.clone()));
             Some(wrap(
                 turn_id,
@@ -395,7 +400,7 @@ fn map_stream(
         let event = map_thinking_stream(state, turn_id.clone(), delta);
         Some(complete_before_assistant(state, turn_id, event))
     } else if delta.role == "assistant" {
-        let event = map_assistant_stream(state, turn_id.clone(), delta);
+        let event = map_assistant_stream(state, turn_id.clone(), delta)?;
         Some(complete_before_thinking(state, turn_id, event))
     } else if delta.role == "user" {
         let tool = append_grok_child_prompt(
@@ -511,14 +516,24 @@ fn map_assistant_stream(
     state: &mut EventMapState,
     turn_id: Option<String>,
     delta: StreamDelta,
-) -> AgentEventEnvelope {
+) -> Option<AgentEventEnvelope> {
     if let Some(parent) = parent_tool_call_for_session(state, delta.session_id.as_deref()) {
         let message_id = format!("subagent-text:{parent}");
         let chunk = state
             .parts
             .nested_chunk(&message_id, parent, TextKind::Answer, delta.delta);
-        return wrap(turn_id, chunk);
+        return Some(wrap(turn_id, chunk));
     }
+    let text = match strip_last_answer_replay(state, &delta.delta) {
+        ReplayText::Swallow => {
+            if delta.done {
+                state.assistant_message_id = None;
+                state.replay_prefix.clear();
+            }
+            return None;
+        }
+        ReplayText::Emit(text) => text,
+    };
     let message_id = state
         .assistant_message_id
         .get_or_insert_with(|| uuid::Uuid::new_v4().to_string())
@@ -526,21 +541,63 @@ fn map_assistant_stream(
     let part_id = state.parts.synthesized_id(&message_id, TextKind::Answer);
     if delta.done {
         state.assistant_message_id = None;
-        if !delta.delta.is_empty() {
-            let chunk =
-                state
-                    .parts
-                    .chunk(&part_id, &message_id, None, TextKind::Answer, delta.delta);
-            let closed = state.parts.close(part_id, None);
+        let event = if !text.is_empty() {
+            let chunk = state
+                .parts
+                .chunk(&part_id, &message_id, None, TextKind::Answer, text);
+            let closed = state.parts.close(part_id.clone(), None);
             state.pending.push_back(wrap(turn_id.clone(), closed));
-            return wrap(turn_id, chunk);
-        }
-        return wrap(turn_id, state.parts.close(part_id, None));
+            wrap(turn_id, chunk)
+        } else {
+            wrap(turn_id, state.parts.close(part_id.clone(), None))
+        };
+        remember_completed_answer(state, &part_id);
+        return Some(event);
+    }
+    if text.is_empty() {
+        return None;
     }
     let chunk = state
         .parts
-        .chunk(&part_id, &message_id, None, TextKind::Answer, delta.delta);
-    wrap(turn_id, chunk)
+        .chunk(&part_id, &message_id, None, TextKind::Answer, text);
+    Some(wrap(turn_id, chunk))
+}
+
+enum ReplayText {
+    Emit(String),
+    Swallow,
+}
+
+fn strip_last_answer_replay(state: &mut EventMapState, incoming: &str) -> ReplayText {
+    let Some(prev) = state.last_completed_answer.as_deref() else {
+        return ReplayText::Emit(incoming.to_string());
+    };
+    if prev.is_empty() {
+        return ReplayText::Emit(incoming.to_string());
+    }
+    let mut combined = String::with_capacity(state.replay_prefix.len() + incoming.len());
+    combined.push_str(&state.replay_prefix);
+    combined.push_str(incoming);
+    if prev.starts_with(&combined) {
+        state.replay_prefix = combined;
+        return ReplayText::Swallow;
+    }
+    if let Some(suffix) = combined.strip_prefix(prev) {
+        state.last_completed_answer = None;
+        state.replay_prefix.clear();
+        return ReplayText::Emit(suffix.to_string());
+    }
+    state.last_completed_answer = None;
+    state.replay_prefix.clear();
+    ReplayText::Emit(incoming.to_string())
+}
+
+fn remember_completed_answer(state: &mut EventMapState, part_id: &str) {
+    let full = state.parts.text(part_id).to_string();
+    if !full.is_empty() {
+        state.last_completed_answer = Some(full);
+    }
+    state.replay_prefix.clear();
 }
 
 fn complete_before_thinking(
@@ -991,6 +1048,96 @@ mod tests {
         let mut state = EventMapState::new("gemini".into(), AgentCurrentConfig::default(), true);
         assert!(map_event(&mut state, None, AcpSessionEvent::LoadCompleted).is_none());
         assert!(!state.replaying);
+    }
+
+    #[test]
+    fn session_ready_does_not_clear_replay() {
+        let mut state =
+            EventMapState::new("factory-droid".into(), AgentCurrentConfig::default(), true);
+        let events = payloads(
+            &mut state,
+            AcpSessionEvent::SessionReady {
+                acp_session_id: "s".into(),
+            },
+        );
+        assert!(state.replaying);
+        assert!(matches!(
+            events.first(),
+            Some(AgentEvent::SessionStarted { .. })
+        ));
+        assert!(payloads(
+            &mut state,
+            stream_delta("message", "Hello! How can I help?")
+        )
+        .is_empty());
+    }
+
+    #[test]
+    fn follow_up_stream_strips_replayed_previous_answer() {
+        let mut state =
+            EventMapState::new("factory-droid".into(), AgentCurrentConfig::default(), false);
+        let first = payloads(
+            &mut state,
+            stream_delta("message", "Hello! How can I help?"),
+        );
+        assert!(matches!(
+            first.first(),
+            Some(AgentEvent::TextChunk { text, .. }) if text == "Hello! How can I help?"
+        ));
+        let done = payloads(
+            &mut state,
+            AcpSessionEvent::Stream(StreamDelta {
+                role: "assistant".into(),
+                kind: "message".into(),
+                delta: String::new(),
+                done: true,
+                usage: None,
+                session_id: None,
+            }),
+        );
+        assert!(done
+            .iter()
+            .any(|event| matches!(event, AgentEvent::PartClosed { .. })));
+
+        assert!(payloads(
+            &mut state,
+            stream_delta("message", "Hello! How can I help?")
+        )
+        .is_empty());
+        let next = payloads(&mut state, stream_delta("message", "这是 Atmos"));
+        assert!(matches!(
+            next.first(),
+            Some(AgentEvent::TextChunk { text, .. }) if text == "这是 Atmos"
+        ));
+    }
+
+    #[test]
+    fn follow_up_snapshot_emits_only_the_suffix_beyond_last_answer() {
+        let mut state =
+            EventMapState::new("factory-droid".into(), AgentCurrentConfig::default(), false);
+        let _ = payloads(
+            &mut state,
+            stream_delta("message", "Hello! How can I help?"),
+        );
+        let _ = payloads(
+            &mut state,
+            AcpSessionEvent::Stream(StreamDelta {
+                role: "assistant".into(),
+                kind: "message".into(),
+                delta: String::new(),
+                done: true,
+                usage: None,
+                session_id: None,
+            }),
+        );
+        let next = payloads(
+            &mut state,
+            stream_delta("message", "Hello! How can I help?这是 Atmos"),
+        );
+        assert!(matches!(
+            next.first(),
+            Some(AgentEvent::TextChunk { text, .. }) if text == "这是 Atmos"
+        ));
     }
 
     #[test]
