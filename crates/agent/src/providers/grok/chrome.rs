@@ -429,8 +429,6 @@ fn goal_role_from_label(label: &str) -> String {
         "verifying".into()
     } else if lower.contains("summar") {
         "summarizing".into()
-    } else if lower.contains("implement") || lower.contains("worker") {
-        "implementing".into()
     } else {
         "implementing".into()
     }

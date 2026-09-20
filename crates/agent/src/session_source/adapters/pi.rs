@@ -1007,7 +1007,7 @@ mod tests {
         assert_eq!(std::mem::size_of::<PiSource>(), 0);
         assert_eq!(PiSource.provider_id(), "pi");
         let missing = PathBuf::from("/no/such/pi-sessions");
-        assert!(list_in(&[missing.clone()]).is_empty());
+        assert!(list_in(std::slice::from_ref(&missing)).is_empty());
         assert!(parse_in(&[missing], "missing").is_empty());
         assert!(PiSource.parse("missing").unwrap().is_empty());
     }

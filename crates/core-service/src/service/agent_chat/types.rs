@@ -1357,7 +1357,7 @@ fn turn_timing(
     let prompt_at = turn_prompt_at(turn, prompt_fallback);
     let completed_at = turn
         .completed_at
-        .or_else(|| if live { None } else { turn.last_event_at });
+        .or(if live { None } else { turn.last_event_at });
     let worked_ms = turn.worked_ms.or_else(|| {
         if let Some(end) = completed_at {
             let ms = elapsed_ms(prompt_at, end);
@@ -2826,13 +2826,13 @@ mod idempotent_tests {
                 ));
                 offset += unit.len() as u64;
             }
-            if seed % 2 == 0 {
+            if seed.is_multiple_of(2) {
                 events.push(FoldEvent::Close {
                     part_id: part_id.clone(),
                 });
             }
         }
-        if seed % 3 == 0 {
+        if seed.is_multiple_of(3) {
             let tool_id = format!("tool-{seed}");
             events.push(FoldEvent::Tool {
                 tool_call_id: tool_id.clone(),

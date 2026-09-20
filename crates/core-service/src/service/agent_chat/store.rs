@@ -218,7 +218,7 @@ impl AgentChatStore {
         let mut records = Vec::new();
         read_envelopes(&self.dir_for(id).join("transcript.jsonl"), &mut records)?;
         read_envelopes(&self.dir_for(id).join("live.jsonl"), &mut records)?;
-        records.sort_by(|left, right| left.timestamp.cmp(&right.timestamp));
+        records.sort_by_key(|left| left.timestamp);
         Ok(materialize_text_part_from_envelopes(&records, part_id))
     }
 
@@ -601,7 +601,7 @@ fn fold_chat_dir(dir: &Path) -> Result<Vec<FoldedTurn>> {
     let mut records = Vec::new();
     read_envelopes(&dir.join("transcript.jsonl"), &mut records)?;
     read_envelopes(&dir.join("live.jsonl"), &mut records)?;
-    records.sort_by(|left, right| left.timestamp.cmp(&right.timestamp));
+    records.sort_by_key(|left| left.timestamp);
     Ok(fold_envelopes(records))
 }
 
@@ -1271,6 +1271,7 @@ fn apply_thinking_timing(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn apply_folded_text_part(
     turn: &mut FoldedTurn,
     part_id: String,

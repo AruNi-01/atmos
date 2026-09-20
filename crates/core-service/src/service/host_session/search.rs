@@ -105,7 +105,7 @@ pub fn snippet(text: &str, query: &str) -> String {
     let end = (char_idx + needle.chars().count() + SNIPPET_PAD_CHARS).min(chars.len());
     let mut out: String = chars[start..end].iter().collect();
     if start > 0 {
-        out.insert_str(0, "…");
+        out.insert(0, '…');
     }
     if end < chars.len() {
         out.push('…');
@@ -219,17 +219,14 @@ where
     let mut changed = false;
     let mut indexed = 0_u32;
     for join in joins {
-        match join.await {
-            Ok(Some(parsed)) => {
-                repo.replace_session_docs(&parsed.session_key, &parsed.docs)
-                    .await?;
-                repo.set_search_cursor(&parsed.session_key, parsed.mtime_ms, parsed.size, true)
-                    .await?;
-                repo.set_message_count(&parsed.session_key, Some(parsed.message_count))
-                    .await?;
-                changed = true;
-            }
-            _ => {}
+        if let Ok(Some(parsed)) = join.await {
+            repo.replace_session_docs(&parsed.session_key, &parsed.docs)
+                .await?;
+            repo.set_search_cursor(&parsed.session_key, parsed.mtime_ms, parsed.size, true)
+                .await?;
+            repo.set_message_count(&parsed.session_key, Some(parsed.message_count))
+                .await?;
+            changed = true;
         }
         indexed += 1;
         on_progress(indexed, total);

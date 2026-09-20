@@ -339,10 +339,10 @@ fn stamp_nested(payload: &mut AgentEvent, parent: &str) {
         AgentEvent::ToolCallStarted { tool_call }
         | AgentEvent::ToolCallUpdated { tool_call }
         | AgentEvent::ToolCallCompleted { tool_call }
-        | AgentEvent::ToolCallFailed { tool_call, .. } => {
-            if tool_call.parent_tool_call_id.is_none() {
-                tool_call.parent_tool_call_id = Some(parent.to_string());
-            }
+        | AgentEvent::ToolCallFailed { tool_call, .. }
+            if tool_call.parent_tool_call_id.is_none() =>
+        {
+            tool_call.parent_tool_call_id = Some(parent.to_string());
         }
         _ => {}
     }
@@ -1129,7 +1129,7 @@ mod tests {
         assert_eq!(std::mem::size_of::<OpenCodeSource>(), 0);
         assert_eq!(OpenCodeSource.provider_id(), "opencode");
         let missing = PathBuf::from("/no/such/opencode-home");
-        assert!(list_in(&[missing.clone()]).is_empty());
+        assert!(list_in(std::slice::from_ref(&missing)).is_empty());
         assert!(parse_in(&[missing], "missing").is_empty());
         assert!(OpenCodeSource.parse("missing").unwrap().is_empty());
     }

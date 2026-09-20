@@ -266,6 +266,7 @@ struct TrackedTool {
     turn_id: String,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn ingest_snapshot_file(
     path: &Path,
     native_id: &str,

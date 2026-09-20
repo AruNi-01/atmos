@@ -203,7 +203,7 @@ export function AgentObserverView() {
   const [expandedAgentIds, setExpandedAgentIds] = useState<Set<string>>(new Set());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [layoutNonce, setLayoutNonce] = useState(0);
-  const flowRef = useRef<ReactFlowInstance | null>(null);
+  const flowRef = useRef<ReactFlowInstance<Node<ObserverFlowData>, Edge> | null>(null);
 
   const graph = useMemo(
     () =>
@@ -322,7 +322,7 @@ export function AgentObserverView() {
               {connected ? t("empty") : t("disconnected")}
             </div>
           ) : (
-            <ReactFlow
+            <ReactFlow<Node<ObserverFlowData>, Edge>
               nodes={flowNodes}
               edges={flowEdges}
               nodeTypes={OBSERVER_NODE_TYPES}
