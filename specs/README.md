@@ -159,6 +159,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **QUALITY-003** | Playwright E2E Harness | `specs/APP/QUALITY-003_playwright-e2e-harness/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-004** | Architecture Review | `specs/APP/QUALITY-004_architecture-review/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-005** | TypeScript 7 Upgrade | `specs/APP/QUALITY-005_typescript-7-upgrade/` (`TECH.md`, `TEST.md`) |
+| **QUALITY-006** | Idempotent Agent Chat Event Model (append-only text + byte offsets, part tree, tool status lattice, log equals wire) | `specs/APP/QUALITY-006_agent-event-identity/` (`TECH.md`, `TEST.md`) |
 
 ### Landing
 

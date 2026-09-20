@@ -63,6 +63,7 @@
 | S24 | Service | `cargo test -p core-service` | CJK query | Chinese user text | session + hit | pass |
 | S25 | Service | `cargo test -p core-service` | tool/think only | assistant think + tool, no text | query on tool string misses | pass |
 | S26 | Service | `cargo test -p core-service` | list without waiting catchup | many sessions | list returns before all bodies indexed | pass |
+| S32 | Service + Bun | `cargo test`, `bun test` | index progress chip | pending bodies / catchup events | list has `search_progress`; header chip left of Refresh | pass |
 | S27 | Infra | `cargo test -p infra` | title row without parse | metadata replace | FTS title MATCH works | pass |
 | S28 | Unit | `cargo test -p core-service` | extract chunk | 40KB assistant text | two chunks, same seq/message_id | pass |
 | S29 | Infra | `cargo test -p infra` | title vs message rows | one session | one title row + N message rows | pass |
@@ -386,7 +387,7 @@ Updated 2026-09-17 after APP-075 transcript search (M13–M16).
 | S3, S9–S10, S18–S21 | pass | `cargo test -p agent --lib session_source` 42 passed (adapters emit `parent_native_id` children; Codex keeps subagent, skips guardian/memory) |
 | S4–S8, S11–S17, S23–S26, S28, S30 | pass | `cargo test -p core-service --lib host_session` 27 passed (user/CJK hits, thinking skipped, child locator, title-before-body, list does not wait for parse, 32KB chunk) |
 | S27, S29 | pass | `cargo test -p infra --lib host_session` 5 passed (FTS English + CJK, title rows, prune after replace_all, 2-char CJK via `instr` fallback) |
-| S1, S2, S18, S22, S31 | pass | bun `agent-sessions-host.test.ts`, locator href/`mid`/`seq`, DetailView `hostSessionMessageIndex` + `scrollToIndexRef` |
+| S1, S2, S18, S22, S31, S32 | pass | bun `agent-sessions-host.test.ts`, locator href/`mid`/`seq`, DetailView `hostSessionMessageIndex` + `scrollToIndexRef`, index progress chip left of Refresh |
 | WS catalog | pass | extract/check-actions 336, extract/check-events 36, `@atmos/api-types test` 23 pass |
 | Live homes | pass | `ATMOS_LIVE_HOST_SESSIONS=1 cargo test live_default_homes` listed 1683 sessions (claude 121, codex 425, opencode 168, pi 35, grok 796, cursor 138); get `grok:01a0aadd-f485-78e0-980e-a1cf180fbc36` returned 7 messages; Atmos chats dir listing unchanged |
 | agent-browser | pass | localhost:3030 `/agent-sessions`: placeholder “Search titles and messages”; query `IMAGE PROTOCOL PROBE` filtered Claude Code 121→1 with body snippet; click opened drawer at `?key=claude:3e916d98-…&mid=04875f1e-…&seq=0` on the matching user turn |

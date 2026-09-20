@@ -486,7 +486,7 @@ No new WS action. When `query` is non-empty:
 
 1. FTS `MATCH` → ranked search rows (limit 200).
 2. `DISTINCT root_session_key` preserves first-hit order, then existing provider/project/sort apply on those keys (`roots_only` still).
-3. Response adds `hits: HostSessionSearchHit[]` (one primary hit per returned session — first/best row) and `search_status: "indexing" | "ready"`.
+3. Response adds `hits: HostSessionSearchHit[]` (one primary hit per returned session — first/best row), `search_status: "indexing" | "ready"`, and `search_progress?: { indexed, total }` while bodies are catching up.
 4. If FTS is empty (index still catching up), fall back to metadata `LIKE` on title/cwd/project so the box is never dead.
 
 ```ts
@@ -499,9 +499,21 @@ type HostSessionSearchHit = {
   snippet: string;           // ~160 chars around the first term, not the 32KB body
 };
 
+type HostSessionSearchProgress = {
+  indexed: number;
+  total: number;
+};
+
 // host_session_list output
-{ sessions, total, scanned_at, hits?: HostSessionSearchHit[], search_status?: "indexing" | "ready" }
+{
+  sessions, total, scanned_at,
+  hits?: HostSessionSearchHit[],
+  search_status?: "indexing" | "ready",
+  search_progress?: HostSessionSearchProgress
+}
 ```
+
+Background catchup emits `host_session_index_updated` with `search_status: "indexing"` plus `search_progress` (throttled ~200ms, always 0/N and N/N). The web header shows a chip left of Refresh (`Indexing {percent}%`). Completion emits `search_status: "ready"` and the list refetches so message search works. Refresh of fingerprint-stale bodies uses the same progress events even when `search_body_pending` is already false.
 
 Snippet is computed in the service from stored `text` + query terms. Do not send full index text to the client.
 
@@ -514,7 +526,7 @@ Snippet is computed in the service from stored `text` + query terms. Do not send
 
 ### Event
 
-`host_session_index_updated` already exists. Emit it when catchup finishes (and after metadata sync). `apps/api` forwards via the same `spawn_ws_forwarder` pattern as local-services. Client already refetches on that event.
+`host_session_index_updated` already exists. Cheap metadata sync emits it without progress (client refetches). Catchup emits the same event with `search_status` + `search_progress` so the chip can move without refetching the list; `search_status: "ready"` refetches so message search works. `apps/api` forwards via the same `spawn_ws_forwarder` pattern as local-services.
 
 ### Rollout (search)
 
@@ -529,3 +541,5 @@ Snippet is computed in the service from stored `text` + query terms. Do not send
 - **Risk**: first catchup reads every jsonl. Mitigate: background, mtime+size skip, title rows first.
 - **Risk**: unstable Cursor/Grok ids. Mitigate: `seq` fallback.
 - **Rollback**: drop search tables; list `query` falls back to metadata LIKE; UI still works.
+
+<!-- updated 2026-09-19: message-index catchup emits `search_progress` on `host_session_index_updated`; Agent Sessions header shows a percent chip left of Refresh. -->
