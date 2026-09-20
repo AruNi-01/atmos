@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Modal, Pressable, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMobileTheme } from "@/theme/theme-store";
 
 type SnapPoint = "half" | "full" | { fraction: number } | { height: number };
@@ -20,15 +21,29 @@ export function ExpoDrawer({
   testID?: string;
 }) {
   const theme = useMobileTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Modal animationType="slide" onRequestClose={onDismiss} testID={testID} transparent visible={isPresented}>
       <Pressable onPress={onDismiss} style={styles.backdrop}>
         <Pressable
           onPress={() => {}}
-          style={[styles.sheet, { backgroundColor: theme.colors.sheetBackground }]}
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: theme.colors.sheetBackground,
+              paddingBottom: Math.max(insets.bottom, 28),
+            },
+          ]}
         >
-          <View style={styles.handle} />
+          <View
+            style={[
+              styles.handle,
+              {
+                backgroundColor: theme.isDark ? "rgba(235, 235, 245, 0.32)" : "rgba(60, 60, 67, 0.30)",
+              },
+            ]}
+          />
           <View style={styles.body}>{children}</View>
         </Pressable>
       </Pressable>
@@ -38,27 +53,27 @@ export function ExpoDrawer({
 
 const styles = StyleSheet.create({
   backdrop: {
-    backgroundColor: "rgba(0, 0, 0, 0.32)",
+    backgroundColor: "rgba(0, 0, 0, 0.36)",
     flex: 1,
     justifyContent: "flex-end",
   },
   body: {
-    paddingBottom: 28,
-    paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingHorizontal: 16,
+    paddingTop: 20,
   },
   handle: {
     alignSelf: "center",
-    backgroundColor: "rgba(60, 60, 67, 0.28)",
-    borderRadius: 2,
+    borderRadius: 999,
     height: 5,
-    marginBottom: 8,
+    marginTop: 12,
     width: 36,
   },
   sheet: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: "72%",
+    borderCurve: "continuous",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    boxShadow: "0 -12px 40px rgba(0, 0, 0, 0.28)",
+    maxHeight: "78%",
     width: "100%",
   },
 });

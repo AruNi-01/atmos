@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { TerminalGroupDrawer } from "@/features/terminal/TerminalGroupDrawer";
 import { TerminalShortcutBar } from "@/features/terminal/TerminalShortcutBar";
 import { TerminalTabsBar } from "@/features/terminal/TerminalTabsBar";
 import { WorkspaceSwitcherPopover } from "@/features/terminal/WorkspaceSwitcherPopover";
@@ -8,6 +10,7 @@ import {
   createMobileTerminalSessionId,
   nextActiveTerminalEntryId,
   resolveActiveTerminalEntry,
+  tabItemsFromEntries,
 } from "@/features/terminal/terminal-selection";
 import {
   getTerminalShortcutInput,
@@ -29,8 +32,7 @@ import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 import { TerminalIcon } from "@/ui/icons/lucide-native";
-import { nativeCompactTitleOptions } from "@/ui/navigation/native-screen-options";
-import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
+import { nativeTerminalTitleOptions } from "@/ui/navigation/native-screen-options";
 
 const FIRST_WORKSPACE_ID = PREVIEW_WORKSPACE_CHOICES[0]!.id;
 
@@ -53,10 +55,7 @@ export function PreviewTerminalScreen() {
   const workspace = previewWorkspaceById(workspaceId);
   const entries = entriesByWorkspace[workspaceId] ?? previewEntriesForWorkspace(workspaceId);
   const activeEntry = resolveActiveTerminalEntry(entries, activeByWorkspace[workspaceId]);
-  const tabItems = useMemo(
-    () => entries.map((entry) => ({ id: entry.id, label: entry.label })),
-    [entries],
-  );
+  const tabItems = useMemo(() => tabItemsFromEntries(entries), [entries]);
   const transcript = previewTranscript(
     workspaceId,
     activeEntry?.id ?? "",
@@ -150,9 +149,10 @@ export function PreviewTerminalScreen() {
 
   return (
     <>
+      <StatusBar style="light" />
       <Stack.Screen
         options={{
-          ...nativeCompactTitleOptions("Test page", theme.colors),
+          ...nativeTerminalTitleOptions("Test page", theme.colors),
           contentStyle: { backgroundColor: theme.colors.terminalBg },
           headerBackButtonDisplayMode: "minimal",
           headerRight: () => <PreviewModeSwitch variant="header" />,
@@ -184,10 +184,6 @@ export function PreviewTerminalScreen() {
               Mock · {PREVIEW_COMPUTER.display_name}
             </Text>
           </View>
-          <View
-            pointerEvents="none"
-            style={[styles.headerSeparator, { backgroundColor: theme.colors.glassBorder }]}
-          />
         </View>
         <ScrollView
           contentContainerStyle={styles.transcriptContent}
@@ -201,34 +197,13 @@ export function PreviewTerminalScreen() {
           <Text style={styles.cursor}>█</Text>
         </ScrollView>
         <TerminalShortcutBar enabled onShortcut={handleShortcut} />
-        <ExpoDrawer isPresented={groupOpen} onDismiss={() => setGroupOpen(false)}>
-          <Text style={[styles.drawerTitle, { color: theme.colors.label }]}>Terminals</Text>
-          {tabItems.map((entry) => {
-            const selected = entry.id === activeEntry?.id;
-            return (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                key={entry.id}
-                onPress={() => selectEntry(entry.id)}
-                style={({ pressed }) => [
-                  styles.drawerRow,
-                  pressed ? { backgroundColor: theme.colors.mutedPressed } : null,
-                ]}
-              >
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.drawerRowLabel,
-                    { color: selected ? theme.colors.label : theme.colors.secondaryLabel },
-                  ]}
-                >
-                  {entry.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ExpoDrawer>
+        <TerminalGroupDrawer
+          activeEntryId={activeEntry?.id ?? null}
+          entries={tabItems}
+          isPresented={groupOpen}
+          onDismiss={() => setGroupOpen(false)}
+          onSelect={selectEntry}
+        />
       </View>
     </>
   );
@@ -249,33 +224,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
     opacity: 0.7,
   },
-  drawerRow: {
-    justifyContent: "center",
-    minHeight: 44,
-    paddingVertical: 10,
-  },
-  drawerRowLabel: {
-    fontSize: 17,
-    lineHeight: 22,
-  },
-  drawerTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
   header: {
     alignItems: "center",
     flexDirection: "row",
     gap: spacing.terminalKeycapGap,
     minHeight: spacing.terminalHeaderMinHeight,
     paddingHorizontal: spacing.terminalHeaderX,
-  },
-  headerSeparator: {
-    bottom: 0,
-    height: StyleSheet.hairlineWidth,
-    left: spacing.terminalHeaderX,
-    position: "absolute",
-    right: spacing.terminalHeaderX,
   },
   headerTitle: {
     ...typography.terminalTitle,

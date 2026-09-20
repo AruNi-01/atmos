@@ -8,9 +8,10 @@ import {
   type KeyboardEvent,
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useQuery } from "@tanstack/react-query";
 import { EmptyState, InlineError } from "@/ui/layout/app-screen";
-import { nativeCompactTitleOptions } from "@/ui/navigation/native-screen-options";
+import { nativeCompactTitleOptions, nativeTerminalTitleOptions } from "@/ui/navigation/native-screen-options";
 import { TerminalShortcutBar } from "@/features/terminal/TerminalShortcutBar";
 import {
   TerminalScreen,
@@ -114,9 +115,10 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
 
   return (
     <>
+      <StatusBar style="light" />
       <Stack.Screen
         options={{
-          ...nativeCompactTitleOptions(workspaceTitle, theme.colors),
+          ...nativeTerminalTitleOptions(workspaceTitle, theme.colors),
           contentStyle: {
             backgroundColor: theme.colors.terminalBg,
           },

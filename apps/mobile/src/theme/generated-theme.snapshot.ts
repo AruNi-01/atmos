@@ -38,6 +38,7 @@ export const mobileGeneratedThemeSnapshot = {
   "--color-terminal-bg": "#09090b",
   "--color-terminal-chrome-fallback": "rgba(9, 9, 11, 0.92)",
   "--color-terminal-chrome-tint": "rgba(9, 9, 11, 0.78)",
+  "--color-terminal-elevated": "#18181b",
   "--color-terminal-fg": "#f8f8f8",
   "--color-terminal-keycap-pressed": "rgba(248, 250, 252, 0.16)",
   "--color-terminal-keycap": "rgba(248, 250, 252, 0.10)",

@@ -94,6 +94,7 @@ export function TerminalShortcutBar({
               openOnLongPress
             />
             <ShortcutPopoverButton actions={AGENT_ACTIONS} label="Agent" onAction={fireShortcut} />
+            <View style={styles.trailingSpace} />
           </ScrollView>
         </GlassPanel>
         {keyboardVisible && onDismissKeyboard ? (
@@ -163,7 +164,7 @@ function ShortcutPopoverButton({
       <IosPopover.Trigger>
         <ShortcutButton label={label} onPress={defaultActionId ? () => onAction(defaultActionId) : undefined} />
       </IosPopover.Trigger>
-      <IosPopover.Content style={{ backgroundColor: theme.colors.terminalBg }}>
+      <IosPopover.Content style={{ backgroundColor: theme.colors.terminalElevated }}>
         <PopoverActionList>
           {actions.map((action) => (
             <PopoverActionRow
@@ -220,7 +221,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.terminalKeycapGap,
     minHeight: 44,
-    paddingHorizontal: spacing.terminalChromeX,
+    paddingLeft: spacing.terminalChromeX,
+    paddingRight: 12,
     paddingVertical: 4,
   },
   fallback: {},
@@ -235,5 +237,8 @@ const styles = StyleSheet.create({
   },
   keycapText: {
     ...typography.terminalKeycapLabel,
+  },
+  trailingSpace: {
+    width: 8,
   },
 });

@@ -1,6 +1,7 @@
 /** Terminal surface is always Web-dark (#09090b) regardless of app color scheme. */
 export const terminalSurfaceColors = {
   terminalBg: "#09090b",
+  terminalElevated: "#18181b",
   terminalFg: "#f8f8f8",
   terminalMuted: "#a1a1aa",
   terminalScrollbar: "rgba(161, 161, 170, 0.34)",

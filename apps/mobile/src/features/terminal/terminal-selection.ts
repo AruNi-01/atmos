@@ -90,6 +90,43 @@ export function resolveActiveTerminalEntry(
   return nextActiveId ? entries.find((entry) => entry.id === nextActiveId) ?? null : null;
 }
 
+export type TerminalGroupItem = {
+  detail?: string;
+  id: string;
+  label: string;
+};
+
+export function tabItemsFromEntries(
+  entries: MobileTerminalEntry[],
+  titleFor?: (entry: MobileTerminalEntry) => string,
+): TerminalGroupItem[] {
+  const labels = entries.map((entry) => titleFor?.(entry) ?? entry.label);
+  const labelCounts = new Map<string, number>();
+  for (const label of labels) {
+    labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
+  }
+
+  return entries.map((entry, index) => {
+    const label = labels[index]!;
+    return {
+      detail: drawerDetail(entry, (labelCounts.get(label) ?? 0) > 1),
+      id: entry.id,
+      label,
+    };
+  });
+}
+
+function drawerDetail(entry: MobileTerminalEntry, duplicateLabel: boolean): string | undefined {
+  if (entry.isNew) return "New";
+  if (!duplicateLabel) return undefined;
+  const windowLabel = entry.tmuxWindowIndex != null ? `Window ${entry.tmuxWindowIndex}` : undefined;
+  const tail = entry.id.split(":").pop();
+  if (windowLabel && tail && tail !== String(entry.tmuxWindowIndex)) {
+    return `${windowLabel} · ${tail}`;
+  }
+  return windowLabel ?? (tail && tail !== entry.label ? tail : undefined);
+}
+
 function isDefaultTerminalEntry(entry: MobileTerminalEntry, workspaceId: string) {
   return entry.id === `${workspaceId}:default` && entry.isNew;
 }

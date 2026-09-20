@@ -28,7 +28,7 @@ export function WorkspaceSwitcherPopover({
           <ChevronDownIcon color={theme.colors.terminalMuted} size={14} strokeWidth={2.4} />
         </View>
       </IosPopover.Trigger>
-      <IosPopover.Content style={{ backgroundColor: theme.colors.terminalBg }}>
+      <IosPopover.Content style={{ backgroundColor: theme.colors.terminalElevated }}>
         <PopoverActionList>
           {workspaces.map((workspace) => (
             <PopoverActionRow

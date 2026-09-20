@@ -1,6 +1,7 @@
 import { Pressable, Switch, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { usePreviewStore } from "@/stores/preview-store";
+import { radii } from "@/theme/radii";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -55,7 +56,15 @@ export function PreviewModeSwitch({
 
   if (variant === "hero") {
     return (
-      <View style={styles.heroRow}>
+      <View
+        style={[
+          styles.heroCard,
+          {
+            backgroundColor: theme.colors.cardElevated,
+            borderColor: theme.colors.glassBorder,
+          },
+        ]}
+      >
         {copy}
         {switchControl}
       </View>
@@ -79,12 +88,18 @@ const styles = StyleSheet.create({
   headerWrap: {
     paddingHorizontal: 8,
   },
-  heroRow: {
+  heroCard: {
     alignItems: "center",
+    borderCurve: "continuous",
+    borderRadius: radii.card,
+    borderWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     gap: 12,
+    marginTop: 18,
     maxWidth: 340,
-    paddingTop: 18,
+    overflow: "hidden",
+    paddingHorizontal: spacing.rowX,
+    paddingVertical: 12,
     width: "100%",
   },
   row: {

@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
-import { Modal, Pressable, StyleSheet, type StyleProp, type ViewStyle } from "react-native";
+import { Modal, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import type {
   IosPopoverDirection,
   IosPopoverProps,
@@ -80,9 +80,11 @@ function Content({
   return (
     <Modal animationType="fade" onRequestClose={close} transparent visible={visible}>
       <Pressable onPress={close} style={[styles.backdrop, pinToBottom ? styles.backdropBottom : styles.backdropTop]}>
-        <Pressable onPress={() => {}} style={[styles.card, style]}>
-          {children}
-        </Pressable>
+        <View style={styles.cardShadow}>
+          <Pressable onPress={() => {}} style={[styles.card, style]}>
+            {children}
+          </Pressable>
+        </View>
       </Pressable>
     </Modal>
   );
@@ -116,6 +118,7 @@ function MenuPressable({
 
 const styles = StyleSheet.create({
   backdrop: {
+    alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.32)",
     flex: 1,
     paddingHorizontal: 20,
@@ -130,8 +133,20 @@ const styles = StyleSheet.create({
   },
   card: {
     borderCurve: "continuous",
-    borderRadius: 14,
+    borderRadius: 16,
     overflow: "hidden",
+  },
+  cardShadow: {
+    alignSelf: "center",
+    borderRadius: 16,
+    boxShadow: "0 12px 40px rgba(0, 0, 0, 0.28)",
+    elevation: 12,
+    maxWidth: 280,
+    shadowColor: "#000",
+    shadowOffset: { height: 8, width: 0 },
+    shadowOpacity: 0.28,
+    shadowRadius: 20,
+    width: "100%",
   },
 });
 

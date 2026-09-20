@@ -30,3 +30,20 @@ export function nativeCompactTitleOptions(title: string, themeColors: MobileThem
     },
   };
 }
+
+/** Compact header that matches the always-dark terminal surface. */
+export function nativeTerminalTitleOptions(title: string, themeColors: MobileThemeColors = colors) {
+  return {
+    title,
+    headerLargeTitleEnabled: false,
+    headerTransparent: false,
+    headerShadowVisible: false,
+    headerStyle: { backgroundColor: themeColors.terminalBg },
+    headerTintColor: themeColors.terminalFg,
+    headerTitleAlign: "center" as const,
+    headerTitleStyle: {
+      color: themeColors.terminalFg,
+      fontWeight: "600" as const,
+    },
+  };
+}

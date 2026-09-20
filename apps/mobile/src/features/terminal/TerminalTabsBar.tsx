@@ -97,10 +97,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
-    gap: 4,
+    gap: 6,
     minHeight: spacing.terminalHeaderMinHeight,
-    paddingHorizontal: spacing.terminalChromeX,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   scroller: {
     flex: 1,
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   tabs: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 4,
-    paddingRight: 4,
+    gap: 6,
+    paddingRight: 8,
   },
 });

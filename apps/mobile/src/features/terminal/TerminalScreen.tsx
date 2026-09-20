@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Keyboard, Pressable, StyleSheet, Text, View } from "react-native";
+import { Keyboard, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import { getTerminalDisplayMeta, type ContestedOwnersMap } from "@atmos/shared/terminal";
 import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
+import { TerminalGroupDrawer } from "@/features/terminal/TerminalGroupDrawer";
 import { TerminalTabsBar } from "@/features/terminal/TerminalTabsBar";
 import { TerminalWebView, type TerminalWebViewHandle } from "@/features/terminal/TerminalWebView";
 import {
@@ -14,6 +15,7 @@ import { useContestedCliOwners } from "@/features/terminal/use-contested-cli-own
 import {
   createMobileTerminalSessionId,
   resolveActiveTerminalEntry,
+  tabItemsFromEntries,
 } from "@/features/terminal/terminal-selection";
 import {
   getTerminalPasteInput,
@@ -35,7 +37,6 @@ import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 import { WorkspaceSwitcherPopover } from "@/features/terminal/WorkspaceSwitcherPopover";
 import { BotIcon, TerminalIcon } from "@/ui/icons/lucide-native";
-import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
 
 const EMPTY_TERMINAL_ENTRIES: MobileTerminalEntry[] = [];
 
@@ -97,10 +98,9 @@ export function TerminalScreen({
 
   const tabItems = useMemo(
     () =>
-      ensuredEntries.map((entry) => ({
-        id: entry.id,
-        label: getMobileTerminalDisplayMeta(entry, contestedOwners).displayTitle,
-      })),
+      tabItemsFromEntries(ensuredEntries, (entry) =>
+        getMobileTerminalDisplayMeta(entry, contestedOwners).displayTitle,
+      ),
     [contestedOwners, ensuredEntries],
   );
 
@@ -286,34 +286,13 @@ export function TerminalScreen({
           </Text>
         </View>
       )}
-      <ExpoDrawer isPresented={groupOpen} onDismiss={() => setGroupOpen(false)}>
-        <Text style={[styles.drawerTitle, { color: theme.colors.label }]}>Terminals</Text>
-        {tabItems.map((entry) => {
-          const selected = entry.id === activeEntry?.id;
-          return (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              key={entry.id}
-              onPress={() => selectEntry(entry.id)}
-              style={({ pressed }) => [
-                styles.drawerRow,
-                pressed ? { backgroundColor: theme.colors.mutedPressed } : null,
-              ]}
-            >
-              <Text
-                numberOfLines={1}
-                style={[
-                  styles.drawerRowLabel,
-                  { color: selected ? theme.colors.label : theme.colors.secondaryLabel },
-                ]}
-              >
-                {entry.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ExpoDrawer>
+      <TerminalGroupDrawer
+        activeEntryId={activeEntry?.id ?? null}
+        entries={tabItems}
+        isPresented={groupOpen}
+        onDismiss={() => setGroupOpen(false)}
+        onSelect={selectEntry}
+      />
     </View>
   );
 }
@@ -364,10 +343,6 @@ function MobileTerminalHeader({
           <Text style={[styles.terminalStatusText, { color: themeColors.terminalMuted }]}>{statusLabel}</Text>
         </View>
       ) : null}
-      <View
-        pointerEvents="none"
-        style={[styles.terminalHeaderSeparator, { backgroundColor: themeColors.glassBorder }]}
-      />
     </View>
   );
 }
@@ -398,20 +373,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
     textAlign: "center",
-  },
-  drawerRow: {
-    minHeight: 44,
-    justifyContent: "center",
-    paddingVertical: 10,
-  },
-  drawerRowLabel: {
-    fontSize: 17,
-    lineHeight: 22,
-  },
-  drawerTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    marginBottom: 8,
   },
   error: {
     backgroundColor: colors.redSurface,
@@ -450,13 +411,6 @@ const styles = StyleSheet.create({
     gap: spacing.terminalKeycapGap,
     minHeight: spacing.terminalHeaderMinHeight,
     paddingHorizontal: spacing.terminalHeaderX,
-  },
-  terminalHeaderSeparator: {
-    bottom: 0,
-    height: StyleSheet.hairlineWidth,
-    left: spacing.terminalHeaderX,
-    position: "absolute",
-    right: spacing.terminalHeaderX,
   },
   terminalShell: {
     flex: 1,

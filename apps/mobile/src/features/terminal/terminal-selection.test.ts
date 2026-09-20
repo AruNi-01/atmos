@@ -8,6 +8,7 @@ import {
   nextActiveTerminalEntryId,
   resolveActiveTerminalEntry,
   sortTerminalEntries,
+  tabItemsFromEntries,
 } from "./terminal-selection";
 
 function entry(id: string): MobileTerminalEntry {
@@ -166,5 +167,41 @@ describe("terminal selection", () => {
     );
 
     expect(entries.map((item) => item.id)).toEqual(["tmux:workspace:2", "workspace:mobile-local"]);
+  });
+
+  test("adds drawer detail only for duplicate labels and new terminals", () => {
+    const items = tabItemsFromEntries([
+      {
+        id: "tmux:workspace:0",
+        workspaceId: "workspace",
+        label: "editor",
+        tmuxWindowIndex: 0,
+      },
+      {
+        id: "tmux:workspace:1:tab",
+        workspaceId: "workspace",
+        label: "zsh",
+        tmuxWindowIndex: 1,
+      },
+      {
+        id: "tmux:workspace:1:window",
+        workspaceId: "workspace",
+        label: "zsh",
+        tmuxWindowIndex: 1,
+      },
+      {
+        id: "workspace:mobile-local",
+        workspaceId: "workspace",
+        label: "Terminal 4",
+        isNew: true,
+      },
+    ]);
+
+    expect(items).toEqual([
+      { id: "tmux:workspace:0", label: "editor" },
+      { detail: "Window 1 · tab", id: "tmux:workspace:1:tab", label: "zsh" },
+      { detail: "Window 1 · window", id: "tmux:workspace:1:window", label: "zsh" },
+      { detail: "New", id: "workspace:mobile-local", label: "Terminal 4" },
+    ]);
   });
 });
