@@ -34,6 +34,7 @@ import { fsApi } from '@/api/ws-api';
 import { BaseCodeMirrorEditor } from './BaseCodeMirrorEditor';
 import { setCodeMirrorSearchPanelMessages } from './codemirror-search-panel';
 import { MarkdownFindPanel } from './MarkdownFindPanel';
+import { FindHighlightLayer, FindHighlightProvider } from './FindPanel';
 import { useSelectionPopover } from '@/features/selection/hooks/use-selection-popover';
 import { SelectionPopover } from '@/features/selection/components/SelectionPopover';
 import { usePathname } from "next/navigation";
@@ -1039,12 +1040,14 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                 CENTER_EXPLORER_BODY_INSET_CLASS,
               )}
             >
+            <FindHighlightProvider>
             {isLive && surfaceActive ? (
               <div
                 id="editor-preview-root"
                 ref={setPreviewRoot}
                 className="absolute inset-0 overflow-y-auto overscroll-contain scroll-smooth bg-background"
               >
+                <div data-markdown-find-content="" className="relative min-h-full">
                 <MarkdownLiveEditor
                   key={file.path}
                   filePath={file.path}
@@ -1052,6 +1055,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                   onChange={handleEditorChange}
                   onSave={() => void handleSave()}
                 />
+                <FindHighlightLayer />
+                </div>
               </div>
             ) : null}
             <div className={cn("absolute inset-0", (isPreview || isLive) && "hidden")}>
@@ -1100,6 +1105,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                 ref={setPreviewRoot}
                 className="absolute inset-0 overflow-y-auto overscroll-contain bg-background px-8 py-12 scroll-smooth"
               >
+                <div data-markdown-find-content="" className="relative min-h-full">
                   {reportMetadata ? (
                     <ReviewReportMetadataCard metadata={reportMetadata} />
                   ) : null}
@@ -1109,7 +1115,9 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                   >
                     {previewBody}
                   </MarkdownRenderer>
+                  <FindHighlightLayer />
                 </div>
+              </div>
             )}
 
             {isPreview && isMarkdown && (
@@ -1142,6 +1150,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                 scopeRef={liveChromeRef}
               />
             ) : null}
+            </FindHighlightProvider>
             </div>
               </>
             )}

@@ -1,5 +1,7 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   applyWarmTouch,
   buildProtectSignals,
@@ -161,6 +163,9 @@ describe("resolveFrameActiveTab / panel visibility", () => {
   it("terminal keep-alive panels avoid display:none class names", () => {
     expect(terminalKeepAlivePanelClass(true)).toBe("atmos-terminal-panel-active");
     expect(terminalKeepAlivePanelClass(false)).toBe("atmos-terminal-panel-keepalive");
+    const css = readFileSync(join(import.meta.dir, "../../app/globals.css"), "utf8");
+    expect(css).toContain("[data-workspace-frame][data-tier=\"warm\"] *");
+    expect(css).toContain("animation-play-state: paused !important");
     expect(terminalKeepAlivePanelClass(false)).not.toContain("hidden");
     expect(lightSurfacePanelClass(true)).toContain("absolute");
     expect(lightSurfacePanelClass(true)).toContain("bg-background");

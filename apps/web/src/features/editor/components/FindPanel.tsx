@@ -1,14 +1,15 @@
 "use client";
 
 import React, {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useTranslations } from "next-intl";
 import {
@@ -21,9 +22,10 @@ import {
 } from "lucide-react";
 import { cn } from "@workspace/ui";
 import {
-  clipFindHighlightRect,
+  contentFindHighlightRect,
   findMarkdownHits,
   markdownFindCounter,
+  resolveFindHighlightHost,
   scrollMarkdownFindHitIntoView,
   type FindHighlightBox,
   type MarkdownFindHit,
@@ -38,14 +40,56 @@ function selectedSearchSeed(): string {
   return trimmed;
 }
 
+type FindHighlightSetter = (boxes: FindHighlightBox[]) => void;
+
+const FindHighlightBoxesContext = createContext<FindHighlightBox[]>([]);
+const FindHighlightSetContext = createContext<FindHighlightSetter | null>(null);
+
+export function FindHighlightProvider({ children }: { children: React.ReactNode }) {
+  const [boxes, setBoxes] = useState<FindHighlightBox[]>([]);
+  return (
+    <FindHighlightSetContext.Provider value={setBoxes}>
+      <FindHighlightBoxesContext.Provider value={boxes}>
+        {children}
+      </FindHighlightBoxesContext.Provider>
+    </FindHighlightSetContext.Provider>
+  );
+}
+
+export function FindHighlightLayer() {
+  const boxes = useContext(FindHighlightBoxesContext);
+  if (boxes.length === 0) return null;
+  return (
+    <div
+      data-markdown-find-highlight=""
+      className="pointer-events-none absolute inset-0 z-10 overflow-visible"
+    >
+      {boxes.map((box, index) => (
+        <span
+          key={`${box.top}-${box.left}-${index}`}
+          className={
+            box.current
+              ? "absolute rounded-sm bg-[#fde047aa] dark:bg-[#ca8a0444]"
+              : "absolute rounded-sm bg-[#fef08a99] dark:bg-[#854d0e55]"
+          }
+          style={{
+            top: box.top,
+            left: box.left,
+            width: box.width,
+            height: box.height,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function hitBoxes(
   root: HTMLElement,
-  layer: HTMLElement,
   hits: MarkdownFindHit[],
   currentIndex: number,
 ): FindHighlightBox[] {
-  const rootRect = root.getBoundingClientRect();
-  const origin = layer.getBoundingClientRect();
+  const origin = resolveFindHighlightHost(root).getBoundingClientRect();
   const boxes: FindHighlightBox[] = [];
   hits.forEach((hit, index) => {
     const range = root.ownerDocument.createRange();
@@ -56,7 +100,7 @@ function hitBoxes(
       return;
     }
     for (const rect of Array.from(range.getClientRects())) {
-      const box = clipFindHighlightRect(rect, rootRect, origin);
+      const box = contentFindHighlightRect(rect, origin);
       if (!box) continue;
       boxes.push({ ...box, current: index === currentIndex });
     }
@@ -144,14 +188,13 @@ export function FindPanel({
 }) {
   const t = useTranslations("editor.codeMirrorSearchPanel");
   const inputRef = useRef<HTMLInputElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
+  const setBoxes = useContext(FindHighlightSetContext);
   const activeIndexRef = useRef(0);
   const [search, setSearch] = useState(seed ?? "");
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [wholeWord, setWholeWord] = useState(false);
   const [regexp, setRegexp] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [boxes, setBoxes] = useState<FindHighlightBox[]>([]);
   const [hitCount, setHitCount] = useState(0);
   const [invalid, setInvalid] = useState(false);
   const hitsRef = useRef<MarkdownFindHit[]>([]);
@@ -169,21 +212,21 @@ export function FindPanel({
 
   const paintHits = useCallback(
     (hits: MarkdownFindHit[], index: number) => {
+      if (!setBoxes) return;
       if (!root) {
         setBoxes([]);
         return;
       }
-      const layer = overlayRef.current;
-      setBoxes(layer ? hitBoxes(root, layer, hits, index) : []);
+      setBoxes(hitBoxes(root, hits, index));
     },
-    [root],
+    [root, setBoxes],
   );
 
   const scan = useCallback(
     (opts?: { index?: number; scroll?: boolean }) => {
       if (!open || !root) {
         hitsRef.current = [];
-        setBoxes([]);
+        setBoxes?.([]);
         setHitCount(0);
         setInvalid(false);
         return;
@@ -209,7 +252,7 @@ export function FindPanel({
       const current = hits[index];
       if (current) scrollMarkdownFindHitIntoView(root, current);
     },
-    [open, paintHits, query, root, scopeSelector],
+    [open, paintHits, query, root, scopeSelector, setBoxes],
   );
 
   useEffect(() => {
@@ -247,18 +290,29 @@ export function FindPanel({
   useEffect(() => {
     if (!open || !root) return;
     let frame: number | null = null;
-    const onScrollOrResize = () => {
+    const onLayout = () => {
       if (frame != null) return;
       frame = window.requestAnimationFrame(() => {
         frame = null;
         paintHits(hitsRef.current, activeIndexRef.current);
       });
     };
-    root.addEventListener("scroll", onScrollOrResize, { passive: true });
-    window.addEventListener("scroll", onScrollOrResize, true);
-    window.addEventListener("resize", onScrollOrResize);
+    window.addEventListener("resize", onLayout);
+    const resizeObserver = new ResizeObserver(onLayout);
+    resizeObserver.observe(root);
+    const host = resolveFindHighlightHost(root);
+    if (host !== root) resizeObserver.observe(host);
     const observer = new MutationObserver((mutations) => {
+      const isFindChrome = (node: Node | null) => {
+        const element = node instanceof Element ? node : node?.parentElement;
+        return Boolean(
+          element?.closest("[data-markdown-find-highlight], [data-markdown-find-panel]"),
+        );
+      };
       const relevant = mutations.some((mutation) => {
+        if (isFindChrome(mutation.target)) return false;
+        const sideNodes = [...mutation.addedNodes, ...mutation.removedNodes];
+        if (sideNodes.length > 0 && sideNodes.every(isFindChrome)) return false;
         const node =
           mutation.target instanceof Element
             ? mutation.target
@@ -272,9 +326,8 @@ export function FindPanel({
     });
     observer.observe(root, { subtree: true, childList: true, characterData: true });
     return () => {
-      root.removeEventListener("scroll", onScrollOrResize);
-      window.removeEventListener("scroll", onScrollOrResize, true);
-      window.removeEventListener("resize", onScrollOrResize);
+      window.removeEventListener("resize", onLayout);
+      resizeObserver.disconnect();
       observer.disconnect();
       if (frame != null) window.cancelAnimationFrame(frame);
     };
@@ -336,38 +389,10 @@ export function FindPanel({
   const hasMatches = Boolean(counter);
 
   return (
-    <>
-      {root
-        ? createPortal(
-            <div
-              ref={overlayRef}
-              data-markdown-find-highlight=""
-              className="pointer-events-none fixed top-0 left-0 z-10 h-0 w-0 overflow-visible"
-            >
-              {boxes.map((box, index) => (
-                <span
-                  key={`${box.top}-${box.left}-${index}`}
-                  className={
-                    box.current
-                      ? "absolute rounded-sm bg-[#fde047aa] dark:bg-[#ca8a0444]"
-                      : "absolute rounded-sm bg-[#fef08a99] dark:bg-[#854d0e55]"
-                  }
-                  style={{
-                    top: box.top,
-                    left: box.left,
-                    width: box.width,
-                    height: box.height,
-                  }}
-                />
-              ))}
-            </div>,
-            root,
-          )
-        : null}
-      <div
-        data-markdown-find-panel=""
-        className="cm-atmos-search pointer-events-auto absolute top-2 right-2 z-30 w-[min(26rem,calc(100%-1rem))]"
-      >
+    <div
+      data-markdown-find-panel=""
+      className="cm-atmos-search pointer-events-auto absolute top-2 right-2 z-30 w-[min(26rem,calc(100%-1rem))]"
+    >
         <div className="cm-atmos-search__header">
           <div className="cm-atmos-search__title-group">
             <span className="cm-atmos-search__title">{t("find")}</span>
@@ -461,6 +486,5 @@ export function FindPanel({
           </div>
         </div>
       </div>
-    </>
   );
 }

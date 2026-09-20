@@ -24,9 +24,13 @@ describe("FindPanel", () => {
     expect(css).toContain(".cm-atmos-search");
     expect(css).not.toContain("backdrop-filter");
     expect(css).not.toContain("box-shadow");
-    expect(panel).toContain("clipFindHighlightRect");
-    expect(panel).toContain("fixed top-0 left-0 z-10");
+    expect(panel).toContain("contentFindHighlightRect");
+    expect(panel).toContain("FindHighlightLayer");
+    expect(panel).toContain("FindHighlightProvider");
+    expect(panel).toContain("absolute inset-0 z-10");
+    expect(panel).not.toContain("fixed top-0 left-0 z-10");
     expect(panel).not.toContain("root.scrollTop");
+    expect(panel).not.toContain('addEventListener("scroll"');
     expect(markdown).toContain('from "./FindPanel"');
     expect(markdown).toContain("seedFromSelection");
     expect(markdown).toContain("searchPanel.findInFile");
@@ -36,8 +40,10 @@ describe("FindPanel", () => {
     const chat = readRel("../../../agent/components/AgentChatPanel.tsx");
     const host = readRel("../../../agent-sessions/components/HostSessionDetailView.tsx");
     expect(chat).toContain("@/features/editor/components/FindPanel");
+    expect(chat).toContain("FindHighlightProvider");
     expect(chat).toContain("TRANSCRIPT_FIND_SCOPE");
     expect(host).toContain("@/features/editor/components/FindPanel");
+    expect(host).toContain("FindHighlightProvider");
     expect(host).toContain("TRANSCRIPT_FIND_SCOPE");
     expect(host).toContain("onQueryChange");
     expect(host).toContain("keepMessageIndexes");

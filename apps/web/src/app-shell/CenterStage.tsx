@@ -721,12 +721,12 @@ const CenterStage: React.FC = () => {
     const last = readCenterStageLastTab(effectiveContextId);
     if (!last) return;
     if (
-      !FIXED_TABS.has(last) &&
-      !isTerminalCenterTabValue(last) &&
-      !isAgentChatTabValue(last) &&
       !last.startsWith("github-") &&
       !last.startsWith("git-commit:") &&
-      !last.startsWith("browser:")
+      !last.startsWith("browser:") &&
+      !FIXED_TABS.has(last) &&
+      !isTerminalCenterTabValue(last) &&
+      !isAgentChatTabValue(last)
     ) {
       const files = useEditorStore.getState().getOpenFiles(effectiveContextId);
       if (!files.some((file) => file.path === last)) {

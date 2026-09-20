@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useStoreWithEqualityFn } from "zustand/traditional";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import {
@@ -21,7 +22,11 @@ export function useWorkspaceCreateAutoOpen(input: {
   const jobs = useWorkspaceCreationStore((state) => state.jobs);
   const latestJobId = useWorkspaceCreationStore((state) => state.latestJobId);
   const autoOpenedWorkspaceId = useWorkspaceCreationStore((state) => state.autoOpenedWorkspaceId);
-  const setupProgress = useProjectStore((state) => state.setupProgress, setupProgressUiEqual);
+  const setupProgress = useStoreWithEqualityFn(
+    useProjectStore,
+    (state) => state.setupProgress,
+    setupProgressUiEqual,
+  );
   const latestJob = selectAutoOpenJob({ jobs, latestJobId });
   const enterImmediately = latestJob?.blocking === true;
   const currentOriginKey = getWorkspaceCreateOriginKey({

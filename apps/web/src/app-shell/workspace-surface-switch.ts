@@ -28,6 +28,10 @@ import {
   paintContextIdForHost,
   shouldKeepExplicitTabOnHostHop,
 } from "@/app-shell/center-space/center-space-url";
+import {
+  publishVisualActivePaintId,
+  resetVisualActivePaintIdForTests,
+} from "@/app-shell/workspace-surface-activity";
 
 function framePaintId(id: string | null): string | null {
   if (!id) return null;
@@ -73,6 +77,7 @@ export function scheduleNonUrgent(fn: () => void): void {
  * {@link isFramePanelVisible}) so flipping the shell reveals real content.
  */
 export function applyWorkspaceFrameVisualDom(activeContextId: string | null): void {
+  publishVisualActivePaintId(activeContextId);
   if (typeof document === "undefined") return;
   const frames = document.querySelectorAll<HTMLElement>("[data-workspace-frame]");
   if (frames.length === 0) return;
@@ -314,6 +319,7 @@ export function resetWorkspaceSwitchSchedulersForTests(): void {
   pendingPromoteLeaves = [];
   lastVisualFlushAt = -Infinity;
   lastPromoteFlushAt = -Infinity;
+  resetVisualActivePaintIdForTests();
 }
 
 export type ParsedContextHref = {

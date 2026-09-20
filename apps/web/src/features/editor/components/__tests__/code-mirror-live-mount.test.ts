@@ -31,6 +31,8 @@ describe("CodeMirrorEditor live mount", () => {
     expect(source).toContain("CENTER_EXPLORER_BODY_INSET_CLASS");
     expect(source).toContain('side="left"');
     expect(source).toContain("MarkdownFindPanel");
+    expect(source).toContain("FindHighlightProvider");
+    expect(source).toContain("FindHighlightLayer");
     const findPanel = readFileSync(join(import.meta.dir, "../FindPanel.tsx"), "utf8");
     expect(findPanel).toContain("cm-atmos-search");
     expect(findPanel).not.toContain("replaceAll");

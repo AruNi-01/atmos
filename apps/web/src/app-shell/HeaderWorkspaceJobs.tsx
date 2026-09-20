@@ -13,6 +13,7 @@ import {
 } from "@workspace/ui";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { useContextParams } from "@/shared/hooks/use-context-params";
+import { useStoreWithEqualityFn } from "zustand/traditional";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 import { WorkspaceSetupProgressView } from "@/features/workspace/components/WorkspaceSetupProgress";
@@ -373,7 +374,11 @@ export function HeaderWorkspaceJobs() {
   const jobs = useWorkspaceCreationStore((state) => state.jobs);
   const markOpened = useWorkspaceCreationStore((state) => state.markOpened);
   const cancelAutoOpen = useWorkspaceCreationStore((state) => state.cancelAutoOpen);
-  const setupProgress = useProjectStore((state) => state.setupProgress, setupProgressUiEqual);
+  const setupProgress = useStoreWithEqualityFn(
+    useProjectStore,
+    (state) => state.setupProgress,
+    setupProgressUiEqual,
+  );
   const clearSetupProgress = useProjectStore((state) => state.clearSetupProgress);
   const [open, setOpen] = React.useState(false);
   const [chipHovering, setChipHovering] = React.useState(false);

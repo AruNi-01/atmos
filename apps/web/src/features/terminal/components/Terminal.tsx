@@ -31,6 +31,15 @@ import {
   HIDDEN_PTY_CONNECT_GRID,
   shouldConnectHiddenPty,
 } from "../lib/terminal-hidden-connect";
+import {
+  isTerminalKeepAlivePanel,
+  shouldPaintTerminalSurface,
+  trimHiddenTerminalWriteBuffer,
+} from "../lib/terminal-hidden-write";
+import {
+  isPaintContextVisuallyActive,
+  subscribeVisualActivePaintId,
+} from "@/app-shell/workspace-surface-activity";
 import type { TerminalProps, TerminalSnapshot } from "../types/index";
 import { getRuntimeApiConfig, wsBase } from "@/shared/lib/desktop-runtime";
 import { createTerminalLinkProvider } from "../lib/terminal-link-routing";
@@ -526,11 +535,13 @@ const Terminal = ({
   const rafScheduledRef = useRef(false);
   const destructiveCoalesceUntilRef = useRef(0);
   const outputTextDecoderRef = useRef(new TextDecoder());
+  const paintLiveRef = useRef(true);
   const INTERACTIVE_OUTPUT_FAST_PATH_MAX = 512;
   const DESTRUCTIVE_COALESCE_MS = 32;
 
   const flushPendingWrites = useCallback(() => {
     rafScheduledRef.current = false;
+    if (!paintLiveRef.current) return;
     if (performance.now() < destructiveCoalesceUntilRef.current) {
       rafScheduledRef.current = true;
       requestAnimationFrame(flushPendingWrites);
@@ -546,6 +557,28 @@ const Terminal = ({
     }
   }, []);
 
+  const syncPaintLive = useCallback(() => {
+    paintLiveRef.current = shouldPaintTerminalSurface({
+      visuallyActiveWorkspace: isPaintContextVisuallyActive(workspaceId),
+      keepAlivePanel: isTerminalKeepAlivePanel(containerRef.current),
+    });
+    if (paintLiveRef.current && pendingWriteRef.current.length > 0 && !rafScheduledRef.current) {
+      rafScheduledRef.current = true;
+      requestAnimationFrame(flushPendingWrites);
+    }
+  }, [flushPendingWrites, workspaceId]);
+
+  useEffect(() => {
+    syncPaintLive();
+    return subscribeVisualActivePaintId(() => {
+      syncPaintLive();
+    });
+  }, [syncPaintLive]);
+
+  useEffect(() => {
+    syncPaintLive();
+  }, [surfaceActive, syncPaintLive]);
+
   const handleOutput = useCallback((data: string | Uint8Array) => {
     publishTerminalOutput(sessionId, data);
     if (data.length > 0) {
@@ -554,20 +587,23 @@ const Terminal = ({
       if (destructive) {
         destructiveCoalesceUntilRef.current = performance.now() + DESTRUCTIVE_COALESCE_MS;
       }
-      const canFastPath =
-        term &&
-        !rafScheduledRef.current &&
-        pendingWriteRef.current.length === 0 &&
-        data.length > 0 &&
-        data.length <= INTERACTIVE_OUTPUT_FAST_PATH_MAX &&
-        !destructive &&
-        performance.now() >= destructiveCoalesceUntilRef.current;
-
-      if (canFastPath) {
-        term.write(cloneTerminalWriteChunk(data));
+      pendingWriteRef.current.push(cloneTerminalWriteChunk(data));
+      if (!paintLiveRef.current) {
+        pendingWriteRef.current = trimHiddenTerminalWriteBuffer(pendingWriteRef.current);
       } else {
-        pendingWriteRef.current.push(cloneTerminalWriteChunk(data));
-        if (!rafScheduledRef.current) {
+        const canFastPath =
+          term &&
+          !rafScheduledRef.current &&
+          pendingWriteRef.current.length === 1 &&
+          data.length > 0 &&
+          data.length <= INTERACTIVE_OUTPUT_FAST_PATH_MAX &&
+          !destructive &&
+          performance.now() >= destructiveCoalesceUntilRef.current;
+
+        if (canFastPath) {
+          pendingWriteRef.current = [];
+          term.write(cloneTerminalWriteChunk(data));
+        } else if (!rafScheduledRef.current) {
           rafScheduledRef.current = true;
           requestAnimationFrame(flushPendingWrites);
         }
@@ -586,7 +622,7 @@ const Terminal = ({
         listener(text);
       }
     }
-  }, [flushPendingWrites, onData, scheduleInputReady, status]);
+  }, [flushPendingWrites, onData, scheduleInputReady, sessionId, status]);
 
   const handleConnected = useCallback(() => {
     markTerminalSessionLive(sessionId);

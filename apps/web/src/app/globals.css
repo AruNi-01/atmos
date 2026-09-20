@@ -205,6 +205,17 @@ html:not([data-theme-ready="true"]) body {
   z-index: 0;
 }
 
+/*
+ * Opacity stacking keeps warm WebGL textures composited, so CSS/JS animations
+ * inside those trees would otherwise keep ticking. Pause descendant CSS
+ * animations; JS spinners listen for `atmos:surface-visual` / [inert].
+ */
+[data-workspace-frame][data-tier="warm"] *,
+.atmos-terminal-panel-keepalive *,
+[inert] * {
+  animation-play-state: paused !important;
+}
+
 [data-workspace-frame][data-tier="active"] {
   opacity: 1;
   pointer-events: auto;

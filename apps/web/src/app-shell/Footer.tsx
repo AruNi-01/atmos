@@ -58,6 +58,7 @@ import {
   type FooterAgentOverviewBucket,
   type FooterAgentOverviewRow,
 } from '@/features/agent/lib/footer-agent-overview';
+import { sessionsOccupancyFingerprint } from "@/features/agent/lib/agent-status-fingerprint";
 import {
   findTerminalPaneByStableAgentPaneId,
   uniquePaneTitleForAgentStatus,
@@ -316,11 +317,17 @@ function useContextNameResolver() {
 }
 
 function useFooterAgentOverview() {
-  const sessionsMap = useAgentStatusStore(useShallow((s) => s.sessions));
-  const attentionPanes = useAgentAttentionStore(useShallow((s) => s.panes));
+  const sessionKey = useAgentStatusStore((s) =>
+    sessionsOccupancyFingerprint(s.sessions),
+  );
+  const attentionRevision = useAgentAttentionStore((s) => s.revision);
   return useMemo(
-    () => buildFooterAgentOverview(sessionsMap.values(), attentionPanes.values()),
-    [sessionsMap, attentionPanes],
+    () =>
+      buildFooterAgentOverview(
+        useAgentStatusStore.getState().sessions.values(),
+        useAgentAttentionStore.getState().panes.values(),
+      ),
+    [attentionRevision, sessionKey],
   );
 }
 

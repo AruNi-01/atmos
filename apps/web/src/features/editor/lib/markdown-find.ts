@@ -313,6 +313,31 @@ export type FindHighlightBox = {
   current: boolean;
 };
 
+const FIND_HIGHLIGHT_HOST_SELECTOR =
+  "[data-markdown-find-content], [data-agent-chat-transcript]";
+
+/** In-flow host whose box is the highlight coordinate origin (scrolls with the text). */
+export function resolveFindHighlightHost(root: HTMLElement): HTMLElement {
+  const marked = root.querySelector<HTMLElement>(FIND_HIGHLIGHT_HOST_SELECTOR);
+  if (marked) return marked;
+  const first = root.firstElementChild;
+  return first instanceof HTMLElement ? first : root;
+}
+
+/** Map a client rect into a content-attached highlight layer. Relative coords stay put while scrolling. */
+export function contentFindHighlightRect(
+  rect: { top: number; left: number; width: number; height: number },
+  origin: { top: number; left: number },
+): Omit<FindHighlightBox, "current"> | null {
+  if (rect.width < 1 || rect.height < 1) return null;
+  return {
+    top: rect.top - origin.top,
+    left: rect.left - origin.left,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
 /** Map a client rect into a highlight layer, clipped to the visible search root. */
 export function clipFindHighlightRect(
   rect: { top: number; left: number; right: number; bottom: number },

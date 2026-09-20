@@ -993,6 +993,7 @@ function WorkspaceCenterFrameImpl({
               variant="center"
               instanceKey={tab.value}
               paintContextId={contextId}
+              surfaceVisible={visible}
               chatId={tab.chatId}
               resumeTranscript={tab.hasMessages}
               onChatStarted={(chatId, meta) => {

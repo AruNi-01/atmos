@@ -3,8 +3,10 @@ import { Window } from "happy-dom";
 import {
   clipFindHighlightRect,
   compileMarkdownFindPattern,
+  contentFindHighlightRect,
   findMarkdownHits,
   markdownFindCounter,
+  resolveFindHighlightHost,
   TRANSCRIPT_FIND_SCOPE,
 } from "../markdown-find";
 
@@ -201,5 +203,25 @@ describe("markdown find", () => {
       { top: 100, left: 0, right: 400, bottom: 500 },
       { top: 0, left: 0 },
     )).toBeNull();
+  });
+
+  test("content highlight rects stay glued to the host when both move by the same scroll", () => {
+    const originBefore = { top: 80, left: 10 };
+    const hitBefore = { top: 120, left: 40, width: 50, height: 20 };
+    const before = contentFindHighlightRect(hitBefore, originBefore);
+    expect(before).toEqual({ top: 40, left: 30, width: 50, height: 20 });
+
+    const originAfter = { top: 40, left: 10 };
+    const hitAfter = { top: 80, left: 40, width: 50, height: 20 };
+    expect(contentFindHighlightRect(hitAfter, originAfter)).toEqual(before);
+  });
+
+  test("prefers an in-flow content host over the scroll root", () => {
+    const win = new Window({ url: "https://app.atmos.local/" });
+    const root = win.document.createElement("div");
+    root.innerHTML =
+      '<div data-padding="true"><div data-markdown-find-content=""><p>hello</p></div></div>';
+    const host = resolveFindHighlightHost(root);
+    expect(host.getAttribute("data-markdown-find-content")).toBe("");
   });
 });
