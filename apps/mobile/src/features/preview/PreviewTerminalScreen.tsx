@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -26,6 +26,7 @@ import {
 } from "@/features/preview/preview-fixtures";
 import { PreviewModeSwitch } from "@/features/preview/PreviewModeSwitch";
 import type { MobileTerminalEntry } from "@/stores/terminal-store";
+import { usePreviewStore } from "@/stores/preview-store";
 import { colors } from "@/theme/colors";
 import { radii } from "@/theme/radii";
 import { spacing } from "@/theme/spacing";
@@ -39,6 +40,7 @@ const FIRST_WORKSPACE_ID = PREVIEW_WORKSPACE_CHOICES[0]!.id;
 export function PreviewTerminalScreen() {
   const theme = useMobileTheme();
   const router = useRouter();
+  const setPreviewEnabled = usePreviewStore((state) => state.setEnabled);
   const [workspaceId, setWorkspaceId] = useState(FIRST_WORKSPACE_ID);
   const [entriesByWorkspace, setEntriesByWorkspace] = useState<Record<string, MobileTerminalEntry[]>>(() => ({
     [FIRST_WORKSPACE_ID]: previewEntriesForWorkspace(FIRST_WORKSPACE_ID),
@@ -51,6 +53,10 @@ export function PreviewTerminalScreen() {
   }));
   const [extraLinesByEntry, setExtraLinesByEntry] = useState<Record<string, string[]>>({});
   const [groupOpen, setGroupOpen] = useState(false);
+
+  useEffect(() => {
+    setPreviewEnabled(true);
+  }, [setPreviewEnabled]);
 
   const workspace = previewWorkspaceById(workspaceId);
   const entries = entriesByWorkspace[workspaceId] ?? previewEntriesForWorkspace(workspaceId);

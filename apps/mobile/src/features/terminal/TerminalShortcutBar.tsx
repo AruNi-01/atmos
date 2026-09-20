@@ -15,7 +15,6 @@ import { PopoverActionList, PopoverActionRow } from "@/ui/primitives/popover-men
 import { TerminalKeyboardDismissButton } from "@/features/terminal/TerminalKeyboardDismissButton";
 import { terminalShortcuts, type TerminalShortcut } from "@/features/terminal/terminal-shortcuts";
 import { radii } from "@/theme/radii";
-import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 
@@ -62,7 +61,7 @@ export function TerminalShortcutBar({
         {
           backgroundColor: theme.colors.terminalBg,
           paddingBottom: bottomPadding,
-          paddingHorizontal: spacing.terminalChromeX,
+          paddingHorizontal: 6,
         },
       ]}
     >
@@ -99,7 +98,6 @@ export function TerminalShortcutBar({
               openOnLongPress
             />
             <ShortcutPopoverButton actions={AGENT_ACTIONS} label="Agent" onAction={fireShortcut} />
-            <View style={styles.trailingSpace} />
           </ScrollView>
         </GlassPanel>
         {keyboardVisible && onDismissKeyboard ? (
@@ -229,10 +227,9 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: "center",
-    gap: spacing.terminalKeycapGap,
+    gap: 4,
     minHeight: 44,
-    paddingLeft: 6,
-    paddingRight: 10,
+    paddingHorizontal: 4,
     paddingVertical: 4,
   },
   fallback: {},
@@ -248,8 +245,5 @@ const styles = StyleSheet.create({
   },
   keycapText: {
     ...typography.terminalKeycapLabel,
-  },
-  trailingSpace: {
-    width: 4,
   },
 });
