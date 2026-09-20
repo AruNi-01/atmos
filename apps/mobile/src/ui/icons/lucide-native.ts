@@ -1,12 +1,15 @@
 import {
   ArrowUp,
   Bot,
+  Check,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Download,
   Keyboard,
   KeyRound,
   Laptop,
+  LayoutGrid,
   Link2,
   LogOut,
   Pencil,
@@ -26,8 +29,11 @@ import {
 
 export const ArrowUpIcon = ArrowUp;
 export const BotIcon = Bot;
+export const CheckIcon = Check;
 export const CheckCircleIcon = CheckCircle2;
+export const ChevronDownIcon = ChevronDown;
 export const ChevronRightIcon = ChevronRight;
+export const LayoutGridIcon = LayoutGrid;
 export const DownloadIcon = Download;
 export const KeyboardIcon = Keyboard;
 export const KeyIcon = KeyRound;

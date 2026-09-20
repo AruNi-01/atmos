@@ -17,6 +17,27 @@ export function createDefaultTerminalEntry(workspaceId: string): MobileTerminalE
   };
 }
 
+export function sortTerminalEntries(entries: MobileTerminalEntry[]): MobileTerminalEntry[] {
+  return [...entries].sort((left, right) => {
+    const leftNew = left.isNew ? 1 : 0;
+    const rightNew = right.isNew ? 1 : 0;
+    if (leftNew !== rightNew) return leftNew - rightNew;
+
+    const leftHasIndex = left.tmuxWindowIndex != null;
+    const rightHasIndex = right.tmuxWindowIndex != null;
+    if (leftHasIndex && rightHasIndex && left.tmuxWindowIndex !== right.tmuxWindowIndex) {
+      return left.tmuxWindowIndex! - right.tmuxWindowIndex!;
+    }
+    if (leftHasIndex !== rightHasIndex) {
+      return leftHasIndex ? -1 : 1;
+    }
+
+    const labelCmp = left.label.localeCompare(right.label);
+    if (labelCmp !== 0) return labelCmp;
+    return left.id.localeCompare(right.id);
+  });
+}
+
 export function mergeTerminalCandidateEntries(
   workspaceId: string,
   candidates: TerminalWorkspaceCandidate[],
@@ -24,20 +45,7 @@ export function mergeTerminalCandidateEntries(
 ): MobileTerminalEntry[] {
   const existingById = new Map(existingEntries.map((entry) => [entry.id, entry]));
   const serverEntries = candidates.map((candidate) => {
-    const existingEntry =
-      existingById.get(candidate.id) ??
-      existingEntries.find(
-        (entry) =>
-          entry.tmuxWindowIndex != null &&
-          candidate.tmux_window_index != null &&
-          entry.tmuxWindowIndex === candidate.tmux_window_index,
-      ) ??
-      existingEntries.find(
-        (entry) =>
-          entry.tmuxWindowName &&
-          candidate.tmux_window_name &&
-          entry.tmuxWindowName === candidate.tmux_window_name,
-      );
+    const existingEntry = existingById.get(candidate.id);
 
     return {
       id: candidate.id,
@@ -51,13 +59,12 @@ export function mergeTerminalCandidateEntries(
     };
   });
 
+  const serverIds = new Set(serverEntries.map((entry) => entry.id));
   const localEntries = existingEntries.filter(
-    (entry) =>
-      !isDefaultTerminalEntry(entry, workspaceId) &&
-      !serverEntries.some((serverEntry) => representsSameTerminal(entry, serverEntry)),
+    (entry) => !isDefaultTerminalEntry(entry, workspaceId) && !serverIds.has(entry.id),
   );
 
-  return [...serverEntries, ...localEntries];
+  return sortTerminalEntries([...serverEntries, ...localEntries]);
 }
 
 export function nextActiveTerminalEntryId(
@@ -85,11 +92,4 @@ export function resolveActiveTerminalEntry(
 
 function isDefaultTerminalEntry(entry: MobileTerminalEntry, workspaceId: string) {
   return entry.id === `${workspaceId}:default` && entry.isNew;
-}
-
-function representsSameTerminal(left: MobileTerminalEntry, right: MobileTerminalEntry) {
-  if (left.id === right.id) return true;
-  if (left.tmuxWindowIndex != null && left.tmuxWindowIndex === right.tmuxWindowIndex) return true;
-  if (left.tmuxWindowName && left.tmuxWindowName === right.tmuxWindowName) return true;
-  return false;
 }
