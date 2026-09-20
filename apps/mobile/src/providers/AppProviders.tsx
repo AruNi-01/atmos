@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from "react";
 import { useEffect, useMemo } from "react";
-import { AppState, Appearance } from "react-native";
+import { AppState, Appearance, Platform } from "react-native";
 import * as Network from "expo-network";
 import * as SystemUI from "expo-system-ui";
 import { QueryClientProvider, focusManager, onlineManager } from "@tanstack/react-query";
@@ -80,6 +80,7 @@ export function AppProviders({ children }: PropsWithChildren) {
   }, [setDeviceCredentialLoaded, setRelayUrl, setRelaySecretKey]);
 
   useEffect(() => {
+    if (Platform.OS === "web") return;
     Appearance.setColorScheme(
       theme.preference === "system" ? "unspecified" : theme.preference,
     );
