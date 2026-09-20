@@ -67,27 +67,26 @@ export function WorkspaceAgentStatusMark({
 }
 
 /**
- * Project-row variant: when `rollupAttention` is true (collapsed), sticky
- * attention includes child workspaces — same as the pre-shared ProjectItem.
+ * Project-row variant. Pass `rollupChildren` only when workspace rows are hidden.
  */
 export function ProjectAgentStatusMark({
   projectId,
   workspaceIds,
-  rollupAttention = false,
+  rollupChildren = false,
   placement = "left_sidebar",
   size = 12,
   className,
 }: {
   projectId: string;
   workspaceIds: readonly string[];
-  /** When true, include child workspace attention (collapsed project row). */
-  rollupAttention?: boolean;
+  /** When true, include child workspace occupancy and attention. */
+  rollupChildren?: boolean;
   placement?: AgentIndicatorPlacement;
   size?: number;
   className?: string;
 }) {
   const { view } = useProjectAgentStatusRollup(projectId, workspaceIds, {
-    rollupAttention,
+    rollupChildren,
   });
   return <>{renderStatusView(view, placement, size, className)}</>;
 }

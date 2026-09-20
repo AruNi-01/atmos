@@ -132,6 +132,21 @@ export function resolveWorkspaceAgentStatusView(input: {
 }
 
 /**
+ * Highest-priority live occupancy among a project and its workspaces
+ * (permission beats running). Used when a project row is collapsed.
+ */
+export function resolveRolledOccupancy(
+  states: ReadonlyArray<AgentOccupancy | null | undefined>,
+): AgentOccupancy {
+  let hasRunning = false;
+  for (const state of states) {
+    if (state === "permission_request") return "permission_request";
+    if (state === "running") hasRunning = true;
+  }
+  return hasRunning ? "running" : "idle";
+}
+
+/**
  * Highest-priority attention among a project and its workspaces
  * (permission beats task_complete). Used when a project row is collapsed.
  */

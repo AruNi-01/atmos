@@ -333,6 +333,55 @@ describe("groupWorkspaces", () => {
     ).toBe(labelB.id);
   });
 
+  it("keeps a project in done when only a child workspace needs attention", () => {
+    const owner = project({
+      id: "proj-1",
+      name: "Atmos",
+      workspaces: [workspace({ id: "ws-attention" })],
+    });
+    const groups = groupWorkspaces(
+      [entry(workspace({ id: "ws-attention" })), projectEntry(owner)],
+      "agent",
+      {
+        agentGroupKeyByWorkspaceId: {
+          "ws-attention": "attention",
+        },
+      },
+    );
+
+    expect(
+      groups.find((group) => group.key === "attention")?.items.map((item) => getSidebarEntryKey(item)),
+    ).toEqual(["ws-attention"]);
+    expect(
+      groups.find((group) => group.key === "done")?.items.map((item) => getSidebarEntryKey(item)),
+    ).toEqual(["project:proj-1"]);
+  });
+
+  it("puts a project in running only from its own context, not a child workspace", () => {
+    const owner = project({
+      id: "proj-1",
+      name: "Atmos",
+      workspaces: [workspace({ id: "ws-run" })],
+    });
+    const groups = groupWorkspaces(
+      [entry(workspace({ id: "ws-run" })), projectEntry(owner)],
+      "agent",
+      {
+        agentGroupKeyByWorkspaceId: {
+          "proj-1": "done",
+          "ws-run": "running",
+        },
+      },
+    );
+
+    expect(
+      groups.find((group) => group.key === "running")?.items.map((item) => getSidebarEntryKey(item)),
+    ).toEqual(["ws-run"]);
+    expect(
+      groups.find((group) => group.key === "done")?.items.map((item) => getSidebarEntryKey(item)),
+    ).toEqual(["project:proj-1"]);
+  });
+
   it("always emits four agent buckets in action-first order", () => {
     const groups = groupWorkspaces(
       [

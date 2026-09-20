@@ -210,16 +210,8 @@ function getEntryAgentGroupKey(
   agentGroupKeyByWorkspaceId?: Readonly<Record<string, WorkspaceAgentGroupKey>>,
 ): WorkspaceAgentGroupKey {
   if (isFlattenedProjectEntry(entry)) {
-    const keys = [
-      parseWorkspaceAgentGroupKey(agentGroupKeyByWorkspaceId?.[entry.projectId]),
-      ...entry.project.workspaces.map((workspace) =>
-        parseWorkspaceAgentGroupKey(agentGroupKeyByWorkspaceId?.[workspace.id]),
-      ),
-    ];
-    for (const orderKey of WORKSPACE_AGENT_GROUP_ORDER) {
-      if (keys.includes(orderKey)) return orderKey;
-    }
-    return "done";
+    // Own context only — child workspace keys stay on the workspace row.
+    return parseWorkspaceAgentGroupKey(agentGroupKeyByWorkspaceId?.[entry.projectId]);
   }
   return parseWorkspaceAgentGroupKey(agentGroupKeyByWorkspaceId?.[entry.workspace.id]);
 }

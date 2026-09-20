@@ -247,7 +247,6 @@ export function GroupedProjectRow({
             <ProjectAgentStatusMark
               projectId={project.id}
               workspaceIds={project.workspaces.map((workspace) => workspace.id)}
-              rollupAttention
             />
           </div>
           <div

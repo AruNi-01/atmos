@@ -17,6 +17,7 @@ import {
   parseWorkspaceAgentGroupKey,
   resolveHydratedWorkspaceAgentGroupKey,
   resolveRolledAttentionReason,
+  resolveRolledOccupancy,
   resolveWorkspaceAgentGroupKey,
   resolveWorkspaceAgentStatusView,
   type WorkspaceAgentGroupKey,
@@ -111,23 +112,28 @@ export function useWorkspaceAgentGroupKeyMap(
 }
 
 /**
- * Project row status. When `rollupAttention` is true (project collapsed),
- * sticky attention is rolled up across the project and its workspaces.
- * Live agent state always comes from the project context id only.
+ * Project row status. `rollupChildren` folds child occupancy + attention into
+ * a collapsed one-column project. Leave it off when workspace rows are listed.
  */
 export function useProjectAgentStatusRollup(
   projectId: string | null | undefined,
   workspaceIds: readonly string[],
-  options?: { rollupAttention?: boolean },
+  options?: { rollupChildren?: boolean },
 ): WorkspaceAgentStatusSnapshot {
-  const rollupAttention = options?.rollupAttention === true;
-  const agentState = useAgentStatusStore((s) =>
-    projectId ? s.getAgentStateForContextId(projectId) : AGENT_STATE.IDLE,
-  );
+  const rollupChildren = options?.rollupChildren === true;
+  const agentState = useAgentStatusStore((s) => {
+    if (!projectId) return AGENT_STATE.IDLE;
+    if (!rollupChildren) return s.getAgentStateForContextId(projectId);
+    const states: AgentOccupancy[] = [s.getAgentStateForContextId(projectId)];
+    for (const workspaceId of workspaceIds) {
+      states.push(s.getAgentStateForContextId(workspaceId));
+    }
+    return resolveRolledOccupancy(states);
+  });
   const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
   const attentionReason = useAgentAttentionStore((s) => {
     if (!projectId) return null;
-    if (!rollupAttention) return s.getContextReason(projectId);
+    if (!rollupChildren) return s.getContextReason(projectId);
     const reasons: Array<AttentionReason | null> = [s.getContextReason(projectId)];
     for (const workspaceId of workspaceIds) {
       reasons.push(s.getContextReason(workspaceId));

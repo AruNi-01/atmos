@@ -261,8 +261,9 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   const projectOwnAttentionReason = useAgentAttentionStore((s) =>
     s.getContextReason(project.id),
   );
-  const childrenVisible =
-    !hideWorkspaceList && isExpanded && project.workspaces.length > 0;
+  // Fold child marks in only when this row hides its workspace list.
+  const rollupChildren =
+    !hideWorkspaceList && !isExpanded && project.workspaces.length > 0;
   // In attention filter mode, parent projects that only host attention workspaces
   // stay visible for structure but are dimmed so the latched rows stand out.
   const dimAsAttentionParent =
@@ -623,8 +624,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
             <ProjectAgentStatusMark
               projectId={project.id}
               workspaceIds={project.workspaces.map((ws) => ws.id)}
-              // Collapsed (or no children list): roll up workspace attention onto the project row.
-              rollupAttention={!childrenVisible}
+              rollupChildren={rollupChildren}
             />
           </div>
         </div>
