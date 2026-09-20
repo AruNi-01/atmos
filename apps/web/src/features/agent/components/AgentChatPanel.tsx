@@ -39,7 +39,7 @@ import { AgentChatTranscriptList } from "./AgentChatTranscriptList";
 import { AgentChatComposerDock } from "./AgentChatComposerDock";
 import { AgentChatOwnSendRuntime } from "./AgentChatOwnSendRuntime";
 import { AgentChatOwnSendRefsProvider } from "./agent-chat-own-send-context";
-import { FindPanel, useFindPanel } from "@/features/editor/components/FindPanel";
+import { FindHighlightProvider, FindPanel, useFindPanel } from "@/features/editor/components/FindPanel";
 import { TRANSCRIPT_FIND_SCOPE, type MarkdownFindQuery } from "@/features/editor/lib/markdown-find";
 import { grokChromeAgentIds } from "@/features/agent/lib/grok-chrome";
 import { transcriptFindMessageIndexes } from "@/features/agent/lib/transcript-find";
@@ -91,6 +91,7 @@ interface AgentChatPanelProps {
   transformPrompt?: (prompt: string) => string;
   instanceKey?: string | null;
   paintContextId?: string | null;
+  surfaceVisible?: boolean;
   chatId?: string | null;
   onChatStarted?: (id: string, meta?: {
     title?: string | null;
@@ -144,6 +145,7 @@ export function AgentChatPanel({
   transformPrompt,
   instanceKey = null,
   paintContextId = null,
+  surfaceVisible = true,
   chatId: chatIdProp = null,
   resumeTranscript: resumeTranscriptProp,
   onChatStarted,
@@ -177,6 +179,7 @@ export function AgentChatPanel({
     transformPrompt,
     instanceKey,
     paintContextId,
+    surfaceVisible,
     chatId,
     resumeTranscript,
     onChatStarted,
@@ -1067,6 +1070,7 @@ export function AgentChatPanel({
         }}
         style={isNewChatLanding && messages.length === 0 ? { pointerEvents: "none" } : undefined}
       >
+        <FindHighlightProvider>
         <AgentChatCwdProvider
           cwd={sessionCwd || localPath}
           projectOrWorkspacePath={localPath}
@@ -1174,6 +1178,7 @@ export function AgentChatPanel({
             className={AGENT_CHAT_COMPOSER_FADE_CLASS}
           />
         ) : null}
+        </FindHighlightProvider>
       </motion.div>
 
       <div className="relative flex min-h-0 w-full shrink-0 flex-col">

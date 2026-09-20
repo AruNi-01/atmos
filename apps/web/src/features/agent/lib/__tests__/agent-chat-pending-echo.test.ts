@@ -33,16 +33,17 @@ describe("pending user echo", () => {
     expect(removePendingUserMessage(inserted, "real")).toEqual(inserted);
   });
 
-  it("replaces the matching pending echo instead of appending a second bubble", () => {
+  it("replaces the matching pending echo by id instead of appending a second bubble", () => {
     const pending = createPendingUserMessage({
       id: `${PENDING_USER_ECHO_PREFIX}a`,
       text: "hello",
       createdAt: "2026-01-01T00:00:00.000Z",
     });
-    const settled = settlePendingUserMessage([pending], user("u1", "hello"));
+    const settled = settlePendingUserMessage([pending], user("a", "hello"));
     expect(settled).toHaveLength(1);
-    expect(settled[0]?.id).toBe("u1");
+    expect(settled[0]?.id).toBe("a");
     expect(settled[0]?.created_at).toBe("2026-01-01T00:00:00.000Z");
+    expect(isPendingUserEcho(settled[0])).toBe(false);
   });
 
   it("appends when there is no pending echo and updates when the id already exists", () => {
@@ -58,14 +59,50 @@ describe("pending user echo", () => {
     expect(next[0]?.created_at).toBe("2026-02-01T00:00:00.000Z");
   });
 
+  it("S16 settles duplicate prompts against their own pending ids", () => {
+    const first = createPendingUserMessage({
+      id: `${PENDING_USER_ECHO_PREFIX}id-a`,
+      text: "hello",
+    });
+    const second = createPendingUserMessage({
+      id: `${PENDING_USER_ECHO_PREFIX}id-b`,
+      text: "hello",
+    });
+    let messages = [first, second];
+    messages = settlePendingUserMessage(messages, user("id-a", "hello"));
+    messages = settlePendingUserMessage(messages, user("id-b", "hello"));
+    expect(messages.map((item) => item.id)).toEqual(["id-a", "id-b"]);
+    expect(messages.every((item) => !item.id.startsWith(PENDING_USER_ECHO_PREFIX))).toBe(true);
+    expect(messages.every((item) => !isPendingUserEcho(item))).toBe(true);
+  });
+
+  it("settles duplicate prompts by exact client ids without a prefix", () => {
+    const first = createPendingUserMessage({ id: "id-a", text: "hello" });
+    const second = createPendingUserMessage({ id: "id-b", text: "hello" });
+    let messages = [first, second];
+    messages = settlePendingUserMessage(messages, user("id-a", "hello"));
+    messages = settlePendingUserMessage(messages, user("id-b", "hello"));
+    expect(messages.map((item) => item.id)).toEqual(["id-a", "id-b"]);
+    expect(messages.every((item) => !isPendingUserEcho(item))).toBe(true);
+  });
+
+  it("does not settle by matching text", () => {
+    const pending = createPendingUserMessage({
+      id: `${PENDING_USER_ECHO_PREFIX}id-a`,
+      text: "hello",
+    });
+    const settled = settlePendingUserMessage([pending], user("other-id", "hello"));
+    expect(settled.map((item) => item.id)).toEqual([`${PENDING_USER_ECHO_PREFIX}id-a`, "other-id"]);
+  });
+
   it("keeps in-flight echoes across an empty snapshot load", () => {
     const pending = createPendingUserMessage({
       id: `${PENDING_USER_ECHO_PREFIX}a`,
       text: "hello",
     });
     expect(keepPendingUserEchoes([], [pending])).toEqual([pending]);
-    expect(keepPendingUserEchoes([user("u1", "hello")], [pending])).toEqual([
-      user("u1", "hello"),
+    expect(keepPendingUserEchoes([user("a", "hello")], [pending])).toEqual([
+      user("a", "hello"),
     ]);
   });
 });

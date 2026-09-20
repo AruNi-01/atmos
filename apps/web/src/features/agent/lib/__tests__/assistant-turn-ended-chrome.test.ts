@@ -12,10 +12,10 @@ import type { AgentChatEvent } from "@atmos/api-types/ws/dto/agent-chat";
 
 function chatEvent(
   chatId: string,
-  sequence: number,
+  revision: number,
   payload: AgentChatEvent["payload"],
 ): AgentChatEvent {
-  return { chat_id: chatId, sequence, payload };
+  return { chat_id: chatId, event_id: `evt-${revision}`, revision, payload };
 }
 
 function assistant(parts: AgentPart[], extra: Partial<AgentMessage> = {}): AgentMessage {
@@ -66,6 +66,7 @@ describe("assistant turn ended chrome after session create", () => {
       messages,
       chatEvent("chat-1", 1, {
         type: "user_message",
+        turn_id: "t1",
         message_id: "u1",
         text: "plan",
       }),
@@ -75,6 +76,7 @@ describe("assistant turn ended chrome after session create", () => {
       messages,
       chatEvent("chat-1", 2, {
         type: "session_lifecycle",
+        turn_id: "t1",
         message_id: "session-t1",
         action: "create",
         status: "completed",
@@ -84,7 +86,7 @@ describe("assistant turn ended chrome after session create", () => {
     );
 
     const afterCreate = messages.at(-1)!;
-    expect(afterCreate.streaming).toBe(true);
+    expect(afterCreate.streaming).toBe(false);
     expect(shouldShowAssistantTurnEndedChrome(afterCreate, "")).toBe(false);
     expect(deriveAgentActivity(messages, true)).toMatchObject({ busy: true, label: "Generating" });
 
@@ -100,9 +102,13 @@ describe("assistant turn ended chrome after session create", () => {
     messages = foldMessagesFromEvent(
       messages,
       chatEvent("chat-1", 3, {
-        type: "assistant_message_delta",
+        type: "text_chunk",
+        part_id: "a1",
         message_id: "a1",
-        delta: "先澄清范围",
+        ordinal: 1,
+        kind: "answer",
+        offset: 0,
+        text: "先澄清范围",
       }),
       "chat-1",
     );
@@ -126,5 +132,37 @@ describe("assistant turn ended chrome after session create", () => {
     expect(done.streaming).toBe(false);
     expect(shouldShowAssistantTurnEndedChrome(done, textFromParts(done.parts))).toBe(true);
     expect(deriveAgentActivity(messages, false)).toEqual({ busy: false });
+  });
+
+  it("does not flash copy chrome after tools while the final answer is still coming", () => {
+    const betweenToolsAndFinal = assistant(
+      [
+        {
+          type: "text",
+          text: "先从官方架构文档读起。",
+          closed_at: "2026-09-20T08:56:34.645Z",
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "t1",
+          name: "Read",
+          kind: "read",
+          status: "completed",
+          params: { type: "read", path: "AGENTS.md" },
+        },
+      ],
+      {
+        streaming: false,
+        worked_ms: 24000,
+      },
+    );
+    expect(shouldShowAssistantTurnEndedChrome(
+      betweenToolsAndFinal,
+      "先从官方架构文档读起。",
+    )).toBe(false);
+    expect(deriveAgentActivity([betweenToolsAndFinal], true)).toMatchObject({
+      busy: true,
+      kind: "working",
+    });
   });
 });

@@ -42,6 +42,7 @@ describe("agent chat modal frame", () => {
     expect(panel).toContain("userMessageIndices.length > 1");
     expect(panel).toContain("<AgentPromptComposer");
     expect(panel).toContain("FindPanel");
+    expect(panel).toContain("FindHighlightProvider");
     expect(panel).toContain("useFindPanel");
     expect(panel).toContain("TRANSCRIPT_FIND_SCOPE");
     expect(panel).toContain("seedFromSelection");
@@ -211,6 +212,9 @@ describe("agent chat modal frame", () => {
     expect(dock).toContain("h-20 w-auto text-foreground");
     expect(dock).toContain("heroComposerOffset");
     expect(dock).not.toContain("atmos-logo-breathe");
+    // 单实例视觉连续性：同面板 bottom→center 和新 tab 挂载都从 dock（y=0）滑到中间。
+    expect(dock).toContain("initial={{ y: 0 }}");
+    expect(dock).toContain("initial={{ opacity: 0, y: -8 }}");
     expect(panel).not.toContain('t("empty.startTitle")');
   });
 

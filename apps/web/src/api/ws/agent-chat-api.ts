@@ -70,13 +70,18 @@ export const agentChatApi = {
     wsRequest("agent_chat_delete", { chat_id }),
   subscribe: (chat_id: string, after_sequence?: number | null) =>
     wsRequest("agent_chat_subscribe", { chat_id, after_sequence }),
+  backfill: (
+    chat_id: string,
+    parts: Array<{ part_id: string; from_offset: number }>,
+  ) => wsRequest("agent_chat_backfill", { chat_id, parts }),
   unsubscribe: (chat_id: string) =>
     wsRequest("agent_chat_unsubscribe", { chat_id }),
-  send: (chat_id: string, text: string, attachment_paths?: string[]) =>
+  send: (chat_id: string, text: string, attachment_paths?: string[], message_id?: string | null) =>
     wsRequest("agent_chat_send", {
       chat_id,
       text,
       attachment_paths: attachment_paths ?? null,
+      message_id: message_id ?? null,
     }),
   steer: (chat_id: string, expected_turn_id: string, text: string) =>
     wsRequest("agent_chat_steer", { chat_id, expected_turn_id, text }),

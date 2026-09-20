@@ -22,11 +22,13 @@ import {
   type ToolOverviewKind,
 } from "@/features/agent/lib/tool-group";
 import { sumToolGroupDiffStats } from "@/features/agent/lib/tool-results/diff-stats";
-import { useSequentialReveal } from "@/features/agent/hooks/use-sequential-reveal";
+import { useTreeRowReveal } from "@/features/agent/hooks/use-sequential-reveal";
+import { treeEnterDelayMs } from "@/features/agent/lib/agent-tree-branch";
 import { AgentTreeRevealProvider } from "./agent-tree-reveal-context";
 import { useMarkAssistantProcessInspecting } from "./assistant-process-inspect-context";
 import { AgentToolDiffStats } from "./tool-results/AgentToolCard";
-import { AgentTreeNetwork } from "./AgentTreeNetwork";
+import { AgentTreeBranch } from "./AgentTreeBranch";
+import { foldedPartKey } from "./folded-agent-part";
 
 export function AgentToolGroupView({
   parts,
@@ -53,8 +55,17 @@ export function AgentToolGroupView({
   const running = toolGroupHasRunning(parts);
   const open = userOpen ?? autoOpen;
   const shimmer = autoOpen || running;
-  const shown = useSequentialReveal(parts.length, autoOpen);
+  const { shown, watermark } = useTreeRowReveal(parts.length, open);
   const visibleParts = parts.slice(0, shown);
+  const rows = visibleParts
+    .map((part, index) => {
+      const origIndex = origIndexes[index] ?? index;
+      const rendered = renderPart(part, origIndex);
+      if (rendered == null) return null;
+      return { part, origIndex, rendered };
+    })
+    .filter((row): row is NonNullable<typeof row> => row != null);
+  const arriving = Math.max(shown - watermark, 0);
 
   const counts = useMemo(() => countToolGroupOverview(toolParts), [toolParts]);
   const diffStats = useMemo(() => sumToolGroupDiffStats(toolParts), [toolParts]);
@@ -113,32 +124,25 @@ export function AgentToolGroupView({
         />
       </CollapsibleTrigger>
       <CollapsibleContent className="data-[state=open]:overflow-visible">
-        <AgentTreeRevealProvider reveal={autoOpen}>
-          <div className="relative">
-            <AgentTreeNetwork animate={autoOpen} />
-            {visibleParts
-              .map((part, index) => {
-                const origIndex = origIndexes[index] ?? index;
-                const rendered = renderPart(part, origIndex);
-                if (rendered == null) return null;
-                return { part, origIndex, rendered };
-              })
-              .filter((row): row is NonNullable<typeof row> => row != null)
-              .map((row, index) => {
-                const itemKey = row.part.type === "tool_call"
-                  ? row.part.tool_call_id || `${row.part.name}-${index}`
-                  : `${row.part.type}-${row.origIndex}`;
-                return (
-                  <div
-                    key={itemKey}
-                    data-tree-row=""
-                    className="relative min-h-6 min-w-0 pl-7"
-                  >
-                    {row.rendered}
-                  </div>
-                );
-              })}
-          </div>
+        <AgentTreeRevealProvider reveal={arriving > 0}>
+          {rows.map((row, index) => {
+            const itemKey = foldedPartKey(row.part, row.origIndex);
+            return (
+              <AgentTreeBranch
+                key={itemKey}
+                isFirst={index === 0}
+                isLast={index === rows.length - 1}
+                animate={index >= watermark}
+                delayMs={
+                  index >= watermark
+                    ? treeEnterDelayMs(index - watermark, 0, arriving)
+                    : 0
+                }
+              >
+                {row.rendered}
+              </AgentTreeBranch>
+            );
+          })}
         </AgentTreeRevealProvider>
       </CollapsibleContent>
     </Collapsible>

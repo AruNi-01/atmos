@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import {
+  clampTreeShown,
   countedRevealDelay,
   nextTreeRevealDelay,
+  nextTreeWatermark,
 } from "@/features/agent/lib/agent-tree-branch";
 
 export function useSequentialReveal(count: number, enabled: boolean): number {
@@ -30,6 +32,40 @@ export function useSequentialReveal(count: number, enabled: boolean): number {
   }, [skip, shown, count]);
 
   return shown;
+}
+
+/**
+ * Rows that already arrived stay put. Only the delta that lands while `active`
+ * (the group is open) is released one row at a time. Folding must not replay.
+ */
+export function useTreeRowReveal(
+  count: number,
+  active: boolean,
+): { shown: number; watermark: number } {
+  const reduced = useReducedMotion();
+  const play = active && !Boolean(reduced);
+  const watermarkRef = useRef(count);
+  watermarkRef.current = nextTreeWatermark(watermarkRef.current, count, play);
+  const [shown, setShown] = useState(count);
+
+  useEffect(() => {
+    if (!play) {
+      setShown(count);
+      return;
+    }
+    setShown((prev) => clampTreeShown(prev, count, watermarkRef.current, true));
+  }, [play, count]);
+
+  useEffect(() => {
+    if (!play || shown >= count) return;
+    const delay = nextTreeRevealDelay(shown, count - shown);
+    const timer = window.setTimeout(() => {
+      setShown((prev) => Math.min(count, prev + 1));
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [play, shown, count]);
+
+  return { shown, watermark: watermarkRef.current };
 }
 
 export function useCountedReveal(target: number, stepMs: number): number {

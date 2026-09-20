@@ -69,7 +69,12 @@ describe("assistant process collapse chrome", () => {
 
   it("reveals answer text with the same stream entrance as process rows", () => {
     expect(view).toContain("AgentStreamReveal");
+    expect(view).toContain("foldedPartKey(segment.part, segment.origIndex)");
+    expect(view).toContain("segments.map((segment) =>");
     expect(view).not.toContain("return <React.Fragment key={segment.origIndex}>{content}</React.Fragment>");
+    expect(view).not.toContain('parts.find((part) => part.type === "text")');
+    expect(view).not.toContain("assistant_message_delta");
+    expect(view).not.toContain("thinking_delta");
   });
 
   it("lists this turn's file changes below copy and timestamp", () => {

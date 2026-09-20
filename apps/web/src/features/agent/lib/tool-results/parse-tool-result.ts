@@ -2,11 +2,7 @@ import type {
   AgentToolParams,
 } from "@atmos/api-types/ws/dto/agent-chat";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
-import {
-  isEmptyToolJson,
-  isGenericToolLabel,
-  isPlaceholderToolResult,
-} from "@/features/agent/lib/agent-tool-kind";
+import { isEmptyToolJson } from "@/features/agent/lib/agent-tool-kind";
 import { isBrowserPreviewableImageFilename } from "@/shared/lib/composer-image";
 
 export type SearchHit = {
@@ -311,7 +307,7 @@ function shouldPreviewReadFromDisk(
     if (isImageToolPath(result.path)) return true;
     return !result.text.trim();
   }
-  return isPlaceholderToolResult(result);
+  return result == null || result.type === "empty";
 }
 
 function looksLikePatch(text: string): boolean {
@@ -444,7 +440,7 @@ export function resolveAgentToolCardHeading(args: {
   const omitPath = Boolean(args.omitPathInTitle && path);
   const pathOnly = toolTitleLooksLikePath(heading, path || null);
 
-  if (!heading || isGenericToolLabel(heading) || pathOnly) {
+  if (!heading || pathOnly) {
     if (omitPath) {
       if (pathOnly && heading) {
         const stripped = stripPathEchoFromToolHeading(heading, path, args.pathAliases);
@@ -522,7 +518,7 @@ export function preferredCollapsedToolTitle(
     ? part.params.query.trim()
     : "";
   for (const candidate of [title, name]) {
-    if (!candidate || isGenericToolLabel(candidate)) continue;
+    if (!candidate) continue;
     if (command && toolTitleEchoesCommand(candidate, command)) continue;
     if (query && (candidate === query || candidate.includes(query))) continue;
     return candidate;

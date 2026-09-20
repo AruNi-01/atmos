@@ -1,4 +1,3 @@
-import { isGenericToolLabel } from "@/features/agent/lib/agent-tool-kind";
 import { isTerminalCommand } from "@/features/agent/lib/chat-helpers";
 
 const COMMAND_FENCE_RE =
@@ -52,7 +51,7 @@ export function resolvePermissionCommand(input: {
   if (toolIsCommand) {
     if (
       description
-      && !isGenericToolLabel(description)
+      && looksLikeShellCommand(description)
       && description.toLowerCase() !== input.tool.trim().toLowerCase()
     ) {
       return stripPromptPrefix(description);
@@ -91,7 +90,6 @@ export function permissionDescriptionToRender(
   const text = description.trim();
   if (!text) return null;
   if (command && stripPromptPrefix(text) === command) return null;
-  if (isGenericToolLabel(text)) return null;
   return text;
 }
 

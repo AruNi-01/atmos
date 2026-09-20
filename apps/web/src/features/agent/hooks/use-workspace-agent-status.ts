@@ -12,6 +12,7 @@ import {
   type AttentionReason,
 } from "@/features/agent/store/agent-attention-store";
 import { useWorkspaceAgentGroupingHoldStore } from "@/features/agent/store/workspace-agent-grouping-hold";
+import { contextOccupancyFingerprint } from "@/features/agent/lib/agent-status-fingerprint";
 import {
   parseWorkspaceAgentGroupKey,
   resolveHydratedWorkspaceAgentGroupKey,
@@ -65,7 +66,9 @@ export function useWorkspaceAgentStatus(
 export function useWorkspaceAgentGroupKeyMap(
   contextIds: readonly string[],
 ): Readonly<Record<string, WorkspaceAgentGroupKey>> {
-  const sessions = useAgentStatusStore((s) => s.sessions);
+  const occupancyKey = useAgentStatusStore((s) =>
+    contextOccupancyFingerprint(s.sessions, contextIds),
+  );
   const serverWorkspaceGroupKeys = useAgentStatusStore(
     (s) => s.serverWorkspaceGroupKeys,
   );
@@ -101,9 +104,9 @@ export function useWorkspaceAgentGroupKeyMap(
     attentionRevision,
     groupingHoldRevision,
     statusHydrated,
+    occupancyKey,
     idsKey,
     serverWorkspaceGroupKeys,
-    sessions,
   ]);
 }
 

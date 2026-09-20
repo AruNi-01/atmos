@@ -22,22 +22,19 @@ import { isHiddenTranscriptChromePart } from "@/features/agent/lib/agent-tool-ki
 import { ToolView } from "./ToolView";
 import { AgentPermissionCard } from "./AgentPermissionCard";
 import { useHistoricPermissionParts } from "./agent-permission-history-context";
+import { foldedPartIsOpen } from "./folded-agent-part";
 
 const CONVERSATION_LINK_SAFETY = { enabled: false } as const;
 
 export function AgentPartView({
   part,
-  index,
   parts,
-  streaming,
   thinkingMs,
   reviewComponents,
   toolResultOpen = false,
 }: {
   part: AgentPart;
-  index: number;
   parts: AgentPart[];
-  streaming: boolean;
   thinkingMs?: number | null;
   reviewComponents: {
     code: (props: ComponentPropsWithoutRef<"code"> & { node?: unknown }) => ReactNode;
@@ -52,12 +49,12 @@ export function AgentPartView({
   if (part.type === "thinking" && !part.text) return null;
 
   if (part.type === "text") {
-    const isLastTextBlock = streaming && !parts.slice(index + 1).some((item) => item.type === "text");
+    const open = foldedPartIsOpen(part);
     return (
       <MessageResponse
         parseIncompleteMarkdown
-        isAnimating={isLastTextBlock}
-        caret={isLastTextBlock ? "block" : undefined}
+        isAnimating={open}
+        caret={open ? "block" : undefined}
         className="break-words"
         components={reviewComponents as never}
         linkSafety={CONVERSATION_LINK_SAFETY}
@@ -68,14 +65,14 @@ export function AgentPartView({
   }
 
   if (part.type === "thinking") {
-    const isCurrentlyThinking = streaming && index === parts.length - 1;
-    const duration = isCurrentlyThinking
+    const open = foldedPartIsOpen(part);
+    const duration = open
       ? undefined
       : thinkingDurationSeconds(thinkingBlockDurationMs(part, parts, thinkingMs));
     return (
       <Reasoning
-        isStreaming={isCurrentlyThinking}
-        defaultOpen={toolResultOpen || isCurrentlyThinking}
+        isStreaming={open}
+        defaultOpen={toolResultOpen || open}
         duration={duration}
       >
         <ReasoningTrigger

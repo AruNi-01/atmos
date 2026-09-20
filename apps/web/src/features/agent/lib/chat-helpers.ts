@@ -440,9 +440,13 @@ export function shouldShowAssistantTurnEndedChrome(
 ): boolean {
   if (message.streaming) return false;
   if (isSessionChromeOnly(message.parts)) return false;
+  // Closed preamble text after tools is still in-flight. Copy / timestamp
+  // chrome waits for `turn_completed` so a later final answer does not look
+  // like a finished turn.
+  if (!message.completed_at) return false;
   if (assistantText.trim()) return true;
   if (message.usage) return true;
-  return Boolean(message.completed_at) && message.worked_ms != null && message.worked_ms > 0;
+  return message.worked_ms != null && message.worked_ms > 0;
 }
 
 /**
@@ -534,4 +538,18 @@ export function deriveAgentActivity(messages: AgentMessage[], turnOpen: boolean)
   }
 
   return { busy: false };
+}
+
+/**
+ * Composer idle is host-turn settlement, not "no open text part".
+ * After the last tool, Grok (and others) sit in prefill with every part
+ * closed — that is still a live turn. Clearing busy here flips the input
+ * back to send and drops Generating.
+ */
+export function shouldClearComposerBusy(
+  payloadType: string,
+  liveTurn: boolean,
+): boolean {
+  if (liveTurn) return false;
+  return payloadType === "turn_completed";
 }

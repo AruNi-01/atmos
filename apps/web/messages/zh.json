@@ -9459,6 +9459,7 @@
     "refresh": "刷新",
     "searchPlaceholder": "搜索标题和消息",
     "indexing": "正在索引消息",
+    "indexingProgress": "正在索引 {percent}%",
     "backToList": "返回列表",
     "close": "关闭",
     "unknownProject": "未知项目",

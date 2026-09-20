@@ -2,20 +2,21 @@ import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat
 
 export const PENDING_USER_ECHO_PREFIX = "pending:";
 
-function echoText(message: AgentMessage): string {
-  return message.parts
-    .filter((part): part is Extract<AgentPart, { type: "text" }> =>
-      part.type === "text" && !part.parent_tool_call_id)
-    .map((part) => part.text)
-    .join("\n")
-    .trim();
+const PENDING_FLAG = Symbol("pendingUserEcho");
+
+function markPending(message: AgentMessage): AgentMessage {
+  Object.defineProperty(message, PENDING_FLAG, { value: true });
+  return message;
 }
 
 export function isPendingUserEcho(message: AgentMessage | null | undefined): boolean {
   return Boolean(
     message
     && message.role === "user"
-    && message.id.startsWith(PENDING_USER_ECHO_PREFIX),
+    && (
+      message.id.startsWith(PENDING_USER_ECHO_PREFIX)
+      || PENDING_FLAG in (message as object)
+    ),
   );
 }
 
@@ -35,12 +36,12 @@ export function createPendingUserMessage(input: {
       name: attachment.name ?? attachment.path.split(/[\\/]/).at(-1) ?? attachment.path,
     });
   }
-  return {
-    id: input.id ?? `${PENDING_USER_ECHO_PREFIX}${crypto.randomUUID()}`,
+  return markPending({
+    id: input.id ?? crypto.randomUUID(),
     role: "user",
     parts,
     created_at: input.createdAt ?? new Date().toISOString(),
-  };
+  });
 }
 
 export function insertPendingUserMessage(
@@ -55,8 +56,25 @@ export function removePendingUserMessage(
   messages: AgentMessage[],
   echoId: string,
 ): AgentMessage[] {
-  if (!echoId.startsWith(PENDING_USER_ECHO_PREFIX)) return messages;
+  if (
+    !echoId.startsWith(PENDING_USER_ECHO_PREFIX)
+    && !messages.some((item) => item.id === echoId && isPendingUserEcho(item))
+  ) {
+    return messages;
+  }
   return messages.filter((item) => item.id !== echoId);
+}
+
+function pendingMatchesIncoming(pending: AgentMessage, incomingId: string): boolean {
+  if (pending.id === incomingId) return true;
+  if (pending.id === `${PENDING_USER_ECHO_PREFIX}${incomingId}`) return true;
+  if (
+    pending.id.startsWith(PENDING_USER_ECHO_PREFIX)
+    && incomingId === pending.id.slice(PENDING_USER_ECHO_PREFIX.length)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -76,15 +94,9 @@ export function settlePendingUserMessage(
     );
   }
 
-  const incomingText = echoText(incoming);
-  let pendingIndex = -1;
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const item = messages[index];
-    if (!item || !isPendingUserEcho(item)) continue;
-    if (incomingText && echoText(item) !== incomingText) continue;
-    pendingIndex = index;
-    break;
-  }
+  const pendingIndex = messages.findIndex(
+    (item) => isPendingUserEcho(item) && pendingMatchesIncoming(item, incoming.id),
+  );
   if (pendingIndex < 0) return [...messages, incoming];
 
   const next = messages.slice();
@@ -105,11 +117,8 @@ export function keepPendingUserEchoes(
   if (pending.length === 0) return loaded;
   const next = loaded.slice();
   for (const echo of pending) {
-    const text = echoText(echo);
-    const settled = next.some(
-      (item) => item.role === "user" && echoText(item) === text,
-    );
-    if (settled || next.some((item) => item.id === echo.id)) continue;
+    const settled = next.some((item) => item.id === echo.id || pendingMatchesIncoming(echo, item.id));
+    if (settled) continue;
     next.push(echo);
   }
   return next;

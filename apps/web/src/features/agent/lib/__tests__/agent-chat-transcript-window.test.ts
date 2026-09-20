@@ -132,6 +132,8 @@ describe("transcript virtual list wiring", () => {
     expect(panel).not.toContain("eagerMount=");
     expect(panel).not.toContain("messages.map((message, i)");
 
+    expect(list).toContain("FindHighlightLayer");
+    expect(list).toContain('data-markdown-find-content=""');
     expect(list).toContain("useVirtualizer");
     expect(list).toContain("measureElement");
     expect(list).toContain("useFlushSync: false");

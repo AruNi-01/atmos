@@ -52,7 +52,9 @@ export function AgentChatComposerDock({
       ref={stackRef}
       data-agent-chat-composer-dock=""
       className={cn("relative z-10 w-full shrink-0", wideContentClassName)}
-      initial={false}
+      // 单实例视觉连续性：新挂载的 landing 也从 dock（y=0）滑到中间，
+      // 和同面板内底部 new chat 的 bottom→center 复用同一条曲线。
+      initial={{ y: 0 }}
       animate={{ y: docked ? 0 : offset }}
       transition={{ duration: motionSpec.duration, ease: motionSpec.ease }}
       style={!measured && landing ? { visibility: "hidden" } : undefined}
@@ -60,7 +62,7 @@ export function AgentChatComposerDock({
       <motion.div
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 bottom-full flex justify-center px-3 pb-14"
-        initial={false}
+        initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: logo.opacity, y: logo.y }}
         transition={{
           duration: logo.duration,

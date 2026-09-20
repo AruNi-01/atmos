@@ -1,20 +1,58 @@
 import { describe, expect, it } from "bun:test";
+import { byteLength } from "@atmos/api-client/agent-chat";
 import {
   currentPlanFromMessages,
   currentTurnHasRunningSubagent,
-  dedupeAgentMessages,
+  foldAgentChatEventResult,
   foldMessagesFromEvent,
   hydrateAgentChatMessages,
+  takeBackfillRequest,
   textFromParts,
 } from "@/features/agent/lib/agent-chat-events";
 import type { AgentChatEvent, AgentEvent, AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 
 function chatEvent(
   chatId: string,
-  sequence: number,
+  revision: number,
   payload: AgentEvent,
 ): AgentChatEvent {
-  return { chat_id: chatId, event_id: `evt-${sequence}`, sequence, payload };
+  return { chat_id: chatId, event_id: `evt-${revision}`, revision, payload };
+}
+
+function textChunk(
+  revision: number,
+  input: {
+    part_id: string;
+    message_id: string;
+    text: string;
+    offset?: number;
+    ordinal?: number;
+    kind?: "answer" | "thinking";
+    parent_part_id?: string | null;
+  },
+): AgentChatEvent {
+  return chatEvent("chat-1", revision, {
+    type: "text_chunk",
+    part_id: input.part_id,
+    message_id: input.message_id,
+    parent_part_id: input.parent_part_id ?? null,
+    ordinal: input.ordinal ?? 0,
+    kind: input.kind ?? "answer",
+    offset: input.offset ?? 0,
+    text: input.text,
+  });
+}
+
+function partClosed(
+  revision: number,
+  partId: string,
+  durationMs?: number,
+): AgentChatEvent {
+  return chatEvent("chat-1", revision, {
+    type: "part_closed",
+    part_id: partId,
+    duration_ms: durationMs,
+  });
 }
 
 describe("agent chat fold stays on AgentMessage", () => {
@@ -33,10 +71,10 @@ describe("agent chat fold stays on AgentMessage", () => {
       message_id: "u1",
       text: "hi",
     });
-    const delta = chatEvent("chat-1", 2, {
-      type: "assistant_message_delta",
+    const chunk = textChunk(2, {
+      part_id: "a1",
       message_id: "a1",
-      delta: "partial",
+      text: "partial",
     });
     const noise = chatEvent("chat-1", 3, {
       type: "unknown",
@@ -50,12 +88,12 @@ describe("agent chat fold stays on AgentMessage", () => {
       error: "401 Unauthorized",
     });
     let messages = foldMessagesFromEvent([], user, "chat-1");
-    messages = foldMessagesFromEvent(messages, delta, "chat-1");
+    messages = foldMessagesFromEvent(messages, chunk, "chat-1");
     messages = foldMessagesFromEvent(messages, noise, "chat-1");
     expect(messages).toHaveLength(2);
     expect(textFromParts(messages[1]!.parts)).toBe("partial");
     messages = foldMessagesFromEvent(messages, failed, "chat-1");
-    expect(messages[1]?.parts).toEqual([
+    expect(messages[1]?.parts).toMatchObject([
       { type: "text", text: "partial", message_id: "a1" },
       { type: "error", message: "401 Unauthorized" },
     ]);
@@ -157,6 +195,14 @@ describe("agent chat fold stays on AgentMessage", () => {
           resume: "unsupported",
           permission: "unsupported",
           configure: "supported",
+          fork: "unsupported",
+          rewind: "unsupported",
+        },
+        support: {
+          models: "supported",
+          thinking: "unsupported",
+          modes: "unsupported",
+          permission_modes: "unsupported",
         },
         supported_options: {
           models: [{ id: "grok-4", label: "Grok 4" }],
@@ -171,7 +217,7 @@ describe("agent chat fold stays on AgentMessage", () => {
 
   it("replaces a pending user echo with the persisted user_message id", () => {
     const pending = {
-      id: "pending:local",
+      id: "pending:msg-1",
       role: "user" as const,
       parts: [{ type: "text" as const, text: "hello-s16" }],
       created_at: "2026-01-01T00:00:00.000Z",
@@ -240,28 +286,27 @@ describe("agent chat fold stays on AgentMessage", () => {
     expect(folded[0]?.created_at).toBe(createdAt);
   });
 
-  it("folds assistant deltas into a new message after the user row", () => {
+  it("folds text chunks into a new message after the user row", () => {
     const user = chatEvent("chat-1", 1, {
       type: "user_message",
       turn_id: "t1",
       message_id: "u1",
       text: "hi",
     });
-    const delta = chatEvent("chat-1", 2, {
-      type: "assistant_message_delta",
-      turn_id: "t1",
+    const first = textChunk(2, {
+      part_id: "a1",
       message_id: "a1",
-      delta: "hel",
+      text: "hel",
     });
-    const more = chatEvent("chat-1", 3, {
-      type: "assistant_message_delta",
-      turn_id: "t1",
+    const more = textChunk(3, {
+      part_id: "a1",
       message_id: "a1",
-      delta: "lo",
+      offset: byteLength("hel"),
+      text: "lo",
     });
     const messages = foldMessagesFromEvent(
       foldMessagesFromEvent([], user, "chat-1"),
-      delta,
+      first,
       "chat-1",
     );
     const next = foldMessagesFromEvent(messages, more, "chat-1");
@@ -272,6 +317,26 @@ describe("agent chat fold stays on AgentMessage", () => {
     expect(textFromParts(next[1]!.parts)).toBe("hello");
   });
 
+  it("applies identical consecutive chunks by offset instead of dropping them", () => {
+    const first = textChunk(1, {
+      part_id: "p1",
+      message_id: "a1",
+      text: "hello",
+    });
+    const second = textChunk(2, {
+      part_id: "p1",
+      message_id: "a1",
+      offset: byteLength("hello"),
+      text: "hello",
+    });
+    const messages = foldMessagesFromEvent(
+      foldMessagesFromEvent([], first, "chat-1"),
+      second,
+      "chat-1",
+    );
+    expect(textFromParts(messages[0]!.parts)).toBe("hellohello");
+  });
+
   it("does not merge nested subagent text into the parent reply", () => {
     const user = chatEvent("chat-1", 1, {
       type: "user_message",
@@ -279,30 +344,33 @@ describe("agent chat fold stays on AgentMessage", () => {
       message_id: "u1",
       text: "hi",
     });
-    const parentDelta = chatEvent("chat-1", 2, {
-      type: "assistant_message_delta",
+    const parentDelta = textChunk(2, {
+      part_id: "parent-1",
       message_id: "a1",
-      delta: "parent ",
+      text: "parent ",
+      ordinal: 0,
     });
-    const nested = chatEvent("chat-1", 3, {
-      type: "assistant_message_delta",
+    const nested = textChunk(3, {
+      part_id: "nested-1",
       message_id: "a1",
-      delta: "nested",
-      parent_tool_call_id: "sub-1",
+      text: "nested",
+      ordinal: 1,
+      parent_part_id: "sub-1",
     });
-    const moreParent = chatEvent("chat-1", 4, {
-      type: "assistant_message_delta",
+    const moreParent = textChunk(4, {
+      part_id: "parent-2",
       message_id: "a1",
-      delta: "reply",
+      text: "reply",
+      ordinal: 2,
     });
     let messages = foldMessagesFromEvent([], user, "chat-1");
     messages = foldMessagesFromEvent(messages, parentDelta, "chat-1");
     messages = foldMessagesFromEvent(messages, nested, "chat-1");
     messages = foldMessagesFromEvent(messages, moreParent, "chat-1");
-    expect(messages[1]?.parts).toEqual([
-      { type: "text", text: "parent ", message_id: "a1" },
-      { type: "text", text: "nested", parent_tool_call_id: "sub-1", message_id: "a1" },
-      { type: "text", text: "reply", message_id: "a1" },
+    expect(messages[1]?.parts).toMatchObject([
+      { type: "text", text: "parent ", message_id: "parent-1" },
+      { type: "text", text: "nested", parent_tool_call_id: "sub-1", message_id: "nested-1" },
+      { type: "text", text: "reply", message_id: "parent-2" },
     ]);
     expect(textFromParts(messages[1]!.parts)).toBe("parent \nreply");
   });
@@ -314,10 +382,10 @@ describe("agent chat fold stays on AgentMessage", () => {
       message_id: "u1",
       text: "explain atmos",
     });
-    const firstDelta = chatEvent("chat-1", 2, {
-      type: "assistant_message_delta",
+    const firstDelta = textChunk(2, {
+      part_id: "a1",
       message_id: "a1",
-      delta: "first answer",
+      text: "first answer",
     });
     const done = chatEvent("chat-1", 3, { type: "turn_completed", turn_id: "t1" });
     const secondUser = chatEvent("chat-1", 4, {
@@ -326,16 +394,17 @@ describe("agent chat fold stays on AgentMessage", () => {
       message_id: "u2",
       text: "draw a mermaid",
     });
-    const reusedThinking = chatEvent("chat-1", 5, {
-      type: "thinking_delta",
-      message_id: "a1",
-      delta: "the user wants a mermaid diagram",
+    const laterThinking = textChunk(5, {
+      part_id: "think-2",
+      message_id: "a2",
+      kind: "thinking",
+      text: "the user wants a mermaid diagram",
     });
     let messages = foldMessagesFromEvent([], firstUser, "chat-1");
     messages = foldMessagesFromEvent(messages, firstDelta, "chat-1");
     messages = foldMessagesFromEvent(messages, done, "chat-1");
     messages = foldMessagesFromEvent(messages, secondUser, "chat-1");
-    messages = foldMessagesFromEvent(messages, reusedThinking, "chat-1");
+    messages = foldMessagesFromEvent(messages, laterThinking, "chat-1");
     expect(messages).toHaveLength(4);
     expect(messages.map((item) => item.role)).toEqual(["user", "assistant", "user", "assistant"]);
     expect(textFromParts(messages[1]!.parts)).toBe("first answer");
@@ -353,10 +422,10 @@ describe("agent chat fold stays on AgentMessage", () => {
       message_id: "u1",
       text: "one",
     });
-    const firstDelta = chatEvent("chat-1", 2, {
-      type: "assistant_message_delta",
+    const firstDelta = textChunk(2, {
+      part_id: "a1",
       message_id: "a1",
-      delta: "first",
+      text: "first",
     });
     const done = chatEvent("chat-1", 3, { type: "turn_completed", turn_id: "t1" });
     const secondUser = chatEvent("chat-1", 4, {
@@ -365,10 +434,10 @@ describe("agent chat fold stays on AgentMessage", () => {
       message_id: "u2",
       text: "two",
     });
-    const secondDelta = chatEvent("chat-1", 5, {
-      type: "assistant_message_delta",
+    const secondDelta = textChunk(5, {
+      part_id: "a2",
       message_id: "a2",
-      delta: "second",
+      text: "second",
     });
     let messages = foldMessagesFromEvent([], firstUser, "chat-1");
     messages = foldMessagesFromEvent(messages, firstDelta, "chat-1");
@@ -429,7 +498,7 @@ describe("agent chat fold stays on AgentMessage", () => {
     expect(failed[0]?.parts[0]).toMatchObject({ type: "tool_call", status: "failed" });
   });
 
-  it("keeps tool params and title when a completed event sends generic placeholders", () => {
+  it("overwrites name and title when a completed event sends them", () => {
     const begin = chatEvent("chat-1", 1, {
       type: "tool_call_started",
       turn_id: "t1",
@@ -462,9 +531,9 @@ describe("agent chat fold stays on AgentMessage", () => {
     );
     expect(messages[0]?.parts[0]).toMatchObject({
       type: "tool_call",
-      name: "Read",
+      name: "Tool",
       kind: "read",
-      title: "Read `/tmp/app/README.md`",
+      title: "Tool",
       status: "completed",
       params: { type: "read", path: "/tmp/app/README.md", limit: 150 },
       result: { type: "file_content", path: "/tmp/app/README.md", text: "# hi\n" },
@@ -473,7 +542,7 @@ describe("agent chat fold stays on AgentMessage", () => {
     expect(JSON.stringify(messages[0]?.parts[0])).not.toContain("\"output\"");
   });
 
-  it("does not replace typed params with empty other placeholders", () => {
+  it("keeps prior optionals when a later event omits them", () => {
     const begin = chatEvent("chat-1", 1, {
       type: "tool_call_started",
       turn_id: "t1",
@@ -491,13 +560,9 @@ describe("agent chat fold stays on AgentMessage", () => {
       turn_id: "t1",
       tool_call: {
         tool_call_id: "tool-1",
-        name: "Tool",
-        title: "Tool",
-        kind: "other",
         status: "completed",
-        params: { type: "other", value: {} },
         result: { type: "text", text: "crates/llm/src/lib.rs" },
-      },
+      } as never,
     });
     const messages = foldMessagesFromEvent(
       foldMessagesFromEvent([], begin, "chat-1"),
@@ -512,6 +577,40 @@ describe("agent chat fold stays on AgentMessage", () => {
       status: "completed",
       params: { type: "search", query: "Check LLM providers, DB backend, app names" },
       result: { type: "text", text: "crates/llm/src/lib.rs" },
+    });
+  });
+
+  it("does not regress completed status when a running event is replayed", () => {
+    const done = chatEvent("chat-1", 1, {
+      type: "tool_call_completed",
+      turn_id: "t1",
+      tool_call: {
+        tool_call_id: "tool-1",
+        name: "Read",
+        kind: "read",
+        status: "completed",
+        params: { type: "read", path: "a.ts" },
+        result: { type: "file_content", path: "a.ts", text: "ok" },
+      },
+    });
+    const replay = chatEvent("chat-1", 2, {
+      type: "tool_call_started",
+      turn_id: "t1",
+      tool_call: {
+        tool_call_id: "tool-1",
+        status: "running",
+      } as never,
+    });
+    const messages = foldMessagesFromEvent(
+      foldMessagesFromEvent([], done, "chat-1"),
+      replay,
+      "chat-1",
+    );
+    expect(messages[0]?.parts[0]).toMatchObject({
+      type: "tool_call",
+      status: "completed",
+      name: "Read",
+      params: { type: "read", path: "a.ts" },
     });
   });
 
@@ -646,10 +745,10 @@ describe("agent chat fold stays on AgentMessage", () => {
         params: { type: "edit", path: "a.ts" },
       },
     });
-    const text = chatEvent("chat-1", 2, {
-      type: "assistant_message_delta",
+    const text = textChunk(2, {
+      part_id: "a1",
       message_id: "a1",
-      delta: "## 验证",
+      text: "## 验证",
     });
     const completed = chatEvent("chat-1", 3, {
       type: "tool_call_completed",
@@ -862,10 +961,11 @@ describe("agent chat fold stays on AgentMessage", () => {
       status: "completed",
       duration_ms: 1800,
     });
-    const thinking = chatEvent("chat-1", 4, {
-      type: "thinking_delta",
+    const thinking = textChunk(4, {
+      part_id: "think-1",
       message_id: "a1",
-      delta: "hmm",
+      kind: "thinking",
+      text: "hmm",
     });
     let messages = foldMessagesFromEvent([], user, "chat-1");
     messages = foldMessagesFromEvent(messages, running, "chat-1");
@@ -886,7 +986,7 @@ describe("agent chat fold stays on AgentMessage", () => {
     });
   });
 
-  it("holds turn_completed while a current-turn subagent is still running", () => {
+  it("closes text parts on turn_completed while a current-turn subagent is still running", () => {
     const user = chatEvent("chat-1", 1, {
       type: "user_message",
       turn_id: "t1",
@@ -913,7 +1013,7 @@ describe("agent chat fold stays on AgentMessage", () => {
     messages = foldMessagesFromEvent(messages, started, "chat-1");
     expect(currentTurnHasRunningSubagent(messages)).toBe(true);
     messages = foldMessagesFromEvent(messages, done, "chat-1");
-    expect(messages[1]?.streaming).toBe(true);
+    expect(messages[1]?.streaming).toBe(false);
     expect(messages[1]?.completed_at).toBe("2026-09-15T15:06:11.000Z");
     expect(messages[1]?.worked_ms).toBe(12_000);
     expect(currentTurnHasRunningSubagent(messages)).toBe(true);
@@ -930,7 +1030,7 @@ describe("agent chat fold stays on AgentMessage", () => {
       },
     });
     messages = foldMessagesFromEvent(messages, child, "chat-1");
-    expect(messages[1]?.streaming).toBe(true);
+    expect(messages[1]?.streaming).toBe(false);
     expect(messages[1]?.completed_at).toBe("2026-09-15T15:06:11.000Z");
 
     const childDone = chatEvent("chat-1", 5, {
@@ -945,7 +1045,7 @@ describe("agent chat fold stays on AgentMessage", () => {
       },
     });
     messages = foldMessagesFromEvent(messages, childDone, "chat-1");
-    expect(messages[1]?.streaming).toBe(true);
+    expect(messages[1]?.streaming).toBe(false);
 
     const finished = chatEvent("chat-1", 6, {
       type: "tool_call_completed",
@@ -963,20 +1063,16 @@ describe("agent chat fold stays on AgentMessage", () => {
     expect(messages[1]?.completed_at).toBe("2026-09-15T15:06:11.000Z");
   });
 
-  it("keeps streaming through assistant_message_completed until turn_completed", () => {
-    const delta = chatEvent("chat-1", 1, {
-      type: "assistant_message_delta",
+  it("keeps streaming until the part closes or the turn completes", () => {
+    const chunk = textChunk(1, {
+      part_id: "a1",
       message_id: "a1",
-      delta: "hi",
+      text: "hi",
     });
-    const completed = chatEvent("chat-1", 2, {
-      type: "assistant_message_completed",
-      message_id: "a1",
-    });
-    let messages = foldMessagesFromEvent([], delta, "chat-1");
+    let messages = foldMessagesFromEvent([], chunk, "chat-1");
     expect(messages[0]?.streaming).toBe(true);
-    messages = foldMessagesFromEvent(messages, completed, "chat-1");
-    expect(messages[0]?.streaming).toBe(true);
+    messages = foldMessagesFromEvent(messages, partClosed(2, "a1"), "chat-1");
+    expect(messages[0]?.streaming).toBe(false);
     expect(textFromParts(messages[0]!.parts)).toBe("hi");
   });
 
@@ -1050,23 +1146,20 @@ describe("agent chat fold stays on AgentMessage", () => {
     });
   });
 
-  it("stamps thinking duration when thinking completes", () => {
+  it("stamps thinking duration when the thinking part closes", () => {
     const user = chatEvent("chat-1", 1, {
       type: "user_message",
       turn_id: "t1",
       message_id: "u1",
       text: "hi",
     });
-    const thinking = chatEvent("chat-1", 2, {
-      type: "thinking_delta",
+    const thinking = textChunk(2, {
+      part_id: "think-1",
       message_id: "a1",
-      delta: "hmm",
+      kind: "thinking",
+      text: "hmm",
     });
-    const done = chatEvent("chat-1", 3, {
-      type: "thinking_completed",
-      message_id: "a1",
-      thinking_ms: 4000,
-    });
+    const done = partClosed(3, "think-1", 4000);
     const messages = foldMessagesFromEvent(
       foldMessagesFromEvent(foldMessagesFromEvent([], user, "chat-1"), thinking, "chat-1"),
       done,
@@ -1087,16 +1180,14 @@ describe("agent chat fold stays on AgentMessage", () => {
       text: "hi",
     });
     let messages = foldMessagesFromEvent([], user, "chat-1");
-    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 2, {
-      type: "thinking_delta",
+    messages = foldMessagesFromEvent(messages, textChunk(2, {
+      part_id: "think-1",
       message_id: "a1",
-      delta: "first",
+      kind: "thinking",
+      text: "first",
+      ordinal: 0,
     }), "chat-1");
-    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 3, {
-      type: "thinking_completed",
-      message_id: "a1",
-      thinking_ms: 5000,
-    }), "chat-1");
+    messages = foldMessagesFromEvent(messages, partClosed(3, "think-1", 5000), "chat-1");
     messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 4, {
       type: "tool_call_started",
       tool_call: {
@@ -1107,16 +1198,14 @@ describe("agent chat fold stays on AgentMessage", () => {
         params: { type: "read", path: "a.ts" },
       },
     }), "chat-1");
-    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 5, {
-      type: "thinking_delta",
+    messages = foldMessagesFromEvent(messages, textChunk(5, {
+      part_id: "think-2",
       message_id: "a1",
-      delta: "second",
+      kind: "thinking",
+      text: "second",
+      ordinal: 2,
     }), "chat-1");
-    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 6, {
-      type: "thinking_completed",
-      message_id: "a1",
-      thinking_ms: 8000,
-    }), "chat-1");
+    messages = foldMessagesFromEvent(messages, partClosed(6, "think-2", 8000), "chat-1");
     messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 7, {
       type: "turn_completed",
       turn_id: "t1",
@@ -1127,9 +1216,9 @@ describe("agent chat fold stays on AgentMessage", () => {
       id: "a1",
       thinking_ms: 13000,
     });
-    expect(messages[1]?.parts.filter((part) => part.type === "thinking")).toEqual([
-      { type: "thinking", text: "first", duration_ms: 5000, message_id: "a1" },
-      { type: "thinking", text: "second", duration_ms: 8000, message_id: "a1" },
+    expect(messages[1]?.parts.filter((part) => part.type === "thinking")).toMatchObject([
+      { type: "thinking", text: "first", duration_ms: 5000 },
+      { type: "thinking", text: "second", duration_ms: 8000 },
     ]);
   });
 
@@ -1140,10 +1229,10 @@ describe("agent chat fold stays on AgentMessage", () => {
       message_id: "u1",
       text: "hi",
     });
-    const delta = chatEvent("chat-1", 2, {
-      type: "assistant_message_delta",
+    const chunk = textChunk(2, {
+      part_id: "a1",
       message_id: "a1",
-      delta: "hello",
+      text: "hello",
     });
     const done = chatEvent("chat-1", 3, {
       type: "turn_completed",
@@ -1153,7 +1242,7 @@ describe("agent chat fold stays on AgentMessage", () => {
       completed_at: "2026-08-28T12:00:14.000Z",
     });
     const messages = foldMessagesFromEvent(
-      foldMessagesFromEvent(foldMessagesFromEvent([], user, "chat-1"), delta, "chat-1"),
+      foldMessagesFromEvent(foldMessagesFromEvent([], user, "chat-1"), chunk, "chat-1"),
       done,
       "chat-1",
     );
@@ -1173,10 +1262,10 @@ describe("agent chat fold stays on AgentMessage", () => {
       message_id: "u1",
       text: "hi",
     });
-    const delta = chatEvent("chat-1", 2, {
-      type: "assistant_message_delta",
+    const chunk = textChunk(2, {
+      part_id: "a1",
       message_id: "a1",
-      delta: "hello",
+      text: "hello",
     });
     const usage = chatEvent("chat-1", 3, {
       type: "usage_updated",
@@ -1188,7 +1277,7 @@ describe("agent chat fold stays on AgentMessage", () => {
       usage: { total_tokens: 150, input_tokens: 100, output_tokens: 50 },
     });
     let messages = foldMessagesFromEvent([], user, "chat-1");
-    messages = foldMessagesFromEvent(messages, delta, "chat-1");
+    messages = foldMessagesFromEvent(messages, chunk, "chat-1");
     messages = foldMessagesFromEvent(messages, usage, "chat-1");
     expect(messages[1]?.usage).toEqual({
       total_tokens: 150,
@@ -1204,90 +1293,79 @@ describe("agent chat fold stays on AgentMessage", () => {
     });
   });
 
-  it("hydrates persisted rows then live deltas without duplicating ids", () => {
+  it("hydrates persisted rows then live chunks without comparing text", () => {
     const persisted: AgentMessage[] = [
       { id: "u1", role: "user", parts: [{ type: "text", text: "hi" }] },
-      { id: "a1", role: "assistant", parts: [{ type: "text", text: "Hel" }], streaming: true },
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [{ type: "text", text: "Hel", message_id: "p1" }],
+        streaming: true,
+      },
     ];
     const messages = hydrateAgentChatMessages(
       persisted,
       [
-        chatEvent("chat-1", 10, {
-          type: "assistant_message_delta",
+        textChunk(10, {
+          part_id: "p1",
           message_id: "a1",
-          delta: "lo",
+          offset: byteLength("Hel"),
+          text: "lo",
         }),
       ],
       "chat-1",
-      9,
     );
     expect(messages.map((item) => item.id)).toEqual(["u1", "a1"]);
     expect(textFromParts(messages[1]!.parts)).toBe("Hello");
     expect(messages[1]?.streaming).toBe(true);
   });
 
-  it("does not append a delta that already matches the hydrated snapshot", () => {
+  it("ignores a contained replay chunk by offset rather than by text equality", () => {
     const persisted: AgentMessage[] = [
       { id: "u1", role: "user", parts: [{ type: "text", text: "hi" }] },
-      { id: "a1", role: "assistant", parts: [{ type: "text", text: "Hello world" }], streaming: true },
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [{ type: "text", text: "Hello world", message_id: "p1" }],
+        streaming: true,
+      },
     ];
     const messages = hydrateAgentChatMessages(
       persisted,
       [
-        chatEvent("chat-1", 10, {
-          type: "assistant_message_delta",
+        textChunk(10, {
+          part_id: "p1",
           message_id: "a1",
-          delta: "Hello world",
+          text: "Hello world",
         }),
       ],
       "chat-1",
-      9,
     );
     expect(textFromParts(messages[1]!.parts)).toBe("Hello world");
   });
 
-  it("treats a cumulative stream snapshot as replacement instead of append", () => {
+  it("applies an overlapping chunk by keeping only the tail beyond current length", () => {
     const persisted: AgentMessage[] = [
       { id: "u1", role: "user", parts: [{ type: "text", text: "hi" }] },
-      { id: "a1", role: "assistant", parts: [{ type: "text", text: "Hel" }], streaming: true },
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [{ type: "text", text: "Hel", message_id: "p1" }],
+        streaming: true,
+      },
     ];
     const messages = hydrateAgentChatMessages(
       persisted,
       [
-        chatEvent("chat-1", 10, {
-          type: "assistant_message_delta",
+        textChunk(10, {
+          part_id: "p1",
           message_id: "a1",
-          delta: "Hello",
+          text: "Hello",
         }),
       ],
       "chat-1",
-      9,
     );
     expect(textFromParts(messages[1]!.parts)).toBe("Hello");
-  });
-
-  it("dedupes a snapshot that already contains the live assistant id", () => {
-    const persisted: AgentMessage[] = [
-      { id: "u1", role: "user", parts: [{ type: "text", text: "hi" }] },
-      { id: "a1", role: "assistant", parts: [{ type: "text", text: "Hello" }], streaming: true },
-      { id: "a1", role: "assistant", parts: [{ type: "text", text: "Hello" }], streaming: true },
-    ];
-    const messages = hydrateAgentChatMessages(persisted, [], "chat-1", 0);
-    expect(messages.map((item) => item.id)).toEqual(["u1", "a1"]);
-    expect(textFromParts(messages[1]!.parts)).toBe("Hello");
-  });
-
-  it("keeps later-turn copies of a reused assistant id unique", () => {
-    const persisted: AgentMessage[] = [
-      { id: "u1", role: "user", parts: [{ type: "text", text: "one" }] },
-      { id: "a1", role: "assistant", parts: [{ type: "text", text: "first" }] },
-      { id: "u2", role: "user", parts: [{ type: "text", text: "two" }] },
-      { id: "a1", role: "assistant", parts: [{ type: "text", text: "second" }] },
-    ];
-    const messages = dedupeAgentMessages(persisted);
-    expect(messages.map((item) => item.id)).toEqual(["u1", "a1", "u2", "a1:3"]);
-    expect(textFromParts(messages[1]!.parts)).toBe("first");
-    expect(textFromParts(messages[3]!.parts)).toBe("second");
   });
 
   it("starts a new text part after tools instead of appending to the first block", () => {
@@ -1298,11 +1376,11 @@ describe("agent chat fold stays on AgentMessage", () => {
       text: "hi",
     });
     let messages = foldMessagesFromEvent([], user, "chat-1");
-    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 2, {
-      type: "assistant_message_delta",
-      turn_id: "t1",
+    messages = foldMessagesFromEvent(messages, textChunk(2, {
+      part_id: "a1",
       message_id: "a1",
-      delta: "looking",
+      text: "looking",
+      ordinal: 0,
     }), "chat-1");
     messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 3, {
       type: "tool_call_started",
@@ -1315,11 +1393,11 @@ describe("agent chat fold stays on AgentMessage", () => {
         params: { type: "read", path: "a.ts" },
       },
     }), "chat-1");
-    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 4, {
-      type: "assistant_message_delta",
-      turn_id: "t1",
+    messages = foldMessagesFromEvent(messages, textChunk(4, {
+      part_id: "a2",
       message_id: "a2",
-      delta: "final",
+      text: "final",
+      ordinal: 2,
     }), "chat-1");
     const parts = messages[1]?.parts ?? [];
     expect(parts.map((part) => part.type)).toEqual(["text", "tool_call", "text"]);
@@ -1327,7 +1405,9 @@ describe("agent chat fold stays on AgentMessage", () => {
     expect(parts[2]).toMatchObject({ type: "text", text: "final" });
   });
 
-  it("updates the same stream id after tools instead of opening a new text block", () => {
+  it("updates the same part after tools instead of opening a new text block", () => {
+    const first = "先从 tabs 看创建、关闭和重启后恢复时有";
+    const second = "没有串数据。";
     const user = chatEvent("chat-1", 1, {
       type: "user_message",
       turn_id: "t1",
@@ -1335,11 +1415,10 @@ describe("agent chat fold stays on AgentMessage", () => {
       text: "hi",
     });
     let messages = foldMessagesFromEvent([], user, "chat-1");
-    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 2, {
-      type: "assistant_message_delta",
-      turn_id: "t1",
+    messages = foldMessagesFromEvent(messages, textChunk(2, {
+      part_id: "a1",
       message_id: "a1",
-      delta: "先从 tabs 看创建、关闭和重启后恢复时有",
+      text: first,
     }), "chat-1");
     messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 3, {
       type: "tool_call_started",
@@ -1352,54 +1431,103 @@ describe("agent chat fold stays on AgentMessage", () => {
         params: { type: "read", path: "a.ts" },
       },
     }), "chat-1");
-    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 4, {
-      type: "assistant_message_delta",
-      turn_id: "t1",
+    messages = foldMessagesFromEvent(messages, textChunk(4, {
+      part_id: "a1",
       message_id: "a1",
-      delta: "没有串数据。",
+      offset: byteLength(first),
+      text: second,
     }), "chat-1");
     const parts = messages[1]?.parts ?? [];
     expect(parts.map((part) => part.type)).toEqual(["text", "tool_call"]);
     expect(parts[0]).toMatchObject({
       type: "text",
-      text: "先从 tabs 看创建、关闭和重启后恢复时有没有串数据。",
+      text: `${first}${second}`,
       message_id: "a1",
     });
   });
 
-  it("merges same-id snapshots without collapsing interleaved text into the first part", () => {
-    const tool = {
-      type: "tool_call" as const,
-      tool_call_id: "tool-1",
-      name: "Read",
-      kind: "read" as const,
-      status: "completed",
-      params: { type: "read" as const, path: "a.ts" },
-    };
-    const messages = dedupeAgentMessages([
-      {
-        id: "a1",
-        role: "assistant",
-        parts: [
-          { type: "text", text: "mid" },
-          tool,
-          { type: "text", text: "fin" },
-        ],
-      },
-      {
-        id: "a1",
-        role: "assistant",
-        parts: [
-          { type: "text", text: "mid commentary" },
-          tool,
-          { type: "text", text: "final" },
-        ],
-      },
-    ]);
-    expect(messages).toHaveLength(1);
-    expect(messages[0]?.parts.filter((part) => part.type === "text")).toEqual([
-      { type: "text", text: "mid commentary" },
-      { type: "text", text: "final" },
-    ]);
+  it("S18 gap at 300 with len 100 raises one backfill from 100 without duplicating text", () => {
+    const prefix = "x".repeat(100);
+    const suffix = "y".repeat(250);
+    const server = `${prefix}${suffix}`;
+    const user = chatEvent("chat-1", 1, {
+      type: "user_message",
+      turn_id: "t1",
+      message_id: "u1",
+      text: "hi",
+    });
+    let messages = foldMessagesFromEvent([], user, "chat-1");
+    messages = foldMessagesFromEvent(messages, textChunk(2, {
+      part_id: "a1",
+      message_id: "a1",
+      text: prefix,
+    }), "chat-1");
+    expect(textFromParts(messages[1]!.parts)).toBe(prefix);
+
+    const inflight = new Set<string>();
+    const gap = textChunk(3, {
+      part_id: "a1",
+      message_id: "a1",
+      offset: 300,
+      text: "z".repeat(20),
+    });
+    const gapped = foldAgentChatEventResult(messages, gap, "chat-1");
+    expect(gapped.backfill).toEqual({ partId: "a1", fromOffset: 100 });
+    expect(textFromParts(gapped.messages[1]!.parts)).toBe(prefix);
+    expect(textFromParts(gapped.messages[1]!.parts)).not.toContain("z");
+
+    const first = takeBackfillRequest(inflight, gapped.backfill);
+    expect(first).toEqual({ partId: "a1", fromOffset: 100 });
+    expect(takeBackfillRequest(inflight, gapped.backfill)).toBeNull();
+
+    messages = foldMessagesFromEvent(gapped.messages, textChunk(4, {
+      part_id: "a1",
+      message_id: "a1",
+      offset: 100,
+      text: suffix,
+    }), "chat-1");
+    expect(textFromParts(messages[1]!.parts)).toBe(server);
+
+    messages = foldMessagesFromEvent(messages, gap, "chat-1");
+    expect(textFromParts(messages[1]!.parts)).toBe(server);
+  });
+
+  it("keeps a settled assistant identity while a later turn streams", () => {
+    let messages = foldMessagesFromEvent([], chatEvent("chat-1", 1, {
+      type: "user_message",
+      turn_id: "t1",
+      message_id: "u1",
+      text: "one",
+    }), "chat-1");
+    messages = foldMessagesFromEvent(messages, textChunk(2, {
+      part_id: "a1",
+      message_id: "a1",
+      text: "done",
+    }), "chat-1");
+    messages = foldMessagesFromEvent(messages, partClosed(3, "a1"), "chat-1");
+    const settled = messages.find((message) => message.role === "assistant");
+    expect(settled?.id).toBe("a1");
+
+    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 4, {
+      type: "user_message",
+      turn_id: "t2",
+      message_id: "u2",
+      text: "two",
+    }), "chat-1");
+    messages = foldMessagesFromEvent(messages, textChunk(5, {
+      part_id: "a2",
+      message_id: "a2",
+      text: "hel",
+    }), "chat-1");
+    expect(messages.find((message) => message.id === "a1")).toBe(settled);
+
+    messages = foldMessagesFromEvent(messages, textChunk(6, {
+      part_id: "a2",
+      message_id: "a2",
+      offset: 3,
+      text: "lo",
+    }), "chat-1");
+    expect(messages.find((message) => message.id === "a1")).toBe(settled);
+    expect(textFromParts(messages.find((message) => message.id === "a2")!.parts)).toBe("hello");
   });
 });

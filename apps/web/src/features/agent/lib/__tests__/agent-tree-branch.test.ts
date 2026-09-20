@@ -8,8 +8,11 @@ import {
   treeElbowRadius,
   treeReachLength,
   treeReachPath,
+  clampTreeShown,
   treeEnterDelayMs,
+  nextTreeWatermark,
   treeSegmentDelayMs,
+  treeStaggerDelayMs,
   treeTitleRevealMs,
   treeTrunkPath,
   TREE_BRANCH_END_X,
@@ -18,6 +21,7 @@ import {
   TREE_CONTENT_DELAY_MS,
   TREE_DRAW_MS,
   TREE_LINE_MS,
+  TREE_STAGGER_CAP_MS,
   TREE_START_MS,
   TREE_STEP_MS,
   TREE_TITLE_SEGMENT_MS,
@@ -79,6 +83,21 @@ describe("tree reach geometry", () => {
     expect(treeEnterDelayMs(2, 2, 3)).toBe(0);
     expect(treeEnterDelayMs(0, 0, 1)).toBe(0);
   });
+
+  it("compresses the step so a long group still starts within the cap", () => {
+    expect(treeStaggerDelayMs(4, 5)).toBe(4 * TREE_STEP_MS);
+    expect(treeStaggerDelayMs(39, 40)).toBe(TREE_STAGGER_CAP_MS);
+    expect(treeEnterDelayMs(39, 0, 40)).toBe(TREE_STAGGER_CAP_MS);
+  });
+
+  it("keeps already-seen rows still when the group is closed or reopened", () => {
+    expect(nextTreeWatermark(2, 5, false)).toBe(5);
+    expect(nextTreeWatermark(2, 5, true)).toBe(2);
+    expect(nextTreeWatermark(4, 3, true)).toBe(3);
+    expect(clampTreeShown(2, 5, 2, false)).toBe(5);
+    expect(clampTreeShown(2, 5, 2, true)).toBe(2);
+    expect(clampTreeShown(0, 5, 3, true)).toBe(3);
+  });
 });
 
 describe("agent tree wiring", () => {
@@ -103,25 +122,24 @@ describe("agent tree wiring", () => {
       join(import.meta.dir, "../../components/AgentToolGroupView.tsx"),
       "utf8",
     );
-    const network = readFileSync(
-      join(import.meta.dir, "../../components/AgentTreeNetwork.tsx"),
-      "utf8",
-    );
-    expect(group).toContain("useSequentialReveal");
+    // Only rows that arrive while the group is open animate; reopen stays instant.
+    expect(group).toContain("useTreeRowReveal(parts.length, open)");
     expect(group).toContain("parts.slice(0, shown)");
     expect(group).toContain("AgentTreeRevealProvider");
     expect(group).toContain("AgentToolDiffStats");
     expect(group).toContain("sumToolGroupDiffStats");
     expect(group).toContain("renderPart");
-    expect(group).toContain("AgentTreeNetwork");
-    expect(group).toContain("animate={autoOpen}");
+    // Rows own their own strokes so layout, not a measured overlay, places them.
+    expect(group).toContain("AgentTreeBranch");
+    expect(group).toContain("animate={index >= watermark}");
+    expect(group).toContain("treeEnterDelayMs");
+    expect(group).not.toContain("AgentTreeNetwork");
+    expect(group).not.toContain("ResizeObserver");
+    expect(group).not.toContain('data-tree-row=""');
     expect(group).not.toContain("animate={open}");
-    expect(group).toContain('data-tree-row=""');
-    expect(group).not.toContain("AgentTreeBranch");
-    expect(network).toContain("treeReachPath");
-    expect(network).toContain("strokeDashoffset");
-    expect(network).toContain("pathLength={1}");
-    expect(network).toContain("treeEnterDelayMs");
+    expect(group).not.toContain("animate={streaming}");
+    expect(group).not.toContain("useSequentialReveal(parts.length, streaming)");
+    expect(group).not.toContain("useSequentialReveal(parts.length, autoOpen)");
     const delays = readFileSync(
       join(import.meta.dir, "../agent-tree-branch.ts"),
       "utf8",

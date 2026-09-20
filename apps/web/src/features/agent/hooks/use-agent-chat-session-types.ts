@@ -55,6 +55,11 @@ export interface UseAgentChatSessionOptions {
   instanceKey?: string | null;
   /** Center paint id (`host` or `host::space::spaceId`) so status jumps back to this space. */
   paintContextId?: string | null;
+  /**
+   * Center tab visibility (last-tab can be true on a warm frame). Combined with
+   * the visual paint bus so hidden chats keep folding without React commits.
+   */
+  surfaceVisible?: boolean;
   /** Prefer restoring this binding (from persisted widget source) over UI prefs. */
   initialSessionBinding?: AgentChatSessionBinding | null;
   /** Called when the live chat binding changes (persist to document). */

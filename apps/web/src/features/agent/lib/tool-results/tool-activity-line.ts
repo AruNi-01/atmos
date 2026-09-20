@@ -1,5 +1,4 @@
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
-import { isGenericToolLabel } from "@/features/agent/lib/agent-tool-kind";
 import { sumToolGroupDiffStats } from "@/features/agent/lib/tool-results/diff-stats";
 import {
   hostFromUrl,
@@ -63,7 +62,7 @@ export function formatAgentToolActivityLine(
   const stats = sumToolGroupDiffStats([part]);
 
   let head = rawTitle;
-  if (!head || isGenericToolLabel(head) || (path && toolTitleLooksLikePath(head, path))) {
+  if (!head || (path && toolTitleLooksLikePath(head, path))) {
     head = kindLabel;
   } else if (path) {
     const stripped = stripPathEchoFromToolHeading(head, path, file ? [file] : []);
@@ -77,7 +76,7 @@ export function formatAgentToolActivityLine(
     const host = hostFromUrl(url) ?? url;
     if (host && !head.includes(host)) extras.push(host);
   } else if (skill && !head.includes(skill)) extras.push(skill);
-  else if (command && !head.includes(command) && (isGenericToolLabel(rawTitle) || !rawTitle)) {
+  else if (command && !head.includes(command) && !rawTitle) {
     extras.push(truncateCommand(command));
   }
 

@@ -13,6 +13,7 @@ import { MarkdownCodeBlock } from "@/shared/components/markdown/MarkdownRenderer
 import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
 import { useOpenAgentChatWorkspacePath } from "@/features/agent/hooks/use-open-agent-chat-path";
 import { AgentPartView } from "./AgentPartView";
+import { foldedPartKey } from "./folded-agent-part";
 import { AgentStreamReveal } from "./AgentStreamReveal";
 import { AgentToolGroupView } from "./AgentToolGroupView";
 import {
@@ -194,12 +195,10 @@ export function AssistantMessageView({
     setProcessMounted(true);
   }
 
-  const renderPart = (part: AgentPart, i: number) => (
+  const renderPart = (part: AgentPart, _origIndex: number) => (
     <AgentPartView
       part={part}
-      index={i}
       parts={parts}
-      streaming={streaming}
       thinkingMs={message.thinking_ms}
       reviewComponents={reviewComponents}
       toolResultOpen={density === "detailed" && isDetailExpandedTool(part)}
@@ -224,8 +223,9 @@ export function AssistantMessageView({
         />
       );
     }
+    const key = foldedPartKey(segment.part, segment.origIndex);
     const part = (
-      <AgentStreamReveal key={segment.origIndex} enabled={streaming}>
+      <AgentStreamReveal key={key} enabled={streaming}>
         {renderPart(segment.part, segment.origIndex)}
       </AgentStreamReveal>
     );
@@ -235,7 +235,7 @@ export function AssistantMessageView({
       && isAssistantAnswerTextPart(segment.part)
     ) {
       return (
-        <div key={`find-${segment.origIndex}`} data-transcript-find="answer">
+        <div key={`find-${key}`} data-transcript-find="answer">
           {part}
         </div>
       );

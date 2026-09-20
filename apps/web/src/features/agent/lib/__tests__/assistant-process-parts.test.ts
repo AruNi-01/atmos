@@ -257,7 +257,7 @@ describe("assistant process collapse", () => {
       false,
       true,
       true,
-    )).toBe(true);
+    )).toBe(false);
   });
 
   it("skips auto-collapse on settle when the user is inspecting expanded tools", () => {

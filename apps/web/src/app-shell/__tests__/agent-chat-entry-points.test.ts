@@ -80,6 +80,7 @@ describe("S2 Agent Chat entry points", () => {
     expect(workspaceFrame).toContain('variant="center"');
     expect(workspaceFrame).toContain("instanceKey={tab.value}");
     expect(workspaceFrame).toContain("paintContextId={contextId}");
+    expect(workspaceFrame).toContain("surfaceVisible={visible}");
     expect(workspaceFrame).toContain("resumeTranscript={tab.hasMessages}");
 
     const panel = readFileSync(

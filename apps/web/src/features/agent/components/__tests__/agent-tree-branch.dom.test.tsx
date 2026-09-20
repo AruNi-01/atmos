@@ -38,6 +38,45 @@ describe("AgentTreeBranch", () => {
     expect(elbow?.getAttribute("pathLength") ?? elbow?.getAttribute("pathlength")).toBe("1");
   });
 
+  it("fades opaque ink once per group so overlapping joints never brighten", () => {
+    const container = renderBranch({ isFirst: false, isLast: false, animate: false });
+    const group = container.querySelector("svg > g");
+    expect(group?.getAttribute("stroke")).toBe("var(--foreground)");
+    expect(group?.getAttribute("opacity")).toBe("0.1");
+    // Round caps would spill 0.75px into the neighbouring row and composite twice.
+    expect(group?.getAttribute("stroke-linecap")).toBe("butt");
+    for (const stroke of container.querySelectorAll("[data-tree-stroke]")) {
+      expect(stroke.getAttribute("stroke")).toBeNull();
+    }
+  });
+
+  it("joins row to row: the trunk leaves where the elbow curves and runs to the row bottom", () => {
+    const container = renderBranch({ isFirst: false, isLast: false, animate: false });
+    const trunk = container.querySelector('[data-tree-stroke="trunk"]');
+    const elbow = container.querySelector('[data-tree-stroke="elbow"]');
+    // Elbow drops from the row top, so the previous row's trunk meets it with no gap.
+    expect(elbow?.getAttribute("d") ?? "").toStartWith("M 8 0 V 6");
+    expect(trunk?.getAttribute("y1")).toBe("6");
+    expect(trunk?.getAttribute("y2")).toBe("100%");
+  });
+
+  it("holds the elbow at the icon line so expanding a row cannot move it", () => {
+    const container = renderBranch({ isFirst: true, isLast: true, animate: false });
+    const elbow = container.querySelector('[data-tree-stroke="elbow"]');
+    expect(elbow?.getAttribute("d") ?? "").toContain("0 0 0 14 12");
+  });
+
+  it("offsets the stroke start when the row enters as part of a batch", async () => {
+    const container = renderBranch({ isFirst: false, isLast: true, animate: true, delayMs: 112 });
+    await act(async () => {
+      await new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+      });
+    });
+    const elbow = container.querySelector('[data-tree-stroke="elbow"]') as SVGPathElement | null;
+    expect(elbow?.getAttribute("style") ?? "").toContain("112ms");
+  });
+
   it("omits the continuing trunk on the last child", () => {
     const container = renderBranch({ isFirst: false, isLast: true, animate: false });
     expect(container.querySelector('[data-tree-stroke="trunk"]')).toBeNull();
@@ -74,13 +113,23 @@ describe("AgentTreeBranch", () => {
   });
 });
 
-function renderBranch(props: { isFirst: boolean; isLast: boolean; animate: boolean }) {
+function renderBranch(props: {
+  isFirst: boolean;
+  isLast: boolean;
+  animate: boolean;
+  delayMs?: number;
+}) {
   const container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
   act(() => {
     root?.render(
-      <AgentTreeBranch isFirst={props.isFirst} isLast={props.isLast} animate={props.animate}>
+      <AgentTreeBranch
+        isFirst={props.isFirst}
+        isLast={props.isLast}
+        animate={props.animate}
+        delayMs={props.delayMs}
+      >
         <span>Read page.tsx</span>
       </AgentTreeBranch>,
     );

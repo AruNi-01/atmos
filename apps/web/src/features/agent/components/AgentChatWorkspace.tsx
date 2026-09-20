@@ -6,6 +6,7 @@ export function AgentChatWorkspace({
   chatId,
   instanceKey,
   paintContextId,
+  surfaceVisible = true,
   resumeTranscript,
   onChatStarted,
   onChatUpdated,
@@ -15,6 +16,7 @@ export function AgentChatWorkspace({
   chatId?: string | null;
   instanceKey?: string | null;
   paintContextId?: string | null;
+  surfaceVisible?: boolean;
   resumeTranscript?: boolean;
   onChatStarted?: (id: string, meta?: {
     title?: string | null;
@@ -36,6 +38,7 @@ export function AgentChatWorkspace({
       variant={variant}
       instanceKey={instanceKey}
       paintContextId={paintContextId}
+      surfaceVisible={surfaceVisible}
       chatId={chatId}
       resumeTranscript={resumeTranscript}
       onChatStarted={onChatStarted}

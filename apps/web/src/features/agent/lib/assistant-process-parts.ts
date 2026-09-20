@@ -108,8 +108,10 @@ export function splitAssistantProcessParts(parts: AgentPart[]): {
 
 export function isAssistantTurnSettled(message: Pick<AgentMessage, "streaming" | "completed_at" | "worked_ms">): boolean {
   if (message.streaming) return false;
-  if (message.completed_at) return true;
-  return message.worked_ms != null && message.worked_ms > 0;
+  // Live `worked_ms` is the in-flight elapsed clock. After tools close, every
+  // text/thinking part can be closed while the host turn is still running —
+  // that gap is not a settled turn.
+  return Boolean(message.completed_at);
 }
 
 export function shouldCollapseAssistantProcess(

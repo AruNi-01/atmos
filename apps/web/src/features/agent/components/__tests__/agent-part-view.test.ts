@@ -45,4 +45,16 @@ describe("agent part markdown rendering", () => {
   it("hides live plan-mode chrome that already lives above the composer", () => {
     expect(view).toContain("isHiddenTranscriptChromePart");
   });
+
+  it("streams each text and thinking part from closed_at, not last-block position", () => {
+    expect(view).toContain("foldedPartIsOpen");
+    expect(view).toContain("isAnimating={open}");
+    expect(view).toContain("isStreaming={open}");
+    expect(view).not.toContain("isLastTextBlock");
+    expect(view).not.toContain("isCurrentlyThinking");
+    expect(view).not.toContain("index === parts.length - 1");
+    expect(view).not.toContain("assistant_message_delta");
+    expect(view).not.toContain("thinking_delta");
+    expect(view).not.toContain("mergeStreamDelta");
+  });
 });

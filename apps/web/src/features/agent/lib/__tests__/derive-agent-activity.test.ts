@@ -1,7 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import type { AgentChatEvent, AgentEvent, AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
 import { foldMessagesFromEvent } from "@/features/agent/lib/agent-chat-events";
-import { deriveAgentActivity, runningBackgroundTools } from "@/features/agent/lib/chat-helpers";
+import {
+  deriveAgentActivity,
+  runningBackgroundTools,
+  shouldClearComposerBusy,
+} from "@/features/agent/lib/chat-helpers";
 
 function assistant(parts: AgentPart[], extra: Partial<AgentMessage> = {}): AgentMessage {
   return { id: "a1", role: "assistant", parts, ...extra };
@@ -80,6 +84,35 @@ describe("deriveAgentActivity", () => {
     expect(deriveAgentActivity([
       assistant([{ type: "text", text: "partial" }], { streaming: false }),
     ], true)).toMatchObject({ busy: true, kind: "working", label: "Generating" });
+  });
+
+  it("does not idle the composer after the last tool while the host turn is still open", () => {
+    const betweenToolsAndPrefill = [
+      assistant([
+        {
+          type: "text",
+          text: "先从官方架构文档读起。",
+          closed_at: "2026-09-20T08:56:34.645Z",
+        },
+        {
+          type: "tool_call",
+          tool_call_id: "t1",
+          name: "Read",
+          kind: "read",
+          status: "completed",
+          params: { type: "read", path: "AGENTS.md" },
+        },
+      ], { streaming: false }),
+    ];
+    expect(deriveAgentActivity(betweenToolsAndPrefill, true)).toMatchObject({
+      busy: true,
+      kind: "working",
+      label: "Generating",
+    });
+    expect(shouldClearComposerBusy("tool_call_completed", false)).toBe(false);
+    expect(shouldClearComposerBusy("tool_call_failed", false)).toBe(false);
+    expect(shouldClearComposerBusy("turn_completed", false)).toBe(true);
+    expect(shouldClearComposerBusy("turn_completed", true)).toBe(false);
   });
 
   it("follows later parent execute instead of a stuck subagent or wait Tool", () => {
@@ -233,10 +266,10 @@ describe("deriveAgentActivity", () => {
   });
 
   it("updates the footer activity as live events arrive", () => {
-    const event = (sequence: number, payload: AgentEvent): AgentChatEvent => ({
+    const event = (revision: number, payload: AgentEvent): AgentChatEvent => ({
       chat_id: "chat-1",
-      event_id: `evt-${sequence}`,
-      sequence,
+      event_id: `evt-${revision}`,
+      revision,
       payload,
     });
     let messages: AgentMessage[] = [];
@@ -247,16 +280,20 @@ describe("deriveAgentActivity", () => {
       text: "inspect the files",
     }), "chat-1");
     messages = foldMessagesFromEvent(messages, event(2, {
-      type: "thinking_delta",
+      type: "text_chunk",
+      part_id: "think-1",
       message_id: "a1",
-      delta: "i will read the files",
+      ordinal: 0,
+      kind: "thinking",
+      offset: 0,
+      text: "i will read the files",
     }), "chat-1");
     expect(deriveAgentActivity(messages, false)).toMatchObject({ kind: "thinking", label: "Thinking" });
 
     messages = foldMessagesFromEvent(messages, event(3, {
-      type: "thinking_completed",
-      message_id: "a1",
-      thinking_ms: 6000,
+      type: "part_closed",
+      part_id: "think-1",
+      duration_ms: 6000,
     }), "chat-1");
     messages = foldMessagesFromEvent(messages, event(4, {
       type: "tool_call_started",
@@ -280,7 +317,7 @@ describe("deriveAgentActivity", () => {
         params: { type: "read", path: "a.ts" },
       },
     }), "chat-1");
-    expect(deriveAgentActivity(messages, false)).toMatchObject({ kind: "working", label: "Read a.ts" });
+    expect(deriveAgentActivity(messages, false)).toEqual({ busy: false });
 
     messages = foldMessagesFromEvent(messages, event(6, {
       type: "tool_call_started",
@@ -298,7 +335,7 @@ describe("deriveAgentActivity", () => {
       },
     }), "chat-1");
     const afterBackground = deriveAgentActivity(messages, false);
-    expect(afterBackground).toMatchObject({ kind: "working", label: "Read a.ts" });
+    expect(afterBackground).toEqual({ busy: false });
     expect(JSON.stringify(afterBackground)).not.toContain("ls -la");
   });
 

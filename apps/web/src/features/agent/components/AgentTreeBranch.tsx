@@ -10,6 +10,7 @@ import {
   TREE_BRANCH_TRUNK_X,
   TREE_DRAW_MS,
   TREE_EASE,
+  TREE_LINE_ALPHA,
   TREE_LINE_WIDTH,
   treeReachPath,
 } from "@/features/agent/lib/agent-tree-branch";
@@ -35,11 +36,13 @@ function BranchSvg({
   isLast,
   skip,
   durationMs,
+  delayMs,
 }: {
   isFirst: boolean;
   isLast: boolean;
   skip: boolean;
   durationMs: number;
+  delayMs: number;
 }) {
   const elbowDrawn = useTreeDrawIn(skip);
   const trunkDrawn = useTreeDrawIn(skip || isLast);
@@ -53,34 +56,36 @@ function BranchSvg({
       height="100%"
       aria-hidden="true"
     >
-      {!isLast ? (
-        <line
-          key="trunk"
-          data-tree-stroke="trunk"
-          x1={TREE_BRANCH_TRUNK_X}
-          y1={TREE_BRANCH_MID_Y - TREE_BRANCH_RADIUS}
-          x2={TREE_BRANCH_TRUNK_X}
-          y2="100%"
-          fill="none"
-          stroke="var(--border)"
-          strokeWidth={TREE_LINE_WIDTH}
-          strokeLinecap="round"
-          pathLength={1}
-          style={strokeStyle(trunkDrawn, skip, durationMs)}
-        />
-      ) : null}
-      <path
-        key="elbow"
-        data-tree-stroke="elbow"
+      {/* Opaque ink faded once by the group — see TREE_LINE_ALPHA. Butt caps keep
+          the trunk inside its own row so neighbours abut instead of overlapping. */}
+      <g
         fill="none"
-        stroke="var(--border)"
+        stroke="var(--foreground)"
         strokeWidth={TREE_LINE_WIDTH}
-        strokeLinecap="round"
+        strokeLinecap="butt"
         strokeLinejoin="round"
-        d={elbow}
-        pathLength={1}
-        style={strokeStyle(elbowDrawn, skip, durationMs)}
-      />
+        opacity={TREE_LINE_ALPHA}
+      >
+        {!isLast ? (
+          <line
+            key="trunk"
+            data-tree-stroke="trunk"
+            x1={TREE_BRANCH_TRUNK_X}
+            y1={TREE_BRANCH_MID_Y - TREE_BRANCH_RADIUS}
+            x2={TREE_BRANCH_TRUNK_X}
+            y2="100%"
+            pathLength={1}
+            style={strokeStyle(trunkDrawn, skip, durationMs, delayMs)}
+          />
+        ) : null}
+        <path
+          key="elbow"
+          data-tree-stroke="elbow"
+          d={elbow}
+          pathLength={1}
+          style={strokeStyle(elbowDrawn, skip, durationMs, delayMs)}
+        />
+      </g>
     </svg>
   );
 }
@@ -90,12 +95,14 @@ export function AgentTreeBranch({
   isFirst = false,
   animate = false,
   durationMs = TREE_DRAW_MS,
+  delayMs = 0,
   children,
 }: {
   isLast: boolean;
   isFirst?: boolean;
   animate?: boolean;
   durationMs?: number;
+  delayMs?: number;
   children: ReactNode;
 }) {
   const reduced = useReducedMotion();
@@ -109,6 +116,7 @@ export function AgentTreeBranch({
           isLast={isLast}
           skip={skip}
           durationMs={durationMs}
+          delayMs={delayMs}
         />
       </div>
       <div className="min-w-0 flex-1">{children}</div>

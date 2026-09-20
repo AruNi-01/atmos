@@ -78,6 +78,7 @@ import {
   deriveAgentActivity,
   readDefaultAgentRegistryId,
   runningBackgroundTools,
+  shouldClearComposerBusy,
   writeDefaultAgentRegistryId,
   type PendingPermission,
   type PendingSessionOp,
@@ -89,11 +90,16 @@ import {
 } from "./use-agent-chat-session-types";
 import { useAgentChatUiHandlers } from "./use-agent-chat-ui-handlers";
 import {
+  AGENT_CHAT_COMMIT_FLUSH_MS,
+  createAgentChatCommitBuffer,
+} from "@/features/agent/lib/agent-chat-commit-buffer";
+import {
   agentChatEventFor,
   currentPlanFromMessages,
   currentTurnHasRunningSubagent,
-  dedupeAgentMessages,
-  foldMessagesFromEvent,
+  foldAgentChatEventResult,
+  releaseBackfillRequest,
+  takeBackfillRequest,
 } from "@/features/agent/lib/agent-chat-events";
 import {
   createPendingUserMessage,
@@ -110,6 +116,11 @@ import {
   isLiveAssistantTurn,
   snapshotLiveElapsedMs,
 } from "@/features/agent/lib/agent-chat-timing";
+import { shouldCommitAgentChatSurface } from "@/features/agent/lib/agent-chat-surface-live";
+import {
+  isPaintContextVisuallyActive,
+  subscribeVisualActivePaintId,
+} from "@/app-shell/workspace-surface-activity";
 import {
   EMPTY_AGENT_SLASH_COMMANDS,
   normalizeAgentSlashCommands,
@@ -198,6 +209,7 @@ export function useAgentChatSession({
   transformPrompt,
   instanceKey = null,
   paintContextId = null,
+  surfaceVisible = true,
   chatId: chatIdProp,
   resumeTranscript = false,
   onChatStarted,
@@ -311,6 +323,7 @@ export function useAgentChatSession({
   );
 
   const [messages, setMessages] = useState<AgentMessage[]>([]);
+  const messagesRef = useRef<AgentMessage[]>([]);
   const [busy, setBusy] = useState(false);
   const [runningTurnId, setRunningTurnId] = useState<string | null>(null);
   const [supportsSteer, setSupportsSteer] = useState(false);
@@ -404,13 +417,21 @@ export function useAgentChatSession({
   const [turnStartedAt, setTurnStartedAt] = useState<number | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const consumedPrompts = useRef(new Set<string>());
-  const lastSeq = useRef(0);
   const liveAssistantTurnRef = useRef(false);
   const hydratingRef = useRef(Boolean(chatId) && resumeTranscript);
   const pendingEventsRef = useRef<AgentChatEvent[]>([]);
+  const backfillInFlightRef = useRef(new Set<string>());
   const stoppedRef = useRef(false);
-  const pendingSendRef = useRef<{ text: string; attachmentPaths: string[] } | null>(null);
-  const lastSentRef = useRef<{ text: string; attachmentPaths: string[] } | null>(null);
+  const pendingSendRef = useRef<{
+    text: string;
+    attachmentPaths: string[];
+    message_id?: string | null;
+  } | null>(null);
+  const lastSentRef = useRef<{
+    text: string;
+    attachmentPaths: string[];
+    message_id?: string | null;
+  } | null>(null);
   const persistConfigRef = useRef<(patch: {
     provider_id?: string;
     model?: string;
@@ -514,9 +535,38 @@ export function useAgentChatSession({
   );
 
   const liveTurn = busy || isLiveAssistantTurn(messages.at(-1));
+  const commitChatLiveRef = useRef(true);
+  const surfaceVisibleRef = useRef(surfaceVisible);
+  surfaceVisibleRef.current = surfaceVisible;
+  const pendingChromeRef = useRef<AgentChatEvent[]>([]);
+  const flushChatCommitRef = useRef<() => void>(() => {});
+  commitChatLiveRef.current = shouldCommitAgentChatSurface({
+    variant,
+    visuallyActiveWorkspace: isPaintContextVisuallyActive(paintContextId),
+    panelVisible: surfaceVisible,
+  });
+
+  useEffect(() => {
+    const syncLive = () => {
+      const next = shouldCommitAgentChatSurface({
+        variant,
+        visuallyActiveWorkspace: isPaintContextVisuallyActive(paintContextId),
+        panelVisible: surfaceVisibleRef.current,
+      });
+      const was = commitChatLiveRef.current;
+      commitChatLiveRef.current = next;
+      if (!was && next) flushChatCommitRef.current();
+    };
+    syncLive();
+    return subscribeVisualActivePaintId(syncLive);
+  }, [paintContextId, surfaceVisible, variant]);
+
   useEffect(() => {
     if (!liveTurn || turnStartedAt == null) return;
-    const tick = () => setElapsedMs(Math.max(0, Date.now() - turnStartedAt));
+    const tick = () => {
+      if (!commitChatLiveRef.current) return;
+      setElapsedMs(Math.max(0, Date.now() - turnStartedAt));
+    };
     tick();
     const timer = window.setInterval(tick, 1000);
     return () => window.clearInterval(timer);
@@ -544,6 +594,7 @@ export function useAgentChatSession({
     }
     if (previous && !chatId) {
       setActiveChatId("");
+      messagesRef.current = [];
       setMessages([]);
       setTitle(null);
       setQueue([]);
@@ -555,7 +606,6 @@ export function useAgentChatSession({
       setSessionUsage(null);
       setTurnStartedAt(null);
       setElapsedMs(0);
-      lastSeq.current = 0;
       setRuntimeStatus("detached");
       setHasPersistenceHandle(false);
       setDescriptor(null);
@@ -598,15 +648,17 @@ export function useAgentChatSession({
     const snapshot = await agentChatApi.get(id);
     const meta = snapshot.meta;
     setTitle(meta.title?.trim() || null);
-    const loadedMessages = dedupeAgentMessages(
-      (snapshot.messages ?? []).map((message) => ({
-        ...message,
-        parts: message.parts ?? [],
-      })),
-    );
+    const loadedMessages = (snapshot.messages ?? []).map((message) => ({
+      ...message,
+      parts: message.parts ?? [],
+    }));
     const keepComposerChrome = loadedMessages.length === 0;
     applyDescriptor(meta.descriptor, { keepComposerChrome });
-    setMessages((current) => keepPendingUserEchoes(loadedMessages, current));
+    setMessages((current) => {
+      const next = keepPendingUserEchoes(loadedMessages, current);
+      messagesRef.current = next;
+      return next;
+    });
     if (loadedMessages.length > 0) {
       onUpdatedRef.current?.(id, { hasMessages: true });
     }
@@ -699,7 +751,6 @@ export function useAgentChatSession({
     } finally {
       setHistoryLoading(false);
     }
-    lastSeq.current = Number(meta.last_event_seq ?? 0);
     persistAgentChatLastSession({
       workspaceId: meta.workspace_id ?? (isolatedModal ? null : paintHostScope.workspaceId),
       projectId: meta.project_id ?? (isolatedModal ? null : paintHostScope.projectId),
@@ -958,19 +1009,9 @@ export function useAgentChatSession({
     const id = activeChatId;
     hydratingRef.current = true;
     pendingEventsRef.current = [];
-    lastSeq.current = 0;
-    const applyEvent = (event: AgentChatEvent) => {
-      if (!agentChatEventFor(event, activeIdRef.current)) return;
-      if (typeof event.sequence === "number") {
-        if (event.sequence <= lastSeq.current) return;
-        lastSeq.current = event.sequence;
-      }
-      setMessages((current) => {
-        const next = foldMessagesFromEvent(current, event, activeIdRef.current);
-        liveAssistantTurnRef.current = isLiveAssistantTurn(next.at(-1))
-          || currentTurnHasRunningSubagent(next);
-        return next;
-      });
+    backfillInFlightRef.current = new Set();
+    pendingChromeRef.current = [];
+    const applyLiveChrome = (event: AgentChatEvent) => {
       const payload = event.payload;
       if (payload.type === "turn_started") {
         setBusy(true);
@@ -980,32 +1021,18 @@ export function useAgentChatSession({
         setTurnStartedAt(clock);
         setElapsedMs(Math.max(0, Date.now() - clock));
       }
-      if (
-        payload.type === "assistant_message_delta"
-        || payload.type === "thinking_delta"
-        || payload.type === "tool_call_started"
-        || payload.type === "tool_call_updated"
-        || payload.type === "plan_updated"
-        || (payload.type === "session_lifecycle" && payload.status === "running")
-      ) {
-        // Content after a premature turn_completed must reopen the busy turn.
+      if (payload.type === "text_chunk" && liveAssistantTurnRef.current) {
         setBusy(true);
         setTurnStartedAt((current) => current ?? Date.now());
       }
-      if (
-        payload.type === "turn_completed"
-        || payload.type === "tool_call_completed"
-        || payload.type === "tool_call_failed"
-      ) {
-        if (!liveAssistantTurnRef.current) {
-          setBusy(false);
-          setRunningTurnId(null);
-          // Keep Ask / permission chrome until PermissionResolved — Grok may still
-          // be waiting on `_x.ai/ask_user_question` after a premature TurnEnd.
-          setTurnStartedAt(null);
-          if (payload.type === "turn_completed" && payload.worked_ms != null) {
-            setElapsedMs(payload.worked_ms);
-          }
+      if (shouldClearComposerBusy(payload.type, liveAssistantTurnRef.current)) {
+        setBusy(false);
+        setRunningTurnId(null);
+        // Keep Ask / permission chrome until PermissionResolved — Grok may still
+        // be waiting on `_x.ai/ask_user_question` after a premature TurnEnd.
+        setTurnStartedAt(null);
+        if (payload.type === "turn_completed" && payload.worked_ms != null) {
+          setElapsedMs(payload.worked_ms);
         }
       }
       if (payload.type === "turn_completed") {
@@ -1082,6 +1109,7 @@ export function useAgentChatSession({
           setPendingPermission(null);
           setPendingSessionOp(null);
           setMessages([]);
+          messagesRef.current = [];
           setQueue([]);
           setBusy(false);
           setRunningTurnId(null);
@@ -1091,7 +1119,6 @@ export function useAgentChatSession({
           setGrokWorkflow(null);
           setTurnStartedAt(null);
           setElapsedMs(0);
-          lastSeq.current = 0;
           setIsResumingHistory(true);
           hydratingRef.current = true;
           pendingEventsRef.current = [];
@@ -1144,17 +1171,57 @@ export function useAgentChatSession({
         }
       }
     };
+    const flushChatCommit = () => {
+      if (!commitChatLiveRef.current) return;
+      setMessages(messagesRef.current);
+      const batch = pendingChromeRef.current.splice(0);
+      for (const event of batch) applyLiveChrome(event);
+    };
+    flushChatCommitRef.current = flushChatCommit;
+    const commitBuffer = createAgentChatCommitBuffer({
+      flushMs: AGENT_CHAT_COMMIT_FLUSH_MS,
+      now: () => Date.now(),
+      onCommit: flushChatCommit,
+    });
+    const flushTimer = window.setInterval(() => {
+      commitBuffer.maybeFlush();
+    }, AGENT_CHAT_COMMIT_FLUSH_MS);
+    const applyEvent = (event: AgentChatEvent) => {
+      if (!agentChatEventFor(event, activeIdRef.current)) return;
+      const folded = foldAgentChatEventResult(
+        messagesRef.current,
+        event,
+        activeIdRef.current,
+      );
+      messagesRef.current = folded.messages;
+      liveAssistantTurnRef.current = isLiveAssistantTurn(folded.messages.at(-1))
+        || currentTurnHasRunningSubagent(folded.messages);
+      const request = takeBackfillRequest(backfillInFlightRef.current, folded.backfill);
+      if (request) {
+        const chatIdForBackfill = activeIdRef.current;
+        void agentChatApi
+          .backfill(chatIdForBackfill, [
+            { part_id: request.partId, from_offset: request.fromOffset },
+          ])
+          .catch(() => undefined)
+          .finally(() => {
+            releaseBackfillRequest(backfillInFlightRef.current, request);
+          });
+      }
+      pendingChromeRef.current.push(event);
+      commitBuffer.deliver(event.payload.type);
+    };
     void load(id).then(async () => {
       const pending = pendingEventsRef.current;
       pendingEventsRef.current = [];
       hydratingRef.current = false;
       for (const event of pending) applyEvent(event);
-      await agentChatApi.subscribe(id, lastSeq.current);
+      await agentChatApi.subscribe(id);
       const queued = pendingSendRef.current;
       pendingSendRef.current = null;
       if (queued) {
         await persistConfigRef.current(composerSelectionRef.current().patch);
-        await agentChatApi.send(id, queued.text, queued.attachmentPaths);
+        await agentChatApi.send(id, queued.text, queued.attachmentPaths, queued.message_id);
       }
     }).catch(() => {
       hydratingRef.current = false;
@@ -1170,6 +1237,8 @@ export function useAgentChatSession({
       applyEvent(event);
     });
     return () => {
+      flushChatCommitRef.current = () => {};
+      window.clearInterval(flushTimer);
       off();
       hydratingRef.current = true;
       void agentChatApi.unsubscribe(id);
@@ -1635,7 +1704,11 @@ export function useAgentChatSession({
           })),
         });
     if (pendingEcho) {
-      setMessages((current) => insertPendingUserMessage(current, pendingEcho));
+      setMessages((current) => {
+        const next = insertPendingUserMessage(current, pendingEcho);
+        messagesRef.current = next;
+        return next;
+      });
     }
     try {
       const selected = composerSelection();
@@ -1662,7 +1735,7 @@ export function useAgentChatSession({
           );
           attachmentPaths = uploaded.paths;
         }
-        pendingSendRef.current = { text, attachmentPaths };
+        pendingSendRef.current = { text, attachmentPaths, message_id: pendingEcho?.id ?? null };
         if (promptTitle) setTitle((current) => current || promptTitle);
         onStartedRef.current?.(id, {
           title: promptTitle,
@@ -1679,7 +1752,7 @@ export function useAgentChatSession({
               selected,
             );
             await persistConfig(selected.patch);
-            await agentChatApi.send(id, queued.text, queued.attachmentPaths);
+            await agentChatApi.send(id, queued.text, queued.attachmentPaths, queued.message_id);
           }
         }
         return;
@@ -1706,7 +1779,11 @@ export function useAgentChatSession({
         if (action === "steer") {
           if (!supportsSteer || !runningTurnId) {
             if (pendingEcho) {
-              setMessages((current) => removePendingUserMessage(current, pendingEcho.id));
+              setMessages((current) => {
+                const next = removePendingUserMessage(current, pendingEcho.id);
+                messagesRef.current = next;
+                return next;
+              });
             }
             return;
           }
@@ -1716,13 +1793,17 @@ export function useAgentChatSession({
         await persistConfig(composerSelection().patch);
         await agentChatApi.queueAdd(id, text, attachmentPaths);
       } else {
-        lastSentRef.current = { text, attachmentPaths };
+        lastSentRef.current = { text, attachmentPaths, message_id: pendingEcho?.id ?? null };
         await persistConfig(composerSelection().patch);
-        await agentChatApi.send(id, text, attachmentPaths);
+        await agentChatApi.send(id, text, attachmentPaths, pendingEcho?.id ?? null);
       }
     } catch (error) {
       if (pendingEcho) {
-        setMessages((current) => removePendingUserMessage(current, pendingEcho.id));
+        setMessages((current) => {
+          const next = removePendingUserMessage(current, pendingEcho.id);
+          messagesRef.current = next;
+          return next;
+        });
       }
       const message = error instanceof Error ? error.message : "Could not send that message";
       const auth = authRequiredFromTurnError(message, providerIdRef.current);
@@ -1848,7 +1929,7 @@ export function useAgentChatSession({
     setSendError(null);
     try {
       await persistConfig(composerSelection().patch);
-      await agentChatApi.send(chatId, retry.text, retry.attachmentPaths);
+      await agentChatApi.send(chatId, retry.text, retry.attachmentPaths, retry.message_id);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not send that message";
       const auth = authRequiredFromTurnError(message, providerIdRef.current);
@@ -1959,6 +2040,7 @@ export function useAgentChatSession({
     resumeTranscriptRef.current = false;
     setIsResumingHistory(false);
     setActiveChatId("");
+    messagesRef.current = [];
     setMessages([]);
     setTitle(null);
     setQueue([]);
@@ -1970,7 +2052,6 @@ export function useAgentChatSession({
     setSessionUsage(null);
     setTurnStartedAt(null);
     setElapsedMs(0);
-    lastSeq.current = 0;
     setRuntimeStatus("detached");
     setHasPersistenceHandle(false);
     setDescriptor(null);
@@ -1999,6 +2080,7 @@ export function useAgentChatSession({
     setShouldScrambleAutoTitle(false);
     if (row.provider_id) setProviderIdState(row.provider_id);
     setCwd(row.cwd ?? "");
+    messagesRef.current = [];
     setMessages([]);
     setQueue([]);
     setBusy(false);
@@ -2009,7 +2091,6 @@ export function useAgentChatSession({
     setSessionUsage(null);
     setTurnStartedAt(null);
     setElapsedMs(0);
-    lastSeq.current = 0;
     setIsResumingHistory(true);
     hydratingRef.current = true;
     pendingEventsRef.current = [];
@@ -2293,6 +2374,7 @@ export function useAgentChatSession({
   }, [activeChatId, defaultRegistryId, historySessions, providerId]);
   const resetConversation = useCallback(() => {
     setActiveChatId("");
+    messagesRef.current = [];
     setMessages([]);
     setTitle(null);
     setQueue([]);
@@ -2304,7 +2386,6 @@ export function useAgentChatSession({
     setSessionUsage(null);
     setTurnStartedAt(null);
     setElapsedMs(0);
-    lastSeq.current = 0;
     setRuntimeStatus("detached");
     setHasPersistenceHandle(false);
     setDescriptor(null);

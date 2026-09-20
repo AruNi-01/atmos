@@ -9459,6 +9459,7 @@
     "refresh": "Refresh",
     "searchPlaceholder": "Search titles and messages",
     "indexing": "Indexing messages",
+    "indexingProgress": "Indexing {percent}%",
     "backToList": "Back to list",
     "close": "Close",
     "unknownProject": "Unknown project",

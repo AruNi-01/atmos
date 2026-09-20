@@ -44,6 +44,7 @@ import {
   mergeMermaidKeepAliveRange,
   mergeIndexKeepAliveRange,
 } from "@/features/agent/lib/agent-chat-transcript-window";
+import { FindHighlightLayer } from "@/features/editor/components/FindPanel";
 import { AgentChatMessageView } from "./AgentChatMessageView";
 import { useAgentChatOwnSendRefs } from "./agent-chat-own-send-context";
 import { isPendingUserEcho } from "@/features/agent/lib/agent-chat-pending-echo";
@@ -363,6 +364,7 @@ export function AgentChatTranscriptList({
       <div
         ref={listRef}
         data-agent-chat-transcript="virtual"
+        data-markdown-find-content=""
         className="relative w-full"
         style={{ height: virtualizer.getTotalSize(), overflowAnchor: "none" }}
       >
@@ -401,6 +403,7 @@ export function AgentChatTranscriptList({
             </div>
           );
         })}
+        <FindHighlightLayer />
       </div>
     </div>
   );
