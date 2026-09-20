@@ -154,6 +154,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-074** | CodeMirror git blame hover (current-line commit + Atmos card; default-on header setting) | `specs/APP/APP-074_codemirror-git-blame/` (`PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-075** | Agent Sessions (CLI session browser; preview; lazy Chat import; TUI resume; transcript search) | `specs/APP/APP-075_agent-sessions/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-075** | PT Design Interactive Canvas (v2: PTX SoT, real DOM, Edit/Interact; successor to APP-062 wireframe model) | `specs/APP/APP-075_pt-design-interactive-canvas/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`; source in `source/`) |
+| **APP-076** | Shared session Runtime (one user-session Server; Desktop is a shell; CLI lazy-ensure; Desktop Use via Server) | `specs/APP/APP-076_shared-session-runtime/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **QUALITY-001** | Large File Code Debt Cleanup | `specs/APP/QUALITY-001_large-file-code-debt-cleanup/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-002** | Spec Test Execution Loop | `specs/APP/QUALITY-002_spec-test-execution-loop/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-003** | Playwright E2E Harness | `specs/APP/QUALITY-003_playwright-e2e-harness/` (`TECH.md`, `TEST.md`) |
