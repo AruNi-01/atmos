@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
-import { Modal, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { Modal, Pressable, StyleSheet, type StyleProp, type ViewStyle } from "react-native";
 import type {
   IosPopoverDirection,
   IosPopoverProps,

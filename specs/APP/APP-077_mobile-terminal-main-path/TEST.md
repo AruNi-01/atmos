@@ -30,8 +30,8 @@
 
 | ID | Level | Command / method | Status |
 |----|-------|------------------|--------|
-| S6 | unit | `bun --filter @atmos/mobile test src/features/terminal/terminal-selection.test.ts` | pending |
-| S1–S5, S7–S12 | typecheck + remaining bun tests | `bun --filter @atmos/mobile typecheck` / `bun --filter @atmos/mobile test` | pending |
+| S6 | unit | `bun --filter @atmos/mobile test src/features/terminal/terminal-selection.test.ts` | pass |
+| S1–S5, S7–S12 | typecheck + remaining bun tests | `bun --filter @atmos/mobile typecheck` / `bun --filter @atmos/mobile test` | pass (unit/typecheck); overlay split still manual |
 | Overlay split | manual | iOS: group = BottomSheet; Ctrl/workspace = `expo-ios-popover` | pending |
 
 ## Scenarios
@@ -91,4 +91,6 @@ Given Relay/WS closed, Then input is refused and a disconnected banner/status is
 
 ## Coverage Status
 
-Pending implementation.
+- **S6** flatten/sort: `bun --filter @atmos/mobile test src/features/terminal/terminal-selection.test.ts` — pass (distinct ids kept; sort by index/label/id; new locals append).
+- **S1–S5, S7–S12** remaining bun tests + typecheck: `bun --filter @atmos/mobile typecheck` pass; `bun --filter @atmos/mobile test` 52 pass / 0 fail (git/import/settings suites removed with those screens).
+- **Overlay split**: pending simulator — group list is `ExpoDrawer` (`@expo/ui` BottomSheet); account / workspace / Ctrl / Move / Agent are `IosPopover` (`expo-ios-popover` on iOS, RN modal on Android).
