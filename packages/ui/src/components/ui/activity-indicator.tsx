@@ -3,10 +3,12 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { cn } from "@/lib/utils";
+import { usePauseWhenInert } from "../../lib/use-pause-when-inert";
 import { TextShimmer } from "./text-shimmer";
 import { Orb } from "./orb";
 import { ThinkingStars } from "./thinking-stars";
@@ -82,6 +84,9 @@ export function ActivityIndicator({
   title,
 }: ActivityIndicatorProps) {
   const poolKey = random?.join(",") ?? "";
+  const hostRef = useRef<HTMLSpanElement>(null);
+  const paused = usePauseWhenInert(hostRef);
+  const motionOn = animated && !paused;
   const resolved = useMemo(
     () =>
       style === "random"
@@ -95,6 +100,7 @@ export function ActivityIndicator({
 
   return (
     <span
+      ref={hostRef}
       className={cn(
         "inline-flex items-center gap-2 text-muted-foreground",
         className,
@@ -104,11 +110,11 @@ export function ActivityIndicator({
       <ActivityIndicatorGlyph
         style={resolved}
         size={size}
-        animated={animated}
+        animated={motionOn}
       />
       {label ? (
         showShimmer ? (
-          <TextShimmer as="span" className="translate-y-px text-sm" duration={1.5}>
+          <TextShimmer as="span" className="translate-y-px text-sm" duration={1.5} animated={motionOn}>
             {label}
           </TextShimmer>
         ) : (
