@@ -4,10 +4,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Background,
   Controls,
+  Handle,
+  Position,
   ReactFlow,
   type Edge,
   type Node,
   type NodeMouseHandler,
+  type NodeProps,
   type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -28,11 +31,40 @@ import {
   type ObserverGraphNode,
 } from "@/features/agent/lib/agent-observer-graph";
 
+const HIDDEN_HANDLE_CLASS =
+  "!h-1 !w-1 !min-h-0 !min-w-0 !border-0 !bg-transparent !opacity-0";
+
 function nodeClass(state?: string): string {
   if (state === "permission_request") return "border-warning/70 bg-warning/10";
   if (state === "running") return "border-info/60 bg-info/10";
   return "border-border bg-card";
 }
+
+function occupancyLabel(
+  t: (key: "stateIdle" | "stateRunning" | "statePermission") => string,
+  state?: string,
+): string {
+  if (state === "permission_request") return t("statePermission");
+  if (state === "running") return t("stateRunning");
+  if (state === "idle") return t("stateIdle");
+  return state ?? "";
+}
+
+function nodeOccupancy(node: ObserverGraphNode): string | undefined {
+  return node.occupancy ?? node.session?.state ?? node.activity?.last_state;
+}
+
+function agentLike(kind: ObserverGraphNode["kind"]): boolean {
+  return kind === "agent" || kind === "subagent";
+}
+
+type ObserverFlowData = {
+  node: ObserverGraphNode;
+  expanded: boolean;
+  collapsed: boolean;
+  onToggle: () => void;
+  onOpen: () => void;
+};
 
 function ObserverNodeCard({
   data,
@@ -54,9 +86,11 @@ function ObserverNodeCard({
     data.kind === "agent" && data.session?.tool
       ? AGENT_TOOL_LABELS[data.session.tool] ?? data.label
       : data.label;
-  const state = data.session?.state ?? data.activity?.last_state;
+  const state = nodeOccupancy(data);
   const line =
     state === "running" ? data.currentToolLine : data.latestPrompt ?? data.currentToolLine;
+  const canToggle =
+    data.kind === "agent" || data.kind === "project" || data.kind === "workspace";
 
   return (
     <div
@@ -64,7 +98,7 @@ function ObserverNodeCard({
     >
       <div className="flex items-center justify-between gap-2">
         <div className="truncate text-sm font-medium">{label}</div>
-        {data.kind === "agent" || data.kind === "project" || data.kind === "workspace" ? (
+        {canToggle ? (
           <button
             type="button"
             className="text-[11px] text-muted-foreground hover:text-foreground"
@@ -79,10 +113,10 @@ function ObserverNodeCard({
           </button>
         ) : null}
       </div>
-      {data.kind === "agent" ? (
+      {agentLike(data.kind) ? (
         <>
-          <div className="mt-1 text-[11px] capitalize text-muted-foreground">
-            {state}
+          <div className="mt-1 text-[11px] text-muted-foreground">
+            {occupancyLabel(t, state)}
             {data.chat ? ` · ${t("chat")}` : data.sideChat ? ` · ${t("sideChat")}` : ""}
             {data.turnCount > 1 ? ` · ${t("turns", { count: data.turnCount })}` : ""}
             {data.todoSummary ? ` · ${data.todoSummary}` : ""}
@@ -105,17 +139,19 @@ function ObserverNodeCard({
               ) : null}
             </ol>
           ) : null}
-          <Button
-            size="sm"
-            variant="ghost"
-            className="mt-2 h-7 px-2 text-[11px]"
-            onClick={(event) => {
-              event.stopPropagation();
-              onOpen();
-            }}
-          >
-            {t(data.chat ? "openChat" : "openPane")}
-          </Button>
+          {data.kind === "agent" ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="mt-2 h-7 px-2 text-[11px]"
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpen();
+              }}
+            >
+              {t(data.chat ? "openChat" : "openPane")}
+            </Button>
+          ) : null}
         </>
       ) : (
         <div className="mt-1 text-[11px] text-muted-foreground">
@@ -125,6 +161,35 @@ function ObserverNodeCard({
     </div>
   );
 }
+
+function ObserverFlowNode({ data, selected }: NodeProps<Node<ObserverFlowData>>) {
+  return (
+    <div className="relative">
+      <Handle
+        type="target"
+        position={Position.Top}
+        isConnectable={false}
+        className={HIDDEN_HANDLE_CLASS}
+      />
+      <ObserverNodeCard
+        data={data.node}
+        selected={selected}
+        expanded={data.expanded}
+        collapsed={data.collapsed}
+        onToggle={data.onToggle}
+        onOpen={data.onOpen}
+      />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        isConnectable={false}
+        className={HIDDEN_HANDLE_CLASS}
+      />
+    </div>
+  );
+}
+
+const OBSERVER_NODE_TYPES = { observer: ObserverFlowNode };
 
 export function AgentObserverView() {
   const t = useTranslations("AgentObserver");
@@ -185,19 +250,25 @@ export function AgentObserverView() {
     });
   }, []);
 
-  const flowNodes: Node[] = useMemo(
+  const flowNodes: Node<ObserverFlowData>[] = useMemo(
     () =>
       graph.nodes.map((node) => {
         const position = positions.get(node.id) ?? { x: 0, y: 0 };
         return {
           id: node.id,
           position,
-          data: { node },
+          data: {
+            node,
+            expanded: expandedAgentIds.has(node.id),
+            collapsed: collapsedIds.has(node.id),
+            onToggle: () => toggleNode(node),
+            onOpen: () => openSession(node),
+          },
           type: "observer",
           draggable: false,
         };
       }),
-    [graph.nodes, positions],
+    [collapsedIds, expandedAgentIds, graph.nodes, openSession, positions, toggleNode],
   );
 
   const flowEdges: Edge[] = useMemo(
@@ -207,24 +278,9 @@ export function AgentObserverView() {
         source: edge.source,
         target: edge.target,
         animated: edge.animated,
+        style: { strokeWidth: 1.5 },
       })),
     [graph.edges],
-  );
-
-  const nodeTypes = useMemo(
-    () => ({
-      observer: (props: { id: string; data: { node: ObserverGraphNode }; selected: boolean }) => (
-        <ObserverNodeCard
-          data={props.data.node}
-          selected={props.selected}
-          expanded={expandedAgentIds.has(props.data.node.id)}
-          collapsed={collapsedIds.has(props.data.node.id)}
-          onToggle={() => toggleNode(props.data.node)}
-          onOpen={() => openSession(props.data.node)}
-        />
-      ),
-    }),
-    [collapsedIds, expandedAgentIds, openSession, toggleNode],
   );
 
   const onNodeClick: NodeMouseHandler = useCallback((_event, node) => {
@@ -234,7 +290,7 @@ export function AgentObserverView() {
   const onNodeDoubleClick: NodeMouseHandler = useCallback(
     (_event, node) => {
       const found = graph.nodes.find((n) => n.id === node.id);
-      if (found && (found.kind === "agent" || found.kind === "subagent")) {
+      if (found && agentLike(found.kind)) {
         openSession(found);
       }
     },
@@ -269,14 +325,23 @@ export function AgentObserverView() {
             <ReactFlow
               nodes={flowNodes}
               edges={flowEdges}
-              nodeTypes={nodeTypes}
+              nodeTypes={OBSERVER_NODE_TYPES}
               onNodeClick={onNodeClick}
               onNodeDoubleClick={onNodeDoubleClick}
               onInit={(instance) => {
                 flowRef.current = instance;
                 instance.fitView();
               }}
+              nodesConnectable={false}
+              elementsSelectable
               minZoom={0.2}
+              defaultEdgeOptions={{
+                type: "smoothstep",
+                style: {
+                  stroke: "color-mix(in srgb, var(--muted-foreground) 45%, transparent)",
+                  strokeWidth: 1.5,
+                },
+              }}
               proOptions={{ hideAttribution: true }}
             >
               <Background />
@@ -284,17 +349,23 @@ export function AgentObserverView() {
             </ReactFlow>
           )}
         </div>
-        {selected?.kind === "agent" || selected?.kind === "subagent" ? (
+        {selected && agentLike(selected.kind) ? (
           <aside className="w-80 shrink-0 overflow-y-auto border-l p-4">
             <div className="text-sm font-medium">
-              {selected.session?.tool
-                ? AGENT_TOOL_LABELS[selected.session.tool] ?? selected.label
-                : selected.label}
+              {selected.kind === "subagent"
+                ? selected.label
+                : selected.session?.tool
+                  ? AGENT_TOOL_LABELS[selected.session.tool] ?? selected.label
+                  : selected.label}
             </div>
-            <div className="mt-1 text-xs text-muted-foreground">{selected.session?.state}</div>
-            <Button className="mt-3" size="sm" onClick={() => openSession(selected)}>
-              {selected.chat ? t("openChat") : t("openPane")}
-            </Button>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {occupancyLabel(t, nodeOccupancy(selected))}
+            </div>
+            {selected.kind === "agent" ? (
+              <Button className="mt-3" size="sm" onClick={() => openSession(selected)}>
+                {selected.chat ? t("openChat") : t("openPane")}
+              </Button>
+            ) : null}
             <ol className="mt-4 space-y-3 text-xs">
               {(selected.activity?.turns ?? []).slice().reverse().map((turn) => (
                 <li key={turn.turn_id} className="rounded-md border p-2">

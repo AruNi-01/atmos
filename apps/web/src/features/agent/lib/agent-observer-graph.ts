@@ -25,6 +25,7 @@ export type ObserverGraphNode = {
   todoSummary?: string;
   sideChat: boolean;
   chat: boolean;
+  occupancy?: string;
 };
 
 export type ObserverGraphEdge = {
@@ -274,6 +275,7 @@ export function buildObserverGraph({
       todoSummary: todoSummary(record),
       sideChat,
       chat,
+      occupancy: session?.state ?? record?.last_state,
     });
     edges.push({
       id: `e-${parentId}-${agentId}`,
@@ -303,7 +305,8 @@ export function buildObserverGraph({
         extraTurns: 0,
         childCount: 0,
         sideChat: false,
-      chat: false,
+        chat: false,
+        occupancy: child.state,
       });
       const running =
         child.state === "running" || child.current_tool?.state === "pending";

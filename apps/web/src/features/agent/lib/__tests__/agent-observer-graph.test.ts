@@ -178,6 +178,12 @@ describe("buildObserverGraph", () => {
       expandedAgentIds: new Set(["agent:lead"]),
     });
     expect(expanded.nodes.some((n) => n.id === "child:lead:c1")).toBe(true);
+    const child = expanded.nodes.find((n) => n.id === "child:lead:c1");
+    expect(child?.occupancy).toBe("running");
+    expect(child?.label).toBe("Explore");
+    expect(expanded.edges.some((e) => e.source === "agent:lead" && e.target === "child:lead:c1")).toBe(
+      true,
+    );
     expect(expanded.nodes.find((n) => n.id === "agent:lead")?.visibleTurns[0]?.prompt).toBe(
       "one",
     );
@@ -290,6 +296,8 @@ describe("Observer pane jump", () => {
       'import { navigateToAgentStatusSession } from "@/features/agent/lib/agent-status-navigation"',
     );
     expect(source).toContain("navigateToAgentStatusSession(session, router, projects)");
+    expect(source).toContain("Handle");
+    expect(source).toContain("OBSERVER_NODE_TYPES");
   });
 });
 
