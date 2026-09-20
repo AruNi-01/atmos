@@ -33,10 +33,9 @@ import { radii } from "@/theme/radii";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
-import { BotIcon, ChevronDownIcon, TerminalIcon } from "@/ui/icons/lucide-native";
+import { WorkspaceSwitcherPopover } from "@/features/terminal/WorkspaceSwitcherPopover";
+import { BotIcon, TerminalIcon } from "@/ui/icons/lucide-native";
 import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
-import { IosPopover } from "@/ui/primitives/ios-popover";
-import { PopoverActionList, PopoverActionRow } from "@/ui/primitives/popover-menu";
 
 const EMPTY_TERMINAL_ENTRIES: MobileTerminalEntry[] = [];
 
@@ -319,46 +318,6 @@ export function TerminalScreen({
   );
 }
 
-function WorkspaceSwitcherPopover({
-  currentId,
-  currentName,
-  onSelect,
-  workspaces,
-}: {
-  currentId: string;
-  currentName: string;
-  onSelect: (workspaceId: string) => void;
-  workspaces: TerminalWorkspaceChoice[];
-}) {
-  const theme = useMobileTheme();
-
-  return (
-    <IosPopover direction="bottom">
-      <IosPopover.Trigger>
-        <View accessibilityRole="button" style={styles.workspaceTrigger}>
-          <Text numberOfLines={1} style={[styles.workspaceTriggerLabel, { color: theme.colors.terminalFg }]}>
-            {currentName}
-          </Text>
-          <ChevronDownIcon color={theme.colors.terminalMuted} size={14} strokeWidth={2.4} />
-        </View>
-      </IosPopover.Trigger>
-      <IosPopover.Content style={{ backgroundColor: theme.colors.terminalBg }}>
-        <PopoverActionList>
-          {workspaces.map((workspace) => (
-            <PopoverActionRow
-              key={workspace.id}
-              label={workspace.name}
-              onPress={() => onSelect(workspace.id)}
-              selected={workspace.id === currentId}
-              tone="terminal"
-            />
-          ))}
-        </PopoverActionList>
-      </IosPopover.Content>
-    </IosPopover>
-  );
-}
-
 function getMobileTerminalDisplayMeta(
   entry: MobileTerminalEntry,
   contestedOwners?: ContestedOwnersMap,
@@ -515,19 +474,5 @@ const styles = StyleSheet.create({
   terminalTitle: {
     ...typography.terminalTitle,
     flex: 1,
-  },
-  workspaceTrigger: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 4,
-    maxWidth: 120,
-    minHeight: 36,
-    paddingHorizontal: 6,
-  },
-  workspaceTriggerLabel: {
-    flexShrink: 1,
-    fontSize: 13,
-    fontWeight: "600",
-    lineHeight: 18,
   },
 });

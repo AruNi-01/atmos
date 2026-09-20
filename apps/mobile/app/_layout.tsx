@@ -78,6 +78,12 @@ export default function RootLayout() {
               headerBackButtonDisplayMode: "minimal",
             }}
           />
+          <Stack.Screen
+            name="preview"
+            options={{
+              headerBackButtonDisplayMode: "minimal",
+            }}
+          />
           <Stack.Screen name="+not-found" />
         </Stack>
         <StatusBar style={theme.statusBarStyle} />

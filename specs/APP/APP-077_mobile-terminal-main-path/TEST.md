@@ -25,12 +25,14 @@
 | M11 | S10 |
 | M13 | S11 |
 | M14 | S12 |
+| Test page | S13 |
 
 ## Execution map
 
 | ID | Level | Command / method | Status |
 |----|-------|------------------|--------|
 | S6 | unit | `bun --filter @atmos/mobile test src/features/terminal/terminal-selection.test.ts` | pass |
+| S13 | unit | `bun --filter @atmos/mobile test src/features/preview/preview-fixtures.test.ts` | pass |
 | S1–S5, S7–S12 | typecheck + remaining bun tests | `bun --filter @atmos/mobile typecheck` / `bun --filter @atmos/mobile test` | pass (unit/typecheck); overlay split still manual |
 | Overlay split | manual | iOS: group = BottomSheet; Ctrl/workspace = `expo-ios-popover` | pending |
 
@@ -84,6 +86,10 @@ Given the homepage account popover, When Sign out is confirmed, Then Hub device 
 
 Given Relay/WS closed, Then input is refused and a disconnected banner/status is visible.
 
+### S13 Mock test page
+
+Given no connected Computer, When the homepage Test page switch is turned on, Then `/preview` shows mock Studio Mac workspaces with flattened sibling tabs (including two `zsh` windows that share a tmux index), a workspace switcher popover, a group list, and the shortcut bar.
+
 ## Non-coverage
 
 - Physical IME / Liquid Glass feel.
@@ -92,5 +98,6 @@ Given Relay/WS closed, Then input is refused and a disconnected banner/status is
 ## Coverage Status
 
 - **S6** flatten/sort: `bun --filter @atmos/mobile test src/features/terminal/terminal-selection.test.ts` — pass (distinct ids kept; sort by index/label/id; new locals append).
-- **S1–S5, S7–S12** remaining bun tests + typecheck: `bun --filter @atmos/mobile typecheck` pass; `bun --filter @atmos/mobile test` 52 pass / 0 fail (git/import/settings suites removed with those screens).
-- **Overlay split**: pending simulator — group list is `ExpoDrawer` (`@expo/ui` BottomSheet); account / workspace / Ctrl / Move / Agent are `IosPopover` (`expo-ios-popover` on iOS, RN modal on Android).
+- **S13** mock fixtures: `bun --filter @atmos/mobile test src/features/preview/preview-fixtures.test.ts` — pass (same-name windows stay siblings).
+- **S1–S5, S7–S12** remaining bun tests + typecheck: `bun --filter @atmos/mobile typecheck` pass; `bun --filter @atmos/mobile test` 55 pass / 0 fail (git/import/settings suites removed with those screens).
+- **Overlay split**: pending simulator — group list is `ExpoDrawer` (`@expo/ui` BottomSheet); account / workspace / Ctrl / Move / Agent are `IosPopover` (`expo-ios-popover` on iOS, RN modal on Android). Web group list uses a modal sheet fallback.

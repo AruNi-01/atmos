@@ -29,7 +29,8 @@ apps/mobile/
 │   ├── computer-connect.tsx
 │   ├── workspaces.tsx
 │   ├── create-workspace.tsx
-│   └── workspace/[workspaceId].tsx
+│   ├── workspace/[workspaceId].tsx
+│   └── preview.tsx              # Mock terminal path (no Computer)
 ├── src/
 │   ├── api/                 # Mobile-owned Relay/relay/WS clients
 │   ├── features/            # Product screens: onboarding, workspaces, terminal, computers

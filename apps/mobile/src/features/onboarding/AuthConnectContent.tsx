@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ComputerPicker } from "@/features/computers/ComputerPicker";
+import { PreviewModeSwitch } from "@/features/preview/PreviewModeSwitch";
 import { PairQrScanner } from "@/features/onboarding/PairQrScanner";
 import { useAuthSignIn } from "@/features/onboarding/use-auth-sign-in";
 import { radii } from "@/theme/radii";
@@ -276,6 +277,11 @@ export function AuthConnectContent({
             </Text>
           </View>
         </Section>
+        {!isSheet ? (
+          <Section label="Developer">
+            <PreviewModeSwitch />
+          </Section>
+        ) : null}
         <ComputerPicker
           computers={auth.computersQuery.data ?? []}
           selectedServerId={auth.selectedServerId}
@@ -358,6 +364,7 @@ export function AuthConnectContent({
               >
                 {PRODUCT_SLOGAN}
               </Text>
+              {!isSheet ? <PreviewModeSwitch variant="hero" /> : null}
             </View>
           </Animated.View>
 
@@ -594,7 +601,8 @@ const styles = StyleSheet.create({
   brandBlock: {
     alignItems: "center",
     gap: 10,
-    maxWidth: 320,
+    maxWidth: 340,
+    width: "100%",
   },
   productName: {
     fontSize: 40,

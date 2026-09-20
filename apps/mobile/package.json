@@ -36,6 +36,7 @@
     "lucide-react-native": "^0.563.0",
     "nativewind": "5.0.0-preview.2",
     "react": "19.2.3",
+    "react-dom": "19.2.3",
     "react-hook-form": "^7.79.0",
     "react-native": "0.85.3",
     "react-native-css": "3.0.7",
@@ -61,7 +62,8 @@
     "android": "./script/build_and_run.sh run-android",
     "ios": "./script/build_and_run.sh run-ios",
     "test": "bun test",
-    "typecheck": "bun ../../scripts/run-tsc7.ts --noEmit"
+    "typecheck": "bun ../../scripts/run-tsc7.ts --noEmit",
+    "web": "expo start --web --port 8082"
   },
   "private": true
 }

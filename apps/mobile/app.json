@@ -6,7 +6,8 @@
     "version": "0.1.0",
     "platforms": [
       "ios",
-      "android"
+      "android",
+      "web"
     ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -29,6 +30,11 @@
       },
       "permissions": ["android.permission.CAMERA"],
       "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/icon.png",
+      "output": "single"
     },
     "plugins": [
       "expo-router",
