@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { motion } from "motion/react";
 import {
+  Badge,
   Button,
   Input,
   ScrollArea,
@@ -141,6 +142,7 @@ export function HostSessionListView() {
     sessions,
     hits,
     searchStatus,
+    searchProgress,
     isLoading,
     isLoadingMore,
     isSyncing,
@@ -306,6 +308,15 @@ export function HostSessionListView() {
   const filterCount = hostSessionFilterCount(filters);
   const emptyKind =
     sessions.length === 0 ? "homes" : query.trim() ? "search" : filterCount > 0 ? "filters" : "list";
+  const indexing =
+    searchStatus === "indexing" ||
+    (searchProgress != null &&
+      searchProgress.total > 0 &&
+      searchProgress.indexed < searchProgress.total);
+  const indexPercent =
+    searchProgress && searchProgress.total > 0
+      ? Math.min(100, Math.round((searchProgress.indexed / searchProgress.total) * 100))
+      : null;
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -327,6 +338,19 @@ export function HostSessionListView() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                {indexing ? (
+                  <Badge
+                    variant="outline"
+                    data-testid="host-session-index-progress"
+                    aria-live="polite"
+                    className="h-10 gap-1.5 rounded-xl border-border/50 bg-muted/20 px-3 text-xs font-medium tabular-nums text-muted-foreground"
+                  >
+                    <Loader2 className="size-3.5 animate-spin" />
+                    {indexPercent == null
+                      ? t("indexing")
+                      : t("indexingProgress", { percent: indexPercent })}
+                  </Badge>
+                ) : null}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -358,9 +382,6 @@ export function HostSessionListView() {
                   placeholder={t("searchPlaceholder")}
                   className="h-11 rounded-xl border-border/50 bg-muted/20 pl-10 shadow-sm transition-[background-color,box-shadow] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] focus:bg-background focus-visible:ring-1 focus-visible:ring-primary/20"
                 />
-                {searchStatus === "indexing" ? (
-                  <p className="mt-1.5 px-1 text-[11px] text-muted-foreground">{t("indexing")}</p>
-                ) : null}
               </div>
               <HostSessionFilterSortMenu
                 sessions={sessions}

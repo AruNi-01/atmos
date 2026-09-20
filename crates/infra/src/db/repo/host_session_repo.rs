@@ -480,28 +480,37 @@ impl<'a> HostSessionRepo<'a> {
     }
 
     pub async fn search_body_pending(&self) -> Result<bool, InfraError> {
+        let (indexed, total) = self.search_body_counts().await?;
+        Ok(total > indexed)
+    }
+
+    pub async fn search_body_counts(&self) -> Result<(u32, u32), InfraError> {
         let row = self
             .db
             .query_one(Statement::from_string(
                 DbBackend::Sqlite,
                 r#"
-                SELECT EXISTS(
-                  SELECT 1
-                  FROM host_session h
-                  LEFT JOIN host_session_search_cursor c
-                    ON c.session_key = h.session_key
-                  WHERE h.is_deleted = 0
-                    AND (c.session_key IS NULL OR c.body_ready = 0)
-                ) AS pending
+                SELECT
+                  COUNT(*) AS total,
+                  CAST(COALESCE(SUM(CASE WHEN c.body_ready = 1 THEN 1 ELSE 0 END), 0) AS INTEGER) AS indexed
+                FROM host_session h
+                LEFT JOIN host_session_search_cursor c
+                  ON c.session_key = h.session_key
+                WHERE h.is_deleted = 0
                 "#
                 .to_owned(),
             ))
             .await?;
-        let pending: i64 = row
-            .map(|row| row.try_get("", "pending"))
+        let total: i64 = row
+            .as_ref()
+            .map(|row| row.try_get("", "total"))
             .transpose()?
             .unwrap_or(0);
-        Ok(pending != 0)
+        let indexed: i64 = row
+            .map(|row| row.try_get("", "indexed"))
+            .transpose()?
+            .unwrap_or(0);
+        Ok((indexed.max(0) as u32, total.max(0) as u32))
     }
 }
 
@@ -1050,6 +1059,36 @@ mod tests {
         assert!(after_prune.is_empty());
         let kept = repo.search_text("hello from").await.unwrap();
         assert_eq!(kept[0].session_key, "claude:a");
+        assert!(!repo.search_body_pending().await.unwrap());
+        assert_eq!(repo.search_body_counts().await.unwrap(), (1, 1));
+    }
+
+    #[tokio::test]
+    async fn search_body_counts_tracks_ready_cursors() {
+        let db = mem_db().await;
+        let repo = HostSessionRepo::new(&db);
+        repo.sync_index(
+            &[
+                row("claude:a", "claude", "alpha", 30),
+                row("claude:b", "claude", "beta", 40),
+            ],
+            1,
+        )
+        .await
+        .unwrap();
+        assert_eq!(repo.search_body_counts().await.unwrap(), (0, 2));
+        assert!(repo.search_body_pending().await.unwrap());
+
+        repo.set_search_cursor("claude:a", 1, 2, true)
+            .await
+            .unwrap();
+        assert_eq!(repo.search_body_counts().await.unwrap(), (1, 2));
+        assert!(repo.search_body_pending().await.unwrap());
+
+        repo.set_search_cursor("claude:b", 1, 2, true)
+            .await
+            .unwrap();
+        assert_eq!(repo.search_body_counts().await.unwrap(), (2, 2));
         assert!(!repo.search_body_pending().await.unwrap());
     }
 

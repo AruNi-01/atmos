@@ -172,10 +172,14 @@ struct CatchupParsed {
     docs: Vec<HostSessionSearchDoc>,
 }
 
-pub async fn run_search_catchup(
+pub async fn run_search_catchup<F>(
     repo: &HostSessionRepo<'_>,
     roster: Arc<Vec<Box<dyn SessionSource>>>,
-) -> Result<bool> {
+    mut on_progress: F,
+) -> Result<bool>
+where
+    F: FnMut(u32, u32),
+{
     let page = repo
         .query(&HostSessionIndexQuery {
             roots_only: false,
@@ -196,6 +200,9 @@ pub async fn run_search_catchup(
         return Ok(false);
     }
 
+    let total = dirty.len() as u32;
+    on_progress(0, total);
+
     let sem = Arc::new(Semaphore::new(CATCHUP_CONCURRENCY));
     let mut joins = Vec::with_capacity(dirty.len());
     for row in dirty {
@@ -210,17 +217,22 @@ pub async fn run_search_catchup(
     }
 
     let mut changed = false;
+    let mut indexed = 0_u32;
     for join in joins {
-        let Ok(Some(parsed)) = join.await else {
-            continue;
-        };
-        repo.replace_session_docs(&parsed.session_key, &parsed.docs)
-            .await?;
-        repo.set_search_cursor(&parsed.session_key, parsed.mtime_ms, parsed.size, true)
-            .await?;
-        repo.set_message_count(&parsed.session_key, Some(parsed.message_count))
-            .await?;
-        changed = true;
+        match join.await {
+            Ok(Some(parsed)) => {
+                repo.replace_session_docs(&parsed.session_key, &parsed.docs)
+                    .await?;
+                repo.set_search_cursor(&parsed.session_key, parsed.mtime_ms, parsed.size, true)
+                    .await?;
+                repo.set_message_count(&parsed.session_key, Some(parsed.message_count))
+                    .await?;
+                changed = true;
+            }
+            _ => {}
+        }
+        indexed += 1;
+        on_progress(indexed, total);
     }
     Ok(changed)
 }

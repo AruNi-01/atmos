@@ -8,6 +8,7 @@ import type {
   HostSessionResumeSupport,
   HostSessionResumeTuiResponse,
   HostSessionSearchHit,
+  HostSessionSearchProgress,
   HostSessionSearchStatus,
   HostSessionTag,
 } from "@atmos/api-types/ws/dto/host-session";
@@ -21,6 +22,7 @@ export type {
   HostSessionResumeSupport,
   HostSessionResumeTuiResponse,
   HostSessionSearchHit,
+  HostSessionSearchProgress,
   HostSessionSearchStatus,
   HostSessionTag,
 };

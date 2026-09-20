@@ -50,12 +50,18 @@ export type HostSessionSearchHit = {
 
 export type HostSessionSearchStatus = "indexing" | "ready";
 
+export type HostSessionSearchProgress = {
+  indexed: number;
+  total: number;
+};
+
 export type HostSessionListResponse = {
   sessions: HostSessionListItem[];
   total: number;
   scanned_at: string;
   hits?: HostSessionSearchHit[];
   search_status?: HostSessionSearchStatus;
+  search_progress?: HostSessionSearchProgress;
 };
 
 export type HostSessionGetRequest = {
@@ -93,4 +99,6 @@ export type HostSessionResumeTuiResponse = {
 
 export type HostSessionIndexUpdated = {
   scanned_at: string;
+  search_status?: HostSessionSearchStatus;
+  search_progress?: HostSessionSearchProgress;
 };

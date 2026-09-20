@@ -140,9 +140,13 @@ describe("Agent Sessions host wiring", () => {
     expect(list).toContain("bg-info/35");
     expect(list).toContain("hit.session_key");
     expect(list).toContain("searchStatus");
+    expect(list).toContain("searchProgress");
+    expect(list).toContain("indexingProgress");
+    expect(list).toContain("host-session-index-progress");
     expect(list).toContain("isSyncing");
     const header = list.slice(list.indexOf("sticky top-0"), list.indexOf("searchPlaceholder"));
     expect(header).toContain('aria-label={t("refresh")}');
+    expect(header.indexOf("indexingProgress")).toBeLessThan(header.indexOf('aria-label={t("refresh")}'));
     expect(header).not.toContain("LaunchpadPageTabs");
     const hook = readWeb("../../features/agent-sessions/hooks/use-host-session-list.ts");
     expect(hook).toContain("HOST_SESSION_PAGE_SIZE");
@@ -153,6 +157,8 @@ describe("Agent Sessions host wiring", () => {
     expect(hook).toContain("updated_after: updatedAfter");
     expect(hook).toContain("updated_before: updatedBefore");
     expect(hook).toContain("provider_id: providerId");
+    expect(hook).toContain("search_progress");
+    expect(hook).toContain('payload.search_status === "ready"');
     expect(list).not.toContain("size-11 shrink-0");
     expect(list).not.toContain("active:scale");
     expect(transcript).toContain("AgentChatTranscriptList");
@@ -166,6 +172,7 @@ describe("Agent Sessions host wiring", () => {
 
     const detail = readWeb("../../features/agent-sessions/components/HostSessionDetailView.tsx");
     expect(detail).toContain("FindPanel");
+    expect(detail).toContain("FindHighlightProvider");
     expect(detail).toContain("useFindPanel");
     expect(detail).toContain("TRANSCRIPT_FIND_SCOPE");
     expect(detail).not.toContain("HostSessionFindPanel");
@@ -242,6 +249,7 @@ describe("Agent Sessions host wiring", () => {
     expect(en).toContain('"resumeTuiNoWorkspace"');
     expect(en).toContain('"searchPlaceholder": "Search titles and messages"');
     expect(en).toContain('"indexing": "Indexing messages"');
+    expect(en).toContain('"indexingProgress": "Indexing {percent}%"');
     expect(en).toContain('"trigger": "Filter"');
     expect(en).toContain('"trigger": "Sort"');
     expect(en).toContain('"Created time"');
@@ -255,6 +263,7 @@ describe("Agent Sessions host wiring", () => {
     expect(en).toContain('"clearSearch": "Clear search"');
     expect(zh).toContain('"emptyHomesTitle": "还没有命令行会话"');
     expect(zh).toContain('"clearSearch": "清除搜索"');
+    expect(zh).toContain('"indexingProgress": "正在索引 {percent}%"');
     expect(zh).toContain('"trigger": "筛选"');
     expect(zh).toContain('"trigger": "排序"');
     expect(zh).toContain('"创建时间"');

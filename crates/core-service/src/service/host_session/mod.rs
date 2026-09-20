@@ -7,7 +7,8 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex as StdMutex};
+use std::time::{Duration, Instant};
 
 use agent::{
     attach_grok_goal_child, attach_grok_workflow_agent, canonicalize_chat_provider_id,
@@ -109,6 +110,12 @@ pub enum HostSessionSearchStatus {
     Ready,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HostSessionSearchProgress {
+    pub indexed: u32,
+    pub total: u32,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HostSessionListResult {
     pub sessions: Vec<HostSessionListItem>,
@@ -118,11 +125,56 @@ pub struct HostSessionListResult {
     pub hits: Vec<HostSessionSearchHit>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub search_status: Option<HostSessionSearchStatus>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub search_progress: Option<HostSessionSearchProgress>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HostSessionIndexUpdated {
     pub scanned_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub search_status: Option<HostSessionSearchStatus>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub search_progress: Option<HostSessionSearchProgress>,
+}
+
+const SEARCH_PROGRESS_EMIT_EVERY: Duration = Duration::from_millis(200);
+
+fn emit_index_update(
+    tx: &broadcast::Sender<HostSessionIndexUpdated>,
+    search_status: Option<HostSessionSearchStatus>,
+    search_progress: Option<HostSessionSearchProgress>,
+) {
+    let _ = tx.send(HostSessionIndexUpdated {
+        scanned_at: Utc::now(),
+        search_status,
+        search_progress,
+    });
+}
+
+fn report_search_progress(
+    snapshot: &StdMutex<Option<HostSessionSearchProgress>>,
+    tx: &broadcast::Sender<HostSessionIndexUpdated>,
+    last_emit: &StdMutex<Option<Instant>>,
+    indexed: u32,
+    total: u32,
+) {
+    let progress = HostSessionSearchProgress { indexed, total };
+    *lock_mutex(snapshot) = Some(progress);
+    let mut last = lock_mutex(last_emit);
+    let now = Instant::now();
+    let due = last.is_none_or(|at| now.duration_since(at) >= SEARCH_PROGRESS_EMIT_EVERY)
+        || indexed == 0
+        || indexed >= total;
+    if !due {
+        return;
+    }
+    *last = Some(now);
+    emit_index_update(tx, Some(HostSessionSearchStatus::Indexing), Some(progress));
+}
+
+fn lock_mutex<T>(mutex: &StdMutex<T>) -> std::sync::MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(|error| error.into_inner())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -158,6 +210,7 @@ pub struct HostSessionService {
     scan: tokio::sync::Mutex<()>,
     search_gate: Arc<tokio::sync::Mutex<()>>,
     search_running: Arc<AtomicBool>,
+    search_progress: Arc<StdMutex<Option<HostSessionSearchProgress>>>,
     index_tx: broadcast::Sender<HostSessionIndexUpdated>,
     project_service: Option<Arc<ProjectService>>,
     workspace_service: Option<Arc<WorkspaceService>>,
@@ -169,7 +222,7 @@ impl HostSessionService {
         store: AgentChatStore,
         db: Arc<DatabaseConnection>,
     ) -> Self {
-        let (index_tx, _) = broadcast::channel(16);
+        let (index_tx, _) = broadcast::channel(64);
         Self {
             roster: Arc::new(roster),
             store,
@@ -177,6 +230,7 @@ impl HostSessionService {
             scan: tokio::sync::Mutex::new(()),
             search_gate: Arc::new(tokio::sync::Mutex::new(())),
             search_running: Arc::new(AtomicBool::new(false)),
+            search_progress: Arc::new(StdMutex::new(None)),
             index_tx,
             project_service: None,
             workspace_service: None,
@@ -207,9 +261,7 @@ impl HostSessionService {
             tracing::warn!(error = %error, "host session search prepare failed");
         }
         if rewritten {
-            let _ = self.index_tx.send(HostSessionIndexUpdated {
-                scanned_at: Utc::now(),
-            });
+            emit_index_update(&self.index_tx, None, None);
         }
         let chats = self.chat_handle_index();
         let needle = filter
@@ -247,7 +299,8 @@ impl HostSessionService {
             .iter()
             .filter_map(|session| hit_by_root.get(&session.key).cloned())
             .collect();
-        let search_status = if self.repo().search_body_pending().await? {
+        let search_progress = self.current_search_progress().await?;
+        let search_status = if search_progress.is_some() {
             HostSessionSearchStatus::Indexing
         } else {
             HostSessionSearchStatus::Ready
@@ -259,6 +312,7 @@ impl HostSessionService {
             scanned_at,
             hits,
             search_status: Some(search_status),
+            search_progress,
         })
     }
 
@@ -268,7 +322,34 @@ impl HostSessionService {
 
     pub async fn search_catchup(&self) -> Result<bool> {
         let _gate = self.search_gate.lock().await;
-        search::run_search_catchup(&self.repo(), Arc::clone(&self.roster)).await
+        self.run_search_catchup_locked().await
+    }
+
+    async fn current_search_progress(&self) -> Result<Option<HostSessionSearchProgress>> {
+        if let Some(progress) = *lock_mutex(&self.search_progress) {
+            return Ok(Some(progress));
+        }
+        let (indexed, total) = self.repo().search_body_counts().await?;
+        if total == 0 || indexed >= total {
+            return Ok(None);
+        }
+        Ok(Some(HostSessionSearchProgress { indexed, total }))
+    }
+
+    async fn run_search_catchup_locked(&self) -> Result<bool> {
+        let snapshot = Arc::clone(&self.search_progress);
+        let tx = self.index_tx.clone();
+        let last_emit = StdMutex::new(None);
+        let result =
+            search::run_search_catchup(&self.repo(), Arc::clone(&self.roster), |indexed, total| {
+                report_search_progress(&snapshot, &tx, &last_emit, indexed, total);
+            })
+            .await;
+        *lock_mutex(&self.search_progress) = None;
+        if matches!(result, Ok(true)) {
+            emit_index_update(&tx, Some(HostSessionSearchStatus::Ready), None);
+        }
+        result
     }
 
     pub async fn get(&self, key: &str) -> Result<HostSessionGetResult> {
@@ -510,18 +591,22 @@ impl HostSessionService {
         let roster = Arc::clone(&self.roster);
         let running = Arc::clone(&self.search_running);
         let search_gate = Arc::clone(&self.search_gate);
+        let snapshot = Arc::clone(&self.search_progress);
         let tx = self.index_tx.clone();
         tokio::spawn(async move {
             let result = {
                 let _gate = search_gate.lock().await;
                 let repo = HostSessionRepo::new(db.as_ref());
-                search::run_search_catchup(&repo, roster).await
+                let last_emit = StdMutex::new(None);
+                search::run_search_catchup(&repo, roster, |indexed, total| {
+                    report_search_progress(&snapshot, &tx, &last_emit, indexed, total);
+                })
+                .await
             };
+            *lock_mutex(&snapshot) = None;
             running.store(false, Ordering::SeqCst);
             if matches!(result, Ok(true)) {
-                let _ = tx.send(HostSessionIndexUpdated {
-                    scanned_at: Utc::now(),
-                });
+                emit_index_update(&tx, Some(HostSessionSearchStatus::Ready), None);
             }
         });
     }
@@ -944,7 +1029,7 @@ mod tests {
 
     use agent::{
         AgentTool, AgentToolKind, AgentToolParams, AgentToolStatus, GrokGoal, GrokWorkflow,
-        GrokWorkflowPhase, UserMessageKind, GROK_CHROME_SUBAGENT_NAME,
+        GrokWorkflowPhase, TextKind, UserMessageKind, GROK_CHROME_SUBAGENT_NAME,
     };
     use chrono::TimeZone;
     use sea_orm::Database;
@@ -1154,38 +1239,52 @@ mod tests {
             ),
             AgentEventEnvelope::new(
                 Some("turn-1".into()),
-                AgentEvent::AssistantMessageDelta {
+                AgentEvent::TextChunk {
+                    part_id: "a1".into(),
                     message_id: "a1".into(),
-                    delta: "hi ".into(),
-                    parent_tool_call_id: None,
+                    parent_part_id: None,
+                    ordinal: 0,
+                    kind: TextKind::Answer,
+                    offset: 0,
+                    text: "hi ".into(),
                 },
             ),
             AgentEventEnvelope::new(
                 Some("turn-1".into()),
-                AgentEvent::AssistantMessageDelta {
+                AgentEvent::TextChunk {
+                    part_id: "a1".into(),
                     message_id: "a1".into(),
-                    delta: "there".into(),
-                    parent_tool_call_id: None,
+                    parent_part_id: None,
+                    ordinal: 0,
+                    kind: TextKind::Answer,
+                    offset: 3,
+                    text: "there".into(),
                 },
             ),
             AgentEventEnvelope::new(
                 Some("turn-1".into()),
-                AgentEvent::AssistantMessageCompleted {
+                AgentEvent::PartClosed {
+                    part_id: "a1".into(),
+                    duration_ms: None,
+                },
+            ),
+            AgentEventEnvelope::new(
+                Some("turn-1".into()),
+                AgentEvent::TextChunk {
+                    part_id: "t1".into(),
                     message_id: "a1".into(),
+                    parent_part_id: None,
+                    ordinal: 1,
+                    kind: TextKind::Thinking,
+                    offset: 0,
+                    text: "ponder".into(),
                 },
             ),
             AgentEventEnvelope::new(
                 Some("turn-1".into()),
-                AgentEvent::ThinkingDelta {
-                    message_id: "t1".into(),
-                    delta: "ponder".into(),
-                    parent_tool_call_id: None,
-                },
-            ),
-            AgentEventEnvelope::new(
-                Some("turn-1".into()),
-                AgentEvent::ThinkingCompleted {
-                    message_id: "t1".into(),
+                AgentEvent::PartClosed {
+                    part_id: "t1".into(),
+                    duration_ms: None,
                 },
             ),
         ]
@@ -1585,6 +1684,69 @@ mod tests {
             .unwrap();
         assert_eq!(listed.sessions[0].key, "claude:c1");
         assert_eq!(listed.hits[0].kind, "title");
+        assert_eq!(
+            listed.search_status,
+            Some(HostSessionSearchStatus::Indexing)
+        );
+        assert_eq!(
+            listed.search_progress,
+            Some(HostSessionSearchProgress {
+                indexed: 0,
+                total: 1
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn catchup_emits_search_progress_then_ready() {
+        let (_dir, store) = store();
+        let mut parsed = HashMap::new();
+        parsed.insert("c1".into(), preview_events());
+        let service = test_service(
+            vec![Box::new(FakeSource {
+                provider_id: "claude",
+                rows: vec![row("claude", "c1", "/tmp/alpha", "alpha", 100)],
+                parsed,
+                tui_bin: None,
+            })],
+            store,
+        )
+        .await;
+        let mut rx = service.subscribe_index_updates();
+        let listed = service
+            .list(HostSessionListFilter::default())
+            .await
+            .unwrap();
+        assert_eq!(
+            listed.search_status,
+            Some(HostSessionSearchStatus::Indexing)
+        );
+        assert_eq!(listed.search_progress.map(|item| item.total), Some(1));
+
+        let mut saw_progress = false;
+        let mut saw_ready = false;
+        for _ in 0..16 {
+            let Ok(Ok(event)) =
+                tokio::time::timeout(std::time::Duration::from_secs(2), rx.recv()).await
+            else {
+                break;
+            };
+            if event.search_progress.is_some_and(|item| item.total > 0) {
+                saw_progress = true;
+            }
+            if event.search_status == Some(HostSessionSearchStatus::Ready) {
+                saw_ready = true;
+                break;
+            }
+        }
+        assert!(saw_progress);
+        assert!(saw_ready);
+        let ready = service
+            .list(HostSessionListFilter::default())
+            .await
+            .unwrap();
+        assert_eq!(ready.search_status, Some(HostSessionSearchStatus::Ready));
+        assert_eq!(ready.search_progress, None);
     }
 
     #[tokio::test]

@@ -18,7 +18,7 @@ import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { useHostSessionPreview } from "@/features/agent-sessions/hooks/use-host-session-preview";
 import { useHostSessionListQuery } from "@/features/agent-sessions/hooks/use-host-session-list-query";
 import { useHostSessionSelection } from "@/features/agent-sessions/hooks/use-host-session-selection";
-import { FindPanel, useFindPanel } from "@/features/editor/components/FindPanel";
+import { FindHighlightProvider, FindPanel, useFindPanel } from "@/features/editor/components/FindPanel";
 import { TRANSCRIPT_FIND_SCOPE, type MarkdownFindQuery } from "@/features/editor/lib/markdown-find";
 import { HostSessionTranscript } from "@/features/agent-sessions/components/HostSessionTranscript";
 import {
@@ -471,6 +471,7 @@ export function HostSessionDetailView({
               ref={transcriptRef}
               className="relative min-h-0 flex-1 overflow-hidden"
             >
+              <FindHighlightProvider>
               {messages.length === 0 ? (
                 <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
                   {t("emptyTranscript")}
@@ -515,6 +516,7 @@ export function HostSessionDetailView({
                   className={AGENT_CHAT_COMPOSER_FADE_CLASS}
                 />
               ) : null}
+              </FindHighlightProvider>
             </div>
             <div
               className="relative z-10 mx-auto w-full max-w-3xl shrink-0 px-3 pb-3 pt-px"

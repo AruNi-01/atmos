@@ -5,6 +5,7 @@ import {
   hostSessionApi,
   type HostSessionListItem,
   type HostSessionSearchHit,
+  type HostSessionSearchProgress,
   type HostSessionSearchStatus,
 } from "@/api/ws/host-session-api";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
@@ -66,6 +67,7 @@ export function useHostSessionList({
   sessions: HostSessionListItem[];
   hits: HostSessionSearchHit[];
   searchStatus: HostSessionSearchStatus | null;
+  searchProgress: HostSessionSearchProgress | null;
   isLoading: boolean;
   isLoadingMore: boolean;
   isSyncing: boolean;
@@ -84,6 +86,7 @@ export function useHostSessionList({
   const [sessions, setSessions] = useState<HostSessionListItem[]>([]);
   const [hits, setHits] = useState<HostSessionSearchHit[]>([]);
   const [searchStatus, setSearchStatus] = useState<HostSessionSearchStatus | null>(null);
+  const [searchProgress, setSearchProgress] = useState<HostSessionSearchProgress | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -178,6 +181,7 @@ export function useHostSessionList({
         setSessions(nextSessions);
         setHits(nextHits);
         setSearchStatus(response.search_status ?? null);
+        setSearchProgress(response.search_progress ?? null);
         setTotal(response.total);
         mergeFacets(nextSessions, !providerId && !project && !updatedAfter && !updatedBefore);
         hasSessions.current = true;
@@ -244,6 +248,7 @@ export function useHostSessionList({
         setSessions(nextSessions);
         setHits((current) => mergeHits(current, response.hits ?? [], false));
         setSearchStatus(response.search_status ?? null);
+        setSearchProgress(response.search_progress ?? null);
         setTotal(response.total);
         mergeFacets(response.sessions, false);
         hasSessions.current = true;
@@ -262,7 +267,20 @@ export function useHostSessionList({
 
   useEffect(() => {
     if (!connected) return;
-    return useWebSocketStore.getState().onEvent("host_session_index_updated", () => {
+    return useWebSocketStore.getState().onEvent("host_session_index_updated", (payload) => {
+      if (payload.search_progress) {
+        setSearchProgress(payload.search_progress);
+      }
+      if (payload.search_status === "indexing") {
+        setSearchStatus("indexing");
+        return;
+      }
+      if (payload.search_status === "ready") {
+        setSearchStatus("ready");
+        setSearchProgress(null);
+        setReloadToken((token) => token + 1);
+        return;
+      }
       setReloadToken((token) => token + 1);
     });
   }, [connected]);
@@ -271,6 +289,7 @@ export function useHostSessionList({
     sessions,
     hits,
     searchStatus,
+    searchProgress,
     isLoading,
     isLoadingMore,
     isSyncing,
