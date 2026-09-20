@@ -13,7 +13,7 @@ import { useSessionStore } from "@/stores/session-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { Separator } from "@/ui/layout/row";
 import { NativeMenuButton } from "@/ui/primitives/native-controls";
-import { DownloadIcon, PlusIcon } from "@/ui/icons/lucide-native";
+import { PlusIcon } from "@/ui/icons/lucide-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { buildWorkspaceProjectGroups } from "@/features/workspaces/workspace-picker-groups";
 import {
@@ -104,7 +104,7 @@ export function WorkspacePickerScreen() {
         ) : projectCount === 0 && workspaceCount === 0 ? (
           <GuideSection
             actionLabel="New Workspace"
-            message="Create a workspace or import a project."
+            message="Create a workspace to start."
             onAction={() => router.replace("/create-workspace")}
             title="No Workspaces"
           />
@@ -171,14 +171,7 @@ export function WorkspacePickerScreen() {
                     <HeaderIconButton
                       accessibilityLabel="New Workspace"
                       disabled={!canShowWorkspaces}
-                      icon="plus"
                       onPress={() => router.replace("/create-workspace")}
-                    />
-                    <HeaderIconButton
-                      accessibilityLabel="Import Project"
-                      disabled={!canShowWorkspaces}
-                      icon="download"
-                      onPress={() => router.replace("/import-project")}
                     />
                   </View>
                 ),
@@ -187,7 +180,6 @@ export function WorkspacePickerScreen() {
               ? () =>
                   buildHeaderRightItems({
                     disabled: !canShowWorkspaces,
-                    onImportProject: () => router.replace("/import-project"),
                     onNewWorkspace: () => router.replace("/create-workspace"),
                     tintColor: theme.colors.label,
                   })
@@ -305,39 +297,25 @@ function buildStatusMenuActions(
 
 function buildHeaderRightItems({
   disabled,
-  onImportProject,
   onNewWorkspace,
   tintColor,
 }: {
   disabled: boolean;
-  onImportProject: () => void;
   onNewWorkspace: () => void;
   tintColor: string;
 }): NativeStackHeaderItem[] {
-  const sharedButtonProps = {
-    disabled,
-    sharesBackground: true,
-    tintColor,
-    type: "button" as const,
-    variant: "plain" as const,
-  };
-
   return [
     {
-      ...sharedButtonProps,
       accessibilityLabel: "New Workspace",
+      disabled,
       icon: sfSymbol("plus"),
       identifier: "workspace-picker-new",
       label: "New",
       onPress: onNewWorkspace,
-    },
-    {
-      ...sharedButtonProps,
-      accessibilityLabel: "Import Project",
-      icon: sfSymbol("square.and.arrow.down"),
-      identifier: "workspace-picker-import",
-      label: "Import",
-      onPress: onImportProject,
+      sharesBackground: true,
+      tintColor,
+      type: "button",
+      variant: "plain",
     },
   ];
 }
@@ -345,16 +323,13 @@ function buildHeaderRightItems({
 function HeaderIconButton({
   accessibilityLabel,
   disabled,
-  icon,
   onPress,
 }: {
   accessibilityLabel: string;
   disabled?: boolean;
-  icon: "download" | "plus";
   onPress: () => void;
 }) {
   const theme = useMobileTheme();
-  const Icon = icon === "plus" ? PlusIcon : DownloadIcon;
 
   return (
     <Pressable
@@ -365,7 +340,7 @@ function HeaderIconButton({
       onPress={disabled ? undefined : onPress}
       style={[styles.headerIconButton, disabled ? styles.headerIconButtonDisabled : null]}
     >
-      <Icon color={theme.colors.label} size={21} strokeWidth={2.4} />
+      <PlusIcon color={theme.colors.label} size={21} strokeWidth={2.4} />
     </Pressable>
   );
 }

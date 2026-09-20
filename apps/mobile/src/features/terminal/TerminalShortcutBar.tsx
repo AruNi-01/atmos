@@ -8,9 +8,10 @@ import {
   Text,
   View,
 } from "react-native";
-import { MenuView, type MenuAction } from "@expo/ui/community/menu";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
+import { IosPopover } from "@/ui/primitives/ios-popover";
+import { PopoverActionList, PopoverActionRow } from "@/ui/primitives/popover-menu";
 import { TerminalKeyboardDismissButton } from "@/features/terminal/TerminalKeyboardDismissButton";
 import { terminalShortcuts, type TerminalShortcut } from "@/features/terminal/terminal-shortcuts";
 import { radii } from "@/theme/radii";
@@ -50,8 +51,6 @@ export function TerminalShortcutBar({
     if (shortcut) onShortcut(shortcut);
   };
 
-  const handleMenuAction = (actionId: string) => fireShortcut(actionId);
-
   if (!enabled) {
     return null;
   }
@@ -82,18 +81,19 @@ export function TerminalShortcutBar({
           tintColor={theme.colors.terminalChromeTint}
         >
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.content}>
-            <ShortcutMenuButton actions={CTRL_ACTIONS} label="Ctrl" onAction={handleMenuAction} />
+            <ShortcutPopoverButton actions={CTRL_ACTIONS} label="Ctrl" onAction={fireShortcut} />
             <ShortcutButton label="Esc" onPress={() => fireShortcut("esc")} />
             <ShortcutButton label="Tab" onPress={() => fireShortcut("tab")} />
             <ShortcutButton label="Paste" onPress={() => fireShortcut("paste")} />
             <ShortcutButton label="History" onPress={() => fireShortcut("up")} />
-            <ShortcutMenuButton
+            <ShortcutPopoverButton
               actions={DIRECTION_ACTIONS}
+              defaultActionId="up"
               label="Move"
-              onAction={handleMenuAction}
+              onAction={fireShortcut}
               openOnLongPress
             />
-            <ShortcutMenuButton actions={AGENT_ACTIONS} label="Agent" onAction={handleMenuAction} />
+            <ShortcutPopoverButton actions={AGENT_ACTIONS} label="Agent" onAction={fireShortcut} />
           </ScrollView>
         </GlassPanel>
         {keyboardVisible && onDismissKeyboard ? (
@@ -143,31 +143,43 @@ function ShortcutButton({
   );
 }
 
-function ShortcutMenuButton({
+function ShortcutPopoverButton({
   actions,
   defaultActionId,
   label,
   onAction,
   openOnLongPress,
 }: {
-  actions: MenuAction[];
+  actions: Array<{ id: string; title: string }>;
   defaultActionId?: string;
   label: string;
   onAction: (actionId: string) => void;
   openOnLongPress?: boolean;
 }) {
+  const theme = useMobileTheme();
+
   return (
-    <MenuView
-      actions={actions}
-      onPressAction={(event) => onAction(event.nativeEvent.event)}
-      shouldOpenOnLongPress={openOnLongPress}
-    >
-      <ShortcutButton label={label} onPress={defaultActionId ? () => onAction(defaultActionId) : undefined} />
-    </MenuView>
+    <IosPopover direction="top" trigger={openOnLongPress ? "longPress" : "tap"}>
+      <IosPopover.Trigger>
+        <ShortcutButton label={label} onPress={defaultActionId ? () => onAction(defaultActionId) : undefined} />
+      </IosPopover.Trigger>
+      <IosPopover.Content style={{ backgroundColor: theme.colors.terminalBg }}>
+        <PopoverActionList>
+          {actions.map((action) => (
+            <PopoverActionRow
+              key={action.id}
+              label={action.title}
+              onPress={() => onAction(action.id)}
+              tone="terminal"
+            />
+          ))}
+        </PopoverActionList>
+      </IosPopover.Content>
+    </IosPopover>
   );
 }
 
-const CTRL_ACTIONS: MenuAction[] = [
+const CTRL_ACTIONS = [
   { id: "ctrl-c", title: "Ctrl-C" },
   { id: "ctrl-d", title: "Ctrl-D" },
   { id: "ctrl-l", title: "Ctrl-L" },
@@ -175,19 +187,19 @@ const CTRL_ACTIONS: MenuAction[] = [
   { id: "ctrl-e", title: "Ctrl-E" },
 ];
 
-const DIRECTION_ACTIONS: MenuAction[] = [
+const DIRECTION_ACTIONS = [
   { id: "up", title: "Up" },
   { id: "down", title: "Down" },
   { id: "left", title: "Left" },
   { id: "right", title: "Right" },
 ];
 
-const AGENT_ACTIONS: MenuAction[] = [
+const AGENT_ACTIONS = [
   { id: "agent-continue", title: "Continue" },
   { id: "agent-yes", title: "Yes" },
   { id: "agent-no", title: "No" },
-  { id: "new-terminal", title: "New Terminal" },
-  { id: "switch-terminal", title: "Switch Terminal" },
+  { id: "new-terminal", title: "New terminal" },
+  { id: "switch-terminal", title: "Switch terminal" },
 ];
 
 const styles = StyleSheet.create({

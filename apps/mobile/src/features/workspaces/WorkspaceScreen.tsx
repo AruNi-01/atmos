@@ -3,42 +3,34 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Keyboard,
   Platform,
-  ScrollView,
   StyleSheet,
   View,
   type KeyboardEvent,
 } from "react-native";
-import { Stack, type NativeStackHeaderItem } from "expo-router";
-import type { SFSymbol } from "sf-symbols-typescript";
+import { Stack, useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { EmptyState, InlineError } from "@/ui/layout/app-screen";
 import { nativeCompactTitleOptions } from "@/ui/navigation/native-screen-options";
-import { ChangesScreen } from "@/features/git/ChangesScreen";
 import { TerminalShortcutBar } from "@/features/terminal/TerminalShortcutBar";
 import {
   TerminalScreen,
-  type TerminalHeaderControls,
   type TerminalKeyboardDismissHandler,
   type TerminalShortcutHandler,
+  type TerminalWorkspaceChoice,
 } from "@/features/terminal/TerminalScreen";
-import type { WorkspaceTab, WorkspaceTabItem } from "@/features/workspaces/WorkspaceTabs.types";
-import { WorkspaceHeaderActions } from "@/features/workspaces/WorkspaceHeaderActions";
-import { WorkspaceOverview } from "@/features/workspaces/WorkspaceOverview";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useRecentWorkspacesStore } from "@/stores/recent-workspaces-store";
 import { useSessionStore } from "@/stores/session-store";
 import { wsActions } from "@/api/ws-actions";
-import { colors, type MobileThemeColors } from "@/theme/colors";
-import { spacing } from "@/theme/spacing";
+import { colors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
 
 export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
   const theme = useMobileTheme();
+  const router = useRouter();
   const { client, state } = useMobileWs();
   const recordWorkspaceVisit = useRecentWorkspacesStore((store) => store.recordWorkspaceVisit);
   const selectedServerId = useSessionStore((store) => store.selectedServerId);
-  const [tab, setTab] = useState<WorkspaceTab>("terminal");
-  const [terminalHeaderControls, setTerminalHeaderControls] = useState<TerminalHeaderControls | null>(null);
   const [terminalKeyboardDismissHandler, setTerminalKeyboardDismissHandler] =
     useState<TerminalKeyboardDismissHandler | null>(null);
   const [terminalShortcutHandler, setTerminalShortcutHandler] = useState<TerminalShortcutHandler | null>(null);
@@ -68,6 +60,15 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
     if (!workspace) return null;
     return bootstrap.data?.projects.find((candidate) => candidate.guid === workspace.project_guid) ?? null;
   }, [bootstrap.data, workspace]);
+
+  const workspaceChoices = useMemo<TerminalWorkspaceChoice[]>(() => {
+    return Object.values(bootstrap.data?.workspaces_by_project ?? {})
+      .flat()
+      .map((candidate) => ({
+        id: candidate.guid,
+        name: candidate.display_name ?? candidate.name,
+      }));
+  }, [bootstrap.data]);
 
   useEffect(() => {
     if (!workspace) return;
@@ -110,66 +111,6 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
   }
 
   const workspaceTitle = workspace.display_name ?? workspace.name;
-  const tabItems: WorkspaceTabItem[] = [
-    {
-      androidIcon: require("../../../assets/icons/terminal.xml"),
-      iosSystemImage: "terminal",
-      label: "Terminal",
-      value: "terminal",
-      children: (
-        <View style={styles.terminalContent}>
-          <TerminalScreen
-            onHeaderControlsChange={setTerminalHeaderControls}
-            onKeyboardDismissHandlerChange={handleTerminalKeyboardDismissHandlerChange}
-            onShortcutHandlerChange={handleTerminalShortcutHandlerChange}
-            projectName={project?.name ?? null}
-            workspaceId={workspace.guid}
-            workspaceName={workspace.name}
-          />
-        </View>
-      ),
-    },
-    {
-      androidIcon: require("../../../assets/icons/changes.xml"),
-      iosSystemImage: "list.bullet.rectangle.fill",
-      label: "Changes",
-      value: "changes",
-      children: (
-        <ScrollView
-          contentInsetAdjustmentBehavior="never"
-          keyboardShouldPersistTaps="handled"
-          style={styles.changesScroll}
-          contentContainerStyle={styles.changesContent}
-        >
-          <ChangesScreen repoPath={workspace.local_path} />
-        </ScrollView>
-      ),
-    },
-    {
-      androidIcon: require("../../../assets/icons/overview.xml"),
-      iosSystemImage: "info.circle.fill",
-      label: "Overview",
-      value: "overview",
-      children: (
-        <View style={styles.content}>
-          <WorkspaceOverview project={project} workspace={workspace} />
-        </View>
-      ),
-    },
-  ];
-  const activeTab = tabItems.find((item) => item.value === tab) ?? tabItems[0];
-  const content = (
-    <>
-      {activeTab?.children}
-      {terminalShortcutHandler ? (
-        <TerminalShortcutBar
-          enabled={tab === "terminal"}
-          onDismissKeyboard={terminalKeyboardDismissHandler ?? undefined}
-          onShortcut={terminalShortcutHandler}
-        />
-      ) : null}
-    </>
-  );
 
   return (
     <>
@@ -177,136 +118,42 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
         options={{
           ...nativeCompactTitleOptions(workspaceTitle, theme.colors),
           contentStyle: {
-            backgroundColor: tab === "terminal" ? theme.colors.terminalBg : theme.colors.background,
+            backgroundColor: theme.colors.terminalBg,
           },
           headerBackButtonDisplayMode: "minimal",
-          headerRight:
-            Platform.OS === "ios"
-              ? undefined
-              : () => (
-                  <WorkspaceHeaderActions
-                    onSelectTab={setTab}
-                    selectedTab={tab}
-                    tabs={tabItems.map(({ androidIcon, iosSystemImage, label, value }) => ({
-                      androidIcon,
-                      iosSystemImage,
-                      label,
-                      value,
-                    }))}
-                    terminalControls={terminalHeaderControls}
-                  />
-                ),
-          unstable_headerRightItems:
-            Platform.OS === "ios"
-              ? () =>
-                  buildHeaderRightItems({
-                    onSelectTab: setTab,
-                    selectedTab: tab,
-                    tabs: tabItems.map(({ iosSystemImage, label, value }) => ({
-                      iosSystemImage,
-                      label,
-                      value,
-                    })),
-                    terminalControls: terminalHeaderControls,
-                    colors: theme.colors,
-                  })
-              : undefined,
+          headerRight: undefined,
         }}
       />
-      {tab === "terminal" ? (
-        <View
-          ref={keyboardInsetTargetRef}
-          collapsable={false}
-          onLayout={onKeyboardInsetTargetLayout}
-          style={[styles.root, styles.terminalRoot, { backgroundColor: theme.colors.terminalBg, paddingBottom: keyboardInset }]}
-        >
-          {content}
+      <View
+        ref={keyboardInsetTargetRef}
+        collapsable={false}
+        onLayout={onKeyboardInsetTargetLayout}
+        style={[styles.root, styles.terminalRoot, { backgroundColor: theme.colors.terminalBg, paddingBottom: keyboardInset }]}
+      >
+        <View style={styles.terminalContent}>
+          <TerminalScreen
+            onKeyboardDismissHandlerChange={handleTerminalKeyboardDismissHandlerChange}
+            onShortcutHandlerChange={handleTerminalShortcutHandlerChange}
+            onSelectWorkspace={(nextWorkspaceId) => {
+              if (nextWorkspaceId === workspaceId) return;
+              router.replace(`/workspace/${nextWorkspaceId}`);
+            }}
+            projectName={project?.name ?? null}
+            workspaceId={workspace.guid}
+            workspaceName={workspaceTitle}
+            workspaces={workspaceChoices}
+          />
         </View>
-      ) : (
-        <View style={[styles.root, styles.defaultRoot, { backgroundColor: theme.colors.background }]}>{content}</View>
-      )}
+        {terminalShortcutHandler ? (
+          <TerminalShortcutBar
+            enabled
+            onDismissKeyboard={terminalKeyboardDismissHandler ?? undefined}
+            onShortcut={terminalShortcutHandler}
+          />
+        ) : null}
+      </View>
     </>
   );
-}
-
-function buildHeaderRightItems({
-  onSelectTab,
-  selectedTab,
-  tabs,
-  terminalControls,
-  colors: themeColors = colors,
-}: {
-  colors?: MobileThemeColors;
-  onSelectTab: (tab: WorkspaceTab) => void;
-  selectedTab: WorkspaceTab;
-  tabs: Array<{ iosSystemImage: SFSymbol; label: string; value: WorkspaceTab }>;
-  terminalControls: TerminalHeaderControls | null;
-}): NativeStackHeaderItem[] {
-  const activeTab = tabs.find((tab) => tab.value === selectedTab) ?? tabs[0];
-  const sharedButtonProps = {
-    sharesBackground: true,
-    tintColor: themeColors.label,
-    variant: "plain" as const,
-  };
-
-  return [
-    {
-      ...sharedButtonProps,
-      accessibilityLabel: "Workspace view",
-      icon: sfSymbol(activeTab?.iosSystemImage ?? "rectangle.3.group"),
-      identifier: "workspace-view-menu",
-      label: activeTab?.label ?? "View",
-      menu: {
-        items: tabs.map((tab) => ({
-          icon: sfSymbol(tab.iosSystemImage),
-          label: tab.label,
-          onPress: () => onSelectTab(tab.value),
-          state: tab.value === selectedTab ? "on" : "off",
-          type: "action" as const,
-        })),
-        title: "View",
-      },
-      type: "menu",
-    },
-    {
-      ...sharedButtonProps,
-      accessibilityLabel: "Terminal menu",
-      icon: sfSymbol("ellipsis"),
-      identifier: "workspace-terminal-menu",
-      label: "Terminal",
-      menu: {
-        items: terminalControls
-          ? [
-              ...terminalControls.entries.map((entry) => ({
-                label: entry.label,
-                onPress: () => terminalControls.onSelectEntry(entry.id),
-                state: entry.id === terminalControls.activeEntryId ? ("on" as const) : ("off" as const),
-                type: "action" as const,
-              })),
-              {
-                icon: sfSymbol("plus"),
-                label: "New Terminal",
-                onPress: terminalControls.onCreateEntry,
-                type: "action" as const,
-              },
-            ]
-          : [
-              {
-                disabled: true,
-                label: "Loading",
-                onPress: () => {},
-                type: "action" as const,
-              },
-            ],
-        title: "Terminal",
-      },
-      type: "menu",
-    },
-  ];
-}
-
-function sfSymbol(name: SFSymbol) {
-  return { name, type: "sfSymbol" as const };
 }
 
 function useKeyboardInset() {
@@ -381,18 +228,6 @@ function WorkspaceStateScreen({
 }
 
 const styles = StyleSheet.create({
-  changesContent: {
-    paddingBottom: spacing.screenBottom,
-    paddingHorizontal: spacing.screenX,
-    paddingTop: spacing.contentPadding,
-  },
-  changesScroll: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    padding: spacing.contentPadding,
-  },
   defaultRoot: {
     backgroundColor: colors.background,
   },

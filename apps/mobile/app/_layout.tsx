@@ -23,7 +23,6 @@ export default function RootLayout() {
           }}
         >
           <Stack.Screen name="index" />
-          <Stack.Screen name="onboarding" />
           <Stack.Screen
             name="sign-in"
             options={{
@@ -50,17 +49,6 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
-            name="settings"
-            options={{
-              contentStyle: sheetContentStyle,
-              headerShown: false,
-              presentation: sheetPresentation,
-              sheetCornerRadius: 32,
-              sheetGrabberVisible: isIos,
-              sheetLargestUndimmedDetentIndex: "none",
-            }}
-          />
-          <Stack.Screen
             name="computer-connect"
             options={{
               presentation: sheetPresentation,
@@ -70,14 +58,6 @@ export default function RootLayout() {
           />
           <Stack.Screen
             name="workspaces"
-            options={{
-              presentation: sheetPresentation,
-              sheetGrabberVisible: isIos,
-              contentStyle: sheetContentStyle,
-            }}
-          />
-          <Stack.Screen
-            name="import-project"
             options={{
               presentation: sheetPresentation,
               sheetGrabberVisible: isIos,

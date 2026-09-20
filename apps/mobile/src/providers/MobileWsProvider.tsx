@@ -1,7 +1,6 @@
 import type { PropsWithChildren } from "react";
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { MobileWsClient, type MobileWsState } from "@/api/mobile-ws-client";
-import { useGitStore } from "@/features/git/git-store";
 import { useSessionStore } from "@/stores/session-store";
 import { useTerminalStore } from "@/stores/terminal-store";
 import { useUiStore } from "@/stores/ui-store";
@@ -18,7 +17,6 @@ const MobileWsContext = createContext<MobileWsContextValue>({
 
 export function MobileWsProvider({ children }: PropsWithChildren) {
   const session = useSessionStore((state) => state.activeClientSession);
-  const resetGit = useGitStore((state) => state.reset);
   const clearTerminalState = useTerminalStore((state) => state.clearAll);
   const setDisconnectedReason = useUiStore((state) => state.setDisconnectedReason);
   const [wsState, setWsState] = useState<MobileWsState>("idle");
@@ -33,11 +31,10 @@ export function MobileWsProvider({ children }: PropsWithChildren) {
     const nextSessionKey = session?.ws_url ?? null;
     const previousSessionKey = previousSessionKeyRef.current;
     if (previousSessionKey !== undefined && previousSessionKey !== nextSessionKey) {
-      resetGit();
       clearTerminalState();
     }
     previousSessionKeyRef.current = nextSessionKey;
-  }, [clearTerminalState, resetGit, session?.ws_url]);
+  }, [clearTerminalState, session?.ws_url]);
 
   useEffect(() => {
     if (!client) {

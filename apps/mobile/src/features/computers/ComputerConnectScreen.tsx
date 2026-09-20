@@ -12,7 +12,7 @@ import { useSessionStore } from "@/stores/session-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { Separator } from "@/ui/layout/row";
 import { RefreshIcon } from "@/ui/icons/lucide-native";
-import { colors, radii } from "@/theme/colors";
+import { colors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
 
 const buttonStretchModifiers = expoUiButtonStretchModifiers;
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
   computerMeta: {
     color: colors.secondaryLabel,
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "500",
     marginTop: 2,
   },
   computerRow: {
@@ -300,18 +300,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  computerStatusOnline: {
-    backgroundColor: colors.label,
-    borderColor: colors.label,
-  },
   computerStatusText: {
     color: colors.secondaryLabel,
-    fontSize: 11,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  computerStatusTextOnline: {
-    color: colors.labelInverse,
+    fontSize: 13,
+    fontWeight: "600",
   },
   computerText: {
     flex: 1,
@@ -319,7 +311,7 @@ const styles = StyleSheet.create({
   computerTitle: {
     color: colors.label,
     fontSize: 16,
-    fontWeight: "800",
+    fontWeight: "600",
   },
   emptyBlock: {
     gap: 12,

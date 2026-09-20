@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import { Keyboard, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Keyboard, Pressable, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import { getTerminalDisplayMeta, type ContestedOwnersMap } from "@atmos/shared/terminal";
 import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
+import { TerminalTabsBar } from "@/features/terminal/TerminalTabsBar";
 import { TerminalWebView, type TerminalWebViewHandle } from "@/features/terminal/TerminalWebView";
 import {
   MOBILE_TERMINAL_AGENTS,
@@ -32,34 +33,37 @@ import { radii } from "@/theme/radii";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
-import { BotIcon, TerminalIcon } from "@/ui/icons/lucide-native";
+import { BotIcon, ChevronDownIcon, TerminalIcon } from "@/ui/icons/lucide-native";
+import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
+import { IosPopover } from "@/ui/primitives/ios-popover";
+import { PopoverActionList, PopoverActionRow } from "@/ui/primitives/popover-menu";
 
 const EMPTY_TERMINAL_ENTRIES: MobileTerminalEntry[] = [];
 
-export type TerminalHeaderControls = {
-  activeEntryId: string | null;
-  entries: Array<{ id: string; label: string }>;
-  onCreateEntry: () => void;
-  onSelectEntry: (entryId: string) => void;
+export type TerminalWorkspaceChoice = {
+  id: string;
+  name: string;
 };
 
 export type TerminalShortcutHandler = (shortcut: TerminalShortcut) => void;
 export type TerminalKeyboardDismissHandler = () => void;
 
 export function TerminalScreen({
-  onHeaderControlsChange,
   onKeyboardDismissHandlerChange,
   onShortcutHandlerChange,
+  onSelectWorkspace,
   projectName,
   workspaceId,
   workspaceName,
+  workspaces,
 }: {
-  onHeaderControlsChange?: (controls: TerminalHeaderControls | null) => void;
   onKeyboardDismissHandlerChange?: (handler: TerminalKeyboardDismissHandler | null) => void;
   onShortcutHandlerChange?: (handler: TerminalShortcutHandler | null) => void;
+  onSelectWorkspace?: (workspaceId: string) => void;
   projectName?: string | null;
   workspaceId: string;
   workspaceName: string;
+  workspaces?: TerminalWorkspaceChoice[];
 }) {
   const theme = useMobileTheme();
   const router = useRouter();
@@ -74,6 +78,7 @@ export function TerminalScreen({
   const terminalWsUrl = useSessionStore((state) => state.activeClientSession?.terminal_ws_url);
   const contestedOwners = useContestedCliOwners();
   const webViewRef = useRef<TerminalWebViewHandle>(null);
+  const [groupOpen, setGroupOpen] = useState(false);
 
   const candidates = useTerminalCandidates({
     appWsClient,
@@ -90,6 +95,15 @@ export function TerminalScreen({
     if (entries.length > 0) return entries;
     return EMPTY_TERMINAL_ENTRIES;
   }, [entries]);
+
+  const tabItems = useMemo(
+    () =>
+      ensuredEntries.map((entry) => ({
+        id: entry.id,
+        label: getMobileTerminalDisplayMeta(entry, contestedOwners).displayTitle,
+      })),
+    [contestedOwners, ensuredEntries],
+  );
 
   const activeEntry = resolveActiveTerminalEntry(ensuredEntries, activeEntryId);
   const activeSessionId = activeEntry ? activeEntry.sessionId ?? activeEntry.id : null;
@@ -119,35 +133,19 @@ export function TerminalScreen({
     addEntry({
       id,
       workspaceId,
-      label: `Mobile terminal ${ensuredEntries.length + 1}`,
+      label: `Terminal ${ensuredEntries.length + 1}`,
       sessionId: createMobileTerminalSessionId(workspaceId),
       isNew: true,
     });
   }, [addEntry, ensuredEntries.length, workspaceId]);
 
-  useEffect(() => {
-    if (!onHeaderControlsChange) return undefined;
-
-    onHeaderControlsChange({
-      activeEntryId: activeEntry?.id ?? null,
-      entries: ensuredEntries.map((entry) => ({
-        id: entry.id,
-        label: getMobileTerminalDisplayMeta(entry, contestedOwners).displayTitle,
-      })),
-      onCreateEntry: createTerminalEntry,
-      onSelectEntry: (entryId) => setActiveEntry(workspaceId, entryId),
-    });
-
-    return () => onHeaderControlsChange(null);
-  }, [
-    activeEntry?.id,
-    contestedOwners,
-    createTerminalEntry,
-    ensuredEntries,
-    onHeaderControlsChange,
-    setActiveEntry,
-    workspaceId,
-  ]);
+  const selectEntry = useCallback(
+    (entryId: string) => {
+      setActiveEntry(workspaceId, entryId);
+      setGroupOpen(false);
+    },
+    [setActiveEntry, workspaceId],
+  );
 
   const dismissKeyboard = useCallback(() => {
     webViewRef.current?.blur();
@@ -200,11 +198,11 @@ export function TerminalScreen({
           return;
         }
         if (shortcut.action === "workspace-list") router.push("/");
-        if (shortcut.action === "switch-terminal") setTerminalError("Use the terminal menu in the header.");
+        if (shortcut.action === "switch-terminal") setGroupOpen(true);
         if (shortcut.action === "new-terminal") createTerminalEntry();
       }
     },
-    [createTerminalEntry, router, sendTerminalInput],
+    [createTerminalEntry, router, sendTerminalInput, setTerminalError],
   );
 
   useEffect(() => {
@@ -217,6 +215,23 @@ export function TerminalScreen({
 
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.terminalBg }]}>
+      <TerminalTabsBar
+        activeEntryId={activeEntry?.id ?? null}
+        entries={tabItems}
+        leading={
+          onSelectWorkspace && workspaces && workspaces.length > 0 ? (
+            <WorkspaceSwitcherPopover
+              currentId={workspaceId}
+              currentName={workspaceName}
+              onSelect={onSelectWorkspace}
+              workspaces={workspaces}
+            />
+          ) : null
+        }
+        onCreate={createTerminalEntry}
+        onOpenGroup={() => setGroupOpen(true)}
+        onSelect={selectEntry}
+      />
       {candidates.error ? (
         <View
           style={[
@@ -268,11 +283,79 @@ export function TerminalScreen({
             Choose a terminal
           </Text>
           <Text selectable style={[styles.choiceText, { color: theme.colors.secondaryLabel }]}>
-            This workspace has multiple terminal candidates. Pick one above before attaching.
+            Pick a terminal from the tabs or the list.
           </Text>
         </View>
       )}
+      <ExpoDrawer isPresented={groupOpen} onDismiss={() => setGroupOpen(false)}>
+        <Text style={[styles.drawerTitle, { color: theme.colors.label }]}>Terminals</Text>
+        {tabItems.map((entry) => {
+          const selected = entry.id === activeEntry?.id;
+          return (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              key={entry.id}
+              onPress={() => selectEntry(entry.id)}
+              style={({ pressed }) => [
+                styles.drawerRow,
+                pressed ? { backgroundColor: theme.colors.mutedPressed } : null,
+              ]}
+            >
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.drawerRowLabel,
+                  { color: selected ? theme.colors.label : theme.colors.secondaryLabel },
+                ]}
+              >
+                {entry.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ExpoDrawer>
     </View>
+  );
+}
+
+function WorkspaceSwitcherPopover({
+  currentId,
+  currentName,
+  onSelect,
+  workspaces,
+}: {
+  currentId: string;
+  currentName: string;
+  onSelect: (workspaceId: string) => void;
+  workspaces: TerminalWorkspaceChoice[];
+}) {
+  const theme = useMobileTheme();
+
+  return (
+    <IosPopover direction="bottom">
+      <IosPopover.Trigger>
+        <View accessibilityRole="button" style={styles.workspaceTrigger}>
+          <Text numberOfLines={1} style={[styles.workspaceTriggerLabel, { color: theme.colors.terminalFg }]}>
+            {currentName}
+          </Text>
+          <ChevronDownIcon color={theme.colors.terminalMuted} size={14} strokeWidth={2.4} />
+        </View>
+      </IosPopover.Trigger>
+      <IosPopover.Content style={{ backgroundColor: theme.colors.terminalBg }}>
+        <PopoverActionList>
+          {workspaces.map((workspace) => (
+            <PopoverActionRow
+              key={workspace.id}
+              label={workspace.name}
+              onPress={() => onSelect(workspace.id)}
+              selected={workspace.id === currentId}
+              tone="terminal"
+            />
+          ))}
+        </PopoverActionList>
+      </IosPopover.Content>
+    </IosPopover>
   );
 }
 
@@ -357,6 +440,20 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "center",
   },
+  drawerRow: {
+    minHeight: 44,
+    justifyContent: "center",
+    paddingVertical: 10,
+  },
+  drawerRowLabel: {
+    fontSize: 17,
+    lineHeight: 22,
+  },
+  drawerTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
   error: {
     backgroundColor: colors.redSurface,
     borderColor: colors.redBorder,
@@ -418,5 +515,19 @@ const styles = StyleSheet.create({
   terminalTitle: {
     ...typography.terminalTitle,
     flex: 1,
+  },
+  workspaceTrigger: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 4,
+    maxWidth: 120,
+    minHeight: 36,
+    paddingHorizontal: 6,
+  },
+  workspaceTriggerLabel: {
+    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 18,
   },
 });
