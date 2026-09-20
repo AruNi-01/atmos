@@ -231,8 +231,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.terminalKeycapGap,
     minHeight: 44,
-    paddingLeft: spacing.terminalChromeX,
-    paddingRight: 20,
+    paddingLeft: 6,
+    paddingRight: 10,
     paddingVertical: 4,
   },
   fallback: {},
@@ -243,13 +243,13 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     justifyContent: "center",
     minHeight: 36,
-    minWidth: 46,
-    paddingHorizontal: 10,
+    minWidth: 42,
+    paddingHorizontal: 8,
   },
   keycapText: {
     ...typography.terminalKeycapLabel,
   },
   trailingSpace: {
-    width: 16,
+    width: 4,
   },
 });

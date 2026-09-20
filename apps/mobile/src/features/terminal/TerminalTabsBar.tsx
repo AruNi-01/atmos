@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     maxWidth: 160,
     minHeight: 32,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
   },
   tabLabel: {
     fontSize: 13,
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
   tabs: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 6,
-    paddingRight: 8,
+    gap: 4,
+    paddingRight: 12,
   },
 });
