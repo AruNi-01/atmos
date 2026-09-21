@@ -117,6 +117,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     if (connectionState !== 'connected') return;
     if (prev === 'connected') return;
     // Transition into connected from connecting/reconnecting/disconnected.
+    useAgentStatusStore.getState().resetForConnectionChange();
+    useAgentActivityStore.getState().resetForConnectionChange();
     void invalidateAfterComputerReconnect(
       getAtmosWebQueryClient(),
       getComputerQueryScope(),

@@ -14,13 +14,21 @@ use agent::{
 pub(crate) fn hook_payload_to_events(payload: &Value) -> Vec<AgentEvent> {
     match classify_hook(payload) {
         HookKind::Ignore => Vec::new(),
-        HookKind::PromptSubmit => vec![AgentEvent::UserMessage {
-            turn_id: new_id(),
-            message_id: new_id(),
-            kind: UserMessageKind::Normal,
-            text: extract_prompt(payload).unwrap_or_default(),
-            attachments: Vec::new(),
-        }],
+        HookKind::PromptSubmit => {
+            if let Some(id) = extract_child_agent_id(payload) {
+                vec![AgentEvent::ToolCallUpdated {
+                    tool_call: subagent_tool(payload, id, AgentToolStatus::Running),
+                }]
+            } else {
+                vec![AgentEvent::UserMessage {
+                    turn_id: new_id(),
+                    message_id: new_id(),
+                    kind: UserMessageKind::Normal,
+                    text: extract_prompt(payload).unwrap_or_default(),
+                    attachments: Vec::new(),
+                }]
+            }
+        }
         HookKind::ToolPending => vec![AgentEvent::ToolCallStarted {
             tool_call: hook_tool(payload, AgentToolStatus::Running),
         }],
@@ -149,16 +157,103 @@ fn classify_hook(payload: &Value) -> HookKind {
 
 fn hook_tool(payload: &Value, status: AgentToolStatus) -> AgentTool {
     let child_id = extract_child_agent_id(payload).map(str::to_string);
+    let name = tool_name(payload).unwrap_or_else(|| "tool".to_string());
+    if is_spawn_tool_name(&name) {
+        return spawn_hook_tool(payload, &name, child_id, status);
+    }
     AgentTool {
         tool_call_id: tool_call_id(payload),
         parent_tool_call_id: child_id,
-        name: tool_name(payload).unwrap_or_else(|| "tool".to_string()),
+        name,
         title: None,
         kind: AgentToolKind::Other,
         status,
         params: tool_params(payload),
         result: None,
     }
+}
+
+fn spawn_hook_tool(
+    payload: &Value,
+    name: &str,
+    child_id: Option<String>,
+    status: AgentToolStatus,
+) -> AgentTool {
+    let input = tool_input(payload);
+    let named = child_name(payload);
+    let agent_type = input
+        .and_then(|value| {
+            value
+                .get("subagent_type")
+                .or_else(|| value.get("subagentType"))
+                .or_else(|| value.get("agent_type"))
+                .or_else(|| value.get("agentType"))
+                .and_then(|v| v.as_str())
+        })
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .or(named);
+    let description = input
+        .and_then(|value| value.get("description").and_then(|v| v.as_str()))
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .or_else(|| agent_type.clone())
+        .unwrap_or_else(|| name.to_string());
+    let prompt = input
+        .and_then(|value| value.get("prompt").and_then(|v| v.as_str()))
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .or_else(|| extract_prompt(payload));
+    let task_id = child_id.clone().or_else(|| {
+        input.and_then(|value| {
+            value
+                .get("task_id")
+                .or_else(|| value.get("taskId"))
+                .or_else(|| value.get("subagent_id"))
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string)
+        })
+    });
+    AgentTool {
+        tool_call_id: tool_call_id(payload),
+        parent_tool_call_id: None,
+        name: name.to_string(),
+        title: agent_type.clone(),
+        kind: AgentToolKind::Subagent,
+        status,
+        params: AgentToolParams::Subagent {
+            description,
+            agent_type,
+            task_id,
+            prompt,
+        },
+        result: None,
+    }
+}
+
+fn is_spawn_tool_name(name: &str) -> bool {
+    matches!(
+        name.trim()
+            .to_ascii_lowercase()
+            .replace('-', "_")
+            .replace(' ', "_")
+            .as_str(),
+        "task"
+            | "agent"
+            | "subagent"
+            | "spawn_subagent"
+            | "spawn_agent"
+            | "agent_spawn"
+            | "collabtoolcall"
+            | "collab_tool_call"
+            | "collabagenttoolcall"
+            | "collab_agent_tool_call"
+    )
 }
 
 fn subagent_tool(payload: &Value, child_id: &str, status: AgentToolStatus) -> AgentTool {
@@ -441,5 +536,63 @@ mod tests {
         };
         assert_eq!(tool_call.parent_tool_call_id.as_deref(), Some("c1"));
         assert_eq!(tool_call.kind, AgentToolKind::Other);
+    }
+
+    #[test]
+    fn spawn_subagent_pre_tool_is_subagent_kind() {
+        let events = hook_payload_to_events(&json!({
+            "hook_event_name": "PreToolUse",
+            "tool_name": "spawn_subagent",
+            "tool_input": {
+                "subagent_type": "general-purpose",
+                "prompt": "You are exploring the tree"
+            },
+        }));
+        let AgentEvent::ToolCallStarted { tool_call } = &events[0] else {
+            panic!("expected tool start");
+        };
+        assert_eq!(tool_call.kind, AgentToolKind::Subagent);
+        let AgentToolParams::Subagent {
+            agent_type, prompt, ..
+        } = &tool_call.params
+        else {
+            panic!("expected subagent params");
+        };
+        assert_eq!(agent_type.as_deref(), Some("general-purpose"));
+        assert_eq!(prompt.as_deref(), Some("You are exploring the tree"));
+    }
+
+    #[test]
+    fn child_prompt_submit_updates_subagent_instead_of_user_message() {
+        let events = hook_payload_to_events(&json!({
+            "hook_event_name": "UserPromptSubmit",
+            "subagent_id": "sa-1",
+            "prompt": "You are exploring the Atmos monorepo",
+        }));
+        let AgentEvent::ToolCallUpdated { tool_call } = &events[0] else {
+            panic!("expected subagent update, got {:?}", events[0]);
+        };
+        assert_eq!(tool_call.kind, AgentToolKind::Subagent);
+        assert_eq!(tool_call.tool_call_id, "sa-1");
+        let AgentToolParams::Subagent { prompt, .. } = &tool_call.params else {
+            panic!("expected subagent params");
+        };
+        assert_eq!(
+            prompt.as_deref(),
+            Some("You are exploring the Atmos monorepo")
+        );
+    }
+
+    #[test]
+    fn nested_tool_input_subagent_id_sets_parent() {
+        let events = hook_payload_to_events(&json!({
+            "hook_event_name": "PreToolUse",
+            "tool_name": "read_file",
+            "tool_input": { "path": "a.rs", "subagent_id": "sa-1" },
+        }));
+        let AgentEvent::ToolCallStarted { tool_call } = &events[0] else {
+            panic!("expected tool start");
+        };
+        assert_eq!(tool_call.parent_tool_call_id.as_deref(), Some("sa-1"));
     }
 }

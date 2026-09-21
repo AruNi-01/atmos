@@ -11,6 +11,7 @@ interface AgentActivityStore {
   _unsubscribe: (() => void) | null;
   init: () => void;
   cleanup: () => void;
+  rehydrate: () => void;
   resetForConnectionChange: () => void;
 }
 
@@ -18,17 +19,24 @@ let hydrateGeneration = 0;
 
 async function hydrateActivity(apply: (records: Map<string, AgentActivity>) => void) {
   const generation = ++hydrateGeneration;
-  try {
-    const { sessions } = await agentStatusApi.listActivity();
-    if (generation !== hydrateGeneration) return;
-    const records = new Map<string, AgentActivity>();
-    for (const record of sessions ?? []) {
-      if (record?.session_id) records.set(record.session_id, record);
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      const data = await agentStatusApi.listActivity();
+      if (generation !== hydrateGeneration) return;
+      if (!Array.isArray(data?.sessions)) {
+        throw new Error("invalid activity payload");
+      }
+      const records = new Map<string, AgentActivity>();
+      for (const record of data.sessions) {
+        if (record?.session_id) records.set(record.session_id, record);
+      }
+      apply(records);
+      return;
+    } catch {
+      if (generation !== hydrateGeneration) return;
+      if (attempt === 0) apply(new Map());
+      await new Promise((resolve) => setTimeout(resolve, 1500 * (attempt + 1)));
     }
-    apply(records);
-  } catch {
-    if (generation !== hydrateGeneration) return;
-    apply(new Map());
   }
 }
 
@@ -78,6 +86,10 @@ export const useAgentActivityStore = create<AgentActivityStore>((set, get) => ({
   cleanup: () => {
     get()._unsubscribe?.();
     set({ _unsubscribe: null });
+  },
+
+  rehydrate: () => {
+    void hydrateActivity((records) => set({ records, hydrated: true }));
   },
 
   resetForConnectionChange: () => {

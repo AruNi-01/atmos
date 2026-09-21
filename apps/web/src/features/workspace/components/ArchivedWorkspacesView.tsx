@@ -12,6 +12,10 @@ import {
   Trash2,
   RotateCw,
   Button,
+  EmptyAction,
+  IconArrowRight,
+  IconFolder,
+  IconSearch,
   Loader2,
   toastManager,
   Skeleton,
@@ -32,6 +36,7 @@ import { DeleteProjectDialog } from '@/features/project/components/DeleteProject
 import { DeleteWorkspaceDialog } from '@/features/workspace/components/DeleteWorkspaceDialog';
 import { motion, AnimatePresence } from "motion/react";
 import { useWorkspaceSettingsStore } from "@/features/settings/store/workspace-settings-store";
+import { PageEmptyState } from "@/shared/components/PageEmptyState";
 
 interface OverflowTooltipProps {
   text: string;
@@ -66,6 +71,7 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
   const t = useTranslations('Workspace.components.archivedView');
   const locale = useLocale();
   const [searchQuery, setSearchQuery] = useQueryState("q", workspacesParams.q);
+  const [, setView] = useQueryState("view", workspacesParams.view);
   const [archivedWorkspaces, setArchivedWorkspaces] = useState<ArchivedWorkspace[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [restoringIds, setRestoringIds] = useState<Set<string>>(new Set());
@@ -273,28 +279,34 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
                   ))}
                 </div>
               ) : filteredWorkspaces.length === 0 ? (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex flex-col items-center justify-center py-20 text-center"
-                >
-                  <div className="size-20 rounded-3xl bg-muted/20 flex items-center justify-center mb-6">
-                    <Archive className="size-10 text-muted-foreground/30" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground">
-                    {archivedWorkspaces.length === 0 ? t('empty.noArchivedTitle') : t('empty.noResultsTitle')}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-2 max-w-xs mx-auto text-pretty">
-                    {archivedWorkspaces.length === 0
-                      ? t('empty.noArchivedDescription')
-                      : t('empty.noResultsDescription', { query: searchQuery ?? '' })}
-                  </p>
-                  {searchQuery && (
-                    <Button variant="link" onClick={() => setSearchQuery("")} className="mt-4">
-                      {t('empty.clearSearch')}
-                    </Button>
-                  )}
-                </motion.div>
+                <PageEmptyState
+                  icon={archivedWorkspaces.length === 0 ? <IconFolder /> : <IconSearch />}
+                  title={
+                    archivedWorkspaces.length === 0
+                      ? t("empty.noArchivedTitle")
+                      : t("empty.noResultsTitle")
+                  }
+                  description={
+                    archivedWorkspaces.length === 0
+                      ? t("empty.noArchivedDescription")
+                      : t("empty.noResultsDescription", { query: searchQuery ?? "" })
+                  }
+                  actions={
+                    searchQuery ? (
+                      <EmptyAction emphasis="quiet" onClick={() => setSearchQuery("")}>
+                        {t("empty.clearSearch")}
+                      </EmptyAction>
+                    ) : archivedWorkspaces.length === 0 ? (
+                      <EmptyAction
+                        emphasis="quiet"
+                        trailing={<IconArrowRight />}
+                        onClick={() => void setView("recent")}
+                      >
+                        {t("empty.viewRecent")}
+                      </EmptyAction>
+                    ) : undefined
+                  }
+                />
               ) : (
                 <div className="space-y-10 pt-2">
                   <AnimatePresence mode="popLayout" initial={false}>

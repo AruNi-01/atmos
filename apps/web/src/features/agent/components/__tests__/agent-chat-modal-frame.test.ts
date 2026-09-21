@@ -187,6 +187,8 @@ describe("agent chat modal frame", () => {
       "utf8",
     );
     expect(panel).toContain("isAgentNewChatLanding");
+    expect(panel).toContain("hasPersistenceHandle");
+    expect(panel).toContain("resumeTranscript");
     expect(panel).toContain("flex min-h-0 flex-1 flex-col overflow-hidden");
     expect(panel).toContain("relative z-0 min-h-0 flex-1 overflow-hidden data-[agent-chat-own-send]:z-20");
     expect(panel).toContain("flex min-h-0 w-full flex-1 pr-1");
@@ -256,6 +258,7 @@ describe("agent chat modal frame", () => {
     expect(panel).toContain("<AgentChatScrollToBottomButton");
     expect(panel).toContain("host={aboveComposerOverlaysNode}");
     expect(panel).toContain("belowCountStore={messagesBelowCountStore}");
+    expect(panel).toContain("messages.length > 0 ? (");
     expect(panel).not.toContain("<ConversationScrollButton");
     const nav = readFileSync(
       join(import.meta.dir, "../AgentMessageTimelineNav.tsx"),

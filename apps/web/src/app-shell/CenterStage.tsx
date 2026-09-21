@@ -515,7 +515,6 @@ const CenterStage: React.FC = () => {
   const {
     terminalTabs,
     createTerminalTab,
-    ensureFixedTerminalTab,
     closeTerminalTab,
     removeTerminal,
     setActiveTerminalTab,
@@ -528,7 +527,6 @@ const CenterStage: React.FC = () => {
         ? state.workspaceTerminalTabs[effectiveContextId]
         : undefined,
       createTerminalTab: state.createTerminalTab,
-      ensureFixedTerminalTab: state.ensureFixedTerminalTab,
       closeTerminalTab: state.closeTerminalTab,
       removeTerminal: state.removeTerminal,
       setActiveTerminalTab: state.setActiveTerminalTab,
@@ -2086,11 +2084,12 @@ const CenterStage: React.FC = () => {
   const handleCreateTerminalCenterTab = React.useCallback(() => {
     const contextId = liveCenterContextId ?? effectiveContextId;
     if (!contextId) return;
-    const existingTabs = useTerminalStore.getState().getTerminalTabs(contextId);
-    const nextTab =
-      existingTabs.length === 0
-        ? ensureFixedTerminalTab(contextId)
-        : createTerminalTab(contextId);
+    // Always mint a new pane (`isNewPane: true`). Recreating Term via
+    // `ensureFixedTerminalTab` leaves the scope unhydrated so initWorkspace
+    // reattaches persisted/stale tmux windows — after an explicit close that
+    // killed the last window (and the `atmos_*` session) the next tab then
+    // fails with "can't find session".
+    const nextTab = createTerminalTab(contextId);
     appendTabToStripOrder(nextTab.id, contextId);
     activateCenterChromeTab(contextId, nextTab.id, { placement: "focused" });
     runWhenTerminalGridReady(nextTab.id, (grid) => {
@@ -2100,7 +2099,6 @@ const CenterStage: React.FC = () => {
     appendTabToStripOrder,
     createTerminalTab,
     effectiveContextId,
-    ensureFixedTerminalTab,
     liveCenterContextId,
     runWhenTerminalGridReady,
   ]);

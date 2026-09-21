@@ -1,4 +1,9 @@
-import type { AgentActivity, AgentTurn } from "@atmos/api-types/ws/dto/events";
+import type {
+  AgentActivity,
+  AgentChildActivity,
+  AgentTurn,
+} from "@atmos/api-types/ws/dto/events";
+import { childToolLine, isLeakedChildTurn } from "@/features/agent/lib/observer-conversation";
 import type { AgentStatusRecord } from "@/features/agent/store/agent-status-store";
 import type { Project } from "@/shared/types/domain";
 
@@ -22,10 +27,13 @@ export type ObserverGraphNode = {
   visibleTurns: AgentTurn[];
   extraTurns: number;
   childCount: number;
+  descendantCount: number;
+  depth: number;
   todoSummary?: string;
   sideChat: boolean;
   chat: boolean;
   occupancy?: string;
+  child?: AgentChildActivity;
 };
 
 export type ObserverGraphEdge = {
@@ -43,11 +51,25 @@ export type ObserverGraph = {
 
 const VISIBLE_TURNS = 8;
 
-export function toolLineText(activity: AgentActivity | undefined): string | undefined {
-  const tool = activity?.current_tool;
-  if (!tool) return undefined;
+function formatToolLine(tool: { name: string; detail?: string | null }): string {
   const detail = tool.detail?.trim();
   return detail ? `${tool.name} ${detail}` : tool.name;
+}
+
+export function toolLineText(activity: AgentActivity | undefined): string | undefined {
+  if (!activity) return undefined;
+  if (activity.current_tool) return formatToolLine(activity.current_tool);
+  const tools = activity.turns?.length
+    ? activity.turns[activity.turns.length - 1]?.tools ?? []
+    : [];
+  const pending = [...tools].reverse().find((tool) => tool.state === "pending");
+  if (pending) return formatToolLine(pending);
+  const todo = (activity.todos ?? []).find((item) => {
+    const status = item.status.trim().toLowerCase();
+    return status === "in_progress" || status === "in-progress" || status === "pending";
+  });
+  const todoText = todo?.content?.trim();
+  return todoText || undefined;
 }
 
 export function latestTurnPrompt(activity: AgentActivity | undefined): string | undefined {
@@ -152,6 +174,8 @@ export function buildObserverGraph({
       visibleTurns: [],
       extraTurns: 0,
       childCount: 0,
+      descendantCount: 0,
+      depth: 0,
       sideChat: false,
       chat: false,
     },
@@ -208,6 +232,8 @@ export function buildObserverGraph({
         visibleTurns: [],
         extraTurns: 0,
         childCount: 0,
+        descendantCount: 0,
+        depth: 1,
         sideChat: false,
         chat: false,
       });
@@ -219,8 +245,6 @@ export function buildObserverGraph({
         animated: false,
       });
     }
-    if (collapsedIds.has(projectNodeId)) continue;
-
     let parentId = projectNodeId;
     if (member.workspaceId) {
       const workspaceNodeId = `workspace:${member.workspaceId}`;
@@ -235,6 +259,8 @@ export function buildObserverGraph({
           visibleTurns: [],
           extraTurns: 0,
           childCount: 0,
+          descendantCount: 0,
+          depth: 2,
           sideChat: false,
           chat: false,
         });
@@ -246,19 +272,18 @@ export function buildObserverGraph({
           animated: false,
         });
       }
-      if (collapsedIds.has(workspaceNodeId)) continue;
       parentId = workspaceNodeId;
     }
 
     const agentId = `agent:${member.sessionId}`;
     const record = member.activity;
-    const turns = record?.turns ?? [];
+    const children = record?.children ?? [];
+    const turns = (record?.turns ?? []).filter((turn) => !isLeakedChildTurn(turn, children));
     const visibleTurns = [...turns].reverse().slice(0, VISIBLE_TURNS);
     const extraTurns = Math.max(0, turns.length - VISIBLE_TURNS) + (record?.turns_omitted ?? 0);
     const session = member.session ?? (record ? sessionFromActivity(record) : undefined);
     const sideChat = Boolean(session?.side_chat_id || session?.terminal_kind === "side_chat");
     const chat = session?.surface === "chat" || Boolean(session?.session_id?.startsWith("chat:"));
-    const children = record?.children ?? [];
     nodes.push({
       id: agentId,
       parentId,
@@ -266,12 +291,14 @@ export function buildObserverGraph({
       label: session?.tool ?? record?.tool ?? member.sessionId,
       session,
       activity: record,
-      latestPrompt: latestTurnPrompt(record),
+      latestPrompt: turns.at(-1)?.prompt.trim() || undefined,
       currentToolLine: toolLineText(record),
       turnCount: turns.length,
       visibleTurns: expandedAgentIds.has(agentId) ? visibleTurns : [],
       extraTurns: expandedAgentIds.has(agentId) ? extraTurns : 0,
       childCount: children.length,
+      descendantCount: children.length,
+      depth: parentId.startsWith("workspace:") ? 3 : 2,
       todoSummary: todoSummary(record),
       sideChat,
       chat,
@@ -292,18 +319,19 @@ export function buildObserverGraph({
         parentId: agentId,
         kind: "subagent",
         label: child.name || child.child_id,
-        currentToolLine: child.current_tool
-          ? child.current_tool.detail
-            ? `${child.current_tool.name} ${child.current_tool.detail}`
-            : child.current_tool.name
-          : undefined,
+        session,
+        currentToolLine: childToolLine(child),
+        latestPrompt: child.prompt?.trim() || undefined,
         turnCount: 0,
         visibleTurns: [],
         extraTurns: 0,
         childCount: 0,
+        descendantCount: 0,
+        depth: parentId.startsWith("workspace:") ? 4 : 3,
         sideChat: false,
         chat: false,
         occupancy: child.state,
+        child,
       });
       const running =
         child.state === "running" || child.current_tool?.state === "pending";
@@ -317,18 +345,44 @@ export function buildObserverGraph({
     }
   }
 
-  const childCountById = new Map<string, number>();
+  const childrenById = new Map<string, string[]>();
+  const parentById = new Map<string, string | null>();
   for (const node of nodes) {
+    parentById.set(node.id, node.parentId);
     if (!node.parentId) continue;
-    childCountById.set(node.parentId, (childCountById.get(node.parentId) ?? 0) + 1);
-  }
-  for (const node of nodes) {
-    if (node.kind === "project" || node.kind === "workspace" || node.kind === "atmos") {
-      node.childCount = childCountById.get(node.id) ?? 0;
-    }
+    const list = childrenById.get(node.parentId) ?? [];
+    list.push(node.id);
+    childrenById.set(node.parentId, list);
   }
 
-  return { nodes, edges };
+  function descendantCountOf(id: string): number {
+    const kids = childrenById.get(id) ?? [];
+    let total = kids.length;
+    for (const kid of kids) total += descendantCountOf(kid);
+    return total;
+  }
+
+  function hiddenByCollapse(id: string): boolean {
+    let parent = parentById.get(id) ?? null;
+    while (parent) {
+      if (collapsedIds.has(parent)) return true;
+      parent = parentById.get(parent) ?? null;
+    }
+    return false;
+  }
+
+  for (const node of nodes) {
+    node.childCount = (childrenById.get(node.id) ?? []).length;
+    node.descendantCount = descendantCountOf(node.id);
+  }
+
+  const visibleNodes = nodes.filter((node) => !hiddenByCollapse(node.id));
+  const visibleIds = new Set(visibleNodes.map((node) => node.id));
+  const visibleEdges = edges.filter(
+    (edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target),
+  );
+
+  return { nodes: visibleNodes, edges: visibleEdges };
 }
 
 export function layoutObserverGraph(

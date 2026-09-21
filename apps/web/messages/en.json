@@ -2156,7 +2156,7 @@
         "queryTitle": "No matching automations",
         "defaultTitle": "No automations yet",
         "queryDescription": "Try a different search or adjust your filters.",
-        "defaultDescription": "Create your first automation to get started.",
+        "defaultDescription": "Create an automation to run an agent on a schedule, a GitHub event, or by hand.",
         "clearSearch": "Clear search",
         "clearFilters": "Clear filters",
         "newAutomation": "New automation"
@@ -2929,11 +2929,33 @@
   "AgentObserver": {
     "title": "Agent Observer",
     "subtitle": "This Computer’s live and finished agent turns",
-    "empty": "Agents appear here when a terminal hook fires or an Agent Chat turn runs. Install hooks in Settings if terminal agents are missing.",
-    "disconnected": "Connect a Computer to see Agent Observer.",
+    "empty": "Agents appear here when a terminal agent hook fires or an Agent Chat turn runs.",
+    "emptyTitle": "No agents yet",
+    "disconnected": "Connect a Computer to install hooks or start a chat.",
+    "disconnectedTitle": "Not connected",
+    "installHooks": "Install {count} hooks",
+    "hooksInstalled": "{count} hooks installed",
+    "installHooksMissing": "Not installed yet",
+    "installing": "Installing…",
+    "installError": "Could not install hooks on this Computer.",
+    "newChat": "New chat",
+    "recentWorkspacesHint": "Recent 5 workspaces",
+    "recentContextsEmpty": "No recent projects or workspaces",
     "relayout": "Relayout",
+    "resetLayout": "Reset layout",
+    "dragCard": "Move card",
     "openPane": "Open pane",
     "openChat": "Open chat",
+    "close": "Close",
+    "currentStep": "Current step",
+    "latestPrompt": "Latest prompt",
+    "todos": "Todos",
+    "recentTools": "Recent tools",
+    "turnsHeading": "Turns",
+    "noTurns": "No turns yet",
+    "toolPending": "Pending",
+    "toolOk": "Done",
+    "toolError": "Failed",
     "expand": "Expand",
     "fold": "Fold",
     "sideChat": "Side chat",
@@ -3206,14 +3228,20 @@
           "custom": "Custom"
         },
         "empty": {
-          "nativeQuery": "No native agents for \"{query}\"",
-          "nativeDefault": "No native agents",
-          "acpQuery": "No ACP agents for \"{query}\"",
-          "acpDefault": "No ACP agents found"
+          "nativeQueryTitle": "No matching agents",
+          "nativeQuery": "No native agents match “{query}”.",
+          "nativeDefault": "No native agents yet",
+          "nativeDescription": "Native agents appear here when a supported CLI is installed on this computer.",
+          "acpQueryTitle": "No matching agents",
+          "acpQuery": "No ACP agents match “{query}”.",
+          "acpDefault": "No ACP agents yet",
+          "acpDescription": "Install an ACP agent from the registry, or refresh if you just added one."
         },
         "customEmpty": {
-          "title": "No custom agents",
-          "description": "Add a custom ACP-compatible agent command."
+          "title": "No custom agents yet",
+          "description": "Add a local command as a custom ACP-compatible agent.",
+          "queryTitle": "No matching agents",
+          "queryDescription": "No custom agents match “{query}”."
         }
       },
       "customAgentDialog": {
@@ -3799,9 +3827,14 @@
       "newDesign": "New",
       "back": "Back",
       "untitled": "Untitled",
-      "empty": "No saved designs yet",
-      "emptyFilter": "No designs in this filter",
-      "emptySearch": "No designs match this search",
+      "emptyTitle": "No designs yet",
+      "empty": "Designs you save appear here. Start one to sketch a prototype.",
+      "emptyFilterTitle": "No designs in this filter",
+      "emptyFilter": "Nothing saved matches the current scope.",
+      "emptySearchTitle": "No matching designs",
+      "emptySearch": "No designs match this search.",
+      "emptyNew": "New design",
+      "clearSearch": "Clear search",
       "searchPlaceholder": "Search designs",
       "filter": "Filters",
       "viewBoard": "Board",
@@ -5099,9 +5132,10 @@
         "empty": {
           "noArchivedTitle": "No archived workspaces",
           "noResultsTitle": "No results found",
-          "noArchivedDescription": "When you archive a workspace, it will appear here for safe keeping.",
+          "noArchivedDescription": "When you archive a workspace, it appears here so you can restore it later.",
           "noResultsDescription": "We couldn't find any archived workspaces matching \"{query}\".",
-          "clearSearch": "Clear search query"
+          "clearSearch": "Clear search",
+          "viewRecent": "View recent workspaces"
         },
         "archivedAt": "Archived {time}",
         "actions": {
@@ -9484,12 +9518,13 @@
     "description": "Browse local CLI sessions and resume them in Chat or TUI.",
     "emptyList": "No host sessions match the current filters.",
     "emptyListTitle": "No sessions",
-    "emptyHomes": "No v1 CLI homes were found.",
+    "emptyHomes": "Sessions appear here after a terminal agent runs on this computer.",
     "emptyHomesTitle": "No CLI sessions yet",
     "emptySearchTitle": "No matching sessions",
     "errorTitle": "Could not load sessions",
     "retry": "Try again",
     "clearSearch": "Clear search",
+    "openObserver": "Open Observer",
     "emptyPreview": "Select a session to preview its transcript.",
     "emptyTranscript": "This session has no messages to preview.",
     "emptySearch": "No sessions match that search.",
@@ -9592,14 +9627,21 @@
         }
       }
     },
-    "viewUtils": {
-      "installedEmptyCopy": "Extend Atmos with local and project-scoped skills, or browse the market below.",
-      "marketEmptyCopy": "No skills in the market matched your search. Try a different keyword.",
-      "resourcesEmptyCopy": "No resources matched your search. Try another keyword."
+    "marketTab": {
+      "empty": {
+        "noneTitle": "No market skills",
+        "noneDescription": "Market skills will appear here when the catalog is available.",
+        "noMatchesTitle": "No matching skills",
+        "noMatchesDescription": "No market skills match that search. Try a different keyword.",
+        "clearSearch": "Clear search"
+      }
     },
     "resourcesTab": {
       "empty": {
-        "title": "No resources matched",
+        "noneTitle": "No resources",
+        "noneDescription": "Guides and references for authoring skills appear here.",
+        "noMatchesTitle": "No matching resources",
+        "noMatchesDescription": "No resources match that search. Try another keyword.",
         "clearSearch": "Clear search"
       },
       "category": {
@@ -9645,9 +9687,13 @@
     "installedTab": {
       "empty": {
         "noneInstalledTitle": "No skills installed",
-        "noMatchesTitle": "No installed skills matched",
+        "noneInstalledDescription": "Skills extend what agents can do in a project. Browse the market to install one.",
+        "noMatchesTitle": "No matching skills",
         "noMatchesDescription": "No installed skills matched “{query}”.",
-        "resetFilters": "Reset filters"
+        "noFilterMatches": "No installed skills match the current filters.",
+        "browseMarket": "Browse market",
+        "resetFilters": "Reset filters",
+        "clearSearch": "Clear search"
       }
     },
     "detail": {
@@ -10533,10 +10579,15 @@
         "noSessionsTitle": "No chats yet",
         "noSearchResultsTitle": "No matching chats",
         "noAgentSessionsTitle": "No chats for this agent",
+        "noFilterResultsTitle": "No chats in this filter",
         "noSearchResults": "No chats match the current search.",
         "noAgentSessionsDescription": "{agentName} has no saved chats yet.",
-        "installedAgentsHint": "Start a chat from the plus menu or New Workspace.",
-        "loadFailed": "Could not load chat history."
+        "noFilterResults": "No chats match the current workspace filter.",
+        "installedAgentsHint": "Chats appear here after you start a conversation in a project or workspace.",
+        "loadFailed": "Could not load chat history.",
+        "clearSearch": "Clear search",
+        "clearAgent": "Show all agents",
+        "clearFilters": "Clear filters"
       },
       "timeGroups": {
         "today": "Today",

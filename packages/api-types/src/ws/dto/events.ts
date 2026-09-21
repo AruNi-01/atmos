@@ -43,6 +43,7 @@ export type AgentChildActivity = {
   state: AgentOccupancy;
   current_tool?: AgentToolLine | null;
   recent_tools: AgentToolLine[];
+  prompt?: string | null;
   started_at: string;
   last_event_at: string;
 };

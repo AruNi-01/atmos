@@ -1227,6 +1227,8 @@ export function useAgentChatSession({
       hydratingRef.current = false;
       setHydrated(true);
       setIsResumingHistory(false);
+      // Keep the bound chat chrome. Swallowing this as a new-chat landing
+      // made refresh/API restart look like the transcript was deleted.
     });
     const off = useWebSocketStore.getState().onEvent("agent_chat_event", (event: AgentChatEvent) => {
       if (!agentChatEventFor(event, activeIdRef.current)) return;

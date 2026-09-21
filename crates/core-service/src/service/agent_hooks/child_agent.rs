@@ -24,8 +24,17 @@ const CHILD_ID_KEYS: &[&str] = &[
 /// Lead-session events never carry this field; child tool / lifecycle events do.
 /// Grok uses `subagent_id` / `child_session_id` instead of Claude's `agent_id`.
 pub(crate) fn extract_child_agent_id(payload: &Value) -> Option<&str> {
+    extract_id_from(payload)
+        .or_else(|| payload.get("tool_input").and_then(extract_id_from))
+        .or_else(|| payload.get("toolInput").and_then(extract_id_from))
+        .or_else(|| payload.get("toolCall").and_then(extract_id_from))
+        .or_else(|| payload.get("tool_call").and_then(extract_id_from))
+        .or_else(|| payload.get("properties").and_then(extract_id_from))
+}
+
+fn extract_id_from(value: &Value) -> Option<&str> {
     for key in CHILD_ID_KEYS {
-        if let Some(id) = payload
+        if let Some(id) = value
             .get(*key)
             .and_then(|v| v.as_str())
             .map(str::trim)
@@ -88,5 +97,11 @@ mod tests {
             Some("child-9")
         );
         assert_eq!(extract_child_agent_id(&serde_json::json!({})), None);
+        assert_eq!(
+            extract_child_agent_id(&serde_json::json!({
+                "tool_input": { "subagent_id": "nested-1" }
+            })),
+            Some("nested-1")
+        );
     }
 }

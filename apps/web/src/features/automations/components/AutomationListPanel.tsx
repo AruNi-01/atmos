@@ -15,6 +15,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  EmptyAction,
+  IconPlus,
+  IconSearch,
+  IconTimeCircle,
   Input,
   ScrollArea,
   Switch,
@@ -67,6 +71,7 @@ import {
   EMPTY_AUTOMATION_RUN_FILTERS,
   type AutomationRunListFilters,
 } from "@/features/automations/lib/automation-run-filters";
+import { PageEmptyState } from "@/shared/components/PageEmptyState";
 import type { AutomationsListTab } from "@/shared/lib/nuqs/searchParams";
 
 export function AutomationListPanel({
@@ -488,34 +493,27 @@ function EmptyAutomationList({
   const t = useTranslations("automation.listPanel");
   const showFilteredEmpty = hasAutomations && (hasQuery || hasFilters);
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="flex min-h-[360px] flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/10 px-6 py-16 text-center"
-    >
-      <div className="mb-5 flex size-16 items-center justify-center rounded-2xl bg-muted/40 text-muted-foreground">
-        {showFilteredEmpty ? <Search className="size-8" /> : <Timer className="size-8" />}
-      </div>
-      <h3 className="text-lg font-semibold text-foreground">
-        {showFilteredEmpty ? t("empty.queryTitle") : t("empty.defaultTitle")}
-      </h3>
-      <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-        {showFilteredEmpty ? t("empty.queryDescription") : t("empty.defaultDescription")}
-      </p>
-      <div className="mt-5 flex items-center gap-2">
-        {showFilteredEmpty ? (
-          <Button variant="outline" onClick={onClear}>
-            {hasFilters ? t("empty.clearFilters") : t("empty.clearSearch")}
-          </Button>
-        ) : null}
-        {!hasAutomations ? (
-          <Button disabled={createDisabled} onClick={onCreate}>
-            <Timer className="size-4" />
-            {t("empty.newAutomation")}
-          </Button>
-        ) : null}
-      </div>
-    </motion.div>
+    <PageEmptyState
+      icon={showFilteredEmpty ? <IconSearch /> : <IconTimeCircle />}
+      title={showFilteredEmpty ? t("empty.queryTitle") : t("empty.defaultTitle")}
+      description={
+        showFilteredEmpty ? t("empty.queryDescription") : t("empty.defaultDescription")
+      }
+      actions={
+        <>
+          {showFilteredEmpty ? (
+            <EmptyAction emphasis="quiet" onClick={onClear}>
+              {hasFilters ? t("empty.clearFilters") : t("empty.clearSearch")}
+            </EmptyAction>
+          ) : null}
+          {!hasAutomations ? (
+            <EmptyAction icon={<IconPlus />} disabled={createDisabled} onClick={onCreate}>
+              {t("empty.newAutomation")}
+            </EmptyAction>
+          ) : null}
+        </>
+      }
+    />
   );
 }
 

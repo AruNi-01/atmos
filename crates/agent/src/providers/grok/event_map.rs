@@ -1423,6 +1423,75 @@ mod tests {
     }
 
     #[test]
+    fn parallel_explore_notices_stay_on_the_matching_spawn() {
+        let mut state = state();
+        let spawns = [
+            ("tc_rust", "Explore Rust backend layers", "sa-rust"),
+            ("tc_front", "Explore frontend apps", "sa-front"),
+            ("tc_proto", "Explore protocol packages", "sa-proto"),
+            ("tc_spec", "Explore specs and product", "sa-spec"),
+        ];
+        for (id, description, _) in spawns {
+            map_event(
+                &mut state,
+                Some("turn-1".into()),
+                AcpSessionEvent::ToolCall(ToolCallUpdate {
+                    tool_call_id: id.into(),
+                    parent_tool_call_id: None,
+                    session_id: None,
+                    tool: "Tool".into(),
+                    description: "spawn_subagent".into(),
+                    acp_kind: None,
+                    status: ToolCallStatus::Completed,
+                    raw_input: Some(serde_json::json!({
+                        "description": description,
+                        "subagent_type": "explore"
+                    })),
+                    content: Vec::new(),
+                    locations: Vec::new(),
+                    raw_output: None,
+                    detail: None,
+                }),
+            )
+            .expect("spawn");
+        }
+
+        for (id, description, sa) in spawns {
+            let notice = serde_json::json!({
+                "sessionId": "sess_parent",
+                "update": {
+                    "sessionUpdate": "subagent_spawned",
+                    "subagent_id": sa,
+                    "child_session_id": sa,
+                    "subagent_type": "explore",
+                    "description": description
+                }
+            });
+            let started = map_xai_subagent(
+                &mut state,
+                Some("turn-1".into()),
+                "_x.ai/session_notification",
+                notice,
+            )
+            .expect("notice");
+            let AgentEvent::ToolCallStarted { tool_call } = started.payload else {
+                panic!("expected started, got {:?}", started.payload);
+            };
+            assert_eq!(tool_call.tool_call_id, id);
+            assert_eq!(tool_call.kind, AgentToolKind::Subagent);
+            assert_ne!(tool_call.name, crate::contract::GROK_CHROME_SUBAGENT_NAME);
+        }
+
+        let ids: std::collections::HashSet<_> = state
+            .grok_tasks
+            .values()
+            .filter(|tool| tool.kind == AgentToolKind::Subagent)
+            .map(|tool| tool.tool_call_id.clone())
+            .collect();
+        assert_eq!(ids.len(), 4);
+    }
+
+    #[test]
     fn live_goal_session_maps_orphans_and_does_not_mix_skeptics() {
         let mut state = state();
         state.persistence = Some(crate::contract::AgentPersistenceHandle::new(

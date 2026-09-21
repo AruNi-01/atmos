@@ -386,8 +386,8 @@ fn unique_subagents(tools: &HashMap<String, AgentTool>) -> Vec<AgentTool> {
         .collect()
 }
 
-fn unique_unmatched_spawn(tools: &HashMap<String, AgentTool>) -> Option<AgentTool> {
-    let unmatched: Vec<AgentTool> = unique_subagents(tools)
+fn unmatched_running_spawns(tools: &HashMap<String, AgentTool>) -> Vec<AgentTool> {
+    unique_subagents(tools)
         .into_iter()
         .filter(|tool| {
             tool.status == AgentToolStatus::Running
@@ -397,9 +397,40 @@ fn unique_unmatched_spawn(tools: &HashMap<String, AgentTool>) -> Option<AgentToo
                     AgentToolParams::Subagent { task_id: None, .. }
                 )
         })
-        .collect();
+        .collect()
+}
+
+fn unique_unmatched_spawn(tools: &HashMap<String, AgentTool>) -> Option<AgentTool> {
+    let unmatched = unmatched_running_spawns(tools);
     (unmatched.len() == 1)
         .then(|| unmatched.into_iter().next())
+        .flatten()
+}
+
+fn spawn_description(tool: &AgentTool) -> &str {
+    match &tool.params {
+        AgentToolParams::Subagent { description, .. } => description.trim(),
+        _ => "",
+    }
+}
+
+/// Parallel `spawn_subagent` calls all lack `task_id` until the notice arrives.
+/// Match on a description that uniquely identifies one unmatched spawn so we
+/// don't synthesize a second `grok_chrome` row for the same child.
+fn unmatched_spawn_by_description(
+    tools: &HashMap<String, AgentTool>,
+    description: &str,
+) -> Option<AgentTool> {
+    let needle = description.trim();
+    if needle.is_empty() {
+        return None;
+    }
+    let matches: Vec<AgentTool> = unmatched_running_spawns(tools)
+        .into_iter()
+        .filter(|tool| spawn_description(tool).eq_ignore_ascii_case(needle))
+        .collect();
+    (matches.len() == 1)
+        .then(|| matches.into_iter().next())
         .flatten()
 }
 
@@ -415,6 +446,7 @@ pub fn apply_xai_subagent_notice(
             subagent_type,
         } => {
             let mut tool = find_subagent_by_ids(tools, &[subagent_id, child_session_id])
+                .or_else(|| unmatched_spawn_by_description(tools, description))
                 .or_else(|| unique_unmatched_spawn(tools))
                 .unwrap_or_else(|| {
                     synthesize_grok_chrome_tool(
@@ -799,5 +831,88 @@ mod tests {
             tools.get(&tool_b.tool_call_id).map(|tool| tool.status),
             Some(AgentToolStatus::Running)
         );
+    }
+
+    fn running_spawn(id: &str, description: &str) -> AgentTool {
+        AgentTool {
+            tool_call_id: id.into(),
+            parent_tool_call_id: None,
+            name: "spawn_subagent".into(),
+            title: None,
+            kind: AgentToolKind::Subagent,
+            status: AgentToolStatus::Running,
+            params: AgentToolParams::Subagent {
+                description: description.into(),
+                agent_type: Some("explore".into()),
+                task_id: None,
+                prompt: None,
+            },
+            result: None,
+        }
+    }
+
+    fn unique_spawn_ids(tools: &HashMap<String, AgentTool>) -> HashSet<String> {
+        tools
+            .values()
+            .filter(|tool| tool.kind == AgentToolKind::Subagent)
+            .map(|tool| tool.tool_call_id.clone())
+            .collect()
+    }
+
+    #[test]
+    fn parallel_spawns_merge_notices_by_unique_description() {
+        let mut tools = HashMap::new();
+        let spawns = [
+            ("tc_rust", "Explore Rust backend layers", "sa-rust"),
+            ("tc_front", "Explore frontend apps", "sa-front"),
+            ("tc_proto", "Explore protocol packages", "sa-proto"),
+            ("tc_spec", "Explore specs and product", "sa-spec"),
+        ];
+        for (id, description, _) in spawns {
+            store_subagent_tool(&mut tools, &running_spawn(id, description));
+        }
+
+        for (id, description, sa) in spawns {
+            let merged = apply_xai_subagent_notice(
+                &mut tools,
+                &XaiSubagentNotice::Spawned {
+                    subagent_id: sa.into(),
+                    child_session_id: sa.into(),
+                    description: description.into(),
+                    subagent_type: Some("explore".into()),
+                },
+            )
+            .unwrap();
+            assert_eq!(merged.tool_call_id, id);
+            assert_eq!(merged.name, "spawn_subagent");
+        }
+
+        assert_eq!(unique_spawn_ids(&tools).len(), 4);
+        for (id, _, sa) in spawns {
+            assert_eq!(
+                tools.get(sa).map(|tool| tool.tool_call_id.as_str()),
+                Some(id)
+            );
+        }
+    }
+
+    #[test]
+    fn colliding_unmatched_descriptions_do_not_steal_a_sibling() {
+        let mut tools = HashMap::new();
+        store_subagent_tool(&mut tools, &running_spawn("tc_a", "Explore frontend apps"));
+        store_subagent_tool(&mut tools, &running_spawn("tc_b", "Explore frontend apps"));
+        let chrome = apply_xai_subagent_notice(
+            &mut tools,
+            &XaiSubagentNotice::Spawned {
+                subagent_id: "sa-x".into(),
+                child_session_id: "sa-x".into(),
+                description: "Explore frontend apps".into(),
+                subagent_type: Some("explore".into()),
+            },
+        )
+        .unwrap();
+        assert_eq!(chrome.tool_call_id, "sa-x");
+        assert_eq!(chrome.name, crate::contract::GROK_CHROME_SUBAGENT_NAME);
+        assert_eq!(unique_spawn_ids(&tools).len(), 3);
     }
 }

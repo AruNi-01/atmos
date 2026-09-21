@@ -207,6 +207,9 @@ async function fetchHooksApi<T>(path: string, options?: RequestInit): Promise<T>
       `API error: ${response.status} ${response.statusText}${detail ? ` — ${detail}` : ''}`
     );
   }
+  if (body == null || typeof body !== 'object') {
+    throw new Error(`API error: expected JSON from ${path}`);
+  }
 
   return body as T;
 }

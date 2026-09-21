@@ -38,6 +38,25 @@ describe("isAgentNewChatLanding", () => {
       }),
     ).toBe(false);
   });
+
+  it("is not landing when reopening a tab that already has a transcript", () => {
+    expect(
+      isAgentNewChatLanding({
+        chatId: "chat-1",
+        messageCount: 0,
+        isResumingHistory: false,
+        resumeTranscript: true,
+      }),
+    ).toBe(false);
+    expect(
+      isAgentNewChatLanding({
+        chatId: "chat-1",
+        messageCount: 0,
+        isResumingHistory: false,
+        hasPersistenceHandle: true,
+      }),
+    ).toBe(false);
+  });
 });
 
 

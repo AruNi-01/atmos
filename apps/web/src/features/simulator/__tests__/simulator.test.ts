@@ -83,8 +83,8 @@ describe("control plane", () => {
     expect(card).toContain('onStart("android")');
     expect(card).toContain('platform="ios"');
     expect(card).toContain('platform="android"');
-    expect(card).toContain('size="xl"');
-    expect(card).toContain('className="min-w-0 flex-1"');
+    expect(card).toContain("PageEmptyState");
+    expect(card).toContain("EmptyAction");
     expect(card).not.toContain("flex-col gap-2");
     expect(card).not.toContain("bg-card");
     expect(card).not.toContain("rounded-xl border");

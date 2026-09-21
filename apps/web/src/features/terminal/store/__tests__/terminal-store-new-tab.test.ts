@@ -171,6 +171,11 @@ describe("createTerminalTabWithInitialPane", () => {
       workspaceActiveTerminalTabIds: {
         "workspace-1": FIXED_TERMINAL_TAB_VALUE,
       },
+      tmuxWindowsCache: {
+        [getTerminalWorkspaceScopeKey("workspace-1", false)]: [
+          { index: 1, name: "1" },
+        ],
+      },
       saveToBackend: (workspaceId) => {
         saveCalls.push(workspaceId);
       },
@@ -180,6 +185,9 @@ describe("createTerminalTabWithInitialPane", () => {
 
     expect(useTerminalStore.getState().workspaceTerminalTabs["workspace-1"]).toEqual([]);
     expect(useTerminalStore.getState().workspaceActiveTerminalTabIds["workspace-1"]).toBe("");
+    expect(
+      useTerminalStore.getState().tmuxWindowsCache[getTerminalWorkspaceScopeKey("workspace-1", false)],
+    ).toBeUndefined();
 
     const recreated = useTerminalStore.getState().createTerminalTab("workspace-1");
 
@@ -191,6 +199,10 @@ describe("createTerminalTabWithInitialPane", () => {
     expect(useTerminalStore.getState().workspaceTerminalTabs["workspace-1"]?.[0]?.id).toBe(
       FIXED_TERMINAL_TAB_VALUE,
     );
+    const panes = useTerminalStore.getState().getPanes("workspace-1", recreated.id);
+    const pane = Object.values(panes)[0];
+    expect(pane?.isNewPane).toBe(true);
+    expect(useTerminalStore.getState().hydratedTerminalScopes.has("workspace-1")).toBe(true);
     expect(saveCalls).toEqual(["workspace-1", "workspace-1"]);
   });
 

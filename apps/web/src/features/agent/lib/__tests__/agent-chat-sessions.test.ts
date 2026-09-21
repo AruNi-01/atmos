@@ -195,6 +195,22 @@ describe("agent chat sessions helpers", () => {
     expect(activateAt).toBeGreaterThan(0);
     expect(navAt).toBeGreaterThan(activateAt);
   });
+
+  it("opens a center draft chat on the chosen project or workspace host", () => {
+    const src = readFileSync(join(import.meta.dir, "../agent-chat-sessions.ts"), "utf8");
+    expect(src).toContain("export function openNewAgentChatInContext");
+    expect(src).toContain("openDraftTab({");
+    expect(src).toContain("requestActivate(contextId, tab.value)");
+    expect(src).toContain("buildAgentChatCenterHref(contextId, projects, tab.value)");
+    const picker = readFileSync(
+      join(import.meta.dir, "../../components/observer/ObserverNewChatPicker.tsx"),
+      "utf8",
+    );
+    expect(picker).toContain("recentObserverChatContexts");
+    expect(picker).toContain("openNewAgentChatInContext");
+    expect(picker).toContain("recentWorkspacesHint");
+    expect(picker).not.toContain("setAgentChatOpen");
+  });
 });
 
 describe("agents sessions page uses Atmos chat history", () => {

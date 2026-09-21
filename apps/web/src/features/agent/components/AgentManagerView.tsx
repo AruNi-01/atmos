@@ -6,6 +6,9 @@ import { useQueryStates } from "nuqs";
 import { agentManagerParams, type AgentManagerView as AgentManagerMode, type AgentTab } from "@/shared/lib/nuqs/searchParams";
 import {
   Button,
+  IconCategory,
+  IconDiscovery,
+  IconSetting,
   Input,
   ScrollArea,
   Tabs,
@@ -259,10 +262,16 @@ export const AgentManagerView: React.FC = () => {
                     </div>
                   ) : (
                     <AgentEmptyState
-                      message={
+                      icon={<IconCategory />}
+                      title={
+                        query
+                          ? t("manager.empty.nativeQueryTitle")
+                          : t("manager.empty.nativeDefault")
+                      }
+                      description={
                         query
                           ? t("manager.empty.nativeQuery", { query })
-                          : t("manager.empty.nativeDefault")
+                          : t("manager.empty.nativeDescription")
                       }
                       query={query}
                       onClearSearch={handleClearSearch}
@@ -296,13 +305,21 @@ export const AgentManagerView: React.FC = () => {
                     </div>
                   ) : (
                     <AgentEmptyState
-                      message={
+                      icon={<IconDiscovery />}
+                      title={
+                        query
+                          ? t("manager.empty.acpQueryTitle")
+                          : t("manager.empty.acpDefault")
+                      }
+                      description={
                         query
                           ? t("manager.empty.acpQuery", { query })
-                          : t("manager.empty.acpDefault")
+                          : t("manager.empty.acpDescription")
                       }
                       query={query}
                       onClearSearch={handleClearSearch}
+                      secondaryLabel={query ? undefined : t("manager.refreshRegistry")}
+                      onSecondary={query ? undefined : () => mgr.handleRefresh()}
                     />
                   )}
                 </>
@@ -331,27 +348,23 @@ export const AgentManagerView: React.FC = () => {
                       </AnimatePresence>
                     </div>
                   ) : (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="flex flex-col items-center justify-center py-24 text-center"
-                    >
-                      <div className="size-16 rounded-3xl bg-muted/20 flex items-center justify-center mb-4">
-                        <Terminal className="size-8 text-muted-foreground/30" />
-                      </div>
-                      <h3 className="text-base font-medium text-foreground">{t("manager.customEmpty.title")}</h3>
-                      <p className="mt-1 text-sm text-muted-foreground max-w-[280px] text-pretty">
-                        {t("manager.customEmpty.description")}
-                      </p>
-                      <Button
-                        variant="outline"
-                        onClick={openAddCustomDialog}
-                        className="mt-4 cursor-pointer"
-                      >
-                        <Plus className="mr-1.5 size-4" />
-                        {t("manager.addCustomAgent")}
-                      </Button>
-                    </motion.div>
+                    <AgentEmptyState
+                      icon={<IconSetting />}
+                      title={
+                        query
+                          ? t("manager.customEmpty.queryTitle")
+                          : t("manager.customEmpty.title")
+                      }
+                      description={
+                        query
+                          ? t("manager.customEmpty.queryDescription", { query })
+                          : t("manager.customEmpty.description")
+                      }
+                      query={query}
+                      onClearSearch={handleClearSearch}
+                      primaryLabel={query ? undefined : t("manager.addCustomAgent")}
+                      onPrimary={query ? undefined : openAddCustomDialog}
+                    />
                   )}
                 </>
               )}

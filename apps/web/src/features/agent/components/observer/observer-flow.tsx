@@ -1,7 +1,7 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import {
-  BaseEdge,
   EdgeLabelRenderer,
   Handle,
   Position,
@@ -11,9 +11,11 @@ import {
   type Node,
   type NodeProps,
 } from "@xyflow/react";
-import { ChevronDown, FolderGit2, GitBranch, Monitor } from "lucide-react";
+import { ChevronDown, FolderGit2, GitBranch, GripVertical, Monitor } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { MatrixOrb, cn } from "@workspace/ui";
+import { observerStaggerMs } from "@/features/agent/lib/observer-graph-motion";
+import "./observer-flow.css";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import {
   AGENT_TOOL_ICON_IDS,
@@ -21,16 +23,19 @@ import {
 } from "@/features/agent/store/agent-status-store";
 import type { ObserverGraphNode } from "@/features/agent/lib/agent-observer-graph";
 
+export type ObserverPresence = "live" | "exit";
+
 export type ObserverFlowData = {
   node: ObserverGraphNode;
-  expanded: boolean;
   collapsed: boolean;
+  presence: ObserverPresence;
   onToggle: () => void;
 };
 
 export type ObserverEdgeData = {
   kind: "owns" | "spawn";
   label?: string;
+  presence: ObserverPresence;
 };
 
 type Tone = {
@@ -158,14 +163,14 @@ function KindGlyph({ node }: { node: ObserverGraphNode }) {
 function ObserverNodeCard({
   data,
   selected,
-  expanded,
   collapsed,
+  presence,
   onToggle,
 }: {
   data: ObserverGraphNode;
   selected: boolean;
-  expanded: boolean;
   collapsed: boolean;
+  presence: ObserverPresence;
   onToggle: () => void;
 }) {
   const t = useTranslations("AgentObserver");
@@ -178,8 +183,10 @@ function ObserverNodeCard({
       : (data.latestPrompt ?? data.currentToolLine);
   const wellTitle = activityLine || name;
   const canToggle =
-    data.kind === "agent" || data.kind === "project" || data.kind === "workspace";
-  const folded = data.kind === "agent" ? !expanded : collapsed;
+    data.descendantCount > 0 &&
+    (data.kind === "agent" || data.kind === "project" || data.kind === "workspace");
+  const folded = collapsed;
+  const exiting = presence === "exit";
   const kicker =
     data.kind === "atmos"
       ? t("kindComputer")
@@ -218,10 +225,13 @@ function ObserverNodeCard({
   return (
     <div
       className={cn(
-        "w-[288px] rounded-xl border px-3 pt-2.5 pb-3",
+        "observer-card w-[288px] rounded-xl border px-3 pt-2.5 pb-3",
         tone.shell,
         selected && "ring-1 ring-foreground/25",
+        exiting && "is-exiting",
       )}
+      data-presence={presence}
+      style={{ "--observer-stagger": `${observerStaggerMs(data.depth)}ms` } as CSSProperties}
     >
       <Handle
         type="target"
@@ -230,10 +240,32 @@ function ObserverNodeCard({
         style={handleStyle}
       />
 
-      <div className="flex items-center gap-2">
-        <span className={cn("flex size-6 shrink-0 items-center justify-center", tone.kicker)}>
-          <KindGlyph node={data} />
-        </span>
+      <div className="observer-card-header flex items-center gap-2">
+        {canToggle ? (
+          <span
+            className={cn(
+              "min-w-[1.25rem] shrink-0 text-right text-[11px] font-medium tabular-nums text-muted-foreground",
+              !(folded && data.descendantCount > 0) && "invisible",
+            )}
+          >
+            {data.descendantCount}
+          </span>
+        ) : null}
+        <button
+          type="button"
+          aria-label={t("dragCard")}
+          className={cn(
+            "observer-drag-handle relative flex size-6 shrink-0 items-center justify-center",
+            tone.kicker,
+          )}
+        >
+          <span className="observer-kind-glyph flex size-6 items-center justify-center">
+            <KindGlyph node={data} />
+          </span>
+          <span className="observer-drag-grip absolute inset-0 flex items-center justify-center text-muted-foreground">
+            <GripVertical className="size-3.5" />
+          </span>
+        </button>
         <div className={cn("min-w-0 flex-1 truncate text-[13px] font-medium leading-none", tone.kicker)}>
           {kicker}
         </div>
@@ -241,7 +273,7 @@ function ObserverNodeCard({
           <button
             type="button"
             aria-label={t(folded ? "expand" : "fold")}
-            className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-background/80 hover:text-foreground"
+            className="nodrag nopan flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-background/80 hover:text-foreground"
             onClick={(event) => {
               event.stopPropagation();
               onToggle();
@@ -288,8 +320,8 @@ function ObserverFlowNode({ data, selected }: NodeProps<Node<ObserverFlowData>>)
     <ObserverNodeCard
       data={data.node}
       selected={selected}
-      expanded={data.expanded}
       collapsed={data.collapsed}
+      presence={data.presence}
       onToggle={data.onToggle}
     />
   );
@@ -305,9 +337,9 @@ function ObserverFlowEdge({
   targetPosition,
   data,
   markerEnd,
-  animated,
 }: EdgeProps<Edge<ObserverEdgeData>>) {
   const spawn = data?.kind === "spawn";
+  const exiting = data?.presence === "exit";
   const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX,
     sourceY,
@@ -322,24 +354,34 @@ function ObserverFlowEdge({
     : "color-mix(in oklch, var(--muted-foreground) 40%, transparent)";
   return (
     <>
-      <BaseEdge
+      <path
         id={id}
-        path={edgePath}
+        d={edgePath}
+        fill="none"
+        pathLength={1}
         markerEnd={markerEnd}
-        className={animated ? "animated" : undefined}
+        className="react-flow__edge-path observer-edge-stroke"
         style={{
           stroke,
           strokeWidth: spawn ? 1.8 : 1.35,
+          ["--observer-stagger" as string]: "0ms",
         }}
+      />
+      <path
+        d={edgePath}
+        fill="none"
+        strokeWidth={20}
+        className="react-flow__edge-interaction"
       />
       {data?.label ? (
         <EdgeLabelRenderer>
           <div
             className={cn(
-              "nodrag nopan pointer-events-none rounded-full border px-2 py-0.5 text-[10px] font-medium leading-none",
+              "observer-edge-label nodrag nopan pointer-events-none rounded-full border px-2 py-0.5 text-[10px] font-medium leading-none",
               spawn
                 ? "border-success/35 bg-background text-success"
                 : "border-border bg-background text-muted-foreground",
+              exiting && "is-exiting",
             )}
             style={{
               position: "absolute",

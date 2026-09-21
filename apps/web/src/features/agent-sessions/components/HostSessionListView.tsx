@@ -7,6 +7,12 @@ import { motion } from "motion/react";
 import {
   Badge,
   Button,
+  EmptyAction,
+  IconArrowRight,
+  IconChat,
+  IconDanger,
+  IconFilter,
+  IconSearch,
   Input,
   ScrollArea,
   Tooltip,
@@ -48,6 +54,8 @@ import {
   type HostSessionSort,
   type HostSessionVirtualRow,
 } from "@/features/agent-sessions/lib/host-session-groups";
+import { PageEmptyState } from "@/shared/components/PageEmptyState";
+import { useAppRouter } from "@/shared/hooks/use-app-router";
 
 const SESSION_ROW_ESTIMATE = 92;
 const HEADER_ROW_ESTIMATE = 48;
@@ -103,37 +111,10 @@ function HostSessionHighlight({ text, query }: { text: string; query: string }) 
   );
 }
 
-function HostSessionEmptyState({
-  icon,
-  title,
-  description,
-  action,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-      className="flex flex-col items-center justify-center py-24 text-center"
-    >
-      <div className="mb-5 flex size-16 items-center justify-center rounded-3xl bg-muted/20 text-muted-foreground/30">
-        {icon}
-      </div>
-      <h3 className="text-base font-semibold text-foreground">{title}</h3>
-      <p className="mt-2 max-w-sm text-sm text-pretty text-muted-foreground">{description}</p>
-      {action}
-    </motion.div>
-  );
-}
-
 export function HostSessionListView() {
   const t = useTranslations("agentSessions");
   const locale = useLocale();
+  const router = useAppRouter();
   const { listQuery: query, setListQuery: setQuery } = useHostSessionListQuery();
   const [groupMode, setGroupMode] = useState<HostSessionGroupMode>("all");
   const [filters, setFilters] = useState<HostSessionFilters>(EMPTY_HOST_SESSION_FILTERS);
@@ -307,7 +288,7 @@ export function HostSessionListView() {
 
   const filterCount = hostSessionFilterCount(filters);
   const emptyKind =
-    sessions.length === 0 ? "homes" : query.trim() ? "search" : filterCount > 0 ? "filters" : "list";
+    query.trim() ? "search" : sessions.length === 0 ? "homes" : filterCount > 0 ? "filters" : "list";
   const indexing =
     searchStatus === "indexing" ||
     (searchProgress != null &&
@@ -422,30 +403,23 @@ export function HostSessionListView() {
                   ))}
                 </div>
               ) : error && sessions.length === 0 ? (
-                <HostSessionEmptyState
-                  icon={<Layers className="size-8" />}
+                <PageEmptyState
+                  icon={<IconDanger />}
                   title={t("errorTitle")}
                   description={t("error")}
-                  action={
-                    <Button
-                      type="button"
-                      variant="link"
-                      onClick={() => refresh()}
-                      className="mt-4"
-                    >
-                      {t("retry")}
-                    </Button>
+                  actions={
+                    <EmptyAction onClick={() => refresh()}>{t("retry")}</EmptyAction>
                   }
                 />
               ) : rows.length === 0 ? (
-                <HostSessionEmptyState
+                <PageEmptyState
                   icon={
                     emptyKind === "search" ? (
-                      <Search className="size-8" />
+                      <IconSearch />
                     ) : emptyKind === "homes" ? (
-                      <Layers className="size-8" />
+                      <IconChat />
                     ) : (
-                      <Folder className="size-8" />
+                      <IconFilter />
                     )
                   }
                   title={
@@ -462,26 +436,27 @@ export function HostSessionListView() {
                         ? t("emptySearch")
                         : t("emptyList")
                   }
-                  action={
+                  actions={
                     emptyKind === "search" ? (
-                      <Button
-                        type="button"
-                        variant="link"
-                        onClick={() => setQuery("")}
-                        className="mt-4"
-                      >
+                      <EmptyAction emphasis="quiet" onClick={() => setQuery("")}>
                         {t("clearSearch")}
-                      </Button>
+                      </EmptyAction>
                     ) : emptyKind === "filters" ? (
-                      <Button
-                        type="button"
-                        variant="link"
+                      <EmptyAction
+                        emphasis="quiet"
                         onClick={() => setFilters(EMPTY_HOST_SESSION_FILTERS)}
-                        className="mt-4"
                       >
                         {t("filter.clear")}
-                      </Button>
-                    ) : null
+                      </EmptyAction>
+                    ) : emptyKind === "homes" ? (
+                      <EmptyAction
+                        emphasis="quiet"
+                        trailing={<IconArrowRight />}
+                        onClick={() => router.push("/agent-observer")}
+                      >
+                        {t("openObserver")}
+                      </EmptyAction>
+                    ) : undefined
                   }
                 />
               ) : (

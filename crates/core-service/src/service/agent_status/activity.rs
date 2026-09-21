@@ -3,7 +3,7 @@
 //! Coarse `idle` / `running` / `permission_request` stays on the session map.
 //! This module is the only writer of turn history.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use agent::{
-    is_grok_chrome_subagent_name, AgentEvent, AgentTool, AgentToolKind, AgentToolParams, GrokGoal,
-    GrokWorkflow, UserMessageKind,
+    is_grok_chrome_subagent_name, AgentEvent, AgentTool, AgentToolKind, AgentToolParams,
+    AgentToolStatus, GrokGoal, GrokWorkflow, UserMessageKind,
 };
 
 use super::{
@@ -26,6 +26,7 @@ const RECENT_TOOLS_CHILD: usize = 8;
 const DETAIL_CHARS: usize = 120;
 const PROMPT_CHARS: usize = 240;
 const TODO_WIRE: usize = 40;
+const CHILD_PROMPT_STEAL_CHARS: usize = 40;
 const RUN_GAP: Duration = Duration::from_secs(8);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -56,6 +57,8 @@ pub struct AgentChildActivity {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub current_tool: Option<AgentToolLine>,
     pub recent_tools: Vec<AgentToolLine>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prompt: Option<String>,
     pub started_at: String,
     pub last_event_at: String,
     #[serde(default, skip)]
@@ -115,6 +118,8 @@ pub struct AgentActivity {
     grok_goal_child_ids: Vec<String>,
     #[serde(skip)]
     grok_workflow_child_ids: Vec<String>,
+    #[serde(default, skip)]
+    child_aliases: HashMap<String, String>,
 }
 
 impl AgentActivity {
@@ -147,7 +152,8 @@ impl AgentStatusService {
             let sessions = self.sessions.read();
             match sessions.get(session_id) {
                 Some(s) if s.tool == tool => s.clone(),
-                _ => return,
+                Some(s) if s.state != AgentOccupancy::Idle => return,
+                _ => occupancy_bind(session_id, tool, ctx),
             }
         };
         if matches!(fold, HostFold::CloseTurn) && !self.activity.read().contains_key(session_id) {
@@ -165,11 +171,15 @@ impl AgentStatusService {
         copy_bind(&mut next, &session, ctx);
         next.last_state = session.state;
         next.last_event_at = now.clone();
+        // Terminal idle suppress drops leftover PostToolUse. Chat occupancy can
+        // stay Idle across a suppressed Progress window while tools still stream.
+        let session_idle =
+            session.state == AgentOccupancy::Idle && session.surface != AgentSurface::Chat;
         apply_host_fold(
             &mut next,
             fold,
             &now,
-            session.state == AgentOccupancy::Idle,
+            session_idle,
             session.project_path.as_deref(),
         );
 
@@ -253,6 +263,30 @@ impl AgentStatusService {
     }
 }
 
+fn occupancy_bind(
+    session_id: &str,
+    tool: AgentToolType,
+    ctx: &AgentStatusContext,
+) -> AgentStatusRecord {
+    AgentStatusRecord {
+        session_id: session_id.to_string(),
+        tool,
+        state: AgentOccupancy::Running,
+        timestamp: Utc::now().to_rfc3339(),
+        project_path: None,
+        context_id: ctx.context_id.clone(),
+        pane_id: ctx.pane_id.clone().or_else(|| Some(session_id.to_string())),
+        terminal_kind: ctx.terminal_kind.clone(),
+        side_chat_id: ctx.side_chat_id.clone(),
+        source_pane_id: ctx.source_pane_id.clone(),
+        hook_version: ctx.hook_version,
+        surface: ctx.surface,
+        surface_id: ctx.surface_id.clone(),
+        space_id: ctx.space_id.clone(),
+        provider_id: ctx.provider_id.clone(),
+    }
+}
+
 fn new_activity(session: &AgentStatusRecord, ctx: &AgentStatusContext, now: &str) -> AgentActivity {
     AgentActivity {
         session_id: session.session_id.clone(),
@@ -288,6 +322,7 @@ fn new_activity(session: &AgentStatusRecord, ctx: &AgentStatusContext, now: &str
         last_event_at: now.to_string(),
         grok_goal_child_ids: Vec::new(),
         grok_workflow_child_ids: Vec::new(),
+        child_aliases: HashMap::new(),
     }
 }
 
@@ -437,6 +472,17 @@ fn host_fold(event: &AgentEvent) -> Option<HostFold> {
         AgentEvent::ToolCallStarted { tool_call } => Some(HostFold::ToolPending {
             tool: tool_call.clone(),
         }),
+        AgentEvent::ToolCallUpdated { tool_call } => match tool_call.status {
+            AgentToolStatus::Completed => Some(HostFold::ToolOk {
+                tool: tool_call.clone(),
+            }),
+            AgentToolStatus::Failed => Some(HostFold::ToolError {
+                tool: tool_call.clone(),
+            }),
+            AgentToolStatus::Pending | AgentToolStatus::Running => Some(HostFold::ToolPending {
+                tool: tool_call.clone(),
+            }),
+        },
         AgentEvent::ToolCallCompleted { tool_call } => Some(HostFold::ToolOk {
             tool: tool_call.clone(),
         }),
@@ -549,6 +595,9 @@ fn apply_host_fold(
 }
 
 fn apply_prompt(activity: &mut AgentActivity, text: &str, now: &str) {
+    if steal_prompt_for_child(activity, text, now) {
+        return;
+    }
     if let Some(turn) = current_turn_mut(activity) {
         if turn.ended_at.is_none() && turn.prompt.is_empty() {
             turn.prompt = truncate(text, PROMPT_CHARS);
@@ -570,48 +619,15 @@ fn apply_host_tool(
     pending: bool,
     error: bool,
 ) {
-    let child_id = host_child_id(tool);
-    if tool.kind == AgentToolKind::Subagent {
-        if let Some(child_id) = child_id.as_deref() {
-            if pending {
-                let chrome = is_grok_chrome_subagent_name(&tool.name);
-                upsert_host_child(activity, child_id, host_child_name(tool), now, chrome);
-                if chrome && !activity.grok_goal_child_ids.iter().any(|id| id == child_id) {
-                    activity.grok_goal_child_ids.push(child_id.to_string());
-                }
-                if let Some(turn) = current_turn_mut(activity) {
-                    if !turn.spawned_child_ids.iter().any(|id| id == child_id) {
-                        turn.spawned_child_ids.push(child_id.to_string());
-                    }
-                }
-            } else if !is_grok_chrome_subagent_name(&tool.name) {
-                activity.children.retain(|c| c.child_id != child_id);
-            }
-            return;
-        }
+    if is_wait_poll_name(&tool.name) {
+        return;
     }
-    if let Some(child_id) = child_id.as_deref() {
-        upsert_host_child(activity, child_id, host_child_name(tool), now, false);
-        let Some(child) = activity
-            .children
-            .iter_mut()
-            .find(|c| c.child_id == child_id)
-        else {
-            return;
-        };
-        child.last_event_at = now.to_string();
-        if pending {
-            child.current_tool = Some(host_tool_line(tool, project_path, now, "pending"));
-            return;
-        }
-        let state = if error { "error" } else { "ok" };
-        let mut line = child
-            .current_tool
-            .take()
-            .unwrap_or_else(|| host_tool_line(tool, project_path, now, state));
-        line.state = state.to_string();
-        line.ended_at = Some(now.to_string());
-        push_aggregated_tool(&mut child.recent_tools, line, now, RECENT_TOOLS_CHILD);
+    if is_host_subagent(tool) {
+        apply_host_subagent(activity, tool, now, pending);
+        return;
+    }
+    if let Some(child_id) = resolve_nested_child_id(activity, tool) {
+        apply_child_tool(activity, &child_id, tool, now, project_path, pending, error);
         return;
     }
     if pending {
@@ -634,6 +650,82 @@ fn apply_host_tool(
     }
     ensure_open_turn(activity, now);
     complete_lead_host_tool(activity, tool, project_path, now, state);
+}
+
+fn apply_host_subagent(activity: &mut AgentActivity, tool: &AgentTool, now: &str, pending: bool) {
+    let ids = host_subagent_ids(tool);
+    if ids.is_empty() {
+        return;
+    }
+    let canonical = pick_canonical_child(activity, &ids);
+    for id in &ids {
+        register_child_alias(activity, id, &canonical);
+        if id != &canonical {
+            merge_child(activity, id, &canonical);
+        }
+    }
+    let chrome = is_grok_chrome_subagent_name(&tool.name);
+    upsert_host_child(activity, &canonical, host_child_name(tool), now, chrome);
+    if let Some(child) = activity
+        .children
+        .iter_mut()
+        .find(|c| c.child_id == canonical)
+    {
+        if let Some(prompt) = host_child_prompt(tool) {
+            if child.prompt.as_deref().unwrap_or("").is_empty() {
+                child.prompt = Some(truncate(&prompt, PROMPT_CHARS));
+            }
+        }
+        if pending {
+            child.state = AgentOccupancy::Running;
+        } else if !chrome && !is_dispatch_ack_name(&tool.name) {
+            child.state = AgentOccupancy::Idle;
+            if let Some(line) = child.current_tool.take() {
+                push_aggregated_tool(&mut child.recent_tools, line, now, RECENT_TOOLS_CHILD);
+            }
+        }
+    }
+    if pending {
+        if let Some(turn) = current_turn_mut(activity) {
+            if !turn.spawned_child_ids.iter().any(|id| id == &canonical) {
+                turn.spawned_child_ids.push(canonical.clone());
+            }
+        }
+    }
+    strip_chrome_tools_from_turns(activity);
+    rehome_child_prompt_turns(activity);
+}
+
+fn apply_child_tool(
+    activity: &mut AgentActivity,
+    child_id: &str,
+    tool: &AgentTool,
+    now: &str,
+    project_path: Option<&str>,
+    pending: bool,
+    error: bool,
+) {
+    upsert_host_child(activity, child_id, host_child_name(tool), now, false);
+    let Some(child) = activity
+        .children
+        .iter_mut()
+        .find(|c| c.child_id == child_id)
+    else {
+        return;
+    };
+    child.last_event_at = now.to_string();
+    child.state = AgentOccupancy::Running;
+    if pending {
+        child.current_tool = Some(host_tool_line(tool, project_path, now, "pending"));
+        return;
+    }
+    let state = if error { "error" } else { "ok" };
+    let mut line = child
+        .current_tool
+        .take()
+        .unwrap_or_else(|| host_tool_line(tool, project_path, now, state));
+    finish_tool_line(&mut line, now, state, host_tool_detail(tool, project_path));
+    push_aggregated_tool(&mut child.recent_tools, line, now, RECENT_TOOLS_CHILD);
 }
 
 fn complete_lead_host_tool(
@@ -720,26 +812,339 @@ fn upsert_host_child(
         state: AgentOccupancy::Running,
         current_tool: None,
         recent_tools: Vec::new(),
+        prompt: None,
         started_at: now.to_string(),
         last_event_at: now.to_string(),
         chrome,
     });
 }
 
-fn host_child_id(tool: &AgentTool) -> Option<String> {
+fn is_spawn_tool_name(name: &str) -> bool {
+    matches!(
+        normalize_tool_label(name).as_str(),
+        "task"
+            | "agent"
+            | "subagent"
+            | "spawn_subagent"
+            | "spawn_agent"
+            | "agent_spawn"
+            | "collabtoolcall"
+            | "collab_tool_call"
+            | "collabagenttoolcall"
+            | "collab_agent_tool_call"
+    )
+}
+
+fn is_dispatch_ack_name(name: &str) -> bool {
+    matches!(
+        normalize_tool_label(name).as_str(),
+        "spawn_subagent" | "spawn_agent" | "agent_spawn"
+    )
+}
+
+fn is_wait_poll_name(name: &str) -> bool {
+    let n = normalize_tool_label(name);
+    n.contains("get_command_or_subagent")
+        || n.contains("subagent_output")
+        || n.contains("task_output")
+        || n.contains("agent_output")
+        || n.contains("taskoutput")
+        || n.contains("agentoutput")
+}
+
+fn normalize_tool_label(name: &str) -> String {
+    name.trim()
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('_')
+        .to_string()
+}
+
+fn is_host_subagent(tool: &AgentTool) -> bool {
+    tool.kind == AgentToolKind::Subagent || is_spawn_tool_name(&tool.name)
+}
+
+fn looks_like_child_prompt(text: &str) -> bool {
+    text.trim().chars().count() >= CHILD_PROMPT_STEAL_CHARS
+}
+
+fn host_subagent_ids(tool: &AgentTool) -> Vec<String> {
+    let mut ids = Vec::new();
+    let mut push = |value: &str| {
+        let trimmed = value.trim();
+        if !trimmed.is_empty() && !ids.iter().any(|existing| existing == trimmed) {
+            ids.push(trimmed.to_string());
+        }
+    };
     if let AgentToolParams::Subagent { task_id, .. } = &tool.params {
-        if let Some(id) = task_id.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-            return Some(id.to_string());
+        if let Some(id) = task_id {
+            push(id);
         }
     }
-    if tool.kind == AgentToolKind::Subagent {
-        return Some(tool.tool_call_id.clone());
+    push(&tool.tool_call_id);
+    ids
+}
+
+fn host_child_prompt(tool: &AgentTool) -> Option<String> {
+    match &tool.params {
+        AgentToolParams::Subagent {
+            prompt,
+            description,
+            ..
+        } => prompt
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .or_else(|| {
+                let text = description.trim();
+                looks_like_child_prompt(text).then(|| text.to_string())
+            }),
+        _ => None,
     }
-    tool.parent_tool_call_id
+}
+
+fn register_child_alias(activity: &mut AgentActivity, alias: &str, canonical: &str) {
+    let alias = alias.trim();
+    let canonical = canonical.trim();
+    if alias.is_empty() || canonical.is_empty() || alias == canonical {
+        return;
+    }
+    activity
+        .child_aliases
+        .insert(alias.to_string(), canonical.to_string());
+}
+
+fn canonical_child_id(activity: &AgentActivity, raw: &str) -> String {
+    let mut id = raw.trim().to_string();
+    let mut seen = HashSet::new();
+    while let Some(next) = activity.child_aliases.get(&id) {
+        if !seen.insert(id.clone()) {
+            break;
+        }
+        if next == &id {
+            break;
+        }
+        id = next.clone();
+    }
+    id
+}
+
+fn pick_canonical_child(activity: &AgentActivity, ids: &[String]) -> String {
+    for id in ids {
+        let resolved = canonical_child_id(activity, id);
+        if activity
+            .children
+            .iter()
+            .any(|child| child.child_id == resolved && child.chrome)
+        {
+            return resolved;
+        }
+    }
+    for id in ids {
+        let resolved = canonical_child_id(activity, id);
+        if activity
+            .children
+            .iter()
+            .any(|child| child.child_id == resolved)
+        {
+            return resolved;
+        }
+    }
+    canonical_child_id(activity, ids.first().map(String::as_str).unwrap_or(""))
+}
+
+fn merge_child(activity: &mut AgentActivity, from_id: &str, into_id: &str) {
+    if from_id == into_id {
+        return;
+    }
+    register_child_alias(activity, from_id, into_id);
+    let remapped: Vec<String> = activity
+        .child_aliases
+        .iter()
+        .filter(|(_, value)| *value == from_id)
+        .map(|(key, _)| key.clone())
+        .collect();
+    for key in remapped {
+        activity.child_aliases.insert(key, into_id.to_string());
+    }
+    let Some(index) = activity
+        .children
+        .iter()
+        .position(|child| child.child_id == from_id)
+    else {
+        return;
+    };
+    let from = activity.children.remove(index);
+    if let Some(into) = activity
+        .children
+        .iter_mut()
+        .find(|child| child.child_id == into_id)
+    {
+        into.chrome = into.chrome || from.chrome;
+        if into.name.is_none() {
+            into.name = from.name;
+        }
+        if into.prompt.as_deref().unwrap_or("").is_empty() {
+            into.prompt = from.prompt;
+        }
+        match (&into.current_tool, from.current_tool) {
+            (None, Some(tool)) => into.current_tool = Some(tool),
+            (Some(existing), Some(tool))
+                if existing.state != "pending" && tool.state == "pending" =>
+            {
+                into.current_tool = Some(tool);
+            }
+            (_, Some(tool)) => {
+                push_aggregated_tool(
+                    &mut into.recent_tools,
+                    tool,
+                    &from.last_event_at,
+                    RECENT_TOOLS_CHILD,
+                );
+            }
+            _ => {}
+        }
+        for line in from.recent_tools {
+            push_aggregated_tool(
+                &mut into.recent_tools,
+                line,
+                &from.last_event_at,
+                RECENT_TOOLS_CHILD,
+            );
+        }
+        if from.state == AgentOccupancy::Running {
+            into.state = AgentOccupancy::Running;
+        }
+        into.last_event_at = from.last_event_at;
+        return;
+    }
+    let mut renamed = from;
+    renamed.child_id = into_id.to_string();
+    activity.children.push(renamed);
+}
+
+fn resolve_nested_child_id(activity: &AgentActivity, tool: &AgentTool) -> Option<String> {
+    if let Some(parent) = tool
+        .parent_tool_call_id
         .as_deref()
         .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(str::to_string)
+        .filter(|value| !value.is_empty())
+    {
+        return Some(canonical_child_id(activity, parent));
+    }
+    guess_child_for_orphan_tool(activity)
+}
+
+fn guess_child_for_orphan_tool(activity: &AgentActivity) -> Option<String> {
+    let running: Vec<&AgentChildActivity> = activity
+        .children
+        .iter()
+        .filter(|child| child.state == AgentOccupancy::Running)
+        .collect();
+    if running.is_empty() {
+        return None;
+    }
+    if running.len() == 1 {
+        return Some(running[0].child_id.clone());
+    }
+    if let Some(idle) = running.iter().find(|child| child.current_tool.is_none()) {
+        return Some(idle.child_id.clone());
+    }
+    running
+        .iter()
+        .max_by_key(|child| child.last_event_at.as_str())
+        .map(|child| child.child_id.clone())
+}
+
+fn steal_prompt_for_child(activity: &mut AgentActivity, text: &str, now: &str) -> bool {
+    let trimmed = text.trim();
+    if trimmed.is_empty() || activity.children.is_empty() {
+        return false;
+    }
+    let truncated = truncate(trimmed, PROMPT_CHARS);
+    let already = activity.children.iter().any(|child| {
+        child.prompt.as_deref().is_some_and(|prompt| {
+            prompt == truncated || prompt.starts_with(trimmed) || trimmed.starts_with(prompt)
+        })
+    });
+    let has_user_prompt = activity.turns.iter().any(|turn| !turn.prompt.is_empty());
+    if !has_user_prompt {
+        return false;
+    }
+    if already {
+        return true;
+    }
+    if !looks_like_child_prompt(trimmed) {
+        return false;
+    }
+    if let Some(child) = activity.children.iter_mut().find(|child| {
+        child.state == AgentOccupancy::Running && child.prompt.as_deref().unwrap_or("").is_empty()
+    }) {
+        child.prompt = Some(truncated);
+        child.last_event_at = now.to_string();
+    }
+    true
+}
+
+fn strip_chrome_tools_from_turns(activity: &mut AgentActivity) {
+    for turn in &mut activity.turns {
+        turn.tools
+            .retain(|tool| !is_spawn_tool_name(&tool.name) && !is_wait_poll_name(&tool.name));
+    }
+    if activity
+        .current_tool
+        .as_ref()
+        .is_some_and(|tool| is_spawn_tool_name(&tool.name) || is_wait_poll_name(&tool.name))
+    {
+        activity.current_tool = None;
+    }
+}
+
+fn rehome_child_prompt_turns(activity: &mut AgentActivity) {
+    if activity.children.is_empty() || activity.turns.len() < 2 {
+        return;
+    }
+    let mut kept = Vec::new();
+    let mut extras = Vec::new();
+    let mut seen_user = false;
+    for mut turn in activity.turns.drain(..) {
+        turn.tools
+            .retain(|tool| !is_spawn_tool_name(&tool.name) && !is_wait_poll_name(&tool.name));
+        let is_user = !seen_user && !turn.prompt.is_empty();
+        if is_user {
+            seen_user = true;
+            kept.push(turn);
+            continue;
+        }
+        if looks_like_child_prompt(&turn.prompt) && turn.tools.is_empty() {
+            extras.push(turn.prompt);
+            continue;
+        }
+        kept.push(turn);
+    }
+    activity.turns = kept;
+    activity.current_turn_id = activity
+        .turns
+        .iter()
+        .rev()
+        .find(|turn| turn.ended_at.is_none())
+        .map(|turn| turn.turn_id);
+    let mut extras = extras.into_iter();
+    for child in &mut activity.children {
+        if child.prompt.as_deref().unwrap_or("").is_empty() {
+            if let Some(prompt) = extras.next() {
+                child.prompt = Some(prompt);
+            }
+        }
+    }
 }
 
 fn host_child_name(tool: &AgentTool) -> Option<String> {
@@ -995,6 +1400,7 @@ fn apply_grok_roster(
             }
         }
     }
+    merge_spawn_children_into_roster(activity, &incoming);
     let keep: HashSet<String> = activity
         .grok_goal_child_ids
         .iter()
@@ -1004,6 +1410,46 @@ fn apply_grok_roster(
     activity
         .children
         .retain(|child| !child.chrome || keep.contains(&child.child_id));
+    rehome_child_prompt_turns(activity);
+}
+
+fn merge_spawn_children_into_roster(
+    activity: &mut AgentActivity,
+    incoming: &[(String, Option<String>)],
+) {
+    if incoming.is_empty() {
+        return;
+    }
+    let spawn: Vec<String> = activity
+        .children
+        .iter()
+        .filter(|child| !child.chrome)
+        .map(|child| child.child_id.clone())
+        .collect();
+    let roster: Vec<String> = incoming.iter().map(|(id, _)| id.clone()).collect();
+    let mut used_spawn = HashSet::new();
+    let mut used_roster = HashSet::new();
+    for spawn_id in &spawn {
+        let resolved = canonical_child_id(activity, spawn_id);
+        if let Some(dest) = roster.iter().find(|id| {
+            *id == spawn_id || *id == &resolved || canonical_child_id(activity, id) == resolved
+        }) {
+            merge_child(activity, spawn_id, dest);
+            used_spawn.insert(spawn_id.clone());
+            used_roster.insert(dest.clone());
+        }
+    }
+    let leftover_spawn: Vec<String> = spawn
+        .into_iter()
+        .filter(|id| !used_spawn.contains(id))
+        .collect();
+    let leftover_roster: Vec<String> = roster
+        .into_iter()
+        .filter(|id| !used_roster.contains(id))
+        .collect();
+    for (spawn_id, roster_id) in leftover_spawn.iter().zip(leftover_roster.iter()) {
+        merge_child(activity, spawn_id, roster_id);
+    }
 }
 
 fn relativize(path: &str, project_path: Option<&str>) -> String {
@@ -1677,7 +2123,16 @@ mod tests {
             &ctx,
         );
         let activity = &status.get_all_activity()[0];
-        assert!(activity.children.is_empty());
+        assert_eq!(activity.children.len(), 1);
+        assert_eq!(activity.children[0].state, AgentOccupancy::Idle);
+        assert!(activity.children[0].current_tool.is_none());
+        assert_eq!(
+            activity.children[0]
+                .recent_tools
+                .last()
+                .map(|t| t.name.as_str()),
+            Some("Read")
+        );
         assert_eq!(activity.turns[0].spawned_child_ids, vec!["c1"]);
     }
 
@@ -1936,5 +2391,473 @@ mod tests {
         apply_host_event(&status, &meta, &AgentEvent::GrokGoalUpdated { goal: None });
         let activity = &status.get_all_activity()[0];
         assert!(activity.children.is_empty());
+    }
+
+    #[test]
+    fn chat_tool_update_refreshes_current_tool_detail() {
+        use crate::service::agent_status::apply_host_event;
+
+        let status = AgentStatusService::new();
+        let meta = chat_meta("upd");
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::UserMessage {
+                turn_id: "t1".into(),
+                message_id: "m1".into(),
+                kind: UserMessageKind::Normal,
+                text: "edit footer".into(),
+                attachments: Vec::new(),
+            },
+        );
+        let mut started = edit_tool("tc1", true);
+        started.params = AgentToolParams::Edit {
+            path: String::new(),
+        };
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::ToolCallStarted { tool_call: started },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::ToolCallUpdated {
+                tool_call: edit_tool("tc1", true),
+            },
+        );
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(
+            activity.current_tool.as_ref().map(|t| t.detail.as_str()),
+            Some("Footer.tsx")
+        );
+    }
+
+    #[test]
+    fn chat_folds_tools_while_occupancy_is_idle() {
+        use crate::service::agent_status::apply_host_event;
+
+        let status = AgentStatusService::new();
+        let meta = chat_meta("idle-tools");
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::UserMessage {
+                turn_id: "t1".into(),
+                message_id: "m1".into(),
+                kind: UserMessageKind::Normal,
+                text: "fix it".into(),
+                attachments: Vec::new(),
+            },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::TurnCompleted {
+                turn_id: "t1".into(),
+                stop: agent::TurnStop::Completed,
+            },
+        );
+        assert_eq!(status.get_all_sessions()[0].state, AgentOccupancy::Idle);
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::ToolCallStarted {
+                tool_call: edit_tool("late", true),
+            },
+        );
+        assert_eq!(status.get_all_sessions()[0].state, AgentOccupancy::Idle);
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(
+            activity.current_tool.as_ref().map(|t| t.name.as_str()),
+            Some("Edit")
+        );
+    }
+
+    #[test]
+    fn observe_host_without_occupancy_records_current_tool() {
+        let status = AgentStatusService::new();
+        let ctx = AgentStatusContext {
+            surface: AgentSurface::Chat,
+            surface_id: Some("orphan".into()),
+            ..AgentStatusContext::default()
+        };
+        status.observe_host(
+            "chat:orphan",
+            AgentToolType::GrokBuild,
+            &AgentEvent::ToolCallStarted {
+                tool_call: edit_tool("tc1", true),
+            },
+            &ctx,
+        );
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(activity.session_id, "chat:orphan");
+        assert_eq!(
+            activity.current_tool.as_ref().map(|t| t.name.as_str()),
+            Some("Edit")
+        );
+    }
+
+    #[test]
+    fn chat_subagent_update_creates_live_child() {
+        use crate::service::agent_status::apply_host_event;
+
+        let status = AgentStatusService::new();
+        let mut meta = chat_meta("sa");
+        meta.provider_id = "grok".into();
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::UserMessage {
+                turn_id: "t1".into(),
+                message_id: "m1".into(),
+                kind: UserMessageKind::Normal,
+                text: "plan it".into(),
+                attachments: Vec::new(),
+            },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::ToolCallUpdated {
+                tool_call: AgentTool {
+                    tool_call_id: "sa-1".into(),
+                    parent_tool_call_id: None,
+                    name: "Task".into(),
+                    title: Some("Explore".into()),
+                    kind: AgentToolKind::Subagent,
+                    status: agent::AgentToolStatus::Running,
+                    params: AgentToolParams::Subagent {
+                        description: "scan the tree".into(),
+                        agent_type: Some("Explore".into()),
+                        task_id: Some("sa-1".into()),
+                        prompt: None,
+                    },
+                    result: None,
+                },
+            },
+        );
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(activity.children.len(), 1);
+        assert_eq!(activity.children[0].child_id, "sa-1");
+        assert_eq!(activity.children[0].name.as_deref(), Some("Explore"));
+    }
+
+    fn spawn_tool(call_id: &str, task_id: Option<&str>, pending: bool) -> AgentTool {
+        AgentTool {
+            tool_call_id: call_id.into(),
+            parent_tool_call_id: None,
+            name: "spawn_subagent".into(),
+            title: None,
+            kind: AgentToolKind::Subagent,
+            status: if pending {
+                agent::AgentToolStatus::Running
+            } else {
+                agent::AgentToolStatus::Completed
+            },
+            params: AgentToolParams::Subagent {
+                description: "Explore".into(),
+                agent_type: Some("general-purpose".into()),
+                task_id: task_id.map(str::to_string),
+                prompt: Some(
+                    "You are exploring the Atmos monorepo at /tmp for architecture notes.".into(),
+                ),
+            },
+            result: None,
+        }
+    }
+
+    fn nested_read(id: &str, parent: &str, pending: bool) -> AgentTool {
+        AgentTool {
+            tool_call_id: id.into(),
+            parent_tool_call_id: Some(parent.into()),
+            name: "read_file".into(),
+            title: None,
+            kind: AgentToolKind::Read,
+            status: if pending {
+                agent::AgentToolStatus::Running
+            } else {
+                agent::AgentToolStatus::Completed
+            },
+            params: AgentToolParams::Read {
+                path: "crates/runtime-manager/src/lib.rs".into(),
+                offset: None,
+                limit: None,
+            },
+            result: None,
+        }
+    }
+
+    #[test]
+    fn nested_tools_stay_on_child_not_parent_current() {
+        use crate::service::agent_status::apply_host_event;
+
+        let status = AgentStatusService::new();
+        let mut meta = chat_meta("nested");
+        meta.provider_id = "grok".into();
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::UserMessage {
+                turn_id: "t1".into(),
+                message_id: "m1".into(),
+                kind: UserMessageKind::Normal,
+                text: "启动多个 subagent 探索一下这个项目".into(),
+                attachments: Vec::new(),
+            },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::ToolCallStarted {
+                tool_call: spawn_tool("tc_sub", None, true),
+            },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::ToolCallCompleted {
+                tool_call: spawn_tool("tc_sub", None, false),
+            },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::ToolCallStarted {
+                tool_call: nested_read("child_read", "tc_sub", true),
+            },
+        );
+
+        let activity = &status.get_all_activity()[0];
+        assert!(
+            activity.current_tool.is_none(),
+            "child tool leaked onto parent"
+        );
+        assert_eq!(activity.children.len(), 1);
+        assert_eq!(
+            activity.children[0]
+                .current_tool
+                .as_ref()
+                .map(|t| t.name.as_str()),
+            Some("read_file")
+        );
+        assert_eq!(activity.turns.len(), 1);
+        assert_eq!(
+            activity.turns[0].prompt,
+            "启动多个 subagent 探索一下这个项目"
+        );
+        assert!(activity.turns[0].tools.is_empty());
+    }
+
+    #[test]
+    fn spawn_aliases_onto_goal_roster_child() {
+        use crate::service::agent_status::apply_host_event;
+
+        let status = AgentStatusService::new();
+        let mut meta = chat_meta("alias");
+        meta.provider_id = "grok".into();
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::UserMessage {
+                turn_id: "t1".into(),
+                message_id: "m1".into(),
+                kind: UserMessageKind::Normal,
+                text: "explore".into(),
+                attachments: Vec::new(),
+            },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::ToolCallStarted {
+                tool_call: spawn_tool("tc_sub", None, true),
+            },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::ToolCallStarted {
+                tool_call: nested_read("child_read", "tc_sub", true),
+            },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::GrokGoalUpdated {
+                goal: Some(agent::GrokGoal {
+                    goal_id: "g1".into(),
+                    objective: "Explore".into(),
+                    status: "active".into(),
+                    phase: "executing".into(),
+                    planning: true,
+                    verifying_completion: false,
+                    last_event: None,
+                    tokens_used: 0,
+                    elapsed_ms: 0,
+                    children: vec![agent::GrokGoalChild {
+                        id: "goal-1".into(),
+                        label: "general-purpose".into(),
+                        role: "explore".into(),
+                        agent_type: Some("general-purpose".into()),
+                    }],
+                }),
+            },
+        );
+
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(activity.children.len(), 1);
+        assert_eq!(activity.children[0].child_id, "goal-1");
+        assert_eq!(
+            activity.children[0]
+                .current_tool
+                .as_ref()
+                .map(|t| t.name.as_str()),
+            Some("read_file")
+        );
+        assert!(activity.current_tool.is_none());
+    }
+
+    #[test]
+    fn child_prompt_does_not_open_parent_turn() {
+        use crate::service::agent_status::apply_host_event;
+
+        let status = AgentStatusService::new();
+        let meta = chat_meta("child-prompt");
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::UserMessage {
+                turn_id: "t1".into(),
+                message_id: "m1".into(),
+                kind: UserMessageKind::Normal,
+                text: "启动多个 subagent".into(),
+                attachments: Vec::new(),
+            },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::ToolCallStarted {
+                tool_call: spawn_tool("tc_sub", Some("sa-1"), true),
+            },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::UserMessage {
+                turn_id: "t2".into(),
+                message_id: "m2".into(),
+                kind: UserMessageKind::Normal,
+                text: "You are exploring the Atmos monorepo at /tmp for architecture notes and report back.".into(),
+                attachments: Vec::new(),
+            },
+        );
+
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(activity.turns.len(), 1);
+        assert_eq!(activity.turns[0].prompt, "启动多个 subagent");
+        assert!(activity.children[0]
+            .prompt
+            .as_deref()
+            .unwrap()
+            .contains("exploring"));
+    }
+
+    #[test]
+    fn grok_hook_nested_tool_with_subagent_id_stays_on_child() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("ws-1:hook-child");
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": "explore the repo",
+            }),
+            &ctx,
+        );
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "PreToolUse",
+                "tool_name": "spawn_subagent",
+                "tool_input": {
+                    "subagent_type": "general-purpose",
+                    "prompt": "You are exploring the Atmos monorepo at /tmp for architecture notes."
+                },
+            }),
+            &ctx,
+        );
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "PreToolUse",
+                "subagent_id": "sa-plan",
+                "tool_name": "read_file",
+                "tool_input": { "path": "crates/runtime-manager/src/lib.rs" },
+            }),
+            &ctx,
+        );
+        let activity = &status.get_all_activity()[0];
+        assert!(activity.current_tool.as_ref().map(|t| t.name.as_str()) != Some("read_file"));
+        let child = activity
+            .children
+            .iter()
+            .find(|c| {
+                c.current_tool
+                    .as_ref()
+                    .is_some_and(|t| t.name == "read_file")
+                    || c.child_id == "sa-plan"
+            })
+            .expect("nested read should land on a child");
+        assert_eq!(
+            child.current_tool.as_ref().map(|t| t.name.as_str()),
+            Some("read_file")
+        );
+    }
+
+    #[test]
+    fn wait_poll_does_not_become_parent_current_tool() {
+        use crate::service::agent_status::apply_host_event;
+
+        let status = AgentStatusService::new();
+        let meta = chat_meta("wait");
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::UserMessage {
+                turn_id: "t1".into(),
+                message_id: "m1".into(),
+                kind: UserMessageKind::Normal,
+                text: "go".into(),
+                attachments: Vec::new(),
+            },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::ToolCallStarted {
+                tool_call: spawn_tool("tc_sub", Some("sa-1"), true),
+            },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::ToolCallStarted {
+                tool_call: AgentTool {
+                    tool_call_id: "wait".into(),
+                    parent_tool_call_id: None,
+                    name: "get_command_or_subagent_output".into(),
+                    title: None,
+                    kind: AgentToolKind::Other,
+                    status: agent::AgentToolStatus::Running,
+                    params: AgentToolParams::Other {
+                        value: serde_json::json!({}),
+                    },
+                    result: None,
+                },
+            },
+        );
+        let activity = &status.get_all_activity()[0];
+        assert!(activity.current_tool.is_none());
+        assert!(activity.turns[0].tools.is_empty());
     }
 }
