@@ -134,7 +134,7 @@ describe("buildObserverGraph", () => {
     expect(agent?.parentId).toBe("workspace:w1");
   });
 
-  it("hides subagents and turn rows until the agent is expanded", () => {
+  it("keeps live subagents visible while turn rows stay folded until expand", () => {
     const record = activity({
       session_id: "lead",
       context_id: "w1",
@@ -167,8 +167,9 @@ describe("buildObserverGraph", () => {
       collapsedIds: new Set(),
       expandedAgentIds: new Set(),
     });
-    expect(collapsed.nodes.some((n) => n.kind === "subagent")).toBe(false);
+    expect(collapsed.nodes.some((n) => n.id === "child:lead:c1")).toBe(true);
     expect(collapsed.nodes.find((n) => n.id === "agent:lead")?.visibleTurns).toEqual([]);
+    expect(collapsed.nodes.find((n) => n.id === "agent:lead")?.childCount).toBe(1);
 
     const expanded = buildObserverGraph({
       projects,
@@ -181,7 +182,8 @@ describe("buildObserverGraph", () => {
     const child = expanded.nodes.find((n) => n.id === "child:lead:c1");
     expect(child?.occupancy).toBe("running");
     expect(child?.label).toBe("Explore");
-    expect(expanded.edges.some((e) => e.source === "agent:lead" && e.target === "child:lead:c1")).toBe(
+    expect(child?.session).toBeUndefined();
+    expect(expanded.edges.some((e) => e.source === "agent:lead" && e.target === "child:lead:c1" && e.kind === "spawn")).toBe(
       true,
     );
     expect(expanded.nodes.find((n) => n.id === "agent:lead")?.visibleTurns[0]?.prompt).toBe(
@@ -296,7 +298,6 @@ describe("Observer pane jump", () => {
       'import { navigateToAgentStatusSession } from "@/features/agent/lib/agent-status-navigation"',
     );
     expect(source).toContain("navigateToAgentStatusSession(session, router, projects)");
-    expect(source).toContain("Handle");
     expect(source).toContain("OBSERVER_NODE_TYPES");
   });
 });

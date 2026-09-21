@@ -3,17 +3,17 @@
 //! Coarse `idle` / `running` / `permission_request` stays on the session map.
 //! This module is the only writer of turn history.
 
+use std::collections::HashSet;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::service::agent_hooks::{
-    extract_child_agent_id, is_child_start_event, is_child_stop_event,
+use agent::{
+    is_grok_chrome_subagent_name, AgentEvent, AgentTool, AgentToolKind, AgentToolParams, GrokGoal,
+    GrokWorkflow, UserMessageKind,
 };
-
-use agent::{AgentEvent, AgentTool, AgentToolKind, AgentToolParams, UserMessageKind};
 
 use super::{
     AgentOccupancy, AgentStatusContext, AgentStatusEvent, AgentStatusRecord, AgentStatusService,
@@ -58,6 +58,8 @@ pub struct AgentChildActivity {
     pub recent_tools: Vec<AgentToolLine>,
     pub started_at: String,
     pub last_event_at: String,
+    #[serde(default, skip)]
+    chrome: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -109,6 +111,10 @@ pub struct AgentActivity {
     pub last_file: Option<String>,
     pub started_at: String,
     pub last_event_at: String,
+    #[serde(skip)]
+    grok_goal_child_ids: Vec<String>,
+    #[serde(skip)]
+    grok_workflow_child_ids: Vec<String>,
 }
 
 impl AgentActivity {
@@ -122,105 +128,9 @@ impl AgentActivity {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ActivityKind {
-    Ignore,
-    PromptSubmit,
-    ToolPending,
-    ToolOk,
-    ToolError,
-    Permission,
-    CloseTurn,
-    ChildStart,
-    ChildStop,
-}
-
 impl AgentStatusService {
     pub fn get_all_activity(&self) -> Vec<AgentActivity> {
         self.activity.read().values().cloned().collect()
-    }
-
-    pub(crate) fn observe_hook(
-        &self,
-        session_id: &str,
-        tool: AgentToolType,
-        payload: &Value,
-        ctx: &AgentStatusContext,
-    ) {
-        let session = {
-            let sessions = self.sessions.read();
-            match sessions.get(session_id) {
-                Some(s) if s.tool == tool => s.clone(),
-                _ => return,
-            }
-        };
-
-        let now = Utc::now().to_rfc3339();
-        let kind = classify_event(payload);
-        let previous = self.activity.read().get(session_id).cloned();
-        if previous.as_ref().is_some_and(|p| p.tool != tool) {
-            let replacement = new_activity(&session, ctx, &now);
-            {
-                let mut map = self.activity.write();
-                map.insert(session_id.to_string(), replacement.clone());
-            }
-            let _ = self
-                .event_tx
-                .send(AgentStatusEvent::ActivityUpdated(Box::new(
-                    replacement.clone(),
-                )));
-            if kind == ActivityKind::Ignore && extract_prompt(payload).is_none() {
-                return;
-            }
-        } else if kind == ActivityKind::Ignore && extract_prompt(payload).is_none() {
-            self.touch_activity_bind(session_id, &session, ctx, &now);
-            return;
-        }
-        if kind == ActivityKind::CloseTurn && !self.activity.read().contains_key(session_id) {
-            return;
-        }
-
-        let previous = self.activity.read().get(session_id).cloned();
-        let mut next = previous
-            .clone()
-            .unwrap_or_else(|| new_activity(&session, ctx, &now));
-
-        if next.tool != tool {
-            next = new_activity(&session, ctx, &now);
-        }
-
-        copy_bind(&mut next, &session, ctx);
-        next.last_state = session.state;
-        next.last_event_at = now.clone();
-
-        let child_id = extract_child_agent_id(payload).map(str::to_string);
-        apply_kind(
-            &mut next,
-            kind,
-            payload,
-            child_id.as_deref(),
-            &now,
-            session.state == AgentOccupancy::Idle,
-        );
-
-        let changed = previous
-            .as_ref()
-            .map(|p| p.visible_clone() != next.visible_clone())
-            .unwrap_or(true);
-
-        {
-            let mut map = self.activity.write();
-            map.insert(session_id.to_string(), next.clone());
-        }
-
-        if changed {
-            if let Err(error) = self
-                .event_tx
-                .send(AgentStatusEvent::ActivityUpdated(Box::new(next)))
-            {
-                tracing::warn!("Failed to publish agent activity update: {}", error);
-            }
-        }
     }
 
     pub(crate) fn observe_host(
@@ -341,22 +251,6 @@ impl AgentStatusService {
             .collect();
         self.drop_activity(&ids);
     }
-
-    fn touch_activity_bind(
-        &self,
-        session_id: &str,
-        session: &AgentStatusRecord,
-        ctx: &AgentStatusContext,
-        now: &str,
-    ) {
-        let mut map = self.activity.write();
-        let Some(activity) = map.get_mut(session_id) else {
-            return;
-        };
-        copy_bind(activity, session, ctx);
-        activity.last_state = session.state;
-        activity.last_event_at = now.to_string();
-    }
 }
 
 fn new_activity(session: &AgentStatusRecord, ctx: &AgentStatusContext, now: &str) -> AgentActivity {
@@ -392,6 +286,8 @@ fn new_activity(session: &AgentStatusRecord, ctx: &AgentStatusContext, now: &str
         last_file: None,
         started_at: now.to_string(),
         last_event_at: now.to_string(),
+        grok_goal_child_ids: Vec::new(),
+        grok_workflow_child_ids: Vec::new(),
     }
 }
 
@@ -437,95 +333,6 @@ fn copy_bind(activity: &mut AgentActivity, session: &AgentStatusRecord, ctx: &Ag
         .clone()
         .or_else(|| ctx.provider_id.clone())
         .or_else(|| activity.provider_id.clone());
-}
-
-fn apply_kind(
-    activity: &mut AgentActivity,
-    kind: ActivityKind,
-    payload: &Value,
-    child_id: Option<&str>,
-    now: &str,
-    session_idle: bool,
-) {
-    match kind {
-        ActivityKind::Ignore => {}
-        ActivityKind::PromptSubmit => {
-            close_open_turn(activity, now);
-            open_turn(activity, extract_prompt(payload).unwrap_or_default(), now);
-            activity.current_tool = None;
-        }
-        ActivityKind::ToolPending => {
-            if let Some(child_id) = child_id {
-                upsert_child_tool(activity, child_id, payload, now, true, false);
-                return;
-            }
-            if session_idle {
-                activity.current_tool = None;
-                return;
-            }
-            ensure_open_turn(activity, now);
-            let line = tool_line(payload, activity.project_path.as_deref(), now, "pending");
-            if let Some(path) = file_from_payload(payload, activity.project_path.as_deref()) {
-                activity.last_file = Some(path);
-            }
-            activity.current_tool = Some(line);
-        }
-        ActivityKind::ToolOk | ActivityKind::ToolError => {
-            let error = kind == ActivityKind::ToolError;
-            let state = if error { "error" } else { "ok" };
-            if let Some(child_id) = child_id {
-                upsert_child_tool(activity, child_id, payload, now, false, error);
-                return;
-            }
-            if session_idle {
-                complete_late_tool(activity, payload, now, state);
-                activity.current_tool = None;
-                return;
-            }
-            ensure_open_turn(activity, now);
-            complete_lead_tool(activity, payload, now, state);
-            if is_todo_write(payload) {
-                if let Some(todos) = extract_todos(payload) {
-                    activity.todos = todos.clone();
-                    if let Some(turn) = current_turn_mut(activity) {
-                        turn.todos = todos;
-                    }
-                }
-            }
-        }
-        ActivityKind::Permission => {
-            if let Some(child_id) = child_id {
-                if let Some(child) = activity
-                    .children
-                    .iter_mut()
-                    .find(|c| c.child_id == child_id)
-                {
-                    child.state = AgentOccupancy::PermissionRequest;
-                    child.last_event_at = now.to_string();
-                }
-            }
-        }
-        ActivityKind::CloseTurn => {
-            close_open_turn(activity, now);
-            activity.current_tool = None;
-            activity.current_turn_id = None;
-        }
-        ActivityKind::ChildStart => {
-            if let Some(child_id) = child_id {
-                upsert_child(activity, child_id, payload, now);
-                if let Some(turn) = current_turn_mut(activity) {
-                    if !turn.spawned_child_ids.iter().any(|id| id == child_id) {
-                        turn.spawned_child_ids.push(child_id.to_string());
-                    }
-                }
-            }
-        }
-        ActivityKind::ChildStop => {
-            if let Some(child_id) = child_id {
-                activity.children.retain(|c| c.child_id != child_id);
-            }
-        }
-    }
 }
 
 fn ensure_open_turn(activity: &mut AgentActivity, now: &str) {
@@ -574,50 +381,6 @@ fn last_turn_mut(activity: &mut AgentActivity) -> Option<&mut AgentTurn> {
     activity.turns.last_mut()
 }
 
-fn complete_lead_tool(activity: &mut AgentActivity, payload: &Value, now: &str, state: &str) {
-    let project_path = activity.project_path.clone();
-    let mut line = activity
-        .current_tool
-        .take()
-        .unwrap_or_else(|| tool_line(payload, project_path.as_deref(), now, state));
-    line.state = state.to_string();
-    line.ended_at = Some(now.to_string());
-    if let Ok(start) = DateTime::parse_from_rfc3339(&line.started_at) {
-        if let Ok(end) = DateTime::parse_from_rfc3339(now) {
-            line.duration_ms = Some((end - start).num_milliseconds().max(0));
-        }
-    }
-    if line.detail.is_empty() {
-        line.detail = tool_detail(payload, project_path.as_deref());
-    }
-    if let Some(path) = file_from_payload(payload, project_path.as_deref()) {
-        activity.last_file = Some(path);
-    }
-    if let Some(turn) = current_turn_mut(activity) {
-        push_aggregated_tool(&mut turn.tools, line, now, TOOLS_PER_TURN);
-    }
-}
-
-fn complete_late_tool(activity: &mut AgentActivity, payload: &Value, now: &str, state: &str) {
-    let project_path = activity.project_path.clone();
-    let Some(turn) = last_turn_mut(activity) else {
-        return;
-    };
-    let name = tool_name(payload).unwrap_or_else(|| "tool".to_string());
-    if let Some(existing) = turn
-        .tools
-        .iter_mut()
-        .rev()
-        .find(|t| t.name == name && t.state == "pending")
-    {
-        existing.state = state.to_string();
-        existing.ended_at = Some(now.to_string());
-        return;
-    }
-    let line = tool_line(payload, project_path.as_deref(), now, state);
-    push_aggregated_tool(&mut turn.tools, line, now, TOOLS_PER_TURN);
-}
-
 fn push_aggregated_tool(
     tools: &mut Vec<AgentToolLine>,
     line: AgentToolLine,
@@ -649,63 +412,6 @@ fn push_aggregated_tool(
     }
 }
 
-fn upsert_child(activity: &mut AgentActivity, child_id: &str, payload: &Value, now: &str) {
-    if let Some(child) = activity
-        .children
-        .iter_mut()
-        .find(|c| c.child_id == child_id)
-    {
-        child.state = AgentOccupancy::Running;
-        child.last_event_at = now.to_string();
-        if child.name.is_none() {
-            child.name = child_name(payload);
-        }
-        return;
-    }
-    activity.children.push(AgentChildActivity {
-        child_id: child_id.to_string(),
-        name: child_name(payload),
-        state: AgentOccupancy::Running,
-        current_tool: None,
-        recent_tools: Vec::new(),
-        started_at: now.to_string(),
-        last_event_at: now.to_string(),
-    });
-}
-
-fn upsert_child_tool(
-    activity: &mut AgentActivity,
-    child_id: &str,
-    payload: &Value,
-    now: &str,
-    pending: bool,
-    error: bool,
-) {
-    let project_path = activity.project_path.clone();
-    upsert_child(activity, child_id, payload, now);
-    let Some(child) = activity
-        .children
-        .iter_mut()
-        .find(|c| c.child_id == child_id)
-    else {
-        return;
-    };
-    child.state = AgentOccupancy::Running;
-    child.last_event_at = now.to_string();
-    if pending {
-        child.current_tool = Some(tool_line(payload, project_path.as_deref(), now, "pending"));
-        return;
-    }
-    let state = if error { "error" } else { "ok" };
-    let mut line = child
-        .current_tool
-        .take()
-        .unwrap_or_else(|| tool_line(payload, project_path.as_deref(), now, state));
-    line.state = state.to_string();
-    line.ended_at = Some(now.to_string());
-    push_aggregated_tool(&mut child.recent_tools, line, now, RECENT_TOOLS_CHILD);
-}
-
 enum HostFold {
     OpenTurn,
     Prompt { text: String },
@@ -715,6 +421,9 @@ enum HostFold {
     Todos { todos: Vec<AgentTodoItem> },
     Permission,
     CloseTurn,
+    Bind,
+    GrokGoal { goal: Option<GrokGoal> },
+    GrokWorkflow { workflow: Option<GrokWorkflow> },
 }
 
 fn host_fold(event: &AgentEvent) -> Option<HostFold> {
@@ -742,6 +451,11 @@ fn host_fold(event: &AgentEvent) -> Option<HostFold> {
         | AgentEvent::TurnFailed { .. }
         | AgentEvent::TurnCanceled { .. }
         | AgentEvent::SessionClosed => Some(HostFold::CloseTurn),
+        AgentEvent::SessionStarted { .. } => Some(HostFold::Bind),
+        AgentEvent::GrokGoalUpdated { goal } => Some(HostFold::GrokGoal { goal: goal.clone() }),
+        AgentEvent::GrokWorkflowUpdated { workflow } => Some(HostFold::GrokWorkflow {
+            workflow: workflow.clone(),
+        }),
         _ => None,
     }
 }
@@ -814,6 +528,23 @@ fn apply_host_fold(
             activity.current_tool = None;
             activity.current_turn_id = None;
         }
+        HostFold::Bind => {}
+        HostFold::GrokGoal { goal } => {
+            apply_grok_roster(
+                activity,
+                GrokRosterKind::Goal,
+                grok_goal_roster(goal.as_ref()),
+                now,
+            );
+        }
+        HostFold::GrokWorkflow { workflow } => {
+            apply_grok_roster(
+                activity,
+                GrokRosterKind::Workflow,
+                grok_workflow_roster(workflow.as_ref()),
+                now,
+            );
+        }
     }
 }
 
@@ -843,20 +574,24 @@ fn apply_host_tool(
     if tool.kind == AgentToolKind::Subagent {
         if let Some(child_id) = child_id.as_deref() {
             if pending {
-                upsert_host_child(activity, child_id, host_child_name(tool), now);
+                let chrome = is_grok_chrome_subagent_name(&tool.name);
+                upsert_host_child(activity, child_id, host_child_name(tool), now, chrome);
+                if chrome && !activity.grok_goal_child_ids.iter().any(|id| id == child_id) {
+                    activity.grok_goal_child_ids.push(child_id.to_string());
+                }
                 if let Some(turn) = current_turn_mut(activity) {
                     if !turn.spawned_child_ids.iter().any(|id| id == child_id) {
                         turn.spawned_child_ids.push(child_id.to_string());
                     }
                 }
-            } else {
+            } else if !is_grok_chrome_subagent_name(&tool.name) {
                 activity.children.retain(|c| c.child_id != child_id);
             }
             return;
         }
     }
     if let Some(child_id) = child_id.as_deref() {
-        upsert_host_child(activity, child_id, host_child_name(tool), now);
+        upsert_host_child(activity, child_id, host_child_name(tool), now, false);
         let Some(child) = activity
             .children
             .iter_mut()
@@ -964,6 +699,7 @@ fn upsert_host_child(
     child_id: &str,
     name: Option<String>,
     now: &str,
+    chrome: bool,
 ) {
     if let Some(child) = activity
         .children
@@ -972,6 +708,7 @@ fn upsert_host_child(
     {
         child.state = AgentOccupancy::Running;
         child.last_event_at = now.to_string();
+        child.chrome = child.chrome || chrome;
         if child.name.is_none() {
             child.name = name;
         }
@@ -985,6 +722,7 @@ fn upsert_host_child(
         recent_tools: Vec::new(),
         started_at: now.to_string(),
         last_event_at: now.to_string(),
+        chrome,
     });
 }
 
@@ -1094,13 +832,24 @@ fn host_tool_detail(tool: &AgentTool, project_path: Option<&str>) -> String {
             .filter(|s| !s.is_empty())
             .or_else(|| overview.clone())
             .unwrap_or_default(),
-        AgentToolParams::Other { value } => {
-            ["path", "command", "query", "url", "prompt", "file_path"]
-                .iter()
-                .find_map(|key| value.get(*key).and_then(|v| v.as_str()))
-                .unwrap_or("")
-                .to_string()
-        }
+        AgentToolParams::Other { value } => [
+            "file_path",
+            "notebook_path",
+            "command",
+            "pattern",
+            "url",
+            "query",
+            "prompt",
+            "path",
+            "filePath",
+            "target_file",
+            "TargetFile",
+            "CommandLine",
+        ]
+        .iter()
+        .find_map(|key| value.get(*key).and_then(|v| v.as_str()))
+        .unwrap_or("")
+        .to_string(),
     };
     truncate(&relativize(&raw, project_path), DETAIL_CHARS)
 }
@@ -1113,11 +862,17 @@ fn host_tool_path(tool: &AgentTool, project_path: Option<&str>) -> Option<String
         AgentToolParams::Move { to, .. } => to.as_str(),
         AgentToolParams::Search { path, .. } => path.as_deref().unwrap_or(""),
         AgentToolParams::ImageGen { path, .. } => path.as_deref().unwrap_or(""),
-        AgentToolParams::Other { value } => value
-            .get("path")
-            .or_else(|| value.get("file_path"))
-            .and_then(|v| v.as_str())
-            .unwrap_or(""),
+        AgentToolParams::Other { value } => [
+            "file_path",
+            "notebook_path",
+            "path",
+            "filePath",
+            "target_file",
+            "TargetFile",
+        ]
+        .iter()
+        .find_map(|key| value.get(*key).and_then(|v| v.as_str()))
+        .unwrap_or(""),
         _ => "",
     };
     let path = path.trim();
@@ -1149,291 +904,10 @@ fn extract_plan_todos(plan: &Value) -> Option<Vec<AgentTodoItem>> {
     extract_todos(plan)
 }
 
-fn classify_event(payload: &Value) -> ActivityKind {
-    let raw = event_name(payload);
-    if is_child_start_event(&raw) {
-        return ActivityKind::ChildStart;
-    }
-    if is_child_stop_event(&raw) {
-        return ActivityKind::ChildStop;
-    }
-    let key = collapse_event(&raw);
-    match key.as_str() {
-        "userpromptsubmit" | "beforeagent" | "beforesubmitprompt" | "beforeagentstart"
-        | "chatmessage" => ActivityKind::PromptSubmit,
-        "preinvocation" => {
-            let invocation = payload
-                .get("invocationNum")
-                .or_else(|| payload.get("invocation_num"))
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0);
-            if invocation == 0 && extract_prompt(payload).is_some() {
-                ActivityKind::PromptSubmit
-            } else {
-                ActivityKind::Ignore
-            }
-        }
-        "agentstart" => {
-            if extract_prompt(payload).is_some() {
-                ActivityKind::PromptSubmit
-            } else {
-                ActivityKind::Ignore
-            }
-        }
-        "pretooluse" | "beforetool" | "toolexecutebefore" | "toolcall" | "pretoolcall" => {
-            ActivityKind::ToolPending
-        }
-        "posttooluse" | "aftertool" | "toolexecuteafter" | "toolresult" | "posttoolcall" => {
-            ActivityKind::ToolOk
-        }
-        "posttoolusefailure" => ActivityKind::ToolError,
-        "permissionrequest" | "permissionasked" | "questionasked" => ActivityKind::Permission,
-        "stop" | "stopfailure" | "sessionend" | "agentend" | "afteragent" | "sessionidle"
-        | "sessionerror" | "sessionshutdown" | "onsessionend" | "afteragentresponse" => {
-            ActivityKind::CloseTurn
-        }
-        "notification" => {
-            let n = payload
-                .get("notification_type")
-                .or_else(|| payload.get("notificationType"))
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_ascii_lowercase();
-            if n.contains("permission") || n.contains("elicitation") {
-                ActivityKind::Permission
-            } else {
-                ActivityKind::Ignore
-            }
-        }
-        _ => {
-            if payload.get("type").and_then(|v| v.as_str()) == Some("tool.execute.before") {
-                ActivityKind::ToolPending
-            } else if payload.get("type").and_then(|v| v.as_str()) == Some("tool.execute.after") {
-                ActivityKind::ToolOk
-            } else {
-                ActivityKind::Ignore
-            }
-        }
-    }
-}
-
-fn event_name(payload: &Value) -> String {
-    payload
-        .get("hook_event_name")
-        .or_else(|| payload.get("hookEventName"))
-        .or_else(|| payload.get("type"))
-        .or_else(|| payload.get("event"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string()
-}
-
-fn collapse_event(raw: &str) -> String {
-    raw.trim()
-        .chars()
-        .filter(|c| c.is_ascii_alphanumeric())
-        .map(|c| c.to_ascii_lowercase())
-        .collect()
-}
-
-fn text_from_parts(parts: Option<&Value>) -> Option<String> {
-    let arr = parts?.as_array()?;
-    let mut out = String::new();
-    for item in arr {
-        if item.get("type").and_then(|v| v.as_str()) != Some("text") {
-            continue;
-        }
-        if let Some(text) = item.get("text").and_then(|v| v.as_str()) {
-            out.push_str(text);
-        }
-    }
-    let trimmed = out.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
-}
-
-fn extract_prompt(payload: &Value) -> Option<String> {
-    const KEYS: &[&str] = &["prompt", "content", "user_prompt", "text"];
-    for key in KEYS {
-        if let Some(s) = payload.get(*key).and_then(|v| v.as_str()) {
-            let trimmed = s.trim();
-            if !trimmed.is_empty() {
-                return Some(trimmed.to_string());
-            }
-        }
-    }
-    if let Some(s) = payload.get("message").and_then(|v| v.as_str()) {
-        let trimmed = s.trim();
-        if !trimmed.is_empty() {
-            return Some(trimmed.to_string());
-        }
-    }
-    if let Some(prompt) = payload
-        .get("properties")
-        .and_then(|p| p.get("prompt"))
-        .and_then(|v| v.as_str())
-    {
-        let trimmed = prompt.trim();
-        if !trimmed.is_empty() {
-            return Some(trimmed.to_string());
-        }
-    }
-    text_from_parts(
-        payload
-            .get("output")
-            .and_then(|output| output.get("parts"))
-            .or_else(|| payload.get("parts")),
-    )
-}
-
-fn tool_name(payload: &Value) -> Option<String> {
-    const KEYS: &[&str] = &["tool_name", "toolName", "tool", "name"];
-    for key in KEYS {
-        if let Some(s) = payload.get(*key).and_then(|v| v.as_str()) {
-            let trimmed = s.trim();
-            if !trimmed.is_empty() {
-                return Some(trimmed.to_string());
-            }
-        }
-    }
-    payload
-        .get("toolCall")
-        .and_then(|call| call.get("name").or_else(|| call.get("tool")))
-        .and_then(|v| v.as_str())
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(str::to_string)
-        .or_else(|| {
-            payload
-                .get("input")
-                .and_then(|input| input.get("tool").or_else(|| input.get("toolName")))
-                .and_then(|v| v.as_str())
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-                .map(str::to_string)
-        })
-        .or_else(|| {
-            payload
-                .get("properties")
-                .and_then(|p| p.get("tool").or_else(|| p.get("name")))
-                .and_then(|v| v.as_str())
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-                .map(str::to_string)
-        })
-}
-
-fn tool_input(payload: &Value) -> Option<&Value> {
-    payload
-        .get("output")
-        .and_then(|output| output.get("args").or_else(|| output.get("arguments")))
-        .or_else(|| {
-            payload.get("toolCall").and_then(|call| {
-                call.get("args")
-                    .or_else(|| call.get("arguments"))
-                    .or_else(|| call.get("input"))
-            })
-        })
-        .or_else(|| payload.get("tool_input"))
-        .or_else(|| payload.get("toolInput"))
-        .or_else(|| payload.get("arguments"))
-        .or_else(|| payload.get("properties"))
-        .or_else(|| {
-            let input = payload.get("input")?;
-            if input.get("tool").is_some()
-                && input.get("command").is_none()
-                && input.get("path").is_none()
-            {
-                return None;
-            }
-            Some(input)
-        })
-}
-
-fn tool_detail(payload: &Value, project_path: Option<&str>) -> String {
-    let input = tool_input(payload);
-    const KEYS: &[&str] = &[
-        "file_path",
-        "notebook_path",
-        "command",
-        "pattern",
-        "url",
-        "query",
-        "prompt",
-        "path",
-        "filePath",
-        "target_file",
-        "TargetFile",
-        "CommandLine",
-    ];
-    if let Some(input) = input {
-        for key in KEYS {
-            if let Some(s) = input.get(*key).and_then(|v| v.as_str()) {
-                return truncate(&relativize(s, project_path), DETAIL_CHARS);
-            }
-        }
-    }
-    for key in KEYS {
-        if let Some(s) = payload.get(*key).and_then(|v| v.as_str()) {
-            return truncate(&relativize(s, project_path), DETAIL_CHARS);
-        }
-    }
-    String::new()
-}
-
-fn file_from_payload(payload: &Value, project_path: Option<&str>) -> Option<String> {
-    let input = tool_input(payload);
-    const KEYS: &[&str] = &[
-        "file_path",
-        "notebook_path",
-        "path",
-        "filePath",
-        "target_file",
-    ];
-    for src in [input, Some(payload)].into_iter().flatten() {
-        for key in KEYS {
-            if let Some(s) = src.get(*key).and_then(|v| v.as_str()) {
-                return Some(relativize(s, project_path));
-            }
-        }
-    }
-    None
-}
-
-fn tool_line(payload: &Value, project_path: Option<&str>, now: &str, state: &str) -> AgentToolLine {
-    AgentToolLine {
-        name: tool_name(payload).unwrap_or_else(|| "tool".to_string()),
-        detail: tool_detail(payload, project_path),
-        state: state.to_string(),
-        started_at: now.to_string(),
-        ended_at: if state == "pending" {
-            None
-        } else {
-            Some(now.to_string())
-        },
-        duration_ms: None,
-        repeat: 1,
-    }
-}
-
-fn is_todo_write(payload: &Value) -> bool {
-    tool_name(payload)
-        .map(|n| n.eq_ignore_ascii_case("TodoWrite") || n.eq_ignore_ascii_case("todo_write"))
-        .unwrap_or(false)
-        || payload.get("todos").and_then(|v| v.as_array()).is_some()
-        || tool_input(payload)
-            .and_then(|i| i.get("todos"))
-            .and_then(|v| v.as_array())
-            .is_some()
-}
-
 fn extract_todos(payload: &Value) -> Option<Vec<AgentTodoItem>> {
     let arr = payload
         .get("todos")
-        .or_else(|| tool_input(payload).and_then(|i| i.get("todos")))
+        .or_else(|| payload.get("tool_input").and_then(|i| i.get("todos")))
         .and_then(|v| v.as_array())?;
     let mut out = Vec::new();
     for item in arr {
@@ -1460,15 +934,76 @@ fn extract_todos(payload: &Value) -> Option<Vec<AgentTodoItem>> {
     Some(out)
 }
 
-fn child_name(payload: &Value) -> Option<String> {
-    payload
-        .get("subagent_type")
-        .or_else(|| payload.get("agent_type"))
-        .or_else(|| payload.get("description"))
-        .and_then(|v| v.as_str())
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(str::to_string)
+enum GrokRosterKind {
+    Goal,
+    Workflow,
+}
+
+fn grok_goal_roster(goal: Option<&GrokGoal>) -> Vec<(String, Option<String>)> {
+    let Some(goal) = goal.filter(|g| !g.status.eq_ignore_ascii_case("cleared")) else {
+        return Vec::new();
+    };
+    goal.children
+        .iter()
+        .filter(|child| !child.id.trim().is_empty())
+        .map(|child| {
+            let name = if child.label.trim().is_empty() {
+                child.agent_type.clone()
+            } else {
+                Some(child.label.clone())
+            };
+            (child.id.clone(), name)
+        })
+        .collect()
+}
+
+fn grok_workflow_roster(workflow: Option<&GrokWorkflow>) -> Vec<(String, Option<String>)> {
+    let Some(workflow) = workflow.filter(|w| !w.status.eq_ignore_ascii_case("cleared")) else {
+        return Vec::new();
+    };
+    workflow
+        .agents
+        .iter()
+        .filter(|agent| !agent.id.trim().is_empty())
+        .map(|agent| {
+            let name = if agent.label.trim().is_empty() {
+                agent.agent_type.clone()
+            } else {
+                Some(agent.label.clone())
+            };
+            (agent.id.clone(), name)
+        })
+        .collect()
+}
+
+fn apply_grok_roster(
+    activity: &mut AgentActivity,
+    kind: GrokRosterKind,
+    incoming: Vec<(String, Option<String>)>,
+    now: &str,
+) {
+    let ids: Vec<String> = incoming.iter().map(|(id, _)| id.clone()).collect();
+    match kind {
+        GrokRosterKind::Goal => activity.grok_goal_child_ids = ids,
+        GrokRosterKind::Workflow => activity.grok_workflow_child_ids = ids,
+    }
+    for (id, name) in &incoming {
+        upsert_host_child(activity, id, name.clone(), now, true);
+        if let Some(turn) = current_turn_mut(activity) {
+            if !turn.spawned_child_ids.iter().any(|existing| existing == id) {
+                turn.spawned_child_ids.push(id.clone());
+            }
+        }
+    }
+    let keep: HashSet<String> = activity
+        .grok_goal_child_ids
+        .iter()
+        .chain(activity.grok_workflow_child_ids.iter())
+        .cloned()
+        .collect();
+    activity
+        .children
+        .retain(|child| !child.chrome || keep.contains(&child.child_id));
 }
 
 fn relativize(path: &str, project_path: Option<&str>) -> String {
@@ -1939,6 +1474,33 @@ mod tests {
     }
 
     #[test]
+    fn grok_subagent_id_records_live_child() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("ws-1:grok-child");
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": "explore",
+            }),
+            &ctx,
+        );
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "SubagentStart",
+                "subagent_id": "sa-plan",
+                "subagent_type": "Explore",
+            }),
+            &ctx,
+        );
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(activity.children.len(), 1);
+        assert_eq!(activity.children[0].child_id, "sa-plan");
+        assert_eq!(activity.children[0].name.as_deref(), Some("Explore"));
+        assert_eq!(activity.turns[0].spawned_child_ids, vec!["sa-plan"]);
+    }
+
+    #[test]
     fn antigravity_preinvocation_and_tool_fold() {
         let status = Arc::new(AgentStatusService::new());
         let service = AgentHooksService::new(status.clone());
@@ -2327,5 +1889,52 @@ mod tests {
         let activity = &status.get_all_activity()[0];
         assert_eq!(activity.turns.len(), 1);
         assert_eq!(activity.turns[0].prompt, "write it");
+    }
+
+    #[test]
+    fn chat_host_folds_grok_goal_children() {
+        use crate::service::agent_status::apply_host_event;
+
+        let status = AgentStatusService::new();
+        let mut meta = chat_meta("grok-chat");
+        meta.provider_id = "grok".into();
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::TurnStarted {
+                turn_id: "t1".into(),
+            },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::GrokGoalUpdated {
+                goal: Some(agent::GrokGoal {
+                    goal_id: "g1".into(),
+                    objective: "ship observer".into(),
+                    status: "active".into(),
+                    phase: "planning".into(),
+                    planning: true,
+                    verifying_completion: false,
+                    last_event: None,
+                    tokens_used: 0,
+                    elapsed_ms: 0,
+                    children: vec![agent::GrokGoalChild {
+                        id: "sa-plan".into(),
+                        label: "plan writer".into(),
+                        role: "planning".into(),
+                        agent_type: Some("general-purpose".into()),
+                    }],
+                }),
+            },
+        );
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(activity.children.len(), 1);
+        assert_eq!(activity.children[0].child_id, "sa-plan");
+        assert_eq!(activity.children[0].name.as_deref(), Some("plan writer"));
+
+        apply_host_event(&status, &meta, &AgentEvent::GrokGoalUpdated { goal: None });
+        let activity = &status.get_all_activity()[0];
+        assert!(activity.children.is_empty());
     }
 }

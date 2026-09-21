@@ -1,6 +1,8 @@
 //! Terminal Agent hook adapter.
 //!
-//! Parses CLI hook HTTP payloads and writes occupancy into the Agent Status kernel.
+//! Vendor JSON is mapped to Atmos `AgentEvent` before Observer activity fold
+//! (same contract as Agent Chat). Occupancy adapters stay per-vendor because
+//! they encode terminal-idle suppress and child-lifecycle policy.
 //! Install/uninstall of hook scripts lives in `core-engine::agent_hooks`.
 
 mod ampcode;
@@ -16,6 +18,7 @@ mod hermes;
 mod kiro;
 mod opencode;
 mod pi;
+mod to_event;
 
 use std::sync::Arc;
 
@@ -24,6 +27,7 @@ use serde_json::Value;
 use super::agent_status::{AgentStatusContext, AgentStatusService, AgentSurface, AgentToolType};
 
 pub(crate) use child_agent::{extract_child_agent_id, is_child_start_event, is_child_stop_event};
+use to_event::hook_payload_to_events;
 
 /// HTTP ingest context from Atmos tmux headers, mapped onto Status location.
 pub type AtmosContext = AgentStatusContext;
@@ -43,7 +47,9 @@ impl AgentHooksService {
 
     fn observe(&self, payload: &Value, tool: AgentToolType, ctx: &AgentStatusContext) {
         let session_id = resolve_session_id(payload, tool, ctx);
-        self.status.observe_hook(&session_id, tool, payload, ctx);
+        for event in hook_payload_to_events(payload) {
+            self.status.observe_host(&session_id, tool, &event, ctx);
+        }
     }
 
     pub fn handle_claude_code_event(&self, payload: &Value, ctx: &AgentStatusContext) {

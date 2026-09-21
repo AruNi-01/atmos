@@ -2946,7 +2946,13 @@
     "members": "{count} 个",
     "emptyPrompt": "（没有 prompt 文本）",
     "moreTurns": "更早还有 {count} 轮",
-    "openObserver": "打开 Agent Observer"
+    "openObserver": "打开 Agent Observer",
+    "spawn": "派生",
+    "kindComputer": "Computer",
+    "kindProject": "项目",
+    "kindWorkspace": "工作区",
+    "kindAgent": "Agent",
+    "kindSubagent": "子 Agent"
   },
   "Agent": {
     "workspace": {

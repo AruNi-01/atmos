@@ -322,6 +322,10 @@ fn host_event_to_status(event: &AgentEvent) -> Option<(AgentOccupancy, Occupancy
             Some((AgentOccupancy::Idle, OccupancyUpdateKind::TerminalIdle))
         }
         AgentEvent::SessionClosed => Some((AgentOccupancy::Idle, OccupancyUpdateKind::ForcedIdle)),
+        AgentEvent::GrokGoalUpdated { goal: Some(_) }
+        | AgentEvent::GrokWorkflowUpdated { workflow: Some(_) } => {
+            Some((AgentOccupancy::Running, OccupancyUpdateKind::Progress))
+        }
         _ => None,
     }
 }

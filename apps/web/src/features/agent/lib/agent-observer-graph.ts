@@ -209,7 +209,7 @@ export function buildObserverGraph({
         extraTurns: 0,
         childCount: 0,
         sideChat: false,
-      chat: false,
+        chat: false,
       });
       edges.push({
         id: `e-atmos-${projectNodeId}`,
@@ -236,7 +236,7 @@ export function buildObserverGraph({
           extraTurns: 0,
           childCount: 0,
           sideChat: false,
-      chat: false,
+          chat: false,
         });
         edges.push({
           id: `e-${projectNodeId}-${workspaceNodeId}`,
@@ -285,7 +285,6 @@ export function buildObserverGraph({
       animated: false,
     });
 
-    if (!expandedAgentIds.has(agentId)) continue;
     for (const child of children) {
       const childId = `child:${member.sessionId}:${child.child_id}`;
       nodes.push({
@@ -293,8 +292,6 @@ export function buildObserverGraph({
         parentId: agentId,
         kind: "subagent",
         label: child.name || child.child_id,
-        session,
-        activity: record,
         currentToolLine: child.current_tool
           ? child.current_tool.detail
             ? `${child.current_tool.name} ${child.current_tool.detail}`
@@ -345,15 +342,23 @@ export function layoutObserverGraph(
     list.push(node.id);
     children.set(node.parentId, list);
   }
+  const byId = new Map(graph.nodes.map((node) => [node.id, node]));
   const positions = new Map<string, { x: number; y: number }>();
-  const NODE_WIDTH = 260;
-  const GAP_X = 48;
-  const compactH = 96;
-  const expandedH = 220;
-  const GAP_Y = 36;
+  const NODE_WIDTH = 288;
+  const GAP_X = 72;
+  const GAP_Y = 72;
 
   function height(id: string): number {
-    return expandedAgentIds.has(id) ? expandedH : compactH;
+    const node = byId.get(id);
+    if (!node) return 108;
+    if (node.kind === "subagent") return 128;
+    if (node.kind === "agent") {
+      const extra = expandedAgentIds.has(id)
+        ? Math.min(node.visibleTurns.length, 6) * 22 + (node.extraTurns > 0 ? 18 : 0)
+        : 0;
+      return 136 + extra;
+    }
+    return 112;
   }
 
   function subtreeWidth(id: string): number {

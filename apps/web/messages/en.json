@@ -2946,7 +2946,13 @@
     "members": "{count} live",
     "emptyPrompt": "(no prompt text)",
     "moreTurns": "+{count} earlier",
-    "openObserver": "Open Agent Observer"
+    "openObserver": "Open Agent Observer",
+    "spawn": "Spawn",
+    "kindComputer": "Computer",
+    "kindProject": "Project",
+    "kindWorkspace": "Workspace",
+    "kindAgent": "Agent",
+    "kindSubagent": "Subagent"
   },
   "Agent": {
     "workspace": {
