@@ -1,8 +1,11 @@
 import type { ReactNode } from "react";
+import { Platform, View } from "react-native";
 import { BottomSheet, RNHostView } from "@expo/ui";
-import { View } from "react-native";
+import { environment, presentationBackground } from "@expo/ui/swift-ui/modifiers";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import type { MobileThemeColorScheme } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
+import { drawerPalette } from "@/ui/primitives/expo-drawer-theme";
 
 type SnapPoint = "half" | "full" | { fraction: number } | { height: number };
 
@@ -15,12 +18,14 @@ type SnapPoint = "half" | "full" | { fraction: number } | { height: number };
  */
 export function ExpoDrawer({
   children,
+  colorScheme,
   isPresented,
   onDismiss,
   snapPoints = ["half", "full"],
   testID,
 }: {
   children: ReactNode;
+  colorScheme?: MobileThemeColorScheme;
   isPresented: boolean;
   onDismiss: () => void;
   snapPoints?: SnapPoint[];
@@ -28,13 +33,27 @@ export function ExpoDrawer({
 }) {
   const theme = useMobileTheme();
   const insets = useSafeAreaInsets();
+  const palette = drawerPalette(theme.colors, theme.colorScheme, colorScheme);
+  const iosModifiers =
+    Platform.OS === "ios"
+      ? [
+          environment("colorScheme", palette.scheme),
+          presentationBackground(palette.colors.sheetBackground),
+        ]
+      : undefined;
 
   return (
-    <BottomSheet isPresented={isPresented} onDismiss={onDismiss} snapPoints={snapPoints} testID={testID}>
+    <BottomSheet
+      isPresented={isPresented}
+      modifiers={iosModifiers}
+      onDismiss={onDismiss}
+      snapPoints={snapPoints}
+      testID={testID}
+    >
       <RNHostView matchContents>
         <View
           style={{
-            backgroundColor: theme.colors.sheetBackground,
+            backgroundColor: palette.colors.sheetBackground,
             paddingBottom: Math.max(insets.bottom, 24),
             paddingHorizontal: 16,
             paddingTop: 16,

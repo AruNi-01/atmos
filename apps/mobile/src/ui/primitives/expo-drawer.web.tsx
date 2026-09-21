@@ -10,6 +10,8 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import type { MobileThemeColorScheme } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 import {
   DRAWER_CORNER_RADIUS,
   DRAWER_EDGE_INSET,
@@ -17,7 +19,7 @@ import {
   drawerHalfTop,
   nextDrawerSnap,
 } from "@/ui/primitives/expo-drawer-geometry";
-import { useMobileTheme } from "@/theme/theme-store";
+import { drawerPalette } from "@/ui/primitives/expo-drawer-theme";
 
 type SnapPoint = "half" | "full" | { fraction: number } | { height: number };
 
@@ -34,17 +36,20 @@ const SPRING = {
  */
 export function ExpoDrawer({
   children,
+  colorScheme,
   isPresented,
   onDismiss,
   testID,
 }: {
   children: ReactNode;
+  colorScheme?: MobileThemeColorScheme;
   isPresented: boolean;
   onDismiss: () => void;
   snapPoints?: SnapPoint[];
   testID?: string;
 }) {
   const theme = useMobileTheme();
+  const palette = drawerPalette(theme.colors, theme.colorScheme, colorScheme);
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const halfTop = drawerHalfTop(windowHeight);
@@ -148,7 +153,7 @@ export function ExpoDrawer({
           style={[
             styles.sheet,
             {
-              backgroundColor: theme.colors.sheetBackground,
+              backgroundColor: palette.colors.sheetBackground,
               borderRadius: radius,
               bottom: inset,
               left: inset,
@@ -162,7 +167,7 @@ export function ExpoDrawer({
             style={[
               styles.handle,
               {
-                backgroundColor: theme.isDark ? "rgba(235, 235, 245, 0.32)" : "rgba(60, 60, 67, 0.30)",
+                backgroundColor: palette.isDark ? "rgba(235, 235, 245, 0.32)" : "rgba(60, 60, 67, 0.30)",
               },
             ]}
           />

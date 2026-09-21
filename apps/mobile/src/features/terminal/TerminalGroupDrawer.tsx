@@ -3,9 +3,9 @@ import {
   tabItemsFromEntries,
   type TerminalGroupItem,
 } from "@/features/terminal/terminal-selection";
+import { getMobileThemeColors } from "@/theme/colors";
 import { radii } from "@/theme/radii";
 import { spacing } from "@/theme/spacing";
-import { useMobileTheme } from "@/theme/theme-store";
 import { CheckIcon } from "@/ui/icons/lucide-native";
 import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
 
@@ -25,20 +25,27 @@ export function TerminalGroupDrawer({
   onDismiss: () => void;
   onSelect: (entryId: string) => void;
 }) {
-  const theme = useMobileTheme();
+  // Terminal is always dark; this sheet sits on it, so it uses the dark ladder
+  // even when the rest of the app is following a light system theme.
+  const colors = getMobileThemeColors("dark");
 
   return (
-    <ExpoDrawer isPresented={isPresented} onDismiss={onDismiss} testID="terminal-group-drawer">
-      <Text style={[styles.title, { color: theme.colors.label }]}>Terminals</Text>
+    <ExpoDrawer
+      colorScheme="dark"
+      isPresented={isPresented}
+      onDismiss={onDismiss}
+      testID="terminal-group-drawer"
+    >
+      <Text style={[styles.title, { color: colors.label }]}>Terminals</Text>
       {entries.length === 0 ? (
-        <Text style={[styles.empty, { color: theme.colors.secondaryLabel }]}>No terminals yet</Text>
+        <Text style={[styles.empty, { color: colors.secondaryLabel }]}>No terminals yet</Text>
       ) : (
         <View
           style={[
             styles.card,
             {
-              backgroundColor: theme.colors.cardElevated,
-              borderColor: theme.colors.glassBorder,
+              backgroundColor: colors.cardElevated,
+              borderColor: colors.glassBorder,
             },
           ]}
         >
@@ -47,7 +54,7 @@ export function TerminalGroupDrawer({
             return (
               <View key={entry.id}>
                 {index > 0 ? (
-                  <View style={[styles.separator, { backgroundColor: theme.colors.separator }]} />
+                  <View style={[styles.separator, { backgroundColor: colors.separator }]} />
                 ) : null}
                 <Pressable
                   accessibilityRole="button"
@@ -55,20 +62,20 @@ export function TerminalGroupDrawer({
                   onPress={() => onSelect(entry.id)}
                   style={({ pressed }) => [
                     styles.row,
-                    pressed ? { backgroundColor: theme.colors.mutedPressed } : null,
+                    pressed ? { backgroundColor: colors.mutedPressed } : null,
                   ]}
                 >
                   <View style={styles.copy}>
-                    <Text numberOfLines={1} style={[styles.label, { color: theme.colors.label }]}>
+                    <Text numberOfLines={1} style={[styles.label, { color: colors.label }]}>
                       {entry.label}
                     </Text>
                     {entry.detail ? (
-                      <Text numberOfLines={1} style={[styles.detail, { color: theme.colors.secondaryLabel }]}>
+                      <Text numberOfLines={1} style={[styles.detail, { color: colors.secondaryLabel }]}>
                         {entry.detail}
                       </Text>
                     ) : null}
                   </View>
-                  {selected ? <CheckIcon color={theme.colors.accent} size={18} strokeWidth={2.4} /> : null}
+                  {selected ? <CheckIcon color={colors.accent} size={18} strokeWidth={2.4} /> : null}
                 </Pressable>
               </View>
             );
