@@ -4,8 +4,8 @@ import { describe, expect, it } from "bun:test";
 import type { AgentActivity, AgentChildActivity } from "@atmos/api-types/ws/dto/events";
 
 import {
-  activityToConversation,
-  childToConversation,
+  activityToSteps,
+  childToSteps,
   isObserverChromeToolName,
 } from "../observer-conversation";
 
@@ -30,7 +30,7 @@ describe("observer conversation", () => {
     expect(isObserverChromeToolName("read_file")).toBe(false);
   });
 
-  it("renders parent turns as user then assistant tool groups and drops child prompts", () => {
+  it("lists parent prompt plus live tools and drops child prompts", () => {
     const record = activity({
       session_id: "s1",
       current_tool: {
@@ -94,17 +94,14 @@ describe("observer conversation", () => {
         },
       ],
     });
-    const messages = activityToConversation(record);
-    expect(messages.map((message) => message.role)).toEqual(["user", "assistant"]);
-    expect(messages[0]?.parts).toEqual([
-      { type: "text", text: "启动多个 subagent 探索一下这个项目" },
-    ]);
-    const tools = messages[1]?.parts.filter((part) => part.type === "tool_call") ?? [];
-    expect(tools).toHaveLength(1);
-    expect(tools[0] && tools[0].type === "tool_call" ? tools[0].name : null).toBe("read_file");
+    const steps = activityToSteps(record);
+    expect(steps.map((step) => step.kind)).toEqual(["prompt", "tool"]);
+    expect(steps[0]?.label).toBe("启动多个 subagent 探索一下这个项目");
+    expect(steps[1]?.label).toBe("read_file");
+    expect(steps[1]?.detail).toBe("lib.rs");
   });
 
-  it("renders a subagent prompt plus its tools", () => {
+  it("lists a subagent prompt plus its tools", () => {
     const child: AgentChildActivity = {
       child_id: "c1",
       name: "general-purpose",
@@ -129,13 +126,9 @@ describe("observer conversation", () => {
       started_at: "t",
       last_event_at: "t",
     };
-    const messages = childToConversation(child);
-    expect(messages).toHaveLength(2);
-    expect(messages[0]?.role).toBe("user");
-    const tools = messages[1]?.parts.filter((part) => part.type === "tool_call") ?? [];
-    expect(tools.map((part) => (part.type === "tool_call" ? part.name : ""))).toEqual([
-      "read_file",
-      "grep",
-    ]);
+    const steps = childToSteps(child);
+    expect(steps.map((step) => step.kind)).toEqual(["prompt", "tool", "tool"]);
+    expect(steps[0]?.label).toBe("You are exploring the Atmos monorepo");
+    expect(steps.slice(1).map((step) => step.label)).toEqual(["read_file", "grep"]);
   });
 });

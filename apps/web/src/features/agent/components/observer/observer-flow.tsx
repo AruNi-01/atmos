@@ -2,7 +2,6 @@
 
 import type { CSSProperties } from "react";
 import {
-  EdgeLabelRenderer,
   Handle,
   Position,
   getSmoothStepPath,
@@ -11,7 +10,7 @@ import {
   type Node,
   type NodeProps,
 } from "@xyflow/react";
-import { ChevronDown, FolderGit2, GitBranch, GripVertical, Monitor } from "lucide-react";
+import { ChevronRight, FolderGit2, GitBranch, GripVertical, Monitor } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { MatrixOrb, cn } from "@workspace/ui";
 import { observerStaggerMs } from "@/features/agent/lib/observer-graph-motion";
@@ -21,7 +20,10 @@ import {
   AGENT_TOOL_ICON_IDS,
   AGENT_TOOL_LABELS,
 } from "@/features/agent/store/agent-status-store";
-import type { ObserverGraphNode } from "@/features/agent/lib/agent-observer-graph";
+import {
+  observerNodeTitle,
+  type ObserverGraphNode,
+} from "@/features/agent/lib/agent-observer-graph";
 
 export type ObserverPresence = "live" | "exit";
 
@@ -30,11 +32,11 @@ export type ObserverFlowData = {
   collapsed: boolean;
   presence: ObserverPresence;
   onToggle: () => void;
+  sessionTitle?: string;
 };
 
 export type ObserverEdgeData = {
   kind: "owns" | "spawn";
-  label?: string;
   presence: ObserverPresence;
 };
 
@@ -165,18 +167,31 @@ function ObserverNodeCard({
   selected,
   collapsed,
   presence,
+  sessionTitle,
   onToggle,
 }: {
   data: ObserverGraphNode;
   selected: boolean;
   collapsed: boolean;
   presence: ObserverPresence;
+  sessionTitle?: string;
   onToggle: () => void;
 }) {
   const t = useTranslations("AgentObserver");
   const tone = kindTone(data);
   const state = occupancyOf(data);
   const name = agentTitle(data);
+  const resolvedTitle = observerNodeTitle(data, sessionTitle);
+  const headline =
+    data.kind === "atmos"
+      ? t("kindComputer")
+      : data.kind === "project"
+        ? t("kindProject")
+        : data.kind === "workspace"
+          ? t("kindWorkspace")
+          : data.kind === "agent" && resolvedTitle === data.label
+            ? name
+            : resolvedTitle;
   const activityLine =
     state === "running"
       ? (data.currentToolLine ?? data.latestPrompt)
@@ -187,19 +202,9 @@ function ObserverNodeCard({
     (data.kind === "agent" || data.kind === "project" || data.kind === "workspace");
   const folded = collapsed;
   const exiting = presence === "exit";
-  const kicker =
-    data.kind === "atmos"
-      ? t("kindComputer")
-      : data.kind === "project"
-        ? t("kindProject")
-        : data.kind === "workspace"
-          ? t("kindWorkspace")
-          : data.kind === "subagent"
-            ? t("kindSubagent")
-            : t("kindAgent");
   const caption = [
     occupancyLabel(t, state) || null,
-    wellTitle !== name ? name : null,
+    (data.kind === "agent" || data.kind === "subagent") && headline !== name ? name : null,
     data.chat ? t("chat") : data.sideChat ? t("sideChat") : null,
     data.kind === "agent" && data.turnCount > 0 ? t("turns", { count: data.turnCount }) : null,
     data.kind === "agent" && data.childCount > 0
@@ -235,22 +240,12 @@ function ObserverNodeCard({
     >
       <Handle
         type="target"
-        position={Position.Top}
+        position={Position.Left}
         isConnectable={false}
         style={handleStyle}
       />
 
       <div className="observer-card-header flex items-center gap-2">
-        {canToggle ? (
-          <span
-            className={cn(
-              "min-w-[1.25rem] shrink-0 text-right text-[11px] font-medium tabular-nums text-muted-foreground",
-              !(folded && data.descendantCount > 0) && "invisible",
-            )}
-          >
-            {data.descendantCount}
-          </span>
-        ) : null}
         <button
           type="button"
           aria-label={t("dragCard")}
@@ -266,21 +261,31 @@ function ObserverNodeCard({
             <GripVertical className="size-3.5" />
           </span>
         </button>
-        <div className={cn("min-w-0 flex-1 truncate text-[13px] font-medium leading-none", tone.kicker)}>
-          {kicker}
+        <div className={cn("min-w-0 flex-1 truncate text-[13px] font-medium leading-none", tone.kicker)} title={headline}>
+          {headline}
         </div>
         {canToggle ? (
-          <button
-            type="button"
-            aria-label={t(folded ? "expand" : "fold")}
-            className="nodrag nopan flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-background/80 hover:text-foreground"
-            onClick={(event) => {
-              event.stopPropagation();
-              onToggle();
-            }}
-          >
-            <ChevronDown className={cn("size-3.5 transition-transform", folded && "-rotate-90")} />
-          </button>
+          <div className="flex shrink-0 items-center gap-0.5">
+            <span
+              className={cn(
+                "min-w-[1.25rem] text-right text-[11px] font-medium tabular-nums text-muted-foreground",
+                !(folded && data.descendantCount > 0) && "invisible",
+              )}
+            >
+              {data.descendantCount}
+            </span>
+            <button
+              type="button"
+              aria-label={t(folded ? "expand" : "fold")}
+              className="nodrag nopan flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-background/80 hover:text-foreground"
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggle();
+              }}
+            >
+              <ChevronRight className={cn("size-3.5 transition-transform", folded && "rotate-90")} />
+            </button>
+          </div>
         ) : null}
       </div>
 
@@ -307,7 +312,7 @@ function ObserverNodeCard({
 
       <Handle
         type="source"
-        position={Position.Bottom}
+        position={Position.Right}
         isConnectable={false}
         style={handleStyle}
       />
@@ -322,6 +327,7 @@ function ObserverFlowNode({ data, selected }: NodeProps<Node<ObserverFlowData>>)
       selected={selected}
       collapsed={data.collapsed}
       presence={data.presence}
+      sessionTitle={data.sessionTitle}
       onToggle={data.onToggle}
     />
   );
@@ -339,8 +345,7 @@ function ObserverFlowEdge({
   markerEnd,
 }: EdgeProps<Edge<ObserverEdgeData>>) {
   const spawn = data?.kind === "spawn";
-  const exiting = data?.presence === "exit";
-  const [edgePath, labelX, labelY] = getSmoothStepPath({
+  const [edgePath] = getSmoothStepPath({
     sourceX,
     sourceY,
     sourcePosition,
@@ -358,9 +363,12 @@ function ObserverFlowEdge({
         id={id}
         d={edgePath}
         fill="none"
-        pathLength={1}
+        pathLength={spawn ? undefined : 1}
         markerEnd={markerEnd}
-        className="react-flow__edge-path observer-edge-stroke"
+        className={cn(
+          "react-flow__edge-path observer-edge-stroke",
+          spawn && "observer-edge-spawn",
+        )}
         style={{
           stroke,
           strokeWidth: spawn ? 1.8 : 1.35,
@@ -373,25 +381,6 @@ function ObserverFlowEdge({
         strokeWidth={20}
         className="react-flow__edge-interaction"
       />
-      {data?.label ? (
-        <EdgeLabelRenderer>
-          <div
-            className={cn(
-              "observer-edge-label nodrag nopan pointer-events-none rounded-full border px-2 py-0.5 text-[10px] font-medium leading-none",
-              spawn
-                ? "border-success/35 bg-background text-success"
-                : "border-border bg-background text-muted-foreground",
-              exiting && "is-exiting",
-            )}
-            style={{
-              position: "absolute",
-              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-            }}
-          >
-            {data.label}
-          </div>
-        </EdgeLabelRenderer>
-      ) : null}
     </>
   );
 }

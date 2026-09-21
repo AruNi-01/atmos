@@ -219,8 +219,11 @@ fn spawn_hook_tool(
                 .map(str::to_string)
         })
     });
+    let call_id = extracted_tool_call_id(payload)
+        .or_else(|| task_id.clone())
+        .unwrap_or_default();
     AgentTool {
-        tool_call_id: tool_call_id(payload),
+        tool_call_id: call_id,
         parent_tool_call_id: None,
         name: name.to_string(),
         title: agent_type.clone(),
@@ -243,7 +246,6 @@ fn is_spawn_tool_name(name: &str) -> bool {
             .replace(['-', ' '], "_")
             .as_str(),
         "task"
-            | "agent"
             | "subagent"
             | "spawn_subagent"
             | "spawn_agent"
@@ -289,7 +291,7 @@ fn tool_params(payload: &Value) -> AgentToolParams {
     AgentToolParams::Other { value }
 }
 
-fn tool_call_id(payload: &Value) -> String {
+fn extracted_tool_call_id(payload: &Value) -> Option<String> {
     const KEYS: &[&str] = &[
         "tool_use_id",
         "toolUseId",
@@ -298,17 +300,29 @@ fn tool_call_id(payload: &Value) -> String {
         "call_id",
         "callId",
     ];
-    for key in KEYS {
-        if let Some(id) = payload
-            .get(*key)
-            .and_then(|v| v.as_str())
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-        {
-            return id.to_string();
+    for source in [
+        payload,
+        payload.get("tool_input").unwrap_or(&Value::Null),
+        payload.get("toolInput").unwrap_or(&Value::Null),
+        payload.get("toolCall").unwrap_or(&Value::Null),
+        payload.get("tool_call").unwrap_or(&Value::Null),
+    ] {
+        for key in KEYS {
+            if let Some(id) = source
+                .get(*key)
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                return Some(id.to_string());
+            }
         }
     }
-    new_id()
+    None
+}
+
+fn tool_call_id(payload: &Value) -> String {
+    extracted_tool_call_id(payload).unwrap_or_else(new_id)
 }
 
 fn new_id() -> String {
@@ -559,6 +573,7 @@ mod tests {
         };
         assert_eq!(agent_type.as_deref(), Some("general-purpose"));
         assert_eq!(prompt.as_deref(), Some("You are exploring the tree"));
+        assert!(tool_call.tool_call_id.is_empty());
     }
 
     #[test]

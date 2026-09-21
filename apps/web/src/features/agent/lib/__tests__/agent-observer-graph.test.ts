@@ -10,6 +10,9 @@ import { join } from "node:path";
 
 import {
   buildObserverGraph,
+  layoutObserverGraph,
+  observerNodeTitle,
+  observerSubtreeIds,
   sessionFromActivity,
   toolLineText,
 } from "../agent-observer-graph";
@@ -90,6 +93,23 @@ describe("buildObserverGraph", () => {
       .filter((n) => n.kind === "agent")
       .map((n) => n.parentId);
     expect(agentParents).toEqual(["workspace:w1", "workspace:w1"]);
+    const pos = layoutObserverGraph(graph, new Set());
+    const atmos = pos.get("atmos");
+    const project = pos.get("project:p1");
+    const workspace = pos.get("workspace:w1");
+    const agentA = pos.get("agent:a");
+    const agentB = pos.get("agent:b");
+    expect(atmos).toBeDefined();
+    expect(project).toBeDefined();
+    expect(workspace).toBeDefined();
+    expect(agentA).toBeDefined();
+    expect(agentB).toBeDefined();
+    if (!atmos || !project || !workspace || !agentA || !agentB) return;
+    expect(project.x).toBeGreaterThan(atmos.x);
+    expect(workspace.x).toBeGreaterThan(project.x);
+    expect(agentA.x).toBe(agentB.x);
+    expect(agentA.x).toBeGreaterThan(workspace.x);
+    expect(Math.abs(agentA.y - agentB.y)).toBeGreaterThan(40);
   });
 
   it("falls back to Unassigned when bind is unknown", () => {
@@ -188,6 +208,7 @@ describe("buildObserverGraph", () => {
     expect(expanded.edges.some((e) => e.source === "agent:lead" && e.target === "child:lead:c1" && e.kind === "spawn")).toBe(
       true,
     );
+    expect(expanded.edges.every((edge) => edge.animated === false)).toBe(true);
     expect(expanded.nodes.find((n) => n.id === "agent:lead")?.visibleTurns[0]?.prompt).toBe(
       "one",
     );
@@ -336,6 +357,75 @@ describe("buildObserverGraph", () => {
     expect(folded.nodes.find((n) => n.id === "agent:lead")?.descendantCount).toBe(1);
     expect(folded.edges.some((e) => e.target === "child:lead:c1")).toBe(false);
   });
+
+  it("lists the visible subtree for fold/expand camera focus", () => {
+    const record = activity({
+      session_id: "lead",
+      context_id: "w1",
+      last_state: "running",
+      children: [
+        {
+          child_id: "c1",
+          name: "Explore",
+          state: "running",
+          recent_tools: [],
+          started_at: "t",
+          last_event_at: "t",
+        },
+      ],
+    });
+    const open = buildObserverGraph({
+      projects,
+      sessions: [session({ session_id: "lead", context_id: "w1" })],
+      activity: [record],
+      collapsedIds: new Set(),
+      expandedAgentIds: new Set(),
+    });
+    expect(observerSubtreeIds(open.nodes, "agent:lead").sort()).toEqual(
+      ["agent:lead", "child:lead:c1"].sort(),
+    );
+    const folded = buildObserverGraph({
+      projects,
+      sessions: [session({ session_id: "lead", context_id: "w1" })],
+      activity: [record],
+      collapsedIds: new Set(["agent:lead"]),
+      expandedAgentIds: new Set(),
+    });
+    expect(observerSubtreeIds(folded.nodes, "agent:lead")).toEqual(["agent:lead"]);
+  });
+
+  it("titles agent cards from the session title and subagents from type plus description", () => {
+    const record = activity({
+      session_id: "lead",
+      context_id: "w1",
+      last_state: "running",
+      children: [
+        {
+          child_id: "c1",
+          name: "Explore · scan the tree",
+          state: "running",
+          recent_tools: [],
+          started_at: "t",
+          last_event_at: "t",
+        },
+      ],
+    });
+    const graph = buildObserverGraph({
+      projects,
+      sessions: [session({ session_id: "lead", context_id: "w1" })],
+      activity: [record],
+      collapsedIds: new Set(),
+      expandedAgentIds: new Set(),
+    });
+    const agent = graph.nodes.find((n) => n.id === "agent:lead");
+    const child = graph.nodes.find((n) => n.id === "child:lead:c1");
+    expect(agent).toBeDefined();
+    expect(child).toBeDefined();
+    if (!agent || !child) return;
+    expect(observerNodeTitle(agent, "启动多个 subagent")).toBe("启动多个 subagent");
+    expect(observerNodeTitle(agent, "  ")).toBe(agent.label);
+    expect(observerNodeTitle(child)).toBe("Explore · scan the tree");
+  });
 });
 
 describe("Observer pane jump", () => {
@@ -445,6 +535,17 @@ describe("Observer pane jump", () => {
     expect(source).toContain("getStatus");
     expect(source).toContain("ObserverInstallHooksButton");
     expect(source).toContain("ObserverNewChatPicker");
+    expect(source).toContain("observer-edge-entering");
+    expect(source).toContain("observer-edge-spawn");
+    expect(source).not.toContain('t("spawn")');
+    expect(source).toContain("mergeFlowEdges");
+    expect(source).toContain("ObserverViewportFitter");
+    expect(source).toContain("observerSubtreeIds");
+    expect(source).toContain("pendingFocusRootRef");
+    expect(source).toContain("OBSERVER_MOTION_MS");
+    expect(source).toContain("sessionTitle");
+    expect(source).toContain("useAgentStatusSessionTitles");
+    expect(source).toContain("animated: false");
     expect(source).toContain("docsAction=");
     expect(source).toContain("createAction=");
     expect(source).not.toContain("setAgentChatOpen");
@@ -470,8 +571,43 @@ describe("Observer pane jump", () => {
     expect(source).toContain("observer-drag-handle");
     expect(source).toContain("GripVertical");
     expect(source).toContain("descendantCount");
+    expect(source).toContain("observerNodeTitle");
+    expect(source).toContain("sessionTitle");
+    expect(source).not.toContain('t("kindAgent")');
+    expect(source).not.toContain('t("kindSubagent")');
     expect(source).toContain("is-exiting");
-    expect(source).toContain("pathLength={1}");
+    expect(source).toContain("pathLength={spawn ? undefined : 1}");
+    expect(source).toContain("Position.Left");
+    expect(source).toContain("Position.Right");
+    expect(source).toContain("ChevronRight");
+    expect(source).toContain("observer-edge-spawn");
+    expect(source).not.toContain("EdgeLabelRenderer");
+    const header = source.slice(
+      source.indexOf("observer-card-header"),
+      source.indexOf("mt-2.5 rounded-lg"),
+    );
+    expect(header.indexOf("observer-drag-handle")).toBeGreaterThan(-1);
+    expect(header.indexOf("observer-drag-handle")).toBeLessThan(header.indexOf("descendantCount"));
+    expect(header.indexOf("descendantCount")).toBeLessThan(header.indexOf("ChevronRight"));
+  });
+
+  it("draws observer edges only when they enter or exit", () => {
+    const css = readFileSync(
+      join(import.meta.dir, "../../components/observer/observer-flow.css"),
+      "utf8",
+    );
+    expect(css).toContain("observer-edge-entering");
+    expect(css).toContain("observer-edge-exiting");
+    expect(css).toContain("observer-edge-spawn");
+    expect(css).toContain("stroke-dasharray: 6 4");
+    expect(css).not.toContain("observer-edge-label");
+    expect(css).toContain(".observer-flow .react-flow__node.draggable");
+    expect(css).toContain(".observer-card {\n  cursor: pointer;");
+    expect(css).toContain(".observer-drag-handle {\n  cursor: grab;");
+    expect(css).toContain(".observer-drag-handle:hover .observer-drag-grip");
+    expect(css).not.toContain(".observer-card-header:hover .observer-drag-grip");
+    expect(css).not.toContain(".react-flow__edge:not(.animated)");
+    expect(css).not.toContain(".react-flow__edge.animated");
   });
 });
 
@@ -486,6 +622,10 @@ describe("product name", () => {
     expect(en.AgentObserver.hooksInstalled).toBe("{count} hooks installed");
     expect(en.AgentObserver.recentWorkspacesHint).toBe("Recent 5 workspaces");
     expect(en.AgentObserver.resetLayout).toBe("Reset layout");
+    expect(en.AgentObserver.stepsHint).toBe(
+      "Hooks only see tool steps. Open the pane for the full turn.",
+    );
+    expect(en.AgentObserver.noTurns).toBe("No steps yet");
     expect(en.settings.layoutSection.launchpad.items.agentObserver.title).toBe(
       "Agent Observer",
     );

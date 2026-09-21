@@ -333,14 +333,12 @@ export function buildObserverGraph({
         occupancy: child.state,
         child,
       });
-      const running =
-        child.state === "running" || child.current_tool?.state === "pending";
       edges.push({
         id: `e-${agentId}-${childId}`,
         source: agentId,
         target: childId,
         kind: "spawn",
-        animated: running,
+        animated: false,
       });
     }
   }
@@ -399,8 +397,8 @@ export function layoutObserverGraph(
   const byId = new Map(graph.nodes.map((node) => [node.id, node]));
   const positions = new Map<string, { x: number; y: number }>();
   const NODE_WIDTH = 288;
-  const GAP_X = 72;
-  const GAP_Y = 72;
+  const GAP_X = 96;
+  const GAP_Y = 48;
 
   function height(id: string): number {
     const node = byId.get(id);
@@ -415,26 +413,64 @@ export function layoutObserverGraph(
     return 112;
   }
 
-  function subtreeWidth(id: string): number {
+  function subtreeHeight(id: string): number {
     const kids = children.get(id) ?? [];
-    if (!kids.length) return NODE_WIDTH;
-    const sum = kids.reduce((acc, kid) => acc + subtreeWidth(kid), 0) + GAP_X * (kids.length - 1);
-    return Math.max(NODE_WIDTH, sum);
+    if (!kids.length) return height(id);
+    const sum =
+      kids.reduce((acc, kid) => acc + subtreeHeight(kid), 0) + GAP_Y * (kids.length - 1);
+    return Math.max(height(id), sum);
   }
 
   function place(id: string, x: number, y: number) {
-    const width = subtreeWidth(id);
-    positions.set(id, { x: x + width / 2 - NODE_WIDTH / 2, y });
+    const tall = subtreeHeight(id);
+    const h = height(id);
+    positions.set(id, { x, y: y + tall / 2 - h / 2 });
     const kids = children.get(id) ?? [];
-    let cursor = x;
-    const childY = y + height(id) + GAP_Y;
+    let cursor = y;
+    const childX = x + NODE_WIDTH + GAP_X;
     for (const kid of kids) {
-      const w = subtreeWidth(kid);
-      place(kid, cursor, childY);
-      cursor += w + GAP_X;
+      const kidH = subtreeHeight(kid);
+      place(kid, childX, cursor);
+      cursor += kidH + GAP_Y;
     }
   }
 
   place("atmos", 0, 0);
   return positions;
+}
+
+export function observerSubtreeIds(nodes: ObserverGraphNode[], rootId: string): string[] {
+  const ids = [rootId];
+  const byParent = new Map<string, string[]>();
+  for (const node of nodes) {
+    if (!node.parentId) continue;
+    const list = byParent.get(node.parentId) ?? [];
+    list.push(node.id);
+    byParent.set(node.parentId, list);
+  }
+  const stack = [...(byParent.get(rootId) ?? [])];
+  while (stack.length > 0) {
+    const id = stack.pop();
+    if (!id) continue;
+    ids.push(id);
+    const kids = byParent.get(id);
+    if (kids) stack.push(...kids);
+  }
+  return ids;
+}
+
+export function observerNodeTitle(
+  node: ObserverGraphNode,
+  sessionTitle?: string | null,
+): string {
+  if (node.kind === "agent") {
+    const titled = sessionTitle?.trim();
+    if (titled) return titled;
+    return node.label;
+  }
+  if (node.kind === "subagent") {
+    const named = node.child?.name?.trim() || node.label.trim();
+    if (named) return named;
+  }
+  return node.label;
 }

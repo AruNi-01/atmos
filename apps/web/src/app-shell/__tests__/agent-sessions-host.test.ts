@@ -89,7 +89,7 @@ describe("Agent Sessions host wiring", () => {
     expect(list).toContain('"all"');
     expect(list).not.toContain("LaunchpadPageTabs");
     expect(list).not.toContain("icon: Bot");
-    expect(list).toContain("<Layers");
+    expect(list).toContain("<LayersIcon");
     expect(list).toContain("HostSessionGroupGlyph");
     expect(list).toContain("group/header");
     expect(list).toContain("group-hover/header:opacity-0");

@@ -1792,7 +1792,14 @@
         "pinned": "Pinned",
         "workspaces": "Workspaces",
         "clearWorkspaceFiltersBeforeReordering": "Clear workspace filters before reordering.",
-        "noWorkspaces": "No workspaces",
+        "emptyWorkspaces": {
+          "title": "No workspaces",
+          "cta": "New"
+        },
+        "emptyProjects": {
+          "title": "No projects",
+          "cta": "Add"
+        },
         "showMore": "Show more",
         "showLess": "less"
       },
@@ -2952,7 +2959,8 @@
     "todos": "Todos",
     "recentTools": "Recent tools",
     "turnsHeading": "Turns",
-    "noTurns": "No turns yet",
+    "noTurns": "No steps yet",
+    "stepsHint": "Hooks only see tool steps. Open the pane for the full turn.",
     "toolPending": "Pending",
     "toolOk": "Done",
     "toolError": "Failed",
@@ -2969,7 +2977,6 @@
     "emptyPrompt": "(no prompt text)",
     "moreTurns": "+{count} earlier",
     "openObserver": "Open Agent Observer",
-    "spawn": "Spawn",
     "kindComputer": "Computer",
     "kindProject": "Project",
     "kindWorkspace": "Workspace",

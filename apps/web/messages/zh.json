@@ -1792,7 +1792,14 @@
         "pinned": "已固定",
         "workspaces": "工作区",
         "clearWorkspaceFiltersBeforeReordering": "请先清除工作区筛选条件后再重新排序。",
-        "noWorkspaces": "暂无工作区",
+        "emptyWorkspaces": {
+          "title": "暂无工作区",
+          "cta": "新建"
+        },
+        "emptyProjects": {
+          "title": "暂无项目",
+          "cta": "添加"
+        },
         "showMore": "显示更多",
         "showLess": "更少"
       },
@@ -2952,7 +2959,8 @@
     "todos": "待办",
     "recentTools": "最近工具",
     "turnsHeading": "轮次",
-    "noTurns": "还没有轮次",
+    "noTurns": "还没有步骤",
+    "stepsHint": "Hook 只能看到工具步骤。打开面板查看完整回合。",
     "toolPending": "进行中",
     "toolOk": "完成",
     "toolError": "失败",
@@ -2969,7 +2977,6 @@
     "emptyPrompt": "（没有 prompt 文本）",
     "moreTurns": "更早还有 {count} 轮",
     "openObserver": "打开 Agent Observer",
-    "spawn": "派生",
     "kindComputer": "Computer",
     "kindProject": "项目",
     "kindWorkspace": "工作区",

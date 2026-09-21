@@ -14,6 +14,7 @@ import {
   IconFilter,
   IconSearch,
   Input,
+  LayersIcon,
   ScrollArea,
   Tooltip,
   TooltipContent,
@@ -25,7 +26,6 @@ import { formatLocalDateTime, formatRelativeTime, parseUTCDate } from "@atmos/sh
 import {
   ChevronDown,
   Folder,
-  Layers,
   Loader2,
   MessageSquare,
   RotateCcw,
@@ -307,7 +307,7 @@ export function HostSessionListView() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex min-w-0 items-center gap-4">
                 <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20">
-                  <Layers className="size-6" />
+                  <LayersIcon className="size-6" size={24} />
                 </div>
                 <div className="min-w-0">
                   <h2 className="text-xl font-bold tracking-tight text-balance text-foreground">

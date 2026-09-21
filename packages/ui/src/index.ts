@@ -456,6 +456,7 @@ export { BotMessageSquareIcon } from "./components/icons/bot-message-square";
 export type { BotMessageSquareHandle } from "./components/icons/bot-message-square";
 export { LayersIcon } from "./components/icons/layers-icon";
 export type { LayersIconHandle } from "./components/icons/layers-icon";
+export { default as BrandLmStudioIcon } from "./components/icons/brand-lmstudio-icon";
 export { GithubIcon } from "./components/icons/github-icon";
 export type { GithubIconHandle } from "./components/icons/github-icon";
 export { Github, Gitlab } from "./components/icons/lucide-brand-icons";

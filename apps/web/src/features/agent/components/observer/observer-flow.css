@@ -3,7 +3,10 @@
    On-screen layout moves: ease-in-out 240ms, transform only.
    Reduced motion keeps opacity, drops movement. */
 
-.observer-flow .react-flow__node {
+.observer-flow .react-flow__node,
+.observer-flow .react-flow__node.draggable,
+.observer-flow .react-flow__node.selectable {
+  cursor: pointer;
   transition: transform 240ms cubic-bezier(0.77, 0, 0.175, 1);
 }
 
@@ -12,10 +15,17 @@
   transition: none;
 }
 
+.observer-flow .react-flow__node.dragging,
+.observer-flow .react-flow__node.draggable.dragging,
+.observer-flow .react-flow__node.dragging .observer-card {
+  cursor: grabbing;
+}
+
 .observer-card {
+  cursor: pointer;
   opacity: 1;
   transform: scale(1);
-  transform-origin: top center;
+  transform-origin: center left;
   transition:
     opacity 240ms cubic-bezier(0.23, 1, 0.32, 1) var(--observer-stagger, 0ms),
     transform 240ms cubic-bezier(0.23, 1, 0.32, 1) var(--observer-stagger, 0ms);
@@ -49,16 +59,16 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .observer-card-header:hover .observer-kind-glyph {
+  .observer-drag-handle:hover .observer-kind-glyph {
     opacity: 0;
   }
 
-  .observer-card-header:hover .observer-drag-grip {
+  .observer-drag-handle:hover .observer-drag-grip {
     opacity: 1;
   }
 }
 
-.observer-flow .react-flow__edge:not(.animated) .observer-edge-stroke {
+.observer-flow .react-flow__edge.observer-edge-entering:not(.observer-edge-exiting) .observer-edge-stroke {
   stroke-dasharray: 1;
   stroke-dashoffset: 0;
   opacity: 1;
@@ -68,19 +78,21 @@
 }
 
 @starting-style {
-  .observer-flow .react-flow__edge:not(.animated) .observer-edge-stroke {
+  .observer-flow .react-flow__edge.observer-edge-entering:not(.observer-edge-exiting) .observer-edge-stroke {
     stroke-dashoffset: 1;
     opacity: 0;
   }
 }
 
-.observer-flow .react-flow__edge.animated .observer-edge-stroke {
-  opacity: 1;
-  transition: opacity 240ms cubic-bezier(0.23, 1, 0.32, 1);
+.observer-flow .react-flow__edge.observer-edge-spawn .observer-edge-stroke,
+.observer-flow .react-flow__edge.observer-edge-entering.observer-edge-spawn:not(.observer-edge-exiting) .observer-edge-stroke {
+  stroke-dasharray: 6 4;
+  stroke-dashoffset: 0;
 }
 
 @starting-style {
-  .observer-flow .react-flow__edge.animated .observer-edge-stroke {
+  .observer-flow .react-flow__edge.observer-edge-entering.observer-edge-spawn:not(.observer-edge-exiting) .observer-edge-stroke {
+    stroke-dashoffset: 0;
     opacity: 0;
   }
 }
@@ -90,23 +102,12 @@
   transition-delay: 0ms;
 }
 
-.observer-flow .react-flow__edge:not(.animated).observer-edge-exiting .observer-edge-stroke {
+.observer-flow .react-flow__edge.observer-edge-entering.observer-edge-exiting .observer-edge-stroke {
   stroke-dashoffset: 1;
 }
 
-.observer-edge-label {
-  opacity: 1;
-  transition: opacity 240ms cubic-bezier(0.23, 1, 0.32, 1);
-}
-
-@starting-style {
-  .observer-edge-label {
-    opacity: 0;
-  }
-}
-
-.observer-edge-label.is-exiting {
-  opacity: 0;
+.observer-flow .react-flow__edge.observer-edge-entering.observer-edge-spawn.observer-edge-exiting .observer-edge-stroke {
+  stroke-dashoffset: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -130,24 +131,19 @@
     transform: none;
   }
 
-  .observer-flow .react-flow__edge:not(.animated) .observer-edge-stroke {
+  .observer-flow .react-flow__edge.observer-edge-entering:not(.observer-edge-exiting) .observer-edge-stroke {
     stroke-dashoffset: 0;
     transition: opacity 180ms cubic-bezier(0.23, 1, 0.32, 1);
   }
 
   @starting-style {
-    .observer-flow .react-flow__edge:not(.animated) .observer-edge-stroke {
+    .observer-flow .react-flow__edge.observer-edge-entering:not(.observer-edge-exiting) .observer-edge-stroke {
       stroke-dashoffset: 0;
       opacity: 0;
     }
   }
 
-  .observer-flow .react-flow__edge:not(.animated).observer-edge-exiting .observer-edge-stroke {
+  .observer-flow .react-flow__edge.observer-edge-entering.observer-edge-exiting .observer-edge-stroke {
     stroke-dashoffset: 0;
-  }
-
-  .observer-flow .react-flow__edge.animated .observer-edge-stroke,
-  .observer-edge-label {
-    transition: opacity 180ms cubic-bezier(0.23, 1, 0.32, 1);
   }
 }

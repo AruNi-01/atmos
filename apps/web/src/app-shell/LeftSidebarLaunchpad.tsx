@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import { BotIcon } from "@workspace/ui/components/icons/bot-icon";
 import { LayersIcon } from "@workspace/ui/components/icons/layers-icon";
+import BrandLmStudioIcon from "@workspace/ui/components/icons/brand-lmstudio-icon";
 import CanvasIcon from "@workspace/ui/components/icons/canvas-icon";
 import { ChartColumnBigIcon } from "@workspace/ui/components/icons/chart-column-big-icon";
 import { FolderKanbanIcon } from "@workspace/ui/components/icons/folder-kanban-icon";
@@ -657,7 +658,7 @@ function LaunchpadOutsideIcon({
   if (itemId === "automations") return <TimerIcon ref={iconRef} className={className} size={size} />;
   if (itemId === "disk-analyzer") return <HardDriveIcon ref={iconRef} className={className} size={size} />;
   if (itemId === "token-usage") return <ChartColumnBigIcon ref={iconRef} className={className} size={size} />;
-  if (itemId === "agent-observer") return <Eye className={className} size={size} />;
+  if (itemId === "agent-observer") return <BrandLmStudioIcon ref={iconRef} className={className} size={size} />;
   if (itemId === "canvas") return <CanvasIcon ref={iconRef} className={className} size={size} />;
   if (itemId === "pt-design") return <PencilRulerIcon ref={iconRef} className={className} size={size} />;
   if (itemId === "tasks") return <ListTodoIcon ref={iconRef} className={className} size={size} />;

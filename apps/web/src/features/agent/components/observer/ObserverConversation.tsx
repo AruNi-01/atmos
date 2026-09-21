@@ -1,52 +1,66 @@
 "use client";
 
-import { Conversation, ConversationContent, cn } from "@workspace/ui";
-import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
-import { AgentChatCwdProvider } from "@/features/agent/components/agent-chat-cwd-context";
-import { AgentPermissionHistoryProvider } from "@/features/agent/components/agent-permission-history-context";
-import { AgentChatMessageView } from "@/features/agent/components/AgentChatMessageView";
-import { AgentActivityIndicator } from "@/features/agent/components/AgentActivityIndicator";
-import { deriveAgentActivity } from "@/features/agent/lib/chat-helpers";
+import { useTranslations } from "next-intl";
+import { cn } from "@workspace/ui";
+import type { ObserverStep } from "@/features/agent/lib/observer-conversation";
+
+function toolStateLabel(
+  t: ReturnType<typeof useTranslations<"AgentObserver">>,
+  state: string | undefined,
+): string | null {
+  const value = (state ?? "").trim().toLowerCase();
+  if (value === "pending" || value === "running" || value === "in_progress") {
+    return t("toolPending");
+  }
+  if (value === "error" || value === "failed") return t("toolError");
+  if (value === "ok" || value === "completed") return t("toolOk");
+  return null;
+}
 
 export function ObserverConversation({
-  messages,
-  cwd,
-  running,
+  steps,
 }: {
-  messages: AgentMessage[];
-  cwd?: string | null;
-  running?: boolean;
+  steps: ObserverStep[];
 }) {
-  const activity = deriveAgentActivity(messages, Boolean(running));
+  const t = useTranslations("AgentObserver");
   return (
-    <AgentChatCwdProvider cwd={cwd} projectOrWorkspacePath={cwd}>
-      <AgentPermissionHistoryProvider>
-        <Conversation
-          className="min-h-0 h-full w-full min-w-0 flex-1 overflow-hidden select-text"
-          initial="instant"
-          resize="instant"
-        >
-          <ConversationContent
-            data-canvas-selectable-text="true"
-            className={cn("w-full min-w-0 gap-3 px-1 py-1")}
-            scrollClassName="h-full min-h-0 w-full min-w-0 overflow-y-auto"
-          >
-            {messages.map((message, index) => (
-              <div key={message.id} className="w-full min-w-0">
-                <AgentChatMessageView message={message} index={index} />
-                {activity.busy && index === messages.length - 1 ? (
-                  <div
-                    data-agent-chat-activity-status=""
-                    className="mx-auto mt-2 w-[calc(100%-1rem)]"
-                  >
-                    <AgentActivityIndicator activity={activity} />
-                  </div>
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col">
+      <p className="shrink-0 px-1 pb-2 text-xs leading-4 text-muted-foreground">
+        {t("stepsHint")}
+      </p>
+      <ol className="min-h-0 flex-1 space-y-1 overflow-y-auto px-1 pb-1">
+        {steps.map((step) => {
+          const status = step.kind === "tool" ? toolStateLabel(t, step.state) : null;
+          const title = step.detail ? `${step.label} ${step.detail}` : step.label;
+          return (
+            <li
+              key={step.id}
+              className="flex gap-2 rounded-md px-1 py-1.5 text-sm leading-5"
+            >
+              <span
+                className={cn(
+                  "mt-2 size-1.5 shrink-0 rounded-full",
+                  step.kind === "prompt"
+                    ? "bg-muted-foreground/70"
+                    : step.state === "error" || step.state === "failed"
+                      ? "bg-destructive"
+                      : step.state === "pending"
+                        ? "bg-info"
+                        : "bg-success/80",
+                )}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-foreground" title={title}>
+                  {title}
+                </div>
+                {status ? (
+                  <div className="text-[11px] leading-4 text-muted-foreground">{status}</div>
                 ) : null}
               </div>
-            ))}
-          </ConversationContent>
-        </Conversation>
-      </AgentPermissionHistoryProvider>
-    </AgentChatCwdProvider>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }

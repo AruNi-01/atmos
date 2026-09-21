@@ -633,13 +633,14 @@ type Phase = 'hidden' | 'shown';
 
 interface BackdropProps {
   kind: MedallionBackdrop;
+  size?: 'sm' | 'md' | 'lg';
 }
 
 /**
  * One IntersectionObserver per medallion, not one per moving part: the backdrop
  * flips a single phase and every child animates off the same variant.
  */
-export function MedallionBackdropLayer({ kind }: BackdropProps) {
+export function MedallionBackdropLayer({ kind, size = 'md' }: BackdropProps) {
   const reduced = useReducedMotion();
   const ref = React.useRef<HTMLDivElement>(null);
   const seen = useInView(ref, { once: true, amount: 0.4 });
@@ -651,7 +652,9 @@ export function MedallionBackdropLayer({ kind }: BackdropProps) {
       aria-hidden
       className="pointer-events-none absolute inset-0 grid place-items-center"
     >
-      {kind !== 'none' && <Backdrop kind={kind} phase={phase} reduced={Boolean(reduced)} />}
+      {kind !== 'none' && (
+        <Backdrop kind={kind} size={size} phase={phase} reduced={Boolean(reduced)} />
+      )}
     </div>
   );
 }
@@ -661,7 +664,7 @@ interface PartProps {
   reduced: boolean;
 }
 
-function Backdrop({ kind, phase, reduced }: BackdropProps & PartProps) {
+function Backdrop({ kind, size = 'md', phase, reduced }: BackdropProps & PartProps) {
   switch (kind) {
     case 'rings':
       return <Rings phase={phase} reduced={reduced} />;
@@ -680,7 +683,7 @@ function Backdrop({ kind, phase, reduced }: BackdropProps & PartProps) {
     case 'rays':
       return <Rays phase={phase} reduced={reduced} />;
     case 'stack':
-      return <Stack phase={phase} reduced={reduced} />;
+      return <Stack phase={phase} reduced={reduced} size={size} />;
     case 'ripple':
       return <Ripple phase={phase} reduced={reduced} />;
     case 'beam':
@@ -971,11 +974,27 @@ function Rays({ phase, reduced }: PartProps) {
  * little smaller than the one in front and filled with the panel surface, are
  * unmistakable — you see two slivers of paper and nothing else.
  */
-function Stack({ phase, reduced }: PartProps) {
-  const cards = [
-    { y: -17, scale: 0.82, border: HAIRLINE_SOFT },
-    { y: -9, scale: 0.91, border: HAIRLINE },
-  ];
+const STACK_TILE: Record<'sm' | 'md' | 'lg', string> = {
+  sm: 'size-10 rounded-xl',
+  md: 'size-14 rounded-2xl',
+  lg: 'size-16 rounded-3xl',
+};
+
+function Stack({
+  phase,
+  reduced,
+  size = 'md',
+}: PartProps & { size?: 'sm' | 'md' | 'lg' }) {
+  const cards =
+    size === 'sm'
+      ? [
+          { y: -10, scale: 0.82, border: HAIRLINE_SOFT },
+          { y: -5, scale: 0.91, border: HAIRLINE },
+        ]
+      : [
+          { y: -17, scale: 0.82, border: HAIRLINE_SOFT },
+          { y: -9, scale: 0.91, border: HAIRLINE },
+        ];
   return (
     <>
       {cards.map((card, index) => (
@@ -996,7 +1015,7 @@ function Stack({ phase, reduced }: PartProps) {
                 : { ...SPRING_FLUID, delay: 0.12 + index * 0.07 },
             },
           }}
-          className={cn('absolute size-14 rounded-2xl border', SURFACE, card.border)}
+          className={cn('absolute border', STACK_TILE[size], SURFACE, card.border)}
         />
       ))}
     </>
@@ -1574,7 +1593,7 @@ export function EmptyMedallion({
 
   return (
     <div className={cn('relative grid place-items-center', className)}>
-      <MedallionBackdropLayer kind={backdrop} />
+      <MedallionBackdropLayer kind={backdrop} size={size} />
 
       <motion.div
         initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.84, filter: 'blur(6px)' }}
@@ -1620,6 +1639,8 @@ export interface EmptyStateProps {
   /** The quiet line under the actions — a shortcut, a doc link, a limit. */
   footnote?: React.ReactNode;
   align?: 'center' | 'start';
+  /** Sidebar / inline lists use `compact`: smaller type, tighter gaps. */
+  density?: 'default' | 'compact';
   className?: string;
 }
 
@@ -1640,10 +1661,12 @@ export function EmptyState({
   actions,
   footnote,
   align = 'center',
+  density = 'default',
   className,
 }: EmptyStateProps) {
   const { stack, item } = useReveal();
   const centred = align === 'center';
+  const compact = density === 'compact';
 
   return (
     <motion.div
@@ -1660,7 +1683,7 @@ export function EmptyState({
       )}
     >
       {icon && (
-        <motion.div variants={item} className="mb-5">
+        <motion.div variants={item} className={compact ? 'mb-2.5' : 'mb-5'}>
           <EmptyMedallion
             icon={icon}
             tone={tone}
@@ -1674,7 +1697,10 @@ export function EmptyState({
       {eyebrow && (
         <motion.p
           variants={item}
-          className="mb-2 text-[12px] font-medium leading-[1.4] tracking-[0.04em] text-muted-foreground"
+          className={cn(
+            'font-medium leading-[1.4] tracking-[0.04em] text-muted-foreground',
+            compact ? 'mb-1 text-[11px]' : 'mb-2 text-[12px]',
+          )}
         >
           {eyebrow}
         </motion.p>
@@ -1682,7 +1708,12 @@ export function EmptyState({
 
       <motion.h3
         variants={item}
-        className="text-balance text-[17px] font-semibold leading-[1.3] tracking-[-0.014em] text-foreground"
+        className={cn(
+          'text-balance font-semibold leading-[1.3] text-foreground',
+          compact
+            ? 'text-[13px] tracking-[-0.01em]'
+            : 'text-[17px] tracking-[-0.014em]',
+        )}
       >
         {title}
       </motion.h3>
@@ -1693,8 +1724,10 @@ export function EmptyState({
           className={cn(
             /* 46ch keeps the measure inside the 60–75 character band once the
                panel's own padding is taken off. */
-            'mt-2.5 max-w-[46ch] text-pretty text-[13.5px] leading-[1.62] tracking-[-0.003em]',
-            'text-muted-foreground',
+            'max-w-[46ch] text-pretty text-muted-foreground',
+            compact
+              ? 'mt-1.5 text-[12px] leading-[1.5] tracking-[-0.002em]'
+              : 'mt-2.5 text-[13.5px] leading-[1.62] tracking-[-0.003em]',
             centred && 'mx-auto',
           )}
         >
@@ -1703,7 +1736,7 @@ export function EmptyState({
       )}
 
       {children && (
-        <motion.div variants={item} className={cn('mt-5 w-full', centred && 'flex justify-center')}>
+        <motion.div variants={item} className={cn(compact ? 'mt-3 w-full' : 'mt-5 w-full', centred && 'flex justify-center')}>
           {children}
         </motion.div>
       )}
@@ -1712,7 +1745,8 @@ export function EmptyState({
         <motion.div
           variants={item}
           className={cn(
-            'mt-6 flex flex-wrap items-center gap-2',
+            'flex flex-wrap items-center gap-2',
+            compact ? 'mt-3' : 'mt-6',
             centred ? 'justify-center' : 'justify-start',
           )}
         >
@@ -1723,7 +1757,12 @@ export function EmptyState({
       {footnote && (
         <motion.div
           variants={item}
-          className="mt-5 text-pretty text-[13px] leading-[1.55] tracking-[-0.002em] text-muted-foreground"
+          className={cn(
+            'text-pretty text-muted-foreground',
+            compact
+              ? 'mt-3 text-[12px] leading-[1.45] tracking-[-0.002em]'
+              : 'mt-5 text-[13px] leading-[1.55] tracking-[-0.002em]',
+          )}
         >
           {footnote}
         </motion.div>
@@ -1744,6 +1783,8 @@ export interface EmptyActionProps extends Omit<
   | 'onAnimationIteration'
 > {
   emphasis?: 'primary' | 'secondary' | 'quiet';
+  /** Compact `sm` is for sidebar / inline lists. */
+  size?: 'sm' | 'md';
   /** Leading glyph. Sized to 15px so it sits on the label's cap height. */
   icon?: React.ReactNode;
   /** Trailing glyph, for actions that lead somewhere. */
@@ -1759,6 +1800,11 @@ const EMPHASIS: Record<'primary' | 'secondary' | 'quiet', string> = {
     'bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground',
 };
 
+const ACTION_SIZE: Record<'sm' | 'md', string> = {
+  sm: 'h-7 gap-1 rounded-lg px-2.5 text-[12px] tracking-[-0.004em] [&_svg]:size-[13px]',
+  md: 'h-9 gap-1.5 rounded-xl px-3.5 text-[14px] tracking-[-0.006em] [&_svg]:size-[15px]',
+};
+
 /**
  * Press physics on every action. `whileTap` fires on pointerdown, so the button
  * answers before the handler does — the difference between a button that works
@@ -1768,6 +1814,7 @@ export const EmptyAction = React.forwardRef<HTMLButtonElement, EmptyActionProps>
   function EmptyAction(
     {
       emphasis = 'primary',
+      size = 'md',
       icon,
       trailing,
       className,
@@ -1786,9 +1833,10 @@ export const EmptyAction = React.forwardRef<HTMLButtonElement, EmptyActionProps>
         whileTap={reduced ? undefined : { scale: 0.96 }}
         transition={SPRING_TACTILE}
         className={cn(
-          'inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3.5 text-[14px] font-medium tracking-[-0.006em] shadow-none',
+          'inline-flex cursor-pointer items-center justify-center font-medium shadow-none',
           'outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background',
-          'disabled:pointer-events-none disabled:opacity-64 [&_svg]:size-[15px]',
+          'disabled:pointer-events-none disabled:opacity-64',
+          ACTION_SIZE[size],
           EMPHASIS[emphasis],
           className,
         )}

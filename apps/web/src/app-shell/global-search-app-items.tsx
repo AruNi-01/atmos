@@ -6,6 +6,7 @@ import {
   BookOpen,
   Bot,
   BrainCircuit,
+  BrandLmStudioIcon,
   ChartColumnBig,
   Eye,
   Folder,
@@ -19,6 +20,7 @@ import {
   History,
   Languages,
   Layers,
+  LayersIcon,
   Laptop,
   ListTodo,
   Maximize,
@@ -422,7 +424,7 @@ export function buildGlobalSearchItems({
       title: globalSearchItemsT("launchpad.agentObserver.title"),
       description: globalSearchItemsT("launchpad.agentObserver.description"),
       keywords: ["launchpad", "agent", "observer", "graph", "activity", "hooks", "turns"],
-      icon: <Eye className="size-4 text-muted-foreground" />,
+      icon: <BrandLmStudioIcon className="size-4 text-muted-foreground" size={16} />,
       action: () => {
         router.push("/agent-observer");
         setGlobalSearchOpen(false);
@@ -446,7 +448,7 @@ export function buildGlobalSearchItems({
       title: globalSearchItemsT("launchpad.agentSessions.title"),
       description: globalSearchItemsT("launchpad.agentSessions.description"),
       keywords: ["launchpad", "agent", "sessions", "host", "transcript", "cli"],
-      icon: <Layers className="size-4 text-muted-foreground" />,
+      icon: <LayersIcon className="size-4 text-muted-foreground" size={16} />,
       action: () => {
         router.push("/agent-sessions");
         setGlobalSearchOpen(false);

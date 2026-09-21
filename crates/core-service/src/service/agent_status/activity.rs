@@ -598,16 +598,50 @@ fn apply_prompt(activity: &mut AgentActivity, text: &str, now: &str) {
     if steal_prompt_for_child(activity, text, now) {
         return;
     }
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        if let Some(turn) = current_turn_mut(activity) {
+            if turn.ended_at.is_none() && turn.prompt.is_empty() {
+                activity.current_tool = None;
+                return;
+            }
+        }
+        if activity.current_turn_id.is_none() {
+            open_turn(activity, String::new(), now);
+        }
+        activity.current_tool = None;
+        return;
+    }
+    if should_reset_for_new_prompt(activity) {
+        reset_activity_for_new_prompt(activity);
+    }
     if let Some(turn) = current_turn_mut(activity) {
         if turn.ended_at.is_none() && turn.prompt.is_empty() {
-            turn.prompt = truncate(text, PROMPT_CHARS);
+            turn.prompt = truncate(trimmed, PROMPT_CHARS);
             activity.current_tool = None;
             return;
         }
     }
     close_open_turn(activity, now);
-    open_turn(activity, text.to_string(), now);
+    open_turn(activity, trimmed.to_string(), now);
     activity.current_tool = None;
+}
+
+fn should_reset_for_new_prompt(activity: &AgentActivity) -> bool {
+    activity.turns.iter().any(|turn| !turn.prompt.is_empty()) || !activity.children.is_empty()
+}
+
+fn reset_activity_for_new_prompt(activity: &mut AgentActivity) {
+    activity.turns.clear();
+    activity.turns_omitted = 0;
+    activity.current_turn_id = None;
+    activity.current_tool = None;
+    activity.children.clear();
+    activity.child_aliases.clear();
+    activity.todos.clear();
+    activity.last_file = None;
+    activity.grok_goal_child_ids.clear();
+    activity.grok_workflow_child_ids.clear();
 }
 
 fn apply_host_tool(
@@ -653,15 +687,33 @@ fn apply_host_tool(
 }
 
 fn apply_host_subagent(activity: &mut AgentActivity, tool: &AgentTool, now: &str, pending: bool) {
-    let ids = host_subagent_ids(tool);
+    let mut ids = host_subagent_ids(tool);
     if ids.is_empty() {
-        return;
+        if pending {
+            ids.push(next_ephemeral_spawn_id(activity));
+        } else if let Some(existing) = latest_ephemeral_spawn_id(activity) {
+            ids.push(existing);
+        } else {
+            return;
+        }
     }
-    let canonical = pick_canonical_child(activity, &ids);
+    let preferred = ids
+        .iter()
+        .find(|id| !is_ephemeral_spawn_id(id))
+        .cloned()
+        .unwrap_or_else(|| pick_canonical_child(activity, &ids));
+    let canonical = adopt_child_id(activity, &preferred);
     for id in &ids {
         register_child_alias(activity, id, &canonical);
         if id != &canonical {
             merge_child(activity, id, &canonical);
+        }
+    }
+    let call_id = tool.tool_call_id.trim();
+    if !call_id.is_empty() {
+        register_child_alias(activity, call_id, &canonical);
+        if call_id != canonical {
+            merge_child(activity, call_id, &canonical);
         }
     }
     let chrome = is_grok_chrome_subagent_name(&tool.name);
@@ -705,7 +757,8 @@ fn apply_child_tool(
     pending: bool,
     error: bool,
 ) {
-    upsert_host_child(activity, child_id, host_child_name(tool), now, false);
+    let child_id = adopt_child_id(activity, child_id);
+    upsert_host_child(activity, &child_id, host_child_name(tool), now, false);
     let Some(child) = activity
         .children
         .iter_mut()
@@ -801,8 +854,14 @@ fn upsert_host_child(
         child.state = AgentOccupancy::Running;
         child.last_event_at = now.to_string();
         child.chrome = child.chrome || chrome;
-        if child.name.is_none() {
-            child.name = name;
+        if let Some(incoming) = name {
+            match child.name.as_ref() {
+                None => child.name = Some(incoming),
+                Some(existing) if incoming.len() > existing.len() => {
+                    child.name = Some(incoming);
+                }
+                Some(_) => {}
+            }
         }
         return;
     }
@@ -823,7 +882,6 @@ fn is_spawn_tool_name(name: &str) -> bool {
     matches!(
         normalize_tool_label(name).as_str(),
         "task"
-            | "agent"
             | "subagent"
             | "spawn_subagent"
             | "spawn_agent"
@@ -877,19 +935,15 @@ fn looks_like_child_prompt(text: &str) -> bool {
 
 fn host_subagent_ids(tool: &AgentTool) -> Vec<String> {
     let mut ids = Vec::new();
-    let mut push = |value: &str| {
-        let trimmed = value.trim();
-        if !trimmed.is_empty() && !ids.iter().any(|existing| existing == trimmed) {
-            ids.push(trimmed.to_string());
-        }
-    };
     if let AgentToolParams::Subagent {
         task_id: Some(id), ..
     } = &tool.params
     {
-        push(id);
+        let trimmed = id.trim();
+        if !trimmed.is_empty() {
+            ids.push(trimmed.to_string());
+        }
     }
-    push(&tool.tool_call_id);
     ids
 }
 
@@ -910,6 +964,53 @@ fn host_child_prompt(tool: &AgentTool) -> Option<String> {
             }),
         _ => None,
     }
+}
+
+fn is_ephemeral_spawn_id(id: &str) -> bool {
+    id.starts_with("spawn:")
+}
+
+fn latest_ephemeral_spawn_id(activity: &AgentActivity) -> Option<String> {
+    activity
+        .children
+        .iter()
+        .rev()
+        .find(|child| is_ephemeral_spawn_id(&child.child_id))
+        .map(|child| child.child_id.clone())
+}
+
+fn next_ephemeral_spawn_id(activity: &AgentActivity) -> String {
+    let turn = activity.current_turn_id.unwrap_or(0);
+    let n = activity
+        .children
+        .iter()
+        .filter(|child| is_ephemeral_spawn_id(&child.child_id))
+        .count();
+    format!("spawn:{turn}:{n}")
+}
+
+fn adopt_child_id(activity: &mut AgentActivity, incoming: &str) -> String {
+    let incoming = incoming.trim();
+    if incoming.is_empty() {
+        return latest_ephemeral_spawn_id(activity)
+            .unwrap_or_else(|| next_ephemeral_spawn_id(activity));
+    }
+    let resolved = canonical_child_id(activity, incoming);
+    if activity
+        .children
+        .iter()
+        .any(|child| child.child_id == resolved)
+    {
+        return resolved;
+    }
+    if is_ephemeral_spawn_id(&resolved) {
+        return resolved;
+    }
+    if let Some(ephemeral) = latest_ephemeral_spawn_id(activity) {
+        merge_child(activity, &ephemeral, &resolved);
+        return resolved;
+    }
+    resolved
 }
 
 fn register_child_alias(activity: &mut AgentActivity, alias: &str, canonical: &str) {
@@ -975,6 +1076,21 @@ fn merge_child(activity: &mut AgentActivity, from_id: &str, into_id: &str) {
         .collect();
     for key in remapped {
         activity.child_aliases.insert(key, into_id.to_string());
+    }
+    for turn in &mut activity.turns {
+        let mut seen = HashSet::new();
+        turn.spawned_child_ids = turn
+            .spawned_child_ids
+            .drain(..)
+            .map(|id| {
+                if id == from_id {
+                    into_id.to_string()
+                } else {
+                    id
+                }
+            })
+            .filter(|id| seen.insert(id.clone()))
+            .collect();
     }
     let Some(index) = activity
         .children
@@ -1154,19 +1270,28 @@ fn host_child_name(tool: &AgentTool) -> Option<String> {
             description,
             agent_type,
             ..
-        } => agent_type
-            .as_deref()
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_string)
-            .or_else(|| {
+        } => {
+            let kind = agent_type
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty());
+            let desc = {
                 let text = description.trim();
                 if text.is_empty() {
                     None
                 } else {
                     Some(truncate(text, DETAIL_CHARS))
                 }
-            }),
+            };
+            match (kind, desc) {
+                (Some(kind), Some(desc)) if !kind.eq_ignore_ascii_case(&desc) => {
+                    Some(format!("{kind} · {desc}"))
+                }
+                (Some(kind), _) => Some(kind.to_string()),
+                (_, Some(desc)) => Some(desc),
+                _ => None,
+            }
+        }
         _ => tool
             .title
             .as_deref()
@@ -1488,7 +1613,7 @@ mod tests {
     }
 
     #[test]
-    fn prompt_opens_turn_tools_attach_idle_keeps_record_second_prompt_appends() {
+    fn prompt_opens_turn_tools_attach_idle_keeps_record_second_prompt_resets() {
         let status = Arc::new(AgentStatusService::new());
         let service = AgentHooksService::new(status.clone());
         let ctx = pane_ctx("ws-1:agent");
@@ -1549,10 +1674,47 @@ mod tests {
             &ctx,
         );
         let activity = &status.get_all_activity()[0];
-        assert_eq!(activity.turns.len(), 2);
-        assert_eq!(activity.turns[0].prompt, "fix the footer");
-        assert_eq!(activity.turns[1].prompt, "also add tests");
-        assert_eq!(activity.current_turn_id, Some(2));
+        assert_eq!(activity.turns.len(), 1);
+        assert_eq!(activity.turns[0].prompt, "also add tests");
+        assert_eq!(activity.current_turn_id, Some(1));
+        assert!(activity.children.is_empty());
+        assert!(activity.todos.is_empty());
+        assert!(activity.current_tool.is_none());
+    }
+
+    #[test]
+    fn second_prompt_drops_previous_children() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("ws-1:reset-children");
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": "delegate",
+            }),
+            &ctx,
+        );
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "SubagentStart",
+                "agent_id": "c1",
+                "subagent_type": "Explore",
+            }),
+            &ctx,
+        );
+        assert_eq!(status.get_all_activity()[0].children.len(), 1);
+        service.handle_claude_code_event(&serde_json::json!({ "hook_event_name": "Stop" }), &ctx);
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": "next question",
+            }),
+            &ctx,
+        );
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(activity.turns.len(), 1);
+        assert_eq!(activity.turns[0].prompt, "next question");
+        assert!(activity.children.is_empty());
     }
 
     #[test]
@@ -2309,9 +2471,9 @@ mod tests {
             },
         );
         let activity = &status.get_all_activity()[0];
-        assert_eq!(activity.turns.len(), 2);
-        assert_eq!(activity.turns[0].prompt, "fix the footer");
-        assert_eq!(activity.turns[1].prompt, "and tests");
+        assert_eq!(activity.turns.len(), 1);
+        assert_eq!(activity.turns[0].prompt, "and tests");
+        assert!(activity.children.is_empty());
     }
 
     #[test]
@@ -2541,7 +2703,10 @@ mod tests {
         let activity = &status.get_all_activity()[0];
         assert_eq!(activity.children.len(), 1);
         assert_eq!(activity.children[0].child_id, "sa-1");
-        assert_eq!(activity.children[0].name.as_deref(), Some("Explore"));
+        assert_eq!(
+            activity.children[0].name.as_deref(),
+            Some("Explore · scan the tree")
+        );
     }
 
     fn spawn_tool(call_id: &str, task_id: Option<&str>, pending: bool) -> AgentTool {
@@ -2809,10 +2974,157 @@ mod tests {
                     || c.child_id == "sa-plan"
             })
             .expect("nested read should land on a child");
+        assert_eq!(activity.children.len(), 1);
+        assert_eq!(child.child_id, "sa-plan");
         assert_eq!(
             child.current_tool.as_ref().map(|t| t.name.as_str()),
             Some("read_file")
         );
+    }
+
+    #[test]
+    fn hook_spawn_pre_and_post_without_ids_stay_one_child() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("ws-1:hook-spawn-once");
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": "explore the repo",
+            }),
+            &ctx,
+        );
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "PreToolUse",
+                "tool_name": "spawn_subagent",
+                "tool_input": { "subagent_type": "general-purpose", "prompt": "Look at crates" },
+            }),
+            &ctx,
+        );
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "PostToolUse",
+                "tool_name": "spawn_subagent",
+                "tool_input": { "subagent_type": "general-purpose", "prompt": "Look at crates" },
+            }),
+            &ctx,
+        );
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(activity.children.len(), 1);
+    }
+
+    #[test]
+    fn hook_spawn_tool_use_id_and_subagent_start_stay_one_child() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("ws-1:hook-spawn-uuid");
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": "explore the repo",
+            }),
+            &ctx,
+        );
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "PreToolUse",
+                "tool_use_id": "11111111-1111-4111-8111-111111111111",
+                "tool_name": "spawn_subagent",
+                "tool_input": { "subagent_type": "general-purpose", "prompt": "Look at crates" },
+            }),
+            &ctx,
+        );
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "PostToolUse",
+                "tool_use_id": "11111111-1111-4111-8111-111111111111",
+                "tool_name": "spawn_subagent",
+                "tool_input": { "subagent_type": "general-purpose", "prompt": "Look at crates" },
+            }),
+            &ctx,
+        );
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "SubagentStart",
+                "subagent_id": "sa-plan",
+                "subagent_type": "Explore",
+            }),
+            &ctx,
+        );
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "PreToolUse",
+                "subagent_id": "sa-plan",
+                "tool_name": "read_file",
+                "tool_input": { "path": "Cargo.toml" },
+            }),
+            &ctx,
+        );
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(activity.children.len(), 1);
+        assert_eq!(activity.children[0].child_id, "sa-plan");
+        assert_eq!(
+            activity.children[0]
+                .current_tool
+                .as_ref()
+                .map(|t| t.name.as_str()),
+            Some("read_file")
+        );
+    }
+
+    #[test]
+    fn hook_two_spawns_and_starts_are_two_children() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("ws-1:hook-two-spawns");
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": "explore the repo",
+            }),
+            &ctx,
+        );
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "PreToolUse",
+                "tool_name": "spawn_subagent",
+                "tool_input": { "subagent_type": "Explore", "prompt": "Look at crates" },
+            }),
+            &ctx,
+        );
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "PreToolUse",
+                "tool_name": "spawn_subagent",
+                "tool_input": { "subagent_type": "Explore", "prompt": "Look at apps" },
+            }),
+            &ctx,
+        );
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "SubagentStart",
+                "subagent_id": "sa-a",
+                "subagent_type": "Explore",
+            }),
+            &ctx,
+        );
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "SubagentStart",
+                "subagent_id": "sa-b",
+                "subagent_type": "Explore",
+            }),
+            &ctx,
+        );
+        let activity = &status.get_all_activity()[0];
+        let mut ids: Vec<_> = activity
+            .children
+            .iter()
+            .map(|child| child.child_id.as_str())
+            .collect();
+        ids.sort_unstable();
+        assert_eq!(ids, vec!["sa-a", "sa-b"]);
     }
 
     #[test]

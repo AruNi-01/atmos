@@ -1,19 +1,24 @@
-import type { AgentMessage, AgentToolKind } from "@atmos/api-types/ws/dto/agent-chat";
 import type {
   AgentActivity,
   AgentChildActivity,
   AgentToolLine,
   AgentTurn,
 } from "@atmos/api-types/ws/dto/events";
-import { defaultToolParams, type AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 
 const CHILD_PROMPT_CHARS = 40;
+
+export type ObserverStep = {
+  id: string;
+  kind: "prompt" | "tool";
+  label: string;
+  detail?: string;
+  state?: string;
+};
 
 export function isObserverChromeToolName(name: string): boolean {
   const n = name.trim().toLowerCase().replace(/[\s-]+/g, "_");
   if (
     n === "task"
-    || n === "agent"
     || n === "subagent"
     || n === "spawn_subagent"
     || n === "spawn_agent"
@@ -53,151 +58,59 @@ export function isLeakedChildTurn(turn: AgentTurn, children: AgentChildActivity[
   return looksLikeChildPrompt(prompt) && (turn.tools.length === 0 || onlyChrome);
 }
 
-function toolKindForName(name: string): AgentToolKind {
-  const n = name.trim().toLowerCase().replace(/[\s-]+/g, "_");
-  if (
-    n === "read"
-    || n === "read_file"
-    || n === "readfile"
-    || n === "view"
-    || n === "view_file"
-    || n === "list_dir"
-    || n === "list_directory"
-    || n === "ls"
-  ) {
-    return "read";
-  }
-  if (
-    n === "edit"
-    || n === "write"
-    || n === "write_file"
-    || n === "str_replace"
-    || n === "search_replace"
-  ) {
-    return "edit";
-  }
-  if (n === "grep" || n === "search" || n === "glob") return "search";
-  if (n === "bash" || n === "shell" || n === "execute" || n === "run_command") return "execute";
-  if (n === "web_search" || n === "websearch") return "web_search";
-  if (n === "fetch" || n === "web_fetch") return "fetch";
-  return "other";
-}
-
-function lineStatus(state: string | undefined): AgentToolCallPart["status"] {
-  const value = (state ?? "").trim().toLowerCase();
-  if (value === "pending" || value === "running" || value === "in_progress") return "running";
-  if (value === "error" || value === "failed") return "failed";
-  return "completed";
-}
-
-function paramsForLine(kind: AgentToolKind, detail: string) {
-  const params = defaultToolParams(kind);
-  const text = detail.trim();
-  if (!text) return params;
-  switch (params.type) {
-    case "read":
-    case "edit":
-    case "delete":
-      return { ...params, path: text };
-    case "search":
-    case "web_search":
-      return { ...params, query: text };
-    case "execute":
-      return { ...params, command: text };
-    case "fetch":
-      return { ...params, url: text };
-    case "other":
-      return { ...params, value: { detail: text } };
-    default:
-      return params;
-  }
-}
-
-export function toolLineToPart(line: AgentToolLine, id: string): AgentToolCallPart {
-  const kind = toolKindForName(line.name);
-  return {
-    type: "tool_call",
-    tool_call_id: id,
-    name: line.name,
-    title: line.detail || null,
-    kind,
-    status: lineStatus(line.state),
-    params: paramsForLine(kind, line.detail),
-  };
-}
-
 function visibleTurnTools(turn: AgentTurn): AgentToolLine[] {
   return turn.tools.filter((tool) => !isObserverChromeToolName(tool.name));
 }
 
-function userMessage(id: string, text: string, createdAt: string): AgentMessage {
+function toolStep(id: string, line: AgentToolLine): ObserverStep {
+  const detail = line.detail.trim();
   return {
     id,
-    role: "user",
-    kind: "normal",
-    created_at: createdAt,
-    parts: [{ type: "text", text }],
+    kind: "tool",
+    label: line.name,
+    detail: detail || undefined,
+    state: line.state,
   };
 }
 
-function assistantMessage(
-  id: string,
-  parts: AgentMessage["parts"],
-  createdAt: string,
-  streaming: boolean,
-): AgentMessage {
-  return {
-    id,
-    role: "assistant",
-    created_at: createdAt,
-    streaming,
-    parts,
-  };
-}
-
-export function activityToConversation(activity: AgentActivity): AgentMessage[] {
+export function activityToSteps(activity: AgentActivity): ObserverStep[] {
   const children = activity.children ?? [];
-  const messages: AgentMessage[] = [];
+  const steps: ObserverStep[] = [];
   for (const turn of activity.turns ?? []) {
     if (isLeakedChildTurn(turn, children)) continue;
     if (turn.prompt.trim()) {
-      messages.push(userMessage(`obs-user-${turn.turn_id}`, turn.prompt, turn.started_at));
+      steps.push({
+        id: `prompt-${turn.turn_id}`,
+        kind: "prompt",
+        label: turn.prompt.trim(),
+      });
     }
-    const tools = visibleTurnTools(turn);
-    if (tools.length > 0) {
-      messages.push(
-        assistantMessage(
-          `obs-asst-${turn.turn_id}`,
-          tools.map((tool, index) => toolLineToPart(tool, `${turn.turn_id}:${tool.name}:${index}`)),
-          turn.started_at,
-          tools.some((tool) => lineStatus(tool.state) === "running"),
-        ),
-      );
+    for (const [index, tool] of visibleTurnTools(turn).entries()) {
+      steps.push(toolStep(`${turn.turn_id}:${tool.name}:${index}`, tool));
     }
   }
   const current = activity.current_tool;
   if (current && !isObserverChromeToolName(current.name)) {
-    const last = messages[messages.length - 1];
-    const part = toolLineToPart(current, `current:${current.name}`);
-    if (last?.role === "assistant") {
-      const already = last.parts.some(
-        (item) => item.type === "tool_call" && item.name === current.name && item.title === (current.detail || null),
-      );
-      if (!already) last.parts = [...last.parts, part];
-      last.streaming = true;
-    } else {
-      messages.push(
-        assistantMessage("obs-asst-current", [part], current.started_at, true),
-      );
-    }
+    const already = steps.some(
+      (step) =>
+        step.kind === "tool"
+        && step.label === current.name
+        && step.detail === (current.detail.trim() || undefined)
+        && step.state === current.state,
+    );
+    if (!already) steps.push(toolStep(`current:${current.name}`, current));
   }
-  return messages;
+  return steps;
 }
 
-export function childToConversation(child: AgentChildActivity): AgentMessage[] {
-  const messages: AgentMessage[] = [];
+export function childToSteps(child: AgentChildActivity): ObserverStep[] {
+  const steps: ObserverStep[] = [];
   if (child.prompt?.trim()) {
-    messages.push(userMessage(`obs-child-user-${child.child_id}`, child.prompt, child.started_at));
+    steps.push({
+      id: `prompt-${child.child_id}`,
+      kind: "prompt",
+      label: child.prompt.trim(),
+    });
   }
   const tools = [...(child.recent_tools ?? [])];
   if (child.current_tool) {
@@ -207,17 +120,11 @@ export function childToConversation(child: AgentChildActivity): AgentMessage[] {
     );
     if (!already) tools.push(current);
   }
-  if (tools.length > 0) {
-    messages.push(
-      assistantMessage(
-        `obs-child-asst-${child.child_id}`,
-        tools.map((tool, index) => toolLineToPart(tool, `${child.child_id}:${tool.name}:${index}`)),
-        child.last_event_at || child.started_at,
-        child.state === "running" || child.current_tool?.state === "pending",
-      ),
-    );
+  for (const [index, tool] of tools.entries()) {
+    if (isObserverChromeToolName(tool.name)) continue;
+    steps.push(toolStep(`${child.child_id}:${tool.name}:${index}`, tool));
   }
-  return messages;
+  return steps;
 }
 
 export function childToolLine(child: AgentChildActivity): string | undefined {

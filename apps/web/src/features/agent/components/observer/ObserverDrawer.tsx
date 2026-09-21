@@ -22,10 +22,13 @@ import {
   AGENT_TOOL_ICON_IDS,
   AGENT_TOOL_LABELS,
 } from "@/features/agent/store/agent-status-store";
-import type { ObserverGraphNode } from "@/features/agent/lib/agent-observer-graph";
 import {
-  activityToConversation,
-  childToConversation,
+  observerNodeTitle,
+  type ObserverGraphNode,
+} from "@/features/agent/lib/agent-observer-graph";
+import {
+  activityToSteps,
+  childToSteps,
 } from "@/features/agent/lib/observer-conversation";
 import { agentTitle, occupancyLabel, occupancyOf } from "./observer-flow";
 import { ObserverConversation } from "./ObserverConversation";
@@ -64,10 +67,12 @@ function DrawerGlyph({ node }: { node: ObserverGraphNode }) {
 
 export function ObserverDrawer({
   node,
+  sessionTitle,
   onClose,
   onOpenSession,
 }: {
   node: ObserverGraphNode | null;
+  sessionTitle?: string;
   onClose: () => void;
   onOpenSession: (node: ObserverGraphNode) => void;
 }) {
@@ -92,23 +97,29 @@ export function ObserverDrawer({
     ["--initial-transform" as string]: `calc(100% + ${insets.right}px)`,
   } as React.CSSProperties;
 
-  const title = held ? agentTitle(held) : t("title");
+  const title = held
+    ? held.kind === "agent"
+      ? observerNodeTitle(held, sessionTitle) === held.label
+        ? agentTitle(held)
+        : observerNodeTitle(held, sessionTitle)
+      : held.kind === "subagent"
+        ? observerNodeTitle(held, sessionTitle)
+        : kindLabel(t, held.kind)
+    : t("title");
   const canOpen = Boolean(held && (held.kind === "agent" || held.kind === "subagent"));
   const todos = held?.kind === "agent" ? (held.activity?.todos ?? []) : [];
   const occupancy = held ? occupancyLabel((key) => t(key), occupancyOf(held)) : "";
-  const running = held ? occupancyOf(held) === "running" : false;
-  const messages = React.useMemo(() => {
+  const steps = React.useMemo(() => {
     if (!held) return [];
     if (held.kind === "subagent") {
-      return held.child ? childToConversation(held.child) : [];
+      return held.child ? childToSteps(held.child) : [];
     }
     if (held.kind === "agent" && held.activity) {
-      return activityToConversation(held.activity);
+      return activityToSteps(held.activity);
     }
     return [];
   }, [held]);
   const showConversation = held?.kind === "agent" || held?.kind === "subagent";
-  const cwd = held?.activity?.project_path ?? held?.session?.project_path ?? null;
 
   return (
     <Drawer
@@ -186,12 +197,8 @@ export function ObserverDrawer({
                   </div>
                   {showConversation ? (
                     <div className="min-h-0 flex-1 px-4 pb-4">
-                      {messages.length > 0 ? (
-                        <ObserverConversation
-                          messages={messages}
-                          cwd={cwd}
-                          running={running}
-                        />
+                      {steps.length > 0 ? (
+                        <ObserverConversation steps={steps} />
                       ) : (
                         <p className="px-1 text-sm text-muted-foreground">{t("noTurns")}</p>
                       )}

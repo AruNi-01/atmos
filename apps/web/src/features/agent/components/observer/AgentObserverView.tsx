@@ -8,6 +8,9 @@ import {
   Controls,
   ReactFlow,
   applyNodeChanges,
+  useNodesInitialized,
+  useReactFlow,
+  useStore,
   type Edge,
   type Node,
   type NodeChange,
@@ -33,10 +36,13 @@ import { ObserverInstallHooksButton } from "./ObserverInstallHooksButton";
 import {
   buildObserverGraph,
   layoutObserverGraph,
+  observerSubtreeIds,
   sessionFromActivity,
   type ObserverGraphNode,
 } from "@/features/agent/lib/agent-observer-graph";
+import { OBSERVER_MOTION_MS } from "@/features/agent/lib/observer-graph-motion";
 import { useObserverPresence } from "@/features/agent/hooks/use-observer-presence";
+import { useAgentStatusSessionTitles } from "@/features/agent/hooks/use-agent-status-session-titles";
 import {
   OBSERVER_NODE_TYPES,
   OBSERVER_EDGE_TYPES,
@@ -49,7 +55,7 @@ function agentLike(kind: ObserverGraphNode["kind"]): boolean {
   return kind === "agent" || kind === "subagent";
 }
 
-function sameFlowNodes(
+function sameNodeLayout(
   current: Node<ObserverFlowData>[],
   next: Node<ObserverFlowData>[],
 ): boolean {
@@ -61,7 +67,6 @@ function sameFlowNodes(
       left.id !== right.id ||
       left.position.x !== right.position.x ||
       left.position.y !== right.position.y ||
-      left.selected !== right.selected ||
       left.className !== right.className ||
       left.data.presence !== right.data.presence ||
       left.data.collapsed !== right.data.collapsed
@@ -72,7 +77,40 @@ function sameFlowNodes(
   return true;
 }
 
-function sameFlowEdges(
+function mergeFlowNodes(
+  current: Node<ObserverFlowData>[],
+  next: Node<ObserverFlowData>[],
+): Node<ObserverFlowData>[] {
+  if (current.length === 0) return next;
+  if (current.some((node) => node.dragging)) return current;
+  if (!sameNodeLayout(current, next)) return next;
+  let changed = false;
+  const merged = current.map((left, i) => {
+    const right = next[i];
+    if (
+      left.selected === right.selected &&
+      left.data.node === right.data.node &&
+      left.data.onToggle === right.data.onToggle &&
+      left.data.sessionTitle === right.data.sessionTitle
+    ) {
+      return left;
+    }
+    changed = true;
+    return {
+      ...left,
+      selected: right.selected,
+      data: {
+        ...left.data,
+        node: right.data.node,
+        onToggle: right.data.onToggle,
+        sessionTitle: right.data.sessionTitle,
+      },
+    };
+  });
+  return changed ? merged : current;
+}
+
+function sameEdgeTopology(
   current: Edge<ObserverEdgeData>[],
   next: Edge<ObserverEdgeData>[],
 ): boolean {
@@ -84,14 +122,87 @@ function sameFlowEdges(
       left.id !== right.id ||
       left.source !== right.source ||
       left.target !== right.target ||
-      left.className !== right.className ||
-      left.animated !== right.animated ||
-      left.data?.presence !== right.data?.presence
+      (left.data?.presence ?? "live") !== (right.data?.presence ?? "live")
     ) {
       return false;
     }
   }
   return true;
+}
+
+const FIT_FOCUS = {
+  padding: 0.24,
+  duration: OBSERVER_MOTION_MS,
+  maxZoom: 1,
+  minZoom: 0.2,
+} as const;
+
+function ObserverViewportFitter({
+  epoch,
+  nodeIds,
+}: {
+  epoch: number;
+  nodeIds: string[];
+}) {
+  const flow = useReactFlow<Node<ObserverFlowData>, Edge<ObserverEdgeData>>();
+  const nodesInitialized = useNodesInitialized();
+  const width = useStore((state) => state.width);
+  const height = useStore((state) => state.height);
+  const idsKey = nodeIds.join("|");
+
+  useEffect(() => {
+    if (epoch === 0 || nodeIds.length === 0) return;
+    if (!nodesInitialized || width < 1 || height < 1) return;
+    let cancelled = false;
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        if (cancelled) return;
+        void flow.fitView({
+          ...FIT_FOCUS,
+          nodes: nodeIds.map((id) => ({ id })),
+        });
+      });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, [epoch, flow, height, idsKey, nodeIds, nodesInitialized, width]);
+
+  return null;
+}
+
+function mergeFlowEdges(
+  current: Edge<ObserverEdgeData>[],
+  next: Edge<ObserverEdgeData>[],
+): Edge<ObserverEdgeData>[] {
+  if (current.length === 0) return next;
+  if (!sameEdgeTopology(current, next)) return next;
+  let changed = false;
+  const merged = current.map((left, i) => {
+    const right = next[i];
+    const className = left.className ?? right.className;
+    const kind = right.data?.kind ?? left.data?.kind ?? "owns";
+    const presence = right.data?.presence ?? left.data?.presence ?? "live";
+    if (
+      className === left.className &&
+      left.animated !== true &&
+      left.data?.kind === kind &&
+      left.data?.presence === presence
+    ) {
+      return left;
+    }
+    changed = true;
+    return {
+      ...left,
+      animated: false,
+      className,
+      data: { kind, presence },
+    };
+  });
+  return changed ? merged : current;
 }
 
 export function AgentObserverView() {
@@ -119,6 +230,8 @@ export function AgentObserverView() {
   const flowRef = useRef<ReactFlowInstance<Node<ObserverFlowData>, Edge<ObserverEdgeData>> | null>(
     null,
   );
+  const pendingFocusRootRef = useRef<string | null>(null);
+  const [focus, setFocus] = useState<{ epoch: number; ids: string[] }>({ epoch: 0, ids: [] });
 
   const graph = useMemo(
     () =>
@@ -134,6 +247,11 @@ export function AgentObserverView() {
   );
 
   const positions = useMemo(() => layoutObserverGraph(graph, new Set()), [graph]);
+  const titleSessions = useMemo(
+    () => graph.nodes.flatMap((node) => (node.session ? [node.session] : [])),
+    [graph.nodes],
+  );
+  const sessionTitles = useAgentStatusSessionTitles(titleSessions);
 
   const connected = connectionState === "connected";
 
@@ -184,6 +302,7 @@ export function AgentObserverView() {
   );
 
   const toggleNode = useCallback((node: ObserverGraphNode) => {
+    pendingFocusRootRef.current = node.id;
     setCollapsedIds((prev) => {
       const next = new Set(prev);
       if (next.has(node.id)) next.delete(node.id);
@@ -191,6 +310,16 @@ export function AgentObserverView() {
       return next;
     });
   }, []);
+
+  useLayoutEffect(() => {
+    const rootId = pendingFocusRootRef.current;
+    if (!rootId) return;
+    pendingFocusRootRef.current = null;
+    setFocus((prev) => ({
+      epoch: prev.epoch + 1,
+      ids: observerSubtreeIds(graph.nodes, rootId),
+    }));
+  }, [graph]);
 
   const liveNodes: Node<ObserverFlowData>[] = useMemo(
     () =>
@@ -204,6 +333,7 @@ export function AgentObserverView() {
             collapsed: collapsedIds.has(node.id),
             presence: "live",
             onToggle: () => toggleNode(node),
+            sessionTitle: node.session ? sessionTitles[node.session.session_id] : undefined,
           },
           type: "observer",
           selected: node.id === selectedId,
@@ -211,25 +341,38 @@ export function AgentObserverView() {
           style: { width: 288 },
         };
       }),
-    [collapsedIds, graph.nodes, positionOverrides, positions, selectedId, toggleNode],
+    [collapsedIds, graph.nodes, positionOverrides, positions, selectedId, sessionTitles, toggleNode],
   );
 
-  const liveEdges: Edge<ObserverEdgeData>[] = useMemo(
-    () =>
-      graph.edges.map((edge) => ({
+  const seenEdgeIdsRef = useRef<Set<string>>(new Set());
+  const liveEdges: Edge<ObserverEdgeData>[] = useMemo(() => {
+    const seen = seenEdgeIdsRef.current;
+    const nextIds = new Set(graph.edges.map((edge) => edge.id));
+    for (const id of seen) {
+      if (!nextIds.has(id)) seen.delete(id);
+    }
+    return graph.edges.map((edge) => {
+      const entering = !seen.has(edge.id);
+      if (entering) seen.add(edge.id);
+      return {
         id: edge.id,
         source: edge.source,
         target: edge.target,
-        type: "observer",
-        animated: edge.animated,
+        type: "observer" as const,
+        animated: false,
+        className: [
+          entering ? "observer-edge-entering" : undefined,
+          edge.kind === "spawn" ? "observer-edge-spawn" : undefined,
+        ]
+          .filter(Boolean)
+          .join(" ") || undefined,
         data: {
           kind: edge.kind,
-          label: edge.kind === "spawn" ? t("spawn") : undefined,
-          presence: "live",
+          presence: "live" as const,
         },
-      })),
-    [graph.edges, t],
-  );
+      };
+    });
+  }, [graph.edges]);
 
   const { exitingNodes, exitingEdges } = useObserverPresence(liveNodes, liveEdges);
   const liveNodeIds = useMemo(() => new Set(liveNodes.map((node) => node.id)), [liveNodes]);
@@ -258,10 +401,14 @@ export function AgentObserverView() {
         .map(
           (edge): Edge<ObserverEdgeData> => ({
             ...edge,
-            className: "observer-edge-exiting",
+            className: [
+              edge.data?.kind === "spawn" ? "observer-edge-spawn" : undefined,
+              "observer-edge-exiting",
+            ]
+              .filter(Boolean)
+              .join(" "),
             data: {
               kind: edge.data?.kind ?? "owns",
-              label: edge.data?.label,
               presence: "exit",
             },
           }),
@@ -274,14 +421,11 @@ export function AgentObserverView() {
   const [edges, setEdges] = useState<Edge<ObserverEdgeData>[]>([]);
 
   useLayoutEffect(() => {
-    setNodes((current) => {
-      if (current.some((node) => node.dragging)) return current;
-      return sameFlowNodes(current, flowNodes) ? current : flowNodes;
-    });
+    setNodes((current) => mergeFlowNodes(current, flowNodes));
   }, [flowNodes]);
 
   useLayoutEffect(() => {
-    setEdges((current) => (sameFlowEdges(current, flowEdges) ? current : flowEdges));
+    setEdges((current) => mergeFlowEdges(current, flowEdges));
   }, [flowEdges]);
 
   const onNodesChange = useCallback((changes: NodeChange<Node<ObserverFlowData>>[]) => {
@@ -366,6 +510,7 @@ export function AgentObserverView() {
             minZoom={0.2}
             proOptions={{ hideAttribution: true }}
           >
+            <ObserverViewportFitter epoch={focus.epoch} nodeIds={focus.ids} />
             <Background
               variant={BackgroundVariant.Dots}
               gap={22}
@@ -390,6 +535,9 @@ export function AgentObserverView() {
       </div>
       <ObserverDrawer
         node={selected}
+        sessionTitle={
+          selected?.session ? sessionTitles[selected.session.session_id] : undefined
+        }
         onClose={() => setSelectedId(null)}
         onOpenSession={openSession}
       />

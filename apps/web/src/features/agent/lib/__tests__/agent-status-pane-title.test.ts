@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { TerminalPaneProps } from "@/features/terminal/types/index";
 import {
+  collectAgentStatusSessionTitles,
   findTerminalPaneByStableAgentPaneId,
   paneTitleIndicatesAgentExited,
   uniquePaneTitleForAgentStatus,
@@ -85,5 +86,29 @@ describe("findTerminalPaneByStableAgentPaneId", () => {
       "ws-1:3",
     );
     expect(found?.id).toBe("pane-a");
+  });
+});
+
+describe("collectAgentStatusSessionTitles", () => {
+  it("uses the Agent Chat tab title for chat occupancy rows", () => {
+    const titles = collectAgentStatusSessionTitles(
+      [
+        {
+          session_id: "chat:abc",
+          tool: "claude-code",
+          state: "idle",
+          timestamp: "t",
+          surface: "chat",
+          surface_id: "abc",
+        },
+      ],
+      {
+        contestedOwners: {},
+        panes: { workspacePanes: {} },
+        chatTabs: [{ chatId: "abc", title: " Fix footer  " }],
+        agentLabel: (tool) => (tool === "claude-code" ? "Claude Code" : tool),
+      },
+    );
+    expect(titles["chat:abc"]).toBe("Fix footer");
   });
 });

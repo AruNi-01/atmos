@@ -23,6 +23,9 @@ describe("ProjectEmpty source", () => {
     expect(kit).not.toContain("from '@workspace/ui/components/ui/button'");
     expect(kit).toContain("bg-primary text-primary-foreground");
     expect(kit).toContain("React.forwardRef<HTMLButtonElement, EmptyActionProps>");
+    expect(kit).toContain("density?: 'default' | 'compact'");
+    expect(kit).toContain("size?: 'sm' | 'md'");
+    expect(kit).toContain("ACTION_SIZE");
     expect(block).toContain("docsAction");
     expect(block).toContain("createAction");
   });

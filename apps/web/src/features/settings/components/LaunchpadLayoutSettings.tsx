@@ -11,7 +11,6 @@ import {
 import {
   Bot,
   ChartColumnBig,
-  Eye,
   FolderKanban,
   HardDrive,
   LayoutGrid,
@@ -24,8 +23,8 @@ import {
   Puzzle,
   SquareTerminal,
   Timer,
-  type LucideIcon,
 } from 'lucide-react';
+import BrandLmStudioIcon from '@workspace/ui/components/icons/brand-lmstudio-icon';
 import {
   LAUNCHPAD_ITEM_IDS,
   type LaunchpadItemId,
@@ -58,7 +57,10 @@ const ITEM_I18N_KEYS: Record<LaunchpadItemId, string> = {
 };
 
 /** Icons match LeftSidebarLaunchpad item definitions. */
-const ITEM_ICONS: Record<LaunchpadItemId, LucideIcon> = {
+const ITEM_ICONS: Record<
+  LaunchpadItemId,
+  React.ComponentType<{ className?: string; size?: number }>
+> = {
   workspaces: FolderKanban,
   skills: Puzzle,
   terminals: SquareTerminal,
@@ -66,7 +68,7 @@ const ITEM_ICONS: Record<LaunchpadItemId, LucideIcon> = {
   automations: Timer,
   'disk-analyzer': HardDrive,
   'token-usage': ChartColumnBig,
-  'agent-observer': Eye,
+  'agent-observer': BrandLmStudioIcon,
   canvas: Presentation,
   'pt-design': PencilRuler,
   tasks: ListTodo,
