@@ -19,16 +19,23 @@ test.describe("APP-067 Atmos Agent Chat", () => {
     });
     await gotoContextRoute(page, contextUrl);
 
-    const plusTrigger = page
-      .locator("main [data-center-stage-plus-trigger]")
-      .filter({ visible: true })
-      .first();
-    await expect(plusTrigger).toBeVisible({ timeout: 15_000 });
-    if ((await plusTrigger.getAttribute("aria-expanded")) !== "true") {
-      await plusTrigger.evaluate((el) => (el as HTMLButtonElement).click());
-    }
     const plusMenu = page.locator("[data-center-stage-plus-menu]");
-    await expect(plusMenu).toBeVisible({ timeout: 15_000 });
+    // Hover-open is the product path. Native click misses mouseenter, and
+    // layout disk-sync can remount the plus control after the first attempt.
+    await expect
+      .poll(
+        async () => {
+          const plusTrigger = page
+            .locator("main [data-center-stage-plus-trigger]")
+            .filter({ visible: true })
+            .first();
+          if (!(await plusTrigger.isVisible().catch(() => false))) return false;
+          await plusTrigger.hover({ force: true });
+          return plusMenu.isVisible();
+        },
+        { timeout: 15_000 },
+      )
+      .toBe(true);
 
     const newAgentChat = plusMenu.locator("#create-agent-chat");
     const newTerminal = plusMenu.locator("#create-terminal");
