@@ -439,24 +439,26 @@ export function layoutObserverGraph(
   return positions;
 }
 
-export function observerSubtreeIds(nodes: ObserverGraphNode[], rootId: string): string[] {
-  const ids = [rootId];
-  const byParent = new Map<string, string[]>();
-  for (const node of nodes) {
-    if (!node.parentId) continue;
-    const list = byParent.get(node.parentId) ?? [];
-    list.push(node.id);
-    byParent.set(node.parentId, list);
+export function observerLayoutShiftToAnchor(
+  layout: Map<string, { x: number; y: number }>,
+  nodeId: string,
+  keep: { x: number; y: number },
+): { x: number; y: number } {
+  const pos = layout.get(nodeId);
+  if (!pos) return { x: 0, y: 0 };
+  return { x: keep.x - pos.x, y: keep.y - pos.y };
+}
+
+export function applyObserverLayoutShift(
+  layout: Map<string, { x: number; y: number }>,
+  shift: { x: number; y: number },
+): Map<string, { x: number; y: number }> {
+  if (shift.x === 0 && shift.y === 0) return layout;
+  const next = new Map<string, { x: number; y: number }>();
+  for (const [id, pos] of layout) {
+    next.set(id, { x: pos.x + shift.x, y: pos.y + shift.y });
   }
-  const stack = [...(byParent.get(rootId) ?? [])];
-  while (stack.length > 0) {
-    const id = stack.pop();
-    if (!id) continue;
-    ids.push(id);
-    const kids = byParent.get(id);
-    if (kids) stack.push(...kids);
-  }
-  return ids;
+  return next;
 }
 
 export function observerNodeTitle(

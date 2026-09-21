@@ -8,9 +8,6 @@ import {
   Controls,
   ReactFlow,
   applyNodeChanges,
-  useNodesInitialized,
-  useReactFlow,
-  useStore,
   type Edge,
   type Node,
   type NodeChange,
@@ -34,13 +31,13 @@ import { navigateToAgentStatusSession } from "@/features/agent/lib/agent-status-
 import { ObserverNewChatPicker } from "./ObserverNewChatPicker";
 import { ObserverInstallHooksButton } from "./ObserverInstallHooksButton";
 import {
+  applyObserverLayoutShift,
   buildObserverGraph,
   layoutObserverGraph,
-  observerSubtreeIds,
+  observerLayoutShiftToAnchor,
   sessionFromActivity,
   type ObserverGraphNode,
 } from "@/features/agent/lib/agent-observer-graph";
-import { OBSERVER_MOTION_MS } from "@/features/agent/lib/observer-graph-motion";
 import { useObserverPresence } from "@/features/agent/hooks/use-observer-presence";
 import { useAgentStatusSessionTitles } from "@/features/agent/hooks/use-agent-status-session-titles";
 import {
@@ -130,50 +127,6 @@ function sameEdgeTopology(
   return true;
 }
 
-const FIT_FOCUS = {
-  padding: 0.24,
-  duration: OBSERVER_MOTION_MS,
-  maxZoom: 1,
-  minZoom: 0.2,
-} as const;
-
-function ObserverViewportFitter({
-  epoch,
-  nodeIds,
-}: {
-  epoch: number;
-  nodeIds: string[];
-}) {
-  const flow = useReactFlow<Node<ObserverFlowData>, Edge<ObserverEdgeData>>();
-  const nodesInitialized = useNodesInitialized();
-  const width = useStore((state) => state.width);
-  const height = useStore((state) => state.height);
-  const idsKey = nodeIds.join("|");
-
-  useEffect(() => {
-    if (epoch === 0 || nodeIds.length === 0) return;
-    if (!nodesInitialized || width < 1 || height < 1) return;
-    let cancelled = false;
-    let raf2 = 0;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => {
-        if (cancelled) return;
-        void flow.fitView({
-          ...FIT_FOCUS,
-          nodes: nodeIds.map((id) => ({ id })),
-        });
-      });
-    });
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
-    };
-  }, [epoch, flow, height, idsKey, nodeIds, nodesInitialized, width]);
-
-  return null;
-}
-
 function mergeFlowEdges(
   current: Edge<ObserverEdgeData>[],
   next: Edge<ObserverEdgeData>[],
@@ -230,8 +183,9 @@ export function AgentObserverView() {
   const flowRef = useRef<ReactFlowInstance<Node<ObserverFlowData>, Edge<ObserverEdgeData>> | null>(
     null,
   );
-  const pendingFocusRootRef = useRef<string | null>(null);
-  const [focus, setFocus] = useState<{ epoch: number; ids: string[] }>({ epoch: 0, ids: [] });
+  const [layoutShift, setLayoutShift] = useState({ x: 0, y: 0 });
+  const pendingAnchorRef = useRef<{ id: string; x: number; y: number } | null>(null);
+  const placedRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
   const graph = useMemo(
     () =>
@@ -247,6 +201,15 @@ export function AgentObserverView() {
   );
 
   const positions = useMemo(() => layoutObserverGraph(graph, new Set()), [graph]);
+  const pendingAnchor = pendingAnchorRef.current;
+  const activeShift = pendingAnchor
+    ? observerLayoutShiftToAnchor(positions, pendingAnchor.id, pendingAnchor)
+    : layoutShift;
+  const placed = useMemo(
+    () => applyObserverLayoutShift(positions, { x: activeShift.x, y: activeShift.y }),
+    [activeShift.x, activeShift.y, positions],
+  );
+  placedRef.current = placed;
   const titleSessions = useMemo(
     () => graph.nodes.flatMap((node) => (node.session ? [node.session] : [])),
     [graph.nodes],
@@ -302,7 +265,11 @@ export function AgentObserverView() {
   );
 
   const toggleNode = useCallback((node: ObserverGraphNode) => {
-    pendingFocusRootRef.current = node.id;
+    const rendered =
+      flowRef.current?.getNode(node.id)?.position ??
+      placedRef.current.get(node.id) ??
+      { x: 0, y: 0 };
+    pendingAnchorRef.current = { id: node.id, x: rendered.x, y: rendered.y };
     setCollapsedIds((prev) => {
       const next = new Set(prev);
       if (next.has(node.id)) next.delete(node.id);
@@ -312,19 +279,17 @@ export function AgentObserverView() {
   }, []);
 
   useLayoutEffect(() => {
-    const rootId = pendingFocusRootRef.current;
-    if (!rootId) return;
-    pendingFocusRootRef.current = null;
-    setFocus((prev) => ({
-      epoch: prev.epoch + 1,
-      ids: observerSubtreeIds(graph.nodes, rootId),
-    }));
-  }, [graph]);
+    const pending = pendingAnchorRef.current;
+    if (!pending) return;
+    pendingAnchorRef.current = null;
+    const next = observerLayoutShiftToAnchor(positions, pending.id, pending);
+    setLayoutShift((prev) => (prev.x === next.x && prev.y === next.y ? prev : next));
+  }, [positions]);
 
   const liveNodes: Node<ObserverFlowData>[] = useMemo(
     () =>
       graph.nodes.map((node) => {
-        const position = positionOverrides.get(node.id) ?? positions.get(node.id) ?? { x: 0, y: 0 };
+        const position = positionOverrides.get(node.id) ?? placed.get(node.id) ?? { x: 0, y: 0 };
         return {
           id: node.id,
           position,
@@ -341,7 +306,7 @@ export function AgentObserverView() {
           style: { width: 288 },
         };
       }),
-    [collapsedIds, graph.nodes, positionOverrides, positions, selectedId, sessionTitles, toggleNode],
+    [collapsedIds, graph.nodes, placed, positionOverrides, selectedId, sessionTitles, toggleNode],
   );
 
   const seenEdgeIdsRef = useRef<Set<string>>(new Set());
@@ -510,7 +475,6 @@ export function AgentObserverView() {
             minZoom={0.2}
             proOptions={{ hideAttribution: true }}
           >
-            <ObserverViewportFitter epoch={focus.epoch} nodeIds={focus.ids} />
             <Background
               variant={BackgroundVariant.Dots}
               gap={22}

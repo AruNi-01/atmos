@@ -9,10 +9,11 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
+  applyObserverLayoutShift,
   buildObserverGraph,
   layoutObserverGraph,
+  observerLayoutShiftToAnchor,
   observerNodeTitle,
-  observerSubtreeIds,
   sessionFromActivity,
   toolLineText,
 } from "../agent-observer-graph";
@@ -358,7 +359,7 @@ describe("buildObserverGraph", () => {
     expect(folded.edges.some((e) => e.target === "child:lead:c1")).toBe(false);
   });
 
-  it("lists the visible subtree for fold/expand camera focus", () => {
+  it("keeps a folded card at its previous point without fitting the viewport", () => {
     const record = activity({
       session_id: "lead",
       context_id: "w1",
@@ -367,6 +368,14 @@ describe("buildObserverGraph", () => {
         {
           child_id: "c1",
           name: "Explore",
+          state: "running",
+          recent_tools: [],
+          started_at: "t",
+          last_event_at: "t",
+        },
+        {
+          child_id: "c2",
+          name: "Plan",
           state: "running",
           recent_tools: [],
           started_at: "t",
@@ -381,9 +390,6 @@ describe("buildObserverGraph", () => {
       collapsedIds: new Set(),
       expandedAgentIds: new Set(),
     });
-    expect(observerSubtreeIds(open.nodes, "agent:lead").sort()).toEqual(
-      ["agent:lead", "child:lead:c1"].sort(),
-    );
     const folded = buildObserverGraph({
       projects,
       sessions: [session({ session_id: "lead", context_id: "w1" })],
@@ -391,7 +397,19 @@ describe("buildObserverGraph", () => {
       collapsedIds: new Set(["agent:lead"]),
       expandedAgentIds: new Set(),
     });
-    expect(observerSubtreeIds(folded.nodes, "agent:lead")).toEqual(["agent:lead"]);
+    const openPos = layoutObserverGraph(open, new Set());
+    const foldedPos = layoutObserverGraph(folded, new Set());
+    const keep = openPos.get("agent:lead");
+    const raw = foldedPos.get("agent:lead");
+    expect(keep).toBeDefined();
+    expect(raw).toBeDefined();
+    if (!keep || !raw) return;
+    expect(raw.y).not.toBe(keep.y);
+    const anchored = applyObserverLayoutShift(
+      foldedPos,
+      observerLayoutShiftToAnchor(foldedPos, "agent:lead", keep),
+    );
+    expect(anchored.get("agent:lead")).toEqual(keep);
   });
 
   it("titles agent cards from the session title and subagents from type plus description", () => {
@@ -539,10 +557,11 @@ describe("Observer pane jump", () => {
     expect(source).toContain("observer-edge-spawn");
     expect(source).not.toContain('t("spawn")');
     expect(source).toContain("mergeFlowEdges");
-    expect(source).toContain("ObserverViewportFitter");
-    expect(source).toContain("observerSubtreeIds");
-    expect(source).toContain("pendingFocusRootRef");
-    expect(source).toContain("OBSERVER_MOTION_MS");
+    expect(source).toContain("observerLayoutShiftToAnchor");
+    expect(source).toContain("pendingAnchorRef");
+    expect(source).not.toContain("ObserverViewportFitter");
+    expect(source).not.toContain("pendingFocusRootRef");
+    expect(source).not.toContain("observerSubtreeIds");
     expect(source).toContain("sessionTitle");
     expect(source).toContain("useAgentStatusSessionTitles");
     expect(source).toContain("animated: false");
