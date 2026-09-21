@@ -9,6 +9,9 @@ type SnapPoint = "half" | "full" | { fraction: number } | { height: number };
 /**
  * Expo `@expo/ui` BottomSheet drawer. Use for group lists and similar drawers.
  * Popovers must use `IosPopover` instead.
+ *
+ * On iOS 26 the system sheet already insets the half detent from the display
+ * edge and edge-attaches at the large detent — that is not a separate prop.
  */
 export function ExpoDrawer({
   children,

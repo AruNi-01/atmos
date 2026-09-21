@@ -28,7 +28,7 @@ export function TerminalGroupDrawer({
   const theme = useMobileTheme();
 
   return (
-    <ExpoDrawer isPresented={isPresented} onDismiss={onDismiss}>
+    <ExpoDrawer isPresented={isPresented} onDismiss={onDismiss} testID="terminal-group-drawer">
       <Text style={[styles.title, { color: theme.colors.label }]}>Terminals</Text>
       {entries.length === 0 ? (
         <Text style={[styles.empty, { color: theme.colors.secondaryLabel }]}>No terminals yet</Text>
