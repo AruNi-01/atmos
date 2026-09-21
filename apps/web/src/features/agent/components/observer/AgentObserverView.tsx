@@ -251,16 +251,21 @@ export function AgentObserverView() {
     [exitingNodes, liveNodeIds, liveNodes],
   );
 
-  const flowEdges = useMemo(
-    () => [
+  const flowEdges = useMemo((): Edge<ObserverEdgeData>[] => [
       ...liveEdges,
       ...exitingEdges
         .filter((edge) => !liveEdgeIds.has(edge.id))
-        .map((edge) => ({
-          ...edge,
-          className: "observer-edge-exiting",
-          data: { ...edge.data, presence: "exit" as const },
-        })),
+        .map(
+          (edge): Edge<ObserverEdgeData> => ({
+            ...edge,
+            className: "observer-edge-exiting",
+            data: {
+              kind: edge.data?.kind ?? "owns",
+              label: edge.data?.label,
+              presence: "exit",
+            },
+          }),
+        ),
     ],
     [exitingEdges, liveEdgeIds, liveEdges],
   );
@@ -283,7 +288,7 @@ export function AgentObserverView() {
     setNodes((current) => applyNodeChanges(changes, current));
   }, []);
 
-  const onNodeDragStop: NodeMouseHandler = useCallback((_event, node) => {
+  const onNodeDragStop = useCallback((_event: MouseEvent | TouchEvent, node: Node<ObserverFlowData>) => {
     setPositionOverrides((prev) => {
       const next = new Map(prev);
       next.set(node.id, node.position);

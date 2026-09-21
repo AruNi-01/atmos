@@ -8,7 +8,10 @@ import { useQueryState } from "nuqs";
 import { Button, EmptyAction, IconSetting, Input, cn } from "@workspace/ui";
 import { LinearIcon } from "@workspace/ui/components/icons/linear-icon";
 import { Loader2, RefreshCw, Search, X } from "lucide-react";
-import type { LinearIssuePayload } from "@atmos/api-types/ws/dto/linear";
+import type {
+  LinearGithubRefPayload,
+  LinearIssuePayload,
+} from "@atmos/api-types/ws/dto/linear";
 import { wsLinearApi } from "@/api/ws/linear-api";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { queryKeys } from "@/api/query/query-keys";

@@ -883,10 +883,11 @@ fn host_subagent_ids(tool: &AgentTool) -> Vec<String> {
             ids.push(trimmed.to_string());
         }
     };
-    if let AgentToolParams::Subagent { task_id, .. } = &tool.params {
-        if let Some(id) = task_id {
-            push(id);
-        }
+    if let AgentToolParams::Subagent {
+        task_id: Some(id), ..
+    } = &tool.params
+    {
+        push(id);
     }
     push(&tool.tool_call_id);
     ids

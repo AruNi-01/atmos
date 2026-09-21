@@ -240,8 +240,7 @@ fn is_spawn_tool_name(name: &str) -> bool {
     matches!(
         name.trim()
             .to_ascii_lowercase()
-            .replace('-', "_")
-            .replace(' ', "_")
+            .replace(['-', ' '], "_")
             .as_str(),
         "task"
             | "agent"
