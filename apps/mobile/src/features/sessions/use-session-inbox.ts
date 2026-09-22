@@ -125,6 +125,9 @@ export function useSessionInbox() {
       void queryClient.invalidateQueries({
         queryKey: ["agent-session-status-list", selectedServerId],
       });
+      void queryClient.invalidateQueries({
+        queryKey: ["session-terminal-candidates", selectedServerId],
+      });
     });
     return () => {
       unsubscribe();

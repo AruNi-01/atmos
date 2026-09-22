@@ -22,17 +22,11 @@ export function resolveSessionPrLifecycle(
 ): WorkspacePrLifecycleState | null {
   if (!workspace) return null;
   const live = pickBranchHeadPr(branchPrs ? [...branchPrs] : [], workspace.branch);
-  if (live) {
-    return normalizePrLifecycleState(
-      live.state,
-      Boolean(live.is_draft ?? live.isDraft),
-    );
-  }
-  const stored = workspace.githubPr;
-  if (!stored) return null;
-  const match = pickBranchHeadPr([stored], workspace.branch);
-  if (!match) return null;
-  return normalizePrLifecycleState(match.state, Boolean(match.is_draft));
+  if (!live) return null;
+  return normalizePrLifecycleState(
+    live.state,
+    Boolean(live.is_draft ?? live.isDraft),
+  );
 }
 
 export type SessionBranchPrTarget = {

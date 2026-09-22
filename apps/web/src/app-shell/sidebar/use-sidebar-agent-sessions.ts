@@ -18,6 +18,12 @@ export function useSidebarAgentSessions(loadChatTitles: boolean) {
   const generation = useRef(0);
   const tabsByContext = useAgentChatCenterTabsStore((state) => state.tabsByContext);
 
+  useEffect(() => {
+    setSnapshots([]);
+    setListedTitles({});
+    setLoaded(false);
+  }, [scope]);
+
   const reload = useCallback(async () => {
     const ticket = generation.current + 1;
     generation.current = ticket;
@@ -45,6 +51,8 @@ export function useSidebarAgentSessions(loadChatTitles: boolean) {
     } catch (error) {
       if (ticket !== generation.current) return;
       console.error("Failed to load agent session statuses:", error);
+      setSnapshots([]);
+      setListedTitles({});
       setLoaded(true);
     }
   }, [loadChatTitles, scope]);

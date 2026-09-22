@@ -1,6 +1,6 @@
 //! Async inbox-catalog writer. Live occupancy stays in memory.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
@@ -83,7 +83,9 @@ enum CatalogJob {
 
 pub(super) struct CatalogBridge {
     store: Arc<dyn AgentSessionCatalogStore>,
-    senders: Mutex<HashMap<String, mpsc::UnboundedSender<CatalogJob>>>,
+    /// One ordered writer for every pane. FIFO keeps each session's writes in order
+    /// without leaving a task behind after the pane is archived.
+    sender: Mutex<Option<mpsc::UnboundedSender<CatalogJob>>>,
     upserts: AtomicU64,
 }
 
@@ -91,14 +93,13 @@ impl CatalogBridge {
     pub(super) fn new(store: Arc<dyn AgentSessionCatalogStore>) -> Self {
         Self {
             store,
-            senders: Mutex::new(HashMap::new()),
+            sender: Mutex::new(None),
             upserts: AtomicU64::new(0),
         }
     }
 
     pub(super) fn enqueue_upsert(&self, row: AgentSessionCatalogRow) -> Result<(), String> {
-        let session_id = row.session_id.clone();
-        let tx = self.sender_for(&session_id)?;
+        let tx = self.sender()?;
         tx.send(CatalogJob::Upsert(row))
             .map_err(|_| "catalog queue closed".to_string())?;
         self.upserts.fetch_add(1, Ordering::SeqCst);
@@ -106,7 +107,7 @@ impl CatalogBridge {
     }
 
     pub(super) async fn archive(&self, session_id: &str) -> Result<(), String> {
-        let tx = self.sender_for(session_id)?;
+        let tx = self.sender()?;
         let (done_tx, done_rx) = oneshot::channel();
         tx.send(CatalogJob::Archive {
             session_id: session_id.to_string(),
@@ -137,7 +138,7 @@ impl CatalogBridge {
 
     #[allow(dead_code)]
     pub(super) async fn flush(&self) {
-        let senders: Vec<_> = self.senders.lock().values().cloned().collect();
+        let senders: Vec<_> = self.sender.lock().clone().into_iter().collect();
         let mut waits = Vec::new();
         for tx in senders {
             let (done_tx, done_rx) = oneshot::channel();
@@ -150,9 +151,9 @@ impl CatalogBridge {
         }
     }
 
-    fn sender_for(&self, session_id: &str) -> Result<mpsc::UnboundedSender<CatalogJob>, String> {
-        let mut guard = self.senders.lock();
-        if let Some(tx) = guard.get(session_id) {
+    fn sender(&self) -> Result<mpsc::UnboundedSender<CatalogJob>, String> {
+        let mut guard = self.sender.lock();
+        if let Some(tx) = guard.as_ref() {
             return Ok(tx.clone());
         }
         tokio::runtime::Handle::try_current()
@@ -177,7 +178,7 @@ impl CatalogBridge {
                 }
             }
         });
-        guard.insert(session_id.to_string(), tx.clone());
+        *guard = Some(tx.clone());
         Ok(tx)
     }
 }
