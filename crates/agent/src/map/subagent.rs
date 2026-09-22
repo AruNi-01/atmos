@@ -392,12 +392,25 @@ fn unmatched_running_spawns(tools: &HashMap<String, AgentTool>) -> Vec<AgentTool
         .filter(|tool| {
             tool.status == AgentToolStatus::Running
                 && !crate::contract::is_grok_chrome_subagent_name(&tool.name)
+                && !notice_bound(tools, tool)
                 && matches!(
                     &tool.params,
                     AgentToolParams::Subagent { task_id: None, .. }
                 )
         })
         .collect()
+}
+
+fn notice_bound_key(tool_call_id: &str) -> String {
+    format!("atmos-notice-bound:{tool_call_id}")
+}
+
+fn notice_bound(tools: &HashMap<String, AgentTool>, tool: &AgentTool) -> bool {
+    tools.contains_key(&notice_bound_key(&tool.tool_call_id))
+}
+
+fn mark_notice_bound(tools: &mut HashMap<String, AgentTool>, tool: &AgentTool) {
+    tools.insert(notice_bound_key(&tool.tool_call_id), tool.clone());
 }
 
 fn unique_unmatched_spawn(tools: &HashMap<String, AgentTool>) -> Option<AgentTool> {
@@ -414,9 +427,10 @@ fn spawn_description(tool: &AgentTool) -> &str {
     }
 }
 
-/// Parallel `spawn_subagent` calls all lack `task_id` until the notice arrives.
-/// Match on a description that uniquely identifies one unmatched spawn so we
-/// don't synthesize a second `grok_chrome` row for the same child.
+/// Match on a description that uniquely identifies one spawn that has not yet
+/// been claimed by a session notice. The dispatch often already carries an
+/// output `task_id` that is not the later `subagent_id`; that must not force a
+/// second child row.
 fn unmatched_spawn_by_description(
     tools: &HashMap<String, AgentTool>,
     description: &str,
@@ -425,9 +439,14 @@ fn unmatched_spawn_by_description(
     if needle.is_empty() {
         return None;
     }
-    let matches: Vec<AgentTool> = unmatched_running_spawns(tools)
+    let matches: Vec<AgentTool> = unique_subagents(tools)
         .into_iter()
-        .filter(|tool| spawn_description(tool).eq_ignore_ascii_case(needle))
+        .filter(|tool| {
+            tool.status == AgentToolStatus::Running
+                && !crate::contract::is_grok_chrome_subagent_name(&tool.name)
+                && !notice_bound(tools, tool)
+                && spawn_description(tool).eq_ignore_ascii_case(needle)
+        })
         .collect();
     (matches.len() == 1)
         .then(|| matches.into_iter().next())
@@ -480,6 +499,7 @@ pub fn apply_xai_subagent_notice(
             store_subagent_tool(tools, &tool);
             tools.insert(child_session_id.clone(), tool.clone());
             tools.insert(subagent_id.clone(), tool.clone());
+            mark_notice_bound(tools, &tool);
             Some(tool)
         }
         XaiSubagentNotice::Progress {
@@ -530,6 +550,7 @@ pub fn apply_xai_subagent_notice(
             }
             store_subagent_tool(tools, &tool);
             tools.insert(child_session_id.clone(), tool.clone());
+            mark_notice_bound(tools, &tool);
             Some(tool)
         }
     }
@@ -914,5 +935,45 @@ mod tests {
         assert_eq!(chrome.tool_call_id, "sa-x");
         assert_eq!(chrome.name, crate::contract::GROK_CHROME_SUBAGENT_NAME);
         assert_eq!(unique_spawn_ids(&tools).len(), 3);
+    }
+
+    #[test]
+    fn output_task_id_does_not_synthesize_a_second_child() {
+        let mut tools = HashMap::new();
+        let mut spawn = running_spawn("tc_specs", "Explore monorepo specs");
+        if let AgentToolParams::Subagent {
+            task_id, prompt, ..
+        } = &mut spawn.params
+        {
+            *task_id = Some("output-uuid".into());
+            *prompt = Some("You are exploring Atmos".into());
+        }
+        store_subagent_tool(&mut tools, &spawn);
+
+        let merged = apply_xai_subagent_notice(
+            &mut tools,
+            &XaiSubagentNotice::Spawned {
+                subagent_id: "sa-specs".into(),
+                child_session_id: "sa-specs".into(),
+                description: "Explore monorepo specs".into(),
+                subagent_type: Some("explore".into()),
+            },
+        )
+        .unwrap();
+        assert_eq!(merged.tool_call_id, "tc_specs");
+        assert_eq!(unique_spawn_ids(&tools).len(), 1);
+
+        let second = apply_xai_subagent_notice(
+            &mut tools,
+            &XaiSubagentNotice::Spawned {
+                subagent_id: "sa-other".into(),
+                child_session_id: "sa-other".into(),
+                description: "Explore monorepo specs".into(),
+                subagent_type: Some("explore".into()),
+            },
+        )
+        .unwrap();
+        assert_eq!(second.tool_call_id, "sa-other");
+        assert_eq!(unique_spawn_ids(&tools).len(), 2);
     }
 }

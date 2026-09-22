@@ -286,7 +286,7 @@ export function buildObserverGraph({
 
     const agentId = `agent:${member.sessionId}`;
     const record = member.activity;
-    const children = record?.children ?? [];
+    const children = dedupeNamedChildren(record?.children ?? []);
     const turns = (record?.turns ?? []).filter((turn) => !isLeakedChildTurn(turn, children));
     const visibleTurns = [...turns].reverse().slice(0, VISIBLE_TURNS);
     const extraTurns = Math.max(0, turns.length - VISIBLE_TURNS) + (record?.turns_omitted ?? 0);
@@ -481,6 +481,49 @@ export function applyObserverLayoutShift(
     next.set(id, { x: pos.x + shift.x, y: pos.y + shift.y });
   }
   return next;
+}
+
+function childHasTools(child: AgentChildActivity): boolean {
+  return Boolean(child.current_tool) || child.recent_tools.length > 0;
+}
+
+function childHasPrompt(child: AgentChildActivity): boolean {
+  return Boolean(child.prompt?.trim());
+}
+
+function nameIsSpecific(name: string): boolean {
+  return name.includes(" ") || name.includes("·");
+}
+
+/** Drop the idle twin when a spawn notice and the live child share one label. */
+export function dedupeNamedChildren(children: AgentChildActivity[]): AgentChildActivity[] {
+  const groups = new Map<string, AgentChildActivity[]>();
+  for (const child of children) {
+    const name = child.name?.trim();
+    if (!name || !nameIsSpecific(name)) continue;
+    const key = name.toLowerCase();
+    const list = groups.get(key) ?? [];
+    list.push(child);
+    groups.set(key, list);
+  }
+  const drop = new Set<string>();
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const withTools = group.filter(childHasTools);
+    // Two children that both already ran tools are separate agents.
+    if (withTools.length > 1) continue;
+    const prompted = group.filter(childHasPrompt);
+    const keep =
+      withTools[0] ??
+      (prompted.length === 1 ? prompted[0] : prompted.at(-1)) ??
+      group.find((child) => !child.child_id.startsWith("spawn:")) ??
+      group[0];
+    for (const child of group) {
+      if (child.child_id !== keep.child_id) drop.add(child.child_id);
+    }
+  }
+  if (drop.size === 0) return children;
+  return children.filter((child) => !drop.has(child.child_id));
 }
 
 export function permissionActionLine(

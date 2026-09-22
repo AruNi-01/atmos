@@ -810,9 +810,15 @@ fn apply_host_tool(
 }
 
 fn apply_host_subagent(activity: &mut AgentActivity, tool: &AgentTool, now: &str, pending: bool) {
+    let call_id = tool.tool_call_id.trim().to_string();
+    // The spawn shell may live under an alias of this call id (`spawn:*` or the
+    // call id itself). A later notice uses a different session id; fold that shell in.
+    let prior = child_id_for_call(activity, &call_id);
     let mut ids = host_subagent_ids(tool);
     if ids.is_empty() {
-        if pending {
+        if let Some(existing) = prior.clone() {
+            ids.push(existing);
+        } else if pending {
             ids.push(next_ephemeral_spawn_id(activity));
         } else if let Some(existing) = latest_ephemeral_spawn_id(activity) {
             ids.push(existing);
@@ -832,11 +838,15 @@ fn apply_host_subagent(activity: &mut AgentActivity, tool: &AgentTool, now: &str
             merge_child(activity, id, &canonical);
         }
     }
-    let call_id = tool.tool_call_id.trim();
+    if let Some(prior) = prior {
+        if prior != canonical {
+            merge_child(activity, &prior, &canonical);
+        }
+    }
     if !call_id.is_empty() {
-        register_child_alias(activity, call_id, &canonical);
+        register_child_alias(activity, &call_id, &canonical);
         if call_id != canonical {
-            merge_child(activity, call_id, &canonical);
+            merge_child(activity, &call_id, &canonical);
         }
     }
     let chrome = is_grok_chrome_subagent_name(&tool.name);
@@ -870,7 +880,106 @@ fn apply_host_subagent(activity: &mut AgentActivity, tool: &AgentTool, now: &str
         }
     }
     strip_chrome_tools_from_turns(activity);
+    collapse_duplicate_named_children(activity);
     rehome_child_prompt_turns(activity);
+}
+
+fn child_id_for_call(activity: &AgentActivity, call_id: &str) -> Option<String> {
+    if call_id.is_empty() {
+        return None;
+    }
+    let resolved = canonical_child_id(activity, call_id);
+    activity
+        .children
+        .iter()
+        .any(|child| child.child_id == resolved)
+        .then_some(resolved)
+}
+
+fn child_has_tools(child: &AgentChildActivity) -> bool {
+    child.current_tool.is_some() || !child.recent_tools.is_empty()
+}
+
+fn child_has_prompt(child: &AgentChildActivity) -> bool {
+    child
+        .prompt
+        .as_deref()
+        .is_some_and(|prompt| !prompt.trim().is_empty())
+}
+
+/// Parallel spawns and the later session notice often share a label but not an id.
+/// A prompt on both sides is still one agent: the shell stays on "Generating"
+/// while the notice carries the same task text. Only a tool call proves a
+/// second agent is actually working.
+fn collapse_duplicate_named_children(activity: &mut AgentActivity) {
+    let mut groups: HashMap<String, Vec<String>> = HashMap::new();
+    for child in &activity.children {
+        let Some(name) = child
+            .name
+            .as_deref()
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+        else {
+            continue;
+        };
+        groups
+            .entry(name.to_ascii_lowercase())
+            .or_default()
+            .push(child.child_id.clone());
+    }
+    let groups: Vec<(String, Vec<String>)> = groups
+        .into_iter()
+        .filter(|(_, ids)| ids.len() > 1)
+        .collect();
+    for (name, ids) in groups {
+        // Bare type labels ("Explore") can be shared by distinct children.
+        // Descriptive labels are the duplicated spawn/notice pair.
+        let specific = name.contains(' ') || name.contains('·');
+        let with_tools: Vec<String> = ids
+            .iter()
+            .filter(|id| {
+                activity
+                    .children
+                    .iter()
+                    .any(|child| &child.child_id == *id && child_has_tools(child))
+            })
+            .cloned()
+            .collect();
+        if with_tools.len() > 1 {
+            continue;
+        }
+        let keep = prefer_named_twin(activity, &ids, &with_tools);
+        for id in ids {
+            if id != keep && (specific || is_ephemeral_spawn_id(&id)) {
+                merge_child(activity, &id, &keep);
+            }
+        }
+    }
+}
+
+fn prefer_named_twin(activity: &AgentActivity, ids: &[String], with_tools: &[String]) -> String {
+    if with_tools.len() == 1 {
+        return with_tools[0].clone();
+    }
+    let prompted: Vec<&String> = ids
+        .iter()
+        .filter(|id| {
+            activity
+                .children
+                .iter()
+                .any(|child| child.child_id == **id && child_has_prompt(child))
+        })
+        .collect();
+    if prompted.len() == 1 {
+        return prompted[0].clone();
+    }
+    if let Some(latest) = prompted.last() {
+        return (*latest).clone();
+    }
+    ids.iter()
+        .find(|id| !is_ephemeral_spawn_id(id))
+        .cloned()
+        .unwrap_or_else(|| ids[0].clone())
 }
 
 fn apply_child_tool(
@@ -1144,11 +1253,20 @@ fn adopt_child_id(activity: &mut AgentActivity, incoming: &str) -> String {
     if is_ephemeral_spawn_id(&resolved) {
         return resolved;
     }
-    if let Some(ephemeral) = latest_ephemeral_spawn_id(activity) {
+    // Pair the next real id with the oldest shell, so parallel spawns stay in order.
+    if let Some(ephemeral) = oldest_ephemeral_spawn_id(activity) {
         merge_child(activity, &ephemeral, &resolved);
         return resolved;
     }
     resolved
+}
+
+fn oldest_ephemeral_spawn_id(activity: &AgentActivity) -> Option<String> {
+    activity
+        .children
+        .iter()
+        .find(|child| is_ephemeral_spawn_id(&child.child_id))
+        .map(|child| child.child_id.clone())
 }
 
 fn register_child_alias(activity: &mut AgentActivity, alias: &str, canonical: &str) {
@@ -1708,6 +1826,7 @@ fn apply_grok_roster(
         }
     }
     merge_spawn_children_into_roster(activity, &incoming);
+    collapse_duplicate_named_children(activity);
     let keep: HashSet<String> = activity
         .grok_goal_child_ids
         .iter()
@@ -3350,6 +3469,216 @@ mod tests {
             .collect();
         ids.sort_unstable();
         assert_eq!(ids, vec!["sa-a", "sa-b"]);
+    }
+
+    #[test]
+    fn bare_type_spawn_and_session_id_stay_one_child() {
+        use crate::service::agent_status::apply_host_event;
+
+        let status = AgentStatusService::new();
+        let meta = chat_meta("bare");
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::UserMessage {
+                turn_id: "t1".into(),
+                message_id: "m1".into(),
+                kind: UserMessageKind::Normal,
+                text: "explore".into(),
+                attachments: Vec::new(),
+            },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::ToolCallStarted {
+                tool_call: AgentTool {
+                    tool_call_id: "tc-1".into(),
+                    parent_tool_call_id: None,
+                    name: "Task".into(),
+                    title: None,
+                    kind: AgentToolKind::Subagent,
+                    status: agent::AgentToolStatus::Running,
+                    params: AgentToolParams::Subagent {
+                        description: "Explore".into(),
+                        agent_type: Some("Explore".into()),
+                        task_id: Some("tc-1".into()),
+                        prompt: None,
+                    },
+                    result: None,
+                },
+            },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::ToolCallStarted {
+                tool_call: AgentTool {
+                    tool_call_id: "tc-1".into(),
+                    parent_tool_call_id: None,
+                    name: "Task".into(),
+                    title: None,
+                    kind: AgentToolKind::Subagent,
+                    status: agent::AgentToolStatus::Running,
+                    params: AgentToolParams::Subagent {
+                        description: "Explore".into(),
+                        agent_type: Some("Explore".into()),
+                        task_id: Some("sa-1".into()),
+                        prompt: None,
+                    },
+                    result: None,
+                },
+            },
+        );
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(activity.children.len(), 1);
+        assert_eq!(activity.children[0].child_id, "sa-1");
+    }
+
+    #[test]
+    fn parallel_chat_subagents_with_the_same_label_collapse_to_one_each() {
+        use crate::service::agent_status::apply_host_event;
+
+        let status = AgentStatusService::new();
+        let mut meta = chat_meta("multi");
+        meta.provider_id = "grok".into();
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::UserMessage {
+                turn_id: "t1".into(),
+                message_id: "m1".into(),
+                kind: UserMessageKind::Normal,
+                text: "启动多个 subagent".into(),
+                attachments: Vec::new(),
+            },
+        );
+        for (call_id, description) in [
+            ("tc-specs", "Explore monorepo specs"),
+            ("tc-rust", "Explore Rust backend"),
+        ] {
+            apply_host_event(
+                &status,
+                &meta,
+                &AgentEvent::ToolCallStarted {
+                    tool_call: AgentTool {
+                        tool_call_id: call_id.into(),
+                        parent_tool_call_id: None,
+                        name: "spawn_subagent".into(),
+                        title: None,
+                        kind: AgentToolKind::Subagent,
+                        status: agent::AgentToolStatus::Running,
+                        params: AgentToolParams::Subagent {
+                            description: description.into(),
+                            agent_type: None,
+                            task_id: Some(call_id.into()),
+                            prompt: None,
+                        },
+                        result: None,
+                    },
+                },
+            );
+        }
+        for (session_id, description) in [
+            ("sa-specs", "Explore monorepo specs"),
+            ("sa-rust", "Explore Rust backend"),
+        ] {
+            apply_host_event(
+                &status,
+                &meta,
+                &AgentEvent::ToolCallStarted {
+                    tool_call: AgentTool {
+                        tool_call_id: session_id.into(),
+                        parent_tool_call_id: None,
+                        name: "spawn_subagent".into(),
+                        title: None,
+                        kind: AgentToolKind::Subagent,
+                        status: agent::AgentToolStatus::Running,
+                        params: AgentToolParams::Subagent {
+                            description: description.into(),
+                            agent_type: None,
+                            task_id: Some(session_id.into()),
+                            prompt: Some(format!("You are exploring {description}")),
+                        },
+                        result: None,
+                    },
+                },
+            );
+        }
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::ToolCallStarted {
+                tool_call: nested_read("read-1", "sa-specs", true),
+            },
+        );
+
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(activity.children.len(), 2);
+        let specs = activity
+            .children
+            .iter()
+            .find(|child| child.child_id == "sa-specs")
+            .expect("specs child");
+        assert_eq!(
+            specs.current_tool.as_ref().map(|tool| tool.name.as_str()),
+            Some("read_file")
+        );
+        assert!(activity
+            .children
+            .iter()
+            .any(|child| child.child_id == "sa-rust"));
+    }
+
+    #[test]
+    fn same_label_with_prompts_on_both_sides_stays_one_child() {
+        use crate::service::agent_status::apply_host_event;
+
+        let status = AgentStatusService::new();
+        let mut meta = chat_meta("both-prompts");
+        meta.provider_id = "grok".into();
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::UserMessage {
+                turn_id: "t1".into(),
+                message_id: "m1".into(),
+                kind: UserMessageKind::Normal,
+                text: "启动多个 subagent".into(),
+                attachments: Vec::new(),
+            },
+        );
+        let prompt = "You are exploring Atmos at /Users/aarynlu/OpenSource/atmos";
+        for (call_id, task_id) in [("tc-specs", "tc-specs"), ("sa-specs", "sa-specs")] {
+            apply_host_event(
+                &status,
+                &meta,
+                &AgentEvent::ToolCallStarted {
+                    tool_call: AgentTool {
+                        tool_call_id: call_id.into(),
+                        parent_tool_call_id: None,
+                        name: "spawn_subagent".into(),
+                        title: None,
+                        kind: AgentToolKind::Subagent,
+                        status: agent::AgentToolStatus::Running,
+                        params: AgentToolParams::Subagent {
+                            description: "Explore monorepo specs".into(),
+                            agent_type: None,
+                            task_id: Some(task_id.into()),
+                            prompt: Some(prompt.into()),
+                        },
+                        result: None,
+                    },
+                },
+            );
+        }
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(activity.children.len(), 1);
+        assert_eq!(
+            activity.children[0].name.as_deref(),
+            Some("Explore monorepo specs")
+        );
+        assert_eq!(activity.children[0].prompt.as_deref(), Some(prompt));
     }
 
     #[test]

@@ -11,6 +11,7 @@ import { join } from "node:path";
 import {
   applyObserverLayoutShift,
   buildObserverGraph,
+  dedupeNamedChildren,
   layoutObserverGraph,
   observerLayoutShiftToAnchor,
   observerLiveHeadline,
@@ -628,6 +629,55 @@ describe("Observer pane jump", () => {
     expect(css).not.toContain(".observer-card-header:hover .observer-drag-grip");
     expect(css).not.toContain(".react-flow__edge:not(.animated)");
     expect(css).not.toContain(".react-flow__edge.animated");
+  });
+});
+
+describe("dedupeNamedChildren", () => {
+  it("drops the idle twin that shares a descriptive label", () => {
+    const child = (
+      id: string,
+      name: string,
+      prompt?: string,
+    ): AgentActivity["children"][number] => ({
+      child_id: id,
+      name,
+      state: "running",
+      recent_tools: [],
+      prompt,
+      started_at: "t",
+      last_event_at: "t",
+    });
+    const next = dedupeNamedChildren([
+      child("tc-specs", "Explore monorepo specs"),
+      child("sa-specs", "Explore monorepo specs", "You are exploring Atmos"),
+      child("sa-rust", "Explore Rust backend"),
+      child("tc-rust", "Explore Rust backend"),
+    ]);
+    expect(next.map((item) => item.child_id).sort()).toEqual(["sa-rust", "sa-specs"]);
+  });
+
+  it("drops the generating twin when both sides already have the task prompt", () => {
+    const child = (
+      id: string,
+      name: string,
+      prompt: string,
+    ): AgentActivity["children"][number] => ({
+      child_id: id,
+      name,
+      state: "running",
+      recent_tools: [],
+      prompt,
+      started_at: "t",
+      last_event_at: "t",
+    });
+    const prompt = "You are exploring Atmos";
+    const next = dedupeNamedChildren([
+      child("tc-specs", "Explore monorepo specs", prompt),
+      child("sa-specs", "Explore monorepo specs", prompt),
+      child("tc-rust", "Explore Rust backend", prompt),
+      child("sa-rust", "Explore Rust backend", prompt),
+    ]);
+    expect(next.map((item) => item.child_id).sort()).toEqual(["sa-rust", "sa-specs"]);
   });
 });
 
