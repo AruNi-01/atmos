@@ -2966,6 +2966,7 @@
     "toolError": "Failed",
     "expand": "Expand",
     "fold": "Fold",
+    "remove": "Remove",
     "sideChat": "Side chat",
     "chat": "Chat",
     "stateIdle": "Idle",

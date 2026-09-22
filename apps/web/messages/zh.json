@@ -2966,6 +2966,7 @@
     "toolError": "失败",
     "expand": "展开",
     "fold": "折叠",
+    "remove": "移除",
     "sideChat": "侧栏对话",
     "chat": "对话",
     "stateIdle": "空闲",

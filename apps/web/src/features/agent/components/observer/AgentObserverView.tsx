@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Background,
   BackgroundVariant,
@@ -15,10 +16,17 @@ import {
   type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { LayoutGrid } from "lucide-react";
+import { FoldVertical, LayoutGrid, Trash2, UnfoldVertical } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useShallow } from "zustand/react/shallow";
-import { IconActivity, ProjectEmpty } from "@workspace/ui";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  IconActivity,
+  ProjectEmpty,
+} from "@workspace/ui";
 import { agentHooksApi, type AgentHookInstallReport } from "@/api/rest-api";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
@@ -34,6 +42,10 @@ import {
   applyObserverLayoutShift,
   buildObserverGraph,
   layoutObserverGraph,
+  TRACKPAD_SECONDARY_CLICK_WINDOW_MS,
+  isLeakedTrackpadClick,
+  observerCardCanFold,
+  observerCardCanRemove,
   observerLayoutShiftToAnchor,
   sessionFromActivity,
   type ObserverGraphNode,
@@ -66,6 +78,65 @@ function attentionForSession(
     }
   }
   return null;
+}
+
+function ObserverCardMenu({
+  menu,
+  node,
+  collapsed,
+  foldLabel,
+  expandLabel,
+  removeLabel,
+  onClose,
+  onToggle,
+  onRemove,
+}: {
+  menu: { x: number; y: number };
+  node: ObserverGraphNode | null;
+  collapsed: boolean;
+  foldLabel: string;
+  expandLabel: string;
+  removeLabel: string;
+  onClose: () => void;
+  onToggle: () => void;
+  onRemove: () => void;
+}) {
+  if (!node) return null;
+  const canFold = observerCardCanFold(node);
+  const canRemove = observerCardCanRemove(node);
+  if (!canFold && !canRemove) return null;
+  return (
+    <DropdownMenu
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-hidden
+          tabIndex={-1}
+          className="pointer-events-none fixed size-0"
+          style={{ left: menu.x, top: menu.y }}
+        />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" sideOffset={4} className="z-[90] min-w-36">
+        {canFold ? (
+          <DropdownMenuItem onSelect={onToggle}>
+            {collapsed ? <UnfoldVertical className="size-4" /> : <FoldVertical className="size-4" />}
+            <span>{collapsed ? expandLabel : foldLabel}</span>
+          </DropdownMenuItem>
+        ) : null}
+        {canRemove ? (
+          <DropdownMenuItem variant="destructive" onSelect={onRemove}>
+            <Trash2 className="size-4" />
+            <span>{removeLabel}</span>
+          </DropdownMenuItem>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 function agentLike(kind: ObserverGraphNode["kind"]): boolean {
@@ -199,6 +270,18 @@ export function AgentObserverView() {
     () => new Map(),
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [cardMenu, setCardMenu] = useState<{ x: number; y: number; nodeId: string } | null>(
+    null,
+  );
+  const secondaryPointerAt = useRef(0);
+  const markSecondaryPointer = useCallback(() => {
+    secondaryPointerAt.current = performance.now();
+  }, []);
+  const leakedTrackpadClick = useCallback(
+    (event: { button?: number; ctrlKey?: boolean }) =>
+      isLeakedTrackpadClick(event, secondaryPointerAt.current, performance.now()),
+    [],
+  );
   const [installingHooks, setInstallingHooks] = useState(false);
   const [installError, setInstallError] = useState<string | null>(null);
   const [hookReport, setHookReport] = useState<AgentHookInstallReport | null>(null);
@@ -419,7 +502,10 @@ export function AgentObserverView() {
   }, [flowEdges]);
 
   const onNodesChange = useCallback((changes: NodeChange<Node<ObserverFlowData>>[]) => {
-    setNodes((current) => applyNodeChanges(changes, current));
+    const leaked =
+      performance.now() - secondaryPointerAt.current < TRACKPAD_SECONDARY_CLICK_WINDOW_MS;
+    const next = leaked ? changes.filter((change) => change.type !== "select") : changes;
+    setNodes((current) => applyNodeChanges(next, current));
   }, []);
 
   const onNodeDragStop = useCallback((_event: MouseEvent | TouchEvent, node: Node<ObserverFlowData>) => {
@@ -434,18 +520,37 @@ export function AgentObserverView() {
     setPositionOverrides(new Map());
   }, []);
 
-  const onNodeClick: NodeMouseHandler = useCallback((_event, node) => {
+  const onNodeClick: NodeMouseHandler = useCallback((event, node) => {
+    if (leakedTrackpadClick(event)) return;
     setSelectedId(node.id);
+  }, [leakedTrackpadClick]);
+
+  const onNodeContextMenu: NodeMouseHandler = useCallback((event, node) => {
+    markSecondaryPointer();
+    const found = graph.nodes.find((item) => item.id === node.id);
+    if (!found) return;
+    event.preventDefault();
+    if (!observerCardCanFold(found) && !observerCardCanRemove(found)) return;
+    setCardMenu({ x: event.clientX, y: event.clientY, nodeId: found.id });
+  }, [graph.nodes, markSecondaryPointer]);
+
+  const removeAgentCard = useCallback((node: ObserverGraphNode) => {
+    const sessionId = node.session?.session_id ?? node.activity?.session_id;
+    if (!sessionId || !observerCardCanRemove(node)) return;
+    setCardMenu(null);
+    setSelectedId((current) => (current === node.id ? null : current));
+    void useAgentStatusStore.getState().removeSession(sessionId);
   }, []);
 
   const onNodeDoubleClick: NodeMouseHandler = useCallback(
-    (_event, node) => {
+    (event, node) => {
+      if (leakedTrackpadClick(event)) return;
       const found = graph.nodes.find((item) => item.id === node.id);
       if (found && agentLike(found.kind)) {
         openSession(found);
       }
     },
-    [graph.nodes, openSession],
+    [graph.nodes, leakedTrackpadClick, openSession],
   );
 
   const selected = graph.nodes.find((node) => node.id === selectedId) ?? null;
@@ -486,6 +591,14 @@ export function AgentObserverView() {
             edgeTypes={OBSERVER_EDGE_TYPES}
             onNodesChange={onNodesChange}
             onNodeClick={onNodeClick}
+            onNodeContextMenu={onNodeContextMenu}
+            onPaneClick={(event) => {
+              if (leakedTrackpadClick(event)) return;
+              setCardMenu(null);
+            }}
+            onPointerDownCapture={(event) => {
+              if (event.button !== 0 || event.ctrlKey) markSecondaryPointer();
+            }}
             onNodeDoubleClick={onNodeDoubleClick}
             onNodeDragStop={onNodeDragStop}
             onInit={(instance) => {
@@ -522,6 +635,29 @@ export function AgentObserverView() {
           </ReactFlow>
         )}
       </div>
+      {cardMenu
+        ? createPortal(
+            <ObserverCardMenu
+              menu={cardMenu}
+              node={graph.nodes.find((item) => item.id === cardMenu.nodeId) ?? null}
+              collapsed={collapsedIds.has(cardMenu.nodeId)}
+              foldLabel={t("fold")}
+              expandLabel={t("expand")}
+              removeLabel={t("remove")}
+              onClose={() => setCardMenu(null)}
+              onToggle={() => {
+                const node = graph.nodes.find((item) => item.id === cardMenu.nodeId);
+                if (node) toggleNode(node);
+                setCardMenu(null);
+              }}
+              onRemove={() => {
+                const node = graph.nodes.find((item) => item.id === cardMenu.nodeId);
+                if (node) removeAgentCard(node);
+              }}
+            />,
+            document.body,
+          )
+        : null}
       <ObserverTerminalDrawer />
       <ObserverDrawer
         node={selected}

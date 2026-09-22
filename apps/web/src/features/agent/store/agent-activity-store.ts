@@ -14,6 +14,8 @@ interface AgentActivityStore {
   cleanup: () => void;
   rehydrate: () => void;
   resetForConnectionChange: () => void;
+  forget: (sessionId: string) => void;
+  restore: (sessionId: string, record: AgentActivity) => void;
 }
 
 let hydrateGeneration = 0;
@@ -108,5 +110,24 @@ export const useAgentActivityStore = create<AgentActivityStore>((set, get) => ({
     clearedDuringHydrate.clear();
     set({ records: new Map(), hydrated: false });
     void hydrateActivity();
+  },
+
+  forget: (sessionId) => {
+    clearedDuringHydrate.add(sessionId);
+    set((state) => {
+      if (!state.records.has(sessionId)) return state;
+      const records = new Map(state.records);
+      records.delete(sessionId);
+      return { records };
+    });
+  },
+
+  restore: (sessionId, record) => {
+    clearedDuringHydrate.delete(sessionId);
+    set((state) => {
+      const records = new Map(state.records);
+      records.set(sessionId, record);
+      return { records };
+    });
   },
 }));

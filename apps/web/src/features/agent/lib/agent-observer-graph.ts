@@ -55,6 +55,36 @@ export type ObserverGraph = {
   edges: ObserverGraphEdge[];
 };
 
+/** Any card with children can fold, except a subagent, which has no children of its own. */
+export function observerCardCanFold(
+  node: Pick<ObserverGraphNode, "kind" | "descendantCount">,
+): boolean {
+  return node.kind !== "subagent" && node.descendantCount > 0;
+}
+
+/** A two-finger trackpad tap is a secondary click, then WebKit often emits a primary click. */
+export const TRACKPAD_SECONDARY_CLICK_WINDOW_MS = 500;
+
+export function isLeakedTrackpadClick(
+  event: { button?: number; ctrlKey?: boolean },
+  secondaryAt: number,
+  now: number,
+): boolean {
+  if ((event.button ?? 0) !== 0) return true;
+  if (event.ctrlKey) return true;
+  return secondaryAt > 0 && now - secondaryAt < TRACKPAD_SECONDARY_CLICK_WINDOW_MS;
+}
+
+/** Finished agent cards can leave the graph. Computer, project, and workspace stay. */
+export function observerCardCanRemove(
+  node: Pick<ObserverGraphNode, "kind" | "occupancy" | "liveKind">,
+): boolean {
+  if (node.kind !== "agent") return false;
+  if (node.occupancy === "running" || node.occupancy === "permission_request") return false;
+  if (node.liveKind && node.liveKind !== "idle") return false;
+  return true;
+}
+
 const VISIBLE_TURNS = 8;
 
 function formatToolLine(tool: { name: string; detail?: string | null }): string {

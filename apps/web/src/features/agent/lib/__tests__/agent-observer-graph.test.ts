@@ -13,6 +13,9 @@ import {
   buildObserverGraph,
   dedupeNamedChildren,
   layoutObserverGraph,
+  isLeakedTrackpadClick,
+  observerCardCanFold,
+  observerCardCanRemove,
   observerLayoutShiftToAnchor,
   observerLiveHeadline,
   observerNodeTitle,
@@ -728,6 +731,46 @@ describe("observerLiveHeadline", () => {
       },
       labels,
     })).toBe("rm -rf ./tmp");
+  });
+});
+
+describe("observer card menu", () => {
+  it("folds cards that have children and removes only an idle agent", () => {
+    expect(observerCardCanFold({ kind: "atmos", descendantCount: 2 })).toBe(true);
+    expect(observerCardCanFold({ kind: "project", descendantCount: 1 })).toBe(true);
+    expect(observerCardCanFold({ kind: "workspace", descendantCount: 1 })).toBe(true);
+    expect(observerCardCanFold({ kind: "agent", descendantCount: 1 })).toBe(true);
+    expect(observerCardCanFold({ kind: "agent", descendantCount: 0 })).toBe(false);
+    expect(observerCardCanFold({ kind: "subagent", descendantCount: 0 })).toBe(false);
+
+    expect(observerCardCanRemove({ kind: "agent", occupancy: "idle", liveKind: "idle" })).toBe(true);
+    expect(observerCardCanRemove({ kind: "agent", occupancy: "idle" })).toBe(true);
+    expect(observerCardCanRemove({ kind: "agent", occupancy: "running", liveKind: "working" })).toBe(false);
+    expect(observerCardCanRemove({ kind: "agent", occupancy: "idle", liveKind: "working" })).toBe(false);
+    expect(observerCardCanRemove({ kind: "subagent", occupancy: "idle" })).toBe(false);
+    expect(observerCardCanRemove({ kind: "project", occupancy: "idle" })).toBe(false);
+    expect(observerCardCanRemove({ kind: "workspace" })).toBe(false);
+    expect(observerCardCanRemove({ kind: "atmos" })).toBe(false);
+  });
+
+  it("ignores the primary click a two-finger trackpad tap leaks", () => {
+    expect(isLeakedTrackpadClick({ button: 2 }, 0, 1_000)).toBe(true);
+    expect(isLeakedTrackpadClick({ button: 0, ctrlKey: true }, 0, 1_000)).toBe(true);
+    expect(isLeakedTrackpadClick({ button: 0 }, 800, 1_000)).toBe(true);
+    expect(isLeakedTrackpadClick({ button: 0 }, 800, 1_600)).toBe(false);
+    expect(isLeakedTrackpadClick({ button: 0 }, 0, 1_000)).toBe(false);
+  });
+
+  it("opens the card menu from the observer canvas", () => {
+    const source = readFileSync(
+      join(import.meta.dir, "../../components/observer/AgentObserverView.tsx"),
+      "utf8",
+    );
+    expect(source).toContain("onNodeContextMenu");
+    expect(source).toContain("observerCardCanRemove");
+    expect(source).toContain('t("remove")');
+    expect(source).toContain('t("fold")');
+    expect(source).toContain('t("expand")');
   });
 });
 

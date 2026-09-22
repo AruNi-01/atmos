@@ -29,6 +29,7 @@ import {
 } from "@/features/agent/store/agent-status-store";
 import type { AttentionReason } from "@/features/agent/store/agent-attention-store";
 import {
+  observerCardCanFold,
   observerLiveHeadline,
   observerNodeTitle,
   type ObserverGraphNode,
@@ -225,9 +226,7 @@ function ObserverNodeCard({
       : attentionReason === "task_complete"
         ? "task_complete"
         : null;
-  const canToggle =
-    data.descendantCount > 0 &&
-    (data.kind === "agent" || data.kind === "project" || data.kind === "workspace");
+  const canToggle = observerCardCanFold(data);
   const folded = collapsed;
   const exiting = presence === "exit";
   const caption = [

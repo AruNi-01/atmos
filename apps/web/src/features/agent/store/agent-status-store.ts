@@ -24,6 +24,7 @@ import {
   resolveAgentStateForPaneId,
 } from "@/features/agent/store/agent-status-idle";
 import { useWorkspaceAgentGroupingHoldStore } from "@/features/agent/store/workspace-agent-grouping-hold";
+import { useAgentActivityStore } from "@/features/agent/store/agent-activity-store";
 
 export {
   collectIdleSessionIdsForPane,
@@ -455,19 +456,34 @@ export const useAgentStatusStore = create<AgentStatusStore>((set, get) => ({
       return { sessions };
     });
 
-    if (!previous) return;
+    const hadSession = Boolean(previous);
+    if (!hadSession && options?.keepActivity) return;
     const previousSession = previous;
+    const activity = options?.keepActivity
+      ? undefined
+      : useAgentActivityStore.getState().records.get(sessionId);
+    if (!options?.keepActivity) {
+      useAgentActivityStore.getState().forget(sessionId);
+    }
 
     try {
       await agentStatusApi.removeSession(sessionId, options);
     } catch (error) {
+      const missing =
+        error instanceof Error && error.message.includes("404");
+      if (missing) return;
       console.warn("[AgentStatusStore] Failed to remove session:", error);
-      set((state) => {
-        if (state.sessions.has(sessionId)) return state;
-        const sessions = new Map(state.sessions);
-        sessions.set(sessionId, previousSession);
-        return { sessions };
-      });
+      if (previousSession) {
+        set((state) => {
+          if (state.sessions.has(sessionId)) return state;
+          const sessions = new Map(state.sessions);
+          sessions.set(sessionId, previousSession);
+          return { sessions };
+        });
+      }
+      if (activity) {
+        useAgentActivityStore.getState().restore(sessionId, activity);
+      }
     }
   },
 
