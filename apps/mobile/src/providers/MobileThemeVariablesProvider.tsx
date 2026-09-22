@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from "react";
 import { useEffect, useMemo } from "react";
-import { View } from "react-native";
+import { View, Platform } from "react-native";
 import { VariableContextProvider, vars } from "nativewind";
 import { colorScheme as cssColorScheme } from "react-native-css";
 import { getMobileCssVariables } from "@/theme/css-variables";
@@ -17,6 +17,7 @@ export function MobileThemeVariablesProvider({ children }: PropsWithChildren) {
   const varStyle = useMemo(() => vars(variables), [variables]);
 
   useEffect(() => {
+    if (Platform.OS === "web") return;
     // Keep react-native-css color scheme in sync with the app preference so any
     // appearance-driven styles track Dark/Light/System.
     cssColorScheme.set(theme.colorScheme);

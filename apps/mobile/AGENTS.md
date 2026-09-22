@@ -25,20 +25,21 @@ apps/mobile/
 ├── app/                     # Expo Router routes
 │   ├── _layout.tsx
 │   ├── index.tsx            # Workspace list home
-│   ├── onboarding.tsx
-│   ├── settings.tsx
+│   ├── sign-in.tsx          # Scan / OAuth form sheet
+│   ├── computer-connect.tsx
+│   ├── workspaces.tsx
 │   ├── create-workspace.tsx
-│   ├── import-project.tsx
-│   └── workspace/[workspaceId].tsx
+│   ├── workspace/[workspaceId].tsx
+│   └── preview.tsx              # Mock terminal path (no Computer)
 ├── src/
 │   ├── api/                 # Mobile-owned Relay/relay/WS clients
-│   ├── features/            # Product screens: onboarding, workspaces, terminal, git
+│   ├── features/            # Product screens: onboarding, workspaces, terminal, computers
 │   ├── hooks/
 │   ├── lib/
 │   ├── providers/
 │   ├── stores/
 │   ├── theme/
-│   └── ui/                  # Expo UI wrappers and small layout helpers
+│   └── ui/                  # Expo UI wrappers, IosPopover, ExpoDrawer
 ├── references/              # Mobile-local troubleshooting notes
 ├── script/build_and_run.sh
 ├── app.json
@@ -55,12 +56,12 @@ Generated native folders `ios/` and `android/` are managed by Expo prebuild and 
 - Hub **device credential** and Relay bootstrap follow APP-016 / APP-056 (no user-generated Access Token).
 - Identity: **device Bearer only** (SecureStore → `@atmos/hub-client` store). No Better Auth cookie in the app.
 - Onboarding primary: **Hub OAuth** (system browser → `/v1/mobile-auth/*` → `acceptDeviceCredential` + `hubMe`). Secondary: **QR pair** (`/v1/mobile-pair/*`, 3 min). No paste path.
-- Sign-out: Hub `revoke` this device (best-effort) then clear store. After auth, auto-connect when a single Computer is online.
+- Sign-out: Hub `revoke` this device (best-effort) then clear store. After auth, auto-connect when a single Computer is online. Sign-out lives on the homepage account popover (APP-077).
 - Primary post-auth screen is the workspace list.
-- Workspace development is terminal-first and shows exactly one terminal renderer at a time.
-- The only Web right-sidebar-derived M1 surface is Changes & Commit.
+- Workspace development is terminal-only and shows exactly one terminal renderer at a time. All workspace terminals flatten into one top tab strip; the group list is an Expo `BottomSheet`.
+- Drawers / sheets use Expo Router `formSheet` or `@expo/ui` `BottomSheet`. Popovers use `expo-ios-popover` on iOS (RN modal overlay on Android). Do not use matched-sheet popovers for drawers.
 
-Spec: [specs/APP/APP-025_mobile-app](../../specs/APP/APP-025_mobile-app/)
+Spec: [specs/APP/APP-077_mobile-terminal-main-path](../../specs/APP/APP-077_mobile-terminal-main-path/) (narrows [APP-025](../../specs/APP/APP-025_mobile-app/))
 
 ---
 
@@ -114,7 +115,7 @@ Spec: [specs/APP/APP-025_mobile-app](../../specs/APP/APP-025_mobile-app/)
 - For environment/setup work, follow [agents/references/mobile/dev-setup.md](../../agents/references/mobile/dev-setup.md).
 - For navigation/header/title work, follow [agents/references/mobile/native-navigation.md](../../agents/references/mobile/native-navigation.md).
 - Smoke iOS and Android dev builds before claiming platform readiness.
-- Keep Relay URL overrides and token switching in settings, outside the primary workspace list flow.
+- Keep Relay URL overrides and token switching out of this dogfood cut (APP-077); restore later via a slim settings sheet if needed.
 
 ---
 

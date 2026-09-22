@@ -102,7 +102,7 @@ export function getWorkspaceWorkflowStatusColor(
   }
 }
 
-function StatusBacklogIcon({ color, size = 16 }: WorkspaceStatusIconProps) {
+export function StatusBacklogIcon({ color, size = 16 }: WorkspaceStatusIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
       <Circle cx="8" cy="8" r="6.5" stroke={color} strokeWidth="1.5" strokeDasharray={[3, 2.5]} />

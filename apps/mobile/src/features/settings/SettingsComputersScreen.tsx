@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import type { ComputerRow } from "@/api/types";
+import { ComputerList } from "@/features/computers/ComputerPicker";
 import { useMobileSettingsController } from "@/features/settings/use-mobile-settings-controller";
 import {
   FieldBlock,
@@ -79,7 +80,7 @@ export function SettingsComputersScreen() {
           <EmptyState
             layout="section"
             title="No Computers"
-            message="Register a server, then refresh."
+            message="No Computers yet."
           />
           {process.env.EXPO_OS !== "ios" ? (
             <View className="px-card-padding pb-card-padding">
@@ -109,22 +110,17 @@ export function SettingsComputersScreen() {
         </Section>
       ) : (
         <Section>
-          {settings.activeComputers.map((computer, index) => (
-            <View key={computer.server_id}>
-              <ComputerListRow
-                computer={computer}
-                selectedServerId={settings.selectedServerId}
-                onPress={() => {
-                  settings.focusComputer(computer);
-                  router.push({
-                    pathname: "/settings/computer",
-                    params: { serverId: computer.server_id },
-                  });
-                }}
-              />
-              {index < settings.activeComputers.length - 1 ? <Separator /> : null}
-            </View>
-          ))}
+          <ComputerList
+            computers={settings.activeComputers}
+            onPress={(computer) => {
+              settings.focusComputer(computer);
+              router.push({
+                pathname: "/settings/computer",
+                params: { serverId: computer.server_id },
+              });
+            }}
+            selectedServerId={settings.selectedServerId}
+          />
         </Section>
       )}
 

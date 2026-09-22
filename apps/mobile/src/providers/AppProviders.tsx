@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from "react";
 import { useEffect, useMemo } from "react";
-import { AppState, Appearance } from "react-native";
+import { AppState, Appearance, Platform } from "react-native";
 import * as Network from "expo-network";
 import * as SystemUI from "expo-system-ui";
 import { QueryClientProvider, focusManager, onlineManager } from "@tanstack/react-query";
@@ -8,6 +8,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { createAtmosQueryClient } from "@/providers/query-client";
 import { MobileWsProvider } from "@/providers/MobileWsProvider";
 import { acceptDeviceCredential, hasDeviceCredential } from "@/lib/device-credential";
+import { renewHubSession } from "@/lib/renew-hub-session";
 import {
   isDevDeviceImportEnabled,
   loadDevDeviceImport,
@@ -40,6 +41,7 @@ export function AppProviders({ children }: PropsWithChildren) {
       if (hasDeviceCredential()) {
         setRelaySecretKey((await getStoredRelaySecretKey()) ?? "");
         if (!cancelled) setDeviceCredentialLoaded(true);
+        void renewHubSession();
         return;
       }
 
@@ -80,6 +82,7 @@ export function AppProviders({ children }: PropsWithChildren) {
   }, [setDeviceCredentialLoaded, setRelayUrl, setRelaySecretKey]);
 
   useEffect(() => {
+    if (Platform.OS === "web") return;
     Appearance.setColorScheme(
       theme.preference === "system" ? "unspecified" : theme.preference,
     );

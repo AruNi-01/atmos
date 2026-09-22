@@ -22,7 +22,7 @@ export function NativeMenuButton({
   ];
 
   return (
-    <Host colorScheme={theme.colorScheme} matchContents>
+    <Host colorScheme={theme.colorScheme} matchContents seedColor={theme.colors.label}>
       <Menu
         label={label}
         modifiers={menuModifiers}

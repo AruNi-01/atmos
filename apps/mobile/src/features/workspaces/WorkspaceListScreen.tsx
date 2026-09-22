@@ -1,28 +1,23 @@
-import { useMobileTheme } from "@/theme/theme-store";
-import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
-import { Button, Host } from "@expo/ui";
-import { useEffect, useMemo, useRef } from "react";
-import { Text, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useEffect, useRef } from "react";
+import { Pressable } from "react-native";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { Stack, useRouter } from "expo-router";
+import type { SFSymbol } from "sf-symbols-typescript";
 import type { ProjectWorkspaceBootstrapResponse } from "@/api/types";
 import { wsActions } from "@/api/ws-actions";
 import { getAutoConnectComputerId } from "@/features/computers/computer-selection";
 import { AuthConnectContent } from "@/features/onboarding/AuthConnectContent";
+import { WorkspaceHomeList } from "@/features/workspaces/WorkspaceHomeList";
+
 import { useRelayClient } from "@/hooks/use-relay-client";
 import { requireDeviceCredential } from "@/lib/device-credential";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useComputerStore } from "@/stores/computer-store";
-import { hydrateRecentWorkspaces, useRecentWorkspacesStore } from "@/stores/recent-workspaces-store";
 import { useSessionStore } from "@/stores/session-store";
-import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
-import { Row, Separator } from "@/ui/layout/row";
-import {
-  expoUiButtonHostStyle,
-  expoUiPrimaryStyle,
-} from "@/ui/primitives/expo-ui-button-styles";
-
-const buttonStretchModifiers = expoUiButtonStretchModifiers;
+import { useMobileTheme } from "@/theme/theme-store";
+import { ListFilterIcon, SettingsIcon } from "@/ui/icons/lucide-native";
+import { AppScreen, InlineError } from "@/ui/layout/app-screen";
+import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
 
 const EMPTY_BOOTSTRAP: ProjectWorkspaceBootstrapResponse = {
   projects: [],
@@ -31,20 +26,9 @@ const EMPTY_BOOTSTRAP: ProjectWorkspaceBootstrapResponse = {
   groups: [],
 };
 
-const WELCOME_HEADLINES = [
-  "What should come alive in Atmos?",
-  "What do you want Atmos to spin up next?",
-  "What should Atmos start building with you?",
-  "What idea deserves an Atmos workspace?",
-] as const;
-
-function randomWelcomeHeadline() {
-  return WELCOME_HEADLINES[Math.floor(Math.random() * WELCOME_HEADLINES.length)] ?? WELCOME_HEADLINES[0];
-}
-
 export function WorkspaceListScreen() {
-  const theme = useMobileTheme();
   const router = useRouter();
+  const theme = useMobileTheme();
   const relayClient = useRelayClient();
   const { client: wsClient, state: wsState } = useMobileWs();
   const deviceCredentialLoaded = useSessionStore(
@@ -60,7 +44,6 @@ export function WorkspaceListScreen() {
   const selectServer = useSessionStore((state) => state.selectServer);
   const setClientSession = useSessionStore((state) => state.setClientSession);
   const setComputers = useComputerStore((state) => state.setComputers);
-  const recentWorkspaceRecords = useRecentWorkspacesStore((state) => state.recentWorkspaces);
   const lastAutoSessionAttemptRef = useRef<string | null>(null);
 
   const computersQuery = useQuery({
@@ -75,7 +58,6 @@ export function WorkspaceListScreen() {
   });
 
   const computers = computersQuery.data ?? [];
-  const selectedComputer = computers.find((computer) => computer.server_id === selectedServerId) ?? null;
   const clientSessionUnavailable = wsState === "closed";
   const computersError = computersQuery.error instanceof Error ? computersQuery.error.message : null;
   const isHomeConnected = hasDeviceCredential && wsState === "open";
@@ -115,175 +97,98 @@ export function WorkspaceListScreen() {
   });
 
   const bootstrap = bootstrapQuery.data ?? EMPTY_BOOTSTRAP;
-  const workspaceCount = useMemo(
-    () => Object.values(bootstrap.workspaces_by_project).reduce((total, workspaces) => total + workspaces.length, 0),
-    [bootstrap.workspaces_by_project],
-  );
-  const projectCount = bootstrap.projects.length;
-  const canOpenWorkspaceData =
-    hasDeviceCredential && wsState === "open" && !bootstrapQuery.error;
   const workspaceError = bootstrapQuery.error instanceof Error ? bootstrapQuery.error.message : null;
   const sessionError = createSession.error instanceof Error ? createSession.error.message : null;
-  const welcomeHeadline = useMemo(randomWelcomeHeadline, []);
-  const recentWorkspaces = useMemo(() => {
-    const recordsForComputer = selectedServerId
-      ? recentWorkspaceRecords.filter((record) => !record.serverId || record.serverId === selectedServerId)
-      : recentWorkspaceRecords;
-    return hydrateRecentWorkspaces(recordsForComputer, bootstrap);
-  }, [bootstrap, recentWorkspaceRecords, selectedServerId]);
+
+  const header = (
+    <Stack.Screen
+      options={{
+        ...nativeLargeTitleOptions("Workspace", theme.colors),
+        // Drop the custom header so these use the same navigation-bar buttons as Back.
+        header: undefined,
+        headerShadowVisible: false,
+        headerTintColor: theme.colors.label,
+        ...(process.env.EXPO_OS === "ios"
+          ? {
+              unstable_headerLeftItems: () => [
+                {
+                  type: "button" as const,
+                  label: "",
+                  accessibilityLabel: "Settings",
+                  icon: { type: "sfSymbol" as const, name: "gearshape" as SFSymbol },
+                  onPress: () => router.push("/settings"),
+                  sharesBackground: false,
+                  tintColor: theme.colors.label,
+                },
+              ],
+              unstable_headerRightItems: () =>
+                isHomeConnected
+                  ? [
+                      {
+                        type: "button" as const,
+                        label: "",
+                        accessibilityLabel: "Filter",
+                        icon: {
+                          type: "sfSymbol" as const,
+                          name: "line.3.horizontal.decrease" as SFSymbol,
+                        },
+                        onPress: () => router.push("/workspace-filters"),
+                        sharesBackground: false,
+                        tintColor: theme.colors.label,
+                      },
+                    ]
+                  : [],
+            }
+          : {
+              headerLeft: () => (
+                <Pressable
+                  accessibilityLabel="Settings"
+                  accessibilityRole="button"
+                  hitSlop={12}
+                  onPress={() => router.push("/settings")}
+                >
+                  <SettingsIcon color={theme.colors.label} size={22} strokeWidth={2.2} />
+                </Pressable>
+              ),
+              headerRight: () =>
+                isHomeConnected ? (
+                  <Pressable
+                    accessibilityLabel="Filter"
+                    accessibilityRole="button"
+                    hitSlop={12}
+                    onPress={() => router.push("/workspace-filters")}
+                  >
+                    <ListFilterIcon color={theme.colors.label} size={22} strokeWidth={2.2} />
+                  </Pressable>
+                ) : null,
+            }),
+      }}
+    />
+  );
 
   if (!isHomeConnected) {
     // Same pair / OAuth surface as the sign-in sheet, embedded full-page under
-    // the native Atmos header — no intermediate empty “Pair via QR” home.
-    return <AuthConnectContent presentation="screen" />;
+    // the Workspace header — no intermediate empty “Pair via QR” home.
+    return (
+      <>
+        {header}
+        <AuthConnectContent presentation="screen" />
+      </>
+    );
   }
 
-  const browseStyle = expoUiPrimaryStyle(theme.colors);
   return (
-    <AppScreen
-      footer={
-        <Host
-          matchContents={{ vertical: true }}
-          colorScheme={theme.colorScheme}
-          seedColor={browseStyle.seedColor}
-          style={expoUiButtonHostStyle}
-        >
-          <Button
-            label="Browse workspaces"
-            onPress={() => router.push("/workspaces")}
-            modifiers={buttonStretchModifiers}
-            style={browseStyle.style}
-            variant={browseStyle.variant}
-          />
-        </Host>
-      }
-    >
-      <View className="items-center gap-3 px-2 pb-4 pt-8">
-        <Text className="max-w-[320px] text-center font-bold text-label text-hero-title leading-hero-title tracking-hero-title">
-          {welcomeHeadline}
-        </Text>
-        <Text
-          className="max-w-[300px] text-center text-secondary-label text-hero-subtitle leading-hero-subtitle"
-          numberOfLines={3}
-        >
-          {homeSubtitle({
-            canOpenWorkspaceData,
-            selectedComputerName: selectedComputer?.display_name ?? selectedServerId,
-            workspaceCount,
-          })}
-        </Text>
-        <Text className="text-secondary-label text-body-small leading-body-small">
-          {workspaceListConnectionLabel(wsState)}
-        </Text>
-      </View>
-
-      <Section label="Quick actions">
-        <Row
-          title="Connect Computer"
-          subtitle={computerRowSubtitle(hasDeviceCredential, computers.length, wsState)}
-          onPress={() => router.push("/computer-connect")}
+    <>
+      {header}
+      <AppScreen>
+        <WorkspaceHomeList
+          groups={bootstrap.groups ?? []}
+          isLoading={bootstrapQuery.isPending}
+          projects={bootstrap.projects}
+          workspacesByProject={bootstrap.workspaces_by_project}
         />
-        <Separator />
-        <Row
-          title="Browse workspaces"
-          subtitle={
-            canOpenWorkspaceData
-              ? `${workspaceCount} workspaces · ${projectCount} projects`
-              : workspaceRowSubtitle(hasDeviceCredential, wsState, workspaceCount)
-          }
-          onPress={() => router.push("/workspaces")}
-        />
-      </Section>
-
-      <Section label="Recently">
-        {recentWorkspaces.length > 0 ? (
-          recentWorkspaces.map((workspace, index) => (
-            <View key={`${workspace.serverId ?? "unknown"}:${workspace.workspaceId}`}>
-              <Row
-                title={workspace.workspaceName}
-                subtitle={workspace.projectName ?? "Workspace"}
-                meta={formatRecentAccessedAt(workspace.lastAccessedAt)}
-                onPress={() => router.push(`/workspace/${workspace.workspaceId}`)}
-              />
-              {index < recentWorkspaces.length - 1 ? <Separator /> : null}
-            </View>
-          ))
-        ) : (
-          <EmptyState
-            layout="section"
-            title="No recent workspaces"
-            message="Open a workspace and it will appear here."
-          />
-        )}
-      </Section>
-
-      <InlineError message={sessionError ?? computersError ?? workspaceError} />
-    </AppScreen>
+        <InlineError message={sessionError ?? computersError ?? workspaceError} />
+      </AppScreen>
+    </>
   );
-}
-
-function formatRecentAccessedAt(value: string) {
-  const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) return "Recent";
-
-  const elapsedMs = Math.max(0, Date.now() - timestamp);
-  const elapsedMinutes = Math.floor(elapsedMs / 60_000);
-  if (elapsedMinutes < 1) return "Now";
-  if (elapsedMinutes < 60) return `${elapsedMinutes}m`;
-
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-  if (elapsedHours < 24) return `${elapsedHours}h`;
-
-  const elapsedDays = Math.floor(elapsedHours / 24);
-  if (elapsedDays < 7) return `${elapsedDays}d`;
-
-  return "Recent";
-}
-
-function computerRowSubtitle(
-  hasDeviceCredential: boolean,
-  computerCount: number,
-  wsState: string,
-) {
-  if (!hasDeviceCredential) return "Sign in required";
-  if (computerCount === 0) return "No Computers";
-  if (wsState === "open") return "Relay session active";
-  if (wsState === "reconnecting") return "Reconnecting";
-  return "Select a Computer";
-}
-
-function workspaceRowSubtitle(
-  hasDeviceCredential: boolean,
-  wsState: string,
-  workspaceCount: number,
-) {
-  if (!hasDeviceCredential) return "Sign in to continue";
-  if (wsState !== "open") return "Finish connecting to your Computer";
-  if (workspaceCount === 0) return "No workspaces yet";
-  return "Open a workspace";
-}
-
-function workspaceListConnectionLabel(wsState: string) {
-  if (wsState === "open") return "Online";
-  if (wsState === "connecting") return "Connecting";
-  if (wsState === "reconnecting") return "Reconnecting";
-  return "Offline";
-}
-
-function homeSubtitle({
-  canOpenWorkspaceData,
-  selectedComputerName,
-  workspaceCount,
-}: {
-  canOpenWorkspaceData: boolean;
-  selectedComputerName: string | null | undefined;
-  workspaceCount: number;
-}) {
-  if (canOpenWorkspaceData) {
-    return `${workspaceCount} workspaces are ready on ${selectedComputerName ?? "this Computer"}.`;
-  }
-  if (selectedComputerName) {
-    return `${selectedComputerName} is selected. Finish connecting to load workspaces.`;
-  }
-  return "Connect a Computer, then open a workspace or start a new one.";
 }

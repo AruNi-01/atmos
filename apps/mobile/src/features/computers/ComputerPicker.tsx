@@ -1,13 +1,45 @@
 import { useMobileTheme } from "@/theme/theme-store";
 import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
 import { Button, Host } from "@expo/ui";
-import { Platform, View } from "react-native";
+import { View } from "react-native";
 import type { ComputerRow } from "@/api/types";
 import { EmptyState, Section } from "@/ui/layout/app-screen";
-import { NativeList, NativeListItem } from "@/ui/primitives/native-controls";
+import { Row, Separator } from "@/ui/layout/row";
 import { expoUiButtonHostStyle, expoUiSecondaryStyle } from "@/ui/primitives/expo-ui-button-styles";
 
 const buttonStretchModifiers = expoUiButtonStretchModifiers;
+
+export function ComputerList({
+  computers,
+  onPress,
+  onlyOnline = false,
+  selectedServerId,
+}: {
+  computers: ComputerRow[];
+  onPress?: (computer: ComputerRow) => void;
+  onlyOnline?: boolean;
+  selectedServerId: string | null;
+}) {
+  return (
+    <View>
+      {computers.map((computer, index) => {
+        const selected = computer.server_id === selectedServerId;
+        const press =
+          onPress && (!onlyOnline || computer.online) ? () => onPress(computer) : undefined;
+        return (
+          <View key={computer.server_id}>
+            {index > 0 ? <Separator /> : null}
+            <Row
+              onPress={press}
+              subtitle={selected ? "Selected" : computer.online ? "Online" : "Offline"}
+              title={computer.display_name ?? computer.server_id}
+            />
+          </View>
+        );
+      })}
+    </View>
+  );
+}
 
 export function ComputerPicker({
   computers,
@@ -51,29 +83,18 @@ export function ComputerPicker({
           <EmptyState
             layout="section"
             title="No Computers"
-            message="Register a server, then refresh."
+            message="No Computers yet."
           />
           <View style={{ padding: 16, paddingTop: 0 }}>{refreshButton}</View>
         </View>
       ) : (
         <View>
-          <NativeList>
-            {activeComputers.map((computer) => (
-              <NativeListItem
-                key={computer.server_id}
-                title={computer.display_name ?? computer.server_id}
-                supportingText={computer.online ? "Online" : "Offline"}
-                trailing={
-                  computer.server_id === selectedServerId
-                    ? "Selected"
-                    : computer.online
-                      ? "Online"
-                      : "Offline"
-                }
-                onPress={computer.online ? () => onSelect(computer.server_id) : undefined}
-              />
-            ))}
-          </NativeList>
+          <ComputerList
+            computers={activeComputers}
+            onlyOnline
+            onPress={(computer) => onSelect(computer.server_id)}
+            selectedServerId={selectedServerId}
+          />
           {onlineComputers.length === 0 ? (
             <View style={{ padding: 16 }}>{refreshButton}</View>
           ) : null}
