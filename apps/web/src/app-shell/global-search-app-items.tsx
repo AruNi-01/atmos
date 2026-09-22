@@ -6,6 +6,7 @@ import {
   BookOpen,
   Bot,
   BrainCircuit,
+  BrandLmStudioIcon,
   ChartColumnBig,
   Eye,
   Folder,
@@ -19,6 +20,7 @@ import {
   History,
   Languages,
   Layers,
+  LayersIcon,
   Laptop,
   ListTodo,
   Maximize,
@@ -50,6 +52,7 @@ import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
 import {
   CHANGES_TAB_VALUE,
   FILES_TAB_VALUE,
+  GITHUB_HUB_CENTER_TAB_VISIBLE,
   GITHUB_HUB_TAB_VALUE,
   REVIEW_TAB_VALUE,
   RUN_TAB_VALUE,
@@ -417,6 +420,18 @@ export function buildGlobalSearchItems({
       },
     },
     {
+      id: "launchpad-agent-observer",
+      type: "launchpad",
+      title: globalSearchItemsT("launchpad.agentObserver.title"),
+      description: globalSearchItemsT("launchpad.agentObserver.description"),
+      keywords: ["launchpad", "agent", "observer", "graph", "activity", "hooks", "turns"],
+      icon: <BrandLmStudioIcon className="size-4 text-muted-foreground" size={16} />,
+      action: () => {
+        router.push("/agent-observer");
+        setGlobalSearchOpen(false);
+      },
+    },
+    {
       id: "launchpad-pt-design",
       type: "launchpad",
       title: globalSearchItemsT("launchpad.ptDesign.title"),
@@ -434,7 +449,7 @@ export function buildGlobalSearchItems({
       title: globalSearchItemsT("launchpad.agentSessions.title"),
       description: globalSearchItemsT("launchpad.agentSessions.description"),
       keywords: ["launchpad", "agent", "sessions", "host", "transcript", "cli"],
-      icon: <Layers className="size-4 text-muted-foreground" />,
+      icon: <LayersIcon className="size-4 text-muted-foreground" size={16} />,
       action: () => {
         router.push("/agent-sessions");
         setGlobalSearchOpen(false);
@@ -538,15 +553,19 @@ export function buildGlobalSearchItems({
         icon: <Play className="size-4 text-muted-foreground" />,
         action: () => openCenterTab(RUN_TAB_VALUE),
       },
-      {
-        id: "surface-github",
-        type: "surface",
-        title: globalSearchItemsT("surfaces.github.title"),
-        description: globalSearchItemsT("surfaces.github.description"),
-        keywords: ["github", "pull request", "issue", "pr", "tab"],
-        icon: <Github className="size-4 text-muted-foreground" />,
-        action: () => openCenterTab(GITHUB_HUB_TAB_VALUE),
-      },
+      ...(GITHUB_HUB_CENTER_TAB_VISIBLE
+        ? [
+            {
+              id: "surface-github",
+              type: "surface" as const,
+              title: globalSearchItemsT("surfaces.github.title"),
+              description: globalSearchItemsT("surfaces.github.description"),
+              keywords: ["github", "pull request", "issue", "pr", "tab"],
+              icon: <Github className="size-4 text-muted-foreground" />,
+              action: () => openCenterTab(GITHUB_HUB_TAB_VALUE),
+            },
+          ]
+        : []),
       {
         id: "surface-files",
         type: "surface",

@@ -734,6 +734,8 @@ export function AgentChatPanel({
     chatId: liveChatId,
     messageCount: messages.length,
     isResumingHistory,
+    hasPersistenceHandle,
+    resumeTranscript,
   });
   const showTimelineNav = !isRestoringTranscript && userMessageIndices.length > 1;
   const timelineNavLockedRef = useRef(false);
@@ -1146,10 +1148,12 @@ export function AgentChatPanel({
               aria-hidden="true"
             />
           </ConversationContent>
-          <AgentChatScrollToBottomButton
-            host={aboveComposerOverlaysNode}
-            belowCountStore={messagesBelowCountStore}
-          />
+          {messages.length > 0 ? (
+            <AgentChatScrollToBottomButton
+              host={aboveComposerOverlaysNode}
+              belowCountStore={messagesBelowCountStore}
+            />
+          ) : null}
           <AgentChatOwnSendRuntime
             messages={messages}
             transcriptRef={transcriptRef}

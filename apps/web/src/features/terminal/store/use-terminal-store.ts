@@ -33,6 +33,7 @@ import {
   getWorkspaceTerminalTabs,
   hydratePersistedTab,
   isAutomationTmuxWindowName,
+  shouldHydrateFixedTabFromTmuxWindows,
   isTerminalWorkspaceScopeKeyForWorkspace,
   tmuxWindowsForPaintContext,
   normalizeCustomName,
@@ -340,12 +341,15 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
       const restActivePanes = { ...state.workspaceActivePaneIds };
       const nextHydratedScopes = new Set(state.hydratedTerminalScopes);
       const nextInitializingScopes = new Set(state.initializingTerminalScopes);
+      const restTmuxCache = { ...state.tmuxWindowsCache };
       delete restPanes[scopeKey];
       delete restLayouts[scopeKey];
       delete restMaximized[scopeKey];
       delete restActivePanes[scopeKey];
       nextHydratedScopes.delete(scopeKey);
       nextInitializingScopes.delete(scopeKey);
+      delete restTmuxCache[getTerminalWorkspaceScopeKey(workspaceId, false)];
+      delete restTmuxCache[getTerminalWorkspaceScopeKey(workspaceId, true)];
 
       return {
         workspaceTerminalTabs: {
@@ -368,6 +372,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
         workspaceActivePaneIds: restActivePanes,
         hydratedTerminalScopes: nextHydratedScopes,
         initializingTerminalScopes: nextInitializingScopes,
+        tmuxWindowsCache: restTmuxCache,
       };
     });
 
@@ -915,7 +920,11 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
         }
       }
 
-      if (targetTabId === FIXED_TERMINAL_TAB_VALUE && existingWindows.length > 0) {
+      if (
+        targetTabId === FIXED_TERMINAL_TAB_VALUE &&
+        existingWindows.length > 0 &&
+        shouldHydrateFixedTabFromTmuxWindows(persistedLayout)
+      ) {
         const tmuxLayout = createLayoutFromTmuxWindows(workspaceId, existingWindows);
         if (!tmuxLayout) {
           clearScopeInitializing();

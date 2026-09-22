@@ -214,6 +214,29 @@ function reasonPriority(reason: AttentionReason): number {
   return reason === "permission_request" ? 2 : 1;
 }
 
+const CENTER_SPACE_KEY_MARK = "::space::";
+
+/** Extra-space paint ids (`host::space::id`) still belong to the host project/workspace. */
+export function attentionHostId(contextId: string): string {
+  const trimmed = contextId.trim();
+  if (!trimmed) return "";
+  const index = trimmed.indexOf(CENTER_SPACE_KEY_MARK);
+  return index === -1 ? trimmed : trimmed.slice(0, index);
+}
+
+function toAttentionHostIdSet(
+  attentionContextIds: ReadonlySet<string> | readonly string[],
+): Set<string> {
+  const out = new Set<string>();
+  const list =
+    attentionContextIds instanceof Set ? attentionContextIds : attentionContextIds;
+  for (const id of list) {
+    const host = attentionHostId(id);
+    if (host) out.add(host);
+  }
+  return out;
+}
+
 export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => ({
   panes: new Map(),
   filterMode: false,
@@ -274,7 +297,9 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
       existing.reason === "task_complete" &&
       !get().hasContextAttention(existing.contextId)
     ) {
-      useWorkspaceAgentGroupingHoldStore.getState().beginHold(existing.contextId);
+      useWorkspaceAgentGroupingHoldStore
+        .getState()
+        .beginHold(attentionHostId(existing.contextId) || existing.contextId);
     }
   },
 
@@ -388,9 +413,10 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
   },
 
   hasContextAttention: (contextId) => {
-    if (!contextId) return false;
+    const host = attentionHostId(contextId);
+    if (!host) return false;
     for (const pane of get().panes.values()) {
-      if (pane.contextId === contextId) return true;
+      if (attentionHostId(pane.contextId) === host) return true;
     }
     return false;
   },
@@ -398,9 +424,11 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
   getPaneReason: (stablePaneId) => get().panes.get(stablePaneId)?.reason ?? null,
 
   getContextReason: (contextId) => {
+    const host = attentionHostId(contextId);
+    if (!host) return null;
     let best: AttentionReason | null = null;
     for (const pane of get().panes.values()) {
-      if (pane.contextId !== contextId) continue;
+      if (attentionHostId(pane.contextId) !== host) continue;
       if (!best || reasonPriority(pane.reason) > reasonPriority(best)) {
         best = pane.reason;
       }
@@ -461,29 +489,22 @@ export function selectContextAttention(
 /**
  * Filter projects/workspaces to those that currently need attention.
  *
- * - Project needs attention → keep the project, hide all workspaces under it
- *   (the project row is the attention target; children would just noise the list).
- * - Only workspaces need attention → keep the project as a dimmable parent and
- *   only the workspaces that themselves need attention.
+ * - Keep a project if it has its own latch, or any child workspace does.
+ * - Always keep latched workspaces, even when the parent project is also latched.
+ *   Wiping children in that case dropped workspace rows from Need attention list.
+ * - Extra-space paint ids (`host::space::id`) match the host project/workspace.
  */
 export function filterProjectsByAttention<
   TProject extends { id: string; workspaces: TWorkspace[] },
   TWorkspace extends { id: string },
 >(projects: TProject[], attentionContextIds: ReadonlySet<string> | readonly string[]): TProject[] {
-  const ids =
-    attentionContextIds instanceof Set
-      ? attentionContextIds
-      : new Set(attentionContextIds);
-  if (ids.size === 0) return [];
+  const hostIds = toAttentionHostIdSet(attentionContextIds);
+  if (hostIds.size === 0) return [];
 
   return projects
     .map((project) => {
-      const projectNeeds = ids.has(project.id);
-      // When the project itself needs attention, hide every child workspace.
-      // Otherwise only keep workspaces that are latched for attention.
-      const workspaces = projectNeeds
-        ? []
-        : project.workspaces.filter((ws) => ids.has(ws.id));
+      const projectNeeds = hostIds.has(project.id);
+      const workspaces = project.workspaces.filter((ws) => hostIds.has(ws.id));
       if (!projectNeeds && workspaces.length === 0) return null;
       return { ...project, workspaces };
     })

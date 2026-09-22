@@ -202,6 +202,8 @@ import { GIT_HISTORY_TAB_VALUE } from "@/features/git/types";
 import { useGitHistoryCenterTabStore } from "@/features/git/store/use-git-history-center-tab";
 import {
   CENTER_TOOL_TAB_VALUES,
+  GITHUB_HUB_CENTER_TAB_VISIBLE,
+  GITHUB_HUB_TAB_VALUE,
   isCenterToolTabValue,
   useToolCenterTabsStore,
   type CenterToolTabValue,
@@ -418,6 +420,7 @@ const CenterStage: React.FC = () => {
     currentView,
   } = useContextParams();
   const hydrateCenterSpaces = useCenterSpaceStore((s) => s.hydrate);
+  const layoutDiskSynced = useCenterSpaceStore((s) => s.diskSynced);
   React.useLayoutEffect(() => {
     hydrateCenterSpaces();
   }, [hydrateCenterSpaces]);
@@ -514,7 +517,6 @@ const CenterStage: React.FC = () => {
   const {
     terminalTabs,
     createTerminalTab,
-    ensureFixedTerminalTab,
     closeTerminalTab,
     removeTerminal,
     setActiveTerminalTab,
@@ -527,7 +529,6 @@ const CenterStage: React.FC = () => {
         ? state.workspaceTerminalTabs[effectiveContextId]
         : undefined,
       createTerminalTab: state.createTerminalTab,
-      ensureFixedTerminalTab: state.ensureFixedTerminalTab,
       closeTerminalTab: state.closeTerminalTab,
       removeTerminal: state.removeTerminal,
       setActiveTerminalTab: state.setActiveTerminalTab,
@@ -714,7 +715,24 @@ const CenterStage: React.FC = () => {
   ]);
 
   React.useEffect(() => {
+    if (!layoutDiskSynced || !isCenterContextSettled || !effectiveContextId) return;
+    if (!agentChatTabsHydrated) return;
+    const tab = tabFromUrl || readCenterStageLastTab(effectiveContextId);
+    if (!tab) return;
+    activateCenterChromeTab(effectiveContextId, tab, {
+      createIfMissing: Boolean(tabFromUrl),
+    });
+  }, [
+    agentChatTabsHydrated,
+    effectiveContextId,
+    isCenterContextSettled,
+    layoutDiskSynced,
+    tabFromUrl,
+  ]);
+
+  React.useEffect(() => {
     if (!effectiveContextId || !isCenterContextSettled) return;
+    if (!agentChatTabsHydrated) return;
     if (tabFromUrl) return;
     if (terminalTmux?.trim()) return;
     if (isExtraCenterSpaceKey(effectiveContextId) && liveExtraSpaceEmpty) return;
@@ -733,6 +751,7 @@ const CenterStage: React.FC = () => {
         if (fallbackCenterTab) {
           activateCenterChromeTab(effectiveContextId, fallbackCenterTab, {
             attach: false,
+            createIfMissing: false,
           });
         }
         return;
@@ -747,12 +766,17 @@ const CenterStage: React.FC = () => {
       if (fallbackCenterTab) {
         activateCenterChromeTab(effectiveContextId, fallbackCenterTab, {
           attach: false,
+          createIfMissing: false,
         });
       }
       return;
     }
-    activateCenterChromeTab(effectiveContextId, last, { attach: false });
+    activateCenterChromeTab(effectiveContextId, last, {
+      attach: false,
+      createIfMissing: false,
+    });
   }, [
+    agentChatTabsHydrated,
     effectiveContextId,
     isCenterContextSettled,
     liveExtraSpaceEmpty,
@@ -781,11 +805,9 @@ const CenterStage: React.FC = () => {
     onMissingProjectWikiTab: redirectMissingNamedTerminalTab,
   });
 
-  const simulatorTabVisible =
-    (useSimulatorCenterTabStore((s) =>
-      effectiveContextId ? Boolean(s.visibleByContext[effectiveContextId]) : false,
-    ) ||
-      storedLastTab === SIMULATOR_TAB_VALUE);
+  const simulatorTabVisible = useSimulatorCenterTabStore((s) =>
+    effectiveContextId ? Boolean(s.visibleByContext[effectiveContextId]) : false,
+  );
   const openSimulatorTab = useSimulatorCenterTabStore((s) => s.open);
   const closeSimulatorTab = useSimulatorCenterTabStore((s) => s.close);
 
@@ -794,10 +816,7 @@ const CenterStage: React.FC = () => {
   const gitHistoryStoreVisible = useGitHistoryCenterTabStore((s) =>
     effectiveContextId ? Boolean(s.visibleByContext[effectiveContextId]) : false,
   );
-  const gitHistoryTabVisible =
-    !hideStandaloneGitChrome &&
-    (gitHistoryStoreVisible || storedLastTab === GIT_HISTORY_TAB_VALUE);
-  const openGitHistoryTab = useGitHistoryCenterTabStore((s) => s.open);
+  const gitHistoryTabVisible = !hideStandaloneGitChrome && gitHistoryStoreVisible;
   const closeGitHistoryTab = useGitHistoryCenterTabStore((s) => s.close);
   const toolTabsVisibleByContext = useToolCenterTabsStore((s) => s.visibleByContext);
   const openToolTab = useToolCenterTabsStore((s) => s.open);
@@ -808,47 +827,23 @@ const CenterStage: React.FC = () => {
     (honorUrlTab && tabFromUrl === OVERVIEW_TAB_ID);
   const changesTabVisible =
     !hideStandaloneGitChrome &&
-    (Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.changes) ||
-      storedLastTab === "changes");
+    Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.changes);
   const reviewTabVisible =
     !hideStandaloneGitChrome &&
-    (Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.review) ||
-      storedLastTab === "review");
-  const runTabVisible =
-    Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.run) ||
-    storedLastTab === "run";
+    Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.review);
+  const runTabVisible = Boolean(
+    effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.run,
+  );
   const githubHubTabVisible =
+    GITHUB_HUB_CENTER_TAB_VISIBLE &&
     !hideStandaloneGitChrome &&
-    (Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.github) ||
-      storedLastTab === "github");
-  const filesTabVisible =
-    Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.files) ||
-    storedLastTab === "files";
-  const ptDesignTabVisible =
-    Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.["pt-design"]) ||
-    storedLastTab === "pt-design";
-
-  React.useEffect(() => {
-    if (!effectiveContextId || !storedLastTab) return;
-    if (isExtraCenterSpaceKey(effectiveContextId) && liveExtraSpaceEmpty) return;
-    if (storedLastTab === SIMULATOR_TAB_VALUE) {
-      openSimulatorTab(effectiveContextId);
-    }
-  }, [effectiveContextId, liveExtraSpaceEmpty, openSimulatorTab, storedLastTab]);
-
-  React.useEffect(() => {
-    if (!effectiveContextId || !storedLastTab) return;
-    if (isExtraCenterSpaceKey(effectiveContextId) && liveExtraSpaceEmpty) return;
-    if (storedLastTab === GIT_HISTORY_TAB_VALUE) {
-      openGitHistoryTab(effectiveContextId);
-    }
-  }, [effectiveContextId, liveExtraSpaceEmpty, openGitHistoryTab, storedLastTab]);
-
-  React.useEffect(() => {
-    if (!effectiveContextId || !isCenterToolTabValue(storedLastTab)) return;
-    if (isExtraCenterSpaceKey(effectiveContextId) && liveExtraSpaceEmpty) return;
-    openToolTab(effectiveContextId, storedLastTab);
-  }, [effectiveContextId, liveExtraSpaceEmpty, openToolTab, storedLastTab]);
+    Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.github);
+  const filesTabVisible = Boolean(
+    effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.files,
+  );
+  const ptDesignTabVisible = Boolean(
+    effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.["pt-design"],
+  );
 
   /** Until experiment prefs load, preserve a wiki last-tab / deep link so we do not strip it. */
   const wikiCenterEligible = React.useMemo(() => {
@@ -869,13 +864,19 @@ const CenterStage: React.FC = () => {
     }
     if (tab === "project-wiki" && !projectWikiTabVisible) return fallbackCenterTab;
     if (tab === "code-review" && !codeReviewTabVisible) return fallbackCenterTab;
-    if (tab === SIMULATOR_TAB_VALUE) return SIMULATOR_TAB_VALUE;
+    if (tab === SIMULATOR_TAB_VALUE && !simulatorTabVisible) return fallbackCenterTab;
     if (tab === GIT_HISTORY_TAB_VALUE && !gitHistoryTabVisible) return fallbackCenterTab;
     if (tab === "changes" && !changesTabVisible) return fallbackCenterTab;
     if (tab === "review" && !reviewTabVisible) return fallbackCenterTab;
+    if (tab === "run" && !runTabVisible) return fallbackCenterTab;
     if (tab === "github" && !githubHubTabVisible) return fallbackCenterTab;
+    if (tab === "files" && !filesTabVisible) return fallbackCenterTab;
+    if (tab === "pt-design" && !ptDesignTabVisible) return fallbackCenterTab;
     if (tab === GIT_HISTORY_TAB_VALUE) return GIT_HISTORY_TAB_VALUE;
     if (isCenterToolTabValue(tab)) return tab;
+    if (isAgentChatTabValue(tab)) {
+      return agentChatTabs.some((item) => item.value === tab) ? tab : fallbackCenterTab;
+    }
     if (isTerminalCenterTabValue(tab)) {
       if (visibleTerminalTabs.some((item) => item.id === tab)) return tab;
       if (!isTerminalWorkspaceReady) return tab;
@@ -908,12 +909,17 @@ const CenterStage: React.FC = () => {
     centerWikiTabEnabled,
     projectWikiTabVisible,
     codeReviewTabVisible,
+    simulatorTabVisible,
     gitHistoryTabVisible,
     changesTabVisible,
     reviewTabVisible,
+    runTabVisible,
     githubHubTabVisible,
+    filesTabVisible,
+    ptDesignTabVisible,
     hideStandaloneGitChrome,
     gitCommitTabs,
+    agentChatTabs,
     effectiveContextId,
     fallbackCenterTab,
     isExtraCenterSpace,
@@ -1241,7 +1247,8 @@ const CenterStage: React.FC = () => {
     if (effectiveContextId) {
       const visible = toolTabsVisibleByContext[effectiveContextId];
       for (const tab of CENTER_TOOL_TAB_VALUES) {
-        if (visible?.[tab] || storedLastTab === tab) ids.push(tab);
+        if (tab === GITHUB_HUB_TAB_VALUE && !GITHUB_HUB_CENTER_TAB_VISIBLE) continue;
+        if (visible?.[tab]) ids.push(tab);
       }
     }
     for (const tab of gitCommitTabs) {
@@ -1255,7 +1262,6 @@ const CenterStage: React.FC = () => {
     gitHistoryTabVisible,
     projectWikiTabVisible,
     simulatorTabVisible,
-    storedLastTab,
     toolTabsVisibleByContext,
     agentChatTabs,
   ]);
@@ -1503,10 +1509,15 @@ const CenterStage: React.FC = () => {
       if (!effectiveContextId) return;
       if (!options?.skipActivation) {
         activateNextAfterClosing(value, { paneId });
+        closeSurfaceIfUnowned(effectiveContextId, value, () => {
+          useAgentChatCenterTabsStore.getState().closeTab(effectiveContextId, value);
+        });
+        return;
       }
-      closeSurfaceIfUnowned(effectiveContextId, value, () => {
-        useAgentChatCenterTabsStore.getState().closeTab(effectiveContextId, value);
-      });
+      // Bulk close prunes the mosaic later. Exclusive chat tabs must leave the
+      // persist store now — closeSurfaceIfUnowned no-ops while the layout still
+      // lists them, and a workspace hop restores from that leftover store.
+      useAgentChatCenterTabsStore.getState().closeTab(effectiveContextId, value);
     },
     [activateNextAfterClosing, effectiveContextId],
   );
@@ -2073,11 +2084,12 @@ const CenterStage: React.FC = () => {
   const handleCreateTerminalCenterTab = React.useCallback(() => {
     const contextId = liveCenterContextId ?? effectiveContextId;
     if (!contextId) return;
-    const existingTabs = useTerminalStore.getState().getTerminalTabs(contextId);
-    const nextTab =
-      existingTabs.length === 0
-        ? ensureFixedTerminalTab(contextId)
-        : createTerminalTab(contextId);
+    // Always mint a new pane (`isNewPane: true`). Recreating Term via
+    // `ensureFixedTerminalTab` leaves the scope unhydrated so initWorkspace
+    // reattaches persisted/stale tmux windows — after an explicit close that
+    // killed the last window (and the `atmos_*` session) the next tab then
+    // fails with "can't find session".
+    const nextTab = createTerminalTab(contextId);
     appendTabToStripOrder(nextTab.id, contextId);
     activateCenterChromeTab(contextId, nextTab.id, { placement: "focused" });
     runWhenTerminalGridReady(nextTab.id, (grid) => {
@@ -2087,7 +2099,6 @@ const CenterStage: React.FC = () => {
     appendTabToStripOrder,
     createTerminalTab,
     effectiveContextId,
-    ensureFixedTerminalTab,
     liveCenterContextId,
     runWhenTerminalGridReady,
   ]);
@@ -2409,6 +2420,14 @@ const CenterStage: React.FC = () => {
         continue;
       }
 
+      if (tab.kind === "overview") {
+        if (effectiveContextId) {
+          useOverviewCenterTabStore.getState().close(effectiveContextId);
+          closedImmediately.push(OVERVIEW_TAB_ID);
+        }
+        continue;
+      }
+
       if (tab.kind === "git-commit") {
         if (effectiveContextId) {
           closeGitCommitTab(effectiveContextId, tab.value);
@@ -2483,6 +2502,7 @@ const CenterStage: React.FC = () => {
     closeBrowserCenterTab,
     closeFile,
     closeGithubTab,
+    closeGitCommitTab,
     closeSimulatorTab,
     closeGitHistoryTab,
     closeToolTab,

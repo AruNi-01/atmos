@@ -4,6 +4,7 @@
 //! occupancy store, attention latches, grouping, occupancy policy, and
 //! notify intents (permission / task-complete) consumed by NotificationService.
 
+mod activity;
 mod attention;
 mod attention_summary;
 mod attention_summary_generate;
@@ -15,13 +16,17 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 use tracing::{debug, info, warn};
 
 use super::notification::NotificationService;
 
+pub use activity::{
+    AgentActivity, AgentChildActivity, AgentLiveKind, AgentPendingPermission, AgentTodoItem,
+    AgentToolLine, AgentTurn,
+};
 pub use attention::{AgentAttentionLatch, AgentAttentionReason};
 pub use attention_summary::{
     AgentAttentionSummary, AttentionSummaryPayload, AttentionSummarySettings,
@@ -238,6 +243,8 @@ pub struct AgentStatusUpdate {
 pub enum AgentStatusEvent {
     StateChanged(AgentStatusUpdate),
     SessionsCleared { session_ids: Vec<String> },
+    ActivityUpdated(Box<AgentActivity>),
+    ActivityCleared { session_ids: Vec<String> },
     AttentionRaised(AgentAttentionLatch),
     AttentionCleared { stable_pane_ids: Vec<String> },
     AttentionSummaryUpdated(AgentAttentionSummary),
@@ -318,14 +325,15 @@ fn host_event_to_status(event: &AgentEvent) -> Option<(AgentOccupancy, Occupancy
             Some((AgentOccupancy::Idle, OccupancyUpdateKind::TerminalIdle))
         }
         AgentEvent::SessionClosed => Some((AgentOccupancy::Idle, OccupancyUpdateKind::ForcedIdle)),
+        AgentEvent::GrokGoalUpdated { goal: Some(_) }
+        | AgentEvent::GrokWorkflowUpdated { workflow: Some(_) } => {
+            Some((AgentOccupancy::Running, OccupancyUpdateKind::Progress))
+        }
         _ => None,
     }
 }
 
 pub fn apply_host_event(service: &AgentStatusService, meta: &AgentChatMeta, event: &AgentEvent) {
-    let Some((state, kind)) = host_event_to_status(event) else {
-        return;
-    };
     let session_id = chat_status_session_id(&meta.id);
     // Use the chat session id as the stable pane key so attention / focus ack
     // share one identity with the web `chat:{id}` surface.
@@ -344,18 +352,19 @@ pub fn apply_host_event(service: &AgentStatusService, meta: &AgentChatMeta, even
         space_id: meta.space_id.clone(),
         provider_id: Some(meta.provider_id.clone()),
     };
-    service.update_state(
-        &session_id,
-        provider_to_tool(&meta.provider_id),
-        state,
-        Some(meta.cwd.clone()),
-        &ctx,
-        kind,
-    );
+    let tool = provider_to_tool(&meta.provider_id);
+    if let Some((state, kind)) = host_event_to_status(event) {
+        service.update_state(&session_id, tool, state, Some(meta.cwd.clone()), &ctx, kind);
+    }
+    // Tool complete / plan / child events may not change occupancy but still
+    // fold Observer turns. Occupancy writes run first so the session row exists.
+    service.observe_host(&session_id, tool, event, &ctx);
 }
 
 pub struct AgentStatusService {
     pub(crate) sessions: RwLock<HashMap<String, AgentStatusRecord>>,
+    /// Observer turn history. Outlives idle session-row sweep.
+    activity: RwLock<HashMap<String, AgentActivity>>,
     /// Sticky attention latches keyed by stable pane id (`{context}:{tmux_window}`).
     /// Independent of idle session rows so refresh still shows need-attention.
     attention: RwLock<HashMap<String, AgentAttentionLatch>>,
@@ -377,13 +386,171 @@ pub struct AgentStatusService {
     /// Known project root paths. Kept for diagnostics / future use but
     /// primary filtering is done at the hook level via ATMOS_MANAGED env var.
     known_project_paths: RwLock<HashSet<String>>,
+    /// Terminal permission payload waiting for the hook HTTP handler to arm a reply.
+    hook_permission_stash: Mutex<HashMap<String, StashedHookPermission>>,
+    /// In-flight hook replies. The HTTP handler holds the receiver.
+    hook_permission_tx: Mutex<HashMap<String, ArmedHookPermission>>,
+}
+
+struct StashedHookPermission {
+    session_id: String,
+    request_id: String,
+    tool_input: serde_json::Value,
+}
+
+struct ArmedHookPermission {
+    session_id: String,
+    tx: tokio::sync::oneshot::Sender<HookPermissionDecision>,
+}
+
+#[derive(Debug, Clone)]
+pub struct HookPermissionDecision {
+    pub allow: bool,
+    pub answers: Option<serde_json::Value>,
+}
+
+pub struct HookPermissionWait {
+    pub request_id: String,
+    pub tool_input: serde_json::Value,
+    pub rx: tokio::sync::oneshot::Receiver<HookPermissionDecision>,
+}
+
+pub enum HookPermissionOpen {
+    Wait(HookPermissionWait),
+    /// The CLI should keep its own prompt. Body is written to the hook stdout.
+    Immediate(serde_json::Value),
+}
+
+pub fn hook_permission_decision(option_id: &str) -> HookPermissionDecision {
+    let id = option_id.trim();
+    if let Some(rest) = id.strip_prefix("answers:") {
+        let answers = serde_json::from_str(rest).unwrap_or(serde_json::Value::Null);
+        return HookPermissionDecision {
+            allow: true,
+            answers: Some(answers),
+        };
+    }
+    let lower = id.to_ascii_lowercase();
+    let deny = lower.contains("reject")
+        || lower.contains("deny")
+        || lower.contains("skip")
+        || lower.contains("cancel")
+        || lower == "no";
+    HookPermissionDecision {
+        allow: !deny,
+        answers: None,
+    }
+}
+
+pub fn hook_permission_response(
+    tool: AgentToolType,
+    tool_input: &serde_json::Value,
+    decision: &HookPermissionDecision,
+) -> serde_json::Value {
+    if matches!(tool, AgentToolType::Gemini | AgentToolType::Antigravity) {
+        return serde_json::json!({
+            "decision": if decision.allow { "allow" } else { "deny" }
+        });
+    }
+    if decision.allow {
+        let updated = claude_updated_input(tool_input, decision.answers.as_ref());
+        serde_json::json!({
+            "hookSpecificOutput": {
+                "hookEventName": "PermissionRequest",
+                "decision": {
+                    "behavior": "allow",
+                    "updatedInput": updated
+                }
+            }
+        })
+    } else {
+        serde_json::json!({
+            "hookSpecificOutput": {
+                "hookEventName": "PermissionRequest",
+                "decision": {
+                    "behavior": "deny",
+                    "message": "Denied",
+                    "interrupt": false
+                }
+            }
+        })
+    }
+}
+
+fn claude_updated_input(
+    tool_input: &serde_json::Value,
+    answers: Option<&serde_json::Value>,
+) -> serde_json::Value {
+    let mut updated = if tool_input.is_object() {
+        tool_input.clone()
+    } else {
+        serde_json::json!({})
+    };
+    let Some(answers) = answers else {
+        return updated;
+    };
+    let questions = tool_input
+        .get("questions")
+        .and_then(|value| value.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let mut mapped = serde_json::Map::new();
+    if let Some(given) = answers.as_object() {
+        for (index, question) in questions.iter().enumerate() {
+            let text = question
+                .get("question")
+                .or_else(|| question.get("prompt"))
+                .and_then(|value| value.as_str())
+                .unwrap_or("")
+                .trim();
+            if text.is_empty() {
+                continue;
+            }
+            let id = question
+                .get("id")
+                .and_then(|value| value.as_str())
+                .unwrap_or("");
+            let value = given
+                .get(id)
+                .or_else(|| given.get(text))
+                .or_else(|| given.get(&index.to_string()))
+                .cloned();
+            if let Some(value) = value {
+                mapped.insert(text.to_string(), value);
+            }
+        }
+        if mapped.is_empty() {
+            mapped = given.clone();
+        }
+    }
+    if let Some(obj) = updated.as_object_mut() {
+        if !questions.is_empty() {
+            obj.insert("questions".to_string(), serde_json::Value::Array(questions));
+        }
+        obj.insert(
+            "answers".to_string(),
+            serde_json::Value::Object(mapped.clone()),
+        );
+        if mapped.len() == 1 {
+            if let Some(value) = mapped.values().next() {
+                if let Some(text) = value.as_str() {
+                    obj.insert(
+                        "answer".to_string(),
+                        serde_json::Value::String(text.to_string()),
+                    );
+                }
+            }
+        }
+    }
+    updated
 }
 
 impl AgentStatusService {
     pub fn new() -> Self {
-        let (event_tx, _) = broadcast::channel(64);
+        let (event_tx, _) = broadcast::channel(256);
         Self {
             sessions: RwLock::new(HashMap::new()),
+            activity: RwLock::new(HashMap::new()),
             attention: RwLock::new(HashMap::new()),
             summaries: RwLock::new(HashMap::new()),
             summary_generation: RwLock::new(0),
@@ -394,7 +561,127 @@ impl AgentStatusService {
             notification_service: RwLock::new(None),
             event_tx,
             known_project_paths: RwLock::new(HashSet::new()),
+            hook_permission_stash: Mutex::new(HashMap::new()),
+            hook_permission_tx: Mutex::new(HashMap::new()),
         }
+    }
+
+    pub(crate) fn stash_hook_permission(
+        &self,
+        session_id: &str,
+        request_id: &str,
+        tool_input: serde_json::Value,
+    ) {
+        self.hook_permission_stash.lock().insert(
+            request_id.to_string(),
+            StashedHookPermission {
+                session_id: session_id.to_string(),
+                request_id: request_id.to_string(),
+                tool_input,
+            },
+        );
+    }
+
+    pub(crate) fn present_hook_permission(
+        &self,
+        session_id: &str,
+        request: &agent::AgentPermissionRequest,
+    ) {
+        let now = Utc::now().to_rfc3339();
+        let pending = activity::pending_from_request(request);
+        let snapshot = {
+            let mut map = self.activity.write();
+            let Some(record) = map.get_mut(session_id) else {
+                return;
+            };
+            record.pending_permission = Some(pending);
+            record.live_kind = AgentLiveKind::Permission;
+            record.last_event_at = now;
+            record.clone()
+        };
+        let _ = self
+            .event_tx
+            .send(AgentStatusEvent::ActivityUpdated(Box::new(snapshot)));
+    }
+
+    pub(crate) fn open_permission_wait(&self, request_id: &str) -> Option<HookPermissionWait> {
+        let stashed = self.hook_permission_stash.lock().remove(request_id)?;
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.hook_permission_tx.lock().insert(
+            stashed.request_id.clone(),
+            ArmedHookPermission {
+                session_id: stashed.session_id,
+                tx,
+            },
+        );
+        Some(HookPermissionWait {
+            request_id: stashed.request_id,
+            tool_input: stashed.tool_input,
+            rx,
+        })
+    }
+
+    pub fn respond_hook_permission(
+        &self,
+        session_id: &str,
+        request_id: &str,
+        option_id: &str,
+    ) -> bool {
+        let decision = hook_permission_decision(option_id);
+        let armed = {
+            let mut waits = self.hook_permission_tx.lock();
+            let key = if !request_id.is_empty() {
+                if waits
+                    .get(request_id)
+                    .is_some_and(|armed| !session_id.is_empty() && armed.session_id != session_id)
+                {
+                    return false;
+                }
+                Some(request_id.to_string())
+            } else {
+                waits
+                    .iter()
+                    .find(|(_, armed)| armed.session_id == session_id)
+                    .map(|(key, _)| key.clone())
+            };
+            key.and_then(|key| waits.remove(&key))
+        };
+        let Some(armed) = armed else {
+            return false;
+        };
+        let sent = armed.tx.send(decision).is_ok();
+        if sent {
+            self.clear_activity_permission(&armed.session_id);
+        }
+        sent
+    }
+
+    pub(crate) fn clear_activity_permission(&self, session_id: &str) {
+        let now = chrono::Utc::now().to_rfc3339();
+        let snapshot = {
+            let mut map = self.activity.write();
+            let Some(activity) = map.get_mut(session_id) else {
+                return;
+            };
+            if activity.pending_permission.is_none()
+                && activity.live_kind != AgentLiveKind::Permission
+            {
+                return;
+            }
+            activity.pending_permission = None;
+            if activity.live_kind == AgentLiveKind::Permission {
+                activity.live_kind = if activity.last_state == AgentOccupancy::Idle {
+                    AgentLiveKind::Idle
+                } else {
+                    AgentLiveKind::Working
+                };
+            }
+            activity.last_event_at = now;
+            activity.clone()
+        };
+        let _ = self
+            .event_tx
+            .send(AgentStatusEvent::ActivityUpdated(Box::new(snapshot)));
     }
 
     pub fn set_notification_service(&self, service: Arc<NotificationService>) {
@@ -446,6 +733,14 @@ impl AgentStatusService {
     }
 
     pub fn remove_session(&self, session_id: &str) -> bool {
+        self.remove_session_with_activity(session_id, true)
+    }
+
+    pub fn remove_session_keep_activity(&self, session_id: &str) -> bool {
+        self.remove_session_with_activity(session_id, false)
+    }
+
+    fn remove_session_with_activity(&self, session_id: &str, drop_activity: bool) -> bool {
         let removed = self.sessions.write().remove(session_id).is_some();
         self.suppress_running_until.write().remove(session_id);
         self.force_closed_sessions.write().remove(session_id);
@@ -457,7 +752,27 @@ impl AgentStatusService {
             // recap. Only explicit Dismiss / send / pane destroy drop it.
             self.clear_attention_matching_ids(&[session_id.to_string()]);
         }
+        if drop_activity {
+            self.drop_activity(&[session_id.to_string()]);
+        }
         removed
+    }
+
+    /// Drop an activity row even when the coarse session is already gone
+    /// (idle sweep / pane-focus dismiss). Returns true if a record was removed.
+    pub fn drop_orphaned_activity(&self, session_id: &str) -> bool {
+        let had = self.activity.read().contains_key(session_id);
+        if had {
+            self.drop_activity(&[session_id.to_string()]);
+        }
+        had
+    }
+
+    #[cfg(test)]
+    pub(crate) fn test_backdate_session(&self, session_id: &str, timestamp: &str) {
+        if let Some(session) = self.sessions.write().get_mut(session_id) {
+            session.timestamp = timestamp.to_string();
+        }
     }
 
     /// Drop every session keyed by, or attributed to, a stable pane id
@@ -499,6 +814,8 @@ impl AgentStatusService {
             );
             self.broadcast_sessions_cleared(removed.clone());
         }
+        self.drop_activity(&removed);
+        self.drop_activity_matching_pane(stable_pane_id);
         // Pane is gone — drop sticky attention and auto-summary for this pane
         // and session aliases.
         let mut attention_ids = removed.clone();
@@ -574,6 +891,7 @@ impl AgentStatusService {
         }
         if !idle_ids.is_empty() {
             self.broadcast_sessions_cleared(idle_ids.clone());
+            self.drop_activity(&idle_ids);
         }
         idle_ids
     }
@@ -802,6 +1120,7 @@ impl AgentStatusService {
             self.suppress_running_until
                 .write()
                 .insert(session_id.to_string(), until);
+            self.close_activity_turn(session_id);
         }
 
         let update = AgentStatusUpdate {

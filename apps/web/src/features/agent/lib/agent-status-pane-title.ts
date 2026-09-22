@@ -105,3 +105,47 @@ export function paneTitleIndicatesAgentExited(
   const resolved = resolvePaneToolbarTitle(pane, options);
   return !resolved.toolbarAgent;
 }
+
+function chatIdFromStatusSession(sessionId: string | null | undefined): string | null {
+  const id = sessionId?.trim() ?? "";
+  if (!id.startsWith("chat:")) return null;
+  return id.slice("chat:".length) || null;
+}
+
+export function collectAgentStatusSessionTitles(
+  sessions: Array<{
+    session_id: string;
+    tool: string;
+    surface?: string | null;
+    surface_id?: string | null;
+    pane_id?: string | null;
+  }>,
+  input: {
+    contestedOwners: ContestedOwnersMap;
+    panes: AgentHookPaneLookupState;
+    chatTabs: ReadonlyArray<{ chatId: string | null; title?: string | null }>;
+    agentLabel: (tool: string) => string;
+  },
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const session of sessions) {
+    if (session.surface === "chat") {
+      const chatId = session.surface_id?.trim() || chatIdFromStatusSession(session.session_id);
+      const title = chatId
+        ? input.chatTabs.find((tab) => tab.chatId === chatId)?.title?.trim()
+        : "";
+      if (title) out[session.session_id] = title;
+      continue;
+    }
+    const paneId = session.pane_id?.trim() || session.session_id;
+    const pane = findTerminalPaneByStableAgentPaneId(input.panes, paneId);
+    if (!pane) continue;
+    const resolved = resolvePaneToolbarTitle(pane, { contestedOwners: input.contestedOwners });
+    const suffix = uniquePaneTitleForAgentStatus(
+      resolved.displayTitle,
+      input.agentLabel(session.tool),
+    );
+    if (suffix) out[session.session_id] = suffix;
+  }
+  return out;
+}

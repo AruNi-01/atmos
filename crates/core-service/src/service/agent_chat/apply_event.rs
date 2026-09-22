@@ -31,9 +31,8 @@ use super::types::{
     AgentChatEvent, AgentChatMeta, AgentChatPayload, AgentChatSessionOpOutcome, AgentChatSnapshot,
     FoldedMessage, MessagePart, Part, PartBody, PendingPermission, PendingSessionOp,
     ResolvedSessionConfig, RuntimeStatus, SessionAdvertisedOption, SessionAdvertisedOptionValue,
-    SessionConfigChange, SessionHintTone, SessionLifecycleAction, SessionLifecycleStatus,
-    ToolCallState, TranscriptEnvelope, TranscriptEvent, TurnStatus,
-    SESSION_HINT_MODEL_SWITCH_FAILED, SESSION_HINT_MODE_SWITCH_FAILED,
+    SessionConfigChange, SessionHintTone, ToolCallState, TranscriptEnvelope, TranscriptEvent,
+    TurnStatus, SESSION_HINT_MODEL_SWITCH_FAILED, SESSION_HINT_MODE_SWITCH_FAILED,
 };
 
 /// Cap for non-text recent events. Text is recovered by per-part backfill, not this ring.
@@ -1472,6 +1471,7 @@ async fn apply_text_chunk(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn apply_part_closed(
     chat_id: &str,
     adapter_event_id: String,
@@ -1688,17 +1688,19 @@ fn text_part_finished(part: &Part, duration_ms: Option<u64>) -> Option<Transcrip
     })
 }
 
+type ClosedTurnPart = (
+    String,
+    Option<TranscriptEvent>,
+    Option<u64>,
+    chrono::DateTime<Utc>,
+);
+
 fn close_parts_of_turn(
     state: &mut RuntimeState,
     turn_id: &str,
     closed_at: chrono::DateTime<Utc>,
     thinking_duration_ms: Option<u64>,
-) -> Vec<(
-    String,
-    Option<TranscriptEvent>,
-    Option<u64>,
-    chrono::DateTime<Utc>,
-)> {
+) -> Vec<ClosedTurnPart> {
     close_open_parts(state, Some(turn_id), closed_at, thinking_duration_ms)
         .into_iter()
         .map(|(part_id, finished, duration_ms, _, opened_at)| {
@@ -1707,18 +1709,20 @@ fn close_parts_of_turn(
         .collect()
 }
 
-fn close_open_parts(
-    state: &mut RuntimeState,
-    turn_id: Option<&str>,
-    closed_at: chrono::DateTime<Utc>,
-    thinking_duration_ms: Option<u64>,
-) -> Vec<(
+type ClosedOpenPart = (
     String,
     Option<TranscriptEvent>,
     Option<u64>,
     String,
     chrono::DateTime<Utc>,
-)> {
+);
+
+fn close_open_parts(
+    state: &mut RuntimeState,
+    turn_id: Option<&str>,
+    closed_at: chrono::DateTime<Utc>,
+    thinking_duration_ms: Option<u64>,
+) -> Vec<ClosedOpenPart> {
     let mut closed = Vec::new();
     for tracked in state.parts.values_mut() {
         if turn_id.is_some_and(|id| tracked.turn_id != id) || tracked.part.closed_at.is_some() {
@@ -2762,7 +2766,8 @@ mod tests {
     use crate::service::agent_chat::store::AgentChatStore;
     use crate::service::agent_chat::types::{
         AgentChatMeta, AgentChatOrigin, AgentChatPayload, CreateAgentChatRequest,
-        SessionAdvertisedOption, SessionAdvertisedOptionValue,
+        SessionAdvertisedOption, SessionAdvertisedOptionValue, SessionLifecycleAction,
+        SessionLifecycleStatus,
     };
     use agent::{
         AgentEvent, AgentEventEnvelope, AgentTool, AgentToolKind, AgentToolParams, AgentToolStatus,

@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{delete, get, post},
@@ -13,6 +13,7 @@ use crate::app_state::AppState;
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/sessions", get(list_sessions))
+        .route("/activity", get(list_activity))
         .route("/sessions/clear-idle", post(clear_idle_sessions))
         .route(
             "/sessions/{session_id}/force-idle",
@@ -22,11 +23,17 @@ pub fn routes() -> Router<AppState> {
         .route("/workspace-agent-groups", get(list_workspace_agent_groups))
         .route("/attention", get(list_attention))
         .route("/attention/clear", post(clear_attention))
+        .route("/permission-respond", post(respond_permission))
         .route("/attention/summaries", get(list_attention_summaries))
 }
 
 async fn list_sessions(State(state): State<AppState>) -> Json<Value> {
     let sessions = state.agent_status_service.get_all_sessions();
+    Json(serde_json::json!({ "sessions": sessions }))
+}
+
+async fn list_activity(State(state): State<AppState>) -> Json<Value> {
+    let sessions = state.agent_status_service.get_all_activity();
     Json(serde_json::json!({ "sessions": sessions }))
 }
 
@@ -78,6 +85,28 @@ async fn clear_attention(
     Json(serde_json::json!({ "cleared": cleared }))
 }
 
+#[derive(Debug, Deserialize)]
+struct RespondPermissionBody {
+    session_id: String,
+    request_id: String,
+    option_id: String,
+}
+
+async fn respond_permission(
+    State(state): State<AppState>,
+    Json(body): Json<RespondPermissionBody>,
+) -> impl IntoResponse {
+    let accepted = state.agent_status_service.respond_hook_permission(
+        &body.session_id,
+        &body.request_id,
+        &body.option_id,
+    );
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({ "ok": true, "accepted": accepted })),
+    )
+}
+
 async fn clear_idle_sessions(State(state): State<AppState>) -> Json<Value> {
     let cleared = state.agent_status_service.clear_idle_sessions();
     Json(serde_json::json!({ "cleared": cleared }))
@@ -102,11 +131,35 @@ async fn force_session_idle(
     }
 }
 
+#[derive(Deserialize)]
+struct RemoveSessionQuery {
+    keep_activity: Option<String>,
+}
+
 async fn remove_session(
     State(state): State<AppState>,
     Path(session_id): Path<String>,
+    Query(query): Query<RemoveSessionQuery>,
 ) -> impl IntoResponse {
-    if state.agent_status_service.remove_session(&session_id) {
+    let keep_activity = matches!(
+        query.keep_activity.as_deref(),
+        Some("1") | Some("true") | Some("yes")
+    );
+    let removed = if keep_activity {
+        state
+            .agent_status_service
+            .remove_session_keep_activity(&session_id)
+    } else {
+        state.agent_status_service.remove_session(&session_id)
+    };
+    let dropped_activity = if keep_activity {
+        false
+    } else {
+        state
+            .agent_status_service
+            .drop_orphaned_activity(&session_id)
+    };
+    if removed || dropped_activity {
         (
             StatusCode::OK,
             Json(serde_json::json!({ "ok": true, "removed": session_id })),

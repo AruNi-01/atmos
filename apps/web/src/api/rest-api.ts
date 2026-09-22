@@ -207,6 +207,9 @@ async function fetchHooksApi<T>(path: string, options?: RequestInit): Promise<T>
       `API error: ${response.status} ${response.statusText}${detail ? ` — ${detail}` : ''}`
     );
   }
+  if (body == null || typeof body !== 'object') {
+    throw new Error(`API error: expected JSON from ${path}`);
+  }
 
   return body as T;
 }
@@ -659,13 +662,24 @@ export const agentStatusApi = {
     );
   },
 
-  removeSession: async (sessionId: string): Promise<{ ok: boolean }> => {
+  removeSession: async (
+    sessionId: string,
+    options?: { keepActivity?: boolean },
+  ): Promise<{ ok: boolean }> => {
+    const suffix = options?.keepActivity ? "?keep_activity=1" : "";
     return fetchHooksApi<{ ok: boolean }>(
-      `/agent-status/sessions/${encodeURIComponent(sessionId)}`,
-      { method: 'DELETE' },
+      `/agent-status/sessions/${encodeURIComponent(sessionId)}${suffix}`,
+      { method: "DELETE" },
     );
   },
 
+  listActivity: async (): Promise<{
+    sessions: import("@atmos/api-types/ws/dto/events").AgentActivity[];
+  }> => {
+    return fetchHooksApi("/agent-status/activity");
+  },
+
+  /** Sticky need-attention latches held in API memory (survives browser refresh). */
   listAttention: async (): Promise<{ attention: AgentAttentionLatchDto[] }> => {
     return fetchHooksApi<{ attention: AgentAttentionLatchDto[] }>('/agent-status/attention');
   },
@@ -693,6 +707,24 @@ export const agentStatusApi = {
         dismiss_summary: input.dismissSummary === true ? true : undefined,
       }),
     });
+  },
+
+  respondPermission: async (input: {
+    sessionId: string;
+    requestId: string;
+    optionId: string;
+  }): Promise<{ ok: boolean; accepted: boolean }> => {
+    return fetchHooksApi<{ ok: boolean; accepted: boolean }>(
+      "/agent-status/permission-respond",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: input.sessionId,
+          request_id: input.requestId,
+          option_id: input.optionId,
+        }),
+      },
+    );
   },
 
   listAttentionSummaries: async (): Promise<{

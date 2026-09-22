@@ -21,25 +21,13 @@ import {
   type AgentHookToolStatus,
 } from '@/api/rest-api';
 import { useComputerQueryScope } from '@/api/query/query-scope';
+import { AGENT_HOOK_TOOL_KEYS } from '@/features/agent/lib/agent-hook-tools';
 import { isComputerQueryScopeCurrent } from '@/api/ws/request';
 
-const HOOK_TOOL_META: {
-  key: keyof AgentHookInstallReport;
-  labelKey: string;
-}[] = [
-  { key: 'claude_code', labelKey: 'tools.claude_code' },
-  { key: 'codex', labelKey: 'tools.codex' },
-  { key: 'cursor', labelKey: 'tools.cursor' },
-  { key: 'gemini', labelKey: 'tools.gemini' },
-  { key: 'antigravity', labelKey: 'tools.antigravity' },
-  { key: 'factory_droid', labelKey: 'tools.factory_droid' },
-  { key: 'kiro', labelKey: 'tools.kiro' },
-  { key: 'opencode', labelKey: 'tools.opencode' },
-  { key: 'ampcode', labelKey: 'tools.ampcode' },
-  { key: 'pi', labelKey: 'tools.pi' },
-  { key: 'hermes', labelKey: 'tools.hermes' },
-  { key: 'grok_build', labelKey: 'tools.grok_build' },
-];
+const HOOK_TOOL_META = AGENT_HOOK_TOOL_KEYS.map((key) => ({
+  key,
+  labelKey: `tools.${key}`,
+}));
 
 export function AgentHookStatusCard() {
   const t = useTranslations('settings.agentHookStatusCard');

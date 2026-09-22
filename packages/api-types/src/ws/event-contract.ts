@@ -1,5 +1,7 @@
 import type { WsEvent } from "./events";
 import type {
+  AgentActivity,
+  AgentActivityClearedNotification,
   AgentStatusClearedNotification,
   AgentStatusChangedNotification,
   AgentNotificationPayload,
@@ -47,6 +49,8 @@ export type WsEventContract = {
   project_delete_progress: { payload: ProjectDeleteProgressNotification };
   agent_status_changed: { payload: AgentStatusChangedNotification };
   agent_status_cleared: { payload: AgentStatusClearedNotification };
+  agent_activity_updated: { payload: AgentActivity };
+  agent_activity_cleared: { payload: AgentActivityClearedNotification };
   agent_attention_raised: { payload: RefreshNotification };
   agent_attention_cleared: { payload: RefreshNotification };
   agent_attention_summary_updated: { payload: RefreshNotification };

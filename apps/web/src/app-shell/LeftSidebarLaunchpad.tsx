@@ -33,6 +33,7 @@ import {
   Bot,
   ChartColumnBig,
   Command,
+  Eye,
   FolderKanban,
   HardDrive,
   PencilRuler,
@@ -47,6 +48,7 @@ import {
 } from "lucide-react";
 import { BotIcon } from "@workspace/ui/components/icons/bot-icon";
 import { LayersIcon } from "@workspace/ui/components/icons/layers-icon";
+import BrandLmStudioIcon from "@workspace/ui/components/icons/brand-lmstudio-icon";
 import CanvasIcon from "@workspace/ui/components/icons/canvas-icon";
 import { ChartColumnBigIcon } from "@workspace/ui/components/icons/chart-column-big-icon";
 import { FolderKanbanIcon } from "@workspace/ui/components/icons/folder-kanban-icon";
@@ -158,6 +160,7 @@ const ITEM_DEF_BY_ID: Record<LaunchpadItemId, LaunchpadItemDef> = {
   automations: { id: "automations", labelKey: "launchpad.items.automations", icon: Timer, path: "/automations" },
   "disk-analyzer": { id: "disk-analyzer", labelKey: "launchpad.items.diskAnalyzer", icon: HardDrive, path: "/disk-analyzer" },
   "token-usage": { id: "token-usage", labelKey: "launchpad.items.tokenUsage", icon: ChartColumnBig, path: "/token-usage" },
+  "agent-observer": { id: "agent-observer", labelKey: "launchpad.items.agentObserver", icon: Eye, path: "/agent-observer" },
   canvas: { id: "canvas", labelKey: "launchpad.items.canvas", icon: Presentation, kind: "canvas" },
   "pt-design": { id: "pt-design", labelKey: "launchpad.items.ptDesign", icon: PencilRuler, path: "/pt-design" },
   tasks: { id: "tasks", labelKey: "launchpad.items.tasks", icon: ListTodo, path: "/tasks" },
@@ -655,6 +658,7 @@ function LaunchpadOutsideIcon({
   if (itemId === "automations") return <TimerIcon ref={iconRef} className={className} size={size} />;
   if (itemId === "disk-analyzer") return <HardDriveIcon ref={iconRef} className={className} size={size} />;
   if (itemId === "token-usage") return <ChartColumnBigIcon ref={iconRef} className={className} size={size} />;
+  if (itemId === "agent-observer") return <BrandLmStudioIcon ref={iconRef} className={className} size={size} />;
   if (itemId === "canvas") return <CanvasIcon ref={iconRef} className={className} size={size} />;
   if (itemId === "pt-design") return <PencilRulerIcon ref={iconRef} className={className} size={size} />;
   if (itemId === "tasks") return <ListTodoIcon ref={iconRef} className={className} size={size} />;

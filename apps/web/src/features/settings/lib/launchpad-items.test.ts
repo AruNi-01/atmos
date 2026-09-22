@@ -23,11 +23,12 @@ describe("launchpad item placement helpers", () => {
     expect(items.automations).toEqual({ enabled: true, placement: "outside", order: 4 });
     expect(items["disk-analyzer"]).toEqual({ enabled: true, placement: "inside", order: 5 });
     expect(items["token-usage"]).toEqual({ enabled: true, placement: "inside", order: 6 });
-    expect(items.canvas).toEqual({ enabled: true, placement: "inside", order: 7 });
-    expect(items["pt-design"]).toEqual({ enabled: true, placement: "inside", order: 8 });
-    expect(items.tasks).toEqual({ enabled: true, placement: "inside", order: 9 });
-    expect(items["new-workspace"]).toEqual({ enabled: true, placement: "outside", order: 10 });
-    expect(items["agent-sessions"]).toEqual({ enabled: true, placement: "inside", order: 11 });
+    expect(items["agent-observer"]).toEqual({ enabled: true, placement: "inside", order: 7 });
+    expect(items.canvas).toEqual({ enabled: true, placement: "inside", order: 8 });
+    expect(items["pt-design"]).toEqual({ enabled: true, placement: "inside", order: 9 });
+    expect(items.tasks).toEqual({ enabled: true, placement: "inside", order: 10 });
+    expect(items["new-workspace"]).toEqual({ enabled: true, placement: "outside", order: 11 });
+    expect(items["agent-sessions"]).toEqual({ enabled: true, placement: "inside", order: 12 });
   });
 
   it("selects only enabled items for a placement", () => {
@@ -50,6 +51,7 @@ describe("launchpad item placement helpers", () => {
       "terminals",
       "agents",
       "disk-analyzer",
+      "agent-observer",
       "pt-design",
       "tasks",
       "agent-sessions",
@@ -62,11 +64,12 @@ describe("launchpad item placement helpers", () => {
     expect(items.agents).toEqual({ enabled: true, placement: "inside", order: 3 });
     expect(items.automations).toEqual({ enabled: true, placement: "outside", order: 4 });
     expect(items.workspaces).toEqual({ enabled: true, placement: "inside", order: 0 });
-    expect(items["agent-sessions"]).toEqual({ enabled: true, placement: "inside", order: 11 });
-    expect(items.canvas).toEqual({ enabled: true, placement: "inside", order: 7 });
-    expect(items.tasks).toEqual({ enabled: true, placement: "inside", order: 9 });
+    expect(items["agent-sessions"]).toEqual({ enabled: true, placement: "inside", order: 12 });
+    expect(items.canvas).toEqual({ enabled: true, placement: "inside", order: 8 });
+    expect(items.tasks).toEqual({ enabled: true, placement: "inside", order: 10 });
     expect(items["token-usage"]).toEqual({ enabled: true, placement: "inside", order: 6 });
-    expect(items["pt-design"]).toEqual({ enabled: true, placement: "inside", order: 8 });
+    expect(items["pt-design"]).toEqual({ enabled: true, placement: "inside", order: 9 });
+    expect(items["agent-observer"]).toEqual({ enabled: true, placement: "inside", order: 7 });
   });
 
   it("merges persisted launchpad_items over defaults", () => {
@@ -81,7 +84,7 @@ describe("launchpad item placement helpers", () => {
     expect(items.agents).toEqual({ enabled: true, placement: "outside", order: 3 });
     expect(items.automations).toEqual({ enabled: true, placement: "outside", order: 4 });
     expect(items.workspaces).toEqual({ enabled: false, placement: "inside", order: 0 });
-    expect(items["agent-sessions"]).toEqual({ enabled: true, placement: "inside", order: 11 });
+    expect(items["agent-sessions"]).toEqual({ enabled: true, placement: "inside", order: 12 });
   });
 
   it("sorts enabled items by persisted order", () => {

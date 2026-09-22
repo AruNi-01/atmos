@@ -1,11 +1,10 @@
-import { Button, TabsContent } from "@workspace/ui";
+import { EmptyAction, IconArrowRight, IconCategory, IconSearch, TabsContent } from "@workspace/ui";
 import { useTranslations } from "next-intl";
 import type { SkillInfo } from "@/api/ws-api";
 import { AnimatePresence, motion } from "motion/react";
-import { Puzzle } from "lucide-react";
-import { EmptyState, SkillsSkeletonGrid } from "./SkillsViewEmptyState";
+import { SkillsSkeletonGrid } from "./SkillsViewEmptyState";
 import { InstalledSkillListCard } from "./InstalledSkillListCard";
-import { INSTALLED_EMPTY_COPY } from "../lib/skills-view-utils";
+import { PageEmptyState } from "@/shared/components/PageEmptyState";
 
 export function SkillsInstalledTab({
   isLoading,
@@ -14,6 +13,7 @@ export function SkillsInstalledTab({
   query,
   isFilterActive,
   onResetFilters,
+  onBrowseMarket,
   onOpenSkill,
   onSkillUpdated,
   onSkillDeleted,
@@ -24,37 +24,42 @@ export function SkillsInstalledTab({
   query: string;
   isFilterActive: boolean;
   onResetFilters: () => void;
+  onBrowseMarket: () => void;
   onOpenSkill: (skill: SkillInfo) => void;
   onSkillUpdated: (skill: SkillInfo) => void | Promise<void>;
   onSkillDeleted: (skillId: string) => void | Promise<void>;
 }) {
   const t = useTranslations("skills.installedTab");
+  const noneInstalled = skills.length === 0;
+  const narrowing = Boolean(query.trim()) || isFilterActive;
 
   return (
     <TabsContent keepMounted value="installed">
       {isLoading ? (
         <SkillsSkeletonGrid />
       ) : filteredSkills.length === 0 ? (
-        <EmptyState
-          icon={<Puzzle className="size-8" />}
-          title={skills.length === 0 ? t("empty.noneInstalledTitle") : t("empty.noMatchesTitle")}
-          description={
-            skills.length === 0
-              ? INSTALLED_EMPTY_COPY
-              : query || isFilterActive
-              ? t("empty.noMatchesDescription", { query })
-              : INSTALLED_EMPTY_COPY
+        <PageEmptyState
+          icon={noneInstalled ? <IconCategory /> : <IconSearch />}
+          title={
+            noneInstalled ? t("empty.noneInstalledTitle") : t("empty.noMatchesTitle")
           }
-          action={
-            (query || isFilterActive) && (
-              <Button
-                variant="link"
-                onClick={onResetFilters}
-                className="mt-4"
-              >
-                {t("empty.resetFilters")}
-              </Button>
-            )
+          description={
+            noneInstalled
+              ? t("empty.noneInstalledDescription")
+              : query.trim()
+                ? t("empty.noMatchesDescription", { query: query.trim() })
+                : t("empty.noFilterMatches")
+          }
+          actions={
+            noneInstalled ? (
+              <EmptyAction trailing={<IconArrowRight />} onClick={onBrowseMarket}>
+                {t("empty.browseMarket")}
+              </EmptyAction>
+            ) : narrowing ? (
+              <EmptyAction emphasis="quiet" onClick={onResetFilters}>
+                {isFilterActive ? t("empty.resetFilters") : t("empty.clearSearch")}
+              </EmptyAction>
+            ) : undefined
           }
         />
       ) : (

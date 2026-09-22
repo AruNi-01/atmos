@@ -97,6 +97,7 @@ import {
 import { TerminalChrome } from "./TerminalChrome";
 import { TerminalSelectionToolbar } from "./TerminalSelectionToolbar";
 import { buildTerminalWsUrl } from "../lib/terminal-ws-url";
+import { isRecoverableTerminalAttachMiss } from "../lib/terminal-attach-recover";
 import { useTerminalInputReady } from "../hooks/use-terminal-input-ready";
 import { useTerminalLinks } from "../hooks/use-terminal-links";
 import { useTerminalSearch } from "../hooks/use-terminal-search";
@@ -670,16 +671,16 @@ const Terminal = ({
     (error: string) => {
       onSessionError?.(sessionId, error);
 
-      // Canvas/center refresh can leave a stored window name that no longer
-      // exists in tmux (layout saved before first attach, or window killed).
-      // Backend create is idempotent for the same name (attach-if-exists), so
-      // auto-recover once instead of parking on "4 not found".
+      // Session exists but this stored window name is gone (layout saved
+      // before first attach, or that window was killed). Create is
+      // idempotent for the same name (attach-if-exists). Do NOT recover
+      // `can't find session`: refresh attach retries that path on purpose
+      // so a lagging session is not replaced with a new empty shell.
       const missingWindow =
         !isNewPane &&
         !noTmux &&
         !missingWindowCreateAttemptedRef.current &&
-        /tmux window with name/i.test(error) &&
-        /not found/i.test(error);
+        isRecoverableTerminalAttachMiss(error);
       if (missingWindow) {
         missingWindowCreateAttemptedRef.current = true;
         setAttachError(null);

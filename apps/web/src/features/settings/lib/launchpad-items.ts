@@ -6,6 +6,7 @@ export type LaunchpadItemId =
   | 'automations'
   | 'disk-analyzer'
   | 'token-usage'
+  | 'agent-observer'
   | 'canvas'
   | 'pt-design'
   | 'tasks'
@@ -30,6 +31,7 @@ export const LAUNCHPAD_ITEM_IDS: LaunchpadItemId[] = [
   'automations',
   'disk-analyzer',
   'token-usage',
+  'agent-observer',
   'canvas',
   'pt-design',
   'tasks',
@@ -52,6 +54,7 @@ const ALWAYS_ON_DEFAULT_IDS: LaunchpadItemId[] = [
   'automations',
   'disk-analyzer',
   'token-usage',
+  'agent-observer',
   'canvas',
   'pt-design',
   'tasks',

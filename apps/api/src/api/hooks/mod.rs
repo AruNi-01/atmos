@@ -5,8 +5,12 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use std::time::Duration;
+
 use core_service::service::agent_hooks::{terminal_hook_context, AtmosContext};
+use core_service::{hook_permission_response, AgentToolType, HookPermissionOpen};
 use serde_json::Value;
+use tokio::time::timeout;
 
 use crate::app_state::AppState;
 
@@ -78,7 +82,7 @@ async fn handle_claude_code_hook(
     state
         .agent_hooks_service
         .handle_claude_code_event(&payload, &ctx);
-    Json(serde_json::json!({ "ok": true }))
+    permission_hook_body(&state, &payload, AgentToolType::ClaudeCode, &ctx).await
 }
 
 async fn handle_codex_hook(
@@ -88,7 +92,64 @@ async fn handle_codex_hook(
 ) -> Json<Value> {
     let ctx = extract_atmos_context(&headers);
     state.agent_hooks_service.handle_codex_event(&payload, &ctx);
-    Json(serde_json::json!({ "ok": true }))
+    permission_hook_body(&state, &payload, AgentToolType::Codex, &ctx).await
+}
+
+async fn handle_gemini_hook(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Json<Value> {
+    let ctx = extract_atmos_context(&headers);
+    state
+        .agent_hooks_service
+        .handle_gemini_event(&payload, &ctx);
+    permission_hook_body(&state, &payload, AgentToolType::Gemini, &ctx).await
+}
+
+async fn handle_antigravity_hook(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Json<Value> {
+    let ctx = extract_atmos_context(&headers);
+    state
+        .agent_hooks_service
+        .handle_antigravity_event(&payload, &ctx);
+    permission_hook_body(&state, &payload, AgentToolType::Antigravity, &ctx).await
+}
+
+async fn handle_pi_hook(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Json<Value> {
+    let ctx = extract_atmos_context(&headers);
+    state.agent_hooks_service.handle_pi_event(&payload, &ctx);
+    permission_hook_body(&state, &payload, AgentToolType::Pi, &ctx).await
+}
+
+async fn permission_hook_body(
+    state: &AppState,
+    payload: &Value,
+    tool: AgentToolType,
+    ctx: &AtmosContext,
+) -> Json<Value> {
+    let Some(open) = state
+        .agent_hooks_service
+        .open_permission_wait(payload, tool, ctx)
+    else {
+        return Json(serde_json::json!({ "ok": true }));
+    };
+    let wait = match open {
+        HookPermissionOpen::Immediate(body) => return Json(body),
+        HookPermissionOpen::Wait(wait) => wait,
+    };
+    let decision = match timeout(Duration::from_secs(600), wait.rx).await {
+        Ok(Ok(decision)) => decision,
+        _ => return Json(serde_json::json!({})),
+    };
+    Json(hook_permission_response(tool, &wait.tool_input, &decision))
 }
 
 async fn handle_opencode_hook(
@@ -100,7 +161,7 @@ async fn handle_opencode_hook(
     state
         .agent_hooks_service
         .handle_opencode_event(&payload, &ctx);
-    Json(serde_json::json!({ "ok": true }))
+    permission_hook_body(&state, &payload, AgentToolType::Opencode, &ctx).await
 }
 
 async fn handle_ampcode_hook(
@@ -112,16 +173,6 @@ async fn handle_ampcode_hook(
     state
         .agent_hooks_service
         .handle_ampcode_event(&payload, &ctx);
-    Json(serde_json::json!({ "ok": true }))
-}
-
-async fn handle_pi_hook(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(payload): Json<Value>,
-) -> Json<Value> {
-    let ctx = extract_atmos_context(&headers);
-    state.agent_hooks_service.handle_pi_event(&payload, &ctx);
     Json(serde_json::json!({ "ok": true }))
 }
 
@@ -181,30 +232,6 @@ async fn handle_cursor_hook(
     state
         .agent_hooks_service
         .handle_cursor_event(&payload, &ctx);
-    Json(serde_json::json!({ "ok": true }))
-}
-
-async fn handle_gemini_hook(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(payload): Json<Value>,
-) -> Json<Value> {
-    let ctx = extract_atmos_context(&headers);
-    state
-        .agent_hooks_service
-        .handle_gemini_event(&payload, &ctx);
-    Json(serde_json::json!({ "ok": true }))
-}
-
-async fn handle_antigravity_hook(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(payload): Json<Value>,
-) -> Json<Value> {
-    let ctx = extract_atmos_context(&headers);
-    state
-        .agent_hooks_service
-        .handle_antigravity_event(&payload, &ctx);
     Json(serde_json::json!({ "ok": true }))
 }
 

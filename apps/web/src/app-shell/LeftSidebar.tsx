@@ -155,23 +155,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         [listProjects],
     );
     const agentGroupKeyByWorkspaceId = useWorkspaceAgentGroupKeyMap(workspaceAgentContextIds);
-
-    // When filtering to attention items, expand projects that still have workspaces
-    // to show. Project-only attention keeps the row collapsed (children are hidden).
-    useEffect(() => {
-        if (!attentionFilterMode) return;
-        setExpandedProjects((prev) => {
-            const next = new Set(prev);
-            for (const project of listProjects) {
-                if (project.workspaces.length > 0) next.add(project.id);
-            }
-            const merged = Array.from(next);
-            if (merged.length === prev.length && merged.every((id, i) => id === prev[i])) {
-                return prev;
-            }
-            return merged;
-        });
-    }, [attentionFilterMode, listProjects]);
     const workspaceLabels = useWorkspaceLabels();
     const groups = useGroups();
     const groupsT = useTranslations('appShell.groups');
@@ -248,6 +231,16 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const [newWorkspace, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
     const [canvasOpen, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
+    // Attention list: expand only projects that still have a latched workspace.
+    // Project-only attention stays collapsed so the empty "No workspaces" row
+    // does not replace the workspace that actually needs you. Do not mutate
+    // `expandedProjects` — turning the filter off should restore the user's tree.
+    const listExpandedProjectIds = React.useMemo(() => {
+        if (!attentionFilterMode) return expandedProjects;
+        return listProjects
+            .filter((project) => project.workspaces.length > 0)
+            .map((project) => project.id);
+    }, [attentionFilterMode, expandedProjects, listProjects]);
     const seenProjectIdsRef = useRef<Set<string>>(new Set());
     const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>({});
     const [groupingMode, setGroupingMode] = useState<SidebarGroupingMode>('project');
@@ -266,7 +259,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         JSON.stringify(serializeWorkspaceSidebarFilters(EMPTY_WORKSPACE_KANBAN_FILTERS)),
     );
     const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(
-        currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents' || currentView === 'automations' || currentView === 'disk-analyzer' || currentView === 'token-usage' || currentView === 'tasks' || currentView === 'pt-design' || currentView === 'agent-sessions'
+        currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents' || currentView === 'automations' || currentView === 'disk-analyzer' || currentView === 'token-usage' || currentView === 'agent-observer' || currentView === 'tasks' || currentView === 'pt-design' || currentView === 'agent-sessions'
     );
     const [isPinnedSectionCollapsed, setIsPinnedSectionCollapsed] = useState(false);
     const [isPinnedDividerHovered, setIsPinnedDividerHovered] = useState(false);
@@ -1325,12 +1318,13 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             activeProjectId={currentProjectId}
             activeWorkspaceId={currentWorkspaceId}
             availableLabels={workspaceLabels}
-            expandedProjectIds={expandedProjects}
+            expandedProjectIds={listExpandedProjectIds}
             flattenedWorkspaces={flattenedWorkspaces}
             isAnyProjectDragging={isAnyProjectDragging}
             projects={projectModeProjects}
             sensors={sensors}
             showDragOverlay
+            onAddProject={handleAddProject}
             onAddWorkspace={handleAddWorkspace}
             onArchiveWorkspace={archiveWorkspace}
             onConfigureScripts={handleConfigureScripts}
@@ -1381,12 +1375,13 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             activeWorkspaceId={currentWorkspaceId}
             availableLabels={workspaceLabels}
             className="py-1.5"
-            expandedProjectIds={expandedProjects}
+            expandedProjectIds={listExpandedProjectIds}
             hideWorkspaceList
             isAnyProjectDragging={isAnyProjectDragging}
             projects={projectModeProjects}
             selectedProjectId={effectiveSelectedProjectSidebarId}
             sensors={sensors}
+            onAddProject={handleAddProject}
             onAddWorkspace={handleAddWorkspace}
             onArchiveWorkspace={archiveWorkspace}
             onConfigureScripts={handleConfigureScripts}
@@ -1429,6 +1424,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             isWorkspacesExpanded={isSecondColumnWorkspacesExpanded}
             secondColumnKanban={workspaceSidebarSecondColumnKanban}
             selectedProject={selectedProjectForSidebar}
+            hasNoProjects={listProjects.length === 0}
+            onAddProject={handleAddProject}
             selectedProjectPinnedEntries={selectedProjectPinnedEntries}
             selectedProjectUnpinnedWorkspaces={selectedProjectUnpinnedWorkspaces}
             sensors={sensors}
@@ -1491,7 +1488,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             onRenameGroup={handleRenameGroupNamed}
             onDeleteGroup={handleDeleteGroup}
             projectItemProps={sharedProjectItemProps}
-            expandedProjectIds={expandedProjects}
+            expandedProjectIds={listExpandedProjectIds}
             onToggleProject={toggleProject}
             renderWorkspaceContentRow={renderWorkspaceContentRow}
             sensors={sensors}
@@ -1518,7 +1515,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             isPrimaryCollapsed={isTwoColumnPrimaryCollapsed}
             onTogglePrimaryPanel={toggleTwoColumnPrimaryPanel}
             projectItemProps={sharedProjectItemProps}
-            expandedProjectIds={expandedProjects}
+            expandedProjectIds={listExpandedProjectIds}
             onToggleProject={toggleProject}
             renderWorkspaceContentRow={renderWorkspaceContentRow}
         />

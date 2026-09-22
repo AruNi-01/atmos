@@ -5,10 +5,13 @@ import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryState } from "nuqs";
-import { Button, Input, cn } from "@workspace/ui";
+import { Button, EmptyAction, IconSetting, Input, cn } from "@workspace/ui";
 import { LinearIcon } from "@workspace/ui/components/icons/linear-icon";
-import { Loader2, RefreshCw, Search, Settings2, X } from "lucide-react";
-import type { LinearIssuePayload } from "@atmos/api-types/ws/dto/linear";
+import { Loader2, RefreshCw, Search, X } from "lucide-react";
+import type {
+  LinearGithubRefPayload,
+  LinearIssuePayload,
+} from "@atmos/api-types/ws/dto/linear";
 import { wsLinearApi } from "@/api/ws/linear-api";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { queryKeys } from "@/api/query/query-keys";
@@ -50,7 +53,7 @@ import { TASK_LINEAR_PAGE_SIZE } from "@/features/task/lib/task-linear-panel-mod
 import { findLinkedWorkspaceForLinearIssue } from "@/features/task/lib/find-linked-workspace";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
-import type { LinearGithubRefPayload } from "@atmos/api-types/ws/dto/linear";
+import { PageEmptyState } from "@/shared/components/PageEmptyState";
 
 
 function issueToWire(issue: LinearIssuePayload) {
@@ -484,46 +487,29 @@ export function TaskLinearPanel({
 
   if (needsHubLogin || !connected) {
     return (
-      <div className="flex h-full min-h-0 flex-col items-center justify-center px-6 py-12 text-center">
-        <div className="mb-5 flex size-16 items-center justify-center rounded-3xl bg-muted/20 text-muted-foreground">
-          <LinearIcon className="size-8" size={32} />
-        </div>
-        <h3 className="text-base font-semibold text-foreground">
-          {needsHubLogin ? t("linear.signInRequired") : t("linear.notConnected")}
-        </h3>
-        <p className="mt-2 max-w-sm text-sm text-pretty text-muted-foreground">
-          {needsHubLogin ? t("linear.signInHint") : t("linear.connectHint")}
-        </p>
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-          {needsHubLogin ? (
-            <>
-              <Button
-                type="button"
-                className="gap-1.5"
-                onClick={openAccountSettings}
-              >
-                <Settings2 className="size-4" />
-                {t("linear.openAccountSettings")}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={openLinearIntegrations}
-              >
+      <div className="flex h-full min-h-0 flex-col">
+        {portaledHeaderActions}
+        <PageEmptyState
+          icon={<LinearIcon className="size-6" size={24} />}
+          title={needsHubLogin ? t("linear.signInRequired") : t("linear.notConnected")}
+          description={needsHubLogin ? t("linear.signInHint") : t("linear.connectHint")}
+          actions={
+            needsHubLogin ? (
+              <>
+                <EmptyAction icon={<IconSetting />} onClick={openAccountSettings}>
+                  {t("linear.openAccountSettings")}
+                </EmptyAction>
+                <EmptyAction emphasis="quiet" onClick={openLinearIntegrations}>
+                  {t("linear.openIntegrations")}
+                </EmptyAction>
+              </>
+            ) : (
+              <EmptyAction icon={<IconSetting />} onClick={openLinearIntegrations}>
                 {t("linear.openIntegrations")}
-              </Button>
-            </>
-          ) : (
-            <Button
-              type="button"
-              className="gap-1.5"
-              onClick={openLinearIntegrations}
-            >
-              <Settings2 className="size-4" />
-              {t("linear.openIntegrations")}
-            </Button>
-          )}
-        </div>
+              </EmptyAction>
+            )
+          }
+        />
       </div>
     );
   }

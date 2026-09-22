@@ -14,6 +14,7 @@ import {
   ScrollArea,
   useDrawerCloseReserve,
 } from "@workspace/ui";
+import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/motion/tabs";
 import { GithubUserHoverCard } from "@/features/github/components/GithubUserHoverCard";
 import {
   CircleDot,
@@ -272,27 +273,29 @@ export function IssueDetailView({
                 </div>
               </div>
                 <div className="sticky top-0 z-20 border-t border-border/40 bg-background pb-3 pt-3">
-                  <TabsSubtle
-                    activeLabel
-                    idPrefix={`issue-${issue.number}`}
-                    selectedIndex={activeTab === "description" ? 0 : 1}
-                    onSelect={(index) =>
-                      selectTab(index === 0 ? "description" : "discussion")
-                    }
+                  <Tabs
+                    className="min-w-0 max-w-full"
+                    value={activeTab}
+                    variant="pill"
+                    onValueChange={(value) => {
+                      if (value === "description" || value === "discussion") {
+                        selectTab(value);
+                      }
+                    }}
                   >
-                    <TabsSubtleItem
-                      index={0}
-                      icon={FileText}
-                      label={t("tabs.description")}
-                    />
-                    <TabsSubtleItem
-                      index={1}
-                      icon={MessageSquare}
-                      label={t("tabs.discussionWithCount", {
-                        count: issue.comments_count,
-                      })}
-                    />
-                  </TabsSubtle>
+                    <TabsList className="h-8 max-w-full gap-0.5 overflow-x-auto p-0.5 scrollbar-hide">
+                      <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="description">
+                        <FileText className="size-3.5 shrink-0" />
+                        {t("tabs.description")}
+                      </TabsTrigger>
+                      <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="discussion">
+                        <MessageSquare className="size-3.5 shrink-0" />
+                        {t("tabs.discussionWithCount", {
+                          count: issue.comments_count,
+                        })}
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
                 </div>
 
               <div

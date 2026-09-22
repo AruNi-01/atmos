@@ -6,6 +6,9 @@ import { useQueryState } from "nuqs";
 import {
   Button,
   Checkbox,
+  EmptyAction,
+  IconChat,
+  IconSearch,
   Input,
   Popover,
   PopoverContent,
@@ -28,6 +31,8 @@ import { AnimatePresence, motion } from "motion/react";
 import { agentChatApi, type AgentChatIndexEntry } from "@/api/ws/agent-chat-api";
 import { chatSessionsParams } from "@/shared/lib/nuqs/searchParams";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { ObserverNewChatPicker } from "@/features/agent/components/observer/ObserverNewChatPicker";
+import { PageEmptyState } from "@/shared/components/PageEmptyState";
 import {
   useAgentRegistryListQuery,
   useCustomAgentListQuery,
@@ -666,27 +671,55 @@ export const AgentChatSessionsView: React.FC<AgentChatSessionsViewProps> = ({
                   ))}
                 </div>
               ) : enrichedSessions.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-center">
-                  <div className="mb-5 flex size-16 items-center justify-center rounded-lg bg-muted/30">
-                    <MessageSquare className="size-8 text-muted-foreground/35" />
-                  </div>
-                  <h3 className="text-base font-semibold text-foreground">
-                    {searchQuery
+                <PageEmptyState
+                  icon={searchQuery.trim() ? <IconSearch /> : <IconChat />}
+                  title={
+                    searchQuery.trim()
                       ? t("emptyState.noSearchResultsTitle")
                       : selectedAgent
                         ? t("emptyState.noAgentSessionsTitle")
-                        : t("emptyState.noSessionsTitle")}
-                  </h3>
-                  <p className="mt-2 max-w-xs text-sm text-muted-foreground">
-                    {searchQuery
+                        : sessions.length > 0
+                          ? t("emptyState.noFilterResultsTitle")
+                          : t("emptyState.noSessionsTitle")
+                  }
+                  description={
+                    searchQuery.trim()
                       ? t("emptyState.noSearchResults")
                       : selectedAgent
                         ? t("emptyState.noAgentSessionsDescription", {
                             agentName: selectedAgent.name,
                           })
-                        : t("emptyState.installedAgentsHint")}
-                  </p>
-                </div>
+                        : sessions.length > 0
+                          ? t("emptyState.noFilterResults")
+                          : t("emptyState.installedAgentsHint")
+                  }
+                  actions={
+                    searchQuery.trim() ? (
+                      <EmptyAction emphasis="quiet" onClick={() => void setSearchQuery("")}>
+                        {t("emptyState.clearSearch")}
+                      </EmptyAction>
+                    ) : selectedAgent ? (
+                      <EmptyAction
+                        emphasis="quiet"
+                        onClick={() => void setSelectedRegistryId("")}
+                      >
+                        {t("emptyState.clearAgent")}
+                      </EmptyAction>
+                    ) : sessions.length > 0 ? (
+                      <EmptyAction
+                        emphasis="quiet"
+                        onClick={() => {
+                          setSelectedSessionContextId(ALL_SESSION_CONTEXT_ID);
+                          setSelectedWorkspaceIds([]);
+                        }}
+                      >
+                        {t("emptyState.clearFilters")}
+                      </EmptyAction>
+                    ) : (
+                      <ObserverNewChatPicker projects={projects} emphasis="primary" />
+                    )
+                  }
+                />
               ) : (
                 <div className="space-y-8">
                   <AnimatePresence mode="popLayout" initial={false}>

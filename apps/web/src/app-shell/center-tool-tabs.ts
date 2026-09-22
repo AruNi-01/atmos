@@ -6,6 +6,9 @@ export const CHANGES_TAB_VALUE = "changes";
 export const REVIEW_TAB_VALUE = "review";
 export const RUN_TAB_VALUE = "run";
 export const GITHUB_HUB_TAB_VALUE = "github";
+
+/** Hub stays implemented. Flip this to show it in center chrome again. */
+export const GITHUB_HUB_CENTER_TAB_VISIBLE = false;
 export const FILES_TAB_VALUE = "files";
 export const PT_DESIGN_TAB_VALUE = "pt-design";
 

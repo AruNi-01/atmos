@@ -218,7 +218,7 @@ impl AgentChatStore {
         let mut records = Vec::new();
         read_envelopes(&self.dir_for(id).join("transcript.jsonl"), &mut records)?;
         read_envelopes(&self.dir_for(id).join("live.jsonl"), &mut records)?;
-        records.sort_by(|left, right| left.timestamp.cmp(&right.timestamp));
+        records.sort_by_key(|left| left.timestamp);
         Ok(materialize_text_part_from_envelopes(&records, part_id))
     }
 
@@ -572,12 +572,9 @@ fn last_pending_permission(path: &Path) -> Result<Option<super::types::PendingPe
     let mut pending = None;
     for line in reader.lines() {
         let line = line.map_err(io_err)?;
-        if line.trim().is_empty() {
+        let Some(record) = parse_transcript_envelope_line(&line) else {
             continue;
-        }
-        let record: TranscriptEnvelope = serde_json::from_str(&line).map_err(|error| {
-            ServiceError::Processing(format!("unreadable transcript record: {error}"))
-        })?;
+        };
         if let TranscriptEvent::Permission { request } = record.event {
             pending = if request.status == "pending" {
                 Some(request)
@@ -601,7 +598,7 @@ fn fold_chat_dir(dir: &Path) -> Result<Vec<FoldedTurn>> {
     let mut records = Vec::new();
     read_envelopes(&dir.join("transcript.jsonl"), &mut records)?;
     read_envelopes(&dir.join("live.jsonl"), &mut records)?;
-    records.sort_by(|left, right| left.timestamp.cmp(&right.timestamp));
+    records.sort_by_key(|left| left.timestamp);
     Ok(fold_envelopes(records))
 }
 
@@ -667,15 +664,30 @@ fn read_envelopes(path: &Path, out: &mut Vec<TranscriptEnvelope>) -> Result<()> 
     let reader = BufReader::new(file);
     for line in reader.lines() {
         let line = line.map_err(io_err)?;
-        if line.trim().is_empty() {
-            continue;
+        if let Some(record) = parse_transcript_envelope_line(&line) {
+            out.push(record);
         }
-        let record: TranscriptEnvelope = serde_json::from_str(&line).map_err(|error| {
-            ServiceError::Processing(format!("unreadable transcript record: {error}"))
-        })?;
-        out.push(record);
     }
     Ok(())
+}
+
+/// APP-068: skip a jsonl line that is not the current envelope. A truncated last
+/// line from a killed API process must not fail the whole snapshot.
+fn parse_transcript_envelope_line(line: &str) -> Option<TranscriptEnvelope> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    match serde_json::from_str::<TranscriptEnvelope>(trimmed) {
+        Ok(record) => Some(record),
+        Err(error) => {
+            tracing::warn!(
+                %error,
+                "skipping transcript jsonl line that is not a current envelope"
+            );
+            None
+        }
+    }
 }
 
 fn apply_jsonl_file(
@@ -691,12 +703,9 @@ fn apply_jsonl_file(
     let reader = BufReader::new(file);
     for line in reader.lines() {
         let line = line.map_err(io_err)?;
-        if line.trim().is_empty() {
+        let Some(record) = parse_transcript_envelope_line(&line) else {
             continue;
-        }
-        let record: TranscriptEnvelope = serde_json::from_str(&line).map_err(|error| {
-            ServiceError::Processing(format!("unreadable transcript record: {error}"))
-        })?;
+        };
         apply_record(turns, record, open_text, closed_parts);
     }
     Ok(())
@@ -760,12 +769,9 @@ fn scan_leftover_jsonl(
     let reader = BufReader::new(file);
     for line in reader.lines() {
         let line = line.map_err(io_err)?;
-        if line.trim().is_empty() {
+        let Some(record) = parse_transcript_envelope_line(&line) else {
             continue;
-        }
-        let record: TranscriptEnvelope = serde_json::from_str(&line).map_err(|error| {
-            ServiceError::Processing(format!("unreadable transcript record: {error}"))
-        })?;
+        };
         let turn_id = record.turn_id.unwrap_or_else(|| "unknown".into());
         let first_at = record.timestamp;
         match record.event {
@@ -1271,6 +1277,7 @@ fn apply_thinking_timing(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn apply_folded_text_part(
     turn: &mut FoldedTurn,
     part_id: String,
@@ -1921,20 +1928,34 @@ mod tests {
     }
 
     #[test]
-    fn fold_unreadable_transcript_fails_load() {
+    fn fold_skips_jsonl_lines_that_are_not_current_envelopes() {
         let (_dir, store) = store();
         let meta = create(&store, "/tmp/a");
         let path = store.dir_for(&meta.id).join("transcript.jsonl");
+        let valid = rec(
+            "t1",
+            TranscriptEvent::UserMessage {
+                message_id: "u1".into(),
+                kind: UserMessageKind::Normal,
+                text: "hello".into(),
+                attachments: Vec::new(),
+            },
+        );
+        let valid_line = serde_json::to_string(&valid).unwrap();
         fs::write(
             &path,
-            "{\"type\":\"tool_call\",\"turn_id\":\"t1\",\"tool_call\":{\"tool_call_id\":\"old\",\"name\":\"Read\",\"kind\":\"read\",\"input\":{\"path\":\"/tmp/a\"}},\"created_at\":\"2026-01-01T00:00:00Z\"}\n",
+            format!(
+                "{{\"type\":\"tool_call\",\"turn_id\":\"t1\",\"tool_call\":{{\"tool_call_id\":\"old\"}}}}\n{valid_line}\n{{\"event\":\"truncated\"\n"
+            ),
         )
         .unwrap();
-        let error = store.get_snapshot(&meta.id).expect_err("unreadable record");
-        assert!(
-            error.to_string().contains("unreadable transcript record"),
-            "{error}"
-        );
+        let snapshot = store.get_snapshot(&meta.id).expect("skip bad jsonl lines");
+        assert_eq!(snapshot.messages.len(), 1);
+        assert_eq!(snapshot.messages[0].role, "user");
+        assert!(snapshot.messages[0]
+            .parts
+            .iter()
+            .any(|part| matches!(part, MessagePart::Text { text, .. } if text == "hello")));
     }
 
     #[test]

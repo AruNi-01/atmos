@@ -37,6 +37,8 @@ import { NappingBotIcon } from '@/app-shell/NappingBotIcon';
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 
+import { useAgentActivityStore } from "@/features/agent/store/agent-activity-store";
+import { latestTurnPrompt, toolLineText } from "@/features/agent/lib/agent-observer-graph";
 import { useAppRouter } from '@/shared/hooks/use-app-router';
 import { useAgentChatUrl } from '@/features/agent/hooks/use-agent-chat-url';
 import { LocalServicesFooterItem } from '@/features/local-services/components/LocalServicesFooterItem';
@@ -45,10 +47,9 @@ import { effectiveShowResourceMonitor as resolveEffectiveShowResourceMonitor } f
 import {
   isAgentStatusSideChatSession,
   navigateToAgentStatusSession,
-  parseChatStatusSessionId,
   resolveAgentStatusContextNames,
 } from '@/features/agent/lib/agent-status-navigation';
-import { useAgentChatCenterTabsStore } from '@/features/agent/store/use-agent-chat-center-tabs';
+import { useAgentStatusSessionTitles } from '@/features/agent/hooks/use-agent-status-session-titles';
 import {
   buildFooterAgentOverview,
   FOOTER_AGENT_OVERVIEW_ORDER,
@@ -59,13 +60,6 @@ import {
   type FooterAgentOverviewRow,
 } from '@/features/agent/lib/footer-agent-overview';
 import { sessionsOccupancyFingerprint } from "@/features/agent/lib/agent-status-fingerprint";
-import {
-  findTerminalPaneByStableAgentPaneId,
-  uniquePaneTitleForAgentStatus,
-} from '@/features/agent/lib/agent-status-pane-title';
-import { resolvePaneToolbarTitle } from '@/features/terminal/lib/terminal-center-tab-presentation';
-import { useContestedCliOwners } from '@/features/terminal/hooks/use-contested-cli-owners';
-import { useTerminalStore } from '@/features/terminal/store/use-terminal-store';
 import { getWorkspaceAgentGroupMeta } from '@/app-shell/sidebar/workspace-status';
 import { useTranslations } from 'next-intl';
 import { APP_FOOTER_HEIGHT_CLASS } from '@/app-shell/sidebar-layout-constants';
@@ -229,6 +223,7 @@ function SessionRow({
   const t = useTranslations("appShell");
   const [hovered, setHovered] = React.useState(false);
   const removeSession = useAgentStatusStore((s) => s.removeSession);
+  const activity = useAgentActivityStore((s) => s.records.get(session.session_id));
   const isIdle = bucket === "idle";
 
   const hoverAction = !hovered ? null : isIdle ? "clear" as const : "idle" as const;
@@ -241,6 +236,10 @@ function SessionRow({
   };
 
   const title = paneTitle?.trim();
+  const activityLine =
+    session.state === "running"
+      ? toolLineText(activity)
+      : latestTurnPrompt(activity) ?? toolLineText(activity);
 
   return (
     <div
@@ -260,6 +259,11 @@ function SessionRow({
         {title ? (
           <span className="min-w-0 truncate text-[10px] text-muted-foreground" title={title}>
             {title}
+          </span>
+        ) : null}
+        {activityLine ? (
+          <span className="min-w-0 truncate text-[10px] text-muted-foreground" title={activityLine}>
+            {activityLine}
           </span>
         ) : null}
         {session.surface === "chat" ? (
@@ -331,50 +335,6 @@ function useFooterAgentOverview() {
   );
 }
 
-function useAgentStatusRecordPaneTitles(
-  sessions: AgentStatusRecord[],
-): Readonly<Record<string, string>> {
-  const contestedOwners = useContestedCliOwners();
-  const workspacePanes = useTerminalStore((s) => s.workspacePanes);
-  const projectWikiPanes = useTerminalStore((s) => s.projectWikiPanes);
-  const codeReviewPanes = useTerminalStore((s) => s.codeReviewPanes);
-  const chatTabsByContext = useAgentChatCenterTabsStore((s) => s.tabsByContext);
-
-  return useMemo(() => {
-    const out: Record<string, string> = {};
-    const state = { workspacePanes, projectWikiPanes, codeReviewPanes };
-    const chatTabs = Object.values(chatTabsByContext).flat();
-    for (const session of sessions) {
-      if (session.surface === "chat") {
-        const chatId =
-          session.surface_id?.trim() || parseChatStatusSessionId(session.session_id);
-        const title = chatId
-          ? chatTabs.find((tab) => tab.chatId === chatId)?.title?.trim()
-          : "";
-        if (title) out[session.session_id] = title;
-        continue;
-      }
-      const paneId = session.pane_id?.trim() || session.session_id;
-      const pane = findTerminalPaneByStableAgentPaneId(state, paneId);
-      if (!pane) continue;
-      const resolved = resolvePaneToolbarTitle(pane, { contestedOwners });
-      const suffix = uniquePaneTitleForAgentStatus(
-        resolved.displayTitle,
-        AGENT_TOOL_LABELS[session.tool] ?? session.tool,
-      );
-      if (suffix) out[session.session_id] = suffix;
-    }
-    return out;
-  }, [
-    sessions,
-    workspacePanes,
-    projectWikiPanes,
-    codeReviewPanes,
-    chatTabsByContext,
-    contestedOwners,
-  ]);
-}
-
 export function AgentStatusPopoverContent({
   embedded = false,
   onNavigateSession,
@@ -392,7 +352,7 @@ export function AgentStatusPopoverContent({
 
   const sessions = useMemo(() => rows.map((row) => row.session), [rows]);
   const grouped = useMemo(() => groupSessionsByContext(rows), [rows]);
-  const paneTitles = useAgentStatusRecordPaneTitles(sessions);
+  const paneTitles = useAgentStatusSessionTitles(sessions);
   const hasIdleSessions = rows.some((row) => row.bucket === "idle");
   const resolveContextDisplayName = useContextDisplayNameResolver();
   const resolveContextName = useContextNameResolver();
@@ -428,6 +388,15 @@ export function AgentStatusPopoverContent({
         <span className="text-[11px] font-semibold text-foreground">
           {t("footer.agentSessions", { count: rows.length })}
         </span>
+        <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+          onClick={() => router.push("/agent-observer")}
+        >
+          {t("footer.openAgentObserver")}
+        </Button>
         {hasIdleSessions && (
           <Button
             variant="ghost"
@@ -439,6 +408,7 @@ export function AgentStatusPopoverContent({
           {t("footer.clearIdle")}
         </Button>
       )}
+        </div>
     </div>
 
       <div className="space-y-2">

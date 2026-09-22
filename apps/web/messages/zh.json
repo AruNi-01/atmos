@@ -471,6 +471,7 @@
       "unknownProject": "未知项目",
       "noActiveAgentSessions": "暂无活动的 Agent 会话",
       "agentSessions": "Agent 会话 ({count})",
+      "openAgentObserver": "打开 Agent Observer",
       "clearIdle": "清理空闲",
       "clearSession": "清除",
       "permissionRequested": "权限请求中",
@@ -1094,6 +1095,7 @@
       "automations": "自动化 - ATMOS",
       "diskAnalyzer": "磁盘分析器 - ATMOS",
       "tokenUsage": "Token 用量 - ATMOS",
+      "agentObserver": "Agent Observer - ATMOS",
       "tasks": "任务 - ATMOS",
       "ptDesign": "原型设计 - ATMOS",
       "settings": "设置 - ATMOS"
@@ -1249,6 +1251,10 @@
         "tokenUsage": {
           "title": "Token 用量",
           "description": "打开 Token 用量页，查看模型活动和费用"
+        },
+        "agentObserver": {
+          "title": "Agent Observer",
+          "description": "查看这台 Computer 上每个 Agent 以及它在做什么"
         },
         "ptDesign": {
           "title": "原型设计",
@@ -1786,7 +1792,14 @@
         "pinned": "已固定",
         "workspaces": "工作区",
         "clearWorkspaceFiltersBeforeReordering": "请先清除工作区筛选条件后再重新排序。",
-        "noWorkspaces": "暂无工作区",
+        "emptyWorkspaces": {
+          "title": "暂无工作区",
+          "cta": "新建"
+        },
+        "emptyProjects": {
+          "title": "暂无项目",
+          "cta": "添加"
+        },
         "showMore": "显示更多",
         "showLess": "更少"
       },
@@ -1813,6 +1826,7 @@
           "newWorkspace": "新建工作区",
           "diskAnalyzer": "磁盘分析器",
           "tokenUsage": "Token 用量",
+          "agentObserver": "Agent 观察器",
           "tasks": "任务",
           "agentSessions": "智能体会话"
         }
@@ -2149,7 +2163,7 @@
         "queryTitle": "没有匹配的自动化",
         "defaultTitle": "还没有自动化",
         "queryDescription": "试试其他搜索词，或调整筛选条件。",
-        "defaultDescription": "创建第一个自动化后即可开始使用。",
+        "defaultDescription": "创建一个自动化，按日程、GitHub 事件或手动运行 Agent。",
         "clearSearch": "清除搜索",
         "clearFilters": "清除筛选",
         "newAutomation": "新建自动化"
@@ -2919,6 +2933,62 @@
       }
     }
   },
+  "AgentObserver": {
+    "title": "Agent Observer",
+    "subtitle": "这台 Computer 上正在运行和已经结束的 Agent 轮次",
+    "empty": "终端 Agent hooks 触发或 Agent Chat 开始一轮之后，Agent 会出现在这里。",
+    "emptyTitle": "还没有 Agent",
+    "disconnected": "请先连接一台 Computer，再安装 hooks 或开始对话。",
+    "disconnectedTitle": "未连接",
+    "installHooks": "安装 {count} 个 hooks",
+    "hooksInstalled": "已安装 {count} 个 hooks",
+    "installHooksMissing": "尚未安装这些 Agent 的 hooks",
+    "installing": "正在安装…",
+    "installError": "无法在这台 Computer 上安装 hooks。",
+    "newChat": "新建聊天",
+    "recentWorkspacesHint": "最近 5 个 workspace",
+    "recentContextsEmpty": "还没有最近打开的项目或工作区",
+    "relayout": "重新布局",
+    "resetLayout": "重置布局",
+    "dragCard": "移动卡片",
+    "openPane": "打开面板",
+    "openChat": "打开对话",
+    "close": "关闭",
+    "currentStep": "当前步骤",
+    "latestPrompt": "最近提示",
+    "todos": "待办",
+    "recentTools": "最近工具",
+    "turnsHeading": "轮次",
+    "noTurns": "还没有步骤",
+    "stepsHint": "Hook 只能看到工具步骤。打开面板查看完整回合。",
+    "toolPending": "进行中",
+    "toolOk": "完成",
+    "toolError": "失败",
+    "expand": "展开",
+    "fold": "折叠",
+    "remove": "移除",
+    "sideChat": "侧栏对话",
+    "chat": "对话",
+    "stateIdle": "空闲",
+    "stateRunning": "运行中",
+    "statePermission": "等待授权",
+    "stateThinking": "思考中",
+    "stateStreaming": "输出中",
+    "stateWorking": "正在生成",
+    "currentTask": "当前任务",
+    "terminalMissing": "工作区里没有打开这个终端。",
+    "turns": "{count} 轮",
+    "children": "{count} 个子 Agent",
+    "members": "{count} 个",
+    "emptyPrompt": "（没有 prompt 文本）",
+    "moreTurns": "更早还有 {count} 轮",
+    "openObserver": "打开 Agent Observer",
+    "kindComputer": "Computer",
+    "kindProject": "项目",
+    "kindWorkspace": "工作区",
+    "kindAgent": "Agent",
+    "kindSubagent": "子 Agent"
+  },
   "Agent": {
     "workspace": {
       "history": "聊天",
@@ -3171,14 +3241,20 @@
           "custom": "自定义"
         },
         "empty": {
-          "nativeQuery": "没有匹配“{query}”的原生 Agent",
-          "nativeDefault": "没有原生 Agent",
-          "acpQuery": "没有匹配“{query}”的 ACP Agent",
-          "acpDefault": "未找到 ACP Agent"
+          "nativeQueryTitle": "没有匹配的 Agent",
+          "nativeQuery": "没有原生 Agent 匹配“{query}”。",
+          "nativeDefault": "还没有原生 Agent",
+          "nativeDescription": "这台电脑装上受支持的 CLI 之后，原生 Agent 会出现在这里。",
+          "acpQueryTitle": "没有匹配的 Agent",
+          "acpQuery": "没有 ACP Agent 匹配“{query}”。",
+          "acpDefault": "还没有 ACP Agent",
+          "acpDescription": "从注册表安装一个 ACP Agent，或刚添加后点刷新。"
         },
         "customEmpty": {
-          "title": "没有自定义 Agent",
-          "description": "添加一个兼容 ACP 的本地 Agent 命令。"
+          "title": "还没有自定义 Agent",
+          "description": "把本地命令添加为兼容 ACP 的自定义 Agent。",
+          "queryTitle": "没有匹配的 Agent",
+          "queryDescription": "没有自定义 Agent 匹配“{query}”。"
         }
       },
       "customAgentDialog": {
@@ -3764,9 +3840,14 @@
       "newDesign": "新建",
       "back": "返回",
       "untitled": "未命名",
-      "empty": "还没有已保存的设计",
-      "emptyFilter": "这个筛选下没有设计",
-      "emptySearch": "没有符合搜索的设计",
+      "emptyTitle": "还没有设计",
+      "empty": "保存过的设计会出现在这里。新建一个即可开始画原型。",
+      "emptyFilterTitle": "这个筛选下没有设计",
+      "emptyFilter": "当前范围里没有已保存的设计。",
+      "emptySearchTitle": "没有匹配的设计",
+      "emptySearch": "没有设计匹配这次搜索。",
+      "emptyNew": "新建设计",
+      "clearSearch": "清空搜索",
       "searchPlaceholder": "搜索设计",
       "filter": "筛选",
       "viewBoard": "看板",
@@ -5064,9 +5145,10 @@
         "empty": {
           "noArchivedTitle": "没有已归档工作区",
           "noResultsTitle": "未找到结果",
-          "noArchivedDescription": "当你归档工作区后，它会安全地显示在这里。",
+          "noArchivedDescription": "归档工作区之后，它会出现在这里，之后可以再恢复。",
           "noResultsDescription": "没有找到匹配“{query}”的已归档工作区。",
-          "clearSearch": "清除搜索词"
+          "clearSearch": "清空搜索",
+          "viewRecent": "查看最近工作区"
         },
         "archivedAt": "归档于 {time}",
         "actions": {
@@ -6705,6 +6787,10 @@
           "tokenUsage": {
             "title": "Token 用量",
             "description": "查看模型 Token 使用与本地会话活动。"
+          },
+          "agentObserver": {
+            "title": "Agent Observer",
+            "description": "以 Computer 为范围，查看正在运行和已经结束的 Agent 轮次。"
           },
           "canvas": {
             "title": "Canvas",
@@ -9445,12 +9531,13 @@
     "description": "浏览本机命令行智能体会话，并在 Chat 或 TUI 中继续。",
     "emptyList": "没有符合当前筛选条件的宿主会话。",
     "emptyListTitle": "没有会话",
-    "emptyHomes": "未找到可用的命令行智能体主目录。",
+    "emptyHomes": "终端 Agent 在这台电脑上运行之后，会话会出现在这里。",
     "emptyHomesTitle": "还没有命令行会话",
     "emptySearchTitle": "没有匹配的会话",
     "errorTitle": "无法加载会话",
     "retry": "重试",
     "clearSearch": "清除搜索",
+    "openObserver": "打开 Observer",
     "emptyPreview": "选择一个会话以预览记录。",
     "emptyTranscript": "此会话没有可预览的消息。",
     "emptySearch": "没有符合搜索条件的会话。",
@@ -9553,14 +9640,21 @@
         }
       }
     },
-    "viewUtils": {
-      "installedEmptyCopy": "可以用本地或项目级技能扩展 Atmos，也可以继续浏览下面的市场。",
-      "marketEmptyCopy": "市场中没有匹配当前搜索的技能。试试别的关键词。",
-      "resourcesEmptyCopy": "没有资源匹配当前搜索。试试别的关键词。"
+    "marketTab": {
+      "empty": {
+        "noneTitle": "没有市场技能",
+        "noneDescription": "目录可用后，市场技能会出现在这里。",
+        "noMatchesTitle": "没有匹配的技能",
+        "noMatchesDescription": "没有市场技能匹配这次搜索。试试别的关键词。",
+        "clearSearch": "清空搜索"
+      }
     },
     "resourcesTab": {
       "empty": {
-        "title": "没有匹配的资源",
+        "noneTitle": "没有资源",
+        "noneDescription": "编写技能用的指南和参考会出现在这里。",
+        "noMatchesTitle": "没有匹配的资源",
+        "noMatchesDescription": "没有资源匹配这次搜索。试试别的关键词。",
         "clearSearch": "清空搜索"
       },
       "category": {
@@ -9606,9 +9700,13 @@
     "installedTab": {
       "empty": {
         "noneInstalledTitle": "没有已安装技能",
-        "noMatchesTitle": "没有匹配的已安装技能",
+        "noneInstalledDescription": "技能会扩展 Agent 在项目里能做的事。去市场安装一个即可。",
+        "noMatchesTitle": "没有匹配的技能",
         "noMatchesDescription": "没有已安装技能匹配“{query}”。",
-        "resetFilters": "重置筛选"
+        "noFilterMatches": "没有已安装技能符合当前筛选。",
+        "browseMarket": "浏览市场",
+        "resetFilters": "重置筛选",
+        "clearSearch": "清空搜索"
       }
     },
     "detail": {
@@ -10494,10 +10592,15 @@
         "noSessionsTitle": "还没有对话",
         "noSearchResultsTitle": "没有匹配的对话",
         "noAgentSessionsTitle": "这个 Agent 还没有对话",
+        "noFilterResultsTitle": "这个筛选下没有对话",
         "noSearchResults": "没有对话匹配当前搜索条件。",
         "noAgentSessionsDescription": "{agentName} 还没有已保存的对话。",
-        "installedAgentsHint": "请从加号菜单或新建工作区开始对话。",
-        "loadFailed": "无法加载对话历史。"
+        "noFilterResults": "没有对话匹配当前工作区筛选。",
+        "installedAgentsHint": "在项目或工作区里开始一轮对话后，记录会出现在这里。",
+        "loadFailed": "无法加载对话历史。",
+        "clearSearch": "清空搜索",
+        "clearAgent": "显示全部 Agent",
+        "clearFilters": "清除筛选"
       },
       "timeGroups": {
         "today": "今天",

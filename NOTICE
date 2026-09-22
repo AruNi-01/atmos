@@ -732,6 +732,22 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 -------------------------------------------------------------------------------
+22. Spectrum UI Project Empty
+-------------------------------------------------------------------------------
+
+Source:   https://ui.spectrumhq.in/r/project-empty.json
+          https://github.com/arihantcodes/spectrum-ui
+Location: packages/ui/src/components/spectrumui/blocks/empty-states/
+License:  Apache License 2.0
+Copyright: Spectrum UI / Arihant Jain
+
+Notes:    Copy-paste React + Tailwind + Motion empty-state block, installed via
+          the shadcn registry (`@spectrumui/project-empty`) and adapted for Atmos
+          (semantic theme tokens, inherited Geist instead of Inter, reusable
+          Minimal variant). Full Apache-2.0 text:
+          https://www.apache.org/licenses/LICENSE-2.0
+
+-------------------------------------------------------------------------------
 End of NOTICE
 -------------------------------------------------------------------------------
 

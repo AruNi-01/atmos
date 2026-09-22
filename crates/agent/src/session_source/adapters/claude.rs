@@ -357,13 +357,11 @@ fn peek_meta(path: &Path) -> PeekMeta {
                     title = Some(preview_title(&text));
                 }
             }
-            Some("assistant") => {
-                if model.is_none() {
-                    model = value
-                        .get("message")
-                        .and_then(|message| string_field(message, "model"))
-                        .or_else(|| string_field(&value, "model"));
-                }
+            Some("assistant") if model.is_none() => {
+                model = value
+                    .get("message")
+                    .and_then(|message| string_field(message, "model"))
+                    .or_else(|| string_field(&value, "model"));
             }
             _ => {}
         }

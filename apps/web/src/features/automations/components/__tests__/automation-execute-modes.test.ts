@@ -281,10 +281,8 @@ describe("automation execute modes", () => {
     expect(centerStage).toContain("hideGitChrome: hideStandaloneGitChrome");
     expect(centerStage).toContain("waitingForTerminalTab");
     expect(centerStage).toContain("if (terminalTmux?.trim()) return;");
-    expect(centerStage).toContain("ensureFixedTerminalTab");
-    expect(centerStage).toContain(
-      "existingTabs.length === 0\n        ? ensureFixedTerminalTab(contextId)",
-    );
+    expect(centerStage).toContain("const nextTab = createTerminalTab(contextId);");
+    expect(centerStage).not.toContain("ensureFixedTerminalTab(contextId)");
     expect(header).toContain("hideStandaloneGitChrome");
     expect(tabBar).toContain("hideGitChrome");
   });

@@ -72,6 +72,29 @@ pub fn preferred_existing_session_name(
         .map(String::as_str)
 }
 
+pub(super) fn parse_tmux_window_list(output: &str) -> Vec<TmuxWindowInfo> {
+    if output.is_empty() {
+        return vec![];
+    }
+
+    output
+        .lines()
+        .filter_map(|line| {
+            let parts: Vec<&str> = line.split('|').collect();
+            if parts.len() >= 4 {
+                Some(TmuxWindowInfo {
+                    index: parts[0].parse().unwrap_or(0),
+                    name: parts[1].to_string(),
+                    active: parts[2] == "1",
+                    panes: parts[3].parse().unwrap_or(1),
+                })
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
 fn sanitize_session_component(value: &str) -> String {
     value
         .chars()
@@ -477,28 +500,7 @@ impl TmuxEngine {
             "#{window_index}|#{window_name}|#{window_active}|#{window_panes}",
         ])?;
 
-        if output.is_empty() {
-            return Ok(vec![]);
-        }
-
-        let windows = output
-            .lines()
-            .filter_map(|line| {
-                let parts: Vec<&str> = line.split('|').collect();
-                if parts.len() >= 4 {
-                    Some(TmuxWindowInfo {
-                        index: parts[0].parse().unwrap_or(0),
-                        name: parts[1].to_string(),
-                        active: parts[2] == "1",
-                        panes: parts[3].parse().unwrap_or(1),
-                    })
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        Ok(windows)
+        Ok(parse_tmux_window_list(&output))
     }
 
     /// Check if a session exists
@@ -635,7 +637,7 @@ impl TmuxEngine {
 #[cfg(test)]
 mod tests {
     use super::{
-        parse_pane_processes, parse_workspace_id_from_session_name,
+        parse_pane_processes, parse_tmux_window_list, parse_workspace_id_from_session_name,
         preferred_existing_session_name, session_name_from_names, session_name_from_workspace_id,
     };
 
@@ -664,6 +666,12 @@ mod tests {
         assert_eq!(session_name_from_names("atmos", "other"), "atmos_other");
 
         assert_eq!(session_name_from_names("atmos", "mankey"), "atmos_mankey");
+    }
+
+    #[test]
+    fn parse_tmux_window_list_skips_empty_and_keeps_rows() {
+        assert!(parse_tmux_window_list("").is_empty());
+        assert_eq!(parse_tmux_window_list("1|1|1|1")[0].name, "1");
     }
 
     #[test]

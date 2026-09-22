@@ -22,6 +22,110 @@ export type AgentStatusClearedNotification = {
 
 export type AgentOccupancy = "idle" | "running" | "permission_request";
 
+export type AgentLiveKind =
+  | "idle"
+  | "thinking"
+  | "streaming"
+  | "working"
+  | "tool"
+  | "permission";
+
+export type AgentPendingQuestion = {
+  id: string;
+  prompt: string;
+  options?: string[];
+};
+
+export type AgentPendingOption = {
+  option_id: string;
+  name: string;
+  kind: string;
+};
+
+export type AgentPendingPlanTodo = {
+  id?: string | null;
+  content: string;
+  status?: string | null;
+};
+
+export type AgentPendingPermission = {
+  request_id: string;
+  tool: string;
+  description: string;
+  content_markdown?: string | null;
+  options?: AgentPendingOption[];
+  questions?: AgentPendingQuestion[];
+  plan_todos?: AgentPendingPlanTodo[];
+};
+
+export type AgentToolLine = {
+  name: string;
+  detail: string;
+  state: "pending" | "ok" | "error" | string;
+  started_at: string;
+  ended_at?: string | null;
+  duration_ms?: number | null;
+  repeat: number;
+};
+
+export type AgentTodoItem = {
+  content: string;
+  status: string;
+};
+
+export type AgentChildActivity = {
+  child_id: string;
+  name?: string | null;
+  state: AgentOccupancy;
+  live_kind?: AgentLiveKind;
+  current_tool?: AgentToolLine | null;
+  recent_tools: AgentToolLine[];
+  prompt?: string | null;
+  started_at: string;
+  last_event_at: string;
+};
+
+export type AgentTurn = {
+  turn_id: number;
+  prompt: string;
+  started_at: string;
+  ended_at?: string | null;
+  tools: AgentToolLine[];
+  todos: AgentTodoItem[];
+  spawned_child_ids: string[];
+};
+
+export type AgentActivity = {
+  session_id: string;
+  tool: AgentToolType;
+  context_id?: string | null;
+  pane_id?: string | null;
+  project_path?: string | null;
+  terminal_kind?: string | null;
+  side_chat_id?: string | null;
+  source_pane_id?: string | null;
+  surface?: AgentSurface;
+  surface_id?: string | null;
+  space_id?: string | null;
+  provider_id?: string | null;
+  last_state: AgentOccupancy;
+  live_kind?: AgentLiveKind;
+  pending_permission?: AgentPendingPermission | null;
+  current_tool?: AgentToolLine | null;
+  todos: AgentTodoItem[];
+  children: AgentChildActivity[];
+  turns: AgentTurn[];
+  turns_omitted: number;
+  current_turn_id?: number | null;
+  last_file?: string | null;
+  started_at: string;
+  last_event_at: string;
+};
+
+export type AgentActivityClearedNotification = {
+  session_ids?: string[];
+};
+
 export type AgentToolType =
   | "claude-code"
   | "codex"

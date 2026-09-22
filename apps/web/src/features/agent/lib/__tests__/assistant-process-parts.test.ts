@@ -84,6 +84,31 @@ describe("assistant process collapse", () => {
     expect(tailParts.map((item) => item.part)).toEqual([{ type: "text", text: "parent reply" }]);
   });
 
+  it("hides grok chrome that duplicates a user spawn from the parent process fold", () => {
+    const parts: AgentPart[] = [
+      {
+        type: "tool_call",
+        tool_call_id: "tc_rust",
+        name: "spawn_subagent",
+        kind: "subagent",
+        status: "running",
+        params: { type: "subagent", description: "Explore Rust backend layers", agent_type: "explore" },
+      },
+      {
+        type: "tool_call",
+        tool_call_id: "sa-rust",
+        name: "grok_chrome",
+        kind: "subagent",
+        status: "running",
+        params: { type: "subagent", description: "Explore Rust backend layers", agent_type: "explore", task_id: "sa-rust" },
+      },
+      { type: "text", text: "parent reply" },
+    ];
+    const { processParts, tailParts } = splitAssistantProcessParts(parts);
+    expect(processParts.map((item) => item.part)).toEqual([parts[0]]);
+    expect(tailParts.map((item) => item.part)).toEqual([{ type: "text", text: "parent reply" }]);
+  });
+
   it("does not treat grok child final text with a parent id as the parent answer", () => {
     const parts: AgentPart[] = [
       {
