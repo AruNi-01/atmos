@@ -178,7 +178,7 @@ All JSON. CORS `*` for dev. If `RELAY_SECRET_KEY` is configured, protected route
 | GET | `/healthz` | _(none)_ | Liveness |
 | POST | `/v1/internal/devices/upsert` | Bearer **Hub sync secret** | Project/revoke device row from Hub |
 | POST | `/v1/register_tokens` | Bearer **device credential** | `{ register_token, expires_at, register_command }` |
-| POST | `/v1/computers/register` | `register_token` + relay secret when configured | Body `{ register_token, display_name?, app_device_id }` |
+| POST | `/v1/computers/register` | `register_token` + relay secret when configured | Body `{ register_token, display_name?, app_device_id }`. Same user + `app_device_id` reuses the original `server_id` and rotates `server_secret`. |
 | GET | `/v1/computers` | Bearer device credential | Lists computers for that Hub `user_id` |
 | PATCH | `/v1/computers/:id` | Bearer device credential | Rename |
 | POST | `/v1/computers/:id/revoke` | Bearer device credential | Revokes |

@@ -4,7 +4,12 @@ mock.module("cloudflare:workers", () => ({
   DurableObject: class {},
 }));
 
-function computerRegisterEnv(options: { deviceRegistrationCount?: number } = {}) {
+function computerRegisterEnv(
+  options: {
+    deviceRegistrationCount?: number;
+    existingComputer?: { server_id: string; display_name: string | null } | null;
+  } = {},
+) {
   const calls: Array<{ sql: string; args: unknown[]; op?: "first" | "run" }> = [];
 
   return {
@@ -21,6 +26,9 @@ function computerRegisterEnv(options: { deviceRegistrationCount?: number } = {})
                   call.op = "first";
                   if (sql.includes("SELECT user_id FROM register_tokens")) {
                     return { user_id: "user_1" };
+                  }
+                  if (sql.includes("ORDER BY created_at ASC")) {
+                    return options.existingComputer ?? null;
                   }
                   if (sql.includes("COUNT(*) AS count FROM computers")) {
                     return { count: options.deviceRegistrationCount ?? 0 };
@@ -166,5 +174,55 @@ describe("computer registration device limits", () => {
     );
     expect(insertCall?.sql).toContain("app_device_id");
     expect(insertCall?.args.at(-1)).toBe(appDeviceId);
+  });
+
+  test("reclaims the original computer for the same account and app device id", async () => {
+    const appDeviceId = "c".repeat(64);
+    const harness = computerRegisterEnv({
+      deviceRegistrationCount: 10,
+      existingComputer: { server_id: "server-original", display_name: "MacBook Pro" },
+    });
+    const { default: worker } = await import("../src/index");
+
+    const response = await worker.fetch(
+      new Request("https://relay.atmos.land/v1/computers/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          register_token: "one-time-token",
+          display_name: "MacBook Pro",
+          device: { app_device_id: appDeviceId },
+        }),
+      }),
+      harness.env as never,
+      {} as never,
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body).toMatchObject({
+      server_id: "server-original",
+      display_name: "MacBook Pro",
+    });
+    expect(harness.calls.some((call) => call.sql.includes("INSERT INTO computers"))).toBe(
+      false,
+    );
+    expect(
+      harness.calls.some((call) => call.sql.includes("COUNT(*) AS count FROM computers")),
+    ).toBe(false);
+    const rotate = harness.calls.find(
+      (call) => call.op === "run" && call.sql.includes("secret_hash"),
+    );
+    expect(rotate?.args[4]).toBe("server-original");
+    expect(rotate?.args[5]).toBe("user_1");
+    const revokeDuplicates = harness.calls.find(
+      (call) => call.op === "run" && call.sql.includes("SET revoked = 1"),
+    );
+    expect(revokeDuplicates?.args).toEqual([
+      expect.any(Number),
+      "user_1",
+      appDeviceId,
+      "server-original",
+    ]);
   });
 });

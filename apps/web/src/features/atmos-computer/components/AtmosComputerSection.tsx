@@ -465,7 +465,14 @@ export function AtmosComputerSection() {
   }
 
   async function onConnect(serverId: string) {
-    const isLocalMachine = serverId === (localStatus?.server_id ?? localServerId);
+    const computer = activeComputers.find(row => row.server_id === serverId);
+    const isLocalMachine = computer
+      ? isCurrentLocalComputer(
+          computer,
+          localStatus?.server_id ?? localServerId,
+          localStatus?.app_device_id,
+        )
+      : serverId === (localStatus?.server_id ?? localServerId);
     if (isLocalMachine) {
       await switchToLocalConnection(`connect-${serverId}`);
       return;
@@ -706,7 +713,11 @@ export function AtmosComputerSection() {
           </p>
         ) : (
           activeComputers.map(c => {
-            const isCurrent = isCurrentLocalComputer(c, currentServerId);
+            const isCurrent = isCurrentLocalComputer(
+              c,
+              currentServerId,
+              localStatus?.app_device_id,
+            );
             const isUsingLocal = isCurrent && connectionMode === 'local';
             const isConnected = !isCurrent && connectedServerId === c.server_id;
             const relayReachable = isCurrent
@@ -896,7 +907,15 @@ export function AtmosComputerSection() {
         open={detailsOpen}
         onOpenChange={setDetailsOpen}
         computer={detailsComputer}
-        isCurrent={detailsComputer?.server_id === currentServerId}
+        isCurrent={
+          detailsComputer
+            ? isCurrentLocalComputer(
+                detailsComputer,
+                currentServerId,
+                localStatus?.app_device_id,
+              )
+            : false
+        }
       />
     </SettingsPageStack>
   );

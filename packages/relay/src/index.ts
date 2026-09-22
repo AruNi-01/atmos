@@ -554,14 +554,32 @@ async function handleApi(
         return json({ error: "invalid_register_token" }, 400);
       }
 
-      const deviceRegistration = await env.DB.prepare(
-        "SELECT COUNT(*) AS count FROM computers WHERE app_device_id = ?",
-      )
-        .bind(appDeviceId)
-        .first<{ count: number }>();
+      const registrationMetaJson =
+        body?.registration_meta != null && typeof body.registration_meta === "object"
+          ? JSON.stringify(body.registration_meta)
+          : null;
 
-      if ((deviceRegistration?.count ?? 0) >= COMPUTER_DEVICE_REGISTRATION_LIMIT) {
-        return json({ error: "computer_device_registration_limit_exceeded" }, 409);
+      // Same account + same machine reclaims the original Computer and rotates
+      // its secret. A reinstall drops ~/.atmos credentials but keeps app_device_id.
+      const existing = await env.DB.prepare(
+        `SELECT server_id, display_name FROM computers
+         WHERE user_id = ? AND app_device_id = ? AND revoked = 0
+         ORDER BY created_at ASC
+         LIMIT 1`,
+      )
+        .bind(row.user_id, appDeviceId)
+        .first<{ server_id: string; display_name: string | null }>();
+
+      if (!existing) {
+        const deviceRegistration = await env.DB.prepare(
+          "SELECT COUNT(*) AS count FROM computers WHERE app_device_id = ?",
+        )
+          .bind(appDeviceId)
+          .first<{ count: number }>();
+
+        if ((deviceRegistration?.count ?? 0) >= COMPUTER_DEVICE_REGISTRATION_LIMIT) {
+          return json({ error: "computer_device_registration_limit_exceeded" }, 409);
+        }
       }
 
       const used = await env.DB.prepare(
@@ -575,31 +593,62 @@ async function handleApi(
       }
 
       const serverSecret = randomBase64Url(32);
-      const serverId = await randomUuidLike();
-      const displayName =
-        body?.display_name?.trim() ||
-        `Computer ${serverId.slice(0, 8)}`;
+      const secretHashValue = await secretHash(serverSecret);
+      let serverId: string;
+      let displayName: string;
 
-      const registrationMetaJson =
-        body?.registration_meta != null && typeof body.registration_meta === "object"
-          ? JSON.stringify(body.registration_meta)
-          : null;
+      if (existing) {
+        serverId = existing.server_id;
+        displayName =
+          body?.display_name?.trim() ||
+          existing.display_name?.trim() ||
+          `Computer ${serverId.slice(0, 8)}`;
 
-      await env.DB.prepare(
-        `INSERT INTO computers(server_id, user_id, secret_hash, revoked, display_name, created_at, last_seen_at, updated_at, registration_meta, app_device_id)
-         VALUES (?, ?, ?, 0, ?, ?, NULL, ?, ?, ?)`,
-      )
-        .bind(
-          serverId,
-          row.user_id,
-          await secretHash(serverSecret),
-          displayName,
-          now,
-          now,
-          registrationMetaJson,
-          appDeviceId,
+        await env.DB.prepare(
+          `UPDATE computers
+           SET secret_hash = ?, display_name = ?, updated_at = ?,
+               registration_meta = COALESCE(?, registration_meta)
+           WHERE server_id = ? AND user_id = ? AND revoked = 0`,
         )
-        .run();
+          .bind(
+            secretHashValue,
+            displayName,
+            now,
+            registrationMetaJson,
+            serverId,
+            row.user_id,
+          )
+          .run();
+
+        await env.DB.prepare(
+          `UPDATE computers
+           SET revoked = 1, updated_at = ?
+           WHERE user_id = ? AND app_device_id = ? AND revoked = 0 AND server_id != ?`,
+        )
+          .bind(now, row.user_id, appDeviceId, serverId)
+          .run();
+      } else {
+        serverId = await randomUuidLike();
+        displayName =
+          body?.display_name?.trim() ||
+          `Computer ${serverId.slice(0, 8)}`;
+
+        await env.DB.prepare(
+          `INSERT INTO computers(server_id, user_id, secret_hash, revoked, display_name, created_at, last_seen_at, updated_at, registration_meta, app_device_id)
+           VALUES (?, ?, ?, 0, ?, ?, NULL, ?, ?, ?)`,
+        )
+          .bind(
+            serverId,
+            row.user_id,
+            secretHashValue,
+            displayName,
+            now,
+            now,
+            registrationMetaJson,
+            appDeviceId,
+          )
+          .run();
+      }
 
       const relayOrigin = httpOrigin(url);
       const relayWs = `${wsOrigin(relayOrigin)}/ws/server`;
