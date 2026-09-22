@@ -167,6 +167,22 @@ describe("close returns to the tab that opened the closed tab", () => {
     expect(stage).toContain("agentChatNeedsCloseConfirm");
   });
 
+  test("bulk agent-chat close drops the persist store before layout prune", () => {
+    const stage = readFileSync(join(import.meta.dir, "../CenterStage.tsx"), "utf8");
+    const performClose = stage.slice(
+      stage.indexOf("const performCloseAgentChatCenterTab"),
+      stage.indexOf("const handleCloseAgentChatTab"),
+    );
+    expect(performClose).toContain("if (!options?.skipActivation)");
+    expect(performClose).toContain("closeSurfaceIfUnowned");
+    const unownedAt = performClose.indexOf("closeSurfaceIfUnowned");
+    const skipStoreCloseAt = performClose.lastIndexOf(
+      "closeTab(effectiveContextId, value)",
+    );
+    expect(unownedAt).toBeGreaterThan(-1);
+    expect(skipStoreCloseAt).toBeGreaterThan(unownedAt);
+  });
+
   test("agent chat tab close uses the generic MRU path instead of jumping to terminal", () => {
     const tabBar = readFileSync(
       join(import.meta.dir, "../CenterStageTabBar.tsx"),
@@ -187,5 +203,8 @@ describe("close returns to the tab that opened the closed tab", () => {
     expect(activate).toContain("ensureFixedTerminalTab");
     expect(activate).toContain("ensureAutomationTerminalTab");
     expect(activate).toContain("attachCenterTab(contextId, resolvedTab");
+    expect(activate).toContain("createIfMissing");
+    expect(activate).toContain("if (!activation.existing && !createIfMissing) return");
+    expect(activate).toContain("if (!createIfMissing && !ownedByLayout)");
   });
 });
