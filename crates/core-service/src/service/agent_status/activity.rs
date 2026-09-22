@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use agent::{
-    is_grok_chrome_subagent_name, AgentEvent, AgentTool, AgentToolKind, AgentToolParams,
-    AgentToolStatus, GrokGoal, GrokWorkflow, UserMessageKind,
+    is_grok_chrome_subagent_name, AgentEvent, AgentPermissionRequest, AgentTool, AgentToolKind,
+    AgentToolParams, AgentToolStatus, GrokGoal, GrokWorkflow, TextKind, UserMessageKind,
 };
 
 use super::{
@@ -48,12 +48,67 @@ pub struct AgentTodoItem {
     pub status: String,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentLiveKind {
+    #[default]
+    Idle,
+    Thinking,
+    Streaming,
+    Working,
+    Tool,
+    Permission,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AgentPendingQuestion {
+    pub id: String,
+    pub prompt: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub options: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AgentPendingOption {
+    pub option_id: String,
+    pub name: String,
+    pub kind: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AgentPendingPlanTodo {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    pub content: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+}
+
+/// Permission or question waiting on this session. The card shows one line;
+/// the panel answers it.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AgentPendingPermission {
+    pub request_id: String,
+    pub tool: String,
+    pub description: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_markdown: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub options: Vec<AgentPendingOption>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub questions: Vec<AgentPendingQuestion>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub plan_todos: Vec<AgentPendingPlanTodo>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AgentChildActivity {
     pub child_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     pub state: AgentOccupancy,
+    #[serde(default)]
+    pub live_kind: AgentLiveKind,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub current_tool: Option<AgentToolLine>,
     pub recent_tools: Vec<AgentToolLine>,
@@ -102,6 +157,10 @@ pub struct AgentActivity {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provider_id: Option<String>,
     pub last_state: AgentOccupancy,
+    #[serde(default)]
+    pub live_kind: AgentLiveKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pending_permission: Option<AgentPendingPermission>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub current_tool: Option<AgentToolLine>,
     pub todos: Vec<AgentTodoItem>,
@@ -211,6 +270,8 @@ impl AgentStatusService {
         close_open_turn(activity, &now);
         activity.current_tool = None;
         activity.current_turn_id = None;
+        activity.pending_permission = None;
+        activity.live_kind = AgentLiveKind::Idle;
         activity.last_state = AgentOccupancy::Idle;
         activity.last_event_at = now;
         if activity.visible_clone() != before {
@@ -311,6 +372,8 @@ fn new_activity(session: &AgentStatusRecord, ctx: &AgentStatusContext, now: &str
             .clone()
             .or_else(|| ctx.provider_id.clone()),
         last_state: session.state,
+        live_kind: AgentLiveKind::Idle,
+        pending_permission: None,
         current_tool: None,
         todos: Vec::new(),
         children: Vec::new(),
@@ -454,7 +517,9 @@ enum HostFold {
     ToolOk { tool: AgentTool },
     ToolError { tool: AgentTool },
     Todos { todos: Vec<AgentTodoItem> },
-    Permission,
+    Permission { request: AgentPermissionRequest },
+    PermissionResolved,
+    Live { kind: AgentLiveKind },
     CloseTurn,
     Bind,
     GrokGoal { goal: Option<GrokGoal> },
@@ -492,7 +557,26 @@ fn host_fold(event: &AgentEvent) -> Option<HostFold> {
         AgentEvent::PlanUpdated { plan } => {
             extract_plan_todos(plan).map(|todos| HostFold::Todos { todos })
         }
-        AgentEvent::PermissionRequested { .. } => Some(HostFold::Permission),
+        AgentEvent::TextChunk {
+            kind,
+            parent_part_id,
+            ..
+        } => {
+            if parent_part_id.is_some() {
+                None
+            } else {
+                Some(HostFold::Live {
+                    kind: match kind {
+                        TextKind::Thinking => AgentLiveKind::Thinking,
+                        TextKind::Answer => AgentLiveKind::Streaming,
+                    },
+                })
+            }
+        }
+        AgentEvent::PermissionRequested { request } => Some(HostFold::Permission {
+            request: request.clone(),
+        }),
+        AgentEvent::PermissionResolved { .. } => Some(HostFold::PermissionResolved),
         AgentEvent::TurnCompleted { .. }
         | AgentEvent::TurnFailed { .. }
         | AgentEvent::TurnCanceled { .. }
@@ -561,18 +645,41 @@ fn apply_host_fold(
                 turn.todos = todos;
             }
         }
-        HostFold::Permission => {
+        HostFold::Permission { request } => {
+            activity.pending_permission = Some(pending_from_request(&request));
+            activity.live_kind = AgentLiveKind::Permission;
             if let Some(child) = activity.children.last_mut() {
                 if child.current_tool.is_some() {
                     child.state = AgentOccupancy::PermissionRequest;
+                    child.live_kind = AgentLiveKind::Permission;
                     child.last_event_at = now.to_string();
                 }
+            }
+        }
+        HostFold::PermissionResolved => {
+            activity.pending_permission = None;
+            if activity.current_tool.is_some() {
+                activity.live_kind = AgentLiveKind::Tool;
+            } else if activity.live_kind == AgentLiveKind::Permission {
+                activity.live_kind = AgentLiveKind::Working;
+            }
+        }
+        HostFold::Live { kind } => {
+            if activity.pending_permission.is_none() && activity.current_tool.is_none() {
+                activity.live_kind = kind;
             }
         }
         HostFold::CloseTurn => {
             close_open_turn(activity, now);
             activity.current_tool = None;
             activity.current_turn_id = None;
+            activity.pending_permission = None;
+            activity.live_kind = AgentLiveKind::Idle;
+            for child in &mut activity.children {
+                if child.live_kind != AgentLiveKind::Idle {
+                    child.live_kind = AgentLiveKind::Idle;
+                }
+            }
         }
         HostFold::Bind => {}
         HostFold::GrokGoal { goal } => {
@@ -603,6 +710,7 @@ fn apply_prompt(activity: &mut AgentActivity, text: &str, now: &str) {
         if let Some(turn) = current_turn_mut(activity) {
             if turn.ended_at.is_none() && turn.prompt.is_empty() {
                 activity.current_tool = None;
+                activity.live_kind = AgentLiveKind::Working;
                 return;
             }
         }
@@ -610,6 +718,8 @@ fn apply_prompt(activity: &mut AgentActivity, text: &str, now: &str) {
             open_turn(activity, String::new(), now);
         }
         activity.current_tool = None;
+        activity.pending_permission = None;
+        activity.live_kind = AgentLiveKind::Working;
         return;
     }
     if should_reset_for_new_prompt(activity) {
@@ -619,12 +729,16 @@ fn apply_prompt(activity: &mut AgentActivity, text: &str, now: &str) {
         if turn.ended_at.is_none() && turn.prompt.is_empty() {
             turn.prompt = truncate(trimmed, PROMPT_CHARS);
             activity.current_tool = None;
+            activity.pending_permission = None;
+            activity.live_kind = AgentLiveKind::Working;
             return;
         }
     }
     close_open_turn(activity, now);
     open_turn(activity, trimmed.to_string(), now);
     activity.current_tool = None;
+    activity.pending_permission = None;
+    activity.live_kind = AgentLiveKind::Working;
 }
 
 fn should_reset_for_new_prompt(activity: &AgentActivity) -> bool {
@@ -636,6 +750,8 @@ fn reset_activity_for_new_prompt(activity: &mut AgentActivity) {
     activity.turns_omitted = 0;
     activity.current_turn_id = None;
     activity.current_tool = None;
+    activity.pending_permission = None;
+    activity.live_kind = AgentLiveKind::Working;
     activity.children.clear();
     activity.child_aliases.clear();
     activity.todos.clear();
@@ -667,6 +783,7 @@ fn apply_host_tool(
     if pending {
         if session_idle {
             activity.current_tool = None;
+            activity.live_kind = AgentLiveKind::Idle;
             return;
         }
         ensure_open_turn(activity, now);
@@ -674,16 +791,22 @@ fn apply_host_tool(
             activity.last_file = Some(path);
         }
         activity.current_tool = Some(host_tool_line(tool, project_path, now, "pending"));
+        activity.pending_permission = None;
+        activity.live_kind = AgentLiveKind::Tool;
         return;
     }
     let state = if error { "error" } else { "ok" };
     if session_idle {
         complete_late_host_tool(activity, tool, project_path, now, state);
         activity.current_tool = None;
+        activity.live_kind = AgentLiveKind::Idle;
         return;
     }
     ensure_open_turn(activity, now);
     complete_lead_host_tool(activity, tool, project_path, now, state);
+    if activity.pending_permission.is_none() {
+        activity.live_kind = AgentLiveKind::Working;
+    }
 }
 
 fn apply_host_subagent(activity: &mut AgentActivity, tool: &AgentTool, now: &str, pending: bool) {
@@ -730,8 +853,10 @@ fn apply_host_subagent(activity: &mut AgentActivity, tool: &AgentTool, now: &str
         }
         if pending {
             child.state = AgentOccupancy::Running;
+            child.live_kind = AgentLiveKind::Working;
         } else if !chrome && !is_dispatch_ack_name(&tool.name) {
             child.state = AgentOccupancy::Idle;
+            child.live_kind = AgentLiveKind::Idle;
             if let Some(line) = child.current_tool.take() {
                 push_aggregated_tool(&mut child.recent_tools, line, now, RECENT_TOOLS_CHILD);
             }
@@ -759,26 +884,38 @@ fn apply_child_tool(
 ) {
     let child_id = adopt_child_id(activity, child_id);
     upsert_host_child(activity, &child_id, host_child_name(tool), now, false);
-    let Some(child) = activity
-        .children
-        .iter_mut()
-        .find(|c| c.child_id == child_id)
-    else {
-        return;
+    let mark_parent_working = {
+        let Some(child) = activity
+            .children
+            .iter_mut()
+            .find(|c| c.child_id == child_id)
+        else {
+            return;
+        };
+        child.last_event_at = now.to_string();
+        child.state = AgentOccupancy::Running;
+        if pending {
+            child.current_tool = Some(host_tool_line(tool, project_path, now, "pending"));
+            child.live_kind = AgentLiveKind::Tool;
+            true
+        } else {
+            let state = if error { "error" } else { "ok" };
+            let mut line = child
+                .current_tool
+                .take()
+                .unwrap_or_else(|| host_tool_line(tool, project_path, now, state));
+            finish_tool_line(&mut line, now, state, host_tool_detail(tool, project_path));
+            push_aggregated_tool(&mut child.recent_tools, line, now, RECENT_TOOLS_CHILD);
+            child.live_kind = AgentLiveKind::Working;
+            false
+        }
     };
-    child.last_event_at = now.to_string();
-    child.state = AgentOccupancy::Running;
-    if pending {
-        child.current_tool = Some(host_tool_line(tool, project_path, now, "pending"));
-        return;
+    if mark_parent_working
+        && activity.pending_permission.is_none()
+        && activity.current_tool.is_none()
+    {
+        activity.live_kind = AgentLiveKind::Working;
     }
-    let state = if error { "error" } else { "ok" };
-    let mut line = child
-        .current_tool
-        .take()
-        .unwrap_or_else(|| host_tool_line(tool, project_path, now, state));
-    finish_tool_line(&mut line, now, state, host_tool_detail(tool, project_path));
-    push_aggregated_tool(&mut child.recent_tools, line, now, RECENT_TOOLS_CHILD);
 }
 
 fn complete_lead_host_tool(
@@ -869,6 +1006,7 @@ fn upsert_host_child(
         child_id: child_id.to_string(),
         name,
         state: AgentOccupancy::Running,
+        live_kind: AgentLiveKind::Working,
         current_tool: None,
         recent_tools: Vec::new(),
         prompt: None,
@@ -1137,8 +1275,12 @@ fn merge_child(activity: &mut AgentActivity, from_id: &str, into_id: &str) {
                 RECENT_TOOLS_CHILD,
             );
         }
-        if from.state == AgentOccupancy::Running {
-            into.state = AgentOccupancy::Running;
+        if from.state == AgentOccupancy::Running || from.state == AgentOccupancy::PermissionRequest
+        {
+            into.state = from.state;
+        }
+        if from.live_kind != AgentLiveKind::Idle {
+            into.live_kind = from.live_kind;
         }
         into.last_event_at = from.last_event_at;
         return;
@@ -1222,6 +1364,45 @@ fn strip_chrome_tools_from_turns(activity: &mut AgentActivity) {
         .is_some_and(|tool| is_spawn_tool_name(&tool.name) || is_wait_poll_name(&tool.name))
     {
         activity.current_tool = None;
+        if activity.live_kind == AgentLiveKind::Tool {
+            activity.live_kind = AgentLiveKind::Working;
+        }
+    }
+}
+
+pub(crate) fn pending_from_request(request: &AgentPermissionRequest) -> AgentPendingPermission {
+    AgentPendingPermission {
+        request_id: request.request_id.clone(),
+        tool: request.tool.clone(),
+        description: request.description.clone(),
+        content_markdown: request.content_markdown.clone(),
+        options: request
+            .options
+            .iter()
+            .map(|option| AgentPendingOption {
+                option_id: option.option_id.clone(),
+                name: option.name.clone(),
+                kind: option.kind.clone(),
+            })
+            .collect(),
+        questions: request
+            .questions
+            .iter()
+            .map(|question| AgentPendingQuestion {
+                id: question.id.clone(),
+                prompt: question.prompt.clone(),
+                options: question.options.clone(),
+            })
+            .collect(),
+        plan_todos: request
+            .plan_todos
+            .iter()
+            .map(|todo| AgentPendingPlanTodo {
+                id: todo.id.clone(),
+                content: todo.content.clone(),
+                status: Some(todo.status.clone()),
+            })
+            .collect(),
     }
 }
 
@@ -1610,6 +1791,50 @@ mod tests {
             context_id: Some("ws-1".to_string()),
             ..AgentStatusContext::default()
         })
+    }
+
+    #[test]
+    fn permission_request_is_the_live_step_until_the_tool_starts() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("ws-1:agent");
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "PermissionRequest",
+                "tool_name": "Bash",
+                "tool_use_id": "tool-1",
+                "tool_input": { "command": "rm -rf ./tmp" },
+            }),
+            &ctx,
+        );
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(activity.live_kind, AgentLiveKind::Permission);
+        let pending = activity.pending_permission.as_ref().unwrap();
+        assert_eq!(pending.request_id, "tool-1");
+        assert_eq!(pending.tool, "Bash");
+        assert_eq!(pending.description, "rm -rf ./tmp");
+
+        let crate::service::agent_status::HookPermissionOpen::Wait(wait) = service
+            .open_permission_wait(
+                &serde_json::json!({
+                    "hook_event_name": "PermissionRequest",
+                    "tool_name": "Bash",
+                    "tool_use_id": "tool-1",
+                    "tool_input": { "command": "rm -rf ./tmp" },
+                }),
+                crate::service::agent_status::AgentToolType::ClaudeCode,
+                &ctx,
+            )
+            .expect("permission wait")
+        else {
+            panic!("expected a blocking permission wait");
+        };
+        assert!(status.respond_hook_permission("ws-1:agent", "tool-1", "allow_once"));
+        let decision = wait.rx.blocking_recv().expect("decision");
+        assert!(decision.allow);
+        let activity = &status.get_all_activity()[0];
+        assert!(activity.pending_permission.is_none());
+        assert_eq!(activity.live_kind, AgentLiveKind::Working);
     }
 
     #[test]

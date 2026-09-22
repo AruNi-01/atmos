@@ -7,9 +7,47 @@ use serde_json::{json, Value};
 
 use super::{extract_child_agent_id, is_child_start_event, is_child_stop_event};
 use agent::{
-    AgentEvent, AgentPermissionRequest, AgentTool, AgentToolKind, AgentToolParams, AgentToolStatus,
-    TurnStop, UserMessageKind,
+    AgentAskQuestion, AgentEvent, AgentPermissionRequest, AgentPlanDocumentTodo, AgentTool,
+    AgentToolKind, AgentToolParams, AgentToolStatus, TurnStop, UserMessageKind,
 };
+
+pub(crate) fn hook_payload_is_permission(payload: &Value) -> bool {
+    matches!(classify_hook(payload), HookKind::Permission)
+}
+
+pub(crate) fn hook_event_key(payload: &Value) -> String {
+    collapse_event(&event_name(payload))
+}
+
+/// Stable id for one approval. The same payload must produce the same id
+/// when the hook is observed and when the HTTP handler arms the wait.
+pub(crate) fn hook_permission_request_id(payload: &Value) -> String {
+    if let Some(id) = extracted_tool_call_id(payload) {
+        return id;
+    }
+    let tool = tool_name(payload).unwrap_or_else(|| "tool".to_string());
+    let input = tool_input(payload).cloned().unwrap_or(Value::Null);
+    let questions = questions_from_input(&input);
+    let detail = permission_description(&tool, &input, &questions);
+    format!("{tool}:{detail}")
+}
+
+/// Codex already has a reviewer. An empty body hands the decision back.
+pub(crate) fn codex_defers_permission(payload: &Value) -> bool {
+    let reviewer = payload
+        .get("approvals_reviewer")
+        .or_else(|| payload.get("approvalsReviewer"))
+        .or_else(|| payload.get("_approvals_reviewer"))
+        .and_then(|value| value.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase();
+    reviewer == "auto_review" || reviewer == "guardian_subagent"
+}
+
+pub(crate) fn hook_tool_input(payload: &Value) -> Value {
+    tool_input(payload).cloned().unwrap_or(Value::Null)
+}
 
 pub(crate) fn hook_payload_to_events(payload: &Value) -> Vec<AgentEvent> {
     match classify_hook(payload) {
@@ -40,15 +78,7 @@ pub(crate) fn hook_payload_to_events(payload: &Value) -> Vec<AgentEvent> {
             error: None,
         }],
         HookKind::Permission => vec![AgentEvent::PermissionRequested {
-            request: AgentPermissionRequest {
-                request_id: new_id(),
-                tool: tool_name(payload).unwrap_or_else(|| "agent".to_string()),
-                description: String::new(),
-                content_markdown: None,
-                options: Vec::new(),
-                questions: Vec::new(),
-                plan_todos: Vec::new(),
-            },
+            request: permission_request_from_hook(payload),
         }],
         HookKind::CloseTurn => vec![AgentEvent::TurnCompleted {
             turn_id: new_id(),
@@ -399,6 +429,154 @@ fn extract_prompt(payload: &Value) -> Option<String> {
             .and_then(|output| output.get("parts"))
             .or_else(|| payload.get("parts")),
     )
+}
+
+pub(crate) fn permission_request_from_hook(payload: &Value) -> AgentPermissionRequest {
+    let tool = tool_name(payload).unwrap_or_else(|| "agent".to_string());
+    let input = tool_input(payload).cloned().unwrap_or(Value::Null);
+    let questions = questions_from_input(&input);
+    let markdown = markdown_from_input(&input);
+    let plan_todos = plan_todos_from_input(&input);
+    let description = permission_description(&tool, &input, &questions);
+    AgentPermissionRequest {
+        request_id: hook_permission_request_id(payload),
+        tool,
+        description,
+        content_markdown: markdown,
+        options: Vec::new(),
+        questions,
+        plan_todos,
+    }
+}
+
+fn questions_from_input(input: &Value) -> Vec<AgentAskQuestion> {
+    let Some(items) = input.get("questions").and_then(|value| value.as_array()) else {
+        return Vec::new();
+    };
+    items
+        .iter()
+        .enumerate()
+        .filter_map(|(index, item)| {
+            let prompt = item
+                .get("question")
+                .or_else(|| item.get("prompt"))
+                .and_then(|value| value.as_str())
+                .map(str::trim)
+                .filter(|text| !text.is_empty())?;
+            let id = item
+                .get("id")
+                .and_then(|value| value.as_str())
+                .map(str::trim)
+                .filter(|text| !text.is_empty())
+                .map(str::to_string)
+                .unwrap_or_else(|| index.to_string());
+            let options = item
+                .get("options")
+                .and_then(|value| value.as_array())
+                .map(|options| {
+                    options
+                        .iter()
+                        .filter_map(|option| {
+                            option.as_str().map(str::to_string).or_else(|| {
+                                option
+                                    .get("label")
+                                    .and_then(|value| value.as_str())
+                                    .map(str::to_string)
+                            })
+                        })
+                        .map(|label| label.trim().to_string())
+                        .filter(|label| !label.is_empty())
+                        .collect()
+                })
+                .unwrap_or_default();
+            Some(AgentAskQuestion {
+                id,
+                prompt: prompt.to_string(),
+                options,
+            })
+        })
+        .collect()
+}
+
+fn markdown_from_input(input: &Value) -> Option<String> {
+    for key in [
+        "plan",
+        "plan_markdown",
+        "planMarkdown",
+        "content_markdown",
+        "markdown",
+    ] {
+        if let Some(text) = input.get(key).and_then(|value| value.as_str()) {
+            let trimmed = text.trim();
+            if !trimmed.is_empty() {
+                return Some(trimmed.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn plan_todos_from_input(input: &Value) -> Vec<AgentPlanDocumentTodo> {
+    let Some(items) = input
+        .get("plan_todos")
+        .or_else(|| input.get("todos"))
+        .and_then(|value| value.as_array())
+    else {
+        return Vec::new();
+    };
+    items
+        .iter()
+        .filter_map(|item| {
+            let content = item
+                .get("content")
+                .or_else(|| item.get("title"))
+                .and_then(|value| value.as_str())
+                .map(str::trim)
+                .filter(|text| !text.is_empty())?;
+            Some(AgentPlanDocumentTodo {
+                id: item
+                    .get("id")
+                    .and_then(|value| value.as_str())
+                    .map(str::to_string),
+                content: content.to_string(),
+                status: item
+                    .get("status")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or("pending")
+                    .to_string(),
+            })
+        })
+        .collect()
+}
+
+fn permission_description(tool: &str, input: &Value, questions: &[AgentAskQuestion]) -> String {
+    if let Some(question) = questions.first() {
+        return clip(&question.prompt, 160);
+    }
+    for key in [
+        "command",
+        "cmd",
+        "description",
+        "file_path",
+        "filePath",
+        "path",
+        "prompt",
+    ] {
+        if let Some(text) = input.get(key).and_then(|value| value.as_str()) {
+            let trimmed = text.trim();
+            if !trimmed.is_empty() {
+                return clip(trimmed, 160);
+            }
+        }
+    }
+    tool.to_string()
+}
+
+fn clip(text: &str, max: usize) -> String {
+    if text.chars().count() <= max {
+        return text.to_string();
+    }
+    text.chars().take(max.saturating_sub(1)).collect::<String>() + "…"
 }
 
 fn tool_name(payload: &Value) -> Option<String> {

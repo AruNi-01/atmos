@@ -67,6 +67,20 @@ fn build_stdin_cmd(port: u16) -> String {
     )
 }
 
+fn build_permission_stdin_cmd(port: u16) -> String {
+    let url = hook_url(port);
+    let hook_version = hook_version_assignment();
+    let hook_version_header = hook_version_header_shell();
+    format!(
+        r#"{guard} && {hook_version} && cat | curl -sS --max-time 590 -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d @- '{url}' || true"#,
+        guard = atmos_managed_guard(),
+        hook_version = hook_version,
+        context_headers = atmos_context_curl_headers(),
+        hook_version_header = hook_version_header,
+        url = url,
+    )
+}
+
 fn build_hook_entries(port: u16) -> Value {
     let stdin = build_stdin_cmd(port);
     json!({
@@ -83,7 +97,7 @@ fn build_hook_entries(port: u16) -> Value {
             "hooks": [{ "type": "command", "command": stdin.clone(), "timeout": 3 }]
         }],
         "PermissionRequest": [{
-            "hooks": [{ "type": "command", "command": stdin.clone(), "timeout": 3 }]
+            "hooks": [{ "type": "command", "command": build_permission_stdin_cmd(port), "timeout": 600 }]
         }],
         "SubagentStart": [{
             "hooks": [{ "type": "command", "command": stdin.clone(), "timeout": 3 }]

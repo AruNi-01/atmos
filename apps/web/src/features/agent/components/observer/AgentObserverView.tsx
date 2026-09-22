@@ -40,6 +40,8 @@ import {
 } from "@/features/agent/lib/agent-observer-graph";
 import { useObserverPresence } from "@/features/agent/hooks/use-observer-presence";
 import { useAgentStatusSessionTitles } from "@/features/agent/hooks/use-agent-status-session-titles";
+import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
+import type { AttentionReason } from "@/features/agent/store/agent-attention-store";
 import {
   OBSERVER_NODE_TYPES,
   OBSERVER_EDGE_TYPES,
@@ -47,6 +49,24 @@ import {
   type ObserverFlowData,
 } from "./observer-flow";
 import { ObserverDrawer } from "./ObserverDrawer";
+import { ObserverTerminalDrawer } from "./ObserverTerminalDrawer";
+
+function attentionForSession(
+  panes: Map<string, { sessionId: string; stablePaneId: string; reason: AttentionReason }>,
+  session: { session_id: string; pane_id?: string | null } | undefined,
+): AttentionReason | null {
+  if (!session) return null;
+  for (const pane of panes.values()) {
+    if (
+      pane.sessionId === session.session_id ||
+      pane.stablePaneId === session.session_id ||
+      (session.pane_id && pane.stablePaneId === session.pane_id)
+    ) {
+      return pane.reason;
+    }
+  }
+  return null;
+}
 
 function agentLike(kind: ObserverGraphNode["kind"]): boolean {
   return kind === "agent" || kind === "subagent";
@@ -88,7 +108,8 @@ function mergeFlowNodes(
       left.selected === right.selected &&
       left.data.node === right.data.node &&
       left.data.onToggle === right.data.onToggle &&
-      left.data.sessionTitle === right.data.sessionTitle
+      left.data.sessionTitle === right.data.sessionTitle &&
+      left.data.attentionReason === right.data.attentionReason
     ) {
       return left;
     }
@@ -101,6 +122,7 @@ function mergeFlowNodes(
         node: right.data.node,
         onToggle: right.data.onToggle,
         sessionTitle: right.data.sessionTitle,
+        attentionReason: right.data.attentionReason,
       },
     };
   });
@@ -215,6 +237,7 @@ export function AgentObserverView() {
     [graph.nodes],
   );
   const sessionTitles = useAgentStatusSessionTitles(titleSessions);
+  const attentionPanes = useAgentAttentionStore((state) => state.panes);
 
   const connected = connectionState === "connected";
 
@@ -299,6 +322,8 @@ export function AgentObserverView() {
             presence: "live",
             onToggle: () => toggleNode(node),
             sessionTitle: node.session ? sessionTitles[node.session.session_id] : undefined,
+            attentionReason:
+              node.kind === "subagent" ? null : attentionForSession(attentionPanes, node.session),
           },
           type: "observer",
           selected: node.id === selectedId,
@@ -306,7 +331,7 @@ export function AgentObserverView() {
           style: { width: 288 },
         };
       }),
-    [collapsedIds, graph.nodes, placed, positionOverrides, selectedId, sessionTitles, toggleNode],
+    [attentionPanes, collapsedIds, graph.nodes, placed, positionOverrides, selectedId, sessionTitles, toggleNode],
   );
 
   const seenEdgeIdsRef = useRef<Set<string>>(new Set());
@@ -497,6 +522,7 @@ export function AgentObserverView() {
           </ReactFlow>
         )}
       </div>
+      <ObserverTerminalDrawer />
       <ObserverDrawer
         node={selected}
         sessionTitle={

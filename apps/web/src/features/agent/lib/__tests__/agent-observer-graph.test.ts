@@ -13,6 +13,7 @@ import {
   buildObserverGraph,
   layoutObserverGraph,
   observerLayoutShiftToAnchor,
+  observerLiveHeadline,
   observerNodeTitle,
   sessionFromActivity,
   toolLineText,
@@ -627,6 +628,56 @@ describe("Observer pane jump", () => {
     expect(css).not.toContain(".observer-card-header:hover .observer-drag-grip");
     expect(css).not.toContain(".react-flow__edge:not(.animated)");
     expect(css).not.toContain(".react-flow__edge.animated");
+  });
+});
+
+describe("observerLiveHeadline", () => {
+  const labels = { thinking: "Thinking", streaming: "Streaming", working: "Generating" };
+
+  it("shows the in-flight tool, then generating, then the prompt", () => {
+    expect(observerLiveHeadline({
+      occupancy: "running",
+      liveKind: "tool",
+      currentToolLine: "Read observer-flow.tsx",
+      latestPrompt: "fix the card",
+      fallback: "Claude Code",
+      labels,
+    })).toBe("Read observer-flow.tsx");
+    expect(observerLiveHeadline({
+      occupancy: "running",
+      liveKind: "thinking",
+      latestPrompt: "fix the card",
+      fallback: "Claude Code",
+      labels,
+    })).toBe("Thinking");
+    expect(observerLiveHeadline({
+      occupancy: "running",
+      liveKind: "working",
+      latestPrompt: "fix the card",
+      fallback: "Claude Code",
+      labels,
+    })).toBe("Generating");
+    expect(observerLiveHeadline({
+      occupancy: "idle",
+      latestPrompt: "fix the card",
+      fallback: "Claude Code",
+      labels,
+    })).toBe("fix the card");
+  });
+
+  it("prefers the permission action over the tool line", () => {
+    expect(observerLiveHeadline({
+      occupancy: "permission_request",
+      liveKind: "permission",
+      currentToolLine: "Bash",
+      fallback: "Claude Code",
+      pendingPermission: {
+        request_id: "1",
+        tool: "Bash",
+        description: "rm -rf ./tmp",
+      },
+      labels,
+    })).toBe("rm -rf ./tmp");
   });
 });
 

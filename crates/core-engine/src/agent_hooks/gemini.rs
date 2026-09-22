@@ -55,6 +55,20 @@ fn build_cmd(port: u16, event_name: &str) -> String {
     )
 }
 
+fn build_decision_stdin_cmd(port: u16) -> String {
+    let url = hook_url(port);
+    let hook_version = hook_version_assignment();
+    let hook_version_header = hook_version_header_shell();
+    format!(
+        r#"{guard} && {hook_version} && cat | curl -sS --max-time 590 -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d @- '{url}' || true"#,
+        guard = atmos_managed_guard(),
+        hook_version = hook_version,
+        context_headers = atmos_context_curl_headers(),
+        hook_version_header = hook_version_header,
+        url = url,
+    )
+}
+
 fn build_stdin_cmd(port: u16) -> String {
     let url = hook_url(port);
     let hook_version = hook_version_assignment();
@@ -85,7 +99,11 @@ fn build_hook_entries(port: u16) -> Value {
             "hooks": [{ "type": "command", "command": build_cmd(port, "BeforeToolSelection"), "async": true }]
         }],
         "BeforeTool": [{
-            "hooks": [{ "type": "command", "command": stdin.clone(), "async": true }]
+            "hooks": [{
+                "type": "command",
+                "command": build_decision_stdin_cmd(port),
+                "timeout": 600000
+            }]
         }],
         "AfterTool": [{
             "hooks": [{ "type": "command", "command": stdin.clone(), "async": true }]

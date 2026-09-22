@@ -1,6 +1,9 @@
 import type {
   AgentActivity,
   AgentChildActivity,
+  AgentLiveKind,
+  AgentPendingPermission,
+  AgentTodoItem,
   AgentTurn,
 } from "@atmos/api-types/ws/dto/events";
 import { childToolLine, isLeakedChildTurn } from "@/features/agent/lib/observer-conversation";
@@ -23,6 +26,9 @@ export type ObserverGraphNode = {
   activity?: AgentActivity;
   latestPrompt?: string;
   currentToolLine?: string;
+  liveKind?: AgentLiveKind;
+  pendingPermission?: AgentPendingPermission;
+  todos: AgentTodoItem[];
   turnCount: number;
   visibleTurns: AgentTurn[];
   extraTurns: number;
@@ -170,6 +176,7 @@ export function buildObserverGraph({
       parentId: null,
       kind: "atmos",
       label: computerName?.trim() || "Atmos",
+      todos: [],
       turnCount: 0,
       visibleTurns: [],
       extraTurns: 0,
@@ -228,6 +235,7 @@ export function buildObserverGraph({
         parentId: "atmos",
         kind: "project",
         label: projectLabel(member.projectId),
+        todos: [],
         turnCount: 0,
         visibleTurns: [],
         extraTurns: 0,
@@ -255,6 +263,7 @@ export function buildObserverGraph({
           parentId: projectNodeId,
           kind: "workspace",
           label: workspaceLabel(member.workspaceId),
+          todos: [],
           turnCount: 0,
           visibleTurns: [],
           extraTurns: 0,
@@ -293,6 +302,12 @@ export function buildObserverGraph({
       activity: record,
       latestPrompt: turns.at(-1)?.prompt.trim() || undefined,
       currentToolLine: toolLineText(record),
+      liveKind: record?.live_kind,
+      pendingPermission:
+        (session?.state ?? record?.last_state) === "permission_request"
+          ? record?.pending_permission ?? undefined
+          : undefined,
+      todos: record?.todos ?? [],
       turnCount: turns.length,
       visibleTurns: expandedAgentIds.has(agentId) ? visibleTurns : [],
       extraTurns: expandedAgentIds.has(agentId) ? extraTurns : 0,
@@ -322,6 +337,12 @@ export function buildObserverGraph({
         session,
         currentToolLine: childToolLine(child),
         latestPrompt: child.prompt?.trim() || undefined,
+        liveKind: child.live_kind,
+        pendingPermission:
+          child.state === "permission_request"
+            ? record?.pending_permission ?? undefined
+            : undefined,
+        todos: [],
         turnCount: 0,
         visibleTurns: [],
         extraTurns: 0,
@@ -408,7 +429,8 @@ export function layoutObserverGraph(
       const extra = expandedAgentIds.has(id)
         ? Math.min(node.visibleTurns.length, 6) * 22 + (node.extraTurns > 0 ? 18 : 0)
         : 0;
-      return 136 + extra;
+      const todos = node.todos.length > 0 ? 28 : 0;
+      return 136 + extra + todos;
     }
     return 112;
   }
@@ -459,6 +481,41 @@ export function applyObserverLayoutShift(
     next.set(id, { x: pos.x + shift.x, y: pos.y + shift.y });
   }
   return next;
+}
+
+export function permissionActionLine(
+  permission: AgentPendingPermission | undefined,
+): string | undefined {
+  if (!permission) return undefined;
+  const question = permission.questions?.find((item) => item.prompt.trim())?.prompt.trim();
+  if (question) return question;
+  const description = permission.description.trim();
+  if (description && description !== permission.tool) return description;
+  const tool = permission.tool.trim();
+  return tool || undefined;
+}
+
+export function observerLiveHeadline(input: {
+  occupancy?: string;
+  liveKind?: AgentLiveKind;
+  currentToolLine?: string;
+  latestPrompt?: string;
+  fallback: string;
+  pendingPermission?: AgentPendingPermission;
+  labels: { thinking: string; streaming: string; working: string };
+}): string {
+  const permission = permissionActionLine(input.pendingPermission);
+  if (input.occupancy === "permission_request" || input.liveKind === "permission") {
+    return permission || input.currentToolLine || input.labels.working;
+  }
+  if (input.liveKind === "thinking") return input.labels.thinking;
+  if (input.liveKind === "streaming") return input.labels.streaming;
+  if (input.liveKind === "tool" && input.currentToolLine) return input.currentToolLine;
+  const running = input.occupancy === "running" || input.liveKind === "working";
+  if (running && !input.liveKind && input.currentToolLine) return input.currentToolLine;
+  if (input.liveKind === "tool") return input.currentToolLine || input.labels.working;
+  if (running) return input.labels.working;
+  return input.latestPrompt || input.fallback;
 }
 
 export function observerNodeTitle(

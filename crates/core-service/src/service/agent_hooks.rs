@@ -24,10 +24,43 @@ use std::sync::Arc;
 
 use serde_json::Value;
 
-use super::agent_status::{AgentStatusContext, AgentStatusService, AgentSurface, AgentToolType};
+use agent::AgentEvent;
+
+use super::agent_status::{
+    AgentStatusContext, AgentStatusService, AgentSurface, AgentToolType, HookPermissionOpen,
+};
 
 pub(crate) use child_agent::{extract_child_agent_id, is_child_start_event, is_child_stop_event};
-use to_event::hook_payload_to_events;
+use to_event::{
+    codex_defers_permission, hook_event_key, hook_payload_is_permission, hook_payload_to_events,
+    hook_permission_request_id, hook_tool_input, permission_request_from_hook,
+};
+
+enum HookDecisionGate {
+    Ignore,
+    Release,
+    Hold,
+}
+
+fn hook_decision_gate(tool: AgentToolType, payload: &Value) -> HookDecisionGate {
+    let event = hook_event_key(payload);
+    if tool == AgentToolType::Codex
+        && hook_payload_is_permission(payload)
+        && codex_defers_permission(payload)
+    {
+        return HookDecisionGate::Release;
+    }
+    if hook_payload_is_permission(payload) {
+        return HookDecisionGate::Hold;
+    }
+    let tool_gate = matches!(tool, AgentToolType::Gemini | AgentToolType::Antigravity)
+        && matches!(event.as_str(), "pretooluse" | "beforetool");
+    if tool_gate {
+        HookDecisionGate::Hold
+    } else {
+        HookDecisionGate::Ignore
+    }
+}
 
 /// HTTP ingest context from Atmos tmux headers, mapped onto Status location.
 pub type AtmosContext = AgentStatusContext;
@@ -47,8 +80,59 @@ impl AgentHooksService {
 
     fn observe(&self, payload: &Value, tool: AgentToolType, ctx: &AgentStatusContext) {
         let session_id = resolve_session_id(payload, tool, ctx);
+        let gate = hook_decision_gate(tool, payload);
         for event in hook_payload_to_events(payload) {
+            let permission = match &event {
+                AgentEvent::PermissionRequested { request }
+                    if ctx.surface != AgentSurface::Chat
+                        && matches!(gate, HookDecisionGate::Hold) =>
+                {
+                    Some((request.request_id.clone(), hook_tool_input(payload)))
+                }
+                _ => None,
+            };
             self.status.observe_host(&session_id, tool, &event, ctx);
+            if let Some((request_id, tool_input)) = permission {
+                self.status
+                    .stash_hook_permission(&session_id, &request_id, tool_input);
+            }
+        }
+        if ctx.surface != AgentSurface::Chat && matches!(gate, HookDecisionGate::Release) {
+            self.status.clear_activity_permission(&session_id);
+        }
+        if ctx.surface != AgentSurface::Chat
+            && matches!(gate, HookDecisionGate::Hold)
+            && !hook_payload_is_permission(payload)
+        {
+            let request = permission_request_from_hook(payload);
+            self.status.present_hook_permission(&session_id, &request);
+            self.status.stash_hook_permission(
+                &session_id,
+                &request.request_id,
+                hook_tool_input(payload),
+            );
+        }
+    }
+
+    /// Arm a blocking reply for a permission hook. Call after `handle_*_event`.
+    pub fn open_permission_wait(
+        &self,
+        payload: &Value,
+        tool: AgentToolType,
+        ctx: &AgentStatusContext,
+    ) -> Option<HookPermissionOpen> {
+        if ctx.surface == AgentSurface::Chat {
+            return None;
+        }
+        match hook_decision_gate(tool, payload) {
+            HookDecisionGate::Ignore => None,
+            HookDecisionGate::Release => Some(HookPermissionOpen::Immediate(serde_json::json!({}))),
+            HookDecisionGate::Hold => {
+                let request_id = hook_permission_request_id(payload);
+                self.status
+                    .open_permission_wait(&request_id)
+                    .map(HookPermissionOpen::Wait)
+            }
         }
     }
 

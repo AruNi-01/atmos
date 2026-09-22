@@ -16,14 +16,17 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 use tracing::{debug, info, warn};
 
 use super::notification::NotificationService;
 
-pub use activity::{AgentActivity, AgentChildActivity, AgentTodoItem, AgentToolLine, AgentTurn};
+pub use activity::{
+    AgentActivity, AgentChildActivity, AgentLiveKind, AgentPendingPermission, AgentTodoItem,
+    AgentToolLine, AgentTurn,
+};
 pub use attention::{AgentAttentionLatch, AgentAttentionReason};
 pub use attention_summary::{
     AgentAttentionSummary, AttentionSummaryPayload, AttentionSummarySettings,
@@ -383,6 +386,163 @@ pub struct AgentStatusService {
     /// Known project root paths. Kept for diagnostics / future use but
     /// primary filtering is done at the hook level via ATMOS_MANAGED env var.
     known_project_paths: RwLock<HashSet<String>>,
+    /// Terminal permission payload waiting for the hook HTTP handler to arm a reply.
+    hook_permission_stash: Mutex<HashMap<String, StashedHookPermission>>,
+    /// In-flight hook replies. The HTTP handler holds the receiver.
+    hook_permission_tx: Mutex<HashMap<String, ArmedHookPermission>>,
+}
+
+struct StashedHookPermission {
+    session_id: String,
+    request_id: String,
+    tool_input: serde_json::Value,
+}
+
+struct ArmedHookPermission {
+    session_id: String,
+    tx: tokio::sync::oneshot::Sender<HookPermissionDecision>,
+}
+
+#[derive(Debug, Clone)]
+pub struct HookPermissionDecision {
+    pub allow: bool,
+    pub answers: Option<serde_json::Value>,
+}
+
+pub struct HookPermissionWait {
+    pub request_id: String,
+    pub tool_input: serde_json::Value,
+    pub rx: tokio::sync::oneshot::Receiver<HookPermissionDecision>,
+}
+
+pub enum HookPermissionOpen {
+    Wait(HookPermissionWait),
+    /// The CLI should keep its own prompt. Body is written to the hook stdout.
+    Immediate(serde_json::Value),
+}
+
+pub fn hook_permission_decision(option_id: &str) -> HookPermissionDecision {
+    let id = option_id.trim();
+    if let Some(rest) = id.strip_prefix("answers:") {
+        let answers = serde_json::from_str(rest).unwrap_or(serde_json::Value::Null);
+        return HookPermissionDecision {
+            allow: true,
+            answers: Some(answers),
+        };
+    }
+    let lower = id.to_ascii_lowercase();
+    let deny = lower.contains("reject")
+        || lower.contains("deny")
+        || lower.contains("skip")
+        || lower.contains("cancel")
+        || lower == "no";
+    HookPermissionDecision {
+        allow: !deny,
+        answers: None,
+    }
+}
+
+pub fn hook_permission_response(
+    tool: AgentToolType,
+    tool_input: &serde_json::Value,
+    decision: &HookPermissionDecision,
+) -> serde_json::Value {
+    if matches!(tool, AgentToolType::Gemini | AgentToolType::Antigravity) {
+        return serde_json::json!({
+            "decision": if decision.allow { "allow" } else { "deny" }
+        });
+    }
+    if decision.allow {
+        let updated = claude_updated_input(tool_input, decision.answers.as_ref());
+        serde_json::json!({
+            "hookSpecificOutput": {
+                "hookEventName": "PermissionRequest",
+                "decision": {
+                    "behavior": "allow",
+                    "updatedInput": updated
+                }
+            }
+        })
+    } else {
+        serde_json::json!({
+            "hookSpecificOutput": {
+                "hookEventName": "PermissionRequest",
+                "decision": {
+                    "behavior": "deny",
+                    "message": "Denied",
+                    "interrupt": false
+                }
+            }
+        })
+    }
+}
+
+fn claude_updated_input(
+    tool_input: &serde_json::Value,
+    answers: Option<&serde_json::Value>,
+) -> serde_json::Value {
+    let mut updated = if tool_input.is_object() {
+        tool_input.clone()
+    } else {
+        serde_json::json!({})
+    };
+    let Some(answers) = answers else {
+        return updated;
+    };
+    let questions = tool_input
+        .get("questions")
+        .and_then(|value| value.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let mut mapped = serde_json::Map::new();
+    if let Some(given) = answers.as_object() {
+        for (index, question) in questions.iter().enumerate() {
+            let text = question
+                .get("question")
+                .or_else(|| question.get("prompt"))
+                .and_then(|value| value.as_str())
+                .unwrap_or("")
+                .trim();
+            if text.is_empty() {
+                continue;
+            }
+            let id = question
+                .get("id")
+                .and_then(|value| value.as_str())
+                .unwrap_or("");
+            let value = given
+                .get(id)
+                .or_else(|| given.get(text))
+                .or_else(|| given.get(&index.to_string()))
+                .cloned();
+            if let Some(value) = value {
+                mapped.insert(text.to_string(), value);
+            }
+        }
+        if mapped.is_empty() {
+            mapped = given.clone();
+        }
+    }
+    if let Some(obj) = updated.as_object_mut() {
+        if !questions.is_empty() {
+            obj.insert("questions".to_string(), serde_json::Value::Array(questions));
+        }
+        obj.insert(
+            "answers".to_string(),
+            serde_json::Value::Object(mapped.clone()),
+        );
+        if mapped.len() == 1 {
+            if let Some(value) = mapped.values().next() {
+                if let Some(text) = value.as_str() {
+                    obj.insert(
+                        "answer".to_string(),
+                        serde_json::Value::String(text.to_string()),
+                    );
+                }
+            }
+        }
+    }
+    updated
 }
 
 impl AgentStatusService {
@@ -401,7 +561,127 @@ impl AgentStatusService {
             notification_service: RwLock::new(None),
             event_tx,
             known_project_paths: RwLock::new(HashSet::new()),
+            hook_permission_stash: Mutex::new(HashMap::new()),
+            hook_permission_tx: Mutex::new(HashMap::new()),
         }
+    }
+
+    pub(crate) fn stash_hook_permission(
+        &self,
+        session_id: &str,
+        request_id: &str,
+        tool_input: serde_json::Value,
+    ) {
+        self.hook_permission_stash.lock().insert(
+            request_id.to_string(),
+            StashedHookPermission {
+                session_id: session_id.to_string(),
+                request_id: request_id.to_string(),
+                tool_input,
+            },
+        );
+    }
+
+    pub(crate) fn present_hook_permission(
+        &self,
+        session_id: &str,
+        request: &agent::AgentPermissionRequest,
+    ) {
+        let now = Utc::now().to_rfc3339();
+        let pending = activity::pending_from_request(request);
+        let snapshot = {
+            let mut map = self.activity.write();
+            let Some(record) = map.get_mut(session_id) else {
+                return;
+            };
+            record.pending_permission = Some(pending);
+            record.live_kind = AgentLiveKind::Permission;
+            record.last_event_at = now;
+            record.clone()
+        };
+        let _ = self
+            .event_tx
+            .send(AgentStatusEvent::ActivityUpdated(Box::new(snapshot)));
+    }
+
+    pub(crate) fn open_permission_wait(&self, request_id: &str) -> Option<HookPermissionWait> {
+        let stashed = self.hook_permission_stash.lock().remove(request_id)?;
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.hook_permission_tx.lock().insert(
+            stashed.request_id.clone(),
+            ArmedHookPermission {
+                session_id: stashed.session_id,
+                tx,
+            },
+        );
+        Some(HookPermissionWait {
+            request_id: stashed.request_id,
+            tool_input: stashed.tool_input,
+            rx,
+        })
+    }
+
+    pub fn respond_hook_permission(
+        &self,
+        session_id: &str,
+        request_id: &str,
+        option_id: &str,
+    ) -> bool {
+        let decision = hook_permission_decision(option_id);
+        let armed = {
+            let mut waits = self.hook_permission_tx.lock();
+            let key = if !request_id.is_empty() {
+                if waits
+                    .get(request_id)
+                    .is_some_and(|armed| !session_id.is_empty() && armed.session_id != session_id)
+                {
+                    return false;
+                }
+                Some(request_id.to_string())
+            } else {
+                waits
+                    .iter()
+                    .find(|(_, armed)| armed.session_id == session_id)
+                    .map(|(key, _)| key.clone())
+            };
+            key.and_then(|key| waits.remove(&key))
+        };
+        let Some(armed) = armed else {
+            return false;
+        };
+        let sent = armed.tx.send(decision).is_ok();
+        if sent {
+            self.clear_activity_permission(&armed.session_id);
+        }
+        sent
+    }
+
+    pub(crate) fn clear_activity_permission(&self, session_id: &str) {
+        let now = chrono::Utc::now().to_rfc3339();
+        let snapshot = {
+            let mut map = self.activity.write();
+            let Some(activity) = map.get_mut(session_id) else {
+                return;
+            };
+            if activity.pending_permission.is_none()
+                && activity.live_kind != AgentLiveKind::Permission
+            {
+                return;
+            }
+            activity.pending_permission = None;
+            if activity.live_kind == AgentLiveKind::Permission {
+                activity.live_kind = if activity.last_state == AgentOccupancy::Idle {
+                    AgentLiveKind::Idle
+                } else {
+                    AgentLiveKind::Working
+                };
+            }
+            activity.last_event_at = now;
+            activity.clone()
+        };
+        let _ = self
+            .event_tx
+            .send(AgentStatusEvent::ActivityUpdated(Box::new(snapshot)));
     }
 
     pub fn set_notification_service(&self, service: Arc<NotificationService>) {

@@ -112,6 +112,28 @@ fn build_stdin_cmd(port: u16, r#async: bool) -> Value {
     entry
 }
 
+/// Blocking permission hook. Stdout is the decision JSON the CLI applies.
+fn build_permission_stdin_cmd(port: u16) -> Value {
+    let url = hook_url(port);
+    let hook_version = hook_version_assignment();
+    let hook_version_header = hook_version_header_shell();
+    let command = format!(
+        r#"{guard} && {hook_version} && cat | curl -sS --max-time 590 -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d @- '{url}' || true"#,
+        guard = atmos_managed_guard(),
+        hook_version = hook_version,
+        context_headers = atmos_context_curl_headers(),
+        hook_version_header = hook_version_header,
+        url = url,
+    );
+    json!({
+        "hooks": [{
+            "type": "command",
+            "command": command,
+            "timeout": 600,
+        }]
+    })
+}
+
 fn build_hook_entries(port: u16) -> Value {
     let notification = {
         let mut entry = build_stdin_cmd(port, true);
@@ -130,7 +152,7 @@ fn build_hook_entries(port: u16) -> Value {
         "PreToolUse": [build_stdin_cmd(port, true)],
         "PostToolUse": [build_stdin_cmd(port, true)],
         "PostToolUseFailure": [build_stdin_cmd(port, true)],
-        "PermissionRequest": [build_stdin_cmd(port, true)],
+        "PermissionRequest": [build_permission_stdin_cmd(port)],
         "Notification": [notification],
         "Stop": [build_stdin_cmd(port, true)],
         "StopFailure": [build_stdin_cmd(port, true)],

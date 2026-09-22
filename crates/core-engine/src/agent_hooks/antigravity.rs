@@ -38,6 +38,21 @@ fn build_cmd(port: u16, event_name: &str) -> String {
     )
 }
 
+fn build_decision_stdin_cmd(port: u16, event_name: &str) -> String {
+    let url = hook_url(port);
+    let hook_version = hook_version_assignment();
+    let hook_version_header = hook_version_header_shell();
+    format!(
+        r#"{guard} && {hook_version} && cat | curl -sS --max-time 590 -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -H 'X-Atmos-Hook-Event: {event_name}' -d @- '{url}' || true"#,
+        guard = atmos_managed_guard(),
+        hook_version = hook_version,
+        context_headers = atmos_context_curl_headers(),
+        hook_version_header = hook_version_header,
+        event_name = event_name,
+        url = url,
+    )
+}
+
 fn build_stdin_cmd(port: u16, event_name: &str) -> String {
     let url = hook_url(port);
     let hook_version = hook_version_assignment();
@@ -62,7 +77,11 @@ fn build_atmos_hook_namespace(port: u16) -> Value {
             {
                 "matcher": "*",
                 "hooks": [
-                    { "type": "command", "command": build_stdin_cmd(port, "PreToolUse"), "async": true }
+                    {
+                        "type": "command",
+                        "command": build_decision_stdin_cmd(port, "PreToolUse"),
+                        "timeout": 600
+                    }
                 ]
             }
         ],

@@ -11,16 +11,25 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import { ChevronRight, FolderGit2, GitBranch, GripVertical, Monitor } from "lucide-react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { MatrixOrb, cn } from "@workspace/ui";
+import { MatrixOrb, Popover, PopoverContent, PopoverTrigger, cn } from "@workspace/ui";
+import type { AgentPendingPermission, AgentTodoItem } from "@atmos/api-types/ws/dto/events";
 import { observerStaggerMs } from "@/features/agent/lib/observer-graph-motion";
 import "./observer-flow.css";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { AgentPermissionCard } from "@/features/agent/components/AgentPermissionCard";
+import type { PendingPermission } from "@/features/agent/lib/chat-helpers";
+import { agentChatApi } from "@/api/ws/agent-chat-api";
+import { agentStatusApi } from "@/api/rest-api";
+import { useObserverTerminalStore } from "./ObserverTerminalDrawer";
 import {
   AGENT_TOOL_ICON_IDS,
   AGENT_TOOL_LABELS,
 } from "@/features/agent/store/agent-status-store";
+import type { AttentionReason } from "@/features/agent/store/agent-attention-store";
 import {
+  observerLiveHeadline,
   observerNodeTitle,
   type ObserverGraphNode,
 } from "@/features/agent/lib/agent-observer-graph";
@@ -33,6 +42,7 @@ export type ObserverFlowData = {
   presence: ObserverPresence;
   onToggle: () => void;
   sessionTitle?: string;
+  attentionReason?: AttentionReason | null;
 };
 
 export type ObserverEdgeData = {
@@ -168,6 +178,7 @@ function ObserverNodeCard({
   collapsed,
   presence,
   sessionTitle,
+  attentionReason,
   onToggle,
 }: {
   data: ObserverGraphNode;
@@ -175,6 +186,7 @@ function ObserverNodeCard({
   collapsed: boolean;
   presence: ObserverPresence;
   sessionTitle?: string;
+  attentionReason?: AttentionReason | null;
   onToggle: () => void;
 }) {
   const t = useTranslations("AgentObserver");
@@ -192,11 +204,27 @@ function ObserverNodeCard({
           : data.kind === "agent" && resolvedTitle === data.label
             ? name
             : resolvedTitle;
-  const activityLine =
-    state === "running"
-      ? (data.currentToolLine ?? data.latestPrompt)
-      : (data.latestPrompt ?? data.currentToolLine);
-  const wellTitle = activityLine || name;
+  const wellTitle = observerLiveHeadline({
+    occupancy: state,
+    liveKind: data.liveKind,
+    currentToolLine: data.currentToolLine,
+    latestPrompt: data.latestPrompt,
+    fallback: name,
+    pendingPermission: data.pendingPermission,
+    labels: {
+      thinking: t("stateThinking"),
+      streaming: t("stateStreaming"),
+      working: t("stateWorking"),
+    },
+  });
+  const permission = data.pendingPermission;
+  const needsPermission = state === "permission_request" || data.liveKind === "permission";
+  const attention =
+    needsPermission || attentionReason === "permission_request"
+      ? "permission_request"
+      : attentionReason === "task_complete"
+        ? "task_complete"
+        : null;
   const canToggle =
     data.descendantCount > 0 &&
     (data.kind === "agent" || data.kind === "project" || data.kind === "workspace");
@@ -232,6 +260,10 @@ function ObserverNodeCard({
       className={cn(
         "observer-card w-[288px] rounded-xl border px-3 pt-2.5 pb-3",
         tone.shell,
+        attention === "permission_request" &&
+          "agent-attention-ring-card agent-attention-ring-permission",
+        attention === "task_complete" &&
+          "agent-attention-ring-card agent-attention-ring-complete",
         selected && "ring-1 ring-foreground/25",
         exiting && "is-exiting",
       )}
@@ -290,14 +322,23 @@ function ObserverNodeCard({
       </div>
 
       <div className={cn("mt-2.5 rounded-lg px-2.5 py-2", tone.well)}>
-        <div className="truncate text-[13px] font-medium leading-5" title={wellTitle}>
-          {wellTitle}
-        </div>
+        {needsPermission && permission ? (
+          <ObserverPermissionLine
+            node={data}
+            permission={permission}
+            label={wellTitle}
+          />
+        ) : (
+          <div className="truncate text-[13px] font-medium leading-5" title={wellTitle}>
+            {wellTitle}
+          </div>
+        )}
         {caption.length > 0 ? (
           <div className="mt-0.5 truncate text-[11px] leading-4 text-muted-foreground" title={caption.join(" · ")}>
             {caption.join(" · ")}
           </div>
         ) : null}
+        {data.todos.length > 0 ? <ObserverTodos todos={data.todos} /> : null}
         {data.visibleTurns.length > 0 ? (
           <ol className="mt-2 max-h-32 space-y-1 overflow-y-auto border-t border-border/60 pt-2 text-[11px] text-muted-foreground">
             {data.visibleTurns.map((turn) => (
@@ -320,6 +361,185 @@ function ObserverNodeCard({
   );
 }
 
+function currentTodo(todos: AgentTodoItem[]): AgentTodoItem | undefined {
+  const active = todos.find((todo) => {
+    const status = todo.status.trim().toLowerCase();
+    return status === "in_progress" || status === "in-progress";
+  });
+  if (active) return active;
+  return todos.find((todo) => {
+    const status = todo.status.trim().toLowerCase();
+    return status !== "completed" && status !== "cancelled" && status !== "canceled";
+  }) ?? todos[0];
+}
+
+function ObserverTodos({ todos }: { todos: AgentTodoItem[] }) {
+  const t = useTranslations("AgentObserver");
+  const [open, setOpen] = useState(false);
+  const current = currentTodo(todos);
+  if (!current) return null;
+  return (
+    <div className="nodrag nopan mt-2 border-t border-border/60 pt-2">
+      <button
+        type="button"
+        className="flex w-full min-w-0 items-start gap-1.5 text-left"
+        aria-expanded={open}
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen((value) => !value);
+        }}
+      >
+        <ChevronRight className={cn("mt-0.5 size-3 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} />
+        <span className="min-w-0 flex-1 truncate text-[12px] leading-4 text-foreground" title={current.content}>
+          {current.content}
+        </span>
+      </button>
+      {open ? (
+        <ul className="mt-1 max-h-28 space-y-1 overflow-y-auto pl-4">
+          {todos.map((todo, index) => {
+            const done = todo.status === "completed" || todo.status === "cancelled" || todo.status === "canceled";
+            return (
+              <li
+                key={`${todo.content}-${index}`}
+                className={cn(
+                  "truncate text-[11px] leading-4",
+                  done ? "text-muted-foreground line-through" : "text-foreground",
+                )}
+                title={todo.content}
+              >
+                {todo.content}
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <span className="sr-only">{t("currentTask")}</span>
+      )}
+    </div>
+  );
+}
+
+const PANEL_REPLY_TOOLS = new Set([
+  "claude-code",
+  "codex",
+  "gemini",
+  "antigravity",
+  "pi",
+  "opencode",
+]);
+
+function canReplyFromPanel(node: ObserverGraphNode): boolean {
+  const sessionId = node.session?.session_id ?? node.activity?.session_id ?? "";
+  if (node.chat || node.session?.surface === "chat" || sessionId.startsWith("chat:")) {
+    return true;
+  }
+  const tool = node.session?.tool ?? node.activity?.tool;
+  return Boolean(tool && PANEL_REPLY_TOOLS.has(tool));
+}
+
+function toPendingPermission(permission: AgentPendingPermission): PendingPermission {
+  return {
+    request_id: permission.request_id,
+    tool: permission.tool,
+    description: permission.description,
+    content_markdown: permission.content_markdown ?? undefined,
+    plan_todos: permission.plan_todos?.map((todo) => ({
+      id: todo.id,
+      content: todo.content,
+      status: todo.status ?? undefined,
+    })),
+    risk_level: "unknown",
+    options: (permission.options ?? []).map((option) => ({
+      option_id: option.option_id,
+      name: option.name,
+      kind: option.kind,
+    })),
+    questions: permission.questions?.map((question) => ({
+      id: question.id,
+      prompt: question.prompt,
+      options: question.options,
+    })),
+  };
+}
+
+function ObserverPermissionLine({
+  node,
+  permission,
+  label,
+}: {
+  node: ObserverGraphNode;
+  permission: AgentPendingPermission;
+  label: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const card = toPendingPermission(permission);
+  const openTerminal = useObserverTerminalStore((state) => state.open);
+  const sessionId = node.session?.session_id ?? node.activity?.session_id;
+  if (!canReplyFromPanel(node)) {
+    return (
+      <button
+        type="button"
+        className="nodrag nopan block w-full truncate text-left text-[13px] font-medium leading-5 text-foreground"
+        title={label}
+        onClick={(event) => {
+          event.stopPropagation();
+          if (node.session) openTerminal(node.session);
+        }}
+      >
+        {label}
+      </button>
+    );
+  }
+  const chat =
+    node.chat || node.session?.surface === "chat" || Boolean(sessionId?.startsWith("chat:"));
+  const chatId = chat
+    ? node.session?.surface_id ?? node.activity?.surface_id ?? sessionId?.replace(/^chat:/, "")
+    : undefined;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="nodrag nopan block w-full truncate text-left text-[13px] font-medium leading-5 text-foreground"
+          title={label}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {label}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        side="bottom"
+        className="nodrag nopan nowheel w-[360px] p-2"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <AgentPermissionCard
+          permission={card}
+          markdown={permission.content_markdown ?? null}
+          onRespond={(optionId) => {
+            if (chatId) {
+              void agentChatApi.permissionRespond(chatId, permission.request_id, optionId);
+              setOpen(false);
+              return;
+            }
+            if (!sessionId) return;
+            void agentStatusApi
+              .respondPermission({
+                sessionId,
+                requestId: permission.request_id,
+                optionId,
+              })
+              .then((result) => {
+                if (result.accepted) setOpen(false);
+              });
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function ObserverFlowNode({ data, selected }: NodeProps<Node<ObserverFlowData>>) {
   return (
     <ObserverNodeCard
@@ -328,6 +548,7 @@ function ObserverFlowNode({ data, selected }: NodeProps<Node<ObserverFlowData>>)
       collapsed={data.collapsed}
       presence={data.presence}
       sessionTitle={data.sessionTitle}
+      attentionReason={data.attentionReason}
       onToggle={data.onToggle}
     />
   );

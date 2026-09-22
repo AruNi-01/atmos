@@ -709,6 +709,24 @@ export const agentStatusApi = {
     });
   },
 
+  respondPermission: async (input: {
+    sessionId: string;
+    requestId: string;
+    optionId: string;
+  }): Promise<{ ok: boolean; accepted: boolean }> => {
+    return fetchHooksApi<{ ok: boolean; accepted: boolean }>(
+      "/agent-status/permission-respond",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: input.sessionId,
+          request_id: input.requestId,
+          option_id: input.optionId,
+        }),
+      },
+    );
+  },
+
   listAttentionSummaries: async (): Promise<{
     summaries: AgentAttentionSummaryDto[];
   }> => {

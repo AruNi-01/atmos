@@ -22,6 +22,42 @@ export type AgentStatusClearedNotification = {
 
 export type AgentOccupancy = "idle" | "running" | "permission_request";
 
+export type AgentLiveKind =
+  | "idle"
+  | "thinking"
+  | "streaming"
+  | "working"
+  | "tool"
+  | "permission";
+
+export type AgentPendingQuestion = {
+  id: string;
+  prompt: string;
+  options?: string[];
+};
+
+export type AgentPendingOption = {
+  option_id: string;
+  name: string;
+  kind: string;
+};
+
+export type AgentPendingPlanTodo = {
+  id?: string | null;
+  content: string;
+  status?: string | null;
+};
+
+export type AgentPendingPermission = {
+  request_id: string;
+  tool: string;
+  description: string;
+  content_markdown?: string | null;
+  options?: AgentPendingOption[];
+  questions?: AgentPendingQuestion[];
+  plan_todos?: AgentPendingPlanTodo[];
+};
+
 export type AgentToolLine = {
   name: string;
   detail: string;
@@ -41,6 +77,7 @@ export type AgentChildActivity = {
   child_id: string;
   name?: string | null;
   state: AgentOccupancy;
+  live_kind?: AgentLiveKind;
   current_tool?: AgentToolLine | null;
   recent_tools: AgentToolLine[];
   prompt?: string | null;
@@ -72,6 +109,8 @@ export type AgentActivity = {
   space_id?: string | null;
   provider_id?: string | null;
   last_state: AgentOccupancy;
+  live_kind?: AgentLiveKind;
+  pending_permission?: AgentPendingPermission | null;
   current_tool?: AgentToolLine | null;
   todos: AgentTodoItem[];
   children: AgentChildActivity[];
