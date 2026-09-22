@@ -2,7 +2,9 @@ import type { TerminalWorkspaceCandidate } from "@/api/types";
 import type { MobileTerminalEntry } from "@/stores/terminal-store";
 
 export function createMobileTerminalSessionId(workspaceId: string) {
-  const suffix = Math.random().toString(36).slice(2, 10);
+  const bytes = new Uint8Array(5);
+  globalThis.crypto.getRandomValues(bytes);
+  const suffix = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
   return `${workspaceId}:mobile:${Date.now().toString(36)}:${suffix}`;
 }
 
