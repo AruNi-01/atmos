@@ -9,7 +9,6 @@ import type { ProjectWorkspaceBootstrapResponse } from "@/api/types";
 import { wsActions } from "@/api/ws-actions";
 import { getAutoConnectComputerId } from "@/features/computers/computer-selection";
 import { AuthConnectContent } from "@/features/onboarding/AuthConnectContent";
-import { PreviewModeSwitch } from "@/features/preview/PreviewModeSwitch";
 import { useRelayClient } from "@/hooks/use-relay-client";
 import { requireDeviceCredential } from "@/lib/device-credential";
 import { useMobileWs } from "@/providers/MobileWsProvider";
@@ -194,8 +193,6 @@ export function WorkspaceListScreen() {
           }
           onPress={() => router.push("/workspaces")}
         />
-        <Separator />
-        <PreviewModeSwitch />
       </Section>
 
       <Section label="Recently">

@@ -13,12 +13,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ComputerPicker } from "@/features/computers/ComputerPicker";
-import { PreviewModeSwitch } from "@/features/preview/PreviewModeSwitch";
 import { PairQrScanner } from "@/features/onboarding/PairQrScanner";
 import { useAuthSignIn } from "@/features/onboarding/use-auth-sign-in";
 import { radii } from "@/theme/radii";
 import { spacing } from "@/theme/spacing";
-import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 import { AppScreen, InlineError, Section } from "@/ui/layout/app-screen";
 import { QrCodeIcon } from "@/ui/icons/lucide-native";
@@ -266,22 +264,6 @@ export function AuthConnectContent({
           </Host>
         }
       >
-        <Section>
-          <View className="min-h-row-min-height flex-row items-center gap-2.5 px-row-x py-row-y">
-            <View
-              className="h-2 w-2 rounded-full"
-              style={{ backgroundColor: theme.colors.green }}
-            />
-            <Text className="flex-1 text-label" style={typography.rowTitle}>
-              Signed in
-            </Text>
-          </View>
-        </Section>
-        {!isSheet ? (
-          <Section label="Developer">
-            <PreviewModeSwitch />
-          </Section>
-        ) : null}
         <ComputerPicker
           computers={auth.computersQuery.data ?? []}
           selectedServerId={auth.selectedServerId}
@@ -364,7 +346,6 @@ export function AuthConnectContent({
               >
                 {PRODUCT_SLOGAN}
               </Text>
-              {!isSheet ? <PreviewModeSwitch variant="hero" /> : null}
             </View>
           </Animated.View>
 

@@ -1,10 +1,10 @@
 import { useMobileTheme } from "@/theme/theme-store";
 import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
 import { Button, Host } from "@expo/ui";
-import { Platform, View } from "react-native";
+import { View } from "react-native";
 import type { ComputerRow } from "@/api/types";
 import { EmptyState, Section } from "@/ui/layout/app-screen";
-import { NativeList, NativeListItem } from "@/ui/primitives/native-controls";
+import { Row, Separator } from "@/ui/layout/row";
 import { expoUiButtonHostStyle, expoUiSecondaryStyle } from "@/ui/primitives/expo-ui-button-styles";
 
 const buttonStretchModifiers = expoUiButtonStretchModifiers;
@@ -57,13 +57,12 @@ export function ComputerPicker({
         </View>
       ) : (
         <View>
-          <NativeList>
-            {activeComputers.map((computer) => (
-              <NativeListItem
-                key={computer.server_id}
+          {activeComputers.map((computer, index) => (
+            <View key={computer.server_id}>
+              {index > 0 ? <Separator /> : null}
+              <Row
                 title={computer.display_name ?? computer.server_id}
-                supportingText={computer.online ? "Online" : "Offline"}
-                trailing={
+                subtitle={
                   computer.server_id === selectedServerId
                     ? "Selected"
                     : computer.online
@@ -72,8 +71,8 @@ export function ComputerPicker({
                 }
                 onPress={computer.online ? () => onSelect(computer.server_id) : undefined}
               />
-            ))}
-          </NativeList>
+            </View>
+          ))}
           {onlineComputers.length === 0 ? (
             <View style={{ padding: 16 }}>{refreshButton}</View>
           ) : null}
