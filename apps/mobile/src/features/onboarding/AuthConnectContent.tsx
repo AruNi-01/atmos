@@ -1,4 +1,3 @@
-import { Button, Host } from "@expo/ui";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -18,16 +17,9 @@ import { useAuthSignIn } from "@/features/onboarding/use-auth-sign-in";
 import { radii } from "@/theme/radii";
 import { spacing } from "@/theme/spacing";
 import { useMobileTheme } from "@/theme/theme-store";
-import { AppScreen, InlineError, Section } from "@/ui/layout/app-screen";
+import { AppScreen, InlineError } from "@/ui/layout/app-screen";
 import { QrCodeIcon } from "@/ui/icons/lucide-native";
 import { GithubMark, GoogleMark } from "@/ui/icons/oauth-marks";
-import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
-import {
-  expoUiButtonHostStyle,
-  expoUiSecondaryStyle,
-} from "@/ui/primitives/expo-ui-button-styles";
-
-const buttonStretchModifiers = expoUiButtonStretchModifiers;
 
 const PRODUCT_NAME = "Atmos";
 const PRODUCT_SLOGAN = "Pair this phone with your Computer.";
@@ -230,40 +222,9 @@ export function AuthConnectContent({
     stepsOpacity,
   ]);
 
-  const refreshStyle = expoUiSecondaryStyle(theme.colors, auth.busy);
-
   if (auth.hasDeviceCredential) {
     return (
-      <AppScreen
-        surface={isSheet ? "sheet" : "screen"}
-        footer={
-          <Host
-            matchContents={{ vertical: true }}
-            colorScheme={theme.colorScheme}
-            seedColor={refreshStyle.seedColor}
-            style={expoUiButtonHostStyle}
-          >
-            <Button
-              disabled={auth.busy}
-              label={
-                auth.computersQuery.isFetching ? "Checking..." : "Refresh Computers"
-              }
-              modifiers={buttonStretchModifiers}
-              onPress={
-                auth.busy
-                  ? undefined
-                  : () => {
-                      if (!auth.computersQuery.isFetching) {
-                        void auth.computersQuery.refetch();
-                      }
-                    }
-              }
-              style={refreshStyle.style}
-              variant={refreshStyle.variant}
-            />
-          </Host>
-        }
-      >
+      <AppScreen surface={isSheet ? "sheet" : "screen"}>
         <ComputerPicker
           computers={auth.computersQuery.data ?? []}
           selectedServerId={auth.selectedServerId}

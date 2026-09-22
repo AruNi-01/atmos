@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import type { ComputerRow } from "@/api/types";
 import { radii } from "@/theme/radii";
 import { typography } from "@/theme/typography";
@@ -10,13 +10,70 @@ import { ChevronRightIcon, LaptopIcon, UserIcon } from "@/ui/icons/lucide-native
 type LucideIcon = typeof LaptopIcon;
 
 export function SettingsProfileRow({
-  signedIn,
+  imageUrl,
+  name,
   onPress,
+  signedIn,
 }: {
+  imageUrl?: string | null;
+  name?: string | null;
+  onPress?: () => void;
   signedIn: boolean;
-  onPress: () => void;
 }) {
   const theme = useMobileTheme();
+  const title = signedIn ? name?.trim() || "Account" : "Not signed in";
+
+  const body = (
+    <View
+      style={{
+        alignItems: "center",
+        flexDirection: "row",
+        gap: 12,
+        minHeight: 64,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+      }}
+    >
+      <View
+        style={{
+          alignItems: "center",
+          backgroundColor: theme.colors.cardSubtle,
+          borderRadius: 999,
+          height: 48,
+          justifyContent: "center",
+          overflow: "hidden",
+          width: 48,
+        }}
+      >
+        {signedIn && imageUrl ? (
+          <Image source={{ uri: imageUrl }} style={{ height: 48, width: 48 }} />
+        ) : (
+          <UserIcon color={theme.colors.label} size={22} strokeWidth={2.2} />
+        )}
+      </View>
+      <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+        <Text
+          numberOfLines={1}
+          style={[typography.rowTitle, { color: theme.colors.label }]}
+        >
+          {title}
+        </Text>
+        {signedIn ? null : (
+          <Text
+            numberOfLines={1}
+            style={[typography.rowSubtitle, { color: theme.colors.secondaryLabel }]}
+          >
+            Sign in or pair with Desktop
+          </Text>
+        )}
+      </View>
+      {onPress ? (
+        <ChevronRightIcon color={theme.colors.tertiaryLabel} size={18} strokeWidth={2.6} />
+      ) : null}
+    </View>
+  );
+
+  if (!onPress) return body;
 
   return (
     <Pressable
@@ -26,44 +83,7 @@ export function SettingsProfileRow({
         pressed ? { backgroundColor: theme.colors.mutedPressed } : undefined
       }
     >
-      <View
-        style={{
-          alignItems: "center",
-          flexDirection: "row",
-          gap: 12,
-          minHeight: 64,
-          paddingHorizontal: 16,
-          paddingVertical: 14,
-        }}
-      >
-        <View
-          style={{
-            alignItems: "center",
-            backgroundColor: theme.colors.cardSubtle,
-            borderRadius: 999,
-            height: 48,
-            justifyContent: "center",
-            width: 48,
-          }}
-        >
-          <UserIcon color={theme.colors.label} size={22} strokeWidth={2.2} />
-        </View>
-        <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
-          <Text
-            numberOfLines={1}
-            style={[typography.rowTitle, { color: theme.colors.label }]}
-          >
-            {signedIn ? "This phone" : "Not signed in"}
-          </Text>
-          <Text
-            numberOfLines={1}
-            style={[typography.rowSubtitle, { color: theme.colors.secondaryLabel }]}
-          >
-            {signedIn ? "Hub device linked" : "Sign in or pair with Desktop"}
-          </Text>
-        </View>
-        <ChevronRightIcon color={theme.colors.tertiaryLabel} size={18} strokeWidth={2.6} />
-      </View>
+      {body}
     </Pressable>
   );
 }

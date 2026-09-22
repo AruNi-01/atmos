@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Platform } from "react-native";
 import {
   Host,
   List,
@@ -24,10 +23,8 @@ export function NativeList({
   onRefresh?: () => Promise<void>;
 }) {
   const theme = useMobileTheme();
-  const neutralHostProps = Platform.OS === "android" ? { seedColor: theme.colors.label } : {};
-
   return (
-    <Host colorScheme={theme.colorScheme} matchContents {...neutralHostProps}>
+    <Host colorScheme={theme.colorScheme} matchContents seedColor={theme.colors.label}>
       <List onRefresh={onRefresh}>{children}</List>
     </Host>
   );
@@ -73,10 +70,9 @@ export function NativePicker<T extends string | number>({
   enabled?: boolean;
 }) {
   const theme = useMobileTheme();
-  const neutralHostProps = Platform.OS === "android" ? { seedColor: theme.colors.label } : {};
 
   return (
-    <Host colorScheme={theme.colorScheme} matchContents {...neutralHostProps}>
+    <Host colorScheme={theme.colorScheme} matchContents seedColor={theme.colors.label}>
       <Picker selectedValue={selectedValue} onValueChange={onValueChange} enabled={enabled}>
         {options.map((option) => (
           <Picker.Item key={String(option.value)} label={option.label} value={option.value} />
@@ -98,10 +94,9 @@ export function NativeSwitch({
   value: boolean;
 }) {
   const theme = useMobileTheme();
-  const neutralHostProps = Platform.OS === "android" ? { seedColor: theme.colors.label } : {};
 
   return (
-    <Host colorScheme={theme.colorScheme} matchContents {...neutralHostProps}>
+    <Host colorScheme={theme.colorScheme} matchContents seedColor={theme.colors.label}>
       <Switch disabled={disabled} label={label} onValueChange={onValueChange} value={value} />
     </Host>
   );

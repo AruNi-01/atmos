@@ -8,6 +8,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { createAtmosQueryClient } from "@/providers/query-client";
 import { MobileWsProvider } from "@/providers/MobileWsProvider";
 import { acceptDeviceCredential, hasDeviceCredential } from "@/lib/device-credential";
+import { renewHubSession } from "@/lib/renew-hub-session";
 import {
   isDevDeviceImportEnabled,
   loadDevDeviceImport,
@@ -40,6 +41,7 @@ export function AppProviders({ children }: PropsWithChildren) {
       if (hasDeviceCredential()) {
         setRelaySecretKey((await getStoredRelaySecretKey()) ?? "");
         if (!cancelled) setDeviceCredentialLoaded(true);
+        void renewHubSession();
         return;
       }
 

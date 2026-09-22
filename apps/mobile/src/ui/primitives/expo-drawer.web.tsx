@@ -185,6 +185,7 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
+    justifyContent: "flex-start",
     paddingHorizontal: 16,
     paddingTop: 20,
   },

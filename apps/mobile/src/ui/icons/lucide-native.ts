@@ -5,12 +5,19 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Clock,
+  Clock3,
   Download,
+  Flag,
+  Folder,
+  FolderKanban,
+  Folders,
   Keyboard,
   KeyRound,
   Laptop,
   LayoutGrid,
   Link2,
+  ListFilter,
   LogOut,
   Pencil,
   Plus,
@@ -22,6 +29,9 @@ import {
   Settings,
   SquareTerminal,
   SunMoon,
+  Tag,
+  Tags,
+  Timer,
   Trash2,
   User,
   X,
@@ -34,7 +44,17 @@ export const CheckCircleIcon = CheckCircle2;
 export const ChevronDownIcon = ChevronDown;
 export const ChevronRightIcon = ChevronRight;
 export const LayoutGridIcon = LayoutGrid;
+export const ClockIcon = Clock;
+export const Clock3Icon = Clock3;
 export const DownloadIcon = Download;
+export const FlagIcon = Flag;
+export const FolderIcon = Folder;
+export const FolderKanbanIcon = FolderKanban;
+export const FoldersIcon = Folders;
+export const ListFilterIcon = ListFilter;
+export const TagIcon = Tag;
+export const TagsIcon = Tags;
+export const TimerIcon = Timer;
 export const KeyboardIcon = Keyboard;
 export const KeyIcon = KeyRound;
 export const KeyRoundIcon = KeyRound;

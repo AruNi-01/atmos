@@ -9,6 +9,38 @@ import { expoUiButtonHostStyle, expoUiSecondaryStyle } from "@/ui/primitives/exp
 
 const buttonStretchModifiers = expoUiButtonStretchModifiers;
 
+export function ComputerList({
+  computers,
+  onPress,
+  onlyOnline = false,
+  selectedServerId,
+}: {
+  computers: ComputerRow[];
+  onPress?: (computer: ComputerRow) => void;
+  onlyOnline?: boolean;
+  selectedServerId: string | null;
+}) {
+  return (
+    <View>
+      {computers.map((computer, index) => {
+        const selected = computer.server_id === selectedServerId;
+        const press =
+          onPress && (!onlyOnline || computer.online) ? () => onPress(computer) : undefined;
+        return (
+          <View key={computer.server_id}>
+            {index > 0 ? <Separator /> : null}
+            <Row
+              onPress={press}
+              subtitle={selected ? "Selected" : computer.online ? "Online" : "Offline"}
+              title={computer.display_name ?? computer.server_id}
+            />
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 export function ComputerPicker({
   computers,
   selectedServerId,
@@ -51,28 +83,18 @@ export function ComputerPicker({
           <EmptyState
             layout="section"
             title="No Computers"
-            message="Register a server, then refresh."
+            message="No Computers yet."
           />
           <View style={{ padding: 16, paddingTop: 0 }}>{refreshButton}</View>
         </View>
       ) : (
         <View>
-          {activeComputers.map((computer, index) => (
-            <View key={computer.server_id}>
-              {index > 0 ? <Separator /> : null}
-              <Row
-                title={computer.display_name ?? computer.server_id}
-                subtitle={
-                  computer.server_id === selectedServerId
-                    ? "Selected"
-                    : computer.online
-                      ? "Online"
-                      : "Offline"
-                }
-                onPress={computer.online ? () => onSelect(computer.server_id) : undefined}
-              />
-            </View>
-          ))}
+          <ComputerList
+            computers={activeComputers}
+            onlyOnline
+            onPress={(computer) => onSelect(computer.server_id)}
+            selectedServerId={selectedServerId}
+          />
           {onlineComputers.length === 0 ? (
             <View style={{ padding: 16 }}>{refreshButton}</View>
           ) : null}

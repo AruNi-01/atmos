@@ -77,7 +77,6 @@ export function useAuthSignIn({ onAuthenticated }: UseAuthSignInOptions = {}) {
       hasDeviceCredential,
     ],
     enabled: hasDeviceCredential,
-    refetchInterval: 5000,
     queryFn: async () => {
       const token = requireDeviceCredential();
       const computers = await client.withDeviceCredential(token).listComputers();

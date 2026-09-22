@@ -14,6 +14,7 @@ import {
 } from "@atmos/hub-client";
 import { isPlausibleDeviceCredential } from "@atmos/relay-client";
 import { ensureMobileHubConfigured, flushDeviceCredentialStore } from "@/lib/hub-config";
+import { useHubProfileStore } from "@/stores/hub-profile-store";
 
 export { isPlausibleDeviceCredential };
 
@@ -55,8 +56,10 @@ export async function acceptDeviceCredential(payload: {
   if (!me?.user_id) {
     clearStoredDeviceCredential();
     await flushDeviceCredentialStore();
+    useHubProfileStore.getState().clear();
     throw new Error("Hub rejected this device credential. Sign in again.");
   }
+  useHubProfileStore.getState().setProfile(me);
   return me;
 }
 
@@ -75,4 +78,5 @@ export async function signOutThisPhone(): Promise<void> {
   }
   clearStoredDeviceCredential();
   await flushDeviceCredentialStore();
+  useHubProfileStore.getState().clear();
 }

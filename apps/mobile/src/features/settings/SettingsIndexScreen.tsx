@@ -4,14 +4,12 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import type { ComputerRow } from "@/api/types";
 import { PreviewModeSwitch } from "@/features/preview/PreviewModeSwitch";
+import { useHubProfile } from "@/features/settings/use-hub-profile";
 import { useMobileSettingsController } from "@/features/settings/use-mobile-settings-controller";
 import {
-  FieldBlock,
   SettingsIconWell,
   SettingsListRow,
   SettingsProfileRow,
-  ComputerListRow,
-  ComputerStatusIndicator,
   shortRelayHost,
 } from "@/features/settings/settings-shared";
 import { radii } from "@/theme/radii";
@@ -24,13 +22,10 @@ import {
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { Row, Separator } from "@/ui/layout/row";
 import {
-  ChevronRightIcon,
   LaptopIcon,
   LinkIcon,
-  LogOutIcon,
-  PlusCircleIcon,
+  QrCodeIcon,
   SunMoonIcon,
-  UserIcon,
 } from "@/ui/icons/lucide-native";
 import { NativeSegmentedControl, NativeTextInput } from "@/ui/primitives/native-controls";
 import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
@@ -46,44 +41,31 @@ export function SettingsIndexScreen() {
   const router = useRouter();
   const theme = useMobileTheme();
   const settings = useMobileSettingsController();
+  const profile = useHubProfile(settings.hasDeviceCredential);
   const onlineCount = settings.activeComputers.filter((c) => c.online).length;
   const computersMeta =
     settings.activeComputers.length === 0
       ? "None"
       : `${settings.activeComputers.length}${onlineCount > 0 ? ` · ${onlineCount} online` : ""}`;
 
+  const openSignIn = () => {
+    router.dismissTo("/");
+    router.push("/sign-in");
+  };
+
   return (
     <AppScreen surface="sheet">
       <Section>
         <SettingsProfileRow
+          imageUrl={profile.data?.image}
+          name={profile.data?.name}
+          onPress={
+            settings.hasDeviceCredential
+              ? () => router.push("/settings/account")
+              : openSignIn
+          }
           signedIn={settings.hasDeviceCredential}
-          onPress={() => router.push("/sign-in")}
         />
-      </Section>
-
-      <Section label="Account">
-        <SettingsListRow
-          Icon={UserIcon}
-          title={settings.hasDeviceCredential ? "Re-pair phone" : "Sign in / Pair"}
-          onPress={() => router.push("/sign-in")}
-        />
-        {settings.hasDeviceCredential ? (
-          <>
-            <Separator />
-            <SettingsListRow
-              Icon={LogOutIcon}
-              title={
-                settings.signOutPhone.isPending ? "Signing out..." : "Sign out phone"
-              }
-              destructive
-              onPress={
-                settings.signOutPhone.isPending
-                  ? undefined
-                  : settings.confirmSignOutPhone
-              }
-            />
-          </>
-        ) : null}
       </Section>
 
       <Section label="Computer">
@@ -102,9 +84,9 @@ export function SettingsIndexScreen() {
         />
         <Separator />
         <SettingsListRow
-          Icon={PlusCircleIcon}
-          title="Register Computer"
-          onPress={() => router.push("/settings/register")}
+          Icon={QrCodeIcon}
+          title="Re-pair phone"
+          onPress={openSignIn}
         />
       </Section>
 

@@ -4,15 +4,13 @@ import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Stack, type NativeStackHeaderItem, useRouter } from "expo-router";
 import type { SFSymbol } from "sf-symbols-typescript";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ComputerRow } from "@/api/types";
+import { ComputerList } from "@/features/computers/ComputerPicker";
 import { useRelayClient } from "@/hooks/use-relay-client";
 import { requireDeviceCredential } from "@/lib/device-credential";
 import { useComputerStore } from "@/stores/computer-store";
 import { useSessionStore } from "@/stores/session-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
-import { Separator } from "@/ui/layout/row";
 import { RefreshIcon } from "@/ui/icons/lucide-native";
-import { colors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
 
 const buttonStretchModifiers = expoUiButtonStretchModifiers;
@@ -105,19 +103,14 @@ export function ComputerConnectScreen() {
           </Section>
         ) : (
           <Section label={`${activeComputers.length} Computers`}>
-            <View>
-              {activeComputers.map((computer, index) => (
-                <View key={computer.server_id}>
-                  <ComputerRowItem
-                    computer={computer}
-                    isConnecting={connect.isPending}
-                    isSelected={computer.server_id === selectedServerId}
-                    onPress={() => connect.mutate(computer.server_id)}
-                  />
-                  {index < activeComputers.length - 1 ? <Separator /> : null}
-                </View>
-              ))}
-            </View>
+            <ComputerList
+              computers={activeComputers}
+              onlyOnline
+              onPress={(computer) => {
+                if (!connect.isPending) connect.mutate(computer.server_id);
+              }}
+              selectedServerId={selectedServerId}
+            />
           </Section>
         )}
         <InlineError message={error} />
@@ -202,60 +195,6 @@ function sfSymbol(name: SFSymbol) {
   return { name, type: "sfSymbol" as const };
 }
 
-function ComputerRowItem({
-  computer,
-  isConnecting,
-  isSelected,
-  onPress,
-}: {
-  computer: ComputerRow;
-  isConnecting?: boolean;
-  isSelected: boolean;
-  onPress: () => void;
-}) {
-  const theme = useMobileTheme();
-  const disabled = !computer.online || isConnecting;
-
-  return (
-    <Pressable
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.computerRow,
-        disabled && styles.computerRowDisabled,
-        pressed ? { backgroundColor: theme.colors.mutedPressed } : null,
-      ]}
-    >
-      <View style={styles.computerText}>
-        <Text style={[styles.computerTitle, { color: theme.colors.label }]} numberOfLines={1}>
-          {computer.display_name ?? computer.server_id}
-        </Text>
-        <Text style={[styles.computerMeta, { color: theme.colors.secondaryLabel }]} numberOfLines={1}>
-          {computer.server_id}
-        </Text>
-      </View>
-      <View
-        style={[
-          styles.computerStatus,
-          {
-            borderColor: computer.online ? theme.colors.label : theme.colors.separatorStrong,
-            backgroundColor: computer.online ? theme.colors.label : "transparent",
-          },
-        ]}
-      >
-        <Text
-          style={[
-            styles.computerStatusText,
-            { color: computer.online ? theme.colors.labelInverse : theme.colors.secondaryLabel },
-          ]}
-        >
-          {isSelected ? "Selected" : computer.online ? "Online" : "Offline"}
-        </Text>
-      </View>
-    </Pressable>
-  );
-}
-
 function closeRoute(router: ReturnType<typeof useRouter>) {
   if (router.canGoBack()) {
     router.back();
@@ -275,43 +214,6 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     width: "100%",
-  },
-  computerMeta: {
-    color: colors.secondaryLabel,
-    fontSize: 12,
-    fontWeight: "500",
-    marginTop: 2,
-  },
-  computerRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 12,
-    minHeight: 66,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  computerRowDisabled: {
-    opacity: 0.46,
-  },
-  computerStatus: {
-    borderColor: colors.separatorStrong,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  computerStatusText: {
-    color: colors.secondaryLabel,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  computerText: {
-    flex: 1,
-  },
-  computerTitle: {
-    color: colors.label,
-    fontSize: 16,
-    fontWeight: "600",
   },
   emptyBlock: {
     gap: 12,
