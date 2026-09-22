@@ -19,6 +19,7 @@ import { useWorkspaceHomeStore } from "@/stores/workspace-home-store";
 import { useMobileTheme } from "@/theme/theme-store";
 import { typography } from "@/theme/typography";
 import {
+  BotIcon,
   ChevronRightIcon,
   Clock3Icon,
   FlagIcon,
@@ -58,6 +59,7 @@ function FilterKindMark({ color, kind }: { color: string; kind: WorkspaceFilterK
 function GroupingMark({ color, value }: { color: string; value: WorkspaceGrouping }) {
   if (value === "status") return <StatusBacklogIcon color={color} size={18} />;
   const Icon = {
+    agent: BotIcon,
     group: FoldersIcon,
     label: TagsIcon,
     priority: FlagIcon,

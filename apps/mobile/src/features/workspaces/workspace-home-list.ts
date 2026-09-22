@@ -4,6 +4,7 @@ export const WORKSPACE_GROUPING_OPTIONS = [
   { value: "project", label: "By Project" },
   { value: "group", label: "By Group" },
   { value: "status", label: "By Status" },
+  { value: "agent", label: "By Agent Status" },
   { value: "time", label: "By Time" },
   { value: "label", label: "By Label" },
   { value: "priority", label: "By Priority" },
@@ -195,6 +196,10 @@ export function groupWorkspaceEntries({
       add(group?.guid ?? UNGROUPED, group?.name ?? "Ungrouped", entry);
     } else if (grouping === "status") {
       add(workspace.workflow_status || "none", statusLabel(workspace.workflow_status || "No status"), entry);
+    } else if (grouping === "agent") {
+      // TODO(APP-078): bucket by live agent status once the list has occupancy.
+      // Until then every workspace stays in Idle.
+      add("idle", "Idle", entry);
     } else if (grouping === "time") {
       const key = timeKey(workspace.last_visited_at || workspace.created_at, now);
       add(key, timeLabel(key), entry);
