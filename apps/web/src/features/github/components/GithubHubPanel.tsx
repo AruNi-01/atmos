@@ -11,10 +11,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  TabsSubtle,
-  TabsSubtleItem,
   Workflow,
 } from "@workspace/ui";
+import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/motion/tabs";
 import { FolderOpen } from "lucide-react";
 import { createPrDialogParams } from "@/shared/lib/nuqs/searchParams";
 import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
@@ -64,30 +63,31 @@ export function GithubHubPanel({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 flex-col gap-2 px-2 pb-2 pt-2">
-        <TabsSubtle
-          activeLabel
-          idPrefix="center-github-hub"
-          selectedIndex={githubSubTab === "pr" ? 0 : githubSubTab === "issues" ? 1 : 2}
-          onSelect={(index) =>
-            setGithubSubTab(index === 0 ? "pr" : index === 1 ? "issues" : "actions")
-          }
+        <Tabs
+          className="min-w-0 max-w-full"
+          value={githubSubTab}
+          variant="pill"
+          onValueChange={(value) => {
+            if (value === "pr" || value === "issues" || value === "actions") {
+              setGithubSubTab(value);
+            }
+          }}
         >
-          <TabsSubtleItem
-            index={0}
-            icon={GitPullRequest}
-            label={t("github.topTabs.pullRequests")}
-          />
-          <TabsSubtleItem
-            index={1}
-            icon={CircleDot}
-            label={t("github.topTabs.issues")}
-          />
-          <TabsSubtleItem
-            index={2}
-            icon={Workflow}
-            label={t("github.topTabs.actions")}
-          />
-        </TabsSubtle>
+          <TabsList className="h-8 max-w-full gap-0.5 overflow-x-auto p-0.5 scrollbar-hide">
+            <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="pr">
+              <GitPullRequest className="size-3.5 shrink-0" />
+              {t("github.topTabs.pullRequests")}
+            </TabsTrigger>
+            <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="issues">
+              <CircleDot className="size-3.5 shrink-0" />
+              {t("github.topTabs.issues")}
+            </TabsTrigger>
+            <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="actions">
+              <Workflow className="size-3.5 shrink-0" />
+              {t("github.topTabs.actions")}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
         {githubSubTab === "actions" ? (
           <div className="mx-1 h-px bg-border" role="separator" aria-hidden />
         ) : null}

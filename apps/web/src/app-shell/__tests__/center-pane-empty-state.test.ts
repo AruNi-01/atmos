@@ -186,7 +186,6 @@ describe("empty pane launcher layout", () => {
       "changes",
       "review",
       "run",
-      "github",
       "pt-design",
       "simulator",
     ]);
@@ -233,6 +232,7 @@ describe("empty pane launcher layout", () => {
       onCreateToolTab: noop,
       onCreateSimulator: noop,
     }).map((action) => action.id);
-    expect(shown).toEqual(expect.arrayContaining(["changes", "review", "github"]));
+    expect(shown).toEqual(expect.arrayContaining(["changes", "review"]));
+    expect(shown).not.toContain("github");
   });
 });

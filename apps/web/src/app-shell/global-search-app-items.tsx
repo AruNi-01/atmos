@@ -52,6 +52,7 @@ import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
 import {
   CHANGES_TAB_VALUE,
   FILES_TAB_VALUE,
+  GITHUB_HUB_CENTER_TAB_VISIBLE,
   GITHUB_HUB_TAB_VALUE,
   REVIEW_TAB_VALUE,
   RUN_TAB_VALUE,
@@ -552,15 +553,19 @@ export function buildGlobalSearchItems({
         icon: <Play className="size-4 text-muted-foreground" />,
         action: () => openCenterTab(RUN_TAB_VALUE),
       },
-      {
-        id: "surface-github",
-        type: "surface",
-        title: globalSearchItemsT("surfaces.github.title"),
-        description: globalSearchItemsT("surfaces.github.description"),
-        keywords: ["github", "pull request", "issue", "pr", "tab"],
-        icon: <Github className="size-4 text-muted-foreground" />,
-        action: () => openCenterTab(GITHUB_HUB_TAB_VALUE),
-      },
+      ...(GITHUB_HUB_CENTER_TAB_VISIBLE
+        ? [
+            {
+              id: "surface-github",
+              type: "surface" as const,
+              title: globalSearchItemsT("surfaces.github.title"),
+              description: globalSearchItemsT("surfaces.github.description"),
+              keywords: ["github", "pull request", "issue", "pr", "tab"],
+              icon: <Github className="size-4 text-muted-foreground" />,
+              action: () => openCenterTab(GITHUB_HUB_TAB_VALUE),
+            },
+          ]
+        : []),
       {
         id: "surface-files",
         type: "surface",

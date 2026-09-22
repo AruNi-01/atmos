@@ -202,6 +202,8 @@ import { GIT_HISTORY_TAB_VALUE } from "@/features/git/types";
 import { useGitHistoryCenterTabStore } from "@/features/git/store/use-git-history-center-tab";
 import {
   CENTER_TOOL_TAB_VALUES,
+  GITHUB_HUB_CENTER_TAB_VISIBLE,
+  GITHUB_HUB_TAB_VALUE,
   isCenterToolTabValue,
   useToolCenterTabsStore,
   type CenterToolTabValue,
@@ -833,6 +835,7 @@ const CenterStage: React.FC = () => {
     effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.run,
   );
   const githubHubTabVisible =
+    GITHUB_HUB_CENTER_TAB_VISIBLE &&
     !hideStandaloneGitChrome &&
     Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.github);
   const filesTabVisible = Boolean(
@@ -1244,6 +1247,7 @@ const CenterStage: React.FC = () => {
     if (effectiveContextId) {
       const visible = toolTabsVisibleByContext[effectiveContextId];
       for (const tab of CENTER_TOOL_TAB_VALUES) {
+        if (tab === GITHUB_HUB_TAB_VALUE && !GITHUB_HUB_CENTER_TAB_VISIBLE) continue;
         if (visible?.[tab]) ids.push(tab);
       }
     }

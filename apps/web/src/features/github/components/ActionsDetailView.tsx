@@ -3,12 +3,11 @@ import { useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import {
   Skeleton,
-  TabsSubtle,
-  TabsSubtleItem,
   drawerCloseReserveClass,
   ScrollArea,
   useDrawerCloseReserve,
 } from "@workspace/ui";
+import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/motion/tabs";
 import { GithubUserAvatar } from "@/features/github/components/GithubUserHoverCard";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import {
@@ -329,26 +328,26 @@ export function ActionsDetailView({
   );
 
   const runTabs = (
-    <TabsSubtle
-      activeLabel
-      idPrefix={`actions-run-${effectiveRun.databaseId}`}
-      selectedIndex={activeTab === "summary" ? 0 : 1}
-      onSelect={(index) => {
-        setActiveTab(index === 1 ? "workflow" : "summary");
+    <Tabs
+      className="min-w-0 max-w-full"
+      value={activeTab}
+      variant="pill"
+      onValueChange={(value) => {
+        setActiveTab(value === "workflow" ? "workflow" : "summary");
         resetContext();
       }}
     >
-      <TabsSubtleItem
-        icon={ChartNoAxesCombined}
-        index={0}
-        label={t("tabs.summary")}
-      />
-      <TabsSubtleItem
-        icon={FileCode2}
-        index={1}
-        label={t("tabs.workflow")}
-      />
-    </TabsSubtle>
+      <TabsList className="h-8 max-w-full gap-0.5 overflow-x-auto p-0.5 scrollbar-hide">
+        <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="summary">
+          <ChartNoAxesCombined className="size-3.5 shrink-0" />
+          {t("tabs.summary")}
+        </TabsTrigger>
+        <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="workflow">
+          <FileCode2 className="size-3.5 shrink-0" />
+          {t("tabs.workflow")}
+        </TabsTrigger>
+      </TabsList>
+    </Tabs>
   );
 
   return (
