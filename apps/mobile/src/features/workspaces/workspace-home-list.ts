@@ -4,7 +4,6 @@ export const WORKSPACE_GROUPING_OPTIONS = [
   { value: "project", label: "By Project" },
   { value: "group", label: "By Group" },
   { value: "status", label: "By Status" },
-  { value: "agent", label: "By Agent Status" },
   { value: "time", label: "By Time" },
   { value: "label", label: "By Label" },
   { value: "priority", label: "By Priority" },
@@ -100,14 +99,18 @@ function timeLabel(key: string) {
 }
 
 function groupIdForWorkspace(groups: GroupModel[], projectId: string, workspaceId: string) {
-  const match = groups.find((group) =>
+  const workspaceGroup = groups.find((group) =>
     group.members.some(
-      (member) =>
-        (member.member_type === "workspace" && member.member_guid === workspaceId) ||
-        (member.member_type === "project" && member.member_guid === projectId),
+      (member) => member.member_type === "workspace" && member.member_guid === workspaceId,
     ),
   );
-  return match?.guid ?? null;
+  if (workspaceGroup) return workspaceGroup.guid;
+  const projectGroup = groups.find((group) =>
+    group.members.some(
+      (member) => member.member_type === "project" && member.member_guid === projectId,
+    ),
+  );
+  return projectGroup?.guid ?? null;
 }
 
 export function visibleWorkspaceEntries({
@@ -192,8 +195,6 @@ export function groupWorkspaceEntries({
       add(group?.guid ?? UNGROUPED, group?.name ?? "Ungrouped", entry);
     } else if (grouping === "status") {
       add(workspace.workflow_status || "none", statusLabel(workspace.workflow_status || "No status"), entry);
-    } else if (grouping === "agent") {
-      add("idle", "Idle", entry);
     } else if (grouping === "time") {
       const key = timeKey(workspace.last_visited_at || workspace.created_at, now);
       add(key, timeLabel(key), entry);

@@ -1,6 +1,6 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
-import type { ProjectModel, WorkspaceModel } from "@/api/types";
+import type { GroupModel, ProjectModel, WorkspaceModel } from "@/api/types";
 import {
   EMPTY_WORKSPACE_HOME_FILTERS,
   filterChoices,
@@ -98,6 +98,39 @@ describe("workspace home list", () => {
       workspacesByProject: { p1: many },
     });
     expect(recent.map((entry) => entry.id)).toEqual(["w6", "w5", "w4", "w3", "w2"]);
+  });
+
+  test("places a workspace in its own group ahead of the parent project group", () => {
+    const groups: GroupModel[] = [
+      {
+        guid: "project-group",
+        members: [{ guid: "m1", member_guid: "p1", member_type: "project", sort_order: 0 }],
+        name: "Project group",
+        sidebar_order: 0,
+      },
+      {
+        guid: "workspace-group",
+        members: [{ guid: "m2", member_guid: "w1", member_type: "workspace", sort_order: 0 }],
+        name: "Workspace group",
+        sidebar_order: 1,
+      },
+    ];
+    const entries = visibleWorkspaceEntries({
+      filters: { ...EMPTY_WORKSPACE_HOME_FILTERS, groupIds: ["workspace-group"] },
+      groups,
+      projects,
+      workspacesByProject,
+    });
+    expect(entries.map((entry) => entry.id)).toEqual(["w1"]);
+
+    const sections = groupWorkspaceEntries({
+      entries,
+      grouping: "group",
+      groups,
+      projects,
+      workspacesByProject,
+    });
+    expect(sections.map((section) => section.title)).toEqual(["Workspace group"]);
   });
 
   test("summarizes the selected filter labels", () => {

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { Pressable } from "react-native";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import type { SFSymbol } from "sf-symbols-typescript";
@@ -14,6 +15,7 @@ import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useComputerStore } from "@/stores/computer-store";
 import { useSessionStore } from "@/stores/session-store";
 import { useMobileTheme } from "@/theme/theme-store";
+import { ListFilterIcon, SettingsIcon } from "@/ui/icons/lucide-native";
 import { AppScreen, InlineError } from "@/ui/layout/app-screen";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
 
@@ -137,7 +139,29 @@ export function WorkspaceListScreen() {
                     ]
                   : [],
             }
-          : {}),
+          : {
+              headerLeft: () => (
+                <Pressable
+                  accessibilityLabel="Settings"
+                  accessibilityRole="button"
+                  hitSlop={12}
+                  onPress={() => router.push("/settings")}
+                >
+                  <SettingsIcon color={theme.colors.label} size={22} strokeWidth={2.2} />
+                </Pressable>
+              ),
+              headerRight: () =>
+                isHomeConnected ? (
+                  <Pressable
+                    accessibilityLabel="Filter"
+                    accessibilityRole="button"
+                    hitSlop={12}
+                    onPress={() => router.push("/workspace-filters")}
+                  >
+                    <ListFilterIcon color={theme.colors.label} size={22} strokeWidth={2.2} />
+                  </Pressable>
+                ) : null,
+            }),
       }}
     />
   );
