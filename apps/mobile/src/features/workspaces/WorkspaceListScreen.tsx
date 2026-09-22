@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Pressable } from "react-native";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Stack, useRouter } from "expo-router";
+import { Stack, useRouter, type NativeStackHeaderItem } from "expo-router";
 import type { SFSymbol } from "sf-symbols-typescript";
 import type { ProjectWorkspaceBootstrapResponse } from "@/api/types";
 import { wsActions } from "@/api/ws-actions";
@@ -18,6 +18,42 @@ import { useMobileTheme } from "@/theme/theme-store";
 import { ListFilterIcon, SettingsIcon } from "@/ui/icons/lucide-native";
 import { AppScreen, InlineError } from "@/ui/layout/app-screen";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
+
+function workspaceHeaderRightItems({
+  onFilter,
+  onSettings,
+  showFilter,
+  tintColor,
+}: {
+  onFilter: () => void;
+  onSettings: () => void;
+  showFilter: boolean;
+  tintColor: string;
+}): NativeStackHeaderItem[] {
+  const settings: NativeStackHeaderItem = {
+    accessibilityLabel: "Settings",
+    icon: { type: "sfSymbol", name: "gearshape" satisfies SFSymbol },
+    label: "",
+    onPress: onSettings,
+    sharesBackground: true,
+    tintColor,
+    type: "button",
+    variant: "plain",
+  };
+  if (!showFilter) return [settings];
+  const filter: NativeStackHeaderItem = {
+    accessibilityLabel: "Filter",
+    icon: { type: "sfSymbol", name: "line.3.horizontal.decrease" satisfies SFSymbol },
+    label: "",
+    onPress: onFilter,
+    sharesBackground: true,
+    tintColor,
+    type: "button",
+    variant: "plain",
+  };
+  // First item is the trailing edge on iOS.
+  return [settings, filter];
+}
 
 const EMPTY_BOOTSTRAP: ProjectWorkspaceBootstrapResponse = {
   projects: [],
@@ -104,40 +140,17 @@ export function WorkspaceListScreen() {
     <Stack.Screen
       options={{
         ...nativeLargeTitleOptions("Workspace", theme.colors),
-        // Drop the custom header so these use the same navigation-bar buttons as Back.
-        header: undefined,
         headerShadowVisible: false,
         headerTintColor: theme.colors.label,
         ...(process.env.EXPO_OS === "ios"
           ? {
-              unstable_headerLeftItems: () => [
-                {
-                  type: "button" as const,
-                  label: "",
-                  accessibilityLabel: "Settings",
-                  icon: { type: "sfSymbol" as const, name: "gearshape" as SFSymbol },
-                  onPress: () => router.push("/settings"),
-                  sharesBackground: false,
-                  tintColor: theme.colors.label,
-                },
-              ],
               unstable_headerRightItems: () =>
-                isHomeConnected
-                  ? [
-                      {
-                        type: "button" as const,
-                        label: "",
-                        accessibilityLabel: "Filter",
-                        icon: {
-                          type: "sfSymbol" as const,
-                          name: "line.3.horizontal.decrease" as SFSymbol,
-                        },
-                        onPress: () => router.push("/workspace-filters"),
-                        sharesBackground: false,
-                        tintColor: theme.colors.label,
-                      },
-                    ]
-                  : [],
+                workspaceHeaderRightItems({
+                  onFilter: () => router.push("/workspace-filters"),
+                  onSettings: () => router.push("/settings"),
+                  showFilter: isHomeConnected,
+                  tintColor: theme.colors.label,
+                }),
             }
           : {
               headerLeft: () => (

@@ -69,6 +69,15 @@ export function mergeTerminalCandidateEntries(
   return sortTerminalEntries([...serverEntries, ...localEntries]);
 }
 
+/** Select a flattened terminal entry once, and only when that candidate id is loaded. */
+export function matchingTerminalEntryId(
+  entries: ReadonlyArray<{ id: string }>,
+  requestedId: string | null | undefined,
+): string | null {
+  if (!requestedId) return null;
+  return entries.some((entry) => entry.id === requestedId) ? requestedId : null;
+}
+
 export function nextActiveTerminalEntryId(
   entries: MobileTerminalEntry[],
   currentActiveId: string | null | undefined,

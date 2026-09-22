@@ -25,6 +25,11 @@ import {
   WORKSPACE_PRIORITY_OPTIONS,
   WORKSPACE_PRIORITY_SORT_WEIGHT,
 } from "./workspace-metadata-controls";
+import {
+  SIDEBAR_TIME_GROUP_KEYS,
+  sidebarTimeGroupKey,
+  type SidebarTimeGroupKey,
+} from "./sidebar-time";
 
 export type FlattenedWorkspaceEntry = {
   kind?: "workspace";
@@ -61,7 +66,7 @@ export function getSidebarEntryKey(entry: FlattenedSidebarEntry): string {
   return isFlattenedProjectEntry(entry) ? `project:${entry.projectId}` : entry.workspace.id;
 }
 
-type WorkspaceTimeGroupKey = "today" | "yesterday" | "last_7_days" | "last_30_days" | "older";
+type WorkspaceTimeGroupKey = SidebarTimeGroupKey;
 
 export const UNTAGGED_WORKSPACE_GROUP_KEY = "__untagged__";
 export { NO_STATUS_WORKSPACE_GROUP_KEY };
@@ -149,24 +154,13 @@ export function getProjectRecencySource(project: Project): string | undefined {
   );
 }
 
-function startOfDay(input: Date): Date {
-  return new Date(input.getFullYear(), input.getMonth(), input.getDate());
-}
-
 function getTimeGroupLabel(key: WorkspaceTimeGroupKey): string {
   return workspaceGroupingT(key);
 }
 
 function getTimeGroup(source: Date, now: Date): { key: WorkspaceTimeGroupKey; label: string } {
-  const today = startOfDay(now).getTime();
-  const sourceDay = startOfDay(source).getTime();
-  const diffDays = Math.floor((today - sourceDay) / 86400000);
-
-  if (diffDays <= 0) return { key: "today", label: getTimeGroupLabel("today") };
-  if (diffDays === 1) return { key: "yesterday", label: getTimeGroupLabel("yesterday") };
-  if (diffDays < 7) return { key: "last_7_days", label: getTimeGroupLabel("last_7_days") };
-  if (diffDays < 30) return { key: "last_30_days", label: getTimeGroupLabel("last_30_days") };
-  return { key: "older", label: getTimeGroupLabel("older") };
+  const key = sidebarTimeGroupKey(source, now);
+  return { key, label: getTimeGroupLabel(key) };
 }
 
 export function getWorkspaceTimeGroupLabel(workspace: Workspace, now = new Date()): string {
@@ -467,13 +461,7 @@ export function groupWorkspaces(
     }
   }
 
-  return [
-    "today",
-    "yesterday",
-    "last_7_days",
-    "last_30_days",
-    "older",
-  ]
+  return SIDEBAR_TIME_GROUP_KEYS
     .map((key) => grouped.get(key))
     .filter((group): group is WorkspaceGroup => !!group);
 }

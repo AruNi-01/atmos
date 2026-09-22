@@ -372,11 +372,11 @@ export function LeftSidebarDragOverlay({
   );
 }
 
-function WorkspaceGroupMarker({
+export function WorkspaceGroupMarker({
   group,
   groupingMode,
 }: {
-  group: WorkspaceGroup;
+  group: Pick<WorkspaceGroup, "key" | "label" | "color">;
   groupingMode: SidebarGroupingMode;
 }) {
   const statusMeta = groupingMode === "status"

@@ -1399,6 +1399,15 @@
         "low": "Low",
         "trigger": "Priority"
       },
+      "view": {
+        "sectionLabel": "View",
+        "workspace": "Workspace",
+        "session": "Session",
+        "empty": "No sessions",
+        "noMatches": "No matching sessions",
+        "archive": "Archive",
+        "unknownProject": "Unknown project"
+      },
       "grouping": {
         "project": "By Project",
         "group": "By Group",

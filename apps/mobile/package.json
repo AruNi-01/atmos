@@ -10,6 +10,7 @@
     "@atmos/shared": "workspace:*",
     "@expo/ui": "~56.0.25",
     "@hookform/resolvers": "^5.4.0",
+    "@rbayuokt/expo-adaptive-glass": "^0.1.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@tailwindcss/postcss": "^4.3.0",
     "@tanstack/react-query": "^5.101.0",

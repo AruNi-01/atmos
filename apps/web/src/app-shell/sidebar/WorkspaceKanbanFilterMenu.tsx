@@ -35,11 +35,14 @@ import {
   WORKSPACE_PRIORITY_OPTIONS,
 } from "@/app-shell/sidebar/workspace-metadata-controls";
 import {
+  Bot,
   Check,
+  FolderKanban,
   Folders,
   ListFilter,
   Timer,
 } from "lucide-react";
+import type { SidebarListView } from "@/app-shell/sidebar/sidebar-list-view";
 import { resolveBoardColor, resolveWorkspaceGroupId } from "@/app-shell/sidebar/kanban-columns";
 import { findGroupIdForMember, UNGROUPED_USER_GROUP_KEY } from "@/app-shell/sidebar/user-groups";
 import {
@@ -177,8 +180,21 @@ type WorkspaceKanbanFilterMenuProps = {
   showGrouping?: boolean;
   groupingMode?: SidebarGroupingMode;
   onGroupingModeChange?: (mode: SidebarGroupingMode) => void;
+  /** Sidebar list only. Kanban must leave this unset. */
+  showView?: boolean;
+  listView?: SidebarListView;
+  onListViewChange?: (view: SidebarListView) => void;
   triggerClassName?: string;
 };
+
+const SIDEBAR_VIEW_OPTIONS: Array<{
+  value: SidebarListView;
+  labelKey: "view.workspace" | "view.session";
+  icon: React.ComponentType<{ className?: string }>;
+}> = [
+  { value: "workspace", labelKey: "view.workspace", icon: FolderKanban },
+  { value: "session", labelKey: "view.session", icon: Bot },
+];
 
 /** Icons aligned with SIDEBAR_GROUPING_OPTIONS for Group By + Filter. */
 const GROUPING_ICON_BY_MODE = Object.fromEntries(
@@ -198,6 +214,9 @@ export function WorkspaceKanbanFilterMenu({
   showGrouping = false,
   groupingMode = "project",
   onGroupingModeChange,
+  showView = false,
+  listView = "workspace",
+  onListViewChange,
   triggerClassName,
 }: WorkspaceKanbanFilterMenuProps) {
   const t = useTranslations("appShell.task");
@@ -321,6 +340,28 @@ export function WorkspaceKanbanFilterMenu({
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} side={side} className="w-64 p-1">
+        {showView && onListViewChange ? (
+          <>
+            <DropdownMenuLabel className="px-2 py-1 text-xs font-medium text-muted-foreground">
+              {t("view.sectionLabel")}
+            </DropdownMenuLabel>
+            {SIDEBAR_VIEW_OPTIONS.map((option) => (
+              <DropdownMenuItem
+                key={option.value}
+                onSelect={(event) => {
+                  event.preventDefault();
+                  onListViewChange(option.value);
+                }}
+                className="cursor-pointer"
+              >
+                <option.icon className="size-4 text-muted-foreground" />
+                <span>{t(option.labelKey)}</span>
+                {listView === option.value ? <Check className="ml-auto size-4" /> : null}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator className="mx-2" />
+          </>
+        ) : null}
         {showGrouping && onGroupingModeChange ? (
           <>
             <DropdownMenuLabel className="px-2 py-1 text-xs font-medium text-muted-foreground">

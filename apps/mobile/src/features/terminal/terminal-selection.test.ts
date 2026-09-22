@@ -4,6 +4,7 @@ import type { MobileTerminalEntry } from "@/stores/terminal-store";
 import type { TerminalWorkspaceCandidate } from "@/api/types";
 import {
   createDefaultTerminalEntry,
+  matchingTerminalEntryId,
   mergeTerminalCandidateEntries,
   nextActiveTerminalEntryId,
   resolveActiveTerminalEntry,
@@ -37,6 +38,13 @@ describe("terminal selection", () => {
 
   test("selects the only terminal automatically", () => {
     expect(nextActiveTerminalEntryId([entry("only")], null)).toBe("only");
+  });
+
+  test("selects a requested terminal only after that entry exists", () => {
+    expect(matchingTerminalEntryId([entry("one"), entry("two")], "two")).toBe("two");
+    expect(matchingTerminalEntryId([entry("one")], "missing")).toBeNull();
+    expect(matchingTerminalEntryId([entry("one")], null)).toBeNull();
+    expect(matchingTerminalEntryId([], "one")).toBeNull();
   });
 
   test("selects the first terminal when multiple terminals are available", () => {

@@ -1,4 +1,5 @@
 import "@/global.css";
+import { GlassProvider } from "@rbayuokt/expo-adaptive-glass";
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type Theme } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -21,6 +22,10 @@ function navigationTheme(isDark: boolean, background: string, text: string, bord
   };
 }
 
+export const unstable_settings = {
+  initialRouteName: "(home)",
+};
+
 export default function RootLayout() {
   const theme = useMobileTheme();
   const isIos = process.env.EXPO_OS === "ios";
@@ -40,6 +45,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <AppProviders>
         <ThemeProvider value={navigation}>
+        <GlassProvider>
         <Stack
           screenOptions={{
             headerShadowVisible: false,
@@ -47,7 +53,7 @@ export default function RootLayout() {
             contentStyle: screenContentStyle,
           }}
         >
-          <Stack.Screen name="index" />
+          <Stack.Screen name="(home)" />
           <Stack.Screen
             name="settings"
             options={{
@@ -147,6 +153,7 @@ export default function RootLayout() {
           />
           <Stack.Screen name="+not-found" />
         </Stack>
+        </GlassProvider>
         <StatusBar style={theme.statusBarStyle} />
         </ThemeProvider>
       </AppProviders>

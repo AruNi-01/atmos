@@ -74,8 +74,17 @@ import {
   EMPTY_WORKSPACE_KANBAN_FILTERS,
   parseWorkspaceKanbanCardProperties,
   parseWorkspaceSidebarFilters,
+  parseWorkspaceSidebarView,
   serializeWorkspaceSidebarFilters,
+  type SidebarListView,
 } from '@/app-shell/left-sidebar-settings';
+import { SessionSidebarList } from '@/app-shell/sidebar/SessionSidebarList';
+import {
+  buildSidebarSessionRows,
+  filterSidebarSessions,
+  groupSidebarSessions,
+} from '@/app-shell/sidebar/session-grouping';
+import { useSidebarAgentSessions } from '@/app-shell/sidebar/use-sidebar-agent-sessions';
 import { isWorkspaceSetupBlocking } from '@/features/workspace/lib/workspace-setup';
 import {
   getWorkspaceCreateOriginKey,
@@ -175,6 +184,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const workspaceLabels = useWorkspaceLabels();
     const groups = useGroups();
     const groupsT = useTranslations('appShell.groups');
+    const taskT = useTranslations('appShell.task');
     const bootstrapQuery = useProjectBootstrapQuery();
     const {
         activeInstanceId,
@@ -251,6 +261,13 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const seenProjectIdsRef = useRef<Set<string>>(new Set());
     const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>({});
     const [groupingMode, setGroupingMode] = useState<SidebarGroupingMode>('project');
+    const [sidebarListView, setSidebarListView] = useState<SidebarListView>('workspace');
+    const {
+        snapshots: agentSessionSnapshots,
+        chatTitles: agentSessionChatTitles,
+        loaded: agentSessionsLoaded,
+        archiveSession: archiveAgentSession,
+    } = useSidebarAgentSessions(sidebarListView === 'session');
     const [labelGroupOrder, setLabelGroupOrder] = useState<string[]>([]);
     const [loadedGroupingSettingsScopeKey, setLoadedGroupingSettingsScopeKey] = useState<string | null>(null);
     const isGroupingSettingsReady =
@@ -279,6 +296,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const [secondColumnKanbanCardProperties, setSecondColumnKanbanCardProperties] = useState<KanbanCardProperties>(DEFAULT_KANBAN_CARD_PROPERTIES);
 
     const persistedGroupingModeRef = useRef<SidebarGroupingMode>('project');
+    const persistedSidebarViewRef = useRef<SidebarListView>('workspace');
     const persistedPinnedSectionCollapsedRef = useRef(false);
     const persistedLabelGroupOrderRef = useRef<string[]>([]);
     const labelGroupOrderWriteRef = useRef<Promise<void>>(Promise.resolve());
@@ -359,6 +377,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         labelGroupOrderWriteVersionRef.current += 1;
         labelGroupOrderWriteRef.current = Promise.resolve();
         persistedGroupingModeRef.current = 'project';
+        persistedSidebarViewRef.current = 'workspace';
         persistedPinnedSectionCollapsedRef.current = false;
         persistedLabelGroupOrderRef.current = [];
         let retryTimer: number | null = null;
@@ -374,6 +393,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     const nextGroupingMode = parseSidebarGroupingMode(groupingModeSetting);
                     persistedGroupingModeRef.current = nextGroupingMode;
                     setGroupingMode(nextGroupingMode);
+                    const nextSidebarView = parseWorkspaceSidebarView(settings);
+                    persistedSidebarViewRef.current = nextSidebarView;
+                    setSidebarListView(nextSidebarView);
 
                     const savedLabelGroupOrder = settings.workspace_sidebar?.label_group_order;
                     const nextLabelGroupOrder = Array.isArray(savedLabelGroupOrder)
@@ -414,6 +436,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         queueMicrotask(() => {
             if (settingsScopeVersionRef.current !== scopeVersion) return;
             setGroupingMode('project');
+            setSidebarListView('workspace');
             setLabelGroupOrder([]);
             setIsPinnedSectionCollapsed(false);
             persistedSidebarFiltersRef.current = JSON.stringify(
@@ -440,6 +463,13 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         persistedGroupingModeRef.current = groupingMode;
         persistWorkspaceSidebarSetting('grouping_mode', groupingMode);
     }, [groupingMode, isGroupingSettingsReady, persistWorkspaceSidebarSetting]);
+
+    useEffect(() => {
+        if (!isGroupingSettingsReady) return;
+        if (persistedSidebarViewRef.current === sidebarListView) return;
+        persistedSidebarViewRef.current = sidebarListView;
+        persistWorkspaceSidebarSetting('view', sidebarListView);
+    }, [isGroupingSettingsReady, persistWorkspaceSidebarSetting, sidebarListView]);
 
     useEffect(() => {
         if (!isGroupingSettingsReady) return;
@@ -1301,6 +1331,40 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         workspaceLabels,
     });
 
+    const sessionCatalog = React.useMemo(() => {
+        if (sidebarListView !== 'session') {
+            return { groups: [], total: 0 };
+        }
+        const built = buildSidebarSessionRows({
+            snapshots: agentSessionSnapshots,
+            projects,
+            chatTitles: agentSessionChatTitles,
+        });
+        const filtered = filterSidebarSessions(built, sidebarWorkspaceFilters, groups);
+        return {
+            total: built.length,
+            groups: groupSidebarSessions(filtered, groupingMode, {
+                groups,
+                availableLabels: workspaceLabels,
+                labelGroupOrder: effectiveLabelGroupOrder,
+                ungroupedLabel: groupsT('ungrouped'),
+                unknownProjectLabel: taskT('view.unknownProject'),
+            }),
+        };
+    }, [
+        agentSessionChatTitles,
+        agentSessionSnapshots,
+        effectiveLabelGroupOrder,
+        groupingMode,
+        groups,
+        groupsT,
+        projects,
+        sidebarListView,
+        sidebarWorkspaceFilters,
+        taskT,
+        workspaceLabels,
+    ]);
+
     const pinnedWorkspaceSection = shouldShowGlobalPinnedSection ? (
         <LeftSidebarPinnedSection
             availableLabels={workspaceLabels}
@@ -1554,8 +1618,22 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         />
     ) : null;
 
+    const sessionSidebar = sidebarListView === 'session';
+    const sidebarTwoColumnLayout = isTwoColumnSidebar && !sessionSidebar;
+
     const projectTabContent = isInitialProjectsLoading ? (
         <ProjectsSidebarLoading />
+    ) : sessionSidebar ? (
+        <SessionSidebarList
+            catalogCount={sessionCatalog.total}
+            collapsedWorkspaceGroups={collapsedWorkspaceGroups}
+            groupingMode={groupingMode}
+            groups={sessionCatalog.groups}
+            projects={projects}
+            onArchiveSession={archiveAgentSession}
+            sessionsLoaded={agentSessionsLoaded}
+            toggleWorkspaceGroup={toggleWorkspaceGroup}
+        />
     ) : isTwoColumnSidebar
         ? twoColumnSidebarContent
         : groupingMode === 'project'
@@ -1622,13 +1700,13 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     <div
                         className={cn(
                             "flex min-h-0 flex-1 flex-col overflow-hidden",
-                            isTwoColumnSidebar ? "pt-0 pb-0" : "pt-1.5 pb-3",
+                            sidebarTwoColumnLayout ? "pt-0 pb-0" : "pt-1.5 pb-3",
                         )}
-                        {...(isTwoColumnSidebar
+                        {...(sidebarTwoColumnLayout
                             ? {}
                             : { "data-sidebar-shortcut-scope": "list" })}
                     >
-                        {!isTwoColumnSidebar ? pinnedWorkspaceSection : null}
+                        {!sidebarTwoColumnLayout && !sessionSidebar ? pinnedWorkspaceSection : null}
                         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                             {projectTabContent}
                         </div>
@@ -1641,8 +1719,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     groups={groups}
                     projects={projects}
                     onAddProject={handleAddProject}
+                    listView={sidebarListView}
                     onFiltersChange={setSidebarWorkspaceFilters}
                     onGroupingModeChange={setGroupingMode}
+                    onListViewChange={setSidebarListView}
                 />
             </aside >
             <WorkspaceInfoHoverHost />

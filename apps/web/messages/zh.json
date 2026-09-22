@@ -1399,6 +1399,15 @@
         "low": "低",
         "trigger": "优先级"
       },
+      "view": {
+        "sectionLabel": "视图",
+        "workspace": "工作区",
+        "session": "会话",
+        "empty": "没有会话",
+        "noMatches": "没有匹配的会话",
+        "archive": "归档",
+        "unknownProject": "未知项目"
+      },
       "grouping": {
         "project": "按项目",
         "group": "按分组",

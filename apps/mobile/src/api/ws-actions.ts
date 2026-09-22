@@ -151,6 +151,23 @@ export const wsActions = {
   ) {
     return client.request("terminal_workspace_candidates", payload);
   },
+  agentSessionStatusList(client: MobileWsClient) {
+    return client.request("agent_session_status_list");
+  },
+  agentSessionArchive(client: MobileWsClient, sessionId: string) {
+    return client.request("agent_session_archive", { session_id: sessionId });
+  },
+  githubPrList(
+    client: MobileWsClient,
+    payload: {
+      owner: string;
+      repo: string;
+      branch: string;
+      state?: string | null;
+    },
+  ) {
+    return client.request("github_pr_list", payload);
+  },
 };
 
 export function isWorkspaceSetupProgressNotification(

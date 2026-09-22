@@ -554,7 +554,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let token_usage_service = Arc::new(TokenUsageService::default());
     token_usage::import_legacy_cookie_consents();
     let terminal_service = Arc::new(TerminalService::new_with_db(Arc::clone(&db)));
-    let agent_status_service = Arc::new(AgentStatusService::new());
+    let agent_status_service = Arc::new(AgentStatusService::with_db(Arc::clone(&db)));
     let agent_hooks_service = Arc::new(AgentHooksService::new(Arc::clone(&agent_status_service)));
     let notification_service = Arc::new(NotificationService::new());
     let automation_service = Arc::new(AutomationService::new(
@@ -585,6 +585,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&pt_design_agent_relay),
         Arc::clone(&notification_service),
         Arc::clone(&token_usage_service),
+        Arc::clone(&agent_status_service),
         Arc::clone(&db),
     ));
 

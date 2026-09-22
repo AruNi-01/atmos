@@ -185,7 +185,9 @@ impl AgentStatusService {
         if !cleared_summaries.is_empty() {
             self.broadcast_summary_cleared(cleared_summaries);
         }
+        let pane_id = latch.stable_pane_id.clone();
         self.broadcast_attention_raised(latch);
+        self.sync_inbox_catalog(&pane_id);
     }
 
     /// Clear sticky attention for a focused/acknowledged pane (and session aliases).
