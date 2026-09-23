@@ -8,5 +8,5 @@ declare global {
 
 /** Hand-drawn families (Excalifont / Virgil) load from this prefix. Component labels use local Helvetica. */
 if (typeof window !== "undefined" && !window.EXCALIDRAW_ASSET_PATH) {
-  window.EXCALIDRAW_ASSET_PATH = "https://unpkg.com/@excalidraw/excalidraw@0.18.1/dist/prod/";
+  window.EXCALIDRAW_ASSET_PATH = "https://unpkg.com/@excalidraw/excalidraw@0.18.0-c0ad61c/dist/prod/";
 }
