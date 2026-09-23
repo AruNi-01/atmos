@@ -1,0 +1,22 @@
+apps/web/src/features/agent/components/AgentChatHistorySidebarFrame.tsx
+  h_5be255725524c8 55,66-67,78-79,84
+apps/web/src/features/agent/components/AgentChatPanel.tsx
+  h_5be255725524c8 11,70-74,131-141,181,748-749,770-799,955,993-1004,1006,1011,1044-1045,1048,1103-1104,1126,1128
+apps/web/src/features/agent/components/__tests__/agent-chat-history-sidebar.test.ts
+  h_5be255725524c8 4-7,27-48
+apps/web/src/features/agent/hooks/use-agent-chat-history-sidebar-layout.ts
+  h_5be255725524c8 15-48,72-79,81-83
+apps/web/src/features/agent/lib/__tests__/agent-chat-transcript-window.test.ts
+  h_5be255725524c8 126
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f9239c19197a140cb8fc80f30f90034f1b94fbcd",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
