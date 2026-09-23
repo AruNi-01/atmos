@@ -5,6 +5,8 @@ import {
 } from "@rbayuokt/expo-adaptive-glass/navigation";
 import { Tabs } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useMobileWs } from "@/providers/MobileWsProvider";
+import { useSessionStore } from "@/stores/session-store";
 import { useMobileTheme } from "@/theme/theme-store";
 import { LayoutGridIcon, MessagesSquareIcon } from "@/ui/icons/lucide-native";
 
@@ -82,6 +84,9 @@ function glassTabBarProps(
 export default function HomeTabsLayout() {
   const insets = useSafeAreaInsets();
   const theme = useMobileTheme();
+  const hasDeviceCredential = useSessionStore((state) => state.hasDeviceCredential);
+  const { state: wsState } = useMobileWs();
+  const showTabs = hasDeviceCredential && wsState === "open";
 
   return (
     <Tabs
@@ -90,16 +95,18 @@ export default function HomeTabsLayout() {
         headerShown: false,
         sceneStyle: {
           backgroundColor: theme.colors.background,
-          paddingBottom: insets.bottom + GLASS_TAB_BAR_BODY,
+          paddingBottom: showTabs ? insets.bottom + GLASS_TAB_BAR_BODY : 0,
         },
         tabBarActiveTintColor: theme.colors.label,
         tabBarInactiveTintColor: theme.colors.secondaryLabel,
       }}
-      tabBar={(props) => (
-        <GlassNavigationTabBar
-          {...glassTabBarProps(props, theme.colors.label, theme.colors.secondaryLabel)}
-        />
-      )}
+      tabBar={(props) =>
+        showTabs ? (
+          <GlassNavigationTabBar
+            {...glassTabBarProps(props, theme.colors.label, theme.colors.secondaryLabel)}
+          />
+        ) : null
+      }
     >
       <Tabs.Screen
         name="(workspace)"

@@ -1,3 +1,4 @@
+import { isTmuxIndexTitle } from "@atmos/shared/terminal";
 import { createTranslator } from "next-intl";
 import type { AgentSessionStatusSnapshot } from "@atmos/api-types/ws/dto/agent-status";
 import type {
@@ -174,6 +175,7 @@ export function sessionRowTitle(
     "session_id" | "surface" | "surface_id" | "tool"
   >,
   chatTitles: Readonly<Record<string, string>> = {},
+  terminalTitles: Readonly<Record<string, string>> = {},
 ): string {
   if (snapshot.surface === "chat") {
     const chatId = sessionChatId(snapshot);
@@ -183,7 +185,11 @@ export function sessionRowTitle(
     if (tool) return tool;
     return snapshot.session_id;
   }
-  return terminalSessionTitle(snapshot.session_id);
+  const live = terminalTitles[snapshot.session_id]?.trim() ?? "";
+  if (live && !isTmuxIndexTitle(live)) return live;
+  const windowName = terminalSessionTitle(snapshot.session_id);
+  if (windowName && !isTmuxIndexTitle(windowName)) return windowName;
+  return "Terminal";
 }
 
 export function formatSessionRowSubtitle(parts: {
@@ -220,6 +226,8 @@ export function buildSidebarSessionRows(input: {
   snapshots: readonly AgentSessionStatusSnapshot[];
   projects: readonly Project[];
   chatTitles?: Readonly<Record<string, string>>;
+  /** Center-tab titles keyed by agent session id. Tmux indexes are ignored. */
+  terminalTitles?: Readonly<Record<string, string>>;
 }): SidebarSessionRow[] {
   const { workspaceById, projectById } = indexProjects(input.projects);
   const rows: SidebarSessionRow[] = [];
@@ -239,7 +247,7 @@ export function buildSidebarSessionRows(input: {
       tool: snapshot.tool,
       groupKey: snapshot.group_key,
       updatedAt: snapshot.updated_at,
-      title: sessionRowTitle(snapshot, input.chatTitles),
+      title: sessionRowTitle(snapshot, input.chatTitles, input.terminalTitles),
       projectId: project?.id ?? workspace?.projectId ?? null,
       projectName: project?.name?.trim() || null,
       projectPath: project?.mainFilePath ?? snapshot.project_path,

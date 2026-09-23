@@ -1,7 +1,7 @@
-import type { ReactNode } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { LayoutGridIcon, PlusIcon } from "@/ui/icons/lucide-native";
-import { radii } from "@/theme/radii";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { GlassTabBar } from "@rbayuokt/expo-adaptive-glass";
+import { TerminalTabActions } from "@/features/terminal/TerminalTabActions";
 import { spacing } from "@/theme/spacing";
 import { useMobileTheme } from "@/theme/theme-store";
 
@@ -9,6 +9,13 @@ export type TerminalTabItem = {
   id: string;
   label: string;
 };
+
+const TAB_BAR_HEIGHT = 40;
+/** The held lens grows past the bar. Keep that bleed inside the track so it is not clipped. */
+const LENS_BLEED = 10;
+const TRACK_HEIGHT = TAB_BAR_HEIGHT + LENS_BLEED * 2;
+/** Slots narrower than this crush names like "claude". Extra tabs scroll. */
+const MIN_TAB_SLOT = 84;
 
 export function TerminalTabsBar({
   activeEntryId,
@@ -26,105 +33,113 @@ export function TerminalTabsBar({
   onSelect: (entryId: string) => void;
 }) {
   const theme = useMobileTheme();
+  const scrollRef = useRef<ScrollView>(null);
+  const didScrollToSelection = useRef(false);
+  const [trackWidth, setTrackWidth] = useState(0);
+  const selectedIndex = entries.findIndex((entry) => entry.id === activeEntryId);
+  const contentWidth = entries.length * MIN_TAB_SLOT;
+  const scrolls = trackWidth > 0 && contentWidth > trackWidth;
+  const barWidth = trackWidth > 0 ? (scrolls ? contentWidth : Math.min(trackWidth, contentWidth)) : 0;
 
-  return (
-    <View style={[styles.root, { borderBottomColor: theme.colors.glassBorder }]}>
-      {leading}
-      <ScrollView
-        contentContainerStyle={styles.tabs}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.scroller}
+  useEffect(() => {
+    if (!scrolls || selectedIndex < 0) return;
+    const x = Math.max(0, selectedIndex * MIN_TAB_SLOT - (trackWidth - MIN_TAB_SLOT) / 2);
+    const animated = didScrollToSelection.current;
+    didScrollToSelection.current = true;
+    const frame = requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ animated, x });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [scrolls, selectedIndex, trackWidth]);
+
+  const tabs =
+    entries.length > 0 && barWidth > 0 ? (
+      <GlassTabBar
+        onSelect={(index) => {
+          const entry = entries[index];
+          if (entry) onSelect(entry.id);
+        }}
+        // Past the last child, the native lens stays unplaced instead of lighting tab 0.
+        selectedIndex={selectedIndex >= 0 ? selectedIndex : entries.length}
+        style={{ alignSelf: "flex-start", height: TAB_BAR_HEIGHT, width: barWidth }}
+        // Terminal chrome sits on #09090b even when the app theme is light.
+        tint="dark"
       >
         {entries.map((entry) => {
           const selected = entry.id === activeEntryId;
           return (
-            <Pressable
-              accessibilityRole="tab"
-              accessibilityState={{ selected }}
+            <Text
               key={entry.id}
-              onPress={() => onSelect(entry.id)}
+              numberOfLines={1}
               style={[
-                styles.tab,
-                {
-                  backgroundColor: selected ? theme.colors.terminalKeycap : "transparent",
-                },
+                styles.tabLabel,
+                { color: selected ? theme.colors.terminalFg : theme.colors.terminalMuted },
               ]}
             >
-              <Text
-                numberOfLines={1}
-                style={[
-                  styles.tabLabel,
-                  { color: selected ? theme.colors.terminalFg : theme.colors.terminalMuted },
-                ]}
-              >
-                {entry.label}
-              </Text>
-            </Pressable>
+              {entry.label}
+            </Text>
           );
         })}
-      </ScrollView>
-      <Pressable
-        accessibilityLabel="New terminal"
-        accessibilityRole="button"
-        hitSlop={8}
-        onPress={onCreate}
-        style={styles.iconButton}
+      </GlassTabBar>
+    ) : null;
+
+  return (
+    <View style={styles.root}>
+      {leading}
+      <View
+        collapsable={false}
+        onLayout={(event) => {
+          const next = Math.round(event.nativeEvent.layout.width);
+          setTrackWidth((current) => (current === next ? current : next));
+        }}
+        style={styles.track}
       >
-        <PlusIcon color={theme.colors.terminalFg} size={18} strokeWidth={2.4} />
-      </Pressable>
-      <Pressable
-        accessibilityLabel="Terminal list"
-        accessibilityRole="button"
-        hitSlop={8}
-        onPress={onOpenGroup}
-        style={styles.iconButton}
-      >
-        <LayoutGridIcon color={theme.colors.terminalFg} size={18} strokeWidth={2.4} />
-      </Pressable>
+        {tabs && scrolls ? (
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            horizontal
+            ref={scrollRef}
+            showsHorizontalScrollIndicator={false}
+            style={styles.scroller}
+          >
+            {tabs}
+          </ScrollView>
+        ) : (
+          tabs
+        )}
+      </View>
+      <TerminalTabActions onCreate={onCreate} onOpenGroup={onOpenGroup} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  iconButton: {
-    alignItems: "center",
-    height: 36,
-    justifyContent: "center",
-    width: 36,
-  },
   root: {
     alignItems: "center",
-    borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
-    gap: 6,
-    minHeight: spacing.terminalHeaderMinHeight,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    gap: spacing.terminalChromeX,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  scrollContent: {
+    alignItems: "center",
+    height: TRACK_HEIGHT,
   },
   scroller: {
-    flex: 1,
-    minWidth: 0,
-    overflow: "scroll",
-  },
-  tab: {
-    borderCurve: "continuous",
-    borderRadius: radii.terminalKeycap,
-    flexShrink: 0,
-    justifyContent: "center",
-    maxWidth: 160,
-    minHeight: 32,
-    paddingHorizontal: 8,
+    height: TRACK_HEIGHT,
+    width: "100%",
   },
   tabLabel: {
     fontSize: 13,
     fontWeight: "600",
     lineHeight: 18,
+    textAlign: "center",
+    width: "100%",
   },
-  tabs: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 4,
-    paddingRight: 12,
+  track: {
+    flex: 1,
+    height: TRACK_HEIGHT,
+    justifyContent: "center",
+    minWidth: 0,
   },
 });

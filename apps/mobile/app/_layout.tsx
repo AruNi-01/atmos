@@ -53,7 +53,7 @@ export default function RootLayout() {
             contentStyle: screenContentStyle,
           }}
         >
-          <Stack.Screen name="(home)" />
+          <Stack.Screen name="(home)" options={{ headerShown: false }} />
           <Stack.Screen
             name="settings"
             options={{

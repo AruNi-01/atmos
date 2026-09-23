@@ -84,7 +84,13 @@ import {
   filterSidebarSessions,
   groupSidebarSessions,
 } from '@/app-shell/sidebar/session-grouping';
+import { sessionLiveGroupKey } from '@/app-shell/sidebar/session-live-group';
 import { useSidebarAgentSessions } from '@/app-shell/sidebar/use-sidebar-agent-sessions';
+import { useAgentStatusStore } from '@/features/agent/store/agent-status-store';
+import { useWorkspaceAgentGroupingHoldStore } from '@/features/agent/store/workspace-agent-grouping-hold';
+import { sessionTerminalTitleMap } from '@/app-shell/sidebar/session-terminal-title';
+import { terminalSessionIsCurrentAgent } from '@/features/agent/lib/agent-status-pane-title';
+import { useTerminalStore } from '@/features/terminal/store/use-terminal-store';
 import { isWorkspaceSetupBlocking } from '@/features/workspace/lib/workspace-setup';
 import {
   getWorkspaceCreateOriginKey,
@@ -1331,14 +1337,54 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         workspaceLabels,
     });
 
+    const workspacePanes = useTerminalStore((state) => state.workspacePanes);
+    const projectWikiPanes = useTerminalStore((state) => state.projectWikiPanes);
+    const codeReviewPanes = useTerminalStore((state) => state.codeReviewPanes);
+    const sessionTerminalTitles = React.useMemo(
+        () => sessionTerminalTitleMap(
+            agentSessionSnapshots
+                .filter((snapshot) => snapshot.surface === "terminal")
+                .map((snapshot) => snapshot.session_id),
+            { workspacePanes, projectWikiPanes, codeReviewPanes },
+        ),
+        [agentSessionSnapshots, codeReviewPanes, projectWikiPanes, workspacePanes],
+    );
+
+    const liveAgentSessions = useAgentStatusStore((state) => state.sessions);
+    const agentStatusHydrated = useAgentStatusStore((state) => state.statusHydrated);
+    const attentionRevision = useAgentAttentionStore((state) => state.revision);
+    const groupingHoldRevision = useWorkspaceAgentGroupingHoldStore((state) => state.revision);
+
     const sessionCatalog = React.useMemo(() => {
         if (sidebarListView !== 'session') {
             return { groups: [], total: 0 };
         }
+        const attentionPanes = useAgentAttentionStore.getState().panes;
+        const groupingHold = useWorkspaceAgentGroupingHoldStore.getState();
+        const paneState = { workspacePanes, projectWikiPanes, codeReviewPanes };
+        const snapshots = agentSessionSnapshots
+            .filter((snapshot) =>
+                snapshot.surface !== "terminal" ||
+                terminalSessionIsCurrentAgent(snapshot.session_id, paneState),
+            )
+            .map((snapshot) => ({
+            ...snapshot,
+            group_key: sessionLiveGroupKey(
+                snapshot.session_id,
+                snapshot.group_key,
+                liveAgentSessions,
+                attentionPanes,
+                agentStatusHydrated,
+                snapshot.context_id
+                    ? groupingHold.isHoldActive(snapshot.context_id)
+                    : false,
+            ),
+        }));
         const built = buildSidebarSessionRows({
-            snapshots: agentSessionSnapshots,
+            snapshots,
             projects,
             chatTitles: agentSessionChatTitles,
+            terminalTitles: sessionTerminalTitles,
         });
         const filtered = filterSidebarSessions(built, sidebarWorkspaceFilters, groups);
         return {
@@ -1354,15 +1400,23 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     }, [
         agentSessionChatTitles,
         agentSessionSnapshots,
+        agentStatusHydrated,
+        attentionRevision,
         effectiveLabelGroupOrder,
+        groupingHoldRevision,
+        liveAgentSessions,
         groupingMode,
         groups,
         groupsT,
+        codeReviewPanes,
         projects,
+        projectWikiPanes,
+        sessionTerminalTitles,
         sidebarListView,
         sidebarWorkspaceFilters,
         taskT,
         workspaceLabels,
+        workspacePanes,
     ]);
 
     const pinnedWorkspaceSection = shouldShowGlobalPinnedSection ? (
@@ -1719,9 +1773,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     groups={groups}
                     projects={projects}
                     onAddProject={handleAddProject}
-                    listView={sidebarListView}
                     onFiltersChange={setSidebarWorkspaceFilters}
                     onGroupingModeChange={setGroupingMode}
+                    listView={sidebarListView}
                     onListViewChange={setSidebarListView}
                 />
             </aside >

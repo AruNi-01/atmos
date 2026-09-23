@@ -221,6 +221,11 @@ async function prepareChatCenterTab(
   return { paintContextId: tab.contextId, tabValue: tab.value };
 }
 
+/** Flash the blue pane ring only when the tab has more than one terminal. */
+export function shouldFlashTerminalLocate(paneCount: number): boolean {
+  return paneCount > 1;
+}
+
 export function navigateToAgentStatusSession(
   session: AgentStatusRecord,
   router: NavigateToLocatedPaneRouter,
@@ -304,6 +309,9 @@ export function navigateToAgentStatusSession(
     if (!path) return;
 
     if (hit && pane?.sessionId && !target.sideChatId) {
+      const paneCount = Object.keys(
+        state.getPanes(paintContextId, hit.terminalTabId),
+      ).length;
       await navigateToLocatedPane(
         {
           hostId: contextId,
@@ -314,7 +322,7 @@ export function navigateToAgentStatusSession(
           sessionId: pane.sessionId,
           ...(target.tmuxWindowName ? { tmuxWindowName: target.tmuxWindowName } : {}),
         },
-        { routeKind, router },
+        { routeKind, router, locate: shouldFlashTerminalLocate(paneCount) },
       );
       return;
     }

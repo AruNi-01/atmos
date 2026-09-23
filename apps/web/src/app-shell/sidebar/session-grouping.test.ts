@@ -117,6 +117,22 @@ describe("sidebar session view", () => {
     expect(rows.some((row) => row.sessionId.includes("gone"))).toBe(false);
   });
 
+  test("terminal titles use the tab title, not a tmux index", () => {
+    const rows = buildSidebarSessionRows({
+      projects: [project([workspace()])],
+      terminalTitles: {
+        "workspace-1:1": "npm run dev",
+        "workspace-1:2": "1",
+      },
+      snapshots: [
+        snapshot({ session_id: "workspace-1:1", surface: "terminal", group_key: "running" }),
+        snapshot({ session_id: "workspace-1:2", surface: "terminal", group_key: "done" }),
+        snapshot({ session_id: "workspace-1:3", surface: "terminal", group_key: "done" }),
+      ],
+    });
+    expect(rows.map((row) => row.title)).toEqual(["npm run dev", "Terminal", "Terminal"]);
+  });
+
   test("agent group-by uses each session bucket", () => {
     const ws = workspace();
     const rows = buildSidebarSessionRows({
@@ -170,18 +186,20 @@ describe("sidebar session view", () => {
     })).toBe("");
   });
 
-  test("kanban filter menu is not given the sidebar view switch", () => {
-    const kanban = readFileSync(join(import.meta.dir, "WorkspaceKanbanView.tsx"), "utf8");
-    const tasks = readFileSync(
-      join(import.meta.dir, "../../features/task/components/TaskManagementView.tsx"),
-      "utf8",
-    );
+  test("sidebar view tabs live in the filter menu", () => {
+    const tabs = readFileSync(join(import.meta.dir, "SidebarListViewTabs.tsx"), "utf8");
+    const menu = readFileSync(join(import.meta.dir, "WorkspaceKanbanFilterMenu.tsx"), "utf8");
     const footer = readFileSync(
       join(import.meta.dir, "../left-sidebar-tab-footer-controls.tsx"),
       "utf8",
     );
-    expect(kanban).not.toContain("showView");
-    expect(tasks).not.toContain("showView");
+    const sidebar = readFileSync(join(import.meta.dir, "../LeftSidebar.tsx"), "utf8");
+    expect(tabs).toContain("@workspace/ui/components/motion/tabs");
+    expect(tabs).toContain('variant="pill"');
+    expect(tabs).toContain("bg-muted");
+    expect(menu).toContain("SidebarListViewTabs");
+    expect(menu).toContain('t("view.sectionLabel")');
     expect(footer).toContain("showView");
+    expect(sidebar).not.toContain("SidebarListViewTabs");
   });
 });

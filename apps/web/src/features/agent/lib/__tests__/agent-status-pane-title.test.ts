@@ -3,6 +3,7 @@ import type { TerminalPaneProps } from "@/features/terminal/types/index";
 import {
   findTerminalPaneByStableAgentPaneId,
   paneTitleIndicatesAgentExited,
+  terminalSessionIsCurrentAgent,
   uniquePaneTitleForAgentStatus,
 } from "../agent-status-pane-title";
 
@@ -64,6 +65,67 @@ describe("paneTitleIndicatesAgentExited", () => {
           dynamicTitle: "/Users/me/own_space/OpenSource/atmos",
         }),
       ),
+    ).toBe(true);
+  });
+});
+
+describe("terminalSessionIsCurrentAgent", () => {
+  it("hides a pane whose title has fallen back to a path", () => {
+    expect(
+      terminalSessionIsCurrentAgent("ws-1:1", {
+        workspacePanes: {
+          "ws-1": {
+            "pane-a": pane({
+              id: "pane-a",
+              label: "Claude Code",
+              tmuxWindowName: "1",
+              agent: claudeAgent,
+              dynamicTitle: "/Users/me/own_space/OpenSource/atmos",
+            }),
+          },
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps a pane that still brands the agent", () => {
+    expect(
+      terminalSessionIsCurrentAgent("ws-1:1", {
+        workspacePanes: {
+          "ws-1": {
+            "pane-a": pane({
+              id: "pane-a",
+              label: "Claude Code",
+              tmuxWindowName: "1",
+              agent: claudeAgent,
+              dynamicTitle: "claude",
+              oscTitle: "debugging auth",
+            }),
+          },
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it("drops a closed window once that host's terminals are loaded", () => {
+    expect(
+      terminalSessionIsCurrentAgent("ws-1:1", {
+        workspacePanes: {
+          "ws-1": {
+            "pane-b": pane({
+              id: "pane-b",
+              label: "2",
+              tmuxWindowName: "2",
+            }),
+          },
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps a catalog row until that host's terminals are loaded", () => {
+    expect(
+      terminalSessionIsCurrentAgent("ws-1:1", { workspacePanes: {} }),
     ).toBe(true);
   });
 });

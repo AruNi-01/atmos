@@ -38,6 +38,11 @@ import {
   WorkspaceListShowMoreLess,
 } from "@/app-shell/sidebar/workspace-list-pagination";
 import {
+  SidebarMotionItem,
+  SidebarMotionList,
+  SidebarMotionScope,
+} from "@/app-shell/sidebar/sidebar-list-motion";
+import {
   getWorkspaceAgentGroupMeta,
   getWorkspaceWorkflowStatusMeta,
   type SidebarGroupingMode,
@@ -517,15 +522,22 @@ function SortableWorkspaceGroupSection({
       </div>
       <div
         className={cn(
-          "grid transition-[grid-template-rows] duration-300 ease-out",
-          isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
+          "grid",
+          isCollapsed ? "grid-rows-[0fr] overflow-hidden" : "grid-rows-[1fr]",
         )}
       >
-        <div className="overflow-hidden">
-          <div className="space-y-1 pl-3 pt-0.5">
-            {visibleItems.map((entry) =>
-              renderWorkspaceContentRow(entry, { showProjectName: true })
-            )}
+        <div className={isCollapsed ? "overflow-hidden" : "overflow-x-clip"}>
+          <div className="flex flex-col gap-1 pl-3 pt-0.5">
+            <SidebarMotionList>
+              {visibleItems.map((entry) => {
+                const entryKey = getSidebarEntryKey(entry);
+                return (
+                  <SidebarMotionItem key={entryKey}>
+                    {renderWorkspaceContentRow(entry, { showProjectName: true })}
+                  </SidebarMotionItem>
+                );
+              })}
+            </SidebarMotionList>
             <WorkspaceListShowMoreLess
               canShowMore={canShowMore}
               canShowLess={canShowLess}
@@ -571,7 +583,7 @@ export function GroupedWorkspaceOneColumnContent({
     .map((group) => group.key);
 
   return (
-    <ScrollArea scrollFade className="h-full">
+    <ScrollArea scrollFade className="h-full overflow-x-hidden" viewportClassName="overflow-x-hidden">
       <DndContext
         collisionDetection={closestCenter}
         sensors={sensors}
@@ -600,25 +612,28 @@ export function GroupedWorkspaceOneColumnContent({
           }
           strategy={verticalListSortingStrategy}
         >
-          <div className={cn("space-y-0.5 pl-2", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}>
-            {visibleGroups.map((group) => {
-              const stateKey = `${groupingMode}:${group.key}`;
-              return (
-                <SortableWorkspaceGroupSection
-                  key={group.key}
-                  group={group}
-                  groupingMode={groupingMode}
-                  isCollapsed={
-                    isAnyGroupDragging ||
-                    (collapsedWorkspaceGroups[stateKey] ?? false)
-                  }
-                  renderWorkspaceContentRow={renderWorkspaceContentRow}
-                  sortingEnabled={Boolean(onLabelGroupOrderChange)}
-                  toggleWorkspaceGroup={() => toggleWorkspaceGroup(stateKey)}
-                />
-              );
-            })}
-          </div>
+          <SidebarMotionScope className={cn("flex min-w-0 flex-col gap-0.5 overflow-x-clip pl-2", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}>
+            <SidebarMotionList>
+              {visibleGroups.map((group) => {
+                const stateKey = `${groupingMode}:${group.key}`;
+                return (
+                  <SidebarMotionItem key={`${groupingMode}:${group.key}`}>
+                    <SortableWorkspaceGroupSection
+                      group={group}
+                      groupingMode={groupingMode}
+                      isCollapsed={
+                        isAnyGroupDragging ||
+                        (collapsedWorkspaceGroups[stateKey] ?? false)
+                      }
+                      renderWorkspaceContentRow={renderWorkspaceContentRow}
+                      sortingEnabled={Boolean(onLabelGroupOrderChange)}
+                      toggleWorkspaceGroup={() => toggleWorkspaceGroup(stateKey)}
+                    />
+                  </SidebarMotionItem>
+                );
+              })}
+            </SidebarMotionList>
+          </SidebarMotionScope>
         </SortableContext>
       </DndContext>
     </ScrollArea>
@@ -642,33 +657,35 @@ export function GroupedWorkspaceTwoColumnLeftContent({
     : groups;
 
   return (
-    <ScrollArea scrollFade className="h-full" viewportClassName="px-2 py-1.5">
-      <div className="space-y-1">
-        {visibleGroups.map((group) => {
-          const isSelected = effectiveSelectedWorkspaceGroupKey === group.key;
+    <ScrollArea scrollFade className="h-full overflow-x-hidden" viewportClassName="overflow-x-hidden px-2 py-1.5">
+      <div className="flex flex-col gap-1">
+        <SidebarMotionList>
+          {visibleGroups.map((group) => {
+            const isSelected = effectiveSelectedWorkspaceGroupKey === group.key;
 
-          return (
-            <button
-              key={group.key}
-              type="button"
-              onClick={() => onSelectGroup(group.key)}
-              className={cn(
-                "flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em]",
-                isSelected
-                  ? "bg-sidebar-accent text-sidebar-foreground"
-                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                // Dim group chrome in attention filter so workspace rows stand out in the right pane.
-                attentionFilterMode && "opacity-45",
-              )}
-            >
-              <WorkspaceGroupMarker group={group} groupingMode={groupingMode} />
-              <span className="truncate">{group.label}</span>
-              <span className="ml-auto text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80">
-                {group.items.length}
-              </span>
-            </button>
-          );
-        })}
+            return (
+              <SidebarMotionItem key={`${groupingMode}:${group.key}`}>
+                <button
+                  type="button"
+                  onClick={() => onSelectGroup(group.key)}
+                  className={cn(
+                    "flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em]",
+                    isSelected
+                      ? "bg-sidebar-accent text-sidebar-foreground"
+                      : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                    attentionFilterMode && "opacity-45",
+                  )}
+                >
+                  <WorkspaceGroupMarker group={group} groupingMode={groupingMode} />
+                  <span className="truncate">{group.label}</span>
+                  <span className="ml-auto text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80">
+                    {group.items.length}
+                  </span>
+                </button>
+              </SidebarMotionItem>
+            );
+          })}
+        </SidebarMotionList>
       </div>
     </ScrollArea>
   );
@@ -734,23 +751,26 @@ export function GroupedWorkspaceTwoColumnRightContent({
       <div className="min-h-0 flex-1 overflow-hidden">
         <ScrollArea
           scrollFade
-          viewportClassName={cn("py-2 pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}
+          viewportClassName={cn("overflow-x-hidden py-2 pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}
         >
           {!selectedGroup ? (
             <div className="px-3 py-6 text-sm text-muted-foreground">
               {t("leftSidebarControls.selectGroupDescription")}
             </div>
           ) : (
-            <div className={cn("space-y-1", secondColumnKanban && "space-y-2")}>
-              {visibleItems.map((entry) =>
-                secondColumnKanban ? (
-                  <div key={getSidebarEntryKey(entry)}>
-                    {renderWorkspaceKanbanCard(entry)}
-                  </div>
-                ) : (
-                  renderWorkspaceContentRow(entry, { showProjectName: true })
-                ),
-              )}
+            <div className={cn("flex flex-col gap-1", secondColumnKanban && "gap-2")}>
+              <SidebarMotionList>
+                {visibleItems.map((entry) => {
+                  const entryKey = getSidebarEntryKey(entry);
+                  return (
+                    <SidebarMotionItem key={entryKey}>
+                      {secondColumnKanban
+                        ? renderWorkspaceKanbanCard(entry)
+                        : renderWorkspaceContentRow(entry, { showProjectName: true })}
+                    </SidebarMotionItem>
+                  );
+                })}
+              </SidebarMotionList>
               <WorkspaceListShowMoreLess
                 canShowMore={canShowMore}
                 canShowLess={canShowLess}
@@ -967,7 +987,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
       <div className="min-h-0 flex-1 overflow-hidden">
         <ScrollArea
           scrollFade
-          viewportClassName={cn("py-2 pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}
+          viewportClassName={cn("overflow-x-hidden py-2 pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}
         >
         {!selectedProject ? (
           <div className="px-3 py-6 text-sm text-muted-foreground">

@@ -9,6 +9,11 @@ import { formatRelativeTime } from "@atmos/shared";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { WorkspaceGroupMarker } from "@/app-shell/left-sidebar-controls";
 import {
+  SidebarMotionItem,
+  SidebarMotionList,
+  SidebarMotionScope,
+} from "@/app-shell/sidebar/sidebar-list-motion";
+import {
   LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
   LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS,
 } from "@/app-shell/sidebar-layout-constants";
@@ -16,8 +21,10 @@ import {
   useWorkspaceListVisibleCount,
   WorkspaceListShowMoreLess,
 } from "@/app-shell/sidebar/workspace-list-pagination";
-import { getWorkspaceAgentGroupMeta } from "@/app-shell/sidebar/workspace-status";
-import type { SidebarGroupingMode } from "@/app-shell/sidebar/workspace-status";
+import {
+  getWorkspaceAgentGroupMeta,
+  type SidebarGroupingMode,
+} from "@/app-shell/sidebar/workspace-status";
 import {
   formatSessionRowSubtitle,
   type SidebarSessionGroup,
@@ -277,27 +284,30 @@ function SessionGroupSection({
       </div>
       <div
         className={cn(
-          "grid transition-[grid-template-rows] duration-300 ease-out",
-          isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
+          "grid",
+          isCollapsed ? "grid-rows-[0fr] overflow-hidden" : "grid-rows-[1fr]",
         )}
       >
-        <div className="overflow-hidden">
-          <div className="space-y-1 pl-3 pt-0.5">
-            {visibleItems.map((row) => {
-              const owner = row.workspace?.githubPr?.owner?.trim();
-              const repo = row.workspace?.githubPr?.repo?.trim();
-              const branch = row.workspace?.branch?.trim();
-              const key = owner && repo && branch ? `${owner}/${repo}/${branch}` : "";
-              return (
-                <SessionSidebarRow
-                  key={row.sessionId}
-                  onArchive={onArchive}
-                  row={row}
-                  branchPrs={key ? prsByKey.get(key) : undefined}
-                  projects={projects}
-                />
-              );
-            })}
+        <div className={isCollapsed ? "overflow-hidden" : "overflow-x-clip"}>
+          <div className="flex flex-col gap-1 pl-3 pt-0.5">
+            <SidebarMotionList>
+              {visibleItems.map((row) => {
+                const owner = row.workspace?.githubPr?.owner?.trim();
+                const repo = row.workspace?.githubPr?.repo?.trim();
+                const branch = row.workspace?.branch?.trim();
+                const key = owner && repo && branch ? `${owner}/${repo}/${branch}` : "";
+                return (
+                  <SidebarMotionItem key={row.sessionId}>
+                    <SessionSidebarRow
+                      onArchive={onArchive}
+                      row={row}
+                      branchPrs={key ? prsByKey.get(key) : undefined}
+                      projects={projects}
+                    />
+                  </SidebarMotionItem>
+                );
+              })}
+            </SidebarMotionList>
             <WorkspaceListShowMoreLess
               canShowMore={canShowMore}
               canShowLess={canShowLess}
@@ -347,24 +357,27 @@ export function SessionSidebarList({
   }
 
   return (
-    <ScrollArea scrollFade className="h-full">
-      <div className={cn("space-y-0.5 pl-2", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}>
-        {groups.map((group) => {
-          const stateKey = `session:${groupingMode}:${group.key}`;
-          return (
-            <SessionGroupSection
-              key={`${groupingMode}:${group.key}`}
-              group={group}
-              groupingMode={groupingMode}
-              isCollapsed={collapsedWorkspaceGroups[stateKey] ?? false}
-              onArchive={onArchiveSession}
-              onToggle={() => toggleWorkspaceGroup(stateKey)}
-              projects={projects}
-              prsByKey={prsByKey}
-            />
-          );
-        })}
-      </div>
+    <ScrollArea scrollFade className="h-full overflow-x-hidden" viewportClassName="overflow-x-hidden">
+      <SidebarMotionScope className={cn("flex min-w-0 flex-col gap-0.5 overflow-x-clip pl-2", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}>
+        <SidebarMotionList>
+          {groups.map((group) => {
+            const stateKey = `session:${groupingMode}:${group.key}`;
+            return (
+              <SidebarMotionItem key={`${groupingMode}:${group.key}`}>
+                <SessionGroupSection
+                  group={group}
+                  groupingMode={groupingMode}
+                  isCollapsed={collapsedWorkspaceGroups[stateKey] ?? false}
+                  onArchive={onArchiveSession}
+                  onToggle={() => toggleWorkspaceGroup(stateKey)}
+                  projects={projects}
+                  prsByKey={prsByKey}
+                />
+              </SidebarMotionItem>
+            );
+          })}
+        </SidebarMotionList>
+      </SidebarMotionScope>
     </ScrollArea>
   );
 }

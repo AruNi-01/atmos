@@ -17,7 +17,18 @@
       "supportsTablet": true,
       "bundleIdentifier": "land.atmos.mobile",
       "infoPlist": {
-        "NSCameraUsageDescription": "Atmos uses the camera to scan a temporary pair QR from Desktop or Web."
+        "NSCameraUsageDescription": "Atmos uses the camera to scan a temporary pair QR from Desktop or Web.",
+        "UIApplicationSceneManifest": {
+          "UIApplicationSupportsMultipleScenes": false,
+          "UISceneConfigurations": {
+            "UIWindowSceneSessionRoleApplication": [
+              {
+                "UISceneConfigurationName": "Default Configuration",
+                "UISceneDelegateClassName": "Atmos.SceneDelegate"
+              }
+            ]
+          }
+        }
       }
     },
     "android": {
