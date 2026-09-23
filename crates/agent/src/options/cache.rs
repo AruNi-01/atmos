@@ -194,6 +194,29 @@ fn usable_for_display(catalog: &AgentOptionsSnapshot) -> bool {
         )
 }
 
+/// Native Grok overlay was skipped (commands arrived first) so some CLI ids
+/// have live `reasoningEfforts` and later ids do not. Re-probe instead of
+/// inventing ladders from model ids.
+fn grok_thinking_probe_incomplete(catalog: &AgentOptionsSnapshot) -> bool {
+    if canonicalize_chat_provider_id(&catalog.agent_id) != "grok" {
+        return false;
+    }
+    let mut has = false;
+    let mut missing = false;
+    for model in &catalog.models {
+        if model
+            .thinking
+            .as_ref()
+            .is_some_and(|thinking| !thinking.is_none())
+        {
+            has = true;
+        } else {
+            missing = true;
+        }
+    }
+    has && missing
+}
+
 fn cache_fresh(catalog: &AgentOptionsSnapshot, now: DateTime<Utc>) -> bool {
     if !usable_for_display(catalog) {
         return false;
@@ -205,6 +228,9 @@ fn cache_fresh(catalog: &AgentOptionsSnapshot, now: DateTime<Utc>) -> bool {
         return false;
     }
     if host_missing_stamped_composer_options(catalog) {
+        return false;
+    }
+    if grok_thinking_probe_incomplete(catalog) {
         return false;
     }
     let age = now
@@ -519,6 +545,117 @@ mod tests {
         cache.put(&catalog).unwrap();
         assert!(cache.get("grok", now).is_none());
         assert!(!cache.should_skip_probe("grok", now));
+    }
+
+    #[test]
+    fn grok_mixed_thinking_does_not_skip_catalog_probe() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = OptionsCache::new(dir.path().to_path_buf());
+        let now = Utc::now();
+        let catalog = AgentOptionsSnapshot {
+            agent_id: "grok".into(),
+            status: OptionsStatus::Ok,
+            models: vec![
+                crate::contract::AgentModel {
+                    id: "grok-4.7".into(),
+                    label: "grok-4.7".into(),
+                    group: None,
+                    is_default: true,
+                    thinking: None,
+                    context: Vec::new(),
+                    fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
+                },
+                crate::contract::AgentModel {
+                    id: "grok-4.6".into(),
+                    label: "grok-4.6".into(),
+                    group: None,
+                    is_default: false,
+                    thinking: Some(AgentThinkingSupport::Enum {
+                        arg: Some("thinking".into()),
+                        options: vec!["low".into(), "medium".into(), "high".into(), "xhigh".into()],
+                    }),
+                    context: Vec::new(),
+                    fast: false,
+                    multiplier: None,
+                    fast_multiplier: None,
+                },
+            ],
+            modes: vec![crate::contract::AgentMode {
+                id: "default".into(),
+                label: "Default".into(),
+                is_default: true,
+            }],
+            permission_modes: vec![crate::contract::AgentMode {
+                id: "ask_always".into(),
+                label: "Ask always".into(),
+                is_default: true,
+            }],
+            commands: vec![crate::contract::AgentAvailableCommand {
+                name: "compact".into(),
+                description: "compact".into(),
+                hint: None,
+            }],
+            thinking: AgentThinkingSupport::None,
+            strategies_used: Vec::new(),
+            fetched_at: now,
+            source: OptionsSource::Live,
+            message: None,
+        };
+        cache.put(&catalog).unwrap();
+        assert!(cache.get("grok", now).is_none());
+        assert!(!cache.should_skip_probe("grok", now));
+        let (loaded, fresh) = cache.get_usable("grok", now).expect("displayable");
+        assert!(!fresh);
+        assert_eq!(loaded.models[0].id, "grok-4.7");
+    }
+
+    #[test]
+    fn claude_mixed_per_model_thinking_is_still_fresh() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = OptionsCache::new(dir.path().to_path_buf());
+        let now = Utc::now();
+        let mut catalog = ok_models_and_commands("claude", now);
+        catalog.modes = vec![crate::contract::AgentMode {
+            id: "default".into(),
+            label: "Default".into(),
+            is_default: true,
+        }];
+        catalog.permission_modes = vec![crate::contract::AgentMode {
+            id: "ask_always".into(),
+            label: "Ask always".into(),
+            is_default: true,
+        }];
+        catalog.models = vec![
+            crate::contract::AgentModel {
+                id: "opus".into(),
+                label: "Opus".into(),
+                group: None,
+                is_default: true,
+                thinking: Some(AgentThinkingSupport::Enum {
+                    arg: Some("effort".into()),
+                    options: vec!["low".into(), "high".into()],
+                }),
+                context: Vec::new(),
+                fast: false,
+                multiplier: None,
+                fast_multiplier: None,
+            },
+            crate::contract::AgentModel {
+                id: "haiku".into(),
+                label: "Haiku".into(),
+                group: None,
+                is_default: false,
+                thinking: None,
+                context: Vec::new(),
+                fast: false,
+                multiplier: None,
+                fast_multiplier: None,
+            },
+        ];
+        cache.put(&catalog).unwrap();
+        assert!(cache.should_skip_probe("claude", now));
     }
 
     #[test]

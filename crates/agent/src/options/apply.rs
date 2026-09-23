@@ -147,6 +147,9 @@ pub fn apply_options_defaults_to_current_config(
         crate::options::probe::cli::droid::apply_droid_fast_current_config(config, &catalog.models);
         crate::options::probe::cli::droid::apply_droid_mode_permission_current_config(config);
     }
+    if crate::policy::canonicalize_chat_provider_id(&catalog.agent_id) == "grok" {
+        crate::options::probe::cli::grok::apply_grok_fast_current_config(config, &catalog.models);
+    }
     config.model = default_model_id(catalog, config.model.as_deref());
     if let Some(model_id) = &config.model {
         let thinking = thinking_options_for_catalog(catalog, model_id);

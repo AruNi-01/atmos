@@ -6,7 +6,7 @@ use std::time::Duration;
 use serde_json::Value;
 use tokio::time::timeout;
 
-use crate::contract::{AgentMode, AgentModel, AgentThinkingSupport};
+use crate::contract::{AgentMode, AgentThinkingSupport};
 use crate::options::probe::cli::parse::{agent_modes_from_named_keys, commands_from_value};
 use crate::options::probe::native::NativeOptionsProbeResult;
 
@@ -48,12 +48,10 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, St
     };
 
     let mut models = Vec::new();
-    let mut thinking = AgentThinkingSupport::None;
     if let Ok((status, providers)) = http.get_json("/config/providers").await {
         if status.is_success() {
             let (options, _) = models_from_providers(&providers);
             models = options.models;
-            thinking = thinking_union_from_models(&models);
         }
     }
 
@@ -111,7 +109,9 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, St
         models,
         modes,
         permission_modes,
-        thinking,
+        // Per-model `variants` are authoritative. A union would paint CLI-only
+        // ids that never received native thinking.
+        thinking: AgentThinkingSupport::None,
         commands,
         cwd: isolated_cwd.to_path_buf(),
         closed,
@@ -182,31 +182,6 @@ pub(crate) fn opencode_modes() -> Vec<AgentMode> {
             is_default: false,
         },
     ]
-}
-
-fn thinking_union_from_models(models: &[AgentModel]) -> AgentThinkingSupport {
-    let mut options = Vec::new();
-    for model in models {
-        let Some(AgentThinkingSupport::Enum {
-            options: levels, ..
-        }) = &model.thinking
-        else {
-            continue;
-        };
-        for level in levels {
-            if !options.iter().any(|item| item == level) {
-                options.push(level.clone());
-            }
-        }
-    }
-    if options.is_empty() {
-        AgentThinkingSupport::None
-    } else {
-        AgentThinkingSupport::Enum {
-            arg: Some("variant".into()),
-            options,
-        }
-    }
 }
 
 #[cfg(test)]

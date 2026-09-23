@@ -16,16 +16,17 @@ pub use auth::{
     CLI_LOGIN_METHOD_PREFIX, NATIVE_OAUTH_METHOD_PREFIX,
 };
 pub use cli::parse::{
-    apply_grok_thinking_overlay, grok_thinking_for_model_id, model_id_is_table_noise,
-    parse_droid_help, parse_line_list,
+    apply_grok_thinking_overlay, model_id_is_table_noise, parse_droid_help, parse_line_list,
 };
 pub use cli::{
     apply_droid_fast_current_config, apply_droid_mode_permission_current_config,
-    collapse_cursor_cli_models, collapse_droid_fast_models, cursor_model_base,
+    apply_grok_fast_current_config, apply_grok_fast_options, collapse_cursor_cli_models,
+    collapse_droid_fast_models, collapse_grok_fast_models, cursor_model_base,
     cursor_model_display_label, cursor_model_has_brackets, droid_fast_base,
-    encode_droid_fast_model, fill_cursor_thinking_by_base, fold_droid_composer_options,
-    map_to_advertised_cursor_model, models_look_like_cursor_acp, overlay_droid_model_catalog,
-    CommandOutput, CommandRunner, ProcessCommandRunner,
+    encode_droid_fast_model, encode_grok_fast_model, fill_cursor_thinking_by_base,
+    fold_droid_composer_options, grok_fast_base, map_to_advertised_cursor_model,
+    models_look_like_cursor_acp, overlay_droid_model_catalog, CommandOutput, CommandRunner,
+    ProcessCommandRunner,
 };
 pub use native::{
     DispatchNativeOptionsProbe, NativeOptionsProbe, NativeOptionsProbeResult,

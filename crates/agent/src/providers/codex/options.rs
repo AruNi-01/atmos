@@ -12,6 +12,7 @@ use tokio::time::timeout;
 use crate::contract::AgentCurrentConfig;
 use crate::contract::{AgentAvailableCommand, AgentRuntimeConfig};
 use crate::contract::{AgentMode, AgentModel, AgentThinkingSupport};
+use crate::options::effort::sort_thinking_levels;
 use crate::options::probe::cli::parse::{agent_modes_from_named_keys, commands_from_value};
 use crate::options::probe::native::NativeOptionsProbeResult;
 
@@ -161,6 +162,8 @@ pub(crate) fn parse_model_list(result: &Value) -> (Vec<AgentModel>, AgentThinkin
         let id = item
             .get("id")
             .or_else(|| item.get("model"))
+            .or_else(|| item.get("slug"))
+            .or_else(|| item.get("value"))
             .and_then(Value::as_str)
             .unwrap_or("")
             .to_string();
@@ -169,7 +172,9 @@ pub(crate) fn parse_model_list(result: &Value) -> (Vec<AgentModel>, AgentThinkin
         }
         let label = item
             .get("displayName")
+            .or_else(|| item.get("display_name"))
             .or_else(|| item.get("label"))
+            .or_else(|| item.get("name"))
             .and_then(Value::as_str)
             .unwrap_or(&id)
             .to_string();
@@ -178,11 +183,8 @@ pub(crate) fn parse_model_list(result: &Value) -> (Vec<AgentModel>, AgentThinkin
             .or_else(|| item.get("is_default"))
             .and_then(Value::as_bool)
             .unwrap_or(false);
-        let model_efforts: Vec<String> = item
-            .get("supportedReasoningEfforts")
-            .and_then(Value::as_array)
-            .map(|values| values.iter().filter_map(effort_id).collect())
-            .unwrap_or_default();
+        let mut model_efforts = model_effort_levels(&item);
+        sort_thinking_levels(&mut model_efforts);
         for effort in &model_efforts {
             if !efforts.iter().any(|existing| existing == effort) {
                 efforts.push(effort.clone());
@@ -208,6 +210,9 @@ pub(crate) fn parse_model_list(result: &Value) -> (Vec<AgentModel>, AgentThinkin
             fast_multiplier: None,
         });
     }
+    if !efforts.is_empty() {
+        sort_thinking_levels(&mut efforts);
+    }
     let thinking = if efforts.is_empty() {
         AgentThinkingSupport::None
     } else {
@@ -217,6 +222,28 @@ pub(crate) fn parse_model_list(result: &Value) -> (Vec<AgentModel>, AgentThinkin
         }
     };
     (models, thinking)
+}
+
+fn model_effort_levels(item: &Value) -> Vec<String> {
+    let levels = item
+        .get("supportedReasoningEfforts")
+        .or_else(|| item.get("supported_reasoning_efforts"))
+        .or_else(|| item.get("supportedReasoningLevels"))
+        .or_else(|| item.get("supported_reasoning_levels"))
+        .or_else(|| item.get("supportedEffortLevels"));
+    let Some(values) = levels.and_then(Value::as_array) else {
+        return Vec::new();
+    };
+    let mut efforts = Vec::new();
+    for value in values {
+        let Some(effort) = effort_id(value) else {
+            continue;
+        };
+        if !efforts.iter().any(|existing| existing == &effort) {
+            efforts.push(effort);
+        }
+    }
+    efforts
 }
 
 fn model_list_items(result: &Value) -> Vec<Value> {
@@ -282,12 +309,19 @@ pub(crate) fn parse_collaboration_modes(result: &Value) -> Vec<AgentMode> {
 }
 
 fn effort_id(value: &Value) -> Option<String> {
-    value.as_str().map(str::to_string).or_else(|| {
-        value
-            .get("reasoningEffort")
-            .and_then(Value::as_str)
-            .map(str::to_string)
-    })
+    value
+        .as_str()
+        .or_else(|| {
+            value
+                .get("reasoningEffort")
+                .or_else(|| value.get("effort"))
+                .or_else(|| value.get("id"))
+                .or_else(|| value.get("value"))
+                .and_then(Value::as_str)
+        })
+        .map(str::trim)
+        .filter(|effort| !effort.is_empty())
+        .map(str::to_string)
 }
 
 pub(crate) fn codex_modes() -> Vec<AgentMode> {
@@ -494,6 +528,36 @@ mod tests {
                 assert_eq!(options, &["low", "medium", "high", "xhigh", "max", "ultra"]);
             }
             other => panic!("expected 5.6 efforts, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn model_list_reads_cli_shaped_reasoning_levels() {
+        let result = json!({
+            "models": [{
+                "slug": "gpt-5.6-sol",
+                "display_name": "GPT-5.6-Sol",
+                "is_default": true,
+                "supported_reasoning_levels": [
+                    {"effort": "high"},
+                    {"id": "medium"},
+                    {"value": "low"}
+                ]
+            }]
+        });
+        let (models, thinking) = parse_model_list(&result);
+        assert_eq!(models[0].id, "gpt-5.6-sol");
+        match thinking {
+            AgentThinkingSupport::Enum { options, .. } => {
+                assert_eq!(options, vec!["low", "medium", "high"]);
+            }
+            other => panic!("expected efforts, got {other:?}"),
+        }
+        match &models[0].thinking {
+            Some(AgentThinkingSupport::Enum { options, .. }) => {
+                assert_eq!(options, &["low", "medium", "high"]);
+            }
+            other => panic!("expected per-model efforts, got {other:?}"),
         }
     }
 

@@ -11,6 +11,7 @@ use tokio::time::timeout;
 
 use crate::contract::AgentRuntimeConfig;
 use crate::contract::{AgentModel, AgentThinkingSupport};
+use crate::options::effort::sort_thinking_levels;
 use crate::options::probe::cli::parse::{agent_modes_from_named_keys, commands_from_value};
 use crate::options::probe::native::NativeOptionsProbeResult;
 
@@ -144,11 +145,16 @@ async fn read_loop(
     }
 }
 
+fn model_list_items(data: &Value) -> &[Value] {
+    data.get("models")
+        .and_then(Value::as_array)
+        .or_else(|| data.as_array())
+        .map(Vec::as_slice)
+        .unwrap_or(&[])
+}
+
 pub(crate) fn models_from_data(data: &Value) -> Vec<AgentModel> {
-    let Some(models) = data.get("models").and_then(Value::as_array) else {
-        return Vec::new();
-    };
-    models
+    model_list_items(data)
         .iter()
         .filter_map(|model| {
             let id = model.get("id").and_then(Value::as_str)?;
@@ -163,7 +169,7 @@ pub(crate) fn models_from_data(data: &Value) -> Vec<AgentModel> {
                 label: name.to_string(),
                 group: provider.map(str::to_string),
                 is_default: false,
-                thinking: None,
+                thinking: thinking_from_pi_model(model),
                 context: Vec::new(),
                 fast: false,
                 multiplier: None,
@@ -173,18 +179,66 @@ pub(crate) fn models_from_data(data: &Value) -> Vec<AgentModel> {
         .collect()
 }
 
+/// Live Pi `Model.reasoning` + `thinkingLevelMap`, matching
+/// `getSupportedThinkingLevels`: non-reasoning → off only; `xhigh`/`max` are
+/// opt-in map keys; JSON null disables a level. Do not invent ladders from ids.
+fn thinking_from_pi_model(model: &Value) -> Option<AgentThinkingSupport> {
+    let reasoning = model.get("reasoning").and_then(Value::as_bool);
+    let has_map = model.get("thinkingLevelMap").is_some();
+    if reasoning.is_none() && !has_map {
+        return None;
+    }
+    let options = supported_pi_thinking_levels(model);
+    if options.iter().any(|level| level != "off") {
+        Some(AgentThinkingSupport::Enum { arg: None, options })
+    } else {
+        Some(AgentThinkingSupport::None)
+    }
+}
+
+const PI_THINKING_LEVELS: [&str; 7] = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
+
+fn supported_pi_thinking_levels(model: &Value) -> Vec<String> {
+    if model.get("reasoning").and_then(Value::as_bool) == Some(false) {
+        return vec!["off".into()];
+    }
+    let map = model.get("thinkingLevelMap");
+    let mut options: Vec<String> = PI_THINKING_LEVELS
+        .iter()
+        .copied()
+        .filter(|level| match map.and_then(|value| value.get(*level)) {
+            Some(Value::Null) => false,
+            Some(_) => true,
+            None => *level != "xhigh" && *level != "max",
+        })
+        .map(str::to_string)
+        .collect();
+    sort_thinking_levels(&mut options);
+    options
+}
+
+fn thinking_level_id(value: &Value) -> Option<String> {
+    value
+        .as_str()
+        .or_else(|| {
+            value
+                .get("level")
+                .or_else(|| value.get("id"))
+                .or_else(|| value.get("value"))
+                .and_then(Value::as_str)
+        })
+        .map(str::trim)
+        .filter(|level| !level.is_empty())
+        .map(str::to_string)
+}
+
 pub(crate) fn thinking_from_data(data: &Value) -> AgentThinkingSupport {
-    let levels: Vec<String> = data
+    let mut levels: Vec<String> = data
         .get("levels")
         .and_then(Value::as_array)
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(Value::as_str)
-                .map(str::to_string)
-                .collect()
-        })
+        .map(|items| items.iter().filter_map(thinking_level_id).collect())
         .unwrap_or_default();
+    sort_thinking_levels(&mut levels);
     if levels.iter().any(|level| level != "off") {
         AgentThinkingSupport::Enum {
             arg: None,
@@ -223,5 +277,70 @@ mod tests {
         });
         assert!(agent_modes_from_named_keys(&state, &["modes", "agents"]).is_empty());
         assert!(agent_modes_from_named_keys(&state, &["permission_modes", "approval"]).is_empty());
+    }
+
+    #[test]
+    fn models_stamp_live_reasoning_map_not_id_tables() {
+        let models = models_from_data(&json!({
+            "models": [
+                {
+                    "id": "claude-sonnet-4",
+                    "provider": "anthropic",
+                    "name": "Sonnet",
+                    "reasoning": true,
+                    "thinkingLevelMap": { "xhigh": "max", "minimal": null }
+                },
+                {
+                    "id": "flash",
+                    "provider": "google",
+                    "name": "Flash",
+                    "reasoning": false
+                },
+                {
+                    "id": "gpt-oss",
+                    "provider": "ollama",
+                    "name": "OSS",
+                    "reasoning": true
+                }
+            ]
+        }));
+        let sonnet = models
+            .iter()
+            .find(|model| model.id == "anthropic/claude-sonnet-4")
+            .unwrap();
+        match &sonnet.thinking {
+            Some(AgentThinkingSupport::Enum { options, .. }) => {
+                assert_eq!(options, &["off", "low", "medium", "high", "xhigh"]);
+                assert!(!options.iter().any(|level| level == "minimal"));
+            }
+            other => panic!("expected mapped levels, got {other:?}"),
+        }
+        let flash = models
+            .iter()
+            .find(|model| model.id == "google/flash")
+            .unwrap();
+        assert!(matches!(flash.thinking, Some(AgentThinkingSupport::None)));
+        let oss = models
+            .iter()
+            .find(|model| model.id == "ollama/gpt-oss")
+            .unwrap();
+        match &oss.thinking {
+            Some(AgentThinkingSupport::Enum { options, .. }) => {
+                assert_eq!(options, &["off", "minimal", "low", "medium", "high"]);
+            }
+            other => panic!("expected default reasoning levels, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn thinking_levels_accept_object_entries() {
+        match thinking_from_data(&json!({
+            "levels": [{ "level": "high" }, { "id": "low" }, "off"]
+        })) {
+            AgentThinkingSupport::Enum { options, .. } => {
+                assert_eq!(options, vec!["off", "low", "high"]);
+            }
+            other => panic!("expected object levels, got {other:?}"),
+        }
     }
 }

@@ -261,42 +261,10 @@ pub fn parse_grok(output: &str) -> Vec<AgentModel> {
         .collect()
 }
 
-/// Fallback Grok Chat thinking when `session/new` omitted per-model
-/// `reasoningEfforts`. Live 1.0.13 `session/new` matches these sets:
-/// 4.6 → low|medium|high|xhigh; 4.5 → low|medium|high; else none.
-/// Do not use this to overwrite a probed per-model list.
-pub fn grok_thinking_for_model_id(model_id: &str) -> AgentThinkingSupport {
-    if model_id.contains("4.6") {
-        AgentThinkingSupport::Enum {
-            arg: Some("thinking".into()),
-            options: vec!["low".into(), "medium".into(), "high".into(), "xhigh".into()],
-        }
-    } else if model_id.contains("4.5") {
-        AgentThinkingSupport::Enum {
-            arg: Some("thinking".into()),
-            options: vec!["low".into(), "medium".into(), "high".into()],
-        }
-    } else {
-        AgentThinkingSupport::None
-    }
-}
-
+/// Grok effort ladders are per-model and come from live `reasoningEfforts`.
+/// Clear the agent-level enum so CLI-only rows do not inherit a terminal
+/// `--reasoning-effort` manual control. Do not invent ladders from model ids.
 pub fn apply_grok_thinking_overlay(catalog: &mut crate::options::AgentOptionsSnapshot) {
-    for model in &mut catalog.models {
-        if model
-            .thinking
-            .as_ref()
-            .is_some_and(|thinking| !thinking.is_none())
-        {
-            continue;
-        }
-        let thinking = grok_thinking_for_model_id(&model.id);
-        model.thinking = if thinking.is_none() {
-            None
-        } else {
-            Some(thinking)
-        };
-    }
     catalog.thinking = AgentThinkingSupport::None;
 }
 
@@ -832,28 +800,31 @@ mod tests {
     }
 
     #[test]
-    fn app069_s6_grok_thinking_overlay_is_pinned_per_family() {
-        match grok_thinking_for_model_id("grok-4.5") {
-            AgentThinkingSupport::Enum { options, arg } => {
-                assert_eq!(options, &["low", "medium", "high"]);
-                assert_eq!(arg.as_deref(), Some("thinking"));
-            }
-            other => panic!("expected 4.5 enum, got {other:?}"),
-        }
-        match grok_thinking_for_model_id("grok-4.6-preview") {
-            AgentThinkingSupport::Enum { options, .. } => {
-                assert_eq!(options, &["low", "medium", "high", "xhigh"]);
-            }
-            other => panic!("expected 4.6 enum, got {other:?}"),
-        }
-        assert!(grok_thinking_for_model_id("grok-composer-2.5-fast").is_none());
-        assert!(grok_thinking_for_model_id("grok-4").is_none());
+    fn grok_parser_reads_cli_status_preamble_and_new_default() {
+        let models = parse_grok(
+            "You are logged in with grok.com.\n\nDefault model: grok-4.7\n\nAvailable models:\n  * grok-4.7 (default)\n  - grok-4.7-build-fast\n  - grok-4.6\n  - grok-4.5\n",
+        );
+        assert_eq!(
+            models
+                .iter()
+                .map(|model| (model.id.as_str(), model.is_default))
+                .collect::<Vec<_>>(),
+            [
+                ("grok-4.7", true),
+                ("grok-4.7-build-fast", false),
+                ("grok-4.6", false),
+                ("grok-4.5", false),
+            ]
+        );
+    }
 
+    #[test]
+    fn grok_thinking_overlay_clears_agent_level_without_inventing_ladders() {
         let mut catalog = crate::options::AgentOptionsSnapshot {
             agent_id: "grok".into(),
             status: crate::options::OptionsStatus::Ok,
             models: parse_grok(
-                "Available models:\n* grok-4.5 (default)\n* grok-4.6-preview\n* grok-composer-2.5-fast",
+                "Available models:\n* grok-4.7 (default)\n* grok-4.7-build-fast\n* grok-4.6",
             ),
             modes: Vec::new(),
             permission_modes: Vec::new(),
@@ -869,24 +840,7 @@ mod tests {
         };
         apply_grok_thinking_overlay(&mut catalog);
         assert!(catalog.thinking.is_none());
-        let by_id: std::collections::HashMap<_, _> = catalog
-            .models
-            .iter()
-            .map(|model| (model.id.as_str(), model.thinking.clone()))
-            .collect();
-        match by_id.get("grok-4.5").and_then(|item| item.as_ref()) {
-            Some(AgentThinkingSupport::Enum { options, .. }) => {
-                assert_eq!(options, &["low", "medium", "high"]);
-            }
-            other => panic!("expected 4.5 overlay, got {other:?}"),
-        }
-        match by_id.get("grok-4.6-preview").and_then(|item| item.as_ref()) {
-            Some(AgentThinkingSupport::Enum { options, .. }) => {
-                assert_eq!(options, &["low", "medium", "high", "xhigh"]);
-            }
-            other => panic!("expected 4.6 overlay, got {other:?}"),
-        }
-        assert!(by_id.get("grok-composer-2.5-fast").unwrap().is_none());
+        assert!(catalog.models.iter().all(|model| model.thinking.is_none()));
     }
 
     #[test]

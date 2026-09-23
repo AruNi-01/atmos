@@ -7,9 +7,10 @@ use std::time::{Duration, Instant};
 use agent::providers::{chat_provider_kind, ChatProviderKind};
 use agent::{
     apply_droid_fast_current_config, apply_droid_mode_permission_current_config,
-    attach_grok_goal_child, attach_grok_workflow_agent, boolean_fast_modes,
-    collapse_droid_fast_models, droid_fast_base, encode_droid_fast_model,
-    fold_droid_composer_options, is_droid_chat_provider, is_grok_chrome_tool,
+    apply_grok_fast_current_config, attach_grok_goal_child, attach_grok_workflow_agent,
+    boolean_fast_modes, canonicalize_chat_provider_id, collapse_droid_fast_models,
+    collapse_grok_fast_models, droid_fast_base, encode_droid_fast_model, encode_grok_fast_model,
+    fold_droid_composer_options, grok_fast_base, is_droid_chat_provider, is_grok_chrome_tool,
     looks_like_grok_goal_child, merge_grok_goal, merge_grok_workflow, overlay_droid_model_catalog,
     AgentAvailableCommand, AgentEvent, AgentEventEnvelope, AgentMode, AgentModel,
     AgentRuntimeConfigUpdate, AgentRuntimeControl, AgentThinkingSupport, AgentTool, Capability,
@@ -856,6 +857,8 @@ fn apply_config_changed(
                 let mut models = models_from_option(option, &meta.provider_id);
                 if is_droid_chat_provider(&meta.provider_id) {
                     models = collapse_droid_fast_models(models);
+                } else if canonicalize_chat_provider_id(&meta.provider_id) == "grok" {
+                    models = collapse_grok_fast_models(models);
                 }
                 for model in &mut models {
                     if model.thinking.is_none() {
@@ -1058,6 +1061,17 @@ fn apply_config_changed(
         apply_droid_mode_permission_current_config(&mut meta.descriptor.current_config);
         meta.applied_mode = meta.descriptor.current_config.mode.clone();
         meta.applied_permission_mode = meta.descriptor.current_config.permission_mode.clone();
+    } else if canonicalize_chat_provider_id(&meta.provider_id) == "grok" {
+        apply_grok_fast_current_config(
+            &mut meta.descriptor.current_config,
+            &meta.descriptor.supported_options.models,
+        );
+        if let Some(base) = meta.applied_model.as_deref().and_then(grok_fast_base) {
+            if meta.descriptor.current_config.model.as_deref() == Some(base) {
+                meta.applied_model = Some(base.to_string());
+                meta.applied_fast = Some("true".into());
+            }
+        }
     }
 }
 
@@ -2464,8 +2478,11 @@ pub(super) async fn apply_live_session_config(
     };
     let droid_fast_via_model =
         is_droid_chat_provider(&meta.provider_id) && (model.is_some() || fast.is_some());
+    let grok_fast_via_model = canonicalize_chat_provider_id(&meta.provider_id) == "grok"
+        && (model.is_some() || fast.is_some());
+    let sibling_fast_via_model = droid_fast_via_model || grok_fast_via_model;
     let pending_fast = fast.clone();
-    if droid_fast_via_model {
+    if sibling_fast_via_model {
         if let Some(base) = model
             .clone()
             .or_else(|| meta.descriptor.current_config.model.clone())
@@ -2473,12 +2490,20 @@ pub(super) async fn apply_live_session_config(
             let fast_value = fast
                 .clone()
                 .or_else(|| meta.descriptor.current_config.fast.clone());
-            let wire = encode_droid_fast_model(
-                &base,
-                fast_value.as_deref(),
-                &meta.descriptor.supported_options.models,
-            );
-            if droid_already_on_encoded_model(&meta, &wire) {
+            let wire = if droid_fast_via_model {
+                encode_droid_fast_model(
+                    &base,
+                    fast_value.as_deref(),
+                    &meta.descriptor.supported_options.models,
+                )
+            } else {
+                encode_grok_fast_model(
+                    &base,
+                    fast_value.as_deref(),
+                    &meta.descriptor.supported_options.models,
+                )
+            };
+            if sibling_already_on_encoded_model(&meta, &wire, droid_fast_via_model) {
                 model = None;
             } else {
                 model = Some(wire);
@@ -2486,7 +2511,7 @@ pub(super) async fn apply_live_session_config(
         }
         fast = None;
     }
-    if droid_fast_via_model {
+    if sibling_fast_via_model {
         if let Some(wire) = model {
             let update = AgentRuntimeConfigUpdate {
                 model: Some(wire),
@@ -2596,6 +2621,10 @@ fn resolve_pending_select(
 }
 
 fn droid_already_on_encoded_model(meta: &AgentChatMeta, wire: &str) -> bool {
+    sibling_already_on_encoded_model(meta, wire, true)
+}
+
+fn sibling_already_on_encoded_model(meta: &AgentChatMeta, wire: &str, droid: bool) -> bool {
     let Some(applied) = meta
         .applied_model
         .as_deref()
@@ -2604,11 +2633,20 @@ fn droid_already_on_encoded_model(meta: &AgentChatMeta, wire: &str) -> bool {
     else {
         return false;
     };
-    encode_droid_fast_model(
-        applied,
-        meta.applied_fast.as_deref(),
-        &meta.descriptor.supported_options.models,
-    ) == wire
+    let encoded = if droid {
+        encode_droid_fast_model(
+            applied,
+            meta.applied_fast.as_deref(),
+            &meta.descriptor.supported_options.models,
+        )
+    } else {
+        encode_grok_fast_model(
+            applied,
+            meta.applied_fast.as_deref(),
+            &meta.descriptor.supported_options.models,
+        )
+    };
+    encoded == wire
 }
 
 fn is_first_user_turn(store: &AgentChatStore, chat_id: &str, turn_id: &str) -> bool {
@@ -3365,6 +3403,84 @@ mod tests {
             row.descriptor.current_config.thinking.as_deref(),
             Some("xhigh")
         );
+    }
+
+    #[test]
+    fn grok_skips_set_config_when_encoded_model_already_matches() {
+        let mut row = meta();
+        row.provider_id = "grok".into();
+        row.applied_model = Some("grok-4.7".into());
+        row.descriptor.current_config.model = Some("grok-4.7".into());
+        row.descriptor.current_config.fast = Some("false".into());
+        assert!(sibling_already_on_encoded_model(&row, "grok-4.7", false));
+        row.applied_model = Some("grok-4.7-build-fast".into());
+        row.applied_fast = Some("true".into());
+        assert!(!sibling_already_on_encoded_model(&row, "grok-4.7", false));
+        assert!(sibling_already_on_encoded_model(
+            &row,
+            "grok-4.7-build-fast",
+            false
+        ));
+    }
+
+    #[test]
+    fn grok_config_changed_collapses_build_fast_models() {
+        let mut row = meta();
+        row.provider_id = "grok".into();
+        row.descriptor = crate::service::agent_chat::types::chat_descriptor(
+            "grok",
+            agent::AgentCurrentConfig::default(),
+        );
+        apply_config_changed(
+            &mut row,
+            vec![SessionAdvertisedOption {
+                id: "model".into(),
+                name: Some("Model".into()),
+                category: None,
+                option_type: "select".into(),
+                current_value: Some("grok-4.7-build-fast".into()),
+                options: vec![
+                    SessionAdvertisedOptionValue {
+                        value: "grok-4.7".into(),
+                        name: Some("Grok 4.7".into()),
+                    },
+                    SessionAdvertisedOptionValue {
+                        value: "grok-4.7-build-fast".into(),
+                        name: Some("Grok 4.7 Fast".into()),
+                    },
+                    SessionAdvertisedOptionValue {
+                        value: "grok-4.6".into(),
+                        name: Some("Grok 4.6".into()),
+                    },
+                ],
+            }],
+            Some(&"grok-4.7-build-fast".into()),
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        assert_eq!(
+            row.descriptor
+                .supported_options
+                .models
+                .iter()
+                .map(|model| (model.id.as_str(), model.label.as_str(), model.fast))
+                .collect::<Vec<_>>(),
+            vec![
+                ("grok-4.7", "Grok 4.7", true),
+                ("grok-4.6", "Grok 4.6", false),
+            ]
+        );
+        assert_eq!(
+            row.descriptor.current_config.model.as_deref(),
+            Some("grok-4.7")
+        );
+        assert_eq!(row.descriptor.current_config.fast.as_deref(), Some("true"));
+        assert_eq!(row.applied_model.as_deref(), Some("grok-4.7"));
+        assert_eq!(row.applied_fast.as_deref(), Some("true"));
+        assert_eq!(row.descriptor.supported_options.fast.len(), 2);
     }
 
     #[test]

@@ -1,12 +1,11 @@
 //! Short-lived Chat spawn catalog probe: initialize + `session/new`, then close.
 //!
-//! Model ids stay on `grok models` CLI. Per-model thinking comes from
-//! `session/new` `availableModels[]._meta.reasoningEfforts` when present.
-//! Context windows come from the same `availableModels[]._meta.totalContextTokens`
-//! (also on `_x.ai/models/update` / initialize `modelState`) — not from `grok models` text.
+//! Model ids stay on `grok models` CLI. Per-model thinking comes from live
+//! `availableModels[]._meta.reasoningEfforts` on initialize `modelState`,
+//! `session/new`, and `_x.ai/models/update`. Do not invent ladders from model ids.
+//! Context windows come from the same `_meta.totalContextTokens`.
 //! Slash commands come from initialize `_meta.availableCommands` (builtins)
 //! and `session/update` `available_commands_update` (builtins + skills).
-//! Live Grok 1.0.13 session/new on this machine.
 
 use std::path::Path;
 use std::time::{Duration, Instant};
@@ -65,6 +64,7 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, St
     let mut buf = Vec::new();
     let deadline = Instant::now() + PROBE_TIMEOUT;
     let mut commands = Vec::new();
+    let mut models = Vec::new();
     let mut saw_init = false;
     let mut sent_session = false;
     let mut saw_session_commands = false;
@@ -74,7 +74,12 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, St
     let mut session_error: Option<String> = None;
 
     while Instant::now() < deadline {
-        if session_sent_at.is_some_and(|sent| sent.elapsed() > Duration::from_secs(4)) {
+        // Commands can arrive before `session/new`. Keep reading until we have a
+        // live model catalog (initialize `modelState` / session/new / models/update).
+        if !models.is_empty()
+            && (saw_session_commands
+                || session_sent_at.is_some_and(|sent| sent.elapsed() > Duration::from_secs(4)))
+        {
             break;
         }
         buf.clear();
@@ -104,6 +109,7 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, St
                     if let Some(result) = frame.get("result") {
                         commands = commands_from_initialize_result(result);
                         auth_methods = auth_methods_from_json(result);
+                        overlay_grok_models(&mut models, &models_from_grok_catalog(result));
                         saw_init = true;
                     }
                 }
@@ -111,6 +117,13 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, St
                     if !session_commands.is_empty() {
                         commands = session_commands;
                         saw_session_commands = true;
+                    }
+                }
+                if let Some(method) = frame.get("method").and_then(Value::as_str) {
+                    if is_models_update_method(method) {
+                        if let Some(params) = frame.get("params") {
+                            overlay_grok_models(&mut models, &models_from_grok_catalog(params));
+                        }
                     }
                 }
                 if rpc_id_u64(&frame) == Some(SESSION_ID) {
@@ -124,6 +137,7 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, St
                     }
                     if let Some(result) = frame.get("result") {
                         session_new_result = Some(result.clone());
+                        overlay_grok_models(&mut models, &models_from_grok_catalog(result));
                     }
                 }
                 if saw_init && !sent_session {
@@ -139,7 +153,7 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, St
                         break;
                     }
                 }
-                if saw_session_commands {
+                if saw_session_commands && !models.is_empty() {
                     break;
                 }
             }
@@ -149,7 +163,7 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, St
                 return Err(error.to_string());
             }
             Err(_) => {
-                if saw_session_commands {
+                if saw_session_commands && !models.is_empty() {
                     break;
                 }
             }
@@ -171,10 +185,11 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, St
         .unwrap_or_default();
     let probed = probe_result_from_config_options(&options, isolated_cwd.to_path_buf(), closed);
     let _ = probed;
-    let models = session_new_result
-        .as_ref()
-        .map(models_from_session_new)
-        .unwrap_or_default();
+    if models.is_empty() {
+        if let Some(result) = &session_new_result {
+            overlay_grok_models(&mut models, &models_from_grok_catalog(result));
+        }
+    }
     Ok(NativeOptionsProbeResult {
         models,
         modes: grok_modes(),
@@ -186,16 +201,87 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, St
     })
 }
 
-pub(crate) fn models_from_session_new(result: &Value) -> Vec<AgentModel> {
-    let Some(models) = result.get("models") else {
-        return Vec::new();
-    };
-    let current = models.get("currentModelId").and_then(Value::as_str);
-    let items = models
-        .get("availableModels")
+pub(crate) fn models_from_grok_catalog(value: &Value) -> Vec<AgentModel> {
+    let current = grok_current_model_id(value);
+    let mut out = Vec::new();
+    for items in grok_available_model_arrays(value) {
+        overlay_grok_models(
+            &mut out,
+            &models_from_available_items(items, current.as_deref()),
+        );
+    }
+    crate::options::collapse_grok_fast_models(out)
+}
+
+pub(crate) fn overlay_grok_models(target: &mut Vec<AgentModel>, incoming: &[AgentModel]) {
+    for model in incoming {
+        if let Some(existing) = target.iter_mut().find(|item| item.id == model.id) {
+            let thinking = if model.thinking.as_ref().is_none_or(|item| item.is_none()) {
+                existing.thinking.clone()
+            } else {
+                model.thinking.clone()
+            };
+            *existing = model.clone();
+            existing.thinking = thinking;
+        } else {
+            target.push(model.clone());
+        }
+    }
+}
+
+fn grok_current_model_id(value: &Value) -> Option<String> {
+    value
+        .get("models")
+        .and_then(|models| models.get("currentModelId"))
+        .and_then(Value::as_str)
+        .or_else(|| value.get("currentModelId").and_then(Value::as_str))
+        .or_else(|| {
+            value
+                .get("modelState")
+                .and_then(|state| state.get("currentModelId"))
+                .and_then(Value::as_str)
+        })
+        .or_else(|| {
+            value
+                .get("_meta")
+                .and_then(|meta| meta.get("modelState"))
+                .and_then(|state| state.get("currentModelId"))
+                .and_then(Value::as_str)
+        })
+        .map(str::to_string)
+}
+
+fn grok_available_model_arrays(value: &Value) -> Vec<&[Value]> {
+    let mut out = Vec::new();
+    if let Some(items) = value.get("availableModels").and_then(Value::as_array) {
+        out.push(items.as_slice());
+    }
+    if let Some(items) = value
+        .get("models")
+        .and_then(|models| models.get("availableModels"))
         .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+    {
+        out.push(items.as_slice());
+    }
+    if let Some(items) = value
+        .get("modelState")
+        .and_then(|state| state.get("availableModels"))
+        .and_then(Value::as_array)
+    {
+        out.push(items.as_slice());
+    }
+    if let Some(items) = value
+        .get("_meta")
+        .and_then(|meta| meta.get("modelState"))
+        .and_then(|state| state.get("availableModels"))
+        .and_then(Value::as_array)
+    {
+        out.push(items.as_slice());
+    }
+    out
+}
+
+fn models_from_available_items(items: &[Value], current: Option<&str>) -> Vec<AgentModel> {
     let mut out = Vec::new();
     for item in items {
         let id = item
@@ -213,7 +299,7 @@ pub(crate) fn models_from_session_new(result: &Value) -> Vec<AgentModel> {
             .filter(|name| !name.is_empty())
             .unwrap_or(&id)
             .to_string();
-        let meta = item.get("_meta").unwrap_or(&item);
+        let meta = item.get("_meta").unwrap_or(item);
         out.push(AgentModel {
             id: id.clone(),
             label,
@@ -227,6 +313,11 @@ pub(crate) fn models_from_session_new(result: &Value) -> Vec<AgentModel> {
         });
     }
     out
+}
+
+fn is_models_update_method(method: &str) -> bool {
+    let method = method.strip_prefix('_').unwrap_or(method);
+    method == "x.ai/models/update" || method.ends_with("/models/update")
 }
 
 fn thinking_from_reasoning_efforts(meta: &Value) -> Option<AgentThinkingSupport> {
@@ -418,6 +509,38 @@ mod tests {
     }
 
     #[test]
+    fn initialize_model_state_reads_live_reasoning_efforts() {
+        let result: Value =
+            serde_json::from_str(include_str!("testdata/initialize_model_state.json"))
+                .expect("fixture");
+        let models = models_from_grok_catalog(&result);
+        assert_eq!(
+            models
+                .iter()
+                .map(|model| (model.id.as_str(), model.label.as_str(), model.fast))
+                .collect::<Vec<_>>(),
+            [
+                ("grok-4.7", "Grok 4.7", true),
+                ("grok-4.6", "Grok 4.6", false),
+                ("grok-4.5", "Grok 4.5", false),
+            ]
+        );
+        assert!(models[0].is_default);
+        match &models[0].thinking {
+            Some(AgentThinkingSupport::Enum { options, .. }) => {
+                assert_eq!(options, &["low", "medium", "high", "xhigh"]);
+            }
+            other => panic!("expected 4.7 efforts, got {other:?}"),
+        }
+        match &models[2].thinking {
+            Some(AgentThinkingSupport::Enum { options, .. }) => {
+                assert_eq!(options, &["low", "medium", "high"]);
+            }
+            other => panic!("expected 4.5 efforts, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn session_new_attaches_per_model_reasoning_efforts() {
         let result = serde_json::json!({
             "sessionId": "ses_1",
@@ -450,7 +573,7 @@ mod tests {
                 ]
             }
         });
-        let models = models_from_session_new(&result);
+        let models = models_from_grok_catalog(&result);
         assert_eq!(models.len(), 2);
         assert!(!models[0].is_default);
         assert!(models[1].is_default);

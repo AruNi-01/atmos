@@ -587,6 +587,11 @@ fn merge_config_options(state: &mut EventMapState, options: &[AgentConfigOption]
     let probed = probe_result_from_config_options(options, PathBuf::from("."), false);
     if !probed.models.is_empty() {
         state.supported_options.models = probed.models;
+        crate::options::apply_grok_fast_options(
+            &mut state.supported_options.models,
+            &mut state.current_config,
+            &mut state.supported_options.fast,
+        );
     }
     if options.iter().any(|option| is_mode_config_id(&option.id)) && !probed.modes.is_empty() {
         state.supported_options.modes = probed.modes;

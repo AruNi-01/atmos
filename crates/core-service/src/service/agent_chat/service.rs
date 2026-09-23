@@ -5,11 +5,12 @@ use std::time::{Duration, Instant};
 
 use agent::providers::{chat_provider_kind, ChatProviderKind};
 use agent::{
-    apply_droid_fast_current_config, canonicalize_chat_provider_id, encode_droid_fast_model,
-    is_droid_chat_provider, AgentAction, AgentActionError, AgentActionResult, AgentCheckpoint,
-    AgentEvent, AgentEventEnvelope, AgentPermissionOption, AgentPersistenceHandle, AgentPrompt,
-    AgentProviderFactory, AgentRuntime, AgentRuntimeConfig, AgentRuntimeControl,
-    AgentSessionOpRequest, Capability, SessionOpKind, UserMessageKind,
+    apply_droid_fast_current_config, apply_grok_fast_current_config, canonicalize_chat_provider_id,
+    encode_droid_fast_model, encode_grok_fast_model, is_droid_chat_provider, AgentAction,
+    AgentActionError, AgentActionResult, AgentCheckpoint, AgentEvent, AgentEventEnvelope,
+    AgentPermissionOption, AgentPersistenceHandle, AgentPrompt, AgentProviderFactory, AgentRuntime,
+    AgentRuntimeConfig, AgentRuntimeControl, AgentSessionOpRequest, Capability, SessionOpKind,
+    UserMessageKind,
 };
 use chrono::Utc;
 use tokio::sync::{broadcast, Mutex};
@@ -1353,6 +1354,15 @@ impl AgentChatService {
                 ));
             }
             spawn_fast = None;
+        } else if canonicalize_chat_provider_id(&meta.provider_id) == "grok" {
+            if let Some(model) = spawn_model.as_deref() {
+                spawn_model = Some(encode_grok_fast_model(
+                    model,
+                    spawn_fast.as_deref(),
+                    &meta.descriptor.supported_options.models,
+                ));
+            }
+            spawn_fast = None;
         }
         let cfg = AgentRuntimeConfig {
             cwd: std::path::PathBuf::from(&meta.cwd),
@@ -1442,6 +1452,11 @@ impl AgentChatService {
             meta.descriptor = live_descriptor.clone();
             if is_droid_chat_provider(&meta.provider_id) {
                 apply_droid_fast_current_config(
+                    &mut picker,
+                    &meta.descriptor.supported_options.models,
+                );
+            } else if canonicalize_chat_provider_id(&meta.provider_id) == "grok" {
+                apply_grok_fast_current_config(
                     &mut picker,
                     &meta.descriptor.supported_options.models,
                 );

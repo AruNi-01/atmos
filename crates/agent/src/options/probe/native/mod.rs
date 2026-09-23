@@ -40,8 +40,8 @@ impl NativeOptionsProbe for NoopNativeOptionsProbe {
     }
 }
 
-/// Dispatches Chat native options probes. Grok stdio probe is slash-only;
-/// models still come from `grok models` CLI.
+/// Dispatches Chat native options probes. Grok stdio probe supplies
+/// per-model `reasoningEfforts`; model ids still come from `grok models` CLI.
 pub struct DispatchNativeOptionsProbe;
 
 #[async_trait]
