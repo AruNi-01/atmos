@@ -317,7 +317,13 @@ html:not([data-theme-ready="true"]) body {
    * appears. Do not override this to `auto`: a right-only overflow gutter
    * shoves the max-w-3xl chat left the moment the scrollbar shows up.
    * Classic `::-webkit-scrollbar { width }` is still forbidden (kills bounce).
+   *
+   * `overflow-anchor: none` keeps a tab hop from nudging scrollTop when a
+   * keep-alive row is remeasured. Stick-to-bottom still follows new content.
    */
+  .agent-chat-scroll {
+    overflow-anchor: none;
+  }
 }
 
 /*

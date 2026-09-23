@@ -61,12 +61,10 @@ import {
   recordCenterFileRecents,
   useCenterExplorerLayout,
 } from "@/shared/stores/use-ui-pref-hooks";
-import { CENTER_STAGE_RADIUS_CSS } from "@/app-shell/sidebar-layout-constants";
+import { centerKeepAlivePanelStyle } from "@/app-shell/center-pane/center-keep-alive-panel-style";
 import { paneHiddenByCenterFullscreen } from "@/app-shell/center-stage-fullscreen";
-import {
-  isUsablePaneSlotBox,
-  shouldWithholdUnmeasuredPaneTerminal,
-} from "@/app-shell/center-pane/use-center-pane-slot-boxes";
+import { shouldWithholdUnmeasuredPaneTerminal } from "@/app-shell/center-pane/use-center-pane-slot-boxes";
+import { CENTER_STAGE_RADIUS_CSS } from "@/app-shell/sidebar-layout-constants";
 import { cn } from "@/shared/lib/utils";
 import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
 import { CenterExplorerLanding } from "@/app-shell/CenterExplorerLanding";
@@ -230,61 +228,6 @@ const KeptFileTreePanel = React.memo(FileTreePanel);
 
 export const EMPTY_MOUNTED_TAB_IDS: string[] = [];
 const EMPTY_OPEN_FILES: OpenFile[] = [];
-
-function multiPanePanelStyleForPane(
-  visible: boolean,
-  paneId: string | undefined,
-  paneSlotBoxes: Readonly<Record<string, { top: number; left: number; width: number; height: number }>> | null | undefined,
-  fullscreenPaneId?: string | null,
-): React.CSSProperties | undefined {
-  if (!visible || !paneId || !paneSlotBoxes) return undefined;
-  if (paneHiddenByCenterFullscreen(fullscreenPaneId, paneId)) {
-    return {
-      position: "absolute",
-      top: 0,
-      right: "auto",
-      bottom: "auto",
-      left: 0,
-      width: 0,
-      height: 0,
-      overflow: "hidden",
-      pointerEvents: "none",
-      opacity: 0,
-    };
-  }
-  const box = paneSlotBoxes[paneId];
-  // Missing box = empty pane just grew a slot. Do not fall back to
-  // `inset: 0` (covers sibling panes and fits the PTY at the wrong size).
-  if (!isUsablePaneSlotBox(box)) {
-    return {
-      position: "absolute",
-      top: 0,
-      right: "auto",
-      bottom: "auto",
-      left: 0,
-      width: 0,
-      height: 0,
-      overflow: "hidden",
-      pointerEvents: "none",
-      opacity: 0,
-    };
-  }
-  return {
-    position: "absolute",
-    top: box.top,
-    right: "auto",
-    bottom: "auto",
-    left: box.left,
-    width: box.width,
-    height: box.height,
-    zIndex: 1,
-    // Round the overlay so square canvases don't cover the pane card corners.
-    // Leave overflow to the panel class: inline `hidden` would override
-    // Overview's `overflow-auto`. Terminals clip via `.atmos-terminal-panel-*`.
-    borderBottomLeftRadius: CENTER_STAGE_RADIUS_CSS,
-    borderBottomRightRadius: CENTER_STAGE_RADIUS_CSS,
-  };
-}
 
 function hostPaneIdsForTab(
   tabId: string,
@@ -500,7 +443,7 @@ function WorkspaceCenterFrameImpl({
   const panelStyle = React.useCallback(
     (panelTabId: string, visible: boolean, paneId?: string) =>
       multiActiveTabIds
-        ? multiPanePanelStyleForPane(
+        ? centerKeepAlivePanelStyle(
             visible,
             paneId ?? tabToPaneId?.[panelTabId],
             paneSlotBoxes,
@@ -986,7 +929,13 @@ function WorkspaceCenterFrameImpl({
             data-center-pane-owner={paneOwner(tab.value)}
             aria-hidden={!visible}
             inert={!visible ? true : undefined}
-            className={cn(lightSurfacePanelClass(visible), interactivePaneClass(visible))}
+            className={cn(
+              lightSurfacePanelClass(visible),
+              // Chat scrolls inside the transcript. The shell's overflow-auto
+              // would add a second bar and resize it on every visibility hop.
+              "!overflow-hidden",
+              interactivePaneClass(visible),
+            )}
             style={panelStyle(tab.value, visible)}
           >
             <AgentChatWorkspace
