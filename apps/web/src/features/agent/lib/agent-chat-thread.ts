@@ -294,12 +294,18 @@ export function selectedModelSupportsFast(
 }
 
 const DROID_FAST_ID_SUFFIX = "-fast";
+const GROK_FAST_ID_SUFFIX = "-build-fast";
 
 export function isDroidChatProvider(providerId: string): boolean {
   const compact = providerId.trim().toLowerCase().replace(/_/g, "-");
   return compact === "droid"
     || compact === "factory-droid"
     || compact.startsWith("factory-droid-");
+}
+
+export function isGrokChatProvider(providerId: string): boolean {
+  const compact = providerId.trim().toLowerCase().replace(/_/g, "-");
+  return compact === "grok" || compact === "grok-build" || compact === "grok-acp";
 }
 
 export function droidFastBase(id: string): string | null {
@@ -310,7 +316,23 @@ export function droidFastBase(id: string): string | null {
   return trimmed.slice(0, -DROID_FAST_ID_SUFFIX.length);
 }
 
+export function grokFastBase(id: string): string | null {
+  const trimmed = id.trim();
+  if (!trimmed.endsWith(GROK_FAST_ID_SUFFIX) || trimmed.length <= GROK_FAST_ID_SUFFIX.length) {
+    return null;
+  }
+  return trimmed.slice(0, -GROK_FAST_ID_SUFFIX.length);
+}
+
 export function droidCleanDisplayLabel(label: string): string {
+  return cleanFastDisplayLabel(label);
+}
+
+export function grokCleanDisplayLabel(label: string): string {
+  return cleanFastDisplayLabel(label);
+}
+
+function cleanFastDisplayLabel(label: string): string {
   const trimmed = label.trim();
   if (!trimmed) return "";
   const { body, suffix } = splitTrailingParens(trimmed);
@@ -322,6 +344,7 @@ export function droidCleanDisplayLabel(label: string): string {
       break;
     }
   }
+  if (next.toLowerCase() === "fast") next = "";
   if (!suffix) return next;
   return next ? `${next} ${suffix}` : suffix;
 }
@@ -349,11 +372,24 @@ type DroidCollapseModel = {
 };
 
 export function collapseDroidFastModels<T extends DroidCollapseModel>(models: T[]): T[] {
+  return collapseFastSiblingModels(models, DROID_FAST_ID_SUFFIX, droidFastBase, droidCleanDisplayLabel);
+}
+
+export function collapseGrokFastModels<T extends DroidCollapseModel>(models: T[]): T[] {
+  return collapseFastSiblingModels(models, GROK_FAST_ID_SUFFIX, grokFastBase, grokCleanDisplayLabel);
+}
+
+function collapseFastSiblingModels<T extends DroidCollapseModel>(
+  models: T[],
+  suffix: string,
+  fastBase: (id: string) => string | null,
+  cleanLabel: (label: string) => string,
+): T[] {
   if (models.length < 2) return models;
   const ids = new Set(models.map((model) => model.id));
   const hasPair = models.some((model) => {
-    const base = droidFastBase(model.id);
-    return Boolean(base && ids.has(base)) || ids.has(`${model.id}${DROID_FAST_ID_SUFFIX}`);
+    const base = fastBase(model.id);
+    return Boolean(base && ids.has(base)) || ids.has(`${model.id}${suffix}`);
   });
   if (!hasPair) return models;
 
@@ -364,7 +400,7 @@ export function collapseDroidFastModels<T extends DroidCollapseModel>(models: T[
   for (const model of models) {
     const id = model.id.trim();
     if (!id) continue;
-    const base = droidFastBase(id);
+    const base = fastBase(id);
     if (base) {
       if (!ids.has(base)) {
         unpairedFast.push(model);
@@ -377,7 +413,7 @@ export function collapseDroidFastModels<T extends DroidCollapseModel>(models: T[
         hasFast: true,
       };
       entry.hasFast = true;
-      mergeDroidFastGroup(entry, model, true);
+      mergeDroidFastGroup(entry, model, true, cleanLabel);
       groups.set(base, entry);
       continue;
     }
@@ -385,10 +421,10 @@ export function collapseDroidFastModels<T extends DroidCollapseModel>(models: T[
       order: order++,
       model,
       label: "",
-      hasFast: ids.has(`${id}${DROID_FAST_ID_SUFFIX}`),
+      hasFast: ids.has(`${id}${suffix}`),
     };
-    if (ids.has(`${id}${DROID_FAST_ID_SUFFIX}`)) entry.hasFast = true;
-    mergeDroidFastGroup(entry, model, false);
+    if (ids.has(`${id}${suffix}`)) entry.hasFast = true;
+    mergeDroidFastGroup(entry, model, false, cleanLabel);
     groups.set(id, entry);
   }
   return [
@@ -405,9 +441,10 @@ export function collapseDroidFastModels<T extends DroidCollapseModel>(models: T[
 }
 
 function mergeDroidFastGroup<T extends DroidCollapseModel>(
-  entry: { model: T; label: string },
+  entry: { model: T; label: string; hasFast: boolean },
   model: T,
   fromFast: boolean,
+  cleanLabel: (label: string) => string = droidCleanDisplayLabel,
 ) {
   if (model.is_default) {
     entry.model = { ...entry.model, is_default: true };
@@ -430,7 +467,9 @@ function mergeDroidFastGroup<T extends DroidCollapseModel>(
       entry.model = { ...entry.model, fast_multiplier: fastMultiplier };
     }
   }
-  const cleaned = droidCleanDisplayLabel(model.label ?? "");
+  const cleaned = (fromFast || entry.hasFast)
+    ? cleanLabel(model.label ?? "")
+    : (model.label ?? "").trim();
   if (!cleaned) return;
   if (!entry.label || !fromFast) entry.label = cleaned;
   if (!fromFast) {
@@ -453,11 +492,20 @@ function thinkingIsUsable(
   return Boolean(thinking) && thinking?.type !== "none";
 }
 
+export function collapseFastModelsForProvider<T extends DroidCollapseModel>(
+  providerId: string,
+  models: T[],
+): T[] {
+  if (isDroidChatProvider(providerId)) return collapseDroidFastModels(models);
+  if (isGrokChatProvider(providerId)) return collapseGrokFastModels(models);
+  return models;
+}
+
 function collapseDroidFastModelsIfNeeded<T extends DroidCollapseModel>(
   providerId: string,
   models: T[],
 ): T[] {
-  return isDroidChatProvider(providerId) ? collapseDroidFastModels(models) : models;
+  return collapseFastModelsForProvider(providerId, models);
 }
 
 export function foldDroidFastSelection(
@@ -467,7 +515,41 @@ export function foldDroidFastSelection(
   models: Array<{ id: string }>,
 ): { modelId: string; fastId: string } {
   if (!isDroidChatProvider(providerId)) return { modelId, fastId };
-  const base = droidFastBase(modelId);
+  return foldFastSiblingSelection(modelId, fastId, models, droidFastBase);
+}
+
+export function foldGrokFastSelection(
+  providerId: string,
+  modelId: string,
+  fastId: string,
+  models: Array<{ id: string }>,
+): { modelId: string; fastId: string } {
+  if (!isGrokChatProvider(providerId)) return { modelId, fastId };
+  return foldFastSiblingSelection(modelId, fastId, models, grokFastBase);
+}
+
+export function foldProviderFastSelection(
+  providerId: string,
+  modelId: string,
+  fastId: string,
+  models: Array<{ id: string }>,
+): { modelId: string; fastId: string } {
+  if (isDroidChatProvider(providerId)) {
+    return foldDroidFastSelection(providerId, modelId, fastId, models);
+  }
+  if (isGrokChatProvider(providerId)) {
+    return foldGrokFastSelection(providerId, modelId, fastId, models);
+  }
+  return { modelId, fastId };
+}
+
+function foldFastSiblingSelection(
+  modelId: string,
+  fastId: string,
+  models: Array<{ id: string }>,
+  fastBase: (id: string) => string | null,
+): { modelId: string; fastId: string } {
+  const base = fastBase(modelId);
   if (!base) return { modelId, fastId };
   if (models.length > 0 && !models.some((model) => model.id === base)) {
     return { modelId, fastId };
@@ -615,7 +697,7 @@ export function fastIdAfterModelChange(input: {
   rememberedFastByModel: Record<string, string>;
   sessionFastId: string;
 }): string {
-  const models = collapseDroidFastModels(input.models);
+  const models = collapseGrokFastModels(collapseDroidFastModels(input.models));
   if (!modelsHavePerModelFast(models)) return input.sessionFastId;
   const nextId = input.nextModelId.trim();
   const next = models.find((model) => model.id === nextId);
@@ -682,7 +764,7 @@ export function optionsSnapshotToConfigOptions(
   if (collapsedModels !== catalog.models) {
     catalog = { ...catalog, models: collapsedModels };
   }
-  ({ modelId, fastId } = foldDroidFastSelection(
+  ({ modelId, fastId } = foldProviderFastSelection(
     catalog.agent_id,
     modelId,
     fastId,
@@ -1051,11 +1133,15 @@ export function fillEmptyDescriptorOptionsFromSnapshot(
         thinkingSupportIsEmpty(options.thinking)
       )
     );
+  const grokCatalog =
+    isGrokChatAgent(catalog.agent_id) || isGrokChatAgent(descriptor.identity.id);
   const sourceModels = preferCatalogModels
     ? catalog.models
-    : options.models.length > 0
-      ? options.models
-      : catalog.models;
+    : grokCatalog && catalog.models.length > 0
+      ? unionGrokCatalogModels(options.models, catalog.models)
+      : options.models.length > 0
+        ? options.models
+        : catalog.models;
   const collapsedSource = collapseDroidFastModelsIfNeeded(
     catalog.agent_id,
     sourceModels,
@@ -1107,7 +1193,7 @@ export function fillEmptyDescriptorOptionsFromSnapshot(
       : models.some((model) => model.fast)
         ? booleanFastModes()
         : [];
-  const folded = foldDroidFastSelection(
+  const folded = foldProviderFastSelection(
     catalog.agent_id,
     descriptor.current_config.model || "",
     descriptor.current_config.fast || "",
@@ -1235,6 +1321,31 @@ function overlayCatalogModelThinking<T extends { id: string; thinking?: AgentThi
   return changed ? next : models;
 }
 
+function isGrokChatAgent(id: string): boolean {
+  return isGrokChatProvider(id);
+}
+
+/** CLI `grok models` is the Grok picker id list. Session/new often lags (4.5/4.6). */
+function unionGrokCatalogModels<T extends { id: string }>(
+  sessionModels: T[],
+  catalogModels: T[],
+): T[] {
+  if (catalogModels.length === 0) return sessionModels;
+  if (sessionModels.length === 0) return catalogModels;
+  const sessionById = new Map(sessionModels.map((model) => [model.id, model]));
+  const used = new Set<string>();
+  const out: T[] = [];
+  for (const item of catalogModels) {
+    used.add(item.id);
+    const live = sessionById.get(item.id);
+    out.push(live ? { ...item, ...live } : item);
+  }
+  for (const item of sessionModels) {
+    if (!used.has(item.id)) out.push(item);
+  }
+  return out;
+}
+
 function overlayCatalogModelLabels<
   T extends {
     id: string;
@@ -1342,7 +1453,7 @@ export function descriptorToConfigOptions(
     descriptor.supported_options.models,
   );
   const current = descriptor.current_config;
-  const folded = foldDroidFastSelection(
+  const folded = foldProviderFastSelection(
     descriptor.identity.id,
     selectedModelId || current.model || "",
     current.fast || "",

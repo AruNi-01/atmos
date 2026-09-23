@@ -154,8 +154,8 @@ import {
   thinkingChoices,
   contextChoicesForModels,
   defaultContextChoiceId,
-  collapseDroidFastModels,
-  foldDroidFastSelection,
+  collapseFastModelsForProvider,
+  foldProviderFastSelection,
   fastIdAfterModelChange,
   rememberFastForModel,
   modelsHavePerModelFast,
@@ -629,7 +629,7 @@ export function useAgentChatSession({
     setFastId(nextFast);
     setContextId(next.current_config.context ?? "");
     if (nextModel.trim() && nextFast.trim()) {
-      const folded = foldDroidFastSelection(
+      const folded = foldProviderFastSelection(
         providerIdRef.current,
         nextModel,
         nextFast,
@@ -1309,7 +1309,11 @@ export function useAgentChatSession({
       }
       if (next.status === "probing") return;
       if (next.source !== "live" && next.status === "ok") {
-        if (keepList || next.models.length === 0) return;
+        const currentIds = new Set(
+          (catalogRef.current?.models ?? []).map((model) => model.id),
+        );
+        const grew = next.models.some((model) => !currentIds.has(model.id));
+        if ((keepList || next.models.length === 0) && !grew) return;
       }
       applyLiveOptionsSnapshot(next);
     }).catch((error) => {
@@ -2187,8 +2191,8 @@ export function useAgentChatSession({
     };
     if (configKindMatches(key, undefined, "model")) {
       const rawModels = descriptor?.supported_options.models ?? catalog?.models ?? [];
-      const models = collapseDroidFastModels(rawModels);
-      const folded = foldDroidFastSelection(
+      const models = collapseFastModelsForProvider(providerIdRef.current, rawModels);
+      const folded = foldProviderFastSelection(
         providerIdRef.current,
         value,
         "",
