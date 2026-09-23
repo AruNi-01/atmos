@@ -8,6 +8,7 @@ import {
   ConversationContent,
   ConversationEmptyState,
   cn,
+  useStickToBottomContext,
 } from "@workspace/ui";
 import { Loader2, MessageSquare, X } from "lucide-react";
 import { useAgentChatLayoutStore } from "@/features/agent/store/agent-chat-layout-store";
@@ -66,7 +67,11 @@ import {
   OWN_SEND_DRAFT_KEY,
   shouldResetOwnSend,
 } from "../lib/agent-chat-own-send";
-import { useAgentChatHistorySidebarLayout } from "../hooks/use-agent-chat-history-sidebar-layout";
+import {
+  chatRailLeftPx,
+  chatTimelineFloats,
+  useAgentChatHistorySidebarLayout,
+} from "../hooks/use-agent-chat-history-sidebar-layout";
 import {
   closeCurrentStandaloneWindow,
   closeStandaloneSurface,
@@ -123,6 +128,17 @@ function writeModalFrame(node: HTMLElement | null, frame: ModalFrame) {
   node.style.height = `${frame.height}px`;
 }
 
+/** Stop a hide-time resize spring before the chat tab is shown again. */
+function PauseStickWhenHidden({ active }: { active: boolean }) {
+  const { stopScroll } = useStickToBottomContext();
+  const wasActiveRef = useRef(active);
+  useLayoutEffect(() => {
+    if (wasActiveRef.current && !active) stopScroll();
+    wasActiveRef.current = active;
+  }, [active, stopScroll]);
+  return null;
+}
+
 function modalFrameStyle(frame: ModalFrame, opacity: number): React.CSSProperties {
   return {
     left: 0,
@@ -162,6 +178,7 @@ export function AgentChatPanel({
   const isEmbeddedPausedForStandalone = variant !== "standalone" && isStandaloneChatOpen;
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
   const panelRef = useRef<HTMLDivElement>(null);
+  const historySidebarInnerRef = useRef<HTMLDivElement>(null);
   const [panelWidth, setPanelWidth] = useState(0);
   const showHistoryChrome = variant === "standalone" || variant === "modal";
   const showsWideHistoryLayout =
@@ -728,8 +745,8 @@ export function AgentChatPanel({
       : undefined;
   const constrainChatWidth = variant === "center" || showsWideHistoryLayout;
   const wideContentClassName = constrainChatWidth
-    ? "mx-auto w-full max-w-3xl"
-    : "w-full";
+    ? "mx-auto w-full min-w-0 max-w-3xl"
+    : "w-full min-w-0";
   const isNewChatLanding = isAgentNewChatLanding({
     chatId: liveChatId,
     messageCount: messages.length,
@@ -750,6 +767,36 @@ export function AgentChatPanel({
   const releaseTimelineNavLock = useCallback(() => {
     timelineNavLockedRef.current = false;
   }, []);
+  // Wide/center chat floats the rail in the left margin so the 48rem
+  // message width does not change when the rail or directory is showing.
+  const timelineFloats = constrainChatWidth && chatTimelineFloats(panelWidth);
+  const timelineLeft = timelineFloats
+    ? chatRailLeftPx(
+        panelWidth,
+        historySidebarWidth,
+        showsWideHistoryLayout && !historySidebarCollapsed,
+      )
+    : 0;
+  const timelineNav = showTimelineNav ? (
+    <div
+      data-agent-chat-timeline-nav=""
+      className={cn(
+        "w-8",
+        timelineFloats
+          ? "pointer-events-none absolute inset-y-0 z-20"
+          : "relative h-full shrink-0",
+      )}
+      style={timelineFloats ? { left: timelineLeft } : undefined}
+    >
+      <AgentMessageTimelineNav
+        activeAgent={activeAgent}
+        messages={messages}
+        userMessageIndices={userMessageIndices}
+        activeMessageIndex={messageNavIndex}
+        onSelectMessage={handleSelectTimelineMessage}
+      />
+    </div>
+  ) : null;
   const wasResumingHistoryRef = useRef(false);
   const [aboveComposerOverlaysNode, setAboveComposerOverlaysNode] = useState<HTMLDivElement | null>(
     null,
@@ -905,9 +952,8 @@ export function AgentChatPanel({
       onPointerEnter={ackVisibleChatAttention}
       onPointerDown={ackVisibleChatAttention}
       className={cn(
-        "relative flex overflow-hidden bg-background",
+        "relative flex flex-col overflow-hidden bg-background",
         showsWideHistoryLayout && "bg-muted/20",
-        !showsWideHistoryLayout && "flex-col",
         variant === "modal" && !isFullscreen && "fixed z-50 rounded-xl border border-border shadow-lg",
         (variant === "sidebar" || variant === "center") && !isFullscreen && "flex h-full min-h-0 min-w-0 w-full flex-1 flex-col",
         variant === "standalone" && "h-dvh min-h-0 w-full",
@@ -944,13 +990,25 @@ export function AgentChatPanel({
         </div>
       ) : null}
 
-      {showsWideHistoryLayout && (
+      {showsWideHistoryLayout ? (
+        <div
+          // Overlay the panel's left edge. maxWidth keeps it in the margin
+          // beside the centered 48rem column, so the column does not move.
+          ref={historySidebarFrameRef}
+          data-agent-chat-history-overlay=""
+          className="absolute inset-y-0 left-0 z-30 flex h-full overflow-visible bg-muted/20"
+          style={{
+            width: historySidebarCollapsed ? 0 : historySidebarWidth,
+            maxWidth: "calc((100% - min(100%, 48rem)) / 2)",
+          }}
+        >
         <AgentChatHistorySidebarFrame
-          frameRef={historySidebarFrameRef}
+          frameRef={historySidebarInnerRef}
           collapsed={historySidebarCollapsed}
           expandLabel={historySidebarExpandLabel}
           showCollapsedExpandButton={false}
           width={historySidebarWidth}
+          fitParent
           isResizing={isHistorySidebarResizing}
           onResizeStart={handleHistorySidebarResizeStart}
           onCollapsedExpand={() => setHistorySidebarCollapsed(false)}
@@ -983,13 +1041,11 @@ export function AgentChatPanel({
             projects={session.projects}
           />
         </AgentChatHistorySidebarFrame>
-      )}
+        </div>
+      ) : null}
 
       <div
-        className={cn(
-          "flex min-h-0 flex-1 flex-col overflow-hidden bg-background transition-[border-radius] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
-          showsWideHistoryLayout && !historySidebarCollapsed && "rounded-l-xl",
-        )}
+        className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden bg-background"
       >
         {variant !== "center" ? (
           <AgentChatHeader
@@ -1044,21 +1100,8 @@ export function AgentChatPanel({
         data-agent-chat-column=""
       >
       <AgentChatOwnSendRefsProvider>
-      <div className="flex min-h-0 w-full flex-1 pr-1">
-        {showTimelineNav ? (
-          <div
-            data-agent-chat-timeline-nav=""
-            className="relative w-8 shrink-0"
-          >
-            <AgentMessageTimelineNav
-              activeAgent={activeAgent}
-              messages={messages}
-              userMessageIndices={userMessageIndices}
-              activeMessageIndex={messageNavIndex}
-              onSelectMessage={handleSelectTimelineMessage}
-            />
-          </div>
-        ) : null}
+      <div className="relative flex min-h-0 w-full flex-1 pr-1">
+        {timelineNav}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <motion.div
         ref={transcriptRef}
@@ -1080,8 +1123,9 @@ export function AgentChatPanel({
           <Conversation
           className="min-h-0 h-full overflow-hidden"
           initial={isRestoringTranscript ? false : "smooth"}
-          resize={isRestoringTranscript ? "instant" : "smooth"}
+          resize={!surfaceVisible || isRestoringTranscript ? "instant" : "smooth"}
         >
+          <PauseStickWhenHidden active={surfaceVisible} />
           <ConversationContent
             data-canvas-selectable-text="true"
             className={cn("gap-3 px-3 py-4", wideContentClassName)}

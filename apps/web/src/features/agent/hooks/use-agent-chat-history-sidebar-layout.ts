@@ -12,6 +12,40 @@ import { isResizeClickGesture } from "@/app-shell/resize-click-fold";
 const HISTORY_SIDEBAR_DEFAULT_WIDTH = 320;
 const HISTORY_SIDEBAR_MIN_WIDTH = 248;
 const HISTORY_SIDEBAR_MAX_WIDTH = 440;
+/** Matches the chat column `max-w-3xl` so the directory stays in the side margin. */
+const CHAT_COLUMN_REM = 48;
+/** Message rail width (`w-8`). It stays in the left margin, beside the directory. */
+const TIMELINE_RAIL_PX = 32;
+
+function chatSideRoomPx(panelWidth: number, rem: number): number {
+  if (panelWidth <= 0) return 0;
+  const column = Math.min(panelWidth, CHAT_COLUMN_REM * rem);
+  return Math.max(0, (panelWidth - column) / 2);
+}
+
+/** Float the rail only when the side margin can hold it without covering messages. */
+export function chatTimelineFloats(panelWidth: number, rem = 16): boolean {
+  // Unknown width (first paint) keeps the wide layout so a measured wide pane does not jump.
+  if (panelWidth <= 0) return true;
+  return chatSideRoomPx(panelWidth, rem) >= TIMELINE_RAIL_PX;
+}
+
+/**
+ * Left edge of the message rail. Closed directory: the panel's left edge.
+ * Open directory: just to its right, still outside the centered column.
+ */
+export function chatRailLeftPx(
+  panelWidth: number,
+  sidebarWidth: number,
+  sidebarOpen: boolean,
+  rem = 16,
+): number {
+  if (!sidebarOpen || panelWidth <= 0) return 0;
+  const sideRoom = chatSideRoomPx(panelWidth, rem);
+  if (sidebarWidth + TIMELINE_RAIL_PX <= sideRoom) return sidebarWidth;
+  return Math.max(0, sideRoom - TIMELINE_RAIL_PX);
+}
+
 const HISTORY_SIDEBAR_WIDTH_STORAGE_KEY = "atmos:agent-chat-history-sidebar-width";
 const HISTORY_SIDEBAR_COLLAPSED_STORAGE_KEY = "atmos:agent-chat-history-sidebar-collapsed";
 
@@ -35,10 +69,18 @@ export function useAgentChatHistorySidebarLayout({
   const [historySidebarPreviewWidth, setHistorySidebarPreviewWidth] = useState<number | null>(null);
 
   const clampHistorySidebarWidth = useCallback((width: number) => {
-    const panelBoundedMax = panelWidth > 0
-      ? Math.max(HISTORY_SIDEBAR_MIN_WIDTH, Math.min(HISTORY_SIDEBAR_MAX_WIDTH, panelWidth - 520))
+    // Side margin beside a centered 48rem column. The directory must not
+    // consume that column, so it cannot grow past the margin.
+    const rem = typeof window === "undefined"
+      ? 16
+      : Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    const contentCap = CHAT_COLUMN_REM * rem;
+    const sideRoom = panelWidth > 0
+      ? Math.max(0, (panelWidth - Math.min(contentCap, panelWidth)) / 2)
       : HISTORY_SIDEBAR_MAX_WIDTH;
-    return Math.round(Math.min(panelBoundedMax, Math.max(HISTORY_SIDEBAR_MIN_WIDTH, width)));
+    const panelBoundedMax = Math.min(HISTORY_SIDEBAR_MAX_WIDTH, sideRoom);
+    const floor = Math.min(HISTORY_SIDEBAR_MIN_WIDTH, panelBoundedMax);
+    return Math.round(Math.min(panelBoundedMax, Math.max(floor, width)));
   }, [panelWidth]);
 
   useEffect(() => {

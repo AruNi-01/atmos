@@ -123,7 +123,7 @@ describe("transcript virtual list wiring", () => {
     expect(panel).toContain("AgentChatTranscriptList");
     expect(panel).toContain("scrollToIndexRef");
     expect(panel).toContain(`scrollClassName={AGENT_CHAT_SCROLL_CLASS}`);
-    expect(panel).toContain('resize={isRestoringTranscript ? "instant" : "smooth"}');
+    expect(panel).toContain('resize={!surfaceVisible || isRestoringTranscript ? "instant" : "smooth"}');
     expect(panel).toContain("transcriptBottomPadStyle");
     expect(panel).toContain("overlayPadShrinking");
     expect(panel).not.toContain("shouldMountTranscriptMessage");
