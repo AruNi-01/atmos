@@ -1,0 +1,18 @@
+apps/web/src/features/agent/hooks/use-agent-chat-session.ts
+  h_5be255725524c8 157-158,632,1312-1316,2194-2195
+apps/web/src/features/agent/lib/__tests__/agent-chat-thread.test.ts
+  h_5be255725524c8 32,34,36,41,406-481,1503-1592
+apps/web/src/features/agent/lib/agent-chat-thread.ts
+  h_5be255725524c8 297,306-310,319-326,328-335,347,375-387,391-392,403,416,424,426-427,444,447,470-472,495-503,508,518-552,700,767,1136-1137,1140-1144,1196,1324-1348,1456
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5e92a7ba6e3dbabd2d08277a55fa59876d6d0f58",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
