@@ -1,0 +1,20 @@
+crates/agent/src/options/probe/cli/grok.rs
+  s_d3fc57d4776c72::t_c5ed597aed0580 1-397
+  s_d3fc57d4776c72::t_26e0bc3c8f0d6e 398-400
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "bdb84ff1e6404cbd30ab2126a7d50e89871a54fa",
+  "prompts": {},
+  "sessions": {
+    "s_d3fc57d4776c72": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0cdac-9af6-7f23-817b-931a5d16852a",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
