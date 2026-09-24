@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useState, type ReactNode } from "react";
+import { StyleSheet, Text, View } from "react-native";
 import { GlassTabBar } from "@rbayuokt/expo-adaptive-glass";
 import { TerminalTabActions } from "@/features/terminal/TerminalTabActions";
 import { spacing } from "@/theme/spacing";
@@ -10,12 +10,8 @@ export type TerminalTabItem = {
   label: string;
 };
 
-const TAB_BAR_HEIGHT = 40;
-/** The held lens grows past the bar. Keep that bleed inside the track so it is not clipped. */
-const LENS_BLEED = 10;
-const TRACK_HEIGHT = TAB_BAR_HEIGHT + LENS_BLEED * 2;
-/** Slots narrower than this crush names like "claude". Extra tabs scroll. */
-const MIN_TAB_SLOT = 84;
+/** Same reason as the home tab bar: a flex slot wider than the label lets the lens drag the text. */
+const TAB_SLOT = 104;
 
 export function TerminalTabsBar({
   activeEntryId,
@@ -33,55 +29,10 @@ export function TerminalTabsBar({
   onSelect: (entryId: string) => void;
 }) {
   const theme = useMobileTheme();
-  const scrollRef = useRef<ScrollView>(null);
-  const didScrollToSelection = useRef(false);
   const [trackWidth, setTrackWidth] = useState(0);
   const selectedIndex = entries.findIndex((entry) => entry.id === activeEntryId);
-  const contentWidth = entries.length * MIN_TAB_SLOT;
-  const scrolls = trackWidth > 0 && contentWidth > trackWidth;
-  const barWidth = trackWidth > 0 ? (scrolls ? contentWidth : Math.min(trackWidth, contentWidth)) : 0;
-
-  useEffect(() => {
-    if (!scrolls || selectedIndex < 0) return;
-    const x = Math.max(0, selectedIndex * MIN_TAB_SLOT - (trackWidth - MIN_TAB_SLOT) / 2);
-    const animated = didScrollToSelection.current;
-    didScrollToSelection.current = true;
-    const frame = requestAnimationFrame(() => {
-      scrollRef.current?.scrollTo({ animated, x });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [scrolls, selectedIndex, trackWidth]);
-
-  const tabs =
-    entries.length > 0 && barWidth > 0 ? (
-      <GlassTabBar
-        onSelect={(index) => {
-          const entry = entries[index];
-          if (entry) onSelect(entry.id);
-        }}
-        // Past the last child, the native lens stays unplaced instead of lighting tab 0.
-        selectedIndex={selectedIndex >= 0 ? selectedIndex : entries.length}
-        style={{ alignSelf: "flex-start", height: TAB_BAR_HEIGHT, width: barWidth }}
-        // Terminal chrome sits on #09090b even when the app theme is light.
-        tint="dark"
-      >
-        {entries.map((entry) => {
-          const selected = entry.id === activeEntryId;
-          return (
-            <Text
-              key={entry.id}
-              numberOfLines={1}
-              style={[
-                styles.tabLabel,
-                { color: selected ? theme.colors.terminalFg : theme.colors.terminalMuted },
-              ]}
-            >
-              {entry.label}
-            </Text>
-          );
-        })}
-      </GlassTabBar>
-    ) : null;
+  const barWidth =
+    trackWidth > 0 && entries.length > 0 ? Math.min(trackWidth, entries.length * TAB_SLOT) : 0;
 
   return (
     <View style={styles.root}>
@@ -94,19 +45,36 @@ export function TerminalTabsBar({
         }}
         style={styles.track}
       >
-        {tabs && scrolls ? (
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            horizontal
-            ref={scrollRef}
-            showsHorizontalScrollIndicator={false}
-            style={styles.scroller}
+        {barWidth > 0 ? (
+          <GlassTabBar
+            onSelect={(index) => {
+              const entry = entries[index];
+              if (entry) onSelect(entry.id);
+            }}
+            // Past the last child, the native lens stays unplaced instead of lighting tab 0.
+            selectedIndex={selectedIndex >= 0 ? selectedIndex : entries.length}
+            style={{ alignSelf: "flex-start", width: barWidth }}
+            // Terminal chrome sits on #09090b even when the app theme is light.
+            tint="dark"
           >
-            {tabs}
-          </ScrollView>
-        ) : (
-          tabs
-        )}
+            {entries.map((entry) => {
+              const selected = entry.id === activeEntryId;
+              return (
+                <View key={entry.id} style={styles.labelWrap}>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.label,
+                      { color: selected ? theme.colors.terminalFg : theme.colors.terminalMuted },
+                    ]}
+                  >
+                    {entry.label}
+                  </Text>
+                </View>
+              );
+            })}
+          </GlassTabBar>
+        ) : null}
       </View>
       <TerminalTabActions onCreate={onCreate} onOpenGroup={onOpenGroup} />
     </View>
@@ -114,32 +82,23 @@ export function TerminalTabsBar({
 }
 
 const styles = StyleSheet.create({
+  label: {
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 18,
+  },
+  labelWrap: {
+    alignItems: "center",
+  },
   root: {
     alignItems: "center",
     flexDirection: "row",
     gap: spacing.terminalChromeX,
     paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  scrollContent: {
-    alignItems: "center",
-    height: TRACK_HEIGHT,
-  },
-  scroller: {
-    height: TRACK_HEIGHT,
-    width: "100%",
-  },
-  tabLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    lineHeight: 18,
-    textAlign: "center",
-    width: "100%",
+    paddingVertical: 8,
   },
   track: {
     flex: 1,
-    height: TRACK_HEIGHT,
-    justifyContent: "center",
     minWidth: 0,
   },
 });

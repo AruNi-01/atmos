@@ -3,6 +3,7 @@ import {
   GlassScreenBackdrop,
   type GlassNavigationTabBarProps,
 } from "@rbayuokt/expo-adaptive-glass/navigation";
+import { useWindowDimensions } from "react-native";
 import { Tabs } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMobileWs } from "@/providers/MobileWsProvider";
@@ -15,6 +16,14 @@ import { LayoutGridIcon, MessagesSquareIcon } from "@/ui/icons/lucide-native";
  * Body is the bar (~62) plus the 8pt gap above the home indicator, with a little extra room.
  */
 const GLASS_TAB_BAR_BODY = 80;
+/**
+ * GlassTabBar gives every tab flex:1 and the lens fills that slot.
+ * Two labels stretched across the screen sit in the middle of a huge slot, so a
+ * drag slides the words toward the finger. A slot about as wide as the longer
+ * label keeps the text planted and lets the lens travel between them.
+ */
+const GLASS_TAB_SLOT = 104;
+const GLASS_TAB_COUNT = 2;
 
 export const unstable_settings = {
   initialRouteName: "(workspace)",
@@ -83,7 +92,10 @@ function glassTabBarProps(
 
 export default function HomeTabsLayout() {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const theme = useMobileTheme();
+  const barWidth = Math.min(GLASS_TAB_SLOT * GLASS_TAB_COUNT, windowWidth - 32);
+  const barSide = Math.max(16, Math.round((windowWidth - barWidth) / 2));
   const hasDeviceCredential = useSessionStore((state) => state.hasDeviceCredential);
   const { state: wsState } = useMobileWs();
   const showTabs = hasDeviceCredential && wsState === "open";
@@ -104,6 +116,7 @@ export default function HomeTabsLayout() {
         showTabs ? (
           <GlassNavigationTabBar
             {...glassTabBarProps(props, theme.colors.label, theme.colors.secondaryLabel)}
+            style={{ left: barSide, right: barSide }}
           />
         ) : null
       }
