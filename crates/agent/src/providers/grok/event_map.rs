@@ -127,11 +127,13 @@ pub(crate) fn map_event(
         }
         AcpSessionEvent::Stream(delta) => map_stream(state, turn_id, delta),
         AcpSessionEvent::ToolCall(update) => {
+            let seen = state.tools.contains_key(&update.tool_call_id);
             let mut update = merge_stored_tool(state, update);
             if update.parent_tool_call_id.is_none() {
                 update.parent_tool_call_id =
                     parent_tool_call_for_session(state, update.session_id.as_deref());
             }
+            let close_answer = !seen && update.parent_tool_call_id.is_none();
             match map_tool_call(&update, &mut state.grok_tasks) {
                 ToolMapOut::FoldThinking { text, done } => {
                     let event = fold_thinking(state, turn_id.clone(), text, done);
@@ -162,10 +164,11 @@ pub(crate) fn map_event(
                 }
                 ToolMapOut::Tool(tool) => {
                     let kind = tool_status_kind(tool.status);
-                    Some(complete_before_thinking(
+                    Some(seal_around_new_tool(
                         state,
-                        turn_id.clone(),
-                        wrap(turn_id, tool_event(tool, kind)),
+                        turn_id,
+                        tool_event(tool, kind),
+                        close_answer,
                     ))
                 }
                 ToolMapOut::Replace { tool_call_id, tool } => {
@@ -175,10 +178,11 @@ pub(crate) fn map_event(
                         crate::contract::AgentToolStatus::Failed => ToolEventKind::Failed,
                         _ => ToolEventKind::Updated,
                     };
-                    Some(complete_before_thinking(
+                    Some(seal_around_new_tool(
                         state,
-                        turn_id.clone(),
-                        wrap(turn_id, tool_event(tool, kind)),
+                        turn_id,
+                        tool_event(tool, kind),
+                        close_answer,
                     ))
                 }
             }
@@ -536,6 +540,25 @@ fn complete_before_assistant(
     )
 }
 
+/// A new top-level tool closes the answer that was already streaming, so the
+/// reply after the tool is a new part. Otherwise one answer part stays above
+/// the tool (search results land under the text, and the text gets folded).
+/// Updates of a tool already seen leave that later answer open.
+fn seal_around_new_tool(
+    state: &mut EventMapState,
+    turn_id: Option<String>,
+    tool: AgentEvent,
+    close_answer: bool,
+) -> AgentEventEnvelope {
+    let next = wrap(turn_id.clone(), tool);
+    let next = if close_answer {
+        complete_before_assistant(state, turn_id.clone(), next)
+    } else {
+        next
+    };
+    complete_before_thinking(state, turn_id, next)
+}
+
 pub(crate) fn should_drop_replay(replaying: bool, event: &AcpSessionEvent) -> bool {
     replaying
         && !matches!(
@@ -727,6 +750,82 @@ mod tests {
             reassembled_text(&events, TextKind::Answer),
             vendor_answer.concat()
         );
+    }
+
+    #[test]
+    fn new_web_search_closes_the_open_answer_so_later_text_is_a_new_part() {
+        let mut state = state();
+        let before = payloads(&mut state, stream_delta("message", "我先核对一下。"));
+        let tool = payloads(
+            &mut state,
+            AcpSessionEvent::ToolCall(ToolCallUpdate {
+                tool_call_id: "search-1".into(),
+                parent_tool_call_id: None,
+                session_id: None,
+                tool: "web_search".into(),
+                description: "Web search:".into(),
+                acp_kind: Some("search".into()),
+                status: ToolCallStatus::Running,
+                raw_input: Some(serde_json::json!({ "query": "grok vs claude" })),
+                content: Vec::new(),
+                locations: Vec::new(),
+                raw_output: None,
+                detail: None,
+            }),
+        );
+        let after = payloads(&mut state, stream_delta("message", "结论在搜索之后。"));
+        let again = payloads(
+            &mut state,
+            AcpSessionEvent::ToolCall(ToolCallUpdate {
+                tool_call_id: "search-1".into(),
+                parent_tool_call_id: None,
+                session_id: None,
+                tool: "web_search".into(),
+                description: "Web search:".into(),
+                acp_kind: Some("search".into()),
+                status: ToolCallStatus::Completed,
+                raw_input: Some(serde_json::json!({ "query": "grok vs claude" })),
+                content: Vec::new(),
+                locations: Vec::new(),
+                raw_output: Some(serde_json::json!({
+                    "links": [{ "url": "https://example.com", "title": "Example" }]
+                })),
+                detail: None,
+            }),
+        );
+        let tail = payloads(&mut state, stream_delta("message", "还是同一段。"));
+
+        let answer_id = |events: &[AgentEvent]| -> Option<String> {
+            events.iter().find_map(|event| match event {
+                AgentEvent::TextChunk {
+                    part_id,
+                    kind: TextKind::Answer,
+                    ..
+                } => Some(part_id.clone()),
+                _ => None,
+            })
+        };
+        let before_id = answer_id(&before).expect("preamble");
+        let after_id = answer_id(&after).expect("answer after search");
+        assert_ne!(before_id, after_id);
+        assert!(tool.iter().any(|event| matches!(
+            event,
+            AgentEvent::ToolCallStarted { tool_call } if tool_call.kind == AgentToolKind::WebSearch
+        )));
+        assert!(
+            before.iter().any(|event| matches!(
+                event,
+                AgentEvent::PartClosed { part_id, .. } if part_id == &before_id
+            )) || tool.iter().any(|event| matches!(
+                event,
+                AgentEvent::PartClosed { part_id, .. } if part_id == &before_id
+            ))
+        );
+        assert_eq!(answer_id(&tail).as_deref(), Some(after_id.as_str()));
+        assert!(again.iter().all(|event| !matches!(
+            event,
+            AgentEvent::PartClosed { part_id, .. } if part_id == &after_id
+        )));
     }
 
     #[test]
