@@ -34,6 +34,11 @@ export type PaneFocusAck = "immediate" | "deferred";
 
 export type NotifyPaneFocusedOptions = {
   ack?: PaneFocusAck;
+  /**
+   * Drop idle hook rows after acknowledge. Chat transcript focus leaves them
+   * so the footer completed mark does not vanish and come back.
+   */
+  dismissIdle?: boolean;
 };
 
 type AgentAttentionStore = {
@@ -182,7 +187,11 @@ function acknowledgeableAttentionKeys(stablePaneId: string): string[] {
   });
 }
 
-function scheduleAutoClear(stablePaneId: string, restart = true) {
+function scheduleAutoClear(
+  stablePaneId: string,
+  restart = true,
+  dismissIdle = true,
+) {
   if (!restart && autoClearTimers.has(stablePaneId)) return;
   clearAutoClearTimer(stablePaneId);
   const timer = setTimeout(() => {
@@ -205,7 +214,7 @@ function scheduleAutoClear(stablePaneId: string, restart = true) {
       clearAttentionOnServer(stablePaneId);
     }
     // User already has the pane open — drop idle agent status with the latch.
-    notifyPaneAcknowledged(stablePaneId);
+    if (dismissIdle) notifyPaneAcknowledged(stablePaneId);
   }, ATTENTION_AUTO_CLEAR_MS);
   autoClearTimers.set(stablePaneId, timer);
 }
@@ -316,6 +325,7 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
 
   notifyPaneFocused: (stablePaneId, options) => {
     const ack = options?.ack ?? "immediate";
+    const dismissIdle = options?.dismissIdle !== false;
     const prev = get().focusedStablePaneId;
     if (prev && prev !== stablePaneId) {
       clearAutoClearTimer(prev);
@@ -333,10 +343,10 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
       // Jump / URL / restore auto-focus: keep the ring, then clear if still
       // focused. A later user click uses the immediate path below.
       if (toClear.length > 0) {
-        scheduleAutoClear(stablePaneId, false);
+        scheduleAutoClear(stablePaneId, false, dismissIdle);
         return;
       }
-      notifyPaneAcknowledged(stablePaneId);
+      if (dismissIdle) notifyPaneAcknowledged(stablePaneId);
       return;
     }
     const hadAttention = toClear.length > 0;
@@ -355,7 +365,7 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
     }
     // User click acknowledges: drop sticky attention (above) and leftover
     // idle hook sessions so we do not wait for the idle sweeper.
-    notifyPaneAcknowledged(stablePaneId);
+    if (dismissIdle) notifyPaneAcknowledged(stablePaneId);
   },
 
   setFilterMode: (on) => {
