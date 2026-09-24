@@ -4,6 +4,7 @@
 //! All communication uses the Request/Response pattern with JSON messages.
 
 mod agent_chat;
+mod agent_status;
 mod agents;
 mod automation;
 mod center_layout;
@@ -50,11 +51,12 @@ use tokio::sync::{OnceCell, RwLock};
 
 use core_service::{
     builtin_options_probe_plans, default_agent_data_dir, default_chats_dir, options_probe_dir,
-    AgentChatService, AgentChatStore, AgentService, AgentServiceOptionsResolver, AutomationService,
-    DefaultAgentProviderFactory, DeviceControlService, DevicePreviewService, DiskAnalyzerService,
-    GroupService, HostSessionService, LinearService, LocalServicesService, NotificationService,
-    OptionsPrefetchWorker, ProjectService, ResourceMonitorService, ReviewService, TerminalService,
-    WorkspaceProjectOwnerLookup, WorkspaceService, PREFETCH_POLL,
+    AgentChatService, AgentChatStore, AgentService, AgentServiceOptionsResolver,
+    AgentStatusService, AutomationService, DefaultAgentProviderFactory, DeviceControlService,
+    DevicePreviewService, DiskAnalyzerService, GroupService, HostSessionService, LinearService,
+    LocalServicesService, NotificationService, OptionsPrefetchWorker, ProjectService,
+    ResourceMonitorService, ReviewService, TerminalService, WorkspaceProjectOwnerLookup,
+    WorkspaceService, PREFETCH_POLL,
 };
 use core_service::{Result, ServiceError};
 use sea_orm_migration::sea_orm::DatabaseConnection;
@@ -81,6 +83,7 @@ pub struct WsMessageService {
     resource_monitor_service: Arc<ResourceMonitorService>,
     resource_monitor_subscriptions: Arc<ConnectionTaskRegistry>,
     notification_service: Arc<NotificationService>,
+    agent_status_service: Arc<AgentStatusService>,
     token_usage_service: Arc<token_usage::TokenUsageService>,
     linear_service: LinearService,
     ws_manager: OnceCell<Arc<WsManager>>,
@@ -108,6 +111,7 @@ impl WsMessageService {
         pt_design_agent_relay: Arc<CanvasAgentRelay>,
         notification_service: Arc<NotificationService>,
         token_usage_service: Arc<token_usage::TokenUsageService>,
+        agent_status_service: Arc<AgentStatusService>,
         db: Arc<DatabaseConnection>,
     ) -> Self {
         let local_services_service = Arc::new(LocalServicesService::new(
@@ -184,6 +188,7 @@ impl WsMessageService {
             resource_monitor_service,
             resource_monitor_subscriptions: Arc::new(ConnectionTaskRegistry::new()),
             notification_service,
+            agent_status_service,
             token_usage_service,
             linear_service: LinearService::new(db),
             ws_manager: OnceCell::new(),
@@ -1498,6 +1503,12 @@ impl WsMessageService {
             }
 
             WsAction::LinkPreview => self.handle_link_preview(request.data).await,
+
+            WsAction::AgentSessionStatusList => self.handle_agent_session_status_list().await,
+            WsAction::AgentSessionArchive => {
+                self.handle_agent_session_archive(parse_request(request.data)?)
+                    .await
+            }
         }
     }
 
@@ -1697,6 +1708,21 @@ impl WsMessageHandler for WsMessageService {
         tracing::info!("[WsMessageService] Client connected: {}", conn_id);
         if conn_id.starts_with("web-") || conn_id.starts_with("desktop-") {
             self.options_worker.on_web_connect();
+        }
+        let Some(manager) = self.ws_manager.get() else {
+            return;
+        };
+        for title in self.terminal_service.list_terminal_titles() {
+            if let Err(error) = manager
+                .send_to(
+                    conn_id,
+                    &WsMessage::notification(WsEvent::TerminalTitleUpdated, json!(title)),
+                )
+                .await
+            {
+                tracing::debug!("Failed to replay terminal title to {conn_id}: {error}");
+                break;
+            }
         }
     }
 

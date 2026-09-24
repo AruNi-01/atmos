@@ -16,6 +16,16 @@ export type LlmProviderTestChunkNotification = {
   error?: string | null;
 };
 
+export type TerminalTitleUpdatedNotification = {
+  workspace_id: string;
+  tmux_window_name: string;
+  tmux_window_index?: number | null;
+  session_id: string;
+  osc_title?: string | null;
+  dynamic_title?: string | null;
+  session_title?: string | null;
+};
+
 export type AgentStatusClearedNotification = {
   session_ids?: string[];
 };

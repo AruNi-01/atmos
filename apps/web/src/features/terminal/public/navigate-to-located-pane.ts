@@ -240,6 +240,11 @@ export async function navigateToLocatedPane(
   options: {
     routeKind: LocatedResourceSessionRouteKind;
     router: NavigateToLocatedPaneRouter;
+    /**
+     * Blue locate ring. Session jumps skip it when the destination tab has
+     * only one terminal — the pane is already obvious.
+     */
+    locate?: boolean;
   },
   deps: NavigateToLocatedPaneDeps = {},
 ): Promise<boolean> {
@@ -280,7 +285,11 @@ export async function navigateToLocatedPane(
     }
   }
 
-  requestLocate(location);
+  if (options.locate === false) {
+    clearLocate();
+  } else {
+    requestLocate(location);
+  }
   commitLocatedPaneNavigation(options.router, path);
 
   if (!alreadyOnDestSpace) {

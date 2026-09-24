@@ -94,6 +94,40 @@ export function uniquePaneTitleForAgentStatus(
  * True when the pane toolbar no longer brands the agent — typically after the
  * CLI exits and the live title returns to a cwd / unrelated command.
  */
+/**
+ * Terminal inbox rows stay only while that pane is still an agent.
+ * A closed window, or a shell whose title has fallen back to a path, is not
+ * an agent session anymore. If this host's terminals are not loaded yet, keep
+ * the catalog row until we can see the pane.
+ */
+export function terminalSessionIsCurrentAgent(
+  sessionId: string,
+  state: AgentHookPaneLookupState,
+): boolean {
+  const pane = findTerminalPaneByStableAgentPaneId(state, sessionId);
+  if (pane) return !paneTitleIndicatesAgentExited(pane);
+  const colon = sessionId.indexOf(":");
+  if (colon <= 0) return true;
+  const hostId = sessionId.slice(0, colon).trim();
+  if (!hostId) return true;
+  return !hostHasLoadedTerminalPanes(state, hostId);
+}
+
+function hostHasLoadedTerminalPanes(
+  state: AgentHookPaneLookupState,
+  hostId: string,
+): boolean {
+  const maps = [state.workspacePanes, state.projectWikiPanes, state.codeReviewPanes];
+  for (const panesByScope of maps) {
+    if (!panesByScope) continue;
+    for (const [scopeKey, panes] of Object.entries(panesByScope)) {
+      if (hostIdFromCenterKey(paintIdFromScopeKey(scopeKey)) !== hostId) continue;
+      if (Object.keys(panes ?? {}).length > 0) return true;
+    }
+  }
+  return false;
+}
+
 export function paneTitleIndicatesAgentExited(
   pane: TerminalPaneProps,
   options?: {

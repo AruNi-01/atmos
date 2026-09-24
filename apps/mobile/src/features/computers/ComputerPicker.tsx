@@ -1,13 +1,6 @@
-import { useMobileTheme } from "@/theme/theme-store";
-import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
-import { Button, Host } from "@expo/ui";
 import { View } from "react-native";
 import type { ComputerRow } from "@/api/types";
-import { EmptyState, Section } from "@/ui/layout/app-screen";
 import { Row, Separator } from "@/ui/layout/row";
-import { expoUiButtonHostStyle, expoUiSecondaryStyle } from "@/ui/primitives/expo-ui-button-styles";
-
-const buttonStretchModifiers = expoUiButtonStretchModifiers;
 
 export function ComputerList({
   computers,
@@ -38,68 +31,5 @@ export function ComputerList({
         );
       })}
     </View>
-  );
-}
-
-export function ComputerPicker({
-  computers,
-  selectedServerId,
-  onSelect,
-  onRefresh,
-  isRefreshing,
-}: {
-  computers: ComputerRow[];
-  selectedServerId: string | null;
-  onSelect: (serverId: string) => void;
-  onRefresh: () => void;
-  isRefreshing?: boolean;
-}) {
-  const theme = useMobileTheme();
-  const activeComputers = computers.filter((computer) => !computer.revoked);
-  const onlineComputers = activeComputers.filter((computer) => computer.online);
-  const refreshStyle = expoUiSecondaryStyle(theme.colors, Boolean(isRefreshing));
-
-  const refreshButton = (
-    <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={refreshStyle.seedColor}
-      style={expoUiButtonHostStyle}
-    >
-      <Button
-        label={isRefreshing ? "Refreshing..." : "Refresh"}
-        onPress={onRefresh}
-        modifiers={buttonStretchModifiers}
-        style={refreshStyle.style}
-        variant={refreshStyle.variant}
-      />
-    </Host>
-  );
-
-  return (
-    <Section label="Computer">
-      {activeComputers.length === 0 ? (
-        <View>
-          <EmptyState
-            layout="section"
-            title="No Computers"
-            message="No Computers yet."
-          />
-          <View style={{ padding: 16, paddingTop: 0 }}>{refreshButton}</View>
-        </View>
-      ) : (
-        <View>
-          <ComputerList
-            computers={activeComputers}
-            onlyOnline
-            onPress={(computer) => onSelect(computer.server_id)}
-            selectedServerId={selectedServerId}
-          />
-          {onlineComputers.length === 0 ? (
-            <View style={{ padding: 16 }}>{refreshButton}</View>
-          ) : null}
-        </View>
-      )}
-    </Section>
   );
 }

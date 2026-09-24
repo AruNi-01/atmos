@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { rowsForTerminalEntries } from "@/features/sessions/scoped-session-rows";
 import { TerminalGroupDrawer } from "@/features/terminal/TerminalGroupDrawer";
 import { TerminalShortcutBar } from "@/features/terminal/TerminalShortcutBar";
 import { TerminalTabsBar } from "@/features/terminal/TerminalTabsBar";
@@ -62,6 +63,7 @@ export function PreviewTerminalScreen() {
   const entries = entriesByWorkspace[workspaceId] ?? previewEntriesForWorkspace(workspaceId);
   const activeEntry = resolveActiveTerminalEntry(entries, activeByWorkspace[workspaceId]);
   const tabItems = useMemo(() => tabItemsFromEntries(entries), [entries]);
+  const sheetRows = useMemo(() => rowsForTerminalEntries(entries, [], (entry) => entry.label), [entries]);
   const transcript = previewTranscript(
     workspaceId,
     activeEntry?.id ?? "",
@@ -204,11 +206,10 @@ export function PreviewTerminalScreen() {
         </ScrollView>
         <TerminalShortcutBar enabled onShortcut={handleShortcut} />
         <TerminalGroupDrawer
-          activeEntryId={activeEntry?.id ?? null}
-          entries={tabItems}
           isPresented={groupOpen}
           onDismiss={() => setGroupOpen(false)}
           onSelect={selectEntry}
+          rows={sheetRows}
         />
       </View>
     </>

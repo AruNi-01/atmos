@@ -110,12 +110,7 @@ import {
   findSessionForPaneId,
   useAgentStatusStore,
 } from "@/features/agent/store/agent-status-store";
-import {
-  isShellPreexecCommandOscTitle,
-  isTmuxIndexTitle,
-  nextOscTitleAfterIncoming,
-  shouldClearNativeOscOnCmdEnd,
-} from "@atmos/shared/terminal";
+import { shouldClearNativeOscOnCmdEnd } from "@atmos/shared/terminal";
 
 export interface TerminalRef {
   focus: () => void;
@@ -245,8 +240,6 @@ const Terminal = ({
   readOnly,
   terminalScale,
   onInputWhileReadOnly,
-  onTitleChange,
-  onOscTitleChange,
   onSelectionSnapshotChange,
   onAddSelectionAsContext,
   onStartSideChatForSelection,
@@ -279,10 +272,6 @@ const Terminal = ({
   const connectWhileHiddenRef = useRef(connectWhileHidden);
   connectWhileHiddenRef.current = connectWhileHidden;
   // Keep title callbacks in sync to avoid stale closures in OSC handlers
-  const onTitleChangeRef = useRef(onTitleChange);
-  useEffect(() => { onTitleChangeRef.current = onTitleChange; });
-  const onOscTitleChangeRef = useRef(onOscTitleChange);
-  useEffect(() => { onOscTitleChangeRef.current = onOscTitleChange; });
   const lastOscTitleRef = useRef<string | undefined>(undefined);
   const onSelectionSnapshotChangeRef = useRef(onSelectionSnapshotChange);
   useEffect(() => { onSelectionSnapshotChangeRef.current = onSelectionSnapshotChange; });
@@ -1286,35 +1275,8 @@ const Terminal = ({
     }
     // Shell preexec sets OSC to the command name (`ls`) then precmd sets path
     // within ~tens of ms. Settle before painting so short commands never flash.
-    const OSC_SETTLE_MS = 180;
-    const emitOscTitle = (raw: string | undefined) => {
-      pendingOscRawRef.current = raw;
-      if (oscSettleTimerRef.current) {
-        clearTimeout(oscSettleTimerRef.current);
-      }
-      oscSettleTimerRef.current = setTimeout(() => {
-        oscSettleTimerRef.current = null;
-        // nextOscTitleAfterIncoming keeps agent topics on path noise, but
-        // clears a stale shell preexec command line (`ps aux | …`).
-        const next = nextOscTitleAfterIncoming(
-          lastOscTitleRef.current,
-          pendingOscRawRef.current,
-        );
-        if (next === lastOscTitleRef.current) {
-          // Warm remount: local ref may be unhydrated while the pane store still
-          // holds a topic. Shell preexec must still clear the store suffix.
-          if (
-            lastOscTitleRef.current === undefined &&
-            pendingOscRawRef.current != null &&
-            isShellPreexecCommandOscTitle(pendingOscRawRef.current)
-          ) {
-            onOscTitleChangeRef.current?.(undefined);
-          }
-          return;
-        }
-        lastOscTitleRef.current = next;
-        onOscTitleChangeRef.current?.(next);
-      }, OSC_SETTLE_MS);
+    const emitOscTitle = (_raw: string | undefined) => {
+      // Titles are detected on the computer and pushed as terminal_title_updated.
     };
     titleChangeDisposable = terminal.onTitleChange((raw) => {
       emitOscTitle(raw);
@@ -1343,13 +1305,8 @@ const Terminal = ({
     //      and the title never flickers.
     const CMD_START_DELAY_MS = 150;
 
-    const emitDynamicTitle = (title: string) => {
-      // Tmux window indexes are attach identities, not display titles.
-      if (isTmuxIndexTitle(title)) return;
-      if (title !== lastTitleRef.current) {
-        lastTitleRef.current = title;
-        onTitleChangeRef.current?.(title);
-      }
+    const emitDynamicTitle = (_title: string) => {
+      // Titles are detected on the computer and pushed as terminal_title_updated.
     };
 
     const applyDynamicTitleCmdStart = (payload: string) => {
@@ -1409,7 +1366,6 @@ const Terminal = ({
         }
         pendingOscRawRef.current = undefined;
         lastOscTitleRef.current = undefined;
-        onOscTitleChangeRef.current?.(undefined);
       }
       emitDynamicTitle(shortenPath(payload));
     };

@@ -69,9 +69,64 @@ dev-landing-portless:
 dev-docs:
     bun --filter docs dev
 
-# 启动 Mobile Expo 开发服务器
+# 等价于 bunx expo start --dev-client。已装好的手机连这个，不用重新安装。
+# 手机和 Mac 在同一 Wi-Fi。别名: just dm
 dev-mobile:
-    cd apps/mobile && bun run start
+    cd apps/mobile && bunx expo start --dev-client --scheme atmos --lan
+
+# 给已安装的真机开 Metro。VPN 开着也行：自动用 Wi-Fi 地址，避开 198.18 虚拟网卡。
+# 别名: just dmp
+dev-mobile-phone:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    is_lan_ip() {
+        local ip="$1"
+        [[ "$ip" == 10.* || "$ip" == 192.168.* || "$ip" == 172.1[6-9].* || "$ip" == 172.2[0-9].* || "$ip" == 172.3[0-1].* ]]
+    }
+
+    host=""
+    for iface in en0 en1; do
+        ip="$(ipconfig getifaddr "$iface" 2>/dev/null || true)"
+        if [[ -n "$ip" ]] && is_lan_ip "$ip"; then
+            host="$ip"
+            break
+        fi
+    done
+
+    if [[ -z "$host" ]]; then
+        echo "找不到 Wi-Fi 地址。请确认电脑已连上局域网，或关掉代理的 TUN 后再试。" >&2
+        exit 1
+    fi
+
+    echo "Phone URL: http://${host}:8081"
+    cd apps/mobile
+    REACT_NATIVE_PACKAGER_HOSTNAME="$host" bunx expo start --dev-client --scheme atmos --lan
+
+# 编译并安装到 iOS 模拟器（首次或改了原生依赖时）
+mobile-ios:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+    cd apps/mobile && bun run ios
+
+# 编译并安装到已连接的 iPhone。
+# 用法: just mobile-ios-device
+#       just mobile-ios-device 00008120-000108901432201E
+mobile-ios-device *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+    cd apps/mobile
+    if [[ $# -gt 0 ]]; then
+        bunx expo run:ios --device "$@"
+    else
+        bunx expo run:ios --device
+    fi
+
+# 编译并安装到 Android 设备或模拟器
+mobile-android:
+    cd apps/mobile && bun run android
 
 # ── Desktop (Electron is the production default shell) ──────────────────────
 # prepare-sidecar stages shared Atmos Server + web static under the runtime layout.
@@ -569,6 +624,10 @@ alias dl := dev-landing
 alias dlp := dev-landing-portless
 alias d-d := dev-docs
 alias dm := dev-mobile
+alias dmp := dev-mobile-phone
+alias mio := mobile-ios
+alias mid := mobile-ios-device
+alias ma := mobile-android
 alias da := dev-api
 alias dh := dev-hub
 alias t := test

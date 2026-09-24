@@ -338,6 +338,8 @@ export const WS_ACTIONS = [
   "resource_monitor_unsubscribe",
   "resource_monitor_kill_leaked",
   "link_preview",
+  "agent_session_status_list",
+  "agent_session_archive",
 ] as const;
 
 export type WsAction = (typeof WS_ACTIONS)[number];

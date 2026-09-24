@@ -1,3 +1,4 @@
+pub mod agent_session_catalog;
 pub mod automation;
 pub mod automation_github_delivery_claim;
 pub mod automation_run;

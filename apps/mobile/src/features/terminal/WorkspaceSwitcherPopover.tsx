@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text } from "react-native";
+import { GlassSurface } from "@rbayuokt/expo-adaptive-glass";
 import type { TerminalWorkspaceChoice } from "@/features/terminal/TerminalScreen";
 import { ChevronDownIcon } from "@/ui/icons/lucide-native";
 import { IosPopover } from "@/ui/primitives/ios-popover";
@@ -21,12 +22,19 @@ export function WorkspaceSwitcherPopover({
   return (
     <IosPopover direction="bottom">
       <IosPopover.Trigger>
-        <View accessibilityRole="button" style={styles.workspaceTrigger}>
+        <GlassSurface
+          accessibilityRole="button"
+          cornerRadius={999}
+          intensity={0.7}
+          priority="high"
+          style={styles.workspaceTrigger}
+          tint="dark"
+        >
           <Text numberOfLines={1} style={[styles.workspaceTriggerLabel, { color: theme.colors.terminalFg }]}>
             {currentName}
           </Text>
           <ChevronDownIcon color={theme.colors.terminalMuted} size={14} strokeWidth={2.4} />
-        </View>
+        </GlassSurface>
       </IosPopover.Trigger>
       <IosPopover.Content style={{ backgroundColor: theme.colors.terminalElevated }}>
         <PopoverActionList>
@@ -49,11 +57,11 @@ const styles = StyleSheet.create({
   workspaceTrigger: {
     alignItems: "center",
     flexDirection: "row",
-    flexShrink: 0,
+    flexShrink: 1,
     gap: 4,
-    maxWidth: 120,
-    minHeight: 36,
-    paddingHorizontal: 6,
+    maxWidth: 132,
+    minHeight: 40,
+    paddingHorizontal: 12,
   },
   workspaceTriggerLabel: {
     flexShrink: 1,

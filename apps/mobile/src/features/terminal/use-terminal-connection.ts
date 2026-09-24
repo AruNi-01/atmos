@@ -7,6 +7,11 @@ import type { MobileTerminalEntry } from "@/stores/terminal-store";
 
 export type TerminalConnectionState = "connecting" | "connected" | "disconnected" | "reconnecting";
 
+const MIN_TERMINAL_COLS = 20;
+const MIN_TERMINAL_ROWS = 8;
+const RESIZE_INTERVAL_MS = 80;
+const OPEN_AFTER_MEASURE_MS = 150;
+
 type UseTerminalConnectionOptions = {
   activeEntry: MobileTerminalEntry | null;
   activeSessionId: string | null;
@@ -20,6 +25,7 @@ type UseTerminalConnectionOptions = {
 };
 
 type UseTerminalConnectionResult = {
+  attached: boolean;
   connectionState: TerminalConnectionState;
   sendTerminalInput: (data: string) => void;
   sendTerminalResize: (cols: number, rows: number) => void;
@@ -40,7 +46,17 @@ export function useTerminalConnection({
 }: UseTerminalConnectionOptions): UseTerminalConnectionResult {
   const terminalClientRef = useRef<TerminalWsClient | null>(null);
   const terminalSizeRef = useRef({ cols: 80, rows: 24 });
+  const hasMeasuredRef = useRef(false);
+  const sessionOpenedRef = useRef(false);
+  const openSessionRef = useRef<(() => void) | null>(null);
+  const lastSentSizeRef = useRef<{ cols: number; rows: number } | null>(null);
+  const lastResizeSentAtRef = useRef(0);
+  const pendingResizeRef = useRef<{ cols: number; rows: number } | null>(null);
+  const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeSessionIdRef = useRef(activeSessionId);
+  activeSessionIdRef.current = activeSessionId;
   const [connectionState, setConnectionState] = useState<TerminalConnectionState>("disconnected");
+  const [attached, setAttached] = useState(false);
   const [terminalError, setTerminalError] = useState<string | null>(null);
 
   const sendTerminalInput = useCallback(
@@ -68,32 +84,74 @@ export function useTerminalConnection({
     [activeSessionId],
   );
 
+  const deliverResize = useCallback((cols: number, rows: number) => {
+    const sessionId = activeSessionIdRef.current;
+    const client = terminalClientRef.current;
+    if (!sessionId || !client?.isOpen() || !sessionOpenedRef.current) return;
+    const last = lastSentSizeRef.current;
+    if (last && last.cols === cols && last.rows === rows) return;
+    try {
+      client.send({
+        type: "terminal_resize",
+        session_id: sessionId,
+        cols,
+        rows,
+      });
+      lastSentSizeRef.current = { cols, rows };
+      lastResizeSentAtRef.current = Date.now();
+    } catch {
+      // The next fit retries. terminal_open already carried the latest measured size.
+    }
+  }, []);
+
   const sendTerminalResize = useCallback(
     (cols: number, rows: number) => {
+      if (cols < MIN_TERMINAL_COLS || rows < MIN_TERMINAL_ROWS) return;
+      hasMeasuredRef.current = true;
       terminalSizeRef.current = { cols, rows };
-      if (!activeSessionId) return;
       const client = terminalClientRef.current;
-      if (!client?.isOpen()) return;
-      try {
-        client.send({
-          type: "terminal_resize",
-          session_id: activeSessionId,
-          cols,
-          rows,
-        });
-      } catch {
-        // Resize is opportunistic; the next terminal open will send a fresh size.
+      if (client?.isOpen() && !sessionOpenedRef.current) {
+        openSessionRef.current?.();
+        return;
       }
+
+      const elapsed = Date.now() - lastResizeSentAtRef.current;
+      if (elapsed >= RESIZE_INTERVAL_MS) {
+        pendingResizeRef.current = null;
+        if (resizeTimerRef.current) {
+          clearTimeout(resizeTimerRef.current);
+          resizeTimerRef.current = null;
+        }
+        deliverResize(cols, rows);
+        return;
+      }
+
+      pendingResizeRef.current = { cols, rows };
+      if (resizeTimerRef.current) return;
+      resizeTimerRef.current = setTimeout(() => {
+        resizeTimerRef.current = null;
+        const pending = pendingResizeRef.current;
+        pendingResizeRef.current = null;
+        if (!pending) return;
+        deliverResize(pending.cols, pending.rows);
+      }, RESIZE_INTERVAL_MS - elapsed);
     },
-    [activeSessionId],
+    [deliverResize],
   );
 
   const activeEntryId = activeEntry?.id;
-  const activeEntryIsNew = activeEntry?.isNew;
-  const activeEntryLabel = activeEntry?.label;
-  const activeEntrySessionId = activeEntry?.sessionId;
-  const activeEntryTmuxWindowIndex = activeEntry?.tmuxWindowIndex;
-  const activeEntryTmuxWindowName = activeEntry?.tmuxWindowName;
+  const activeEntryIsNewRef = useRef(activeEntry?.isNew);
+  const activeEntryLabelRef = useRef(activeEntry?.label);
+  const activeEntryTmuxWindowIndexRef = useRef(activeEntry?.tmuxWindowIndex);
+  const activeEntryTmuxWindowNameRef = useRef(activeEntry?.tmuxWindowName);
+  const projectNameRef = useRef(projectName);
+  const workspaceNameRef = useRef(workspaceName);
+  activeEntryIsNewRef.current = activeEntry?.isNew;
+  activeEntryLabelRef.current = activeEntry?.label;
+  activeEntryTmuxWindowIndexRef.current = activeEntry?.tmuxWindowIndex;
+  activeEntryTmuxWindowNameRef.current = activeEntry?.tmuxWindowName;
+  projectNameRef.current = projectName;
+  workspaceNameRef.current = workspaceName;
 
   useEffect(() => {
     if (appWsState !== "open") {
@@ -109,19 +167,22 @@ export function useTerminalConnection({
       );
       terminalClientRef.current?.close();
       terminalClientRef.current = null;
+      setAttached(false);
       return undefined;
     }
 
-    if (!activeEntryId || !activeSessionId || !activeEntryLabel) {
+    if (!activeEntryId || !activeSessionId || !activeEntryLabelRef.current) {
       setConnectionState("disconnected");
       setTerminalError(null);
       terminalClientRef.current?.close();
       terminalClientRef.current = null;
+      setAttached(false);
       return undefined;
     }
 
     if (!terminalWsUrl) {
       setConnectionState("disconnected");
+      setAttached(false);
       setTerminalError("Select an online Computer to open a terminal.");
       return undefined;
     }
@@ -131,28 +192,53 @@ export function useTerminalConnection({
       flush: (chunks) => webViewRef.current?.writeBase64(chunks),
     });
     terminalClientRef.current = client;
+    sessionOpenedRef.current = false;
+    lastSentSizeRef.current = null;
+    setAttached(false);
     setConnectionState("connecting");
     setTerminalError(null);
 
+    let openTimer: ReturnType<typeof setTimeout> | null = null;
     const openActiveTerminal = () => {
+      if (sessionOpenedRef.current) return;
+      sessionOpenedRef.current = true;
+      if (openTimer) {
+        clearTimeout(openTimer);
+        openTimer = null;
+      }
       const { cols, rows } = terminalSizeRef.current;
+      const metaIsNew = activeEntryIsNewRef.current;
+      const metaLabel = activeEntryLabelRef.current ?? "Terminal";
+      const metaWindowIndex = activeEntryTmuxWindowIndexRef.current;
+      const metaWindowName = activeEntryTmuxWindowNameRef.current;
       client.send({
         type: "terminal_open",
         session_id: activeSessionId,
         workspace_id: workspaceId,
-        attach: Boolean((activeEntryTmuxWindowIndex != null || activeEntryTmuxWindowName) && !activeEntryIsNew),
-        tmux_window_name: activeEntryTmuxWindowName,
-        tmux_window_index: activeEntryTmuxWindowIndex,
-        project_name: projectName ?? undefined,
-        workspace_name: workspaceName,
-        terminal_name: activeEntryLabel,
+        attach: Boolean((metaWindowIndex != null || metaWindowName) && !metaIsNew),
+        tmux_window_name: metaWindowName,
+        tmux_window_index: metaWindowIndex,
+        project_name: projectNameRef.current ?? undefined,
+        workspace_name: workspaceNameRef.current,
+        terminal_name: metaLabel,
         cols,
         rows,
       });
+      lastSentSizeRef.current = { cols, rows };
     };
+    openSessionRef.current = openActiveTerminal;
 
-    const unsubscribeOpen = client.onOpen(openActiveTerminal);
+    const unsubscribeOpen = client.onOpen(() => {
+      if (hasMeasuredRef.current) {
+        openActiveTerminal();
+        return;
+      }
+      openTimer = setTimeout(openActiveTerminal, OPEN_AFTER_MEASURE_MS);
+    });
     const unsubscribeClose = client.onClose(() => {
+      sessionOpenedRef.current = false;
+      lastSentSizeRef.current = null;
+      setAttached(false);
       setConnectionState("disconnected");
     });
     const unsubscribeError = client.onError((error) => {
@@ -176,11 +262,12 @@ export function useTerminalConnection({
         message.session_id === activeSessionId
       ) {
         setConnectionState("connected");
+        setAttached(true);
         setTerminalError(null);
-        if (message.type === "terminal_created" && activeEntryIsNew) {
+        if (message.type === "terminal_created" && activeEntryIsNewRef.current) {
           updateEntry(workspaceId, activeEntryId, {
             isNew: false,
-            tmuxWindowName: activeEntryTmuxWindowName ?? activeEntryLabel,
+            tmuxWindowName: activeEntryTmuxWindowNameRef.current ?? activeEntryLabelRef.current,
           });
         }
         if (message.snapshot) {
@@ -200,12 +287,20 @@ export function useTerminalConnection({
         (message.type === "terminal_closed" || message.type === "terminal_destroyed") &&
         message.session_id === activeSessionId
       ) {
+        setAttached(false);
         setConnectionState("disconnected");
       }
     });
 
     client.connect();
     return () => {
+      if (openTimer) clearTimeout(openTimer);
+      if (resizeTimerRef.current) {
+        clearTimeout(resizeTimerRef.current);
+        resizeTimerRef.current = null;
+      }
+      pendingResizeRef.current = null;
+      openSessionRef.current = null;
       unsubscribeOpen();
       unsubscribeClose();
       unsubscribeError();
@@ -217,22 +312,16 @@ export function useTerminalConnection({
     };
   }, [
     activeEntryId,
-    activeEntryIsNew,
-    activeEntryLabel,
-    activeEntrySessionId,
-    activeEntryTmuxWindowIndex,
-    activeEntryTmuxWindowName,
     activeSessionId,
     appWsState,
-    projectName,
     terminalWsUrl,
     updateEntry,
     webViewRef,
     workspaceId,
-    workspaceName,
   ]);
 
   return {
+    attached,
     connectionState,
     sendTerminalInput,
     sendTerminalResize,

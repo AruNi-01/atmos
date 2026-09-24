@@ -11,6 +11,7 @@ import { wsActions } from "@/api/ws-actions";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
+import { ListSkeleton } from "@/ui/primitives/list-skeleton";
 import { Separator } from "@/ui/layout/row";
 import { NativeMenuButton } from "@/ui/primitives/native-controls";
 import { PlusIcon } from "@/ui/icons/lucide-native";
@@ -89,18 +90,20 @@ export function WorkspacePickerScreen() {
           <GuideSection
             actionLabel="Computer Connect"
             message={error ?? "Choose a Computer before opening Workspaces."}
-            onAction={() => router.replace("/computer-connect")}
+            onAction={() => router.replace("/settings/computers")}
             title={!hasDeviceCredential ? "Connect first" : "Connection failed"}
           />
         ) : !isConnected ? (
           <GuideSection
             actionLabel="Computer Connect"
             message="Workspace data loads from the selected Computer."
-            onAction={() => router.replace("/computer-connect")}
+            onAction={() => router.replace("/settings/computers")}
             title={state === "reconnecting" ? "Reconnecting" : "Computer offline"}
           />
         ) : bootstrap.isLoading ? (
-          <GuideSection title="Loading" message="Fetching Workspaces." />
+          <Section>
+            <ListSkeleton />
+          </Section>
         ) : projectCount === 0 && workspaceCount === 0 ? (
           <GuideSection
             actionLabel="New Workspace"

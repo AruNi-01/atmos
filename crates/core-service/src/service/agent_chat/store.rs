@@ -598,11 +598,38 @@ pub fn fold_transcript(path: &Path) -> Result<Vec<FoldedTurn>> {
 }
 
 fn fold_chat_dir(dir: &Path) -> Result<Vec<FoldedTurn>> {
-    let mut records = Vec::new();
-    read_envelopes(&dir.join("transcript.jsonl"), &mut records)?;
-    read_envelopes(&dir.join("live.jsonl"), &mut records)?;
-    records.sort_by(|left, right| left.timestamp.cmp(&right.timestamp));
-    Ok(fold_envelopes(records))
+    let mut transcript = Vec::new();
+    let mut live = Vec::new();
+    read_envelopes(&dir.join("transcript.jsonl"), &mut transcript)?;
+    read_envelopes(&dir.join("live.jsonl"), &mut live)?;
+    Ok(fold_envelopes(merge_live_into_transcript(transcript, live)))
+}
+
+/// Transcript append order is the order parts happened. `PartFinished` is
+/// stamped with the text part's *open* time, which is earlier than tools that
+/// ran while that part was still open. Sorting the whole log by timestamp
+/// pulls the finished answer back in front of those tools, so a search ends
+/// up under the reply and the reply is folded away.
+///
+/// Live text chunks are the exception: they sit in a second file and have to
+/// be woven in by time. Equal timestamps stay with the transcript record
+/// (stable with the old sort, which concatenated transcript then live).
+fn merge_live_into_transcript(
+    transcript: Vec<TranscriptEnvelope>,
+    mut live: Vec<TranscriptEnvelope>,
+) -> Vec<TranscriptEnvelope> {
+    live.sort_by(|left, right| left.timestamp.cmp(&right.timestamp));
+    let mut merged = Vec::with_capacity(transcript.len() + live.len());
+    let mut live_index = 0;
+    for record in transcript {
+        while live_index < live.len() && live[live_index].timestamp < record.timestamp {
+            merged.push(live[live_index].clone());
+            live_index += 1;
+        }
+        merged.push(record);
+    }
+    merged.extend(live.into_iter().skip(live_index));
+    merged
 }
 
 fn materialize_text_part_from_envelopes(
@@ -2765,6 +2792,216 @@ mod tests {
         assert_eq!(
             thinking,
             vec![("first pass", Some(5_000)), ("second pass", Some(8_000)),]
+        );
+    }
+
+    #[test]
+    fn backdated_answer_stays_after_tools_written_before_it() {
+        let (_dir, store) = store();
+        let meta = create(&store, "/tmp/a");
+        let turn_id = "t1";
+        let started = Utc::now() - chrono::Duration::seconds(30);
+        store
+            .append_record(
+                &meta.id,
+                &rec_at(turn_id, started, TranscriptEvent::TurnStarted),
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &rec_at(
+                    turn_id,
+                    started + chrono::Duration::seconds(1),
+                    TranscriptEvent::UserMessage {
+                        message_id: "u1".into(),
+                        kind: UserMessageKind::Normal,
+                        text: "compare".into(),
+                        attachments: Vec::new(),
+                    },
+                ),
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &rec_at(
+                    turn_id,
+                    started + chrono::Duration::seconds(2),
+                    TranscriptEvent::PartFinished {
+                        part_id: "think".into(),
+                        message_id: "a1".into(),
+                        parent_part_id: None,
+                        ordinal: 0,
+                        kind: TextKind::Thinking,
+                        text: "look it up".into(),
+                        duration_ms: Some(1_000),
+                    },
+                ),
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &rec_at(
+                    turn_id,
+                    started + chrono::Duration::seconds(8),
+                    TranscriptEvent::ToolCall {
+                        tool: read_tool(
+                            "search-1",
+                            AgentToolStatus::Completed,
+                            AgentToolParams::WebSearch {
+                                query: "grok vs claude".into(),
+                            },
+                            None,
+                        ),
+                    },
+                ),
+            )
+            .unwrap();
+        // Opened before the search, written after it. Timestamp sort used to
+        // hoist this answer above the tool.
+        store
+            .append_record(
+                &meta.id,
+                &rec_at(
+                    turn_id,
+                    started + chrono::Duration::seconds(4),
+                    TranscriptEvent::PartFinished {
+                        part_id: "answer".into(),
+                        message_id: "a1".into(),
+                        parent_part_id: None,
+                        ordinal: 1,
+                        kind: TextKind::Answer,
+                        text: "final answer".into(),
+                        duration_ms: None,
+                    },
+                ),
+            )
+            .unwrap();
+        let snapshot = store.get_snapshot(&meta.id).unwrap();
+        let assistant = snapshot
+            .messages
+            .iter()
+            .find(|message| message.role == "assistant")
+            .expect("assistant");
+        let kinds: Vec<&str> = assistant
+            .parts
+            .iter()
+            .map(|part| match part {
+                MessagePart::Thinking { .. } => "thinking",
+                MessagePart::Text { .. } => "text",
+                MessagePart::ToolCall { .. } => "tool",
+                _ => "other",
+            })
+            .collect();
+        assert_eq!(kinds, vec!["thinking", "tool", "text"]);
+    }
+
+    #[test]
+    fn live_chunks_still_interleave_around_transcript_tools() {
+        let (_dir, store) = store();
+        let meta = create(&store, "/tmp/a");
+        let turn_id = "t1";
+        let started = Utc::now() - chrono::Duration::seconds(30);
+        store
+            .append_record(
+                &meta.id,
+                &rec_at(turn_id, started, TranscriptEvent::TurnStarted),
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &rec_at(
+                    turn_id,
+                    started + chrono::Duration::seconds(1),
+                    TranscriptEvent::UserMessage {
+                        message_id: "u1".into(),
+                        kind: UserMessageKind::Normal,
+                        text: "compare".into(),
+                        attachments: Vec::new(),
+                    },
+                ),
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &rec_at(
+                    turn_id,
+                    started + chrono::Duration::seconds(5),
+                    TranscriptEvent::TextChunk {
+                        part_id: "preamble".into(),
+                        message_id: "a1".into(),
+                        parent_part_id: None,
+                        ordinal: 0,
+                        kind: TextKind::Answer,
+                        offset: 0,
+                        text: "checking".into(),
+                    },
+                ),
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &rec_at(
+                    turn_id,
+                    started + chrono::Duration::seconds(8),
+                    TranscriptEvent::ToolCall {
+                        tool: read_tool(
+                            "search-1",
+                            AgentToolStatus::Completed,
+                            AgentToolParams::WebSearch {
+                                query: "grok vs claude".into(),
+                            },
+                            None,
+                        ),
+                    },
+                ),
+            )
+            .unwrap();
+        store
+            .append_record(
+                &meta.id,
+                &rec_at(
+                    turn_id,
+                    started + chrono::Duration::seconds(12),
+                    TranscriptEvent::TextChunk {
+                        part_id: "answer".into(),
+                        message_id: "a1".into(),
+                        parent_part_id: None,
+                        ordinal: 1,
+                        kind: TextKind::Answer,
+                        offset: 0,
+                        text: "done".into(),
+                    },
+                ),
+            )
+            .unwrap();
+        let snapshot = store.get_snapshot(&meta.id).unwrap();
+        let assistant = snapshot
+            .messages
+            .iter()
+            .find(|message| message.role == "assistant")
+            .expect("assistant");
+        let labels: Vec<String> = assistant
+            .parts
+            .iter()
+            .map(|part| match part {
+                MessagePart::Text { text, .. } => format!("text:{text}"),
+                MessagePart::ToolCall { .. } => "tool".into(),
+                _ => "other".into(),
+            })
+            .collect();
+        assert_eq!(
+            labels,
+            vec![
+                "text:checking".to_string(),
+                "tool".to_string(),
+                "text:done".to_string()
+            ]
         );
     }
 

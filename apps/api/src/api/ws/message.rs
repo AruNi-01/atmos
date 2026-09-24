@@ -894,6 +894,17 @@ pub enum WsAction {
     // ===== Link preview =====
     /// Fetch Open Graph / HTML metadata for a public http(s) URL
     LinkPreview,
+
+    // ===== Per-session inbox =====
+    /// Live occupancy merged with the inbox catalog. Empty body.
+    AgentSessionStatusList,
+    /// Set archived_at. Unknown id is success.
+    AgentSessionArchive,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentSessionArchiveRequest {
+    pub session_id: String,
 }
 
 /// 服务端主动推送的事件类型
@@ -934,6 +945,8 @@ pub enum WsEvent {
     AgentNotification,
     /// Current branch PR status should be refreshed
     GithubBranchPrStatusRefreshed,
+    /// Latest terminal shim / OSC title for one tmux window
+    TerminalTitleUpdated,
     /// Review comment changed
     ReviewCommentUpdated,
     /// Review message created

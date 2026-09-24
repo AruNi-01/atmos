@@ -1,8 +1,8 @@
-import { useEffect, useRef } from "react";
-import { Pressable } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { Button, Host } from "@expo/ui";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
-import type { SFSymbol } from "sf-symbols-typescript";
 import type { ProjectWorkspaceBootstrapResponse } from "@/api/types";
 import { wsActions } from "@/api/ws-actions";
 import { getAutoConnectComputerId } from "@/features/computers/computer-selection";
@@ -16,8 +16,28 @@ import { useComputerStore } from "@/stores/computer-store";
 import { useSessionStore } from "@/stores/session-store";
 import { useMobileTheme } from "@/theme/theme-store";
 import { ListFilterIcon, SettingsIcon } from "@/ui/icons/lucide-native";
-import { AppScreen, InlineError } from "@/ui/layout/app-screen";
+import { AppScreen, EmptyState, InlineError } from "@/ui/layout/app-screen";
+import { settingsHeaderItem, workspaceFilterHeaderItem } from "@/ui/navigation/home-header-items";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
+import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
+import { expoUiButtonHostStyle, expoUiPrimaryStyle } from "@/ui/primitives/expo-ui-button-styles";
+
+function workspaceHeaderRightItems({
+  onFilter,
+  onSettings,
+  showFilter,
+  tintColor,
+}: {
+  onFilter: () => void;
+  onSettings: () => void;
+  showFilter: boolean;
+  tintColor: string;
+}) {
+  const settings = settingsHeaderItem(onSettings, tintColor);
+  if (!showFilter) return [settings];
+  // First item is the trailing edge on iOS. Filter sits on that edge.
+  return [workspaceFilterHeaderItem(onFilter, tintColor), settings];
+}
 
 const EMPTY_BOOTSTRAP: ProjectWorkspaceBootstrapResponse = {
   projects: [],
@@ -41,8 +61,8 @@ export function WorkspaceListScreen() {
   const relayAuthRevision = useSessionStore((state) => state.relayAuthRevision);
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
   const activeClientSession = useSessionStore((state) => state.activeClientSession);
-  const selectServer = useSessionStore((state) => state.selectServer);
-  const setClientSession = useSessionStore((state) => state.setClientSession);
+  const sessionHydrated = useSessionStore((state) => state.sessionHydrated);
+  const adoptComputerSession = useSessionStore((state) => state.adoptComputerSession);
   const setComputers = useComputerStore((state) => state.setComputers);
   const lastAutoSessionAttemptRef = useRef<string | null>(null);
 
@@ -70,13 +90,12 @@ export function WorkspaceListScreen() {
         .createClientSession(serverId, { clientKind: "mobile" });
     },
     onSuccess: (session, serverId) => {
-      selectServer(serverId);
-      setClientSession(session);
+      adoptComputerSession(serverId, session);
     },
   });
 
   useEffect(() => {
-    if (!hasDeviceCredential || !computersQuery.isSuccess) return;
+    if (!sessionHydrated || !hasDeviceCredential || !computersQuery.isSuccess) return;
     const shouldReconnect = Boolean(activeClientSession && clientSessionUnavailable);
     const nextAutoConnectServerId = getAutoConnectComputerId({
       activeClientSession: shouldReconnect ? null : activeClientSession,
@@ -88,7 +107,7 @@ export function WorkspaceListScreen() {
       lastAutoSessionAttemptRef.current = attemptKey;
       createSession.mutate(nextAutoConnectServerId);
     }
-  }, [activeClientSession, clientSessionUnavailable, computers, computersQuery.isSuccess, createSession, hasDeviceCredential, selectedServerId]);
+  }, [activeClientSession, clientSessionUnavailable, computers, computersQuery.isSuccess, createSession, hasDeviceCredential, selectedServerId, sessionHydrated]);
 
   const bootstrapQuery = useQuery({
     queryKey: ["workspace-bootstrap", selectedServerId, wsState],
@@ -99,45 +118,31 @@ export function WorkspaceListScreen() {
   const bootstrap = bootstrapQuery.data ?? EMPTY_BOOTSTRAP;
   const workspaceError = bootstrapQuery.error instanceof Error ? bootstrapQuery.error.message : null;
   const sessionError = createSession.error instanceof Error ? createSession.error.message : null;
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshWorkspaces = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([computersQuery.refetch(), bootstrapQuery.refetch()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [bootstrapQuery, computersQuery]);
 
   const header = (
     <Stack.Screen
       options={{
         ...nativeLargeTitleOptions("Workspace", theme.colors),
-        // Drop the custom header so these use the same navigation-bar buttons as Back.
-        header: undefined,
         headerShadowVisible: false,
         headerTintColor: theme.colors.label,
         ...(process.env.EXPO_OS === "ios"
           ? {
-              unstable_headerLeftItems: () => [
-                {
-                  type: "button" as const,
-                  label: "",
-                  accessibilityLabel: "Settings",
-                  icon: { type: "sfSymbol" as const, name: "gearshape" as SFSymbol },
-                  onPress: () => router.push("/settings"),
-                  sharesBackground: false,
-                  tintColor: theme.colors.label,
-                },
-              ],
               unstable_headerRightItems: () =>
-                isHomeConnected
-                  ? [
-                      {
-                        type: "button" as const,
-                        label: "",
-                        accessibilityLabel: "Filter",
-                        icon: {
-                          type: "sfSymbol" as const,
-                          name: "line.3.horizontal.decrease" as SFSymbol,
-                        },
-                        onPress: () => router.push("/workspace-filters"),
-                        sharesBackground: false,
-                        tintColor: theme.colors.label,
-                      },
-                    ]
-                  : [],
+                workspaceHeaderRightItems({
+                  onFilter: () => router.push("/workspace-filters"),
+                  onSettings: () => router.push("/settings"),
+                  showFilter: isHomeConnected,
+                  tintColor: theme.colors.label,
+                }),
             }
           : {
               headerLeft: () => (
@@ -166,7 +171,33 @@ export function WorkspaceListScreen() {
     />
   );
 
-  if (!isHomeConnected) {
+  const cachedComputerId =
+    sessionHydrated && computersQuery.isSuccess
+      ? getAutoConnectComputerId({
+          activeClientSession: null,
+          computers,
+          selectedServerId,
+        })
+      : null;
+  const isConnectingCachedComputer =
+    hasDeviceCredential &&
+    !createSession.isError &&
+    (createSession.isPending ||
+      (Boolean(cachedComputerId || activeClientSession) && wsState !== "open"));
+  const isLoadingHome =
+    !deviceCredentialLoaded ||
+    !sessionHydrated ||
+    (hasDeviceCredential && computersQuery.isPending) ||
+    isConnectingCachedComputer ||
+    (isHomeConnected && bootstrapQuery.isPending);
+  const needsComputerChoice =
+    hasDeviceCredential &&
+    sessionHydrated &&
+    computersQuery.isFetched &&
+    !isConnectingCachedComputer &&
+    wsState !== "open";
+
+  if (!hasDeviceCredential && deviceCredentialLoaded && sessionHydrated) {
     // Same pair / OAuth surface as the sign-in sheet, embedded full-page under
     // the Workspace header — no intermediate empty “Pair via QR” home.
     return (
@@ -180,15 +211,74 @@ export function WorkspaceListScreen() {
   return (
     <>
       {header}
-      <AppScreen>
-        <WorkspaceHomeList
-          groups={bootstrap.groups ?? []}
-          isLoading={bootstrapQuery.isPending}
-          projects={bootstrap.projects}
-          workspacesByProject={bootstrap.workspaces_by_project}
+      {isLoadingHome ? (
+        <HomeLoading />
+      ) : needsComputerChoice ? (
+        <ChooseComputerPrompt
+          message={sessionError ?? computersError}
+          onPress={() => router.push("/settings/computers")}
         />
-        <InlineError message={sessionError ?? computersError ?? workspaceError} />
-      </AppScreen>
+      ) : (
+        <AppScreen onRefresh={refreshWorkspaces} refreshing={refreshing}>
+          <WorkspaceHomeList
+            groups={bootstrap.groups ?? []}
+            isLoading={bootstrapQuery.isPending}
+            projects={bootstrap.projects}
+            workspacesByProject={bootstrap.workspaces_by_project}
+          />
+          <InlineError message={sessionError ?? computersError ?? workspaceError} />
+        </AppScreen>
+      )}
     </>
+  );
+}
+
+function HomeLoading() {
+  const theme = useMobileTheme();
+
+  return (
+    <AppScreen contentFlex>
+      <View style={{ alignItems: "center", gap: 12 }}>
+        <ActivityIndicator color={theme.colors.secondaryLabel} />
+        <Text style={{ color: theme.colors.secondaryLabel, fontSize: 15, lineHeight: 20 }}>Loading</Text>
+      </View>
+    </AppScreen>
+  );
+}
+
+function ChooseComputerPrompt({
+  message,
+  onPress,
+}: {
+  message?: string | null;
+  onPress: () => void;
+}) {
+  const theme = useMobileTheme();
+  const button = expoUiPrimaryStyle(theme.colors);
+
+  return (
+    <AppScreen contentFlex>
+      <View style={{ alignSelf: "stretch", gap: 20, paddingHorizontal: 8 }}>
+        <EmptyState
+          message="Choose a Computer to see workspaces."
+          title="No Computer selected"
+        />
+        <Host
+          colorScheme={theme.colorScheme}
+          matchContents={{ vertical: true }}
+          seedColor={button.seedColor}
+          style={expoUiButtonHostStyle}
+        >
+          <Button
+            label="Choose a Computer"
+            modifiers={expoUiButtonStretchModifiers}
+            onPress={onPress}
+            style={button.style}
+            variant={button.variant}
+          />
+        </Host>
+        <InlineError message={message} />
+      </View>
+    </AppScreen>
   );
 }

@@ -10,7 +10,12 @@ export type TerminalShortcut =
 
 export const terminalShortcuts: TerminalShortcut[] = [
   { id: "esc", label: "Esc", sequence: "\u001b", kind: "sequence" },
+  { id: "at", label: "@", sequence: "@", kind: "sequence" },
+  { id: "slash", label: "/", sequence: "/", kind: "sequence" },
   { id: "tab", label: "Tab", sequence: "\t", kind: "sequence" },
+  { id: "shift-tab", label: "⇧Tab", sequence: "\u001b[Z", kind: "sequence" },
+  { id: "enter", label: "↵", sequence: "\r", kind: "sequence" },
+  { id: "shift-enter", label: "⇧Enter", sequence: "\u001b[13;2u", kind: "sequence" },
   { id: "up", label: "↑", sequence: "\u001b[A", kind: "sequence" },
   { id: "down", label: "↓", sequence: "\u001b[B", kind: "sequence" },
   { id: "left", label: "←", sequence: "\u001b[D", kind: "sequence" },

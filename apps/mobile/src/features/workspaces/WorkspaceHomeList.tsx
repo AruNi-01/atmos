@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from "react-native";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Animated, Easing, Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import type { GroupModel, ProjectModel, WorkspaceModel } from "@/api/types";
 import {
@@ -10,9 +11,14 @@ import {
 import { useWorkspaceHomeStore } from "@/stores/workspace-home-store";
 import { spacing } from "@/theme/spacing";
 import { useMobileTheme } from "@/theme/theme-store";
-import { ChevronDownIcon, ChevronRightIcon } from "@/ui/icons/lucide-native";
+import { ChevronDownIcon } from "@/ui/icons/lucide-native";
 import { EmptyState, Section } from "@/ui/layout/app-screen";
+import { ListSkeleton } from "@/ui/primitives/list-skeleton";
 import { Row, Separator } from "@/ui/layout/row";
+
+const SECTION_TITLE_SIZE = 17;
+const SECTION_CHEVRON_SIZE = 20;
+const SECTION_MOTION_MS = 220;
 
 export function WorkspaceHomeList({
   groups,
@@ -41,9 +47,17 @@ export function WorkspaceHomeList({
     projects,
     workspacesByProject,
   });
-  const openWorkspace = (id: string) => router.push(`/workspace/${id}`);
+  const openEntry = (entry: WorkspaceHomeEntry) => router.push(`/workspace/${entry.id}`);
 
-  if (!isLoading && entries.length === 0) {
+  if (isLoading && entries.length === 0) {
+    return (
+      <Section>
+        <ListSkeleton />
+      </Section>
+    );
+  }
+
+  if (entries.length === 0) {
     return (
       <Section>
         <EmptyState layout="section" message="No workspaces yet." title="No workspaces" />
@@ -56,24 +70,69 @@ export function WorkspaceHomeList({
       {recent.length > 0 ? (
         <WorkspaceGroup
           items={recent}
-          onOpen={openWorkspace}
+          onOpen={openEntry}
           onToggle={toggleRecent}
           open={recentExpanded}
           title="Recently"
         />
       ) : null}
-      {sections.map((section) => (
-        <WorkspaceGroup
-          count={section.items.length}
-          items={section.items}
-          key={section.key}
-          onOpen={openWorkspace}
-          onToggle={() => toggleExpanded(section.key)}
-          open={expanded[section.key] !== false}
-          title={section.title}
-        />
-      ))}
+      {sections.map((section) => {
+        const workspaceCount = section.items.filter((item) => item.kind === "workspace").length;
+        return (
+          <WorkspaceGroup
+            count={workspaceCount > 0 ? workspaceCount : undefined}
+            items={section.items}
+            key={section.key}
+            onOpen={openEntry}
+            onToggle={() => toggleExpanded(section.key)}
+            open={expanded[section.key] !== false}
+            title={section.title}
+          />
+        );
+      })}
     </>
+  );
+}
+
+function CollapsibleRows({ children, open }: { children: ReactNode; open: boolean }) {
+  const progress = useRef(new Animated.Value(open ? 1 : 0)).current;
+  const [contentHeight, setContentHeight] = useState(0);
+  const measured = contentHeight > 0;
+
+  useEffect(() => {
+    Animated.timing(progress, {
+      duration: SECTION_MOTION_MS,
+      easing: Easing.out(Easing.cubic),
+      toValue: open ? 1 : 0,
+      useNativeDriver: false,
+    }).start();
+  }, [open, progress]);
+
+  const height = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, contentHeight],
+  });
+
+  return (
+    <Animated.View
+      accessibilityElementsHidden={!open}
+      collapsable={false}
+      importantForAccessibility={open ? "auto" : "no-hide-descendants"}
+      pointerEvents={open ? "auto" : "none"}
+      style={measured ? { height, overflow: "hidden" } : open ? undefined : { height: 0, overflow: "hidden" }}
+    >
+      <View
+        collapsable={false}
+        onLayout={(event) => {
+          const next = event.nativeEvent.layout.height;
+          if (next < 1) return;
+          setContentHeight((current) => (Math.abs(current - next) < 1 ? current : next));
+        }}
+        style={measured || !open ? { left: 0, position: "absolute", right: 0, top: 0 } : undefined}
+      >
+        {children}
+      </View>
+    </Animated.View>
   );
 }
 
@@ -87,15 +146,30 @@ function WorkspaceGroup({
 }: {
   count?: number;
   items: WorkspaceHomeEntry[];
-  onOpen: (id: string) => void;
+  onOpen: (entry: WorkspaceHomeEntry) => void;
   onToggle: () => void;
   open: boolean;
   title: string;
 }) {
   const theme = useMobileTheme();
+  const rotation = useRef(new Animated.Value(open ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(rotation, {
+      duration: SECTION_MOTION_MS,
+      easing: Easing.out(Easing.cubic),
+      toValue: open ? 1 : 0,
+      useNativeDriver: true,
+    }).start();
+  }, [open, rotation]);
+
+  const chevronRotate = rotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["-90deg", "0deg"],
+  });
 
   return (
-    <View style={{ gap: spacing.sectionLabelGap }}>
+    <View>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
@@ -112,9 +186,9 @@ function WorkspaceGroup({
           style={{
             color: theme.colors.secondaryLabel,
             flex: 1,
-            fontSize: 13,
+            fontSize: SECTION_TITLE_SIZE,
             fontWeight: "600",
-            lineHeight: 18,
+            lineHeight: 22,
           }}
         >
           {title}
@@ -123,31 +197,35 @@ function WorkspaceGroup({
           <Text
             style={{
               color: theme.colors.tertiaryLabel,
-              fontSize: 13,
+              fontSize: 15,
               fontVariant: ["tabular-nums"],
               fontWeight: "600",
-              lineHeight: 18,
+              lineHeight: 20,
             }}
           >
             {count}
           </Text>
         ) : null}
-        {open ? (
-          <ChevronDownIcon color={theme.colors.tertiaryLabel} size={16} strokeWidth={2.4} />
-        ) : (
-          <ChevronRightIcon color={theme.colors.tertiaryLabel} size={16} strokeWidth={2.4} />
-        )}
+        <Animated.View style={{ transform: [{ rotate: chevronRotate }] }}>
+          <ChevronDownIcon color={theme.colors.tertiaryLabel} size={SECTION_CHEVRON_SIZE} strokeWidth={2.4} />
+        </Animated.View>
       </Pressable>
-      {open ? (
-        <Section>
-          {items.map((item, index) => (
-            <View key={item.id}>
-              {index > 0 ? <Separator /> : null}
-              <Row onPress={() => onOpen(item.id)} title={item.title} />
-            </View>
-          ))}
-        </Section>
-      ) : null}
+      <CollapsibleRows open={open}>
+        <View style={{ paddingTop: spacing.sectionLabelGap }}>
+          <Section>
+            {items.map((item, index) => (
+              <View key={`${item.kind}:${item.id}`}>
+                {index > 0 ? <Separator /> : null}
+                <Row
+                  onPress={() => onOpen(item)}
+                  subtitle={item.kind === "project" ? "Project" : undefined}
+                  title={item.title}
+                />
+              </View>
+            ))}
+          </Section>
+        </View>
+      </CollapsibleRows>
     </View>
   );
 }

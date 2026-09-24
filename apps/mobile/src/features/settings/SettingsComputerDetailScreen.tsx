@@ -1,6 +1,5 @@
-import { Button, Host } from "@expo/ui";
 import { useEffect } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import type { ComputerRow } from "@/api/types";
 import { useMobileSettingsController } from "@/features/settings/use-mobile-settings-controller";
@@ -31,18 +30,10 @@ import {
   SunMoonIcon,
   UserIcon,
 } from "@/ui/icons/lucide-native";
-import { NativeSegmentedControl, NativeTextInput } from "@/ui/primitives/native-controls";
-import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
-import {
-  expoUiButtonHostStyle,
-  expoUiPrimaryStyle,
-  expoUiSecondaryStyle,
-} from "@/ui/primitives/expo-ui-button-styles";
-
-const buttonStretchModifiers = expoUiButtonStretchModifiers;
+import { NativeTextInput } from "@/ui/primitives/native-controls";
+import { GlassActionButtons } from "@/ui/primitives/glass-action-buttons";
 
 export function SettingsComputerDetailScreen() {
-  const theme = useMobileTheme();
   const params = useLocalSearchParams<{ serverId?: string }>();
   const settings = useMobileSettingsController();
   const serverId = typeof params.serverId === "string" ? params.serverId : null;
@@ -53,7 +44,6 @@ export function SettingsComputerDetailScreen() {
     !serverId ||
     settings.rename.isPending ||
     !settings.renameValue.trim();
-  const renameStyle = expoUiPrimaryStyle(theme.colors, renameDisabled);
 
   useEffect(() => {
     if (!serverId) return;
@@ -94,38 +84,21 @@ export function SettingsComputerDetailScreen() {
           {computer.server_id}
         </Text>
 
-        <Host
-          matchContents={{ vertical: true }}
-          colorScheme={theme.colorScheme}
-          seedColor={renameStyle.seedColor}
-          style={expoUiButtonHostStyle}
-        >
-          <Button
-            disabled={renameDisabled}
-            label={settings.rename.isPending ? "Saving..." : "Save name"}
-            modifiers={buttonStretchModifiers}
-            onPress={renameDisabled ? undefined : () => settings.rename.mutate()}
-            style={renameStyle.style}
-            variant={renameStyle.variant}
-          />
-        </Host>
-
-        <Section>
-          <Pressable
-            accessibilityRole="button"
-            disabled={settings.revoke.isPending}
-            onPress={settings.confirmRevokeSelectedComputer}
-            style={({ pressed }) =>
-              pressed ? { backgroundColor: theme.colors.mutedPressed } : undefined
-            }
-          >
-            <View className="min-h-row-min-height items-center justify-center px-row-x py-row-y">
-              <Text style={[typography.rowTitle, { color: theme.colors.red }]}>
-                {settings.revoke.isPending ? "Revoking..." : "Revoke Computer"}
-              </Text>
-            </View>
-          </Pressable>
-        </Section>
+        <GlassActionButtons
+          actions={[
+            {
+              disabled: settings.revoke.isPending,
+              label: settings.revoke.isPending ? "Revoking..." : "Revoke",
+              onPress: settings.confirmRevokeSelectedComputer,
+              role: "destructive",
+            },
+            {
+              disabled: renameDisabled,
+              label: settings.rename.isPending ? "Saving..." : "Save name",
+              onPress: () => settings.rename.mutate(),
+            },
+          ]}
+        />
 
         <InlineError message={settings.error} />
       </View>

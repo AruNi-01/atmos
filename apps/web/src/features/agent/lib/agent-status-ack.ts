@@ -19,13 +19,17 @@ export function chatAttentionLookupIds(chatId: string | null | undefined): strin
 
 /**
  * Chat analog of focusing a terminal pane. Marks the chat surface focused so
- * task-complete rings can clear; pending permission latches stay until the
- * agent resolves / cancels / ends the turn (server `agent_attention_cleared`).
- * Pointer enter / press on the live transcript surface should call this.
+ * task-complete can clear after the same short dwell as a terminal jump.
+ * Does not drop the idle session: selecting a message is not "this agent is
+ * gone", and removing it makes the footer flash Napping until the server
+ * sends the same completed row back.
  */
 export function ackAgentChatAttention(chatId: string | null | undefined): boolean {
   const id = chatAttentionId(chatId);
   if (!id) return false;
-  useAgentAttentionStore.getState().notifyPaneFocused(id, { ack: "immediate" });
+  useAgentAttentionStore.getState().notifyPaneFocused(id, {
+    ack: "deferred",
+    dismissIdle: false,
+  });
   return true;
 }

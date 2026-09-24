@@ -171,7 +171,11 @@ export function WorkspaceFilterScreen() {
                       numberOfLines={1}
                       style={[
                         typography.rowMeta,
-                        { color: theme.colors.secondaryLabel, maxWidth: "42%" },
+                        {
+                          color: selected.length > 0 ? theme.colors.label : theme.colors.secondaryLabel,
+                          fontWeight: selected.length > 0 ? "600" : "400",
+                          maxWidth: "42%",
+                        },
                       ]}
                     >
                       {filterSelectionLabel(labels)}
@@ -209,12 +213,13 @@ export function WorkspaceFilterScreen() {
         </Section>
       </AppScreen>
       <ExpoDrawer
+        contentPaddingHorizontal={8}
         isPresented={sheetKind != null}
         matchContents={false}
         onDismiss={() => setSheetKind(null)}
       >
         {sheetKind ? (
-          <View style={{ alignSelf: "stretch", flex: 1, justifyContent: "flex-start", paddingTop: 20 }}>
+          <View style={{ alignSelf: "stretch", flex: 1, justifyContent: "flex-start", paddingTop: 8, width: "100%" }}>
             <Text
               style={[
                 typography.rowTitle,

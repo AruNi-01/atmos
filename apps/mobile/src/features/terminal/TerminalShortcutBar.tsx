@@ -1,37 +1,61 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  Keyboard,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { GlassPanel } from "@/ui/primitives/glass-panel";
-import { IosPopover } from "@/ui/primitives/ios-popover";
-import { PopoverActionList, PopoverActionRow } from "@/ui/primitives/popover-menu";
-import { TerminalKeyboardDismissButton } from "@/features/terminal/TerminalKeyboardDismissButton";
 import { terminalShortcuts, type TerminalShortcut } from "@/features/terminal/terminal-shortcuts";
 import { radii } from "@/theme/radii";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
+import { KeyboardIcon } from "@/ui/icons/lucide-native";
+import { GlassPanel } from "@/ui/primitives/glass-panel";
+
+const BAR_SHORTCUTS = ["esc", "at", "slash", "tab", "shift-tab", "up", "down", "left", "right", "enter", "shift-enter"] as const;
+
+const SHORTCUT_LABEL: Record<(typeof BAR_SHORTCUTS)[number], string> = {
+  esc: "Esc",
+  at: "@",
+  slash: "/",
+  tab: "Tab",
+  "shift-tab": "⇧Tab",
+  up: "↑",
+  down: "↓",
+  left: "←",
+  right: "→",
+  enter: "↵",
+  "shift-enter": "⇧↵",
+};
+
+const SHORTCUT_ACCESSIBILITY: Record<(typeof BAR_SHORTCUTS)[number], string> = {
+  esc: "Escape",
+  at: "At",
+  slash: "Slash",
+  tab: "Tab",
+  "shift-tab": "Shift Tab",
+  up: "Up",
+  down: "Down",
+  left: "Left",
+  right: "Right",
+  enter: "Enter",
+  "shift-enter": "Shift Enter",
+};
+
+const FADE_SIZE = 24;
 
 export function TerminalShortcutBar({
   enabled = true,
-  onDismissKeyboard,
   onShortcut,
+  onToggleKeyboard,
 }: {
   enabled?: boolean;
-  onDismissKeyboard?: () => void;
   onShortcut: (shortcut: TerminalShortcut) => void;
+  onToggleKeyboard?: () => void;
 }) {
   const theme = useMobileTheme();
   const insets = useSafeAreaInsets();
   const [keyboardVisible, setKeyboardVisible] = useState(() => Keyboard.isVisible());
+  const [edgeFade, setEdgeFade] = useState({ left: 0, right: 0 });
+  const scrollMetricsRef = useRef({ contentWidth: 0, layoutWidth: 0, offsetX: 0 });
   const shortcutsById = useMemo(() => new Map(terminalShortcuts.map((shortcut) => [shortcut.id, shortcut])), []);
-  const bottomPadding = keyboardVisible ? 4 : Math.max(insets.bottom, 4);
+  const bottomPadding = keyboardVisible ? 6 : Math.max(insets.bottom, 8);
 
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -45,205 +69,175 @@ export function TerminalShortcutBar({
     };
   }, []);
 
-  const fireShortcut = (shortcutId: string) => {
-    const shortcut = shortcutsById.get(shortcutId);
-    if (shortcut) onShortcut(shortcut);
+  const updateEdgeFade = () => {
+    const { contentWidth, layoutWidth, offsetX } = scrollMetricsRef.current;
+    const left = Math.min(FADE_SIZE, Math.max(0, offsetX));
+    const right = Math.min(FADE_SIZE, Math.max(0, contentWidth - layoutWidth - offsetX));
+    setEdgeFade((current) => (current.left === left && current.right === right ? current : { left, right }));
   };
 
-  if (!enabled) {
-    return null;
-  }
+  if (!enabled) return null;
 
-  return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: theme.colors.terminalBg,
-          paddingBottom: bottomPadding,
-          paddingHorizontal: 6,
-        },
-      ]}
-    >
-      <View style={styles.row}>
-        <GlassPanel
-          fallbackStyle={[styles.fallback, { backgroundColor: theme.colors.terminalChromeFallback }]}
-          glassEffectStyle={{ style: "regular", animate: true }}
-          interactive
-          style={[
-            styles.root,
-            {
-              borderColor: theme.colors.glassBorder,
-              borderRadius: radii.terminalChrome,
-            },
-          ]}
-          tintColor={theme.colors.terminalChromeTint}
-        >
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.content}
-            style={styles.scroller}
-          >
-            <ShortcutPopoverButton actions={CTRL_ACTIONS} label="Ctrl" onAction={fireShortcut} />
-            <ShortcutButton label="Esc" onPress={() => fireShortcut("esc")} />
-            <ShortcutButton label="Tab" onPress={() => fireShortcut("tab")} />
-            <ShortcutButton label="Paste" onPress={() => fireShortcut("paste")} />
-            <ShortcutButton label="History" onPress={() => fireShortcut("up")} />
-            <ShortcutPopoverButton
-              actions={DIRECTION_ACTIONS}
-              defaultActionId="up"
-              label="Move"
-              onAction={fireShortcut}
-              openOnLongPress
-            />
-            <ShortcutPopoverButton actions={AGENT_ACTIONS} label="Agent" onAction={fireShortcut} />
-          </ScrollView>
-        </GlassPanel>
-        {keyboardVisible && onDismissKeyboard ? (
-          <TerminalKeyboardDismissButton onPress={onDismissKeyboard} />
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
-function ShortcutButton({
-  label,
-  onPress,
-}: {
-  label: string;
-  onPress?: () => void;
-}) {
-  const theme = useMobileTheme();
   const keycapStyle = {
     backgroundColor: theme.colors.terminalKeycap,
-    borderColor: theme.colors.glassBorder,
-    borderRadius: radii.terminalKeycap,
   };
   const keycapPressedStyle = {
     backgroundColor: theme.colors.terminalKeycapPressed,
   };
-  const keycapTextStyle = {
+  const labelStyle = {
     color: theme.colors.terminalFg,
   };
 
-  if (!onPress) {
-    return (
-      <View accessibilityRole="button" style={[styles.keycap, keycapStyle]}>
-        <Text style={[styles.keycapText, keycapTextStyle]}>{label}</Text>
-      </View>
-    );
-  }
-
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.keycap, keycapStyle, pressed && keycapPressedStyle]}
-    >
-      <Text style={[styles.keycapText, keycapTextStyle]}>{label}</Text>
-    </Pressable>
+    <View style={[styles.container, { backgroundColor: theme.colors.terminalBg, paddingBottom: bottomPadding }]}>
+      <GlassPanel
+        fallbackStyle={{ backgroundColor: theme.colors.terminalChromeFallback }}
+        glassEffectStyle={{ style: "regular", animate: true }}
+        interactive
+        style={[
+          styles.pill,
+          {
+            borderColor: theme.colors.glassBorder,
+          },
+        ]}
+        tintColor={theme.colors.terminalChromeTint}
+      >
+        <View style={styles.row}>
+          <View style={styles.scrollerWrap}>
+            <ScrollView
+              horizontal
+              contentContainerStyle={styles.scrollerContent}
+              onContentSizeChange={(contentWidth) => {
+                scrollMetricsRef.current.contentWidth = contentWidth;
+                updateEdgeFade();
+              }}
+              onLayout={(event) => {
+                scrollMetricsRef.current.layoutWidth = event.nativeEvent.layout.width;
+                updateEdgeFade();
+              }}
+              onScroll={(event) => {
+                scrollMetricsRef.current.offsetX = event.nativeEvent.contentOffset.x;
+                updateEdgeFade();
+              }}
+              scrollEventThrottle={16}
+              showsHorizontalScrollIndicator={false}
+              style={styles.scroller}
+            >
+            {BAR_SHORTCUTS.map((shortcutId) => {
+              const shortcut = shortcutsById.get(shortcutId);
+              if (!shortcut) return null;
+              return (
+                <Pressable
+                  accessibilityLabel={SHORTCUT_ACCESSIBILITY[shortcutId]}
+                  accessibilityRole="button"
+                  key={shortcutId}
+                  onPress={() => onShortcut(shortcut)}
+                  style={({ pressed }) => [styles.keycap, keycapStyle, pressed && keycapPressedStyle]}
+                >
+                  <Text numberOfLines={1} style={[styles.keycapText, labelStyle]}>
+                    {SHORTCUT_LABEL[shortcutId]}
+                  </Text>
+                </Pressable>
+              );
+            })}
+            </ScrollView>
+            {edgeFade.left > 0 ? (
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.fade,
+                  styles.fadeLeft,
+                  {
+                    experimental_backgroundImage: "linear-gradient(to right, #09090b 0%, rgba(9, 9, 11, 0) 100%)",
+                    width: edgeFade.left,
+                  },
+                ]}
+              />
+            ) : null}
+            {edgeFade.right > 0 ? (
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.fade,
+                  styles.fadeRight,
+                  {
+                    experimental_backgroundImage: "linear-gradient(to left, #09090b 0%, rgba(9, 9, 11, 0) 100%)",
+                    width: edgeFade.right,
+                  },
+                ]}
+              />
+            ) : null}
+          </View>
+          <Pressable
+            accessibilityLabel={keyboardVisible ? "Hide keyboard" : "Show keyboard"}
+            accessibilityRole="button"
+            onPress={onToggleKeyboard}
+            style={({ pressed }) => [styles.keycap, styles.keyboardKeycap, keycapStyle, pressed && keycapPressedStyle]}
+          >
+            <KeyboardIcon color={theme.colors.terminalFg} size={18} strokeWidth={2.2} />
+          </Pressable>
+        </View>
+      </GlassPanel>
+    </View>
   );
 }
-
-function ShortcutPopoverButton({
-  actions,
-  defaultActionId,
-  label,
-  onAction,
-  openOnLongPress,
-}: {
-  actions: Array<{ id: string; title: string }>;
-  defaultActionId?: string;
-  label: string;
-  onAction: (actionId: string) => void;
-  openOnLongPress?: boolean;
-}) {
-  const theme = useMobileTheme();
-
-  return (
-    <IosPopover direction="top" trigger={openOnLongPress ? "longPress" : "tap"}>
-      <IosPopover.Trigger>
-        <ShortcutButton label={label} onPress={defaultActionId ? () => onAction(defaultActionId) : undefined} />
-      </IosPopover.Trigger>
-      <IosPopover.Content style={{ backgroundColor: theme.colors.terminalElevated }}>
-        <PopoverActionList>
-          {actions.map((action) => (
-            <PopoverActionRow
-              key={action.id}
-              label={action.title}
-              onPress={() => onAction(action.id)}
-              tone="terminal"
-            />
-          ))}
-        </PopoverActionList>
-      </IosPopover.Content>
-    </IosPopover>
-  );
-}
-
-const CTRL_ACTIONS = [
-  { id: "ctrl-c", title: "Ctrl-C" },
-  { id: "ctrl-d", title: "Ctrl-D" },
-  { id: "ctrl-l", title: "Ctrl-L" },
-  { id: "ctrl-a", title: "Ctrl-A" },
-  { id: "ctrl-e", title: "Ctrl-E" },
-];
-
-const DIRECTION_ACTIONS = [
-  { id: "up", title: "Up" },
-  { id: "down", title: "Down" },
-  { id: "left", title: "Left" },
-  { id: "right", title: "Right" },
-];
-
-const AGENT_ACTIONS = [
-  { id: "agent-continue", title: "Continue" },
-  { id: "agent-yes", title: "Yes" },
-  { id: "agent-no", title: "No" },
-  { id: "new-terminal", title: "New terminal" },
-  { id: "switch-terminal", title: "Switch terminal" },
-];
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: 4,
+    paddingHorizontal: 10,
+    paddingTop: 6,
   },
-  root: {
+  keycap: {
+    alignItems: "center",
+    borderCurve: "continuous",
+    borderRadius: radii.pill,
+    flexShrink: 0,
+    justifyContent: "center",
+    minHeight: 36,
+    minWidth: 44,
+    paddingHorizontal: 10,
+  },
+  fade: {
+    bottom: 0,
+    position: "absolute",
+    top: 0,
+  },
+  fadeLeft: {
+    left: 0,
+  },
+  fadeRight: {
+    right: 0,
+  },
+  keyboardKeycap: {
+    minWidth: 44,
+  },
+  keycapText: {
+    ...typography.terminalKeycapLabel,
+    textAlign: "center",
+  },
+  pill: {
+    borderRadius: radii.terminalChrome,
     borderWidth: StyleSheet.hairlineWidth,
-    flex: 1,
-    minWidth: 0,
-  },
-  scroller: {
-    flex: 1,
-    minWidth: 0,
-    overflow: "scroll",
   },
   row: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 7,
-  },
-  content: {
-    alignItems: "center",
     gap: 4,
-    minHeight: 44,
-    paddingHorizontal: 4,
+    paddingRight: 10,
     paddingVertical: 4,
   },
-  fallback: {},
-  keycap: {
-    alignItems: "center",
-    borderCurve: "continuous",
-    borderWidth: StyleSheet.hairlineWidth,
-    flexShrink: 0,
-    justifyContent: "center",
-    minHeight: 36,
-    minWidth: 42,
-    paddingHorizontal: 8,
+  scroller: {
+    flex: 1,
+    minWidth: 0,
   },
-  keycapText: {
-    ...typography.terminalKeycapLabel,
+  scrollerContent: {
+    alignItems: "center",
+    gap: 4,
+    paddingLeft: 10,
+    paddingRight: 2,
+  },
+  scrollerWrap: {
+    flex: 1,
+    minWidth: 0,
   },
 });

@@ -30,6 +30,29 @@ describe("computer auto selection", () => {
     ).toBe("selected");
   });
 
+  test("does not auto-connect a cached computer that is offline", () => {
+    expect(
+      getAutoConnectComputerId({
+        activeClientSession: null,
+        computers: [
+          computer({ server_id: "cached", online: false }),
+          computer({ server_id: "other", online: true }),
+        ],
+        selectedServerId: "cached",
+      }),
+    ).toBeNull();
+  });
+
+  test("does not auto-connect a cached computer that was revoked", () => {
+    expect(
+      getAutoConnectComputerId({
+        activeClientSession: null,
+        computers: [computer({ server_id: "cached", online: true, revoked: 1 })],
+        selectedServerId: "cached",
+      }),
+    ).toBeNull();
+  });
+
   test("does not guess when multiple online computers are available", () => {
     expect(
       getAutoConnectComputerId({

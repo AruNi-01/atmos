@@ -41,6 +41,8 @@ import {
   Timer,
 } from "lucide-react";
 import { resolveBoardColor, resolveWorkspaceGroupId } from "@/app-shell/sidebar/kanban-columns";
+import { SidebarListViewTabs } from "@/app-shell/sidebar/SidebarListViewTabs";
+import type { SidebarListView } from "@/app-shell/sidebar/sidebar-list-view";
 import { findGroupIdForMember, UNGROUPED_USER_GROUP_KEY } from "@/app-shell/sidebar/user-groups";
 import {
   getProjectGroupingWorkspace,
@@ -177,6 +179,10 @@ type WorkspaceKanbanFilterMenuProps = {
   showGrouping?: boolean;
   groupingMode?: SidebarGroupingMode;
   onGroupingModeChange?: (mode: SidebarGroupingMode) => void;
+  /** Sidebar list only. Kanban leaves this unset. */
+  showView?: boolean;
+  listView?: SidebarListView;
+  onListViewChange?: (view: SidebarListView) => void;
   triggerClassName?: string;
 };
 
@@ -198,6 +204,9 @@ export function WorkspaceKanbanFilterMenu({
   showGrouping = false,
   groupingMode = "project",
   onGroupingModeChange,
+  showView = false,
+  listView = "workspace",
+  onListViewChange,
   triggerClassName,
 }: WorkspaceKanbanFilterMenuProps) {
   const t = useTranslations("appShell.task");
@@ -320,10 +329,34 @@ export function WorkspaceKanbanFilterMenu({
           </Button>
         )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align={align} side={side} className="w-64 p-1">
-        {showGrouping && onGroupingModeChange ? (
+      <DropdownMenuContent
+        align={align}
+        side={side}
+        sideOffset={6}
+        className={cn(
+          "w-64 p-1",
+          // Sidebar filter sits on the bottom-right. Grow up from that corner.
+          side === "top" && align === "end" && "origin-bottom-right",
+        )}
+      >
+        {showView && onListViewChange ? (
           <>
             <DropdownMenuLabel className="px-2 py-1 text-xs font-medium text-muted-foreground">
+              {t("view.sectionLabel")}
+            </DropdownMenuLabel>
+            <div className="px-2 pb-1.5" onPointerDown={(event) => event.preventDefault()}>
+              <SidebarListViewTabs value={listView} onValueChange={onListViewChange} />
+            </div>
+          </>
+        ) : null}
+        {showGrouping && onGroupingModeChange ? (
+          <>
+            <DropdownMenuLabel
+              className={cn(
+                "px-2 py-1 text-xs font-medium text-muted-foreground",
+                showView && "mt-[0.5px]",
+              )}
+            >
               {t("grouping.sectionLabel")}
             </DropdownMenuLabel>
             {SIDEBAR_GROUPING_OPTIONS.map((option) => (
@@ -340,8 +373,7 @@ export function WorkspaceKanbanFilterMenu({
                 {groupingMode === option.value ? <Check className="ml-auto size-4" /> : null}
               </DropdownMenuItem>
             ))}
-            <DropdownMenuSeparator className="mx-2" />
-            <DropdownMenuLabel className="px-2 py-1 text-xs font-medium text-muted-foreground">
+            <DropdownMenuLabel className="mt-[0.5px] px-2 py-1 text-xs font-medium text-muted-foreground">
               {t("filter.sectionLabel")}
             </DropdownMenuLabel>
           </>

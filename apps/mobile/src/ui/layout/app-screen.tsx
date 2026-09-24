@@ -2,6 +2,7 @@ import type { PropsWithChildren, ReactNode } from "react";
 import { useState } from "react";
 import {
   type LayoutChangeEvent,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,12 +12,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUiStore } from "@/stores/ui-store";
 import { spacing } from "@/theme/spacing";
 import { useMobileTheme } from "@/theme/theme-store";
+import { useHomeTabBarInset } from "@/ui/layout/home-tab-bar-inset";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 
 type AppScreenProps = PropsWithChildren<{
   /** Grow content to the viewport so children can vertically center (e.g. disconnected home). */
   contentFlex?: boolean;
   footer?: ReactNode;
+  /** Pull down and release to refresh. Omit to leave the scroll view as-is. */
+  onRefresh?: () => void | Promise<void>;
+  refreshing?: boolean;
   surface?: "screen" | "sheet";
 }>;
 
@@ -27,10 +32,13 @@ export function AppScreen({
   children,
   contentFlex = false,
   footer,
+  onRefresh,
+  refreshing = false,
   surface = "screen",
 }: AppScreenProps) {
   const theme = useMobileTheme();
   const insets = useSafeAreaInsets();
+  const tabBarInset = useHomeTabBarInset();
   const disconnectedReason = useUiStore((state) => state.disconnectedReason);
   // Prefer theme.colors for surfaces so dark mode stays correct even when
   // NativeWind CSS variables lag behind Appearance / form-sheet chrome.
@@ -58,11 +66,22 @@ export function AppScreen({
         backgroundColor: surfaceColor,
         flexGrow: contentFlex ? 1 : undefined,
         gap: spacing.sectionGap,
-        paddingBottom: footer ? undefined : spacing.screenBottom,
+        paddingBottom: footer ? undefined : Math.max(spacing.screenBottom, tabBarInset),
         paddingHorizontal: spacing.screenX,
       }}
       contentInsetAdjustmentBehavior="automatic"
       keyboardShouldPersistTaps="handled"
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl
+            onRefresh={() => {
+              void onRefresh();
+            }}
+            refreshing={refreshing}
+            tintColor={theme.colors.secondaryLabel}
+          />
+        ) : undefined
+      }
     >
       <View
         style={{

@@ -9,6 +9,7 @@ export function buildTerminalDomCss(theme: TerminalThemeTokens) {
       height: 100%;
       margin: 0;
       overflow: hidden;
+      position: relative;
       width: 100%;
     }
     @font-face {
@@ -38,25 +39,28 @@ export function buildTerminalDomCss(theme: TerminalThemeTokens) {
     * { box-sizing: border-box; }
     .shell {
       background: ${theme.background};
-      height: 100%;
+      inset: 0;
       overflow: hidden;
-      padding: 8px 6px;
-      position: relative;
-      width: 100%;
+      position: absolute;
     }
     .terminal {
       caret-color: ${theme.cursor};
       height: 100%;
-      touch-action: manipulation;
+      overflow: hidden;
+      touch-action: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
       width: 100%;
     }
     .xterm {
       background: ${theme.background} !important;
       caret-color: ${theme.cursor};
-      font-feature-settings: "liga" 0;
       height: 100%;
       padding: 0 !important;
-      -webkit-font-smoothing: antialiased;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
     }
     .xterm .xterm-helper-textarea {
       caret-color: ${theme.cursor} !important;
@@ -100,19 +104,6 @@ export function buildTerminalDomCss(theme: TerminalThemeTokens) {
       opacity: 1 !important;
       transition: opacity 0.2s ease !important;
       width: 6px !important;
-    }
-    .status {
-      align-items: center;
-      backdrop-filter: blur(16px);
-      background: ${theme.background}cc;
-      color: ${terminalSurfaceColors.terminalStatusError};
-      display: flex;
-      font: 600 13px -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
-      inset: 0;
-      justify-content: center;
-      letter-spacing: 0;
-      pointer-events: none;
-      position: absolute;
     }
   `;
 }

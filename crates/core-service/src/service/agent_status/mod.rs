@@ -7,7 +7,9 @@
 mod attention;
 mod attention_summary;
 mod attention_summary_generate;
+mod catalog;
 mod child_lifecycle;
+mod session_agent;
 mod workspace_agent_group;
 
 use std::collections::{HashMap, HashSet};
@@ -28,6 +30,7 @@ pub use attention_summary::{
     AttentionSummaryStatus,
 };
 pub use attention_summary_generate::generate_attention_summary;
+pub use session_agent::AgentSessionStatusSnapshot;
 pub use workspace_agent_group::{
     resolve_workspace_agent_group_key, WorkspaceAgentGroupKey, WorkspaceAgentGroupSnapshot,
 };
@@ -377,6 +380,9 @@ pub struct AgentStatusService {
     /// Known project root paths. Kept for diagnostics / future use but
     /// primary filtering is done at the hook level via ATMOS_MANAGED env var.
     known_project_paths: RwLock<HashSet<String>>,
+    catalog: Option<catalog::CatalogBridge>,
+    /// Last inbox bucket enqueued for a pane. Same-bucket progress does not write.
+    inbox_buckets: RwLock<HashMap<String, workspace_agent_group::WorkspaceAgentGroupKey>>,
 }
 
 impl AgentStatusService {
@@ -394,6 +400,8 @@ impl AgentStatusService {
             notification_service: RwLock::new(None),
             event_tx,
             known_project_paths: RwLock::new(HashSet::new()),
+            catalog: None,
+            inbox_buckets: RwLock::new(HashMap::new()),
         }
     }
 
@@ -844,6 +852,8 @@ impl AgentStatusService {
                 session_id
             );
         }
+
+        self.sync_inbox_catalog(session_id);
     }
 
     fn is_running_suppressed(&self, session_id: &str) -> bool {

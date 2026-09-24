@@ -7,11 +7,16 @@ describe("terminal shortcuts", () => {
     const byId = new Map(terminalShortcuts.map((shortcut) => [shortcut.id, shortcut]));
 
     expect(getTerminalShortcutInput(byId.get("esc")!)).toBe("\u001b");
+    expect(getTerminalShortcutInput(byId.get("at")!)).toBe("@");
+    expect(getTerminalShortcutInput(byId.get("slash")!)).toBe("/");
     expect(getTerminalShortcutInput(byId.get("tab")!)).toBe("\t");
+    expect(getTerminalShortcutInput(byId.get("shift-tab")!)).toBe("\u001b[Z");
+    expect(getTerminalShortcutInput(byId.get("shift-enter")!)).toBe("\u001b[13;2u");
     expect(getTerminalShortcutInput(byId.get("up")!)).toBe("\u001b[A");
     expect(getTerminalShortcutInput(byId.get("down")!)).toBe("\u001b[B");
     expect(getTerminalShortcutInput(byId.get("left")!)).toBe("\u001b[D");
     expect(getTerminalShortcutInput(byId.get("right")!)).toBe("\u001b[C");
+    expect(getTerminalShortcutInput(byId.get("enter")!)).toBe("\r");
     expect(getTerminalShortcutInput(byId.get("ctrl-c")!)).toBe("\u0003");
     expect(getTerminalShortcutInput(byId.get("ctrl-d")!)).toBe("\u0004");
     expect(getTerminalShortcutInput(byId.get("ctrl-l")!)).toBe("\u000c");

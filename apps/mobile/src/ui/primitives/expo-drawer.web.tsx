@@ -37,12 +37,14 @@ const SPRING = {
 export function ExpoDrawer({
   children,
   colorScheme,
+  contentPaddingHorizontal = 16,
   isPresented,
   onDismiss,
   testID,
 }: {
   children: ReactNode;
   colorScheme?: MobileThemeColorScheme;
+  contentPaddingHorizontal?: number;
   isPresented: boolean;
   onDismiss: () => void;
   snapPoints?: SnapPoint[];
@@ -171,7 +173,7 @@ export function ExpoDrawer({
               },
             ]}
           />
-          <View style={styles.body}>{children}</View>
+          <View style={[styles.body, { paddingHorizontal: contentPaddingHorizontal }]}>{children}</View>
         </Animated.View>
       </View>
     </Modal>
@@ -186,7 +188,6 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
     justifyContent: "flex-start",
-    paddingHorizontal: 16,
     paddingTop: 20,
   },
   handle: {

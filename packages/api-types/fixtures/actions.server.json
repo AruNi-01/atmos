@@ -335,5 +335,7 @@
   "resource_monitor_subscribe",
   "resource_monitor_unsubscribe",
   "resource_monitor_kill_leaked",
-  "link_preview"
+  "link_preview",
+  "agent_session_status_list",
+  "agent_session_archive"
 ]
