@@ -1,4 +1,3 @@
-import { Button, Host } from "@expo/ui";
 import { useEffect } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
@@ -22,6 +21,8 @@ import {
   type MobileThemePreference,
 } from "@/theme/theme-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
+import { GlassActionButtons } from "@/ui/primitives/glass-action-buttons";
+import { ListSkeleton } from "@/ui/primitives/list-skeleton";
 import { Row, Separator } from "@/ui/layout/row";
 import {
   ChevronRightIcon,
@@ -33,23 +34,10 @@ import {
   UserIcon,
 } from "@/ui/icons/lucide-native";
 import { NativeSegmentedControl, NativeTextInput } from "@/ui/primitives/native-controls";
-import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
-import {
-  expoUiButtonHostStyle,
-  expoUiPrimaryStyle,
-  expoUiSecondaryStyle,
-} from "@/ui/primitives/expo-ui-button-styles";
-
-const buttonStretchModifiers = expoUiButtonStretchModifiers;
 
 export function SettingsComputersScreen() {
-  const theme = useMobileTheme();
   const router = useRouter();
   const settings = useMobileSettingsController();
-  const refreshStyle = expoUiSecondaryStyle(
-    theme.colors,
-    settings.computersQuery.isFetching,
-  );
 
   return (
     <AppScreen surface="sheet">
@@ -75,7 +63,11 @@ export function SettingsComputersScreen() {
         }}
       />
 
-      {settings.activeComputers.length === 0 ? (
+      {settings.computersQuery.isPending && settings.activeComputers.length === 0 ? (
+        <Section>
+          <ListSkeleton />
+        </Section>
+      ) : settings.activeComputers.length === 0 ? (
         <Section>
           <EmptyState
             layout="section"
@@ -84,27 +76,15 @@ export function SettingsComputersScreen() {
           />
           {process.env.EXPO_OS !== "ios" ? (
             <View className="px-card-padding pb-card-padding">
-              <Host
-                matchContents={{ vertical: true }}
-                colorScheme={theme.colorScheme}
-                seedColor={refreshStyle.seedColor}
-                style={expoUiButtonHostStyle}
-              >
-                <Button
-                  disabled={settings.computersQuery.isFetching}
-                  label={
-                    settings.computersQuery.isFetching ? "Refreshing..." : "Refresh"
-                  }
-                  modifiers={buttonStretchModifiers}
-                  onPress={
-                    settings.computersQuery.isFetching
-                      ? undefined
-                      : () => void settings.computersQuery.refetch()
-                  }
-                  style={refreshStyle.style}
-                  variant={refreshStyle.variant}
-                />
-              </Host>
+              <GlassActionButtons
+                actions={[
+                  {
+                    disabled: settings.computersQuery.isFetching,
+                    label: settings.computersQuery.isFetching ? "Refreshing..." : "Refresh",
+                    onPress: () => void settings.computersQuery.refetch(),
+                  },
+                ]}
+              />
             </View>
           ) : null}
         </Section>
@@ -113,7 +93,8 @@ export function SettingsComputersScreen() {
           <ComputerList
             computers={settings.activeComputers}
             onPress={(computer) => {
-              settings.focusComputer(computer);
+              if (computer.online) settings.selectComputer(computer);
+              else settings.focusComputer(computer);
               router.push({
                 pathname: "/settings/computer",
                 params: { serverId: computer.server_id },

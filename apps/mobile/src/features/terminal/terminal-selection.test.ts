@@ -9,7 +9,9 @@ import {
   nextActiveTerminalEntryId,
   resolveActiveTerminalEntry,
   sortTerminalEntries,
+  applyServerTerminalTitle,
   tabItemsFromEntries,
+  terminalNavigationTitle,
 } from "./terminal-selection";
 
 function entry(id: string): MobileTerminalEntry {
@@ -111,6 +113,7 @@ describe("terminal selection", () => {
           sessionId: "workspace:mobile:old",
           tmuxWindowName: "Existing",
           dynamicTitle: "npm test",
+          oscTitle: "fix the header",
         },
       ],
     );
@@ -118,6 +121,30 @@ describe("terminal selection", () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]?.sessionId).toBe("workspace:mobile:old");
     expect(entries[0]?.dynamicTitle).toBe("npm test");
+    expect(entries[0]?.oscTitle).toBe("fix the header");
+  });
+
+  test("applies a server title snapshot onto the matching window", () => {
+    const entries = applyServerTerminalTitle(
+      [
+        {
+          id: "tmux:workspace:3",
+          workspaceId: "workspace",
+          label: "3",
+          tmuxWindowName: "3",
+        },
+      ],
+      {
+        workspace_id: "workspace",
+        tmux_window_name: "3",
+        session_title: "debugging auth",
+        dynamic_title: ".../proj/app",
+        osc_title: "Responding - grok",
+      },
+    );
+
+    expect(entries[0]?.sessionOscTitle).toBe("debugging auth");
+    expect(entries[0]?.dynamicTitle).toBe(".../proj/app");
   });
 
   test("does not collapse distinct ids that share a tmux window name", () => {
@@ -175,6 +202,31 @@ describe("terminal selection", () => {
     );
 
     expect(entries.map((item) => item.id)).toEqual(["tmux:workspace:2", "workspace:mobile-local"]);
+  });
+
+  test("formats the navigation title like the web toolbar text", () => {
+    expect(
+      terminalNavigationTitle({
+        displayTitle: "",
+        oscSuffix: "fix the header",
+        primaryTitle: "src/app",
+      }),
+    ).toBe("src/app | fix the header");
+    expect(
+      terminalNavigationTitle({
+        agentLabel: "Claude Code",
+        displayTitle: "",
+        oscSuffix: "fix the header",
+        primaryTitle: "",
+      }),
+    ).toBe("fix the header");
+    expect(
+      terminalNavigationTitle({
+        displayTitle: "",
+        oscSuffix: "",
+        primaryTitle: "",
+      }),
+    ).toBe("Terminal");
   });
 
   test("adds drawer detail only for duplicate labels and new terminals", () => {

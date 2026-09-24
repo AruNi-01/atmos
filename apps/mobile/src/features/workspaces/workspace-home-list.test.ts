@@ -133,6 +133,20 @@ describe("workspace home list", () => {
     expect(sections.map((section) => section.title)).toEqual(["Workspace group"]);
   });
 
+  test("lists a project that has no workspaces", () => {
+    const sections = groupWorkspaceEntries({
+      entries: [],
+      grouping: "project",
+      groups: [],
+      projects: [project("p1", "Atmos"), project("empty", "Empty")],
+      workspacesByProject,
+    });
+    expect(sections.map((section) => section.key)).toEqual(["empty"]);
+    expect(sections[0]?.items).toEqual([
+      expect.objectContaining({ id: "empty", kind: "project", title: "Empty" }),
+    ]);
+  });
+
   test("summarizes the selected filter labels", () => {
     expect(filterSelectionLabel([])).toBe("All");
     expect(filterSelectionLabel(["Draft"])).toBe("Draft");
@@ -178,7 +192,10 @@ describe("workspace home list", () => {
       {
         key: "p1",
         title: "Atmos",
-        items: [expect.objectContaining({ id: "w1", title: "Editor" })],
+        items: [
+          expect.objectContaining({ id: "p1", kind: "project", title: "Atmos" }),
+          expect.objectContaining({ id: "w1", kind: "workspace", title: "Editor" }),
+        ],
       },
     ]);
   });

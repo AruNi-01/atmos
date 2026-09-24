@@ -18,6 +18,7 @@ export const WS_EVENTS = [
   "agent_attention_summary_cleared",
   "agent_notification",
   "github_branch_pr_status_refreshed",
+  "terminal_title_updated",
   "review_comment_updated",
   "review_message_created",
   "review_file_updated",

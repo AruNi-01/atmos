@@ -28,8 +28,7 @@ export function useAuthSignIn({ onAuthenticated }: UseAuthSignInOptions = {}) {
   const relayUrl = useSessionStore((state) => state.relayUrl);
   const relayAuthRevision = useSessionStore((state) => state.relayAuthRevision);
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
-  const selectServer = useSessionStore((state) => state.selectServer);
-  const setClientSession = useSessionStore((state) => state.setClientSession);
+  const adoptComputerSession = useSessionStore((state) => state.adoptComputerSession);
   const setComputers = useComputerStore((state) => state.setComputers);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -42,9 +41,7 @@ export function useAuthSignIn({ onAuthenticated }: UseAuthSignInOptions = {}) {
       onAuthenticated();
       return;
     }
-    if (result.connectedServerId) {
-      router.replace("/");
-    }
+    router.replace("/");
   }, [client, onAuthenticated, router, setComputers, setDeviceCredentialLoaded]);
 
   const signIn = useMutation({
@@ -93,8 +90,7 @@ export function useAuthSignIn({ onAuthenticated }: UseAuthSignInOptions = {}) {
         .createClientSession(serverId, { clientKind: "mobile" });
     },
     onSuccess: (session, serverId) => {
-      selectServer(serverId);
-      setClientSession(session);
+      adoptComputerSession(serverId, session);
       setLocalError(null);
       if (onAuthenticated) {
         onAuthenticated();

@@ -28,9 +28,12 @@ export function formatSessionRowSubtitle(input: {
   branch?: string | null;
   prState?: SessionPrState | null;
   projectScoped?: boolean;
+  /** Inside a project or workspace, those names are already the page context. */
+  omitPlace?: boolean;
 }): string {
-  const workspace = input.projectScoped ? null : clean(input.workspaceName);
-  return [clean(input.projectName), workspace, clean(input.branch), prStateLabel(input.prState)]
+  const project = input.omitPlace ? null : clean(input.projectName);
+  const workspace = input.omitPlace || input.projectScoped ? null : clean(input.workspaceName);
+  return [project, workspace, clean(input.branch), prStateLabel(input.prState)]
     .filter((part): part is string => Boolean(part))
     .join(" · ");
 }

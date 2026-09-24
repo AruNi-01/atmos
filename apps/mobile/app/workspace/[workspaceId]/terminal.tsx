@@ -4,7 +4,7 @@ import { matchingTerminalEntryId } from "@/features/terminal/terminal-selection"
 import { WorkspaceScreen } from "@/features/workspaces/WorkspaceScreen";
 import { useTerminalStore } from "@/stores/terminal-store";
 
-export default function WorkspaceRoute() {
+export default function WorkspaceTerminalRoute() {
   const params = useLocalSearchParams<{ terminal?: string; workspaceId: string }>();
   const workspaceId = firstParam(params.workspaceId);
   const terminalId = firstParam(params.terminal);

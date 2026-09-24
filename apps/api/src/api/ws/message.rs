@@ -945,6 +945,8 @@ pub enum WsEvent {
     AgentNotification,
     /// Current branch PR status should be refreshed
     GithubBranchPrStatusRefreshed,
+    /// Latest terminal shim / OSC title for one tmux window
+    TerminalTitleUpdated,
     /// Review comment changed
     ReviewCommentUpdated,
     /// Review message created

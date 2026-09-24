@@ -28,8 +28,8 @@ use core_engine::TestEngine;
 use core_service::{
     AgentHooksService, AgentService, AgentStatusEvent, AgentStatusService, AutomationEvent,
     AutomationService, CanvasAgentRelay, CanvasDocumentService, GroupService, MessagePushService,
-    NotificationService, ProjectService, ReviewService, ServiceError, TerminalService, TestService,
-    WorkspaceService,
+    NotificationService, ProjectService, ReviewService, ServiceError, TerminalService,
+    TerminalTitleUpdate, TestService, WorkspaceService,
 };
 use infra::jobs::{IntervalSpec, JobError, JobId, LocalScheduler, RetryPolicy};
 use infra::queue::{topics, LocalPersistentQueue, QueueError, Topic};
@@ -124,6 +124,36 @@ fn spawn_agent_status_forwarder(
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
                     warn!(
                         "Lagged on agent status events, skipped {} messages",
+                        skipped
+                    );
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+            }
+        }
+    })
+}
+
+fn spawn_terminal_title_forwarder(
+    mut rx: tokio::sync::broadcast::Receiver<TerminalTitleUpdate>,
+    ws_manager: Arc<WsManager>,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        loop {
+            match rx.recv().await {
+                Ok(update) => {
+                    if let Err(error) = ws_manager
+                        .broadcast(&WsMessage::notification(
+                            WsEvent::TerminalTitleUpdated,
+                            json!(update),
+                        ))
+                        .await
+                    {
+                        warn!("Failed to broadcast terminal title: {}", error);
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                    warn!(
+                        "Lagged on terminal title events, skipped {} messages",
                         skipped
                     );
                 }
@@ -731,6 +761,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     spawn_agent_status_forwarder(
         agent_status_service.subscribe_events(),
+        Arc::clone(&ws_manager),
+    );
+    spawn_terminal_title_forwarder(
+        app_state.terminal_service.subscribe_title_events(),
         Arc::clone(&ws_manager),
     );
 

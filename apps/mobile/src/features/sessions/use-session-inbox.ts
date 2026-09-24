@@ -160,6 +160,8 @@ export function useSessionInbox() {
             label: candidate.label,
             sessionId: candidate.session_id,
             tmuxWindowName: candidate.tmux_window_name,
+            sessionTitle: candidate.session_title,
+            dynamicTitle: candidate.dynamic_title,
             projectName: workspace.projectName,
             workspaceName: workspace.workspaceName,
             branch: workspace.branch,
@@ -217,11 +219,23 @@ export function useSessionInbox() {
     [client, connected, queryClient, selectedServerId],
   );
 
+  const refresh = useCallback(async () => {
+    if (!client || !connected) return;
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["workspace-bootstrap", selectedServerId] }),
+      queryClient.invalidateQueries({ queryKey: ["agent-session-status-list", selectedServerId] }),
+      queryClient.invalidateQueries({ queryKey: ["session-terminal-candidates", selectedServerId] }),
+      queryClient.invalidateQueries({ queryKey: ["session-git-status", selectedServerId] }),
+      queryClient.invalidateQueries({ queryKey: ["session-branch-prs", selectedServerId] }),
+    ]);
+  }, [client, connected, queryClient, selectedServerId]);
+
   return {
     archiveSession,
     connected,
     error,
     isLoading: connected && (statusQuery.isPending || bootstrapQuery.isPending),
+    refresh,
     ...model,
   };
 }

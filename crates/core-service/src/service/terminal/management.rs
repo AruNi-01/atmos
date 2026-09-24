@@ -547,15 +547,25 @@ impl TerminalService {
             });
 
             let watch_target = match (handle.tmux_session.clone(), handle.tmux_window_index) {
-                (Some(ts), Some(twi)) => Some((ts, twi)),
+                (Some(ts), Some(twi)) => Some((
+                    ts,
+                    twi,
+                    super::TitleIdentity {
+                        workspace_id: handle.workspace_id.clone(),
+                        tmux_window_name: handle.terminal_name.clone().unwrap_or_default(),
+                        tmux_window_index: Some(twi),
+                        session_id: session_id.to_string(),
+                    },
+                )),
                 _ => None,
             };
             drop(sessions);
 
             // APP-054: if no other browser client remains on this window, keep
-            // observing DEC mouse modes so reattach restore stays accurate.
-            if let Some((ts, twi)) = watch_target {
-                self.ensure_mouse_mode_watch_if_unattached(&ts, twi).await;
+            // observing DEC mouse modes and title OSC so reattach stays accurate.
+            if let Some((ts, twi, identity)) = watch_target {
+                self.ensure_mouse_mode_watch_if_unattached(&ts, twi, identity)
+                    .await;
             }
 
             info!(

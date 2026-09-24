@@ -26,7 +26,6 @@ apps/mobile/
 │   ├── _layout.tsx
 │   ├── index.tsx            # Workspace list home
 │   ├── sign-in.tsx          # Scan / OAuth form sheet
-│   ├── computer-connect.tsx
 │   ├── workspaces.tsx
 │   ├── create-workspace.tsx
 │   ├── workspace/[workspaceId].tsx

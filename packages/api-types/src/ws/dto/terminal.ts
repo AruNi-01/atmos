@@ -22,6 +22,9 @@ export type TerminalWorkspaceCandidate = {
   source_pane_id?: string | null;
   source_tmux_window_name?: string | null;
   active: boolean;
+  session_title?: string | null;
+  dynamic_title?: string | null;
+  osc_title?: string | null;
 };
 
 export type TerminalWorkspaceCandidatesResponse = {

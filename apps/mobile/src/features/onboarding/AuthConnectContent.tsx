@@ -11,7 +11,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ComputerPicker } from "@/features/computers/ComputerPicker";
 import { PairQrScanner } from "@/features/onboarding/PairQrScanner";
 import { useAuthSignIn } from "@/features/onboarding/use-auth-sign-in";
 import { radii } from "@/theme/radii";
@@ -225,23 +224,7 @@ export function AuthConnectContent({
   if (auth.hasDeviceCredential) {
     return (
       <AppScreen surface={isSheet ? "sheet" : "screen"}>
-        <ComputerPicker
-          computers={auth.computersQuery.data ?? []}
-          selectedServerId={auth.selectedServerId}
-          onRefresh={() => void auth.computersQuery.refetch()}
-          isRefreshing={auth.computersQuery.isFetching}
-          onSelect={(serverId) => auth.createSession.mutate(serverId)}
-        />
-        <InlineError
-          message={
-            auth.localError ??
-            (auth.computersQuery.error instanceof Error
-              ? auth.computersQuery.error.message
-              : auth.createSession.error instanceof Error
-                ? auth.createSession.error.message
-                : null)
-          }
-        />
+        <ActivityIndicator color={theme.colors.secondaryLabel} />
       </AppScreen>
     );
   }

@@ -106,7 +106,8 @@ pub use service::terminal::{
     CapturePanePlainTextParams, CaptureSideContextParams, CapturedPanePlainText,
     CapturedSideContext, CreateSessionParams, CreateSimpleSessionParams, SessionDetail,
     SessionType, TerminalKind, TerminalMessage, TerminalResponse, TerminalService,
-    TerminalSideChatRecord, TerminalSideChatStatus, TranscriptBudget, UpsertTerminalSideChatParams,
+    TerminalSideChatRecord, TerminalSideChatStatus, TerminalTitleUpdate, TranscriptBudget,
+    UpsertTerminalSideChatParams,
 };
 pub use service::terminal_overview::build_terminal_overview_active_sessions_json;
 pub use service::test::TestService;

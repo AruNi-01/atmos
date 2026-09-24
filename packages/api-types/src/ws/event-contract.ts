@@ -1,6 +1,7 @@
 import type { WsEvent } from "./events";
 import type {
   AgentStatusClearedNotification,
+  TerminalTitleUpdatedNotification,
   AgentStatusChangedNotification,
   AgentNotificationPayload,
   GitCommitMessageChunkNotification,
@@ -53,6 +54,7 @@ export type WsEventContract = {
   agent_attention_summary_cleared: { payload: RefreshNotification };
   agent_notification: { payload: AgentNotificationPayload };
   github_branch_pr_status_refreshed: { payload: RefreshNotification };
+  terminal_title_updated: { payload: TerminalTitleUpdatedNotification };
   review_comment_updated: { payload: RefreshNotification };
   review_message_created: { payload: RefreshNotification };
   review_file_updated: { payload: RefreshNotification };

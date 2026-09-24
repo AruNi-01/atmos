@@ -60,16 +60,15 @@ export default function RootLayout() {
               contentStyle: sheetContentStyle,
               headerShown: false,
               presentation: sheetPresentation,
-              // System radius so the half detent stays inset, matching the filter
-              // sheet. A fixed radius draws the bottom corners outside the phone.
-              sheetCornerRadius: -1,
+              sheetCornerRadius: 32,
               sheetGrabberVisible: isIos,
               sheetLargestUndimmedDetentIndex: "none",
+              // Full height only. A half detent lets the sheet rest mid-screen.
               ...(isIos
                 ? {
-                    sheetAllowedDetents: [0.5, 1],
-                    sheetInitialDetentIndex: 1,
-                    sheetExpandsWhenScrolledToEdge: true,
+                    sheetAllowedDetents: [1],
+                    sheetInitialDetentIndex: 0,
+                    sheetExpandsWhenScrolledToEdge: false,
                   }
                 : null),
             }}
@@ -97,14 +96,6 @@ export default function RootLayout() {
                     sheetExpandsWhenScrolledToEdge: false,
                   }
                 : null),
-            }}
-          />
-          <Stack.Screen
-            name="computer-connect"
-            options={{
-              presentation: sheetPresentation,
-              sheetGrabberVisible: isIos,
-              contentStyle: sheetContentStyle,
             }}
           />
           <Stack.Screen
@@ -139,12 +130,7 @@ export default function RootLayout() {
               contentStyle: sheetContentStyle,
             }}
           />
-          <Stack.Screen
-            name="workspace/[workspaceId]"
-            options={{
-              headerBackButtonDisplayMode: "minimal",
-            }}
-          />
+          <Stack.Screen name="workspace/[workspaceId]" options={{ headerShown: false }} />
           <Stack.Screen
             name="preview"
             options={{

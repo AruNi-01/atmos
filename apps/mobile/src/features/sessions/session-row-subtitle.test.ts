@@ -23,6 +23,18 @@ describe("formatSessionRowSubtitle", () => {
     ).toBe("Atmos · mobile · Open");
   });
 
+  test("scoped lists omit project and workspace", () => {
+    expect(
+      formatSessionRowSubtitle({
+        projectName: "Atmos",
+        workspaceName: "mobile",
+        branch: "main",
+        prState: "open",
+        omitPlace: true,
+      }),
+    ).toBe("main · Open");
+  });
+
   test("project-scoped omits workspace", () => {
     expect(
       formatSessionRowSubtitle({

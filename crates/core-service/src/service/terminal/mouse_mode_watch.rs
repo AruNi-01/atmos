@@ -20,6 +20,8 @@ use core_engine::tmux::control::{
 use core_engine::TmuxEngine;
 use tracing::{debug, info, warn};
 
+use super::title_hub::{TitleHub, TitleIdentity};
+
 /// Stable key for a master tmux window/pane: `{session}:{window_index}`.
 pub fn pane_watch_key(tmux_session: &str, window_index: u32) -> String {
     format!("{tmux_session}:{window_index}")
@@ -33,14 +35,17 @@ struct WatchHandle {
 }
 
 /// Tracks background mouse-mode observers per master pane.
-#[derive(Default)]
 pub struct MouseModeWatchRegistry {
     inner: Mutex<HashMap<String, WatchHandle>>,
+    titles: TitleHub,
 }
 
 impl MouseModeWatchRegistry {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(titles: TitleHub) -> Self {
+        Self {
+            inner: Mutex::new(HashMap::new()),
+            titles,
+        }
     }
 
     /// Stop any detached watcher for this pane (a live browser client is taking over).
@@ -69,6 +74,7 @@ impl MouseModeWatchRegistry {
         window_index: u32,
         pane_id: String,
         socket_path: String,
+        identity: TitleIdentity,
     ) {
         {
             let map = self.inner.lock().unwrap_or_else(|e| e.into_inner());
@@ -101,6 +107,7 @@ impl MouseModeWatchRegistry {
         }
 
         let registry_cleanup_key = key.clone();
+        let titles = self.titles.clone();
         // SAFETY: registry is process-long; we only remove our key if still present.
         // We cannot hold a weak ref easily without Arc self — remove entry at end of thread
         // by re-checking stop ownership via a separate call pattern.
@@ -114,6 +121,8 @@ impl MouseModeWatchRegistry {
                     pane_id,
                     socket_path,
                     stop_thread,
+                    titles,
+                    identity,
                 );
                 let _ = registry_cleanup_key;
             })
@@ -198,6 +207,8 @@ fn run_mouse_mode_watch(
     pane_id: String,
     socket_path: String,
     stop: Arc<AtomicBool>,
+    titles: TitleHub,
+    identity: TitleIdentity,
 ) {
     let client_session = client_session_name(&tmux_session, window_index);
     // Replace any leftover watch session from a previous process.
@@ -286,6 +297,7 @@ fn run_mouse_mode_watch(
     let mut reader = BufReader::new(stdout);
     let mut line = Vec::new();
     let mut passthrough = TmuxPassthroughUnwrapper::default();
+    titles.begin_stream(&identity);
     let mut mouse_modes = tmux
         .get_pane_mouse_tracking_by_id(&pane_id)
         .ok()
@@ -308,6 +320,9 @@ fn run_mouse_mode_watch(
                     pane_id: pid, data, ..
                 }) if pid == pane_id => {
                     let data = passthrough.push(&data);
+                    if !data.is_empty() {
+                        titles.observe_bytes(&identity, &data);
+                    }
                     if !data.is_empty() && mouse_modes.observe_bytes(&data) {
                         if let Err(error) =
                             tmux.set_pane_mouse_tracking_by_id(&pane_id, &mouse_modes)
@@ -365,7 +380,7 @@ mod tests {
 
     #[test]
     fn registry_stop_missing_is_noop() {
-        let reg = MouseModeWatchRegistry::new();
+        let reg = MouseModeWatchRegistry::new(super::super::title_hub::title_hub());
         reg.stop_for_pane("missing:0");
         reg.stop_all();
     }

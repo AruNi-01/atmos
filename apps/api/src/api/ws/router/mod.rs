@@ -1709,6 +1709,21 @@ impl WsMessageHandler for WsMessageService {
         if conn_id.starts_with("web-") || conn_id.starts_with("desktop-") {
             self.options_worker.on_web_connect();
         }
+        let Some(manager) = self.ws_manager.get() else {
+            return;
+        };
+        for title in self.terminal_service.list_terminal_titles() {
+            if let Err(error) = manager
+                .send_to(
+                    conn_id,
+                    &WsMessage::notification(WsEvent::TerminalTitleUpdated, json!(title)),
+                )
+                .await
+            {
+                tracing::debug!("Failed to replay terminal title to {conn_id}: {error}");
+                break;
+            }
+        }
     }
 
     async fn on_disconnect(&self, conn_id: &str) {

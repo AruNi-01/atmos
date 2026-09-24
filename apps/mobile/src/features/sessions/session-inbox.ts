@@ -25,6 +25,8 @@ export type SessionInboxCandidate = {
   label?: string | null;
   sessionId?: string | null;
   tmuxWindowName?: string | null;
+  sessionTitle?: string | null;
+  dynamicTitle?: string | null;
   projectName?: string | null;
   workspaceName?: string | null;
   branch?: string | null;
@@ -265,7 +267,20 @@ function asBucket(value: string): SessionBucket {
 }
 
 function candidateTitle(candidate: SessionInboxCandidate): string {
-  return clean(candidate.label) ?? clean(candidate.tmuxWindowName) ?? candidate.id;
+  return (
+    clean(candidate.sessionTitle) ??
+    clean(candidate.dynamicTitle) ??
+    readableWindowLabel(candidate.label) ??
+    readableWindowLabel(candidate.tmuxWindowName) ??
+    "Terminal"
+  );
+}
+
+function readableWindowLabel(value: string | null | undefined): string | null {
+  const label = clean(value);
+  if (!label || /^\d+$/.test(label)) return null;
+  if (/^[0-9a-f-]{16,}$/i.test(label)) return null;
+  return label;
 }
 
 function paneKey(candidate: SessionInboxCandidate): string | null {

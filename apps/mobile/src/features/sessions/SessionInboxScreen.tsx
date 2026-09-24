@@ -1,18 +1,18 @@
-import { Alert, Pressable, Text, View } from "react-native";
+import { useCallback, useState } from "react";
+import { Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { formatRelativeTime } from "@atmos/shared/utils/time";
+import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
+import { ListSkeleton } from "@/ui/primitives/list-skeleton";
+import { radii } from "@/theme/radii";
+import { spacing } from "@/theme/spacing";
+import { useMobileTheme } from "@/theme/theme-store";
 import {
   BellIcon,
   CircleCheckIcon,
   LoaderCircleIcon,
   ShieldAlertIcon,
 } from "@/ui/icons/lucide-native";
-import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
-import { Separator } from "@/ui/layout/row";
 import { type MobileThemeColors } from "@/theme/colors";
-import { spacing } from "@/theme/spacing";
-import { typography } from "@/theme/typography";
-import { useMobileTheme } from "@/theme/theme-store";
 import {
   filterSessionRows,
   isSessionBucket,
@@ -20,7 +20,7 @@ import {
   type SessionInboxCard,
   type SessionInboxRow,
 } from "./session-inbox";
-import { formatSessionRowSubtitle } from "./session-row-subtitle";
+import { SessionRowList } from "./session-row-list";
 import { useSessionInbox } from "./use-session-inbox";
 
 const DISCONNECTED_TITLE = "Computer not connected";
@@ -28,8 +28,8 @@ const DISCONNECTED_MESSAGE = "This phone is not connected to a Computer.";
 
 export function SessionHomeScreen() {
   const router = useRouter();
-  const theme = useMobileTheme();
   const inbox = useSessionInbox();
+  const { onRefresh, refreshing } = usePullRefresh(inbox.refresh);
 
   if (!inbox.connected) {
     return (
@@ -40,28 +40,27 @@ export function SessionHomeScreen() {
   }
 
   return (
-    <AppScreen>
-      <View style={{ gap: 12 }}>
-        {inbox.cards.map((card) => (
-          <SessionCard
-            card={card}
-            key={card.bucket}
-            onPress={() =>
-              router.push({
-                pathname: "/(home)/session/[bucket]",
-                params: { bucket: card.bucket },
-              })
-            }
-          />
-        ))}
-      </View>
-      {inbox.recent.length > 0 ? (
+    <AppScreen onRefresh={onRefresh} refreshing={refreshing}>
+      <SessionCardGrid
+        cards={inbox.cards}
+        onPress={(bucket) =>
+          router.push({
+            pathname: "/(home)/session/[bucket]",
+            params: { bucket },
+          })
+        }
+      />
+      {inbox.isLoading && inbox.recent.length === 0 ? (
+        <Section label="Recent">
+          <ListSkeleton />
+        </Section>
+      ) : inbox.recent.length > 0 ? (
         <Section label="Recent">
           <SessionRowList
-          onArchive={inbox.archiveSession}
-          onPress={(row) => openSessionRow(router, row)}
-          rows={inbox.recent}
-        />
+            onArchive={inbox.archiveSession}
+            onPress={(row) => openSessionRow(router, row)}
+            rows={inbox.recent}
+          />
         </Section>
       ) : null}
       <InlineError message={inbox.error} />
@@ -72,6 +71,7 @@ export function SessionHomeScreen() {
 export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) {
   const router = useRouter();
   const inbox = useSessionInbox();
+  const { onRefresh, refreshing } = usePullRefresh(inbox.refresh);
   const parsed = bucket && isSessionBucket(bucket) ? bucket : null;
 
   if (!inbox.connected) {
@@ -85,10 +85,12 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
   const rows = parsed ? filterSessionRows(inbox.rows, parsed) : [];
 
   return (
-    <AppScreen>
+    <AppScreen onRefresh={onRefresh} refreshing={refreshing}>
       {parsed ? (
         <Section>
-          {inbox.isLoading ? null : rows.length === 0 ? (
+          {inbox.isLoading ? (
+            <ListSkeleton />
+          ) : rows.length === 0 ? (
             <EmptyState layout="section" message="This list is empty." title="No sessions" />
           ) : (
             <SessionRowList
@@ -106,6 +108,55 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
   );
 }
 
+function usePullRefresh(refresh: () => Promise<void>) {
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refresh();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refresh]);
+  return { onRefresh, refreshing };
+}
+
+const SESSION_CARD_GAP = 10;
+const SESSION_CARD_HEIGHT = 112;
+
+function SessionCardGrid({
+  cards,
+  onPress,
+}: {
+  cards: SessionInboxCard[];
+  onPress: (bucket: SessionBucket) => void;
+}) {
+  const lastRowStart = cards.length - (cards.length % 2 === 0 ? 2 : 1);
+
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        flexWrap: "wrap",
+        marginHorizontal: -SESSION_CARD_GAP / 2,
+      }}
+    >
+      {cards.map((card, index) => (
+        <View
+          key={card.bucket}
+          style={{
+            marginBottom: index >= lastRowStart ? 0 : SESSION_CARD_GAP,
+            paddingHorizontal: SESSION_CARD_GAP / 2,
+            width: "50%",
+          }}
+        >
+          <SessionCard card={card} onPress={() => onPress(card.bucket)} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function SessionCard({ card, onPress }: { card: SessionInboxCard; onPress: () => void }) {
   const theme = useMobileTheme();
   const color = bucketColor(card.bucket, theme.colors);
@@ -117,154 +168,43 @@ function SessionCard({ card, onPress }: { card: SessionInboxCard; onPress: () =>
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => ({
-        alignItems: "center",
-        backgroundColor: pressed ? theme.colors.mutedPressed : theme.colors.cardElevated,
+        alignItems: "flex-start",
+        backgroundColor: theme.colors.cardElevated,
+        borderColor: theme.colors.glassBorder,
         borderCurve: "continuous",
-        borderRadius: 24,
-        flexDirection: "row",
-        gap: 12,
-        minHeight: spacing.rowMinHeight,
+        borderRadius: radii.card,
+        borderWidth: 1,
+        gap: 10,
+        height: SESSION_CARD_HEIGHT,
+        justifyContent: "center",
+        opacity: pressed ? 0.72 : 1,
+        paddingBottom: 14,
         paddingHorizontal: spacing.cardPadding,
-        paddingVertical: 14,
+        paddingTop: 26,
       })}
     >
       <Icon color={color} size={22} />
       <Text
+        numberOfLines={2}
         style={{
           color: theme.colors.label,
-          flex: 1,
           fontSize: 16,
-          fontWeight: "600",
+          fontWeight: "500",
           lineHeight: 21,
         }}
       >
         {card.label}
-      </Text>
-      <Text
-        style={{
-          color,
-          fontSize: 20,
-          fontVariant: ["tabular-nums"],
-          fontWeight: "700",
-          lineHeight: 24,
-        }}
-      >
-        {card.count}
-      </Text>
-    </Pressable>
-  );
-}
-
-function SessionRowList({
-  onArchive,
-  onPress,
-  rows,
-}: {
-  onArchive: (sessionId: string) => Promise<void>;
-  onPress: (row: SessionInboxRow) => void;
-  rows: SessionInboxRow[];
-}) {
-  return (
-    <>
-      {rows.map((row, index) => (
-        <View key={row.id}>
-          {index > 0 ? <Separator /> : null}
-          <SessionRow
-            onArchive={
-              row.archiveSessionId
-                ? () => {
-                    Alert.alert("Archive session", "Hide this session from the inbox.", [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Archive",
-                        style: "destructive",
-                        onPress: () => {
-                          void onArchive(row.archiveSessionId!);
-                        },
-                      },
-                    ]);
-                  }
-                : undefined
-            }
-            onPress={row.workspaceId ? () => onPress(row) : undefined}
-            row={row}
-          />
-        </View>
-      ))}
-    </>
-  );
-}
-
-function SessionRow({
-  onArchive,
-  onPress,
-  row,
-}: {
-  onArchive?: () => void;
-  onPress?: () => void;
-  row: SessionInboxRow;
-}) {
-  const theme = useMobileTheme();
-  const color = bucketColor(row.bucket, theme.colors);
-  const Icon = bucketIcon(row.bucket);
-  const time = row.updatedAt ? formatRelativeTime(row.updatedAt, "en") : null;
-  const subtitle = formatSessionRowSubtitle(row);
-  const content = (
-    <View
-      style={{
-        gap: spacing.rowGap,
-        minHeight: spacing.rowMinHeight,
-        paddingHorizontal: spacing.rowX,
-        paddingVertical: spacing.rowY,
-      }}
-    >
-      <View
-        style={{
-          alignItems: "center",
-          flexDirection: "row",
-          gap: spacing.rowTitleGap,
-        }}
-      >
-        <Icon color={color} size={18} />
         <Text
-          numberOfLines={1}
-          style={[typography.rowTitle, { color: theme.colors.label, flex: 1, fontWeight: "600" }]}
+          style={{
+            color: theme.colors.secondaryLabel,
+            fontVariant: ["tabular-nums"],
+            fontWeight: "400",
+          }}
         >
-          {row.title}
+          {" "}
+          {card.count}
         </Text>
-        {time ? (
-          <Text
-            style={[
-              typography.rowMeta,
-              { color: theme.colors.secondaryLabel, fontVariant: ["tabular-nums"] },
-            ]}
-          >
-            {time}
-          </Text>
-        ) : null}
-      </View>
-      {subtitle ? (
-        <Text
-          numberOfLines={2}
-          style={[typography.rowSubtitle, { color: theme.colors.secondaryLabel, paddingLeft: 28 }]}
-        >
-          {subtitle}
-        </Text>
-      ) : null}
-    </View>
-  );
-
-  if (!onPress && !onArchive) return content;
-
-  return (
-    <Pressable
-      accessibilityHint={onArchive ? "Long press to archive" : undefined}
-      accessibilityRole="button"
-      onLongPress={onArchive}
-      onPress={onPress}
-      style={({ pressed }) => (pressed ? { backgroundColor: theme.colors.mutedPressed } : undefined)}
-    >
-      {content}
+      </Text>
     </Pressable>
   );
 }
@@ -272,7 +212,7 @@ function SessionRow({
 function openSessionRow(router: ReturnType<typeof useRouter>, row: SessionInboxRow) {
   if (!row.workspaceId) return;
   router.push({
-    pathname: "/workspace/[workspaceId]",
+    pathname: "/workspace/[workspaceId]/terminal",
     params: row.terminalCandidateId
       ? { terminal: row.terminalCandidateId, workspaceId: row.workspaceId }
       : { workspaceId: row.workspaceId },

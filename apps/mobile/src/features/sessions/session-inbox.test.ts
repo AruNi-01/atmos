@@ -165,6 +165,24 @@ describe("session inbox", () => {
     expect(inbox.rows.every((row) => row.projectName === "Atmos" && row.workspaceName === "api" && row.branch === "main")).toBe(true);
   });
 
+  test("uses the server session title instead of a tmux index", () => {
+    const inbox = buildSessionInbox({
+      candidates: [
+        candidate({
+          id: "tmux:ws:3",
+          workspaceId: "ws",
+          label: "3",
+          tmuxWindowName: "3",
+          sessionTitle: "Greeting and asking who Grok is",
+          dynamicTitle: "grok",
+        }),
+      ],
+      snapshots: [],
+    });
+
+    expect(inbox.rows.map((row) => row.title)).toEqual(["Greeting and asking who Grok is"]);
+  });
+
   test("drops a chat snapshot and keeps a side-chat terminal", () => {
     const inbox = buildSessionInbox({
       candidates: [

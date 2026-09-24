@@ -19,6 +19,7 @@ type SnapPoint = "half" | "full" | { fraction: number } | { height: number };
 export function ExpoDrawer({
   children,
   colorScheme,
+  contentPaddingHorizontal = 16,
   isPresented,
   matchContents = true,
   onDismiss,
@@ -27,6 +28,8 @@ export function ExpoDrawer({
 }: {
   children: ReactNode;
   colorScheme?: MobileThemeColorScheme;
+  /** Inset between the sheet edge and its content. */
+  contentPaddingHorizontal?: number;
   isPresented: boolean;
   /** Size the sheet to its content. Turn off to fill the detent and top-align short lists. */
   matchContents?: boolean;
@@ -58,10 +61,12 @@ export function ExpoDrawer({
           style={{
             backgroundColor: palette.colors.sheetBackground,
             flex: matchContents ? undefined : 1,
+            alignSelf: "stretch",
             justifyContent: "flex-start",
             paddingBottom: Math.max(insets.bottom, 24),
-            paddingHorizontal: 16,
+            paddingHorizontal: contentPaddingHorizontal,
             paddingTop: 16,
+            width: "100%",
           }}
         >
           {children}

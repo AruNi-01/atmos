@@ -3,21 +3,24 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Keyboard,
   Platform,
+  Pressable,
   StyleSheet,
   View,
   type KeyboardEvent,
 } from "react-native";
-import { Stack, useRouter } from "expo-router";
+import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useQuery } from "@tanstack/react-query";
 import { EmptyState, InlineError } from "@/ui/layout/app-screen";
 import { nativeCompactTitleOptions, nativeTerminalTitleOptions } from "@/ui/navigation/native-screen-options";
 import { TerminalShortcutBar } from "@/features/terminal/TerminalShortcutBar";
+import { TerminalHeadingTitle } from "@/features/terminal/TerminalHeadingTitle";
 import {
   TerminalScreen,
-  type TerminalKeyboardDismissHandler,
+  type TerminalHeaderActions,
+  type TerminalHeading,
+  type TerminalKeyboardHandler,
   type TerminalShortcutHandler,
-  type TerminalWorkspaceChoice,
 } from "@/features/terminal/TerminalScreen";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useRecentWorkspacesStore } from "@/stores/recent-workspaces-store";
@@ -25,24 +28,36 @@ import { useSessionStore } from "@/stores/session-store";
 import { wsActions } from "@/api/ws-actions";
 import { colors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
+import { LayoutGridIcon, PlusIcon } from "@/ui/icons/lucide-native";
+import { terminalHeaderRightItems } from "@/ui/navigation/terminal-header-items";
 
 export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
   const theme = useMobileTheme();
-  const router = useRouter();
   const { client, state } = useMobileWs();
   const recordWorkspaceVisit = useRecentWorkspacesStore((store) => store.recordWorkspaceVisit);
   const selectedServerId = useSessionStore((store) => store.selectedServerId);
-  const [terminalKeyboardDismissHandler, setTerminalKeyboardDismissHandler] =
-    useState<TerminalKeyboardDismissHandler | null>(null);
+  const [terminalKeyboardHandler, setTerminalKeyboardHandler] = useState<TerminalKeyboardHandler | null>(null);
   const [terminalShortcutHandler, setTerminalShortcutHandler] = useState<TerminalShortcutHandler | null>(null);
+  const [heading, setHeading] = useState<TerminalHeading>({ title: "Terminal" });
+  const headerActionsRef = useRef<TerminalHeaderActions | null>(null);
   const { keyboardInset, onKeyboardInsetTargetLayout, keyboardInsetTargetRef } = useKeyboardInset();
 
-  const handleTerminalKeyboardDismissHandlerChange = useCallback((handler: TerminalKeyboardDismissHandler | null) => {
-    setTerminalKeyboardDismissHandler(() => handler);
+  const handleTerminalKeyboardHandlerChange = useCallback((handler: TerminalKeyboardHandler | null) => {
+    setTerminalKeyboardHandler(() => handler);
   }, []);
 
   const handleTerminalShortcutHandlerChange = useCallback((handler: TerminalShortcutHandler | null) => {
     setTerminalShortcutHandler(() => handler);
+  }, []);
+
+  const handleDisplayTitleChange = useCallback((next: TerminalHeading) => {
+    setHeading((current) =>
+      current.title === next.title && current.agentId === next.agentId ? current : next,
+    );
+  }, []);
+
+  const handleHeaderActionsChange = useCallback((actions: TerminalHeaderActions | null) => {
+    headerActionsRef.current = actions;
   }, []);
 
   const bootstrap = useQuery({
@@ -57,26 +72,37 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
       .find((candidate) => candidate.guid === workspaceId);
   }, [bootstrap.data, workspaceId]);
 
+  const openedProject = useMemo(() => {
+    if (workspace) return null;
+    return bootstrap.data?.projects.find((candidate) => candidate.guid === workspaceId && !candidate.is_deleted) ?? null;
+  }, [bootstrap.data, workspace, workspaceId]);
+
   const project = useMemo(() => {
+    if (openedProject) return openedProject;
     if (!workspace) return null;
     return bootstrap.data?.projects.find((candidate) => candidate.guid === workspace.project_guid) ?? null;
-  }, [bootstrap.data, workspace]);
-
-  const workspaceChoices = useMemo<TerminalWorkspaceChoice[]>(() => {
-    return Object.values(bootstrap.data?.workspaces_by_project ?? {})
-      .flat()
-      .map((candidate) => ({
-        id: candidate.guid,
-        name: candidate.display_name ?? candidate.name,
-      }));
-  }, [bootstrap.data]);
+  }, [bootstrap.data, openedProject, workspace]);
 
   useEffect(() => {
     if (!workspace) return;
     recordWorkspaceVisit({ project, serverId: selectedServerId, workspace });
   }, [project, recordWorkspaceVisit, selectedServerId, workspace]);
 
-  if (!workspace && bootstrap.isLoading) {
+  const developmentContext = workspace
+    ? {
+        id: workspace.guid,
+        projectName: project?.name ?? null,
+        title: workspace.display_name ?? workspace.name,
+      }
+    : openedProject
+      ? {
+          id: openedProject.guid,
+          projectName: openedProject.name,
+          title: openedProject.name,
+        }
+      : null;
+
+  if (!developmentContext && bootstrap.isLoading) {
     return (
       <>
         <Stack.Screen
@@ -93,7 +119,7 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
     );
   }
 
-  if (!workspace) {
+  if (!developmentContext) {
     return (
       <>
         <Stack.Screen
@@ -111,19 +137,48 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
     );
   }
 
-  const workspaceTitle = workspace.display_name ?? workspace.name;
-
   return (
     <>
       <StatusBar style="light" />
       <Stack.Screen
         options={{
-          ...nativeTerminalTitleOptions(workspaceTitle, theme.colors),
+          ...nativeTerminalTitleOptions(heading.title, theme.colors),
+          headerTitle: () => <TerminalHeadingTitle agentId={heading.agentId} title={heading.title} />,
           contentStyle: {
             backgroundColor: theme.colors.terminalBg,
           },
           headerBackButtonDisplayMode: "minimal",
-          headerRight: undefined,
+          ...(process.env.EXPO_OS === "ios"
+            ? {
+                unstable_headerRightItems: () =>
+                  terminalHeaderRightItems(
+                    () => headerActionsRef.current?.createTerminal(),
+                    () => headerActionsRef.current?.openTerminalList(),
+                    theme.colors.terminalFg,
+                  ),
+              }
+            : {
+                headerRight: () => (
+                  <View style={styles.headerActions}>
+                    <Pressable
+                      accessibilityLabel="New terminal"
+                      accessibilityRole="button"
+                      hitSlop={12}
+                      onPress={() => headerActionsRef.current?.createTerminal()}
+                    >
+                      <PlusIcon color={theme.colors.terminalFg} size={22} strokeWidth={2.2} />
+                    </Pressable>
+                    <Pressable
+                      accessibilityLabel="Terminal list"
+                      accessibilityRole="button"
+                      hitSlop={12}
+                      onPress={() => headerActionsRef.current?.openTerminalList()}
+                    >
+                      <LayoutGridIcon color={theme.colors.terminalFg} size={22} strokeWidth={2.2} />
+                    </Pressable>
+                  </View>
+                ),
+              }),
         }}
       />
       <View
@@ -134,22 +189,19 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
       >
         <View style={styles.terminalContent}>
           <TerminalScreen
-            onKeyboardDismissHandlerChange={handleTerminalKeyboardDismissHandlerChange}
+            onDisplayTitleChange={handleDisplayTitleChange}
+            onHeaderActionsChange={handleHeaderActionsChange}
+            onKeyboardHandlerChange={handleTerminalKeyboardHandlerChange}
             onShortcutHandlerChange={handleTerminalShortcutHandlerChange}
-            onSelectWorkspace={(nextWorkspaceId) => {
-              if (nextWorkspaceId === workspaceId) return;
-              router.replace(`/workspace/${nextWorkspaceId}`);
-            }}
-            projectName={project?.name ?? null}
-            workspaceId={workspace.guid}
-            workspaceName={workspaceTitle}
-            workspaces={workspaceChoices}
+            projectName={developmentContext.projectName}
+            workspaceId={developmentContext.id}
+            workspaceName={developmentContext.title}
           />
         </View>
         {terminalShortcutHandler ? (
           <TerminalShortcutBar
             enabled
-            onDismissKeyboard={terminalKeyboardDismissHandler ?? undefined}
+            onToggleKeyboard={terminalKeyboardHandler ?? undefined}
             onShortcut={terminalShortcutHandler}
           />
         ) : null}
@@ -232,6 +284,11 @@ function WorkspaceStateScreen({
 const styles = StyleSheet.create({
   defaultRoot: {
     backgroundColor: colors.background,
+  },
+  headerActions: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 14,
   },
   root: {
     flex: 1,

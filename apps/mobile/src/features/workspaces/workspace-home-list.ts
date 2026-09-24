@@ -32,6 +32,7 @@ export const EMPTY_WORKSPACE_HOME_FILTERS: WorkspaceHomeFilters = {
 
 export type WorkspaceHomeEntry = {
   id: string;
+  kind: "project" | "workspace";
   projectId: string;
   projectName: string;
   title: string;
@@ -147,6 +148,7 @@ export function visibleWorkspaceEntries({
       }
       entries.push({
         id: workspace.guid,
+        kind: "workspace",
         projectId,
         projectName: projectName.get(projectId) ?? "Other",
         title: workspaceTitle(workspace),
@@ -211,6 +213,32 @@ export function groupWorkspaceEntries({
       for (const label of workspace.labels) {
         add(label.guid, label.name, entry);
       }
+    }
+  }
+
+  if (grouping === "project") {
+    for (const project of projects) {
+      if (project.is_deleted) continue;
+      const projectEntry: WorkspaceHomeEntry = {
+        id: project.guid,
+        kind: "project",
+        projectId: project.guid,
+        projectName: project.name,
+        title: project.name,
+      };
+      const section = buckets.get(project.guid);
+      if (section) {
+        section.items.unshift(projectEntry);
+        continue;
+      }
+      const listed = workspacesByProject[project.guid] ?? [];
+      const hasWorkspace = listed.some((workspace) => !workspace.is_deleted && !workspace.is_archived);
+      if (hasWorkspace) continue;
+      buckets.set(project.guid, {
+        items: [projectEntry],
+        key: project.guid,
+        title: project.name,
+      });
     }
   }
 

@@ -31,7 +31,7 @@ export function useMobileSettingsController() {
   const setRelaySecretKey = useSessionStore((state) => state.setRelaySecretKey);
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
   const selectServer = useSessionStore((state) => state.selectServer);
-  const setClientSession = useSessionStore((state) => state.setClientSession);
+  const adoptComputerSession = useSessionStore((state) => state.adoptComputerSession);
   const clearClientSession = useSessionStore((state) => state.clearClientSession);
   const clearSession = useSessionStore((state) => state.clearSession);
   const setComputers = useComputerStore((state) => state.setComputers);
@@ -106,8 +106,7 @@ export function useMobileSettingsController() {
         .createClientSession(serverId, { clientKind: "mobile" });
     },
     onSuccess: (session, serverId) => {
-      selectServer(serverId);
-      setClientSession(session);
+      adoptComputerSession(serverId, session);
       setError(null);
     },
     onError: (nextError) =>
@@ -193,9 +192,9 @@ export function useMobileSettingsController() {
     selectServer(computer.server_id);
   };
 
-  /** Select for settings detail (rename/revoke) without opening a session. */
+  /** Point settings detail at this Computer without dropping the live session. */
   const focusComputer = (computer: ComputerRow) => {
-    selectServer(computer.server_id);
+    useSessionStore.setState({ selectedServerId: computer.server_id });
   };
 
   const confirmRevokeSelectedComputer = () => {
