@@ -184,6 +184,7 @@ where
         .query(&HostSessionIndexQuery {
             roots_only: false,
             limit: 50_000,
+            include_archived: true,
             ..Default::default()
         })
         .await?;

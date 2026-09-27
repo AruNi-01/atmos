@@ -1026,6 +1026,14 @@ impl WsMessageService {
                 self.handle_host_session_resume_tui(parse_request(request.data)?)
                     .await
             }
+            WsAction::HostSessionSetArchived => {
+                self.handle_host_session_set_archived(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::HostSessionDelete => {
+                self.handle_host_session_delete(parse_request(request.data)?)
+                    .await
+            }
 
             // Automation
             WsAction::AutomationList => {

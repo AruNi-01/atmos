@@ -13,12 +13,13 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
+  Switch,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
   cn,
 } from "@workspace/ui";
-import { ArrowUpDown, Bot, Check, Folder, Layers, ListFilter } from "lucide-react";
+import { Archive, ArrowUpDown, Bot, Check, Folder, Layers, ListFilter } from "lucide-react";
 import type { HostSessionListItem } from "@atmos/api-types/ws/dto/host-session";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { HostSessionDateMenuItem } from "@/features/agent-sessions/components/HostSessionDateRangeFilter";
@@ -279,6 +280,26 @@ function HostSessionFilterMenu({
         onFiltersChange={onFiltersChange}
         onClose={() => setOpen(false)}
       />
+
+      <DropdownMenuSeparator className="mx-2" />
+      <DropdownMenuItem
+        onSelect={(event) => {
+          event.preventDefault();
+          onFiltersChange({ ...filters, showArchived: !filters.showArchived });
+        }}
+        className="cursor-pointer"
+        aria-checked={filters.showArchived}
+        data-testid="host-session-show-archived"
+      >
+        <Archive className="size-4 text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate">{t("showArchived")}</span>
+        <Switch
+          checked={filters.showArchived}
+          tabIndex={-1}
+          aria-hidden
+          className="pointer-events-none"
+        />
+      </DropdownMenuItem>
 
       {filterCount > 0 ? (
         <>

@@ -4,9 +4,12 @@
 //! `AgentEventEnvelope` values. This module is not the `agent_chat_*` API.
 
 mod adapters;
+mod delete;
 pub(crate) mod paths;
 pub(crate) mod scan;
 mod stats;
+
+pub use delete::delete_host_session_source;
 
 use std::path::{Path, PathBuf};
 

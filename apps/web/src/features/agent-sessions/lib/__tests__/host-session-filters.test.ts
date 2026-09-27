@@ -96,6 +96,9 @@ describe("host session filters", () => {
       }),
     ).toBe(1);
     expect(hostSessionFilterCount(EMPTY_HOST_SESSION_FILTERS)).toBe(0);
+    expect(
+      hostSessionFilterCount({ ...EMPTY_HOST_SESSION_FILTERS, showArchived: true }),
+    ).toBe(1);
   });
 
   test("collects filter options and Atmos Chat tags", () => {

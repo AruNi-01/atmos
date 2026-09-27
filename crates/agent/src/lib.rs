@@ -70,6 +70,6 @@ pub use providers::grok::{
 pub use providers::opencode::OpenCodeNativeProvider;
 pub use providers::pi::PiNativeProvider;
 pub use session_source::{
-    default_roster, enrich_host_session_stats, source_byte_size, source_fingerprint, HostId,
-    HostSessionRef, SessionSource, TuiResumePlan,
+    default_roster, delete_host_session_source, enrich_host_session_stats, source_byte_size,
+    source_fingerprint, HostId, HostSessionRef, SessionSource, TuiResumePlan,
 };

@@ -40,7 +40,15 @@ export const hostSessionApi = {
       limit: input.limit ?? null,
       offset: input.offset ?? null,
       sync: input.sync ?? false,
+      include_archived: input.include_archived ?? false,
     }),
+  setArchived: (keys: string[], archived: boolean) =>
+    wsRequest("host_session_set_archived", { keys, archived }),
+  deleteSessions: (input: {
+    keys: string[];
+    include_atmos_chat: boolean;
+    include_source: boolean;
+  }) => wsRequest("host_session_delete", input),
   get: (key: string) => wsRequest("host_session_get", { key }),
   resumeChat: (key: string) => wsRequest("host_session_resume_chat", { key }),
   resumeTui: (key: string) => wsRequest("host_session_resume_tui", { key }),

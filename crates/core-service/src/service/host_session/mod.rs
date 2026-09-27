@@ -87,6 +87,8 @@ pub struct HostSessionListItem {
     pub resume_tui: HostSessionResumeSupport,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parent_native_id: Option<String>,
+    #[serde(default)]
+    pub archived: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -101,6 +103,7 @@ pub struct HostSessionListFilter {
     pub limit: Option<u32>,
     pub offset: u32,
     pub sync: bool,
+    pub include_archived: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -191,6 +194,13 @@ pub struct HostSessionGetResult {
 pub struct HostSessionResumeChatResult {
     pub chat_id: String,
     pub created: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HostSessionDeleteResult {
+    pub deleted_keys: Vec<String>,
+    pub atmos_chat_ids: Vec<String>,
+    pub failures: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -293,7 +303,10 @@ impl HostSessionService {
         let sessions: Vec<HostSessionListItem> = page
             .sessions
             .into_iter()
-            .map(|row| self.item_from_row(index_row_to_ref(row), &chats))
+            .map(|row| {
+                let archived = row.archived;
+                self.item_from_row(index_row_to_ref(row), archived, &chats)
+            })
             .collect();
         let hits = sessions
             .iter()
@@ -353,7 +366,7 @@ impl HostSessionService {
     }
 
     pub async fn get(&self, key: &str) -> Result<HostSessionGetResult> {
-        let (source, row) = self.resolve_row(key).await?;
+        let (source, row, archived) = self.resolve_row(key).await?;
         let envelopes = source
             .parse_at(&row.native_id, row.source_path_buf().as_deref())
             .map_err(map_agent_err)?;
@@ -362,7 +375,7 @@ impl HostSessionService {
         let grok_goal = fill_goal_elapsed(grok_goal, &messages);
         let chats = self.chat_handle_index();
         Ok(HostSessionGetResult {
-            session: self.item_from_row(row, &chats),
+            session: self.item_from_row(row, archived, &chats),
             messages,
             grok_goal,
             grok_workflow,
@@ -376,7 +389,7 @@ impl HostSessionService {
                 "unsupported host session {key}"
             )));
         }
-        let (source, row) = self.resolve_row(key).await?;
+        let (source, row, _archived) = self.resolve_row(key).await?;
         let chats = self.chat_handle_index();
         let join_id = join_provider_id(&row.provider_id);
         if let Some(chat_id) = chats.get(&(join_id, row.native_id.clone())) {
@@ -435,7 +448,7 @@ impl HostSessionService {
     }
 
     pub async fn resume_tui(&self, key: &str) -> Result<HostSessionResumeTuiResult> {
-        let (source, row) = self.resolve_row(key).await?;
+        let (source, row, _archived) = self.resolve_row(key).await?;
         let plan = source
             .tui_resume(&row.native_id, Path::new(&row.cwd))
             .ok_or_else(|| {
@@ -515,7 +528,83 @@ impl HostSessionService {
         match_host_session_cwd(cwd, &candidates)
     }
 
-    async fn resolve_row(&self, key: &str) -> Result<(&dyn SessionSource, HostSessionRef)> {
+    pub async fn set_archived(&self, keys: &[String], archived: bool) -> Result<Vec<String>> {
+        if keys.is_empty() {
+            return Err(ServiceError::Validation("no sessions selected".into()));
+        }
+        let updated = self.repo().set_archived(keys, archived).await?;
+        if updated.is_empty() {
+            return Err(ServiceError::NotFound("host sessions not found".into()));
+        }
+        Ok(updated)
+    }
+
+    pub async fn delete_sessions(
+        &self,
+        keys: &[String],
+        include_atmos_chat: bool,
+        include_source: bool,
+    ) -> Result<HostSessionDeleteResult> {
+        if keys.is_empty() {
+            return Err(ServiceError::Validation("no sessions selected".into()));
+        }
+        if !include_atmos_chat && !include_source {
+            return Err(ServiceError::Validation(
+                "choose Atmos Chat data or original session data".into(),
+            ));
+        }
+        let chats = self.chat_handle_index();
+        let mut deleted_keys = Vec::new();
+        let mut atmos_chat_ids = Vec::new();
+        let mut failures = Vec::new();
+        for key in keys {
+            let Some(row) = self.repo().get(key).await? else {
+                failures.push(format!("{key} was not found"));
+                continue;
+            };
+            if include_source {
+                let native_id = row.native_id.clone();
+                let source_path = row.source_path.clone();
+                let removed = tokio::task::spawn_blocking(move || {
+                    agent::delete_host_session_source(&native_id, Path::new(&source_path))
+                })
+                .await
+                .map_err(|error| {
+                    ServiceError::Processing(format!("host session delete join: {error}"))
+                })?;
+                if let Err(error) = removed {
+                    failures.push(format!("{key}: {error}"));
+                    continue;
+                }
+                self.repo().delete_sessions(&[key.clone()]).await?;
+            }
+            if include_atmos_chat {
+                let join_id = join_provider_id(&row.provider_id);
+                if let Some(chat_id) = chats.get(&(join_id, row.native_id.clone())) {
+                    atmos_chat_ids.push(chat_id.clone());
+                } else if !include_source {
+                    failures.push(format!("{key} has no Atmos Chat data"));
+                    continue;
+                }
+            }
+            deleted_keys.push(key.clone());
+        }
+        if deleted_keys.is_empty() {
+            let detail = if failures.is_empty() {
+                "nothing to delete".to_string()
+            } else {
+                failures.join("; ")
+            };
+            return Err(ServiceError::Processing(detail));
+        }
+        Ok(HostSessionDeleteResult {
+            deleted_keys,
+            atmos_chat_ids,
+            failures,
+        })
+    }
+
+    async fn resolve_row(&self, key: &str) -> Result<(&dyn SessionSource, HostSessionRef, bool)> {
         let (provider_id, native_id) = parse_session_key(key)?;
         let source = self
             .roster
@@ -525,7 +614,8 @@ impl HostSessionService {
         self.ensure_index(false).await?;
         if let Some(row) = self.repo().get(key).await? {
             if row.native_id == native_id {
-                return Ok((source.as_ref(), index_row_to_ref(row)));
+                let archived = row.archived;
+                return Ok((source.as_ref(), index_row_to_ref(row), archived));
             }
         }
         Err(ServiceError::NotFound(format!("host session {key}")))
@@ -614,6 +704,7 @@ impl HostSessionService {
     fn item_from_row(
         &self,
         row: HostSessionRef,
+        archived: bool,
         chats: &HashMap<(String, String), String>,
     ) -> HostSessionListItem {
         let join_id = join_provider_id(&row.provider_id);
@@ -640,6 +731,7 @@ impl HostSessionService {
             resume_chat: resume,
             resume_tui: resume,
             parent_native_id: row.parent_native_id.filter(|id| !id.trim().is_empty()),
+            archived,
         }
     }
 
@@ -770,6 +862,7 @@ fn merge_listed_row(
         parent_native_id: row.parent_native_id,
         source_mtime_ms: mtime,
         source_size: size,
+        archived: false,
     }
 }
 
@@ -818,6 +911,7 @@ fn index_query(filter: &HostSessionListFilter) -> HostSessionIndexQuery {
         offset: filter.offset,
         roots_only: true,
         session_keys: None,
+        include_archived: filter.include_archived,
     }
 }
 

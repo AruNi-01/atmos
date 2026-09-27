@@ -198,6 +198,8 @@ export const WS_ACTIONS = [
   "host_session_get",
   "host_session_resume_chat",
   "host_session_resume_tui",
+  "host_session_set_archived",
+  "host_session_delete",
   "automation_list",
   "automation_get",
   "automation_create",

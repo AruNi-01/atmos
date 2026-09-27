@@ -614,6 +614,8 @@ pub enum WsAction {
     HostSessionGet,
     HostSessionResumeChat,
     HostSessionResumeTui,
+    HostSessionSetArchived,
+    HostSessionDelete,
 
     // ===== Automation 操作 =====
     AutomationList,

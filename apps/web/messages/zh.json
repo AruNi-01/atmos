@@ -9487,6 +9487,10 @@
     "copied": "已复制",
     "copyFailed": "无法复制命令",
     "listAria": "宿主会话",
+    "archived": "已归档",
+    "selectSession": "选择{title}",
+    "emptyArchivedTitle": "归档会话已隐藏",
+    "emptyArchived": "归档不会删除数据。打开筛选里的显示归档即可再次看到。",
     "messageCount": "{count} 条消息",
     "tabs": {
       "agent": "智能体",
@@ -9520,7 +9524,8 @@
         "lastYear": "去年"
       },
       "clear": "清除筛选",
-      "reset": "重置"
+      "reset": "重置",
+      "showArchived": "显示归档"
     },
     "sort": {
       "trigger": "排序",
@@ -9532,6 +9537,23 @@
       "ascending": "升序",
       "descending": "倒序",
       "reset": "重置"
+    },
+    "bulk": {
+      "label": "会话操作",
+      "selectAll": "全选",
+      "deselectAll": "取消全选",
+      "archive": "归档",
+      "unarchive": "取消归档",
+      "archiveMixed": "所选内容里同时有归档和未归档的会话",
+      "delete": "删除",
+      "close": "关闭",
+      "includeChat": "包括 Atmos Chat 数据",
+      "includeSource": "包括原始 Session 数据",
+      "holdToDelete": "按住删除",
+      "held": "已确认",
+      "undo": "撤销",
+      "undoTitle": "即将删除 {count} 项",
+      "failed": "无法更新会话"
     }
   },
   "skills": {

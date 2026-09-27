@@ -9487,6 +9487,10 @@
     "copied": "Copied",
     "copyFailed": "Could not copy command",
     "listAria": "Host sessions",
+    "archived": "Archived",
+    "selectSession": "Select {title}",
+    "emptyArchivedTitle": "Archived sessions are hidden",
+    "emptyArchived": "Archived sessions stay on disk. Show archived sessions to see them again.",
     "messageCount": "{count, plural, one {# message} other {# messages}}",
     "tabs": {
       "agent": "Agent",
@@ -9520,7 +9524,8 @@
         "lastYear": "Last year"
       },
       "clear": "Clear filters",
-      "reset": "Reset"
+      "reset": "Reset",
+      "showArchived": "Show archived"
     },
     "sort": {
       "trigger": "Sort",
@@ -9532,6 +9537,23 @@
       "ascending": "Ascending",
       "descending": "Descending",
       "reset": "Reset"
+    },
+    "bulk": {
+      "label": "Session actions",
+      "selectAll": "Select all",
+      "deselectAll": "Deselect all",
+      "archive": "Archive",
+      "unarchive": "Unarchive",
+      "archiveMixed": "Selection includes archived and active sessions",
+      "delete": "Delete",
+      "close": "Close",
+      "includeChat": "Include Atmos Chat data",
+      "includeSource": "Include original session data",
+      "holdToDelete": "Hold to delete",
+      "held": "Ready",
+      "undo": "Undo",
+      "undoTitle": "{count, plural, one {Deleting # session} other {Deleting # sessions}}",
+      "failed": "Could not update sessions"
     }
   },
   "skills": {
