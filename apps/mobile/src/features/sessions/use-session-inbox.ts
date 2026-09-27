@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFocusEffect, useIsFocused } from "expo-router";
 import type { MobileWsClient } from "@/api/mobile-ws-client";
@@ -231,12 +231,37 @@ export function useSessionInbox() {
     [client, connected, queryClient, selectedServerId],
   );
 
+  const knownChatTitles = chatTitleQuery.data;
+  const missingChatTitleKey = useMemo(() => {
+    if (!chatTitleQuery.isSuccess || !knownChatTitles) return "";
+    const missing: string[] = [];
+    for (const session of statusQuery.data?.sessions ?? []) {
+      if (session.surface !== "chat") continue;
+      const chatId = session.surface_id?.trim()
+        || (session.session_id.startsWith("chat:") ? session.session_id.slice("chat:".length) : "");
+      if (chatId && !(chatId in knownChatTitles)) missing.push(chatId);
+    }
+    missing.sort();
+    return missing.join("\n");
+  }, [chatTitleQuery.isSuccess, knownChatTitles, statusQuery.data?.sessions]);
+  const fetchedMissingTitles = useRef("");
+
+  useEffect(() => {
+    if (!missingChatTitleKey || fetchedMissingTitles.current === missingChatTitleKey) return;
+    fetchedMissingTitles.current = missingChatTitleKey;
+    void queryClient.invalidateQueries({
+      queryKey: ["session-chat-titles", selectedServerId],
+    });
+  }, [missingChatTitleKey, queryClient, selectedServerId]);
+
   const refresh = useCallback(async () => {
     if (!client || !connected) return;
+    fetchedMissingTitles.current = "";
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["workspace-bootstrap", selectedServerId] }),
       queryClient.invalidateQueries({ queryKey: ["agent-session-status-list", selectedServerId] }),
       queryClient.invalidateQueries({ queryKey: ["session-terminal-candidates", selectedServerId] }),
+      queryClient.invalidateQueries({ queryKey: ["session-chat-titles", selectedServerId] }),
       queryClient.invalidateQueries({ queryKey: ["session-git-status", selectedServerId] }),
       queryClient.invalidateQueries({ queryKey: ["session-branch-prs", selectedServerId] }),
     ]);
@@ -358,8 +383,7 @@ async function loadSessionChatTitles(client: MobileWsClient): Promise<Record<str
     });
     const batch = response.items ?? [];
     for (const item of batch) {
-      const title = item.title?.trim();
-      if (!item.deleted && title) titles[item.id] = title;
+      titles[item.id] = item.deleted ? "" : (item.title?.trim() ?? "");
     }
     if (batch.length < CHAT_TITLE_PAGE) break;
     const lastId = batch[batch.length - 1]?.id ?? null;
