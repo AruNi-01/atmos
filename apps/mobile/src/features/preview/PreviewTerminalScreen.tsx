@@ -136,6 +136,10 @@ export function PreviewTerminalScreen() {
         return;
       }
       if (shortcut.kind !== "action") return;
+      if (shortcut.action === "copy") {
+        appendLine("$ [copy]");
+        return;
+      }
       if (shortcut.action === "paste") {
         appendLine("$ [paste] mock clipboard");
         return;
@@ -204,7 +208,11 @@ export function PreviewTerminalScreen() {
           ))}
           <Text style={styles.cursor}>█</Text>
         </ScrollView>
-        <TerminalShortcutBar enabled onShortcut={handleShortcut} />
+        <TerminalShortcutBar
+          enabled
+          onInsertText={(data) => appendLine(data.replace(/\r$/, ""))}
+          onShortcut={handleShortcut}
+        />
         <TerminalGroupDrawer
           isPresented={groupOpen}
           onDismiss={() => setGroupOpen(false)}

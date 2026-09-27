@@ -17,6 +17,7 @@ import {
   getTerminalShortcutInput,
   type TerminalShortcut,
 } from "@/features/terminal/terminal-shortcuts";
+import type { TerminalInsertHandler, TerminalKeyboardHandler } from "@/features/terminal/terminal-keyboard";
 import { useTerminalCandidates } from "@/features/terminal/use-terminal-candidates";
 import { useTerminalConnection } from "@/features/terminal/use-terminal-connection";
 import { useMobileWs } from "@/providers/MobileWsProvider";
@@ -32,8 +33,8 @@ export type TerminalWorkspaceChoice = {
   name: string;
 };
 
+export type { TerminalInsertHandler, TerminalKeyboardHandler } from "@/features/terminal/terminal-keyboard";
 export type TerminalShortcutHandler = (shortcut: TerminalShortcut) => void;
-export type TerminalKeyboardHandler = () => void;
 export type TerminalHeaderActions = {
   createTerminal: () => void;
   openTerminalList: () => void;
@@ -47,6 +48,7 @@ export type TerminalHeading = {
 export function TerminalScreen({
   onDisplayTitleChange,
   onHeaderActionsChange,
+  onInsertHandlerChange,
   onKeyboardHandlerChange,
   onShortcutHandlerChange,
   projectName,
@@ -55,6 +57,7 @@ export function TerminalScreen({
 }: {
   onDisplayTitleChange?: (heading: TerminalHeading) => void;
   onHeaderActionsChange?: (actions: TerminalHeaderActions | null) => void;
+  onInsertHandlerChange?: (handler: TerminalInsertHandler | null) => void;
   onKeyboardHandlerChange?: (handler: TerminalKeyboardHandler | null) => void;
   onShortcutHandlerChange?: (handler: TerminalShortcutHandler | null) => void;
   projectName?: string | null;
@@ -178,22 +181,37 @@ export function TerminalScreen({
     return () => onHeaderActionsChange?.(null);
   }, [createTerminalEntry, onHeaderActionsChange, openTerminalList]);
 
-  const toggleKeyboard = useCallback(() => {
-    if (Keyboard.isVisible()) {
-      webViewRef.current?.blur();
-      Keyboard.dismiss();
+  const controlSystemKeyboard = useCallback((action: "blur-terminal" | "dismiss" | "focus-terminal") => {
+    if (action === "focus-terminal") {
+      webViewRef.current?.focus();
       return;
     }
-    webViewRef.current?.focus();
+    webViewRef.current?.blur();
+    if (action === "dismiss") Keyboard.dismiss();
   }, []);
 
   useEffect(() => {
     if (!onKeyboardHandlerChange) return undefined;
 
-    onKeyboardHandlerChange(toggleKeyboard);
+    onKeyboardHandlerChange(controlSystemKeyboard);
 
     return () => onKeyboardHandlerChange(null);
-  }, [onKeyboardHandlerChange, toggleKeyboard]);
+  }, [controlSystemKeyboard, onKeyboardHandlerChange]);
+
+  const insertTerminalText = useCallback(
+    (data: string) => {
+      if (data) sendTerminalInput(data);
+    },
+    [sendTerminalInput],
+  );
+
+  useEffect(() => {
+    if (!onInsertHandlerChange) return undefined;
+
+    onInsertHandlerChange(insertTerminalText);
+
+    return () => onInsertHandlerChange(null);
+  }, [insertTerminalText, onInsertHandlerChange]);
 
   const handleCopyText = useCallback(async (text: string) => {
     if (!text) return;
@@ -230,6 +248,10 @@ export function TerminalScreen({
       }
 
       if (shortcut.kind === "action") {
+        if (shortcut.action === "copy") {
+          webViewRef.current?.copySelection();
+          return;
+        }
         if (shortcut.action === "paste") {
           void getTerminalPasteInput(() => Clipboard.getStringAsync())
             .then((pasteInput) => {

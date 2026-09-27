@@ -20,6 +20,7 @@ export type NativeToTerminal =
 export type TerminalWebViewHandle = {
   blur: () => void;
   send: (message: NativeToTerminal) => void;
+  copySelection: () => void;
   focus: () => void;
   writeBase64: (chunks: string[]) => void;
   restoreSnapshot: (snapshot: TerminalSnapshot) => void;
@@ -44,6 +45,9 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, {
   const theme = useMobileTheme();
   const terminalTheme = terminalDarkTheme;
   const domRef = useRef<TerminalDomHandle>(null);
+  const selectionTextRef = useRef("");
+  const onCopyTextRef = useRef(onCopyText);
+  onCopyTextRef.current = onCopyText;
   const [selection, setSelection] = useState<TerminalSelectionChrome | null>(null);
   const pendingBase64ChunksRef = useRef<string[]>([]);
   const pendingSnapshotRef = useRef<TerminalSnapshot | null>(null);
@@ -138,6 +142,12 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, {
     ref,
     () => ({
       blur: () => domRef.current?.blur?.(),
+      copySelection: () => {
+        const text = selectionTextRef.current;
+        if (!text) return;
+        onCopyTextRef.current?.(text);
+        domRef.current?.dismissSelection?.();
+      },
       focus: () => domRef.current?.focus?.(),
       restoreSnapshot,
       send,
@@ -168,6 +178,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, {
         onTitleChange={async (nextTitle) => onTitleChange?.(nextTitle)}
         onOscTitleChange={async (nextTitle) => onOscTitleChange?.(nextTitle)}
         onSelectionChrome={async (chrome) => {
+          selectionTextRef.current = chrome?.text ?? "";
           setSelection(chrome);
         }}
         dom={{

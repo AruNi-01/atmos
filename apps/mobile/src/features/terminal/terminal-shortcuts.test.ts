@@ -1,6 +1,11 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
-import { getTerminalPasteInput, getTerminalShortcutInput, terminalShortcuts } from "./terminal-shortcuts";
+import {
+  getTerminalPasteInput,
+  getTerminalShortcutInput,
+  terminalBarShortcutIds,
+  terminalShortcuts,
+} from "./terminal-shortcuts";
 
 describe("terminal shortcuts", () => {
   test("exposes the fixed modifier and navigation sequences required for mobile terminals", () => {
@@ -30,6 +35,30 @@ describe("terminal shortcuts", () => {
     expect(getTerminalShortcutInput(byId.get("agent-continue")!)).toBe("continue\r");
     expect(getTerminalShortcutInput(byId.get("agent-yes")!)).toBe("yes\r");
     expect(getTerminalShortcutInput(byId.get("agent-no")!)).toBe("no\r");
+  });
+
+  test("puts arrows and macOS command shortcuts at the front of the bar", () => {
+    const byId = new Map(terminalShortcuts.map((shortcut) => [shortcut.id, shortcut]));
+
+    expect(terminalBarShortcutIds.slice(0, 7)).toEqual([
+      "up",
+      "down",
+      "left",
+      "right",
+      "command-c",
+      "command-v",
+      "command-z",
+    ]);
+    for (const id of terminalBarShortcutIds) {
+      expect(byId.has(id)).toBe(true);
+    }
+    expect(getTerminalShortcutInput(byId.get("command-z")!)).toBe("\u001f");
+    expect(getTerminalShortcutInput(byId.get("command-c")!)).toBeNull();
+    expect(getTerminalShortcutInput(byId.get("command-v")!)).toBeNull();
+    const copy = byId.get("command-c");
+    const paste = byId.get("command-v");
+    expect(copy?.kind === "action" && copy.action).toBe("copy");
+    expect(paste?.kind === "action" && paste.action).toBe("paste");
   });
 
   test("keeps workspace and terminal operations as native actions, not terminal input", () => {
