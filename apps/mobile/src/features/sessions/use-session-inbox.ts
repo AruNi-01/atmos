@@ -245,18 +245,27 @@ export function useSessionInbox() {
     return missing.join("\n");
   }, [chatTitleQuery.isSuccess, knownChatTitles, statusQuery.data?.sessions]);
   const fetchedMissingTitles = useRef("");
+  const titleLookupStalled = useRef(false);
 
   useEffect(() => {
-    if (!missingChatTitleKey || fetchedMissingTitles.current === missingChatTitleKey) return;
+    if (!missingChatTitleKey || titleLookupStalled.current) return;
+    if (fetchedMissingTitles.current === missingChatTitleKey) return;
+    const requested = missingChatTitleKey.split("\n");
     fetchedMissingTitles.current = missingChatTitleKey;
-    void queryClient.invalidateQueries({
-      queryKey: ["session-chat-titles", selectedServerId],
+    const queryKey = ["session-chat-titles", selectedServerId] as const;
+    void queryClient.invalidateQueries({ queryKey }).then(() => {
+      const titles = queryClient.getQueryData<Record<string, string>>(queryKey) ?? {};
+      const stillMissing = requested.filter((id) => !(id in titles));
+      if (stillMissing.length === requested.length) {
+        titleLookupStalled.current = true;
+      }
     });
   }, [missingChatTitleKey, queryClient, selectedServerId]);
 
   const refresh = useCallback(async () => {
     if (!client || !connected) return;
     fetchedMissingTitles.current = "";
+    titleLookupStalled.current = false;
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["workspace-bootstrap", selectedServerId] }),
       queryClient.invalidateQueries({ queryKey: ["agent-session-status-list", selectedServerId] }),
