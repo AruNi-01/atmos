@@ -138,9 +138,6 @@ export function useSessionInbox() {
       void queryClient.invalidateQueries({
         queryKey: ["session-terminal-candidates", selectedServerId],
       });
-      void queryClient.invalidateQueries({
-        queryKey: ["session-chat-titles", selectedServerId],
-      });
     });
     return () => {
       unsubscribe();
