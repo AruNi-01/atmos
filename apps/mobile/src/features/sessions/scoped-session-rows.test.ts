@@ -12,6 +12,8 @@ function row(partial: Partial<SessionInboxRow> & Pick<SessionInboxRow, "id">): S
     projectName: "Atmos",
     projectScoped: false,
     terminalCandidateId: partial.id,
+    kind: "terminal",
+    chatId: null,
     title: partial.id,
     updatedAt: null,
     workspaceId: "ws",

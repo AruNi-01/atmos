@@ -36,6 +36,8 @@ export function rowsForTerminalEntries(
         projectName: null,
         projectScoped: false,
         terminalCandidateId: entry.id,
+        kind: "terminal",
+        chatId: null,
         title,
         updatedAt: null,
         workspaceId: entry.workspaceId,
@@ -47,6 +49,8 @@ export function rowsForTerminalEntries(
       id: entry.id,
       projectName: null,
       terminalCandidateId: entry.id,
+      kind: "terminal",
+      chatId: null,
       title,
       workspaceName: null,
     };

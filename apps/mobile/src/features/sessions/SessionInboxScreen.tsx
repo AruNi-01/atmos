@@ -13,6 +13,7 @@ import {
   ShieldAlertIcon,
 } from "@/ui/icons/lucide-native";
 import { type MobileThemeColors } from "@/theme/colors";
+import { openSessionDestination } from "@/features/agent-chat/navigation";
 import {
   filterSessionRows,
   isSessionBucket,
@@ -210,13 +211,9 @@ function SessionCard({ card, onPress }: { card: SessionInboxCard; onPress: () =>
 }
 
 function openSessionRow(router: ReturnType<typeof useRouter>, row: SessionInboxRow) {
-  if (!row.workspaceId) return;
-  router.push({
-    pathname: "/workspace/[workspaceId]/terminal",
-    params: row.terminalCandidateId
-      ? { terminal: row.terminalCandidateId, workspaceId: row.workspaceId }
-      : { workspaceId: row.workspaceId },
-  });
+  const href = openSessionDestination(row);
+  if (!href) return;
+  router.push(href);
 }
 
 function bucketIcon(bucket: SessionBucket) {

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Host, Picker } from "@expo/ui";
 import { Stack } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { wsActions } from "@/api/ws-actions";
@@ -33,6 +32,7 @@ import { AppScreen, Section } from "@/ui/layout/app-screen";
 import { Separator } from "@/ui/layout/row";
 import { nativeCompactTitleOptions } from "@/ui/navigation/native-screen-options";
 import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
+import { MenuPicker } from "@/ui/primitives/menu-picker";
 
 const FILTER_ROWS: Array<{
   kind: WorkspaceFilterKind;
@@ -115,17 +115,14 @@ export function WorkspaceFilterScreen() {
             >
               Group by
             </Text>
-            <Host colorScheme={theme.colorScheme} matchContents seedColor={theme.colors.label}>
-              <Picker
-                appearance="menu"
-                onValueChange={(value) => setGrouping(value as WorkspaceGrouping)}
-                selectedValue={grouping}
-              >
-                {WORKSPACE_GROUPING_OPTIONS.map((option) => (
-                  <Picker.Item key={option.value} label={option.label} value={option.value} />
-                ))}
-              </Picker>
-            </Host>
+            <MenuPicker
+              onValueChange={(value) => setGrouping(value as WorkspaceGrouping)}
+              options={WORKSPACE_GROUPING_OPTIONS.map((option) => ({
+                value: option.value,
+                label: option.label,
+              }))}
+              selectedValue={grouping}
+            />
           </View>
         </Section>
         <Section label="Filter">

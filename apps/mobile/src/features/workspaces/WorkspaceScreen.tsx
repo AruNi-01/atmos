@@ -19,6 +19,7 @@ import {
   TerminalScreen,
   type TerminalHeaderActions,
   type TerminalHeading,
+  type TerminalInsertHandler,
   type TerminalKeyboardHandler,
   type TerminalShortcutHandler,
 } from "@/features/terminal/TerminalScreen";
@@ -36,11 +37,16 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
   const { client, state } = useMobileWs();
   const recordWorkspaceVisit = useRecentWorkspacesStore((store) => store.recordWorkspaceVisit);
   const selectedServerId = useSessionStore((store) => store.selectedServerId);
+  const [terminalInsertHandler, setTerminalInsertHandler] = useState<TerminalInsertHandler | null>(null);
   const [terminalKeyboardHandler, setTerminalKeyboardHandler] = useState<TerminalKeyboardHandler | null>(null);
   const [terminalShortcutHandler, setTerminalShortcutHandler] = useState<TerminalShortcutHandler | null>(null);
   const [heading, setHeading] = useState<TerminalHeading>({ title: "Terminal" });
   const headerActionsRef = useRef<TerminalHeaderActions | null>(null);
   const { keyboardInset, onKeyboardInsetTargetLayout, keyboardInsetTargetRef } = useKeyboardInset();
+
+  const handleTerminalInsertHandlerChange = useCallback((handler: TerminalInsertHandler | null) => {
+    setTerminalInsertHandler(() => handler);
+  }, []);
 
   const handleTerminalKeyboardHandlerChange = useCallback((handler: TerminalKeyboardHandler | null) => {
     setTerminalKeyboardHandler(() => handler);
@@ -191,6 +197,7 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
           <TerminalScreen
             onDisplayTitleChange={handleDisplayTitleChange}
             onHeaderActionsChange={handleHeaderActionsChange}
+            onInsertHandlerChange={handleTerminalInsertHandlerChange}
             onKeyboardHandlerChange={handleTerminalKeyboardHandlerChange}
             onShortcutHandlerChange={handleTerminalShortcutHandlerChange}
             projectName={developmentContext.projectName}
@@ -201,7 +208,8 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
         {terminalShortcutHandler ? (
           <TerminalShortcutBar
             enabled
-            onToggleKeyboard={terminalKeyboardHandler ?? undefined}
+            onInsertText={terminalInsertHandler ?? undefined}
+            onSystemKeyboard={terminalKeyboardHandler ?? undefined}
             onShortcut={terminalShortcutHandler}
           />
         ) : null}
