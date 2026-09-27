@@ -14,6 +14,12 @@ import {
   type SessionPrState,
 } from "./pick-branch-pr";
 import {
+  freshChatTitleLookup,
+  missingChatTitleKey,
+  planChatTitleLookup,
+  settleChatTitleLookup,
+} from "./chat-title-lookup";
+import {
   joinSessionRows,
   recentSessionRows,
   sessionInboxCards,
@@ -232,40 +238,44 @@ export function useSessionInbox() {
   );
 
   const knownChatTitles = chatTitleQuery.data;
-  const missingChatTitleKey = useMemo(() => {
-    if (!chatTitleQuery.isSuccess || !knownChatTitles) return "";
-    const missing: string[] = [];
-    for (const session of statusQuery.data?.sessions ?? []) {
-      if (session.surface !== "chat") continue;
-      const chatId = session.surface_id?.trim()
-        || (session.session_id.startsWith("chat:") ? session.session_id.slice("chat:".length) : "");
-      if (chatId && !(chatId in knownChatTitles)) missing.push(chatId);
-    }
-    missing.sort();
-    return missing.join("\n");
-  }, [chatTitleQuery.isSuccess, knownChatTitles, statusQuery.data?.sessions]);
-  const fetchedMissingTitles = useRef("");
-  const titleLookupStalled = useRef(false);
+  const titleLookup = useRef(freshChatTitleLookup());
+  const liveChatIds = useMemo(
+    () => (statusQuery.data?.sessions ?? [])
+      .map((session) => chatSessionId(session))
+      .filter((id) => id.length > 0),
+    [statusQuery.data?.sessions],
+  );
+  const missingChatTitles = useMemo(
+    () => missingChatTitleKey(
+      liveChatIds,
+      knownChatTitles,
+      chatTitleQuery.isSuccess,
+      titleLookup.current.gaveUp,
+    ),
+    [chatTitleQuery.isSuccess, knownChatTitles, liveChatIds],
+  );
 
   useEffect(() => {
-    if (!missingChatTitleKey || titleLookupStalled.current) return;
-    if (fetchedMissingTitles.current === missingChatTitleKey) return;
-    const requested = missingChatTitleKey.split("\n");
-    fetchedMissingTitles.current = missingChatTitleKey;
+    const plan = planChatTitleLookup(titleLookup.current, missingChatTitles, liveChatIds);
+    titleLookup.current = plan.state;
+    if (!plan.requested) return;
+    const requested = plan.requested;
+    const presentAtRequest = liveChatIds;
     const queryKey = ["session-chat-titles", selectedServerId] as const;
     void queryClient.invalidateQueries({ queryKey }).then(() => {
       const titles = queryClient.getQueryData<Record<string, string>>(queryKey) ?? {};
-      const stillMissing = requested.filter((id) => !(id in titles));
-      if (stillMissing.length === requested.length) {
-        titleLookupStalled.current = true;
-      }
+      titleLookup.current = settleChatTitleLookup(
+        titleLookup.current,
+        requested,
+        titles,
+        presentAtRequest,
+      );
     });
-  }, [missingChatTitleKey, queryClient, selectedServerId]);
+  }, [liveChatIds, missingChatTitles, queryClient, selectedServerId]);
 
   const refresh = useCallback(async () => {
     if (!client || !connected) return;
-    fetchedMissingTitles.current = "";
-    titleLookupStalled.current = false;
+    titleLookup.current = freshChatTitleLookup();
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["workspace-bootstrap", selectedServerId] }),
       queryClient.invalidateQueries({ queryKey: ["agent-session-status-list", selectedServerId] }),
@@ -422,6 +432,13 @@ async function loadSessionBranchPrs(
     }),
   );
   return Object.fromEntries(entries);
+}
+
+function chatSessionId(session: { surface?: string; surface_id?: string | null; session_id: string }): string {
+  if (session.surface !== "chat") return "";
+  const surfaceId = session.surface_id?.trim();
+  if (surfaceId) return surfaceId;
+  return session.session_id.startsWith("chat:") ? session.session_id.slice("chat:".length) : "";
 }
 
 function isSessionInboxNotification(message: unknown): boolean {
