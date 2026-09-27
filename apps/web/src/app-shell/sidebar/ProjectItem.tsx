@@ -549,7 +549,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
       >
       <div
         className={cn(
-            "relative ml-2 flex items-center rounded-sm px-2 py-1.5 hover:bg-sidebar-accent",
+            "relative ml-2 flex min-w-0 items-center rounded-sm px-2 py-1.5 hover:bg-sidebar-accent",
             LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS,
             isDragging && "bg-sidebar-accent shadow-2xl scale-[1.02]",
             (isActiveProject || isSelected) && "bg-sidebar-accent"
@@ -613,7 +613,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
             </div>
             <span
               className={cn(
-                "text-[13px] font-medium truncate",
+                "min-w-0 flex-1 text-[13px] font-medium truncate",
                 dimAsAttentionParent
                   ? "text-muted-foreground"
                   : "text-sidebar-foreground group-hover/project:text-sidebar-foreground",
@@ -632,7 +632,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
             {!isDragging && shortcutDigit != null ? (
           <div
             className={cn(
-              "absolute right-2 top-1/2 z-10 flex -translate-y-1/2 items-center justify-end",
+              "absolute right-3 top-1/2 z-10 flex -translate-y-1/2 items-center justify-end",
             )}
           >
             <SidebarHeldShortcutBadge targetKey={projectShortcutKey} />
@@ -640,7 +640,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
             ) : !isDragging && (
           <div
             className={cn(
-              "absolute right-2 top-1/2 z-10 flex -translate-y-1/2 items-center justify-end",
+              "absolute right-3 top-1/2 z-10 flex -translate-y-1/2 items-center justify-end",
             )}
           >
             {/*
@@ -863,7 +863,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
 
       <div
         className={cn(
-          "grid transition-[grid-template-rows] duration-300 ease-out",
+          "grid min-w-0 transition-[grid-template-rows] duration-300 ease-out",
           hideWorkspaceList
             ? "grid-rows-[0fr]"
             : isExpanded && !isDragging && !isAnyProjectDragging
@@ -872,7 +872,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
         )}
       >
         <div className={cn(
-          "overflow-hidden relative transition-opacity duration-300",
+          "min-w-0 overflow-hidden relative transition-opacity duration-300",
           isAnyProjectDragging ? "opacity-0 invisible" : "opacity-100 visible"
         )}>
           <div

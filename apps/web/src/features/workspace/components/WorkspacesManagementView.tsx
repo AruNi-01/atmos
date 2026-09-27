@@ -13,40 +13,28 @@ export const WorkspacesManagementView: React.FC = () => {
   const t = useTranslations("Workspace.components.viewTabs");
   const [view, setView] = useQueryState("view", workspacesParams.view);
 
+  const viewSwitcher = (
+    <LaunchpadPageTabs
+      value={view}
+      onValueChange={(value) => {
+        if (value === "recent" || value === "archived") {
+          void setView(value);
+        }
+      }}
+      items={[
+        { value: "recent", label: t("recent"), icon: Clock3 },
+        { value: "archived", label: t("archived"), icon: Archive },
+      ]}
+    />
+  );
+
   return (
-    <div className="relative flex h-full flex-col overflow-hidden bg-background">
-      {/*
-        Keep the pill tabs mounted on this shell. Passing them into Recent /
-        Archived as children remounts LaunchpadPageTabs, which resets the
-        motion layoutId and kills the indicator slide.
-      */}
-      <div className="pointer-events-none absolute left-1/2 top-12 z-30 w-full max-w-5xl -translate-x-1/2 px-8">
-        <div className="flex justify-end">
-          <div className="pointer-events-auto">
-            <LaunchpadPageTabs
-              value={view}
-              onValueChange={(value) => {
-                if (value === "recent" || value === "archived") {
-                  void setView(value);
-                }
-              }}
-              items={[
-                { value: "recent", label: t("recent"), icon: Clock3 },
-                { value: "archived", label: t("archived"), icon: Archive },
-              ]}
-            />
-          </div>
-        </div>
-      </div>
+    <div className="flex h-full flex-col overflow-hidden bg-background">
       {view === "archived" ? (
-        <ArchivedWorkspacesView viewSwitcher={<WorkspaceViewTabsSpacer />} />
+        <ArchivedWorkspacesView viewSwitcher={viewSwitcher} />
       ) : (
-        <RecentWorkspacesView viewSwitcher={<WorkspaceViewTabsSpacer />} />
+        <RecentWorkspacesView viewSwitcher={viewSwitcher} />
       )}
     </div>
   );
 };
-
-function WorkspaceViewTabsSpacer() {
-  return <div aria-hidden="true" className="h-10 w-[14.5rem]" />;
-}

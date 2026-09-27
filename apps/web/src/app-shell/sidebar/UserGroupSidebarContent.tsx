@@ -780,13 +780,13 @@ function SortableUserGroupOneColumnSection({
       {/* ProjectItem child-list pattern: grid collapse + opacity hide while dragging. */}
       <div
         className={cn(
-          "grid transition-[grid-template-rows] duration-300 ease-out",
+          "grid min-w-0 transition-[grid-template-rows] duration-300 ease-out",
           showChildren ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
         )}
       >
         <div
           className={cn(
-            "overflow-hidden transition-opacity duration-300",
+            "min-w-0 overflow-hidden transition-opacity duration-300",
             isAnyGroupDragging || isDragging
               ? "invisible opacity-0"
               : "visible opacity-100",
@@ -794,7 +794,7 @@ function SortableUserGroupOneColumnSection({
         >
           <div
             className={cn(
-              "space-y-1 pb-2 pl-1 transition-opacity duration-200",
+              "min-w-0 space-y-1 pb-2 pl-1 transition-opacity duration-200",
               isAnyGroupDragging || isDragging
                 ? "pointer-events-none opacity-0"
                 : "opacity-100",

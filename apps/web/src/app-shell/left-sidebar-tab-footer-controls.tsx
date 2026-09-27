@@ -93,7 +93,7 @@ export function LeftSidebarFooter({
             onFiltersChange={onFiltersChange}
             triggerVariant="icon"
             triggerClassName="pr-0.5"
-            align="end"
+            align="start"
             side="top"
             showGrouping
             groupingMode={groupingMode}

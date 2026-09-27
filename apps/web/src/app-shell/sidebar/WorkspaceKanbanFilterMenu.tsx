@@ -333,9 +333,12 @@ export function WorkspaceKanbanFilterMenu({
         align={align}
         side={side}
         sideOffset={6}
+        avoidCollisions={side === "top" ? false : undefined}
         className={cn(
           "w-64 p-1",
-          // Sidebar filter sits on the bottom-right. Grow up from that corner.
+          // Sidebar filter sits on the bottom of the sidebar. Open above the
+          // button and grow to the right, into the main stage.
+          side === "top" && align === "start" && "origin-bottom-left",
           side === "top" && align === "end" && "origin-bottom-right",
         )}
       >

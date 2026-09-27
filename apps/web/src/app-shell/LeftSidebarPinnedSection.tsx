@@ -105,11 +105,11 @@ export function LeftSidebarPinnedSection({
       >
         <SortableContext items={pinnedWorkspaces.map(e => e.workspace.id)} strategy={verticalListSortingStrategy}>
           <div className={cn(
-            "grid transition-[grid-template-rows] duration-300 ease-in-out",
+            "grid min-w-0 transition-[grid-template-rows] duration-300 ease-in-out",
             isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
           )}>
-            <div className="overflow-hidden">
-              <div className={cn("space-y-0.5 pb-1 pl-2", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}>
+            <div className="min-w-0 overflow-hidden">
+              <div className={cn("min-w-0 space-y-0.5 pb-1 pl-2", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}>
                 {pinnedWorkspaces.map((entry) => {
                   const statusMeta = getWorkspaceWorkflowStatusMeta(entry.workspace.workflowStatus);
                   const StatusIcon = statusMeta.icon;

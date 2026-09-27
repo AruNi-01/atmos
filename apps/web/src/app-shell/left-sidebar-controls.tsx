@@ -490,7 +490,7 @@ function SortableWorkspaceGroupSection({
           className="flex min-w-0 flex-1 items-center gap-1.5 py-2 pl-3 pr-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:text-sidebar-accent-foreground"
         >
           <WorkspaceGroupMarker group={group} groupingMode={groupingMode} />
-          <span className="truncate">{group.label}</span>
+          <span className="min-w-0 truncate">{group.label}</span>
           <ChevronRight
             className={cn(
               "ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100",
@@ -522,12 +522,12 @@ function SortableWorkspaceGroupSection({
       </div>
       <div
         className={cn(
-          "grid",
-          isCollapsed ? "grid-rows-[0fr] overflow-hidden" : "grid-rows-[1fr]",
+          "grid min-w-0 transition-[grid-template-rows] duration-300 ease-out",
+          isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
         )}
       >
-        <div className={isCollapsed ? "overflow-hidden" : "overflow-x-clip"}>
-          <div className="flex flex-col gap-1 pl-3 pt-0.5">
+        <div className="min-w-0 overflow-hidden">
+          <div className="flex min-w-0 flex-col gap-1 pl-3 pt-0.5">
             <SidebarMotionList>
               {visibleItems.map((entry) => {
                 const entryKey = getSidebarEntryKey(entry);
@@ -758,7 +758,7 @@ export function GroupedWorkspaceTwoColumnRightContent({
               {t("leftSidebarControls.selectGroupDescription")}
             </div>
           ) : (
-            <div className={cn("flex flex-col gap-1", secondColumnKanban && "gap-2")}>
+            <div className={cn("flex min-w-0 flex-col gap-1", secondColumnKanban && "gap-2")}>
               <SidebarMotionList>
                 {visibleItems.map((entry) => {
                   const entryKey = getSidebarEntryKey(entry);
@@ -902,7 +902,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
       modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
     >
       <SortableContext items={visibleUnpinnedWorkspaces.map((workspace) => workspace.id)} strategy={verticalListSortingStrategy}>
-        <div className={cn("space-y-0.5", secondColumnKanban && "space-y-2")}>
+        <div className={cn("min-w-0 space-y-0.5", secondColumnKanban && "space-y-2")}>
           {visibleUnpinnedWorkspaces.map((workspace) => {
             const entry = renderProjectWorkspaceEntry(workspace);
             if (!entry) return null;
@@ -934,7 +934,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
   const headerPad = isPrimaryCollapsed
     ? cn("pl-5", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)
     : cn("pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS);
-  const projectHeaderBleed = isPrimaryCollapsed ? "-ml-5" : "-ml-3 -mr-1";
+  const projectHeaderBleed = isPrimaryCollapsed ? "-ml-5" : "-ml-3";
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -987,7 +987,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
       <div className="min-h-0 flex-1 overflow-hidden">
         <ScrollArea
           scrollFade
-          viewportClassName={cn("overflow-x-hidden py-2 pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}
+          viewportClassName="overflow-x-hidden py-2 pl-3 pr-3"
         >
         {!selectedProject ? (
           <div className="px-3 py-6 text-sm text-muted-foreground">
@@ -1010,7 +1010,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="overflow-hidden">
-                    <div className="space-y-0.5 pl-3 pt-0.5">
+                    <div className="min-w-0 space-y-0.5 pl-3 pt-0.5">
                       <DndContext
                         sensors={sensors}
                         collisionDetection={closestCenter}
@@ -1027,7 +1027,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
                         modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
                       >
                         <SortableContext items={selectedProjectPinnedEntries.map((entry) => entry.workspace.id)} strategy={verticalListSortingStrategy}>
-                          <div className={cn("space-y-0.5", secondColumnKanban && "space-y-2")}>
+                          <div className={cn("min-w-0 space-y-0.5", secondColumnKanban && "space-y-2")}>
                             {selectedProjectPinnedEntries.map((entry) =>
                               secondColumnKanban ? (
                                 isPinnedSortingDisabled ? (
