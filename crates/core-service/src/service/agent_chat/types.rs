@@ -1602,6 +1602,20 @@ pub enum TranscriptEvent {
         #[serde(default)]
         duration_ms: Option<u64>,
     },
+    /// Older transcripts store the full thinking block instead of text chunks.
+    ThinkingSnapshot {
+        message_id: String,
+        text: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        started_at: Option<DateTime<Utc>>,
+        #[serde(default)]
+        duration_ms: Option<u64>,
+    },
+    /// Older transcripts store the full assistant reply instead of text chunks.
+    AssistantSnapshot {
+        message_id: String,
+        text: String,
+    },
     ToolCall {
         tool: ToolCallState,
     },

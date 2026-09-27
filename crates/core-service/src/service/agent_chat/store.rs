@@ -1146,6 +1146,47 @@ fn apply_record(
                 open_text,
             );
         }
+        TranscriptEvent::ThinkingSnapshot {
+            message_id,
+            text,
+            duration_ms,
+            ..
+        } => {
+            let part_id = message_id.clone();
+            closed_parts.insert(part_id.clone());
+            let turn = upsert_turn(turns, &turn_id, created_at);
+            apply_folded_text_part(
+                turn,
+                part_id,
+                message_id,
+                None,
+                TextKind::Thinking,
+                0,
+                text,
+                created_at,
+                duration_ms,
+                true,
+                open_text,
+            );
+        }
+        TranscriptEvent::AssistantSnapshot { message_id, text } => {
+            let part_id = message_id.clone();
+            closed_parts.insert(part_id.clone());
+            let turn = upsert_turn(turns, &turn_id, created_at);
+            apply_folded_text_part(
+                turn,
+                part_id,
+                message_id,
+                None,
+                TextKind::Answer,
+                0,
+                text,
+                created_at,
+                None,
+                true,
+                open_text,
+            );
+        }
         TranscriptEvent::ToolCall { tool } => {
             let turn = upsert_turn(turns, &turn_id, created_at);
             apply_tool_call(turn, tool, created_at);
@@ -1962,6 +2003,36 @@ mod tests {
             error.to_string().contains("unreadable transcript record"),
             "{error}"
         );
+    }
+
+    #[test]
+    fn legacy_snapshots_fold_into_thinking_and_answer() {
+        let (_dir, store) = store();
+        let meta = create(&store, "/tmp/a");
+        let path = store.dir_for(&meta.id).join("transcript.jsonl");
+        fs::write(
+            &path,
+            concat!(
+                "{\"event_id\":\"e1\",\"turn_id\":\"t1\",\"timestamp\":\"2026-09-18T02:32:32Z\",\"event\":{\"type\":\"turn_started\"}}\n",
+                "{\"event_id\":\"e2\",\"turn_id\":\"t1\",\"timestamp\":\"2026-09-18T02:32:33Z\",\"event\":{\"type\":\"user_message\",\"message_id\":\"u1\",\"kind\":\"normal\",\"text\":\"Reply with exactly: ok\",\"attachments\":[]}}\n",
+                "{\"event_id\":\"e3\",\"turn_id\":\"t1\",\"timestamp\":\"2026-09-18T02:32:35Z\",\"event\":{\"type\":\"thinking_snapshot\",\"message_id\":\"th1\",\"text\":\"think\",\"started_at\":\"2026-09-18T02:32:35.170853625Z\",\"duration_ms\":3677}}\n",
+                "{\"event_id\":\"e4\",\"turn_id\":\"t1\",\"timestamp\":\"2026-09-18T02:32:36Z\",\"event\":{\"type\":\"assistant_snapshot\",\"message_id\":\"a1\",\"text\":\"ok\"}}\n",
+                "{\"event_id\":\"e5\",\"turn_id\":\"t1\",\"timestamp\":\"2026-09-18T02:32:37Z\",\"event\":{\"type\":\"assistant_snapshot\",\"message_id\":\"a1\",\"text\":\"ok\"}}\n",
+            ),
+        )
+        .unwrap();
+        let snapshot = store.get_snapshot(&meta.id).expect("legacy snapshots load");
+        assert_eq!(snapshot.messages.len(), 2);
+        match &snapshot.messages[1].parts[..] {
+            [MessagePart::Thinking {
+                text, duration_ms, ..
+            }, MessagePart::Text { text: answer, .. }] => {
+                assert_eq!(text, "think");
+                assert_eq!(*duration_ms, Some(3677));
+                assert_eq!(answer, "ok");
+            }
+            other => panic!("expected thinking then answer, got {other:?}"),
+        }
     }
 
     #[test]
