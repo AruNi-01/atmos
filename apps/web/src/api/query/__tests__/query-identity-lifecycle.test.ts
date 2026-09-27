@@ -1,6 +1,7 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Window } from "happy-dom";
+import { CancelledError } from "@tanstack/react-query";
 
 import { queryKeys } from "@/api/query/query-keys";
 import { getComputerQueryScope, getRelayQueryScope } from "@/api/query/query-scope";
@@ -139,5 +140,50 @@ describe("query-identity-lifecycle scope bumps", () => {
     await resetRelaySessionForQuery();
     expect(client.getQueryData(queryKeys.computer.system(nextScope))).toBeUndefined();
     expect(useAtmosComputerStore.getState().relayClientToken).toBeNull();
+  });
+
+  test("in-flight computer fetches do not reject as unhandled when identity changes", async () => {
+    const leaks: unknown[] = [];
+    const onLeak = (reason: unknown) => {
+      leaks.push(reason);
+    };
+    process.on("unhandledRejection", onLeak);
+    try {
+      const client = getAtmosWebQueryClient();
+      void client.fetchQuery({
+        queryKey: [...queryKeys.computer.system(getComputerQueryScope()), "hang"],
+        queryFn: () => new Promise(() => {}),
+      });
+
+      await applyIdentityBearingComputerSettings({ accessToken: "tok-from-disk" });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      expect(leaks.some((reason) => reason instanceof CancelledError)).toBe(false);
+      expect(client.getQueryCache().findAll({ queryKey: ["atmos", "computer"] })).toHaveLength(0);
+    } finally {
+      process.off("unhandledRejection", onLeak);
+    }
+  });
+
+  test("cancellation guard stops CancelledError before later unhandledrejection listeners", () => {
+    getAtmosWebQueryClient();
+    let bubbled = false;
+    const listener = () => {
+      bubbled = true;
+    };
+    window.addEventListener("unhandledrejection", listener);
+    const cancelled = new window.Event("unhandledrejection", { cancelable: true });
+    Object.defineProperty(cancelled, "reason", { value: new CancelledError() });
+    window.dispatchEvent(cancelled);
+    expect(bubbled).toBe(false);
+    expect(cancelled.defaultPrevented).toBe(true);
+
+    bubbled = false;
+    const failure = new window.Event("unhandledrejection", { cancelable: true });
+    Object.defineProperty(failure, "reason", { value: new Error("network failed") });
+    window.dispatchEvent(failure);
+    expect(bubbled).toBe(true);
+    expect(failure.defaultPrevented).toBe(false);
+    window.removeEventListener("unhandledrejection", listener);
   });
 });
