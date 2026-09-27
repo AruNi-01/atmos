@@ -1,9 +1,9 @@
 import { useLocalSearchParams } from "expo-router";
-import { WorkspaceEntryScreen } from "@/features/workspaces/WorkspaceEntryScreen";
+import { AgentChatSessionListScreen } from "@/features/agent-chat/AgentChatSessionListScreen";
 
-export default function WorkspaceEntryRoute() {
+export default function WorkspaceChatListRoute() {
   const params = useLocalSearchParams<{ workspaceId: string }>();
-  return <WorkspaceEntryScreen workspaceId={firstParam(params.workspaceId)} />;
+  return <AgentChatSessionListScreen workspaceId={firstParam(params.workspaceId)} />;
 }
 
 function firstParam(value: string | string[] | undefined) {

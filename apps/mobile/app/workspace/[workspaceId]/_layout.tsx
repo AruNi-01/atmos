@@ -5,13 +5,16 @@ export default function WorkspaceStack() {
   const theme = useMobileTheme();
 
   return (
-    <Stack
-      screenOptions={{
-        contentStyle: { backgroundColor: theme.colors.background },
-        headerBackButtonDisplayMode: "minimal",
-        headerShadowVisible: false,
-        headerTintColor: theme.colors.label,
-      }}
-    />
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <Stack
+        screenOptions={{
+          contentStyle: { backgroundColor: theme.colors.background },
+          headerBackButtonDisplayMode: "minimal",
+          headerShadowVisible: false,
+          headerTintColor: theme.colors.label,
+        }}
+      />
+    </>
   );
 }

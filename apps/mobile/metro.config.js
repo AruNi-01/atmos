@@ -9,18 +9,22 @@ const withCss = withNativewind(config, {
   globalClassNamePolyfill: true,
 });
 
+const cssResolve = withCss.resolver.resolveRequest;
 const expoUiWebStub = path.resolve(__dirname, "src/ui/primitives/expo-ui-web-stub.tsx");
-const previousResolveRequest = withCss.resolver.resolveRequest;
+const remendOnJs = path.resolve(__dirname, "src/features/agent-chat/remend-on-js.ts");
 
 withCss.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (moduleName.includes("worklets/remendWorklet")) {
+    return { filePath: remendOnJs, type: "sourceFile" };
+  }
   if (
     platform === "web" &&
     (moduleName === "@expo/ui" || moduleName.startsWith("@expo/ui/"))
   ) {
     return { filePath: expoUiWebStub, type: "sourceFile" };
   }
-  if (previousResolveRequest) {
-    return previousResolveRequest(context, moduleName, platform);
+  if (typeof cssResolve === "function") {
+    return cssResolve(context, moduleName, platform);
   }
   return context.resolveRequest(context, moduleName, platform);
 };

@@ -3,11 +3,12 @@ import type { StyleProp, ViewStyle } from "react-native";
 import { StyleSheet, View } from "react-native";
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "expo-glass-effect";
 import type { GlassViewProps } from "expo-glass-effect";
-import { colors, radii } from "@/theme/colors";
+import { colors, radii, type MobileThemeColorScheme } from "@/theme/colors";
 import { shadows } from "@/theme/shadows";
 import { useMobileTheme } from "@/theme/theme-store";
 
 type GlassPanelProps = PropsWithChildren<{
+  colorScheme?: MobileThemeColorScheme;
   fallbackStyle?: StyleProp<ViewStyle>;
   glassEffectStyle?: GlassViewProps["glassEffectStyle"];
   interactive?: boolean;
@@ -18,6 +19,7 @@ type GlassPanelProps = PropsWithChildren<{
 
 export function GlassPanel({
   children,
+  colorScheme,
   fallbackStyle,
   glassEffectStyle = "regular",
   interactive,
@@ -26,6 +28,8 @@ export function GlassPanel({
   tintColor,
 }: GlassPanelProps) {
   const theme = useMobileTheme();
+  const resolvedScheme = colorScheme ?? theme.colorScheme;
+  const isDark = resolvedScheme === "dark";
   const shouldUseLiquidGlass = isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
   const resolvedTintColor = tintColor ?? theme.colors.glassTint;
   const panelStyle = [styles.panel, { borderColor: theme.colors.glassBorder }, style];
@@ -33,10 +37,10 @@ export function GlassPanel({
   if (shouldUseLiquidGlass) {
     return (
       <GlassView
-        colorScheme={theme.colorScheme}
+        colorScheme={resolvedScheme}
         glassEffectStyle={glassEffectStyle}
         isInteractive={interactive}
-        style={[shadow ? (theme.isDark ? styles.darkShadow : styles.lightShadow) : null, panelStyle]}
+        style={[shadow ? (isDark ? styles.darkShadow : styles.lightShadow) : null, panelStyle]}
         tintColor={resolvedTintColor}
       >
         {children}
@@ -48,7 +52,7 @@ export function GlassPanel({
     <View
       style={[
         styles.fallback,
-        shadow ? (theme.isDark ? styles.darkShadow : styles.lightShadow) : null,
+        shadow ? (isDark ? styles.darkShadow : styles.lightShadow) : null,
         { backgroundColor: theme.colors.glassFallback },
         fallbackStyle,
         panelStyle,

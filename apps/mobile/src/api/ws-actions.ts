@@ -1,4 +1,25 @@
 import type {
+  AgentChatBackfillRequest,
+  AgentChatConfigureRequest,
+  AgentChatCreateRequest,
+  AgentChatIdRequest,
+  AgentChatListRequest,
+  AgentChatMessagesRequest,
+  AgentChatPermissionRespondRequest,
+  AgentChatPrefsSetRequest,
+  AgentChatQueueAddRequest,
+  AgentChatQueueDeleteRequest,
+  AgentChatQueueReorderRequest,
+  AgentChatQueueUpdateRequest,
+  AgentChatRenameRequest,
+  AgentChatSendRequest,
+  AgentChatSessionOpRespondRequest,
+  AgentChatSnapshot,
+  AgentChatSteerRequest,
+  AgentChatSubscribeRequest,
+  AgentOptionsGetRequest,
+} from "@atmos/api-types/ws/dto/agent-chat";
+import type {
   GithubIssuePayload,
   GithubPrPayload,
   WorkspaceSetupProgressNotification,
@@ -167,6 +188,72 @@ export const wsActions = {
     },
   ) {
     return client.request("github_pr_list", payload);
+  },
+  agentChatList(client: MobileWsClient, payload: AgentChatListRequest) {
+    return client.request("agent_chat_list", payload);
+  },
+  agentChatCreate(client: MobileWsClient, payload: AgentChatCreateRequest) {
+    return client.request("agent_chat_create", payload);
+  },
+  agentChatMessages(client: MobileWsClient, payload: AgentChatMessagesRequest) {
+    return client.request("agent_chat_messages", payload);
+  },
+  agentChatGet(client: MobileWsClient, payload: AgentChatIdRequest) {
+    return client.request("agent_chat_get", payload) as Promise<AgentChatSnapshot>;
+  },
+  agentChatSubscribe(client: MobileWsClient, payload: AgentChatSubscribeRequest) {
+    return client.request("agent_chat_subscribe", payload);
+  },
+  agentChatBackfill(client: MobileWsClient, payload: AgentChatBackfillRequest) {
+    return client.request("agent_chat_backfill", payload);
+  },
+  agentChatUnsubscribe(client: MobileWsClient, payload: AgentChatIdRequest) {
+    return client.request("agent_chat_unsubscribe", payload);
+  },
+  agentChatSend(client: MobileWsClient, payload: AgentChatSendRequest) {
+    return client.request("agent_chat_send", payload);
+  },
+  agentChatSteer(client: MobileWsClient, payload: AgentChatSteerRequest) {
+    return client.request("agent_chat_steer", payload);
+  },
+  agentChatQueueAdd(client: MobileWsClient, payload: AgentChatQueueAddRequest) {
+    return client.request("agent_chat_queue_add", payload);
+  },
+  agentChatQueueUpdate(client: MobileWsClient, payload: AgentChatQueueUpdateRequest) {
+    return client.request("agent_chat_queue_update", payload);
+  },
+  agentChatQueueReorder(client: MobileWsClient, payload: AgentChatQueueReorderRequest) {
+    return client.request("agent_chat_queue_reorder", payload);
+  },
+  agentChatQueueDelete(client: MobileWsClient, payload: AgentChatQueueDeleteRequest) {
+    return client.request("agent_chat_queue_delete", payload);
+  },
+  agentChatCancel(client: MobileWsClient, payload: AgentChatIdRequest) {
+    return client.request("agent_chat_cancel", payload);
+  },
+  agentChatPermissionRespond(client: MobileWsClient, payload: AgentChatPermissionRespondRequest) {
+    return client.request("agent_chat_permission_respond", payload);
+  },
+  agentChatSessionOpRespond(client: MobileWsClient, payload: AgentChatSessionOpRespondRequest) {
+    return client.request("agent_chat_session_op_respond", payload);
+  },
+  agentChatConfigure(client: MobileWsClient, payload: AgentChatConfigureRequest) {
+    return client.request("agent_chat_configure", payload);
+  },
+  agentOptionsGet(client: MobileWsClient, payload: AgentOptionsGetRequest) {
+    return client.request("agent_options_get", payload);
+  },
+  agentChatPrefsGet(client: MobileWsClient) {
+    return client.request("agent_chat_prefs_get");
+  },
+  agentChatPrefsSet(client: MobileWsClient, payload: AgentChatPrefsSetRequest) {
+    return client.request("agent_chat_prefs_set", payload);
+  },
+  agentChatRename(client: MobileWsClient, payload: AgentChatRenameRequest) {
+    return client.request("agent_chat_rename", payload);
+  },
+  agentChatDelete(client: MobileWsClient, payload: AgentChatIdRequest) {
+    return client.request("agent_chat_delete", payload);
   },
 };
 

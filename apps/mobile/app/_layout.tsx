@@ -130,7 +130,6 @@ export default function RootLayout() {
               contentStyle: sheetContentStyle,
             }}
           />
-          <Stack.Screen name="workspace/[workspaceId]" options={{ headerShown: false }} />
           <Stack.Screen
             name="preview"
             options={{

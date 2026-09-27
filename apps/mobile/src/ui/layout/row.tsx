@@ -8,12 +8,14 @@ export function Row({
   title,
   subtitle,
   meta,
+  onLongPress,
   onPress,
   children,
 }: {
   title: string;
   subtitle?: string;
   meta?: string;
+  onLongPress?: () => void;
   onPress?: () => void;
   children?: ReactNode;
 }) {
@@ -82,10 +84,11 @@ export function Row({
     </View>
   );
 
-  if (!onPress) return content;
+  if (!onPress && !onLongPress) return content;
 
   return (
     <Pressable
+      onLongPress={onLongPress}
       onPress={onPress}
       style={({ pressed: isPressed }) =>
         isPressed ? { backgroundColor: theme.colors.mutedPressed } : undefined

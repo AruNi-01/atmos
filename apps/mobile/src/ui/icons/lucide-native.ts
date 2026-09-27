@@ -6,6 +6,7 @@ import {
   CircleCheck,
   CheckCircle2,
   ChevronDown,
+  ChevronUp,
   ChevronRight,
   Clock,
   Clock3,
@@ -14,18 +15,31 @@ import {
   Folder,
   FolderKanban,
   Folders,
+  Hammer,
+  Hand,
+  Image as ImageGlyph,
   Keyboard,
   KeyRound,
   Laptop,
+  Layers,
   LayoutGrid,
   Link2,
+  ListTodo,
   LoaderCircle,
+  MessageCircle,
+  MessageSquare,
   MessagesSquare,
   ListFilter,
+  Search,
+  Send,
+  Shield,
+  Sparkles,
+  Star,
   LogOut,
   Pencil,
   Plus,
   PlusCircle,
+  Paperclip,
   QrCode,
   Radio,
   RefreshCw,
@@ -33,6 +47,7 @@ import {
   Settings,
   ShieldAlert,
   SquareTerminal,
+  Square,
   SunMoon,
   Tag,
   Tags,
@@ -49,6 +64,7 @@ export const CircleCheckIcon = CircleCheck;
 export const CheckIcon = Check;
 export const CheckCircleIcon = CheckCircle2;
 export const ChevronDownIcon = ChevronDown;
+export const ChevronUpIcon = ChevronUp;
 export const ChevronRightIcon = ChevronRight;
 export const LayoutGridIcon = LayoutGrid;
 export const MessagesSquareIcon = MessagesSquare;
@@ -63,7 +79,19 @@ export const ListFilterIcon = ListFilter;
 export const TagIcon = Tag;
 export const TagsIcon = Tags;
 export const TimerIcon = Timer;
+export const HammerIcon = Hammer;
+export const HandIcon = Hand;
+export const ImageIcon = ImageGlyph;
 export const KeyboardIcon = Keyboard;
+export const LayersIcon = Layers;
+export const ListTodoIcon = ListTodo;
+export const MessageCircleIcon = MessageCircle;
+export const MessageSquareIcon = MessageSquare;
+export const SearchIcon = Search;
+export const SendIcon = Send;
+export const ShieldIcon = Shield;
+export const SparklesIcon = Sparkles;
+export const StarIcon = Star;
 export const KeyIcon = KeyRound;
 export const KeyRoundIcon = KeyRound;
 export const LaptopIcon = Laptop;
@@ -73,12 +101,14 @@ export const LogOutIcon = LogOut;
 export const PencilIcon = Pencil;
 export const PlusIcon = Plus;
 export const PlusCircleIcon = PlusCircle;
+export const PaperclipIcon = Paperclip;
 export const QrCodeIcon = QrCode;
 export const RadioIcon = Radio;
 export const RefreshIcon = RefreshCw;
 export const RotateIcon = RotateCcw;
 export const SettingsIcon = Settings;
 export const ShieldAlertIcon = ShieldAlert;
+export const SquareIcon = Square;
 export const SunMoonIcon = SunMoon;
 export const TerminalIcon = SquareTerminal;
 export const TrashIcon = Trash2;
