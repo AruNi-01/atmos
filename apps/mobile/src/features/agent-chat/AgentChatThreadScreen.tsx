@@ -190,16 +190,6 @@ export function AgentChatThreadScreen({
       fast: switchingAgent ? null : (patch.fastEnabled != null ? fastWireValue(patch.fastEnabled) : fastId),
       context: switchingAgent ? null : (patch.contextId ?? contextId),
     };
-    const previous: PickedConfig = {
-      chatId,
-      providerId: providerId || null,
-      model: modelId,
-      thinking: thinkingId,
-      mode: modeId,
-      permissionMode: permissionId,
-      fast: fastId,
-      context: contextId,
-    };
     setPicked(next);
     void wsActions.agentChatConfigure(client, {
       chat_id: chatId,
@@ -211,7 +201,8 @@ export function AgentChatThreadScreen({
       ...(patch.fastEnabled != null ? { fast: fastWireValue(patch.fastEnabled) } : {}),
       ...(patch.contextId ? { context: patch.contextId } : {}),
     }).catch(() => {
-      setPicked(previous);
+      setPicked((current) => (current === next ? null : current));
+      void snapshotQuery.refetch();
     });
   }, [
     chatId,
@@ -222,6 +213,7 @@ export function AgentChatThreadScreen({
     modelId,
     permissionId,
     providerId,
+    snapshotQuery,
     thinkingId,
     wsState,
   ]);

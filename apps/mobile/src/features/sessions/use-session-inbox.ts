@@ -110,15 +110,7 @@ export function useSessionInbox() {
   const chatTitleQuery = useQuery({
     queryKey: ["session-chat-titles", selectedServerId],
     enabled: Boolean(client && connected && focused),
-    queryFn: async () => {
-      const response = await wsActions.agentChatList(client!, { all: true, limit: 200 });
-      const titles: Record<string, string> = {};
-      for (const item of response.items ?? []) {
-        const title = item.title?.trim();
-        if (!item.deleted && title) titles[item.id] = title;
-      }
-      return titles;
-    },
+    queryFn: () => loadSessionChatTitles(client!),
   });
 
   useFocusEffect(
@@ -129,6 +121,9 @@ export function useSessionInbox() {
       });
       void queryClient.invalidateQueries({
         queryKey: ["session-terminal-candidates", selectedServerId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["session-chat-titles", selectedServerId],
       });
     }, [client, connected, queryClient, selectedServerId]),
   );
@@ -142,6 +137,9 @@ export function useSessionInbox() {
       });
       void queryClient.invalidateQueries({
         queryKey: ["session-terminal-candidates", selectedServerId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["session-chat-titles", selectedServerId],
       });
     });
     return () => {
@@ -347,6 +345,31 @@ async function loadSessionGitStatus(
     }),
   );
   return Object.fromEntries(entries);
+}
+
+const CHAT_TITLE_PAGE = 100;
+const CHAT_TITLE_PAGES = 20;
+
+async function loadSessionChatTitles(client: MobileWsClient): Promise<Record<string, string>> {
+  const titles: Record<string, string> = {};
+  let cursor: string | null = null;
+  for (let page = 0; page < CHAT_TITLE_PAGES; page += 1) {
+    const response = await wsActions.agentChatList(client, {
+      all: true,
+      cursor,
+      limit: CHAT_TITLE_PAGE,
+    });
+    const batch = response.items ?? [];
+    for (const item of batch) {
+      const title = item.title?.trim();
+      if (!item.deleted && title) titles[item.id] = title;
+    }
+    if (batch.length < CHAT_TITLE_PAGE) break;
+    const lastId = batch[batch.length - 1]?.id ?? null;
+    if (!lastId || lastId === cursor) break;
+    cursor = lastId;
+  }
+  return titles;
 }
 
 async function loadSessionBranchPrs(
