@@ -190,6 +190,16 @@ export function AgentChatThreadScreen({
       fast: switchingAgent ? null : (patch.fastEnabled != null ? fastWireValue(patch.fastEnabled) : fastId),
       context: switchingAgent ? null : (patch.contextId ?? contextId),
     };
+    const previous: PickedConfig = {
+      chatId,
+      providerId: providerId || null,
+      model: modelId,
+      thinking: thinkingId,
+      mode: modeId,
+      permissionMode: permissionId,
+      fast: fastId,
+      context: contextId,
+    };
     setPicked(next);
     void wsActions.agentChatConfigure(client, {
       chat_id: chatId,
@@ -200,7 +210,9 @@ export function AgentChatThreadScreen({
       ...(patch.permissionId ? { permission_mode: patch.permissionId } : {}),
       ...(patch.fastEnabled != null ? { fast: fastWireValue(patch.fastEnabled) } : {}),
       ...(patch.contextId ? { context: patch.contextId } : {}),
-    }).catch(() => undefined);
+    }).catch(() => {
+      setPicked(previous);
+    });
   }, [
     chatId,
     client,

@@ -5,12 +5,12 @@ import type { SessionInboxRow } from "./session-inbox";
 export function rowsInScope(
   rows: readonly SessionInboxRow[],
   workspaceIds: ReadonlySet<string>,
-  projectName?: string | null,
+  projectId?: string | null,
 ): SessionInboxRow[] {
-  const project = projectName?.trim() || null;
+  const project = projectId?.trim() || null;
   return rows.filter((row) => {
     if (row.workspaceId && workspaceIds.has(row.workspaceId)) return true;
-    return Boolean(row.projectScoped && project && row.projectName === project);
+    return Boolean(row.projectScoped && project && row.projectId === project);
   });
 }
 

@@ -215,6 +215,7 @@ describe("session inbox", () => {
         }),
       ],
       workspaces: [{ id: "ws", projectName: "Atmos", workspaceName: "api", branch: "main" }],
+      chatTitles: { abc: "Fix login" },
     });
 
     expect(inbox.rows.find((row) => row.id === "chat:abc")).toMatchObject({
@@ -223,7 +224,7 @@ describe("session inbox", () => {
       chatId: "abc",
       kind: "chat",
       terminalCandidateId: null,
-      title: "chat:abc",
+      title: "Fix login",
       workspaceId: "ws",
     });
     expect(inbox.rows.find((row) => row.id === "side")).toMatchObject({

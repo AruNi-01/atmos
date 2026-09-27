@@ -76,9 +76,16 @@ export function useAgentChatThread(chatId: string) {
       }
       if (cancelled) return;
       try {
-        const history = await wsActions.agentChatMessages(client, { chat_id: chatId });
+        const snapshot = await wsActions.agentChatGet(client, { chat_id: chatId });
         if (cancelled) return;
-        let state = createChatTranscript(chatId, history.messages ?? []);
+        let state = createChatTranscript(chatId, snapshot.messages ?? []);
+        state = {
+          ...state,
+          pendingPermission: snapshot.pending_permission ?? null,
+          pendingSessionOp: snapshot.pending_session_op ?? null,
+          queue: snapshot.queue ?? [],
+          runningTurnId: snapshot.running_turn_id ?? null,
+        };
         const queued = buffer.splice(0, buffer.length);
         for (const event of queued) {
           if (!event) continue;

@@ -27,11 +27,26 @@ describe("scoped session rows", () => {
     const rows = [
       row({ id: "here", workspaceId: "ws" }),
       row({ id: "elsewhere", workspaceId: "other" }),
-      row({ id: "project", projectName: "Atmos", projectScoped: true, workspaceId: null, workspaceName: null }),
+      row({
+        id: "project",
+        projectId: "proj-1",
+        projectName: "Atmos",
+        projectScoped: true,
+        workspaceId: null,
+        workspaceName: null,
+      }),
+      row({
+        id: "same-name",
+        projectId: "proj-2",
+        projectName: "Atmos",
+        projectScoped: true,
+        workspaceId: null,
+        workspaceName: null,
+      }),
     ];
 
     expect(rowsInScope(rows, new Set(["ws"])).map((item) => item.id)).toEqual(["here"]);
-    expect(rowsInScope(rows, new Set(["missing"]), "Atmos").map((item) => item.id)).toEqual(["project"]);
+    expect(rowsInScope(rows, new Set(["missing"]), "proj-1").map((item) => item.id)).toEqual(["project"]);
   });
 
   test("uses the terminal title and keeps session status", () => {

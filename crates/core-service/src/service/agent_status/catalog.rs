@@ -4,10 +4,9 @@ use std::collections::HashSet;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-use infra::db::entities::workspace;
-use infra::db::repo::{AgentSessionCatalogRepo, AgentSessionCatalogRow};
+use infra::db::repo::{AgentSessionCatalogRepo, AgentSessionCatalogRow, WorkspaceRepo};
 use parking_lot::Mutex;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::DatabaseConnection;
 use tokio::sync::{mpsc, oneshot};
 use tracing::warn;
 
@@ -70,9 +69,8 @@ impl AgentSessionCatalogStore for SqliteAgentSessionCatalog {
     }
 
     async fn archived_workspace_ids(&self) -> Result<HashSet<String>, String> {
-        let rows = workspace::Entity::find()
-            .filter(workspace::Column::IsArchived.eq(true))
-            .all(self.db.as_ref())
+        let rows = WorkspaceRepo::new(self.db.as_ref())
+            .list_archived()
             .await
             .map_err(|err| err.to_string())?;
         Ok(rows.into_iter().map(|row| row.guid).collect())

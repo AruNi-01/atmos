@@ -137,6 +137,31 @@ impl TitleHub {
         guard.values().cloned().collect()
     }
 
+    /// Drop a destroyed window so a reused name does not inherit its titles.
+    pub fn forget(&self, workspace_id: &str, window_name: &str) {
+        if workspace_id.is_empty() || window_name.is_empty() {
+            return;
+        }
+        let key = format!("{workspace_id}\0{window_name}");
+        {
+            let mut records = self.inner.records.lock().unwrap_or_else(|e| e.into_inner());
+            if records.remove(&key).is_none() {
+                return;
+            }
+        }
+        self.inner
+            .scanners
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&key);
+        self.inner
+            .pending
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&key);
+        persist_records(&self.inner);
+    }
+
     pub fn lookup(&self, workspace_id: &str, window_name: &str) -> Option<TerminalTitleUpdate> {
         if workspace_id.is_empty() || window_name.is_empty() {
             return None;
@@ -703,6 +728,32 @@ mod tests {
     use std::collections::HashSet;
 
     use super::*;
+
+    #[test]
+    fn forget_drops_a_destroyed_window_title() {
+        let dir = std::env::temp_dir().join(format!("atmos-title-hub-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("dir");
+        let hub = TitleHub::start(dir.join("titles.json"));
+        let identity = TitleIdentity {
+            workspace_id: "ws".into(),
+            tmux_window_name: "claude".into(),
+            tmux_window_index: Some(1),
+            session_id: "sess".into(),
+        };
+        hub.apply(
+            &identity,
+            OscHit::Shim {
+                kind: ShimKind::Shell,
+                start: true,
+                payload: "claude".into(),
+            },
+        );
+        assert!(hub.lookup("ws", "claude").is_some());
+        hub.forget("ws", "claude");
+        assert!(hub.lookup("ws", "claude").is_none());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn dynamic_title_distinguishes_agent_command_from_shell() {

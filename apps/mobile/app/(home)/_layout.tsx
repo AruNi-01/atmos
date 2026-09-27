@@ -6,8 +6,6 @@ import {
 } from "@rbayuokt/expo-adaptive-glass/navigation";
 import { useWindowDimensions } from "react-native";
 import { Tabs } from "expo-router";
-import { useMobileWs } from "@/providers/MobileWsProvider";
-import { useSessionStore } from "@/stores/session-store";
 import { useMobileTheme } from "@/theme/theme-store";
 import { HomeTabBarInsetContext } from "@/ui/layout/home-tab-bar-inset";
 import { LayoutGridIcon, MessagesSquareIcon } from "@/ui/icons/lucide-native";
@@ -100,12 +98,9 @@ export default function HomeTabsLayout() {
   const theme = useMobileTheme();
   const barWidth = Math.min(GLASS_TAB_SLOT * GLASS_TAB_COUNT, windowWidth - 32);
   const barSide = Math.max(16, Math.round((windowWidth - barWidth) / 2));
-  const hasDeviceCredential = useSessionStore((state) => state.hasDeviceCredential);
-  const { state: wsState } = useMobileWs();
-  const showTabs = hasDeviceCredential && wsState === "open";
 
   return (
-    <HomeTabBarInsetContext.Provider value={showTabs ? GLASS_TAB_SCROLL_CLEARANCE : 0}>
+    <HomeTabBarInsetContext.Provider value={GLASS_TAB_SCROLL_CLEARANCE}>
       <Tabs
         screenLayout={({ children }) => <GlassScreenBackdrop>{children}</GlassScreenBackdrop>}
         screenOptions={{
@@ -114,20 +109,20 @@ export default function HomeTabsLayout() {
           tabBarActiveTintColor: theme.colors.label,
           tabBarInactiveTintColor: theme.colors.secondaryLabel,
         }}
-        tabBar={(props) =>
-          showTabs ? (
-            // The app provider stays clear (clarity 1), which switches iOS 26 glass
-            // to UIGlassEffect.clear and thins the blur. This bar has no clarity prop,
-            // so a local provider is what turns it into the frosted regular material.
-            <GlassProvider clarity={0} quality="ultra">
-              <GlassNavigationTabBar
-                {...glassTabBarProps(props, theme.colors.label, theme.colors.secondaryLabel)}
-                intensity={1}
-                style={{ bottom: GLASS_TAB_BAR_BOTTOM, left: barSide, right: barSide }}
-              />
-            </GlassProvider>
-          ) : null
-        }
+        tabBar={(props) => (
+          // The app provider stays clear (clarity 1), which switches iOS 26 glass
+          // to UIGlassEffect.clear and thins the blur. This bar has no clarity prop,
+          // so a local provider is what turns it into the frosted regular material.
+          // The bar stays up when the Computer is disconnected so Session can show
+          // its not-connected state.
+          <GlassProvider clarity={0} quality="ultra">
+            <GlassNavigationTabBar
+              {...glassTabBarProps(props, theme.colors.label, theme.colors.secondaryLabel)}
+              intensity={1}
+              style={{ bottom: GLASS_TAB_BAR_BOTTOM, left: barSide, right: barSide }}
+            />
+          </GlassProvider>
+        )}
       >
         <Tabs.Screen
           name="(workspace)"

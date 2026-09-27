@@ -356,6 +356,7 @@ impl TerminalService {
                 hooks.clear_sessions_for_stable_pane(&stable_pane_id);
             }
         }
+        self.titles.forget(workspace_id, terminal_name);
     }
 
     /// Create terminal service with custom TmuxEngine

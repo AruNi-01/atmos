@@ -107,6 +107,20 @@ export function useSessionInbox() {
     queryFn: () => wsActions.agentSessionStatusList(client!),
   });
 
+  const chatTitleQuery = useQuery({
+    queryKey: ["session-chat-titles", selectedServerId],
+    enabled: Boolean(client && connected && focused),
+    queryFn: async () => {
+      const response = await wsActions.agentChatList(client!, { all: true, limit: 200 });
+      const titles: Record<string, string> = {};
+      for (const item of response.items ?? []) {
+        const title = item.title?.trim();
+        if (!item.deleted && title) titles[item.id] = title;
+      }
+      return titles;
+    },
+  });
+
   useFocusEffect(
     useCallback(() => {
       if (!client || !connected) return;
@@ -178,6 +192,7 @@ export function useSessionInbox() {
       projects: sources.projects,
       archivedWorkspaceIds: sources.archivedIds,
       pendingWorkspaceIds,
+      chatTitles: chatTitleQuery.data,
     });
     const prByWorkspace = prStateByWorkspace(sources.active, prPlan.byWorkspaceId, prQuery.data);
     const rows = joined.map((row) => ({
@@ -198,6 +213,7 @@ export function useSessionInbox() {
     prPlan.byWorkspaceId,
     prQuery.data,
     sources,
+    chatTitleQuery.data,
     statusQuery.data?.sessions,
     statusQuery.isPending,
   ]);

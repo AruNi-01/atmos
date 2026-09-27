@@ -59,6 +59,8 @@ export type SessionInboxRow = {
   title: string;
   updatedAt: string | null;
   projectName: string | null;
+  /** Stable project id for a project-scoped session. */
+  projectId?: string | null;
   workspaceName: string | null;
   branch: string | null;
   prState: SessionPrState | null;
@@ -80,6 +82,8 @@ export type SessionInboxInput = {
   archivedWorkspaceIds?: string[];
   /** Workspaces whose terminal candidates have not loaded yet. Their snapshots stay hidden. */
   pendingWorkspaceIds?: string[];
+  /** Saved chat titles keyed by chat id. */
+  chatTitles?: Readonly<Record<string, string>>;
 };
 
 export type SessionWorkspaceRecord = {
@@ -195,7 +199,7 @@ export function joinSessionRows(input: SessionInboxInput): SessionInboxRow[] {
       rows.push({
         id: sessionId,
         bucket: asBucket(snapshot.group_key),
-        title: sessionId,
+        title: input.chatTitles?.[chatId]?.trim() || "Chat",
         updatedAt: snapshot.updated_at,
         projectName: clean(workspace.projectName),
         workspaceName: clean(workspace.workspaceName),

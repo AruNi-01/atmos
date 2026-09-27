@@ -4,7 +4,7 @@
  * shortens that column so the field sits on top of the keyboard.
  */
 import { useEffect, useState, type ReactNode } from "react";
-import { Keyboard, LayoutAnimation, View, type KeyboardEvent } from "react-native";
+import { Keyboard, LayoutAnimation, Platform, View, type KeyboardEvent } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 function animateWithKeyboard(event: KeyboardEvent) {
@@ -26,11 +26,13 @@ export function ChatKeyboardFrame({
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
-    const show = Keyboard.addListener("keyboardWillShow", (event: KeyboardEvent) => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const show = Keyboard.addListener(showEvent, (event: KeyboardEvent) => {
       animateWithKeyboard(event);
       setKeyboardHeight(event.endCoordinates.height);
     });
-    const hide = Keyboard.addListener("keyboardWillHide", (event: KeyboardEvent) => {
+    const hide = Keyboard.addListener(hideEvent, (event: KeyboardEvent) => {
       animateWithKeyboard(event);
       setKeyboardHeight(0);
     });

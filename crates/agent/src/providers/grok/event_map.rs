@@ -178,11 +178,13 @@ pub(crate) fn map_event(
                         crate::contract::AgentToolStatus::Failed => ToolEventKind::Failed,
                         _ => ToolEventKind::Updated,
                     };
+                    // The incoming id can be a poll id for a tool that already
+                    // started. That update must not close the answer in progress.
                     Some(seal_around_new_tool(
                         state,
                         turn_id,
                         tool_event(tool, kind),
-                        close_answer,
+                        false,
                     ))
                 }
             }
