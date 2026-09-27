@@ -124,18 +124,18 @@ describe("session inbox", () => {
     }
   });
 
-  test("null time is done and absent from recent", () => {
+  test("a shell that never became an agent session is omitted", () => {
     const inbox = buildSessionInbox({
       candidates: [candidate({ id: "never", workspaceId: "ws", label: "Never", tmuxWindowName: "never" })],
       snapshots: [],
     });
 
-    expect(inbox.rows[0]).toMatchObject({ id: "never", bucket: "done", updatedAt: null });
-    expect(inbox.recent.map((row) => row.id)).not.toContain("never");
-    expect(inbox.cards.find((card) => card.bucket === "done")?.count).toBe(1);
+    expect(inbox.rows).toEqual([]);
+    expect(inbox.recent).toEqual([]);
+    expect(inbox.cards.find((card) => card.bucket === "done")?.count).toBe(0);
   });
 
-  test("two candidates in one workspace stay two rows", () => {
+  test("two open agent windows in one workspace stay two rows", () => {
     const inbox = buildSessionInbox({
       candidates: [
         candidate({
@@ -157,7 +157,10 @@ describe("session inbox", () => {
           branch: "main",
         }),
       ],
-      snapshots: [],
+      snapshots: [
+        snapshot({ session_id: "ws:editor", group_key: "done" }),
+        snapshot({ session_id: "ws:shell", group_key: "running" }),
+      ],
     });
 
     expect(inbox.rows).toHaveLength(2);
@@ -177,13 +180,13 @@ describe("session inbox", () => {
           dynamicTitle: "grok",
         }),
       ],
-      snapshots: [],
+      snapshots: [snapshot({ session_id: "ws:3", group_key: "done" })],
     });
 
     expect(inbox.rows.map((row) => row.title)).toEqual(["Greeting and asking who Grok is"]);
   });
 
-  test("drops a chat snapshot and keeps a side-chat terminal", () => {
+  test("keeps a chat snapshot and drops a non-chat non-terminal snapshot", () => {
     const inbox = buildSessionInbox({
       candidates: [
         candidate({
@@ -199,20 +202,38 @@ describe("session inbox", () => {
           session_id: "chat:abc",
           surface: "chat",
           group_key: "running",
+          context_id: "ws",
         }),
         snapshot({
           session_id: "ws:side-chat",
           group_key: "running",
         }),
+        snapshot({
+          session_id: "preview:1",
+          surface: "preview",
+          group_key: "attention",
+        }),
       ],
+      workspaces: [{ id: "ws", projectName: "Atmos", workspaceName: "api", branch: "main" }],
     });
 
-    expect(inbox.rows.map((row) => row.title)).toEqual(["Side chat"]);
-    expect(inbox.rows.some((row) => row.id.startsWith("chat:") || row.title.startsWith("chat:"))).toBe(false);
-    expect(inbox.rows[0]?.bucket).toBe("running");
+    expect(inbox.rows.find((row) => row.id === "chat:abc")).toMatchObject({
+      archiveSessionId: "chat:abc",
+      bucket: "running",
+      chatId: "abc",
+      kind: "chat",
+      terminalCandidateId: null,
+      title: "chat:abc",
+      workspaceId: "ws",
+    });
+    expect(inbox.rows.find((row) => row.id === "side")).toMatchObject({
+      bucket: "running",
+      title: "Side chat",
+    });
+    expect(inbox.rows.some((row) => row.id === "preview:1" || row.archiveSessionId === "preview:1")).toBe(false);
   });
 
-  test("keeps a terminal snapshot when its candidate is gone", () => {
+  test("drops a terminal whose window is already gone", () => {
     const inbox = buildSessionInbox({
       candidates: [],
       snapshots: [
@@ -226,39 +247,32 @@ describe("session inbox", () => {
       workspaces: [{ id: "ws", projectName: "Atmos", workspaceName: "api", branch: "main" }],
     });
 
-    expect(inbox.rows).toEqual([
-      expect.objectContaining({
-        title: "ws:gone",
-        bucket: "done",
-        updatedAt: "2026-09-22T03:00:00Z",
-        projectName: "Atmos",
-        workspaceName: "api",
-        terminalCandidateId: null,
-        projectScoped: false,
-      }),
-    ]);
-    expect(inbox.recent.map((row) => row.title)).toEqual(["ws:gone"]);
+    expect(inbox.rows).toEqual([]);
+    expect(inbox.recent).toEqual([]);
   });
 
-  test("project-scoped snapshot omits the workspace name", () => {
+  test("keeps a terminal while its workspace candidates are still loading", () => {
     const inbox = buildSessionInbox({
       candidates: [],
       snapshots: [
         snapshot({
-          session_id: "proj:pane",
-          group_key: "done",
-          context_id: "proj",
+          session_id: "ws:open",
+          group_key: "running",
+          context_id: "ws",
         }),
       ],
-      projects: [{ id: "proj", name: "Atmos" }],
+      workspaces: [{ id: "ws", projectName: "Atmos", workspaceName: "api", branch: "main" }],
+      pendingWorkspaceIds: ["ws"],
     });
 
-    expect(inbox.rows[0]).toMatchObject({
-      projectScoped: true,
-      projectName: "Atmos",
-      workspaceName: null,
-      workspaceId: null,
-    });
+    expect(inbox.rows).toEqual([
+      expect.objectContaining({
+        id: "ws:open",
+        bucket: "running",
+        workspaceId: "ws",
+        terminalCandidateId: null,
+      }),
+    ]);
   });
 
   test("omits a snapshot whose workspace is archived", () => {

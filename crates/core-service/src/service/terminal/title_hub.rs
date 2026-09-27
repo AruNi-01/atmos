@@ -5,7 +5,7 @@
 //! it after a short quiet period. Clients render that snapshot; they do not
 //! detect titles themselves.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex};
@@ -597,6 +597,47 @@ fn is_noisy_shell_title(value: &str) -> bool {
     trimmed.contains('@') && trimmed.contains(':') && !trimmed.contains(' ')
 }
 
+/// Whether a shell dynamic title is an agent command.
+/// `None` means the title is missing or only a tmux index, so the caller
+/// should keep the existing session. `Some(false)` is a path or another command.
+pub(super) fn dynamic_title_runs_agent(title: &str, commands: &HashSet<String>) -> Option<bool> {
+    let title = title.trim();
+    if title.is_empty() || is_tmux_index(title) || commands.is_empty() {
+        return None;
+    }
+    if is_path_dynamic_title(title) {
+        return Some(false);
+    }
+    let token = command_token(title);
+    if token.is_empty() {
+        return None;
+    }
+    if commands.contains(&token) || (commands.contains("grok") && token.starts_with("grok-")) {
+        return Some(true);
+    }
+    Some(false)
+}
+
+fn command_token(title: &str) -> String {
+    let token = title.split_whitespace().next().unwrap_or("").trim();
+    token
+        .trim_matches(|ch| ch == '"' || ch == '\'')
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase()
+}
+
+fn is_path_dynamic_title(title: &str) -> bool {
+    let trimmed = title.trim();
+    trimmed.starts_with(".../")
+        || trimmed.starts_with("~/")
+        || trimmed == "~"
+        || trimmed.starts_with('/')
+        || (trimmed.contains('/') && !trimmed.contains(' '))
+}
+
 fn is_tmux_index(value: &str) -> bool {
     !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit())
 }
@@ -659,7 +700,35 @@ fn shorten_path(full: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use super::*;
+
+    #[test]
+    fn dynamic_title_distinguishes_agent_command_from_shell() {
+        let commands = HashSet::from([
+            "claude".to_string(),
+            "codex".to_string(),
+            "cursor-agent".to_string(),
+            "grok".to_string(),
+        ]);
+        assert_eq!(dynamic_title_runs_agent("claude", &commands), Some(true));
+        assert_eq!(
+            dynamic_title_runs_agent("cursor-agent", &commands),
+            Some(true)
+        );
+        assert_eq!(
+            dynamic_title_runs_agent("grok-macos-aarch64", &commands),
+            Some(true)
+        );
+        assert_eq!(
+            dynamic_title_runs_agent(".../proj/app", &commands),
+            Some(false)
+        );
+        assert_eq!(dynamic_title_runs_agent("vim", &commands), Some(false));
+        assert_eq!(dynamic_title_runs_agent("3", &commands), None);
+        assert_eq!(dynamic_title_runs_agent("", &commands), None);
+    }
 
     fn identity() -> TitleIdentity {
         TitleIdentity {

@@ -30,7 +30,7 @@ pub use attention_summary::{
     AttentionSummaryStatus,
 };
 pub use attention_summary_generate::generate_attention_summary;
-pub use session_agent::AgentSessionStatusSnapshot;
+pub use session_agent::{AgentSessionChatRef, AgentSessionLiveSet, AgentSessionStatusSnapshot};
 pub use workspace_agent_group::{
     resolve_workspace_agent_group_key, WorkspaceAgentGroupKey, WorkspaceAgentGroupSnapshot,
 };
@@ -506,13 +506,66 @@ impl AgentStatusService {
                 stable_pane_id
             );
             self.broadcast_sessions_cleared(removed.clone());
+        } else {
+            self.broadcast_sessions_cleared(vec![stable_pane_id.to_string()]);
         }
         // Pane is gone — drop sticky attention and auto-summary for this pane
         // and session aliases.
         let mut attention_ids = removed.clone();
         attention_ids.push(stable_pane_id.to_string());
         self.clear_attention_and_summaries_matching_ids(&attention_ids);
+        self.forget_catalog_ids(&attention_ids);
         removed
+    }
+
+    /// Tell every client a chat exists, before the first status hook.
+    pub fn note_chat_opened(&self, chat_id: &str, context_id: &str, provider_id: &str, cwd: &str) {
+        let chat_id = chat_id.trim();
+        let context_id = context_id.trim();
+        if chat_id.is_empty() || context_id.is_empty() {
+            return;
+        }
+        let session_id = chat_status_session_id(chat_id);
+        let tool = provider_to_tool(provider_id);
+        let now = Utc::now().to_rfc3339();
+        self.remember_open_chat(&session_id, context_id, &tool.to_string(), cwd, &now);
+        self.broadcast_state_update(AgentStatusUpdate {
+            session_id,
+            tool,
+            state: AgentOccupancy::Idle,
+            timestamp: now,
+            project_path: {
+                let cwd = cwd.trim();
+                if cwd.is_empty() {
+                    None
+                } else {
+                    Some(cwd.to_string())
+                }
+            },
+            context_id: Some(context_id.to_string()),
+            pane_id: None,
+            terminal_kind: None,
+            side_chat_id: None,
+            source_pane_id: None,
+            hook_version: None,
+            surface: AgentSurface::Chat,
+            surface_id: Some(chat_id.to_string()),
+            space_id: None,
+            provider_id: Some(provider_id.to_string()),
+        });
+    }
+
+    /// Drop a session whose chat was deleted, and tell every client.
+    pub fn close_recorded_session(&self, session_id: &str) {
+        let session_id = session_id.trim();
+        if session_id.is_empty() {
+            return;
+        }
+        let removed = self.remove_session(session_id);
+        self.forget_catalog_ids(&[session_id.to_string()]);
+        if !removed {
+            self.broadcast_sessions_cleared(vec![session_id.to_string()]);
+        }
     }
 
     pub fn force_session_idle(&self, session_id: &str) -> Option<AgentStatusRecord> {

@@ -16,6 +16,7 @@ pub(super) trait AgentSessionCatalogStore: Send + Sync {
     async fn upsert(&self, row: AgentSessionCatalogRow) -> Result<(), String>;
     async fn list_open(&self) -> Result<Vec<AgentSessionCatalogRow>, String>;
     async fn archived_session_ids(&self) -> Result<HashSet<String>, String>;
+    async fn delete(&self, session_id: &str) -> Result<(), String>;
     async fn archive(&self, session_id: &str) -> Result<(), String>;
     async fn archived_workspace_ids(&self) -> Result<HashSet<String>, String>;
 }
@@ -54,6 +55,13 @@ impl AgentSessionCatalogStore for SqliteAgentSessionCatalog {
             .map_err(|err| err.to_string())
     }
 
+    async fn delete(&self, session_id: &str) -> Result<(), String> {
+        AgentSessionCatalogRepo::new(self.db.as_ref())
+            .delete(session_id)
+            .await
+            .map_err(|err| err.to_string())
+    }
+
     async fn archive(&self, session_id: &str) -> Result<(), String> {
         AgentSessionCatalogRepo::new(self.db.as_ref())
             .archive(session_id)
@@ -73,6 +81,9 @@ impl AgentSessionCatalogStore for SqliteAgentSessionCatalog {
 
 enum CatalogJob {
     Upsert(AgentSessionCatalogRow),
+    Delete {
+        session_id: String,
+    },
     Archive {
         session_id: String,
         done: oneshot::Sender<Result<(), String>>,
@@ -103,6 +114,15 @@ impl CatalogBridge {
         tx.send(CatalogJob::Upsert(row))
             .map_err(|_| "catalog queue closed".to_string())?;
         self.upserts.fetch_add(1, Ordering::SeqCst);
+        Ok(())
+    }
+
+    pub(super) fn enqueue_delete(&self, session_id: &str) -> Result<(), String> {
+        let tx = self.sender()?;
+        tx.send(CatalogJob::Delete {
+            session_id: session_id.to_string(),
+        })
+        .map_err(|_| "catalog queue closed".to_string())?;
         Ok(())
     }
 
@@ -166,6 +186,11 @@ impl CatalogBridge {
                     CatalogJob::Upsert(row) => {
                         if let Err(err) = store.upsert(row).await {
                             warn!("agent session catalog upsert failed: {err}");
+                        }
+                    }
+                    CatalogJob::Delete { session_id } => {
+                        if let Err(err) = store.delete(&session_id).await {
+                            warn!("agent session catalog delete failed: {err}");
                         }
                     }
                     CatalogJob::Archive { session_id, done } => {

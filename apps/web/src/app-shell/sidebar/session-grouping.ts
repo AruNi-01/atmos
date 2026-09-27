@@ -113,6 +113,8 @@ export type SidebarSessionRow = {
   workspaceName: string | null;
   branch: string | null;
   workspace: Workspace | null;
+  /** Open New Chat tab that has unsent text. Absent for real sessions. */
+  draftTab?: { contextId: string; value: string };
 };
 
 export type SidebarSessionGroup = {
@@ -204,6 +206,22 @@ export function formatSessionRowSubtitle(parts: {
     .join(" · ");
 }
 
+export function sidebarSessionRowIsActive(
+  row: Pick<SidebarSessionRow, "sessionId" | "surface" | "surfaceId">,
+  active: { chatId?: string | null; terminalIds?: readonly string[] },
+): boolean {
+  if (row.surface === "chat" && active.chatId) {
+    const chatId = row.surfaceId?.trim()
+      || (row.sessionId.startsWith("chat:") ? row.sessionId.slice("chat:".length) : "");
+    return chatId === active.chatId;
+  }
+  const terminalIds = active.terminalIds;
+  if (row.surface !== "terminal" || !terminalIds || terminalIds.length === 0) return false;
+  if (terminalIds.includes(row.sessionId)) return true;
+  const surfaceId = row.surfaceId?.trim();
+  return Boolean(surfaceId && terminalIds.includes(surfaceId));
+}
+
 function workspaceDisplayName(workspace: Workspace): string {
   const display = workspace.displayName?.trim();
   if (display) return display;
@@ -239,6 +257,7 @@ export function buildSidebarSessionRows(input: {
 
     const project = located?.project ?? (contextId ? projectById.get(contextId) : undefined);
     const workspace = located?.workspace ?? null;
+    if (!project && !workspace) continue;
     rows.push({
       sessionId: snapshot.session_id,
       contextId,

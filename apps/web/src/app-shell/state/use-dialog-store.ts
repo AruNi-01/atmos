@@ -105,6 +105,7 @@ interface DialogStore {
     mode: AgentChatMode,
     instanceKey?: string | null,
   ) => void;
+  clearAgentChatDraftsForInstance: (instanceKey: string) => void;
   peekQueuedAgentChatPrompt: (
     workspaceId: string | null | undefined,
     projectId: string | null | undefined,
@@ -218,6 +219,19 @@ export const useDialogStore = create<DialogStore>((set, get) => ({
     const nextDrafts = { ...state.agentChatDrafts };
     delete nextDrafts[key];
     return { agentChatDrafts: nextDrafts };
+  }),
+  clearAgentChatDraftsForInstance: (instanceKey) => set((state) => {
+    const instance = instanceKey.trim();
+    if (!instance) return state;
+    const suffix = `:instance:${instance}`;
+    let changed = false;
+    const nextDrafts = { ...state.agentChatDrafts };
+    for (const key of Object.keys(nextDrafts)) {
+      if (!key.endsWith(suffix)) continue;
+      delete nextDrafts[key];
+      changed = true;
+    }
+    return changed ? { agentChatDrafts: nextDrafts } : state;
   }),
   peekQueuedAgentChatPrompt: (workspaceId, projectId, mode, instanceKey) => {
     const queueKey = getAgentPromptQueueKey(workspaceId, projectId, mode, instanceKey);

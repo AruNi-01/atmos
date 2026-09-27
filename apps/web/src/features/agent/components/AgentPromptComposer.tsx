@@ -14,6 +14,7 @@ import {
   type ComposerHandle,
 } from "@/features/welcome/components/PromptComposer";
 import { useDialogStore, type QueuedAgentPrompt } from "@/app-shell/state/use-dialog-store";
+import { useAgentChatCenterTabsStore } from "@/features/agent/store/use-agent-chat-center-tabs";
 import { ChatAgentConfigInput } from "./ChatAgentConfigInput";
 import type { AgentPlan, AgentConfigOption } from "@/features/agent/lib/agent-chat-types";
 import type { RegistryAgent } from "@/api/ws-api";
@@ -584,14 +585,21 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   const t = useTranslations("Agent.components");
   const setAgentChatDraft = useDialogStore((s) => s.setAgentChatDraft);
   const clearAgentChatDraft = useDialogStore((s) => s.clearAgentChatDraft);
-  const [localDraft, setLocalDraft] = useState(() =>
-    useDialogStore.getState().getAgentChatDraft(
+  const [localDraft, setLocalDraft] = useState(() => {
+    const saved = useDialogStore.getState().getAgentChatDraft(
       sessionWorkspaceId,
       sessionProjectId,
       chatMode,
       instanceKey,
-    ),
-  );
+    );
+    if (saved.trim() || !instanceKey) return saved;
+    const tabs = useAgentChatCenterTabsStore.getState().tabsByContext;
+    for (const group of Object.values(tabs)) {
+      const tab = group.find((item) => item.value === instanceKey && !item.chatId);
+      if (tab?.draftPrompt?.trim()) return tab.draftPrompt;
+    }
+    return saved;
+  });
   const persistedDraftRef = useRef(localDraft);
   const composerRef = useRef<ComposerHandle | null>(null);
   const composerSurfaceRef = useRef<HTMLDivElement | null>(null);
@@ -698,11 +706,15 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
         toPersist,
         instanceKey,
       );
+      if (!chatId && instanceKey) {
+        useAgentChatCenterTabsStore.getState().setDraftPrompt(instanceKey, toPersist);
+      }
       persistedDraftRef.current = toPersist;
     }, 180);
 
     return () => window.clearTimeout(timer);
   }, [
+    chatId,
     chatMode,
     editingItem,
     instanceKey,

@@ -9,6 +9,7 @@ import {
   buildSidebarSessionRows,
   formatSessionRowSubtitle,
   groupSidebarSessions,
+  sidebarSessionRowIsActive,
 } from "@/app-shell/sidebar/session-grouping";
 
 function workspace(overrides: Partial<Workspace> = {}): Workspace {
@@ -133,6 +134,26 @@ describe("sidebar session view", () => {
     expect(rows.map((row) => row.title)).toEqual(["npm run dev", "Terminal", "Terminal"]);
   });
 
+  test("a session with no workspace or project is omitted", () => {
+    const rows = buildSidebarSessionRows({
+      projects: [project([workspace()])],
+      snapshots: [
+        snapshot({
+          session_id: "missing:1",
+          context_id: null,
+          surface: "terminal",
+          group_key: "done",
+        }),
+        snapshot({
+          session_id: "workspace-1:kept",
+          surface: "terminal",
+          group_key: "done",
+        }),
+      ],
+    });
+    expect(rows.map((row) => row.sessionId)).toEqual(["workspace-1:kept"]);
+  });
+
   test("agent group-by uses each session bucket", () => {
     const ws = workspace();
     const rows = buildSidebarSessionRows({
@@ -184,6 +205,26 @@ describe("sidebar session view", () => {
       branch: "",
       prState: null,
     })).toBe("");
+  });
+
+  test("active session matches the open chat or terminal, not the status group", () => {
+    const chat = {
+      sessionId: "chat:abc",
+      surface: "chat" as const,
+      surfaceId: "abc",
+    };
+    const terminal = {
+      sessionId: "ws-1:claude",
+      surface: "terminal" as const,
+      surfaceId: null,
+    };
+    expect(sidebarSessionRowIsActive(chat, { chatId: "abc" })).toBe(true);
+    expect(sidebarSessionRowIsActive(chat, { chatId: "other" })).toBe(false);
+    expect(sidebarSessionRowIsActive(terminal, { chatId: "abc" })).toBe(false);
+    expect(sidebarSessionRowIsActive(terminal, {
+      terminalIds: ["ws-1:claude"],
+    })).toBe(true);
+    expect(sidebarSessionRowIsActive(terminal, { terminalIds: ["ws-1:other"] })).toBe(false);
   });
 
   test("sidebar view tabs live in the filter menu", () => {

@@ -82,11 +82,15 @@ export function useSidebarAgentSessions(loadChatTitles: boolean) {
     const unsubscribeAttentionCleared = useWebSocketStore
       .getState()
       .onEvent("agent_attention_cleared", schedule);
+    const unsubscribeTitle = useWebSocketStore
+      .getState()
+      .onEvent("terminal_title_updated", schedule);
     return () => {
       unsubscribeChanged();
       unsubscribeCleared();
       unsubscribeRaised();
       unsubscribeAttentionCleared();
+      unsubscribeTitle();
       if (timer !== null) window.clearTimeout(timer);
     };
   }, [reload]);

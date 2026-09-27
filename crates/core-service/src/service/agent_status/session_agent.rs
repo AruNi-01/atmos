@@ -15,6 +15,31 @@ use super::{
 };
 use crate::{Result, ServiceError};
 
+/// A chat that still exists on disk. The session list includes it even before
+/// the first status hook, and drops it once the chat is deleted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AgentSessionChatRef {
+    pub id: String,
+    pub context_id: String,
+    pub provider_id: String,
+    pub cwd: String,
+    pub updated_at: String,
+}
+
+/// Live backing objects for the agent session list.
+///
+/// `open_terminal_panes` is `None` when the terminal inventory could not be
+/// read. In that case terminal rows are kept. `Some` is the set of stable
+/// pane ids (`{context}:{window}`) that still exist.
+#[derive(Debug, Clone, Default)]
+pub struct AgentSessionLiveSet {
+    pub chats: Vec<AgentSessionChatRef>,
+    pub open_terminal_panes: Option<HashSet<String>>,
+    /// Open windows whose dynamic title is a shell, not an agent command.
+    /// The catalog row stays so the session returns when an agent starts again.
+    pub shell_terminal_panes: HashSet<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AgentSessionStatusSnapshot {
     pub session_id: String,
@@ -321,6 +346,199 @@ impl AgentStatusService {
         let mut rows: Vec<_> = merged.into_values().collect();
         rows.sort_by(|left, right| left.session_id.cmp(&right.session_id));
         rows
+    }
+
+    /// Sessions that still have a chat or an open terminal window.
+    /// Closed ones are removed from the catalog so the next read stays empty.
+    pub async fn list_live_agent_sessions(
+        &self,
+        live: AgentSessionLiveSet,
+    ) -> Result<Vec<AgentSessionStatusSnapshot>> {
+        let archived_sessions = if let Some(catalog) = &self.catalog {
+            catalog
+                .archived_session_ids()
+                .await
+                .map_err(ServiceError::Repository)?
+        } else {
+            HashSet::new()
+        };
+        let archived_workspaces = if let Some(catalog) = &self.catalog {
+            catalog
+                .archived_workspace_ids()
+                .await
+                .map_err(ServiceError::Repository)?
+        } else {
+            HashSet::new()
+        };
+        let chats: HashMap<String, AgentSessionChatRef> = live
+            .chats
+            .into_iter()
+            .filter(|chat| !chat.id.trim().is_empty() && !chat.context_id.trim().is_empty())
+            .map(|chat| (chat.id.clone(), chat))
+            .collect();
+        let merged = self.list_agent_session_statuses().await?;
+        let mut stale = Vec::new();
+        let mut kept_chats = HashSet::new();
+        let mut rows = Vec::new();
+
+        for mut row in merged {
+            if row.surface == AgentSurface::Chat {
+                let chat_id = parse_chat_status_session_id(&row.session_id)
+                    .map(str::to_string)
+                    .or_else(|| row.surface_id.clone());
+                let Some(chat_id) = chat_id.filter(|id| chats.contains_key(id)) else {
+                    stale.push(row.session_id);
+                    continue;
+                };
+                let chat = &chats[&chat_id];
+                if is_archived_context(&Some(chat.context_id.clone()), &archived_workspaces) {
+                    continue;
+                }
+                if row.context_id.is_none() {
+                    row.context_id = Some(chat.context_id.clone());
+                }
+                if row.surface_id.is_none() {
+                    row.surface_id = Some(chat.id.clone());
+                }
+                kept_chats.insert(chat.id.clone());
+                rows.push(row);
+                continue;
+            }
+
+            let pane = terminal_pane_id(&row);
+            if live
+                .open_terminal_panes
+                .as_ref()
+                .is_some_and(|open| pane.as_ref().is_none_or(|id| !open.contains(id)))
+            {
+                stale.push(row.session_id);
+                continue;
+            }
+            if pane
+                .as_ref()
+                .is_some_and(|id| live.shell_terminal_panes.contains(id))
+            {
+                continue;
+            }
+            if row.context_id.is_none() {
+                if let Some(context) = pane.as_deref().and_then(context_from_pane_id) {
+                    row.context_id = Some(context);
+                }
+            }
+            if row
+                .context_id
+                .as_ref()
+                .is_none_or(|id| id.trim().is_empty())
+                || is_archived_context(&row.context_id, &archived_workspaces)
+            {
+                if row
+                    .context_id
+                    .as_ref()
+                    .is_none_or(|id| id.trim().is_empty())
+                {
+                    stale.push(row.session_id);
+                }
+                continue;
+            }
+            rows.push(row);
+        }
+
+        for chat in chats.values() {
+            if kept_chats.contains(&chat.id) {
+                continue;
+            }
+            let session_id = super::chat_status_session_id(&chat.id);
+            if archived_sessions.contains(&session_id) {
+                continue;
+            }
+            if is_archived_context(&Some(chat.context_id.clone()), &archived_workspaces) {
+                continue;
+            }
+            rows.push(AgentSessionStatusSnapshot {
+                session_id,
+                context_id: Some(chat.context_id.clone()),
+                surface: AgentSurface::Chat,
+                surface_id: Some(chat.id.clone()),
+                tool: Some(super::provider_to_tool(&chat.provider_id)),
+                group_key: WorkspaceAgentGroupKey::Done,
+                updated_at: chat.updated_at.clone(),
+                project_path: none_if_empty(Some(chat.cwd.clone())),
+            });
+        }
+
+        self.forget_catalog_ids(&stale);
+        rows.sort_by(|left, right| left.session_id.cmp(&right.session_id));
+        Ok(rows)
+    }
+
+    pub(super) fn remember_open_chat(
+        &self,
+        session_id: &str,
+        context_id: &str,
+        tool: &str,
+        cwd: &str,
+        updated_at: &str,
+    ) {
+        let Some(catalog) = &self.catalog else {
+            return;
+        };
+        let _ = catalog.enqueue_upsert(AgentSessionCatalogRow {
+            session_id: session_id.to_string(),
+            context_id: Some(context_id.to_string()),
+            surface: AgentSurface::Chat.as_str().to_string(),
+            tool: Some(tool.to_string()),
+            project_path: none_if_empty(Some(cwd.to_string())),
+            updated_at: updated_at.to_string(),
+        });
+    }
+
+    pub(super) fn forget_catalog_ids(&self, session_ids: &[String]) {
+        if session_ids.is_empty() {
+            return;
+        }
+        {
+            let mut last = self.inbox_buckets.write();
+            for session_id in session_ids {
+                last.remove(session_id);
+            }
+        }
+        let Some(catalog) = &self.catalog else {
+            return;
+        };
+        let mut seen = HashSet::new();
+        for session_id in session_ids {
+            let session_id = session_id.trim();
+            if session_id.is_empty() || !seen.insert(session_id.to_string()) {
+                continue;
+            }
+            let _ = catalog.enqueue_delete(session_id);
+        }
+    }
+}
+
+fn terminal_pane_id(row: &AgentSessionStatusSnapshot) -> Option<String> {
+    if let Some(id) = row
+        .surface_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|id| id.contains(':') && !id.starts_with("chat:"))
+    {
+        return Some(id.to_string());
+    }
+    let session_id = row.session_id.trim();
+    if session_id.contains(':') && !session_id.starts_with("chat:") {
+        return Some(session_id.to_string());
+    }
+    None
+}
+
+fn context_from_pane_id(pane_id: &str) -> Option<String> {
+    let (context, window) = pane_id.split_once(':')?;
+    let context = context.trim();
+    if context.is_empty() || window.trim().is_empty() {
+        None
+    } else {
+        Some(context.to_string())
     }
 }
 
@@ -853,6 +1071,119 @@ mod tests {
             .any(|row| row.session_id == "project-ctx:agent"));
     }
 
+    #[tokio::test]
+    async fn live_list_follows_open_chats_and_terminal_windows() {
+        let test_db = setup_db().await;
+        let service = AgentStatusService::with_db(Arc::clone(&test_db.db));
+        service.update_state(
+            "ws-live:open",
+            AgentToolType::ClaudeCode,
+            AgentOccupancy::Running,
+            Some("/tmp/open".into()),
+            &pane_ctx("ws-live", "ws-live:open"),
+            OccupancyUpdateKind::NewTurn,
+        );
+        AgentSessionCatalogRepo::new(&test_db.db)
+            .upsert(&catalog_row("ws-live:closed", "2026-01-01T00:00:00+00:00"))
+            .await
+            .expect("seed closed pane");
+        service.flush_catalog().await;
+
+        let listed = service
+            .list_live_agent_sessions(AgentSessionLiveSet {
+                chats: vec![AgentSessionChatRef {
+                    id: "chat-1".into(),
+                    context_id: "ws-live".into(),
+                    provider_id: "codex".into(),
+                    cwd: "/tmp/chat".into(),
+                    updated_at: "2026-04-01T00:00:00+00:00".into(),
+                }],
+                open_terminal_panes: Some(HashSet::from(["ws-live:open".to_string()])),
+                shell_terminal_panes: HashSet::new(),
+            })
+            .await
+            .expect("live list");
+        let ids: Vec<_> = listed.iter().map(|row| row.session_id.as_str()).collect();
+        assert_eq!(ids, vec!["chat:chat-1", "ws-live:open"]);
+        assert_eq!(
+            session_by_id(&listed, "chat:chat-1").surface_id.as_deref(),
+            Some("chat-1")
+        );
+        assert_eq!(
+            session_by_id(&listed, "chat:chat-1").context_id.as_deref(),
+            Some("ws-live")
+        );
+
+        service.flush_catalog().await;
+        assert!(AgentSessionCatalogRepo::new(&test_db.db)
+            .get("ws-live:closed")
+            .await
+            .expect("read")
+            .is_none());
+        assert!(AgentSessionCatalogRepo::new(&test_db.db)
+            .get("ws-live:open")
+            .await
+            .expect("read")
+            .is_some());
+    }
+
+    #[tokio::test]
+    async fn live_list_keeps_terminals_when_inventory_is_unavailable() {
+        let test_db = setup_db().await;
+        AgentSessionCatalogRepo::new(&test_db.db)
+            .upsert(&catalog_row("ws-1:kept", "2026-01-01T00:00:00+00:00"))
+            .await
+            .expect("seed");
+        let service = AgentStatusService::with_db(Arc::clone(&test_db.db));
+        let listed = service
+            .list_live_agent_sessions(AgentSessionLiveSet {
+                chats: Vec::new(),
+                open_terminal_panes: None,
+                shell_terminal_panes: HashSet::new(),
+            })
+            .await
+            .expect("live list");
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].session_id, "ws-1:kept");
+    }
+
+    #[tokio::test]
+    async fn live_list_hides_shell_title_and_restores_when_agent_returns() {
+        let test_db = setup_db().await;
+        let service = AgentStatusService::with_db(Arc::clone(&test_db.db));
+        AgentSessionCatalogRepo::new(&test_db.db)
+            .upsert(&catalog_row("ws-1:agent", "2026-01-01T00:00:00+00:00"))
+            .await
+            .expect("seed");
+
+        let hidden = service
+            .list_live_agent_sessions(AgentSessionLiveSet {
+                chats: Vec::new(),
+                open_terminal_panes: Some(HashSet::from(["ws-1:agent".to_string()])),
+                shell_terminal_panes: HashSet::from(["ws-1:agent".to_string()]),
+            })
+            .await
+            .expect("hide shell");
+        assert!(hidden.is_empty());
+        service.flush_catalog().await;
+        assert!(AgentSessionCatalogRepo::new(&test_db.db)
+            .get("ws-1:agent")
+            .await
+            .expect("read")
+            .is_some());
+
+        let restored = service
+            .list_live_agent_sessions(AgentSessionLiveSet {
+                chats: Vec::new(),
+                open_terminal_panes: Some(HashSet::from(["ws-1:agent".to_string()])),
+                shell_terminal_panes: HashSet::new(),
+            })
+            .await
+            .expect("restore agent");
+        assert_eq!(restored.len(), 1);
+        assert_eq!(restored[0].session_id, "ws-1:agent");
+    }
+
     fn catalog_row(session_id: &str, updated_at: &str) -> AgentSessionCatalogRow {
         AgentSessionCatalogRow {
             session_id: session_id.to_string(),
@@ -932,6 +1263,11 @@ mod tests {
 
         async fn archived_session_ids(&self) -> std::result::Result<HashSet<String>, String> {
             Ok(self.archived.lock().clone())
+        }
+
+        async fn delete(&self, session_id: &str) -> std::result::Result<(), String> {
+            self.rows.lock().remove(session_id);
+            Ok(())
         }
 
         async fn archive(&self, session_id: &str) -> std::result::Result<(), String> {

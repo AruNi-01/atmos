@@ -17,16 +17,16 @@ import {
   LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
   LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS,
 } from "@/app-shell/sidebar-layout-constants";
+import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
+import { useCenterPaneLayoutStore } from "@/app-shell/center-pane/center-pane-layout-store";
 import {
   useWorkspaceListVisibleCount,
   WorkspaceListShowMoreLess,
 } from "@/app-shell/sidebar/workspace-list-pagination";
-import {
-  getWorkspaceAgentGroupMeta,
-  type SidebarGroupingMode,
-} from "@/app-shell/sidebar/workspace-status";
+import { type SidebarGroupingMode } from "@/app-shell/sidebar/workspace-status";
 import {
   formatSessionRowSubtitle,
+  sidebarSessionRowIsActive,
   type SidebarSessionGroup,
   type SidebarSessionRow,
 } from "@/app-shell/sidebar/session-grouping";
@@ -34,8 +34,11 @@ import {
   resolveSessionPrLifecycle,
   sessionBranchPrTargets,
 } from "@/app-shell/sidebar/session-pr";
+import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import {
   AGENT_TOOL,
+  AGENT_TOOL_ICON_IDS,
+  AGENT_TOOL_LABELS,
   useAgentStatusStore,
   type AgentStatusRecord,
   type AgentToolType,
@@ -46,10 +49,17 @@ import {
 } from "@/features/agent/lib/agent-status-navigation";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { parseStandaloneScope, standaloneJobHref } from "@/features/automations/lib/automation-run-landing";
+import { parseAgentChatTabValue } from "@/features/agent/store/use-agent-chat-center-tabs";
+import { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/lib/terminal-layout-document";
+import { getScopeKey } from "@/features/terminal/store/terminal-store-helpers";
+import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
+import type { TerminalPaneProps } from "@/features/terminal/types";
+import { useContextParams } from "@/shared/hooks/use-context-params";
 import { branchPrListQueryOptions } from "@/features/github/lib/github-query-options";
 import type { BranchPr } from "@/features/github/lib/github-pr-cache";
 import type { WorkspacePrLifecycleState } from "@/features/github/lib/workspace-pr-status";
 import type { NavigateToLocatedPaneRouter } from "@/features/terminal/public/navigate-to-located-pane";
+import { useAgentChatCenterTabsStore } from "@/features/agent/store/use-agent-chat-center-tabs";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import type { Project } from "@/shared/types/domain";
 
@@ -118,6 +128,14 @@ function activateSidebarSessionRow(
   router: NavigateToLocatedPaneRouter,
   projects: Project[],
 ) {
+  if (row.draftTab) {
+    useAgentChatCenterTabsStore.getState().requestActivate(
+      row.draftTab.contextId,
+      row.draftTab.value,
+    );
+    openSessionContext(row, router);
+    return;
+  }
   const record = toStatusRecord(row, liveSession(row.sessionId));
   if (row.contextId && canNavigateToAgentStatusSession(record)) {
     navigateToAgentStatusSession(record, router, projects);
@@ -168,12 +186,78 @@ function useSessionBranchPrMap(rows: readonly SidebarSessionRow[]) {
   }, [results, targets]);
 }
 
+const EMPTY_TERMINAL_IDS: readonly string[] = [];
+
+function useActiveSidebarSession(): {
+  chatId: string | null;
+  terminalIds: readonly string[];
+} {
+  const { effectiveContextId } = useContextParams();
+  const paintId = useCenterPaintContextId();
+  const activeTabId = useCenterPaneLayoutStore((state) => {
+    if (!paintId) return null;
+    const layout = state.byContext[paintId];
+    if (!layout) return null;
+    const pane = layout.panes.find((item) => item.id === layout.focusedPaneId);
+    const tabId = pane?.activeTabId.trim() ?? "";
+    return tabId || null;
+  });
+  const chatId = parseAgentChatTabValue(activeTabId);
+  const terminalPane = useTerminalStore((state) => {
+    if (!effectiveContextId || activeTabId !== FIXED_TERMINAL_TAB_VALUE) return null;
+    const scopeKey = getScopeKey(effectiveContextId, FIXED_TERMINAL_TAB_VALUE);
+    const paneId = state.workspaceActivePaneIds[scopeKey];
+    if (!paneId) return null;
+    return state.workspacePanes[scopeKey]?.[paneId] ?? null;
+  });
+
+  return useMemo(() => {
+    if (!terminalPane || !effectiveContextId) {
+      return { chatId, terminalIds: EMPTY_TERMINAL_IDS };
+    }
+    return {
+      chatId,
+      terminalIds: terminalMatchIds(effectiveContextId, terminalPane),
+    };
+  }, [chatId, effectiveContextId, terminalPane]);
+}
+
+function terminalMatchIds(hostId: string, pane: TerminalPaneProps): string[] {
+  const ids = [pane.sessionId, pane.id];
+  const windowName = pane.tmuxWindowName?.trim();
+  if (!windowName) return ids;
+  ids.push(`${hostId}:${windowName}`);
+  if (pane.workspaceId && pane.workspaceId !== hostId) {
+    ids.push(`${pane.workspaceId}:${windowName}`);
+  }
+  return ids;
+}
+
+function sessionAgentIcon(tool: SidebarSessionRow["tool"]): {
+  registryId: string;
+  name: string;
+} {
+  if (tool && Object.hasOwn(AGENT_TOOL_ICON_IDS, tool)) {
+    const typed = tool as AgentToolType;
+    return {
+      registryId: AGENT_TOOL_ICON_IDS[typed],
+      name: AGENT_TOOL_LABELS[typed],
+    };
+  }
+  return {
+    registryId: AGENT_TOOL_ICON_IDS[AGENT_TOOL.AGENT],
+    name: AGENT_TOOL_LABELS[AGENT_TOOL.AGENT],
+  };
+}
+
 function SessionSidebarRow({
+  isActive,
   onArchive,
   row,
   branchPrs,
   projects,
 }: {
+  isActive: boolean;
   onArchive: (sessionId: string) => void;
   row: SidebarSessionRow;
   branchPrs: BranchPr[] | undefined;
@@ -183,8 +267,7 @@ function SessionSidebarRow({
   const viewT = useTranslations("appShell.task");
   const chromeT = useTranslations("AppShell.chrome");
   const router = useAppRouter();
-  const meta = getWorkspaceAgentGroupMeta(row.groupKey);
-  const Icon = meta.icon;
+  const agent = sessionAgentIcon(row.tool);
   const prState = resolveSessionPrLifecycle(row.workspace, branchPrs);
   const subtitle = formatSessionRowSubtitle({
     projectName: row.projectName,
@@ -209,15 +292,17 @@ function SessionSidebarRow({
         onArchive(row.sessionId);
       }}
       title={viewT("view.archive")}
-      className="flex w-full flex-col gap-0.5 rounded-lg px-2 py-1.5 text-left hover:bg-sidebar-accent"
+      className={cn(
+        "flex w-full min-w-0 cursor-pointer flex-col gap-0.5 rounded-lg px-2 py-1.5 text-left hover:bg-sidebar-accent",
+        isActive && "bg-sidebar-accent",
+      )}
     >
       <span className="flex min-w-0 items-center gap-1.5">
-        <Icon
-          className={cn(
-            "size-3.5 shrink-0",
-            meta.className,
-            row.groupKey === "running" && "animate-spin",
-          )}
+        <AgentIcon
+          registryId={agent.registryId}
+          name={agent.name}
+          size={14}
+          className="shrink-0"
         />
         <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-sidebar-foreground">
           {row.title}
@@ -227,13 +312,14 @@ function SessionSidebarRow({
         </span>
       </span>
       {subtitle ? (
-        <span className="truncate pl-5 text-[11px] text-muted-foreground">{subtitle}</span>
+        <span className="min-w-0 truncate pl-5 text-[11px] text-muted-foreground">{subtitle}</span>
       ) : null}
     </button>
   );
 }
 
 function SessionGroupSection({
+  activeSession,
   group,
   groupingMode,
   isCollapsed,
@@ -242,6 +328,7 @@ function SessionGroupSection({
   projects,
   prsByKey,
 }: {
+  activeSession: { chatId: string | null; terminalIds: readonly string[] };
   group: SidebarSessionGroup;
   groupingMode: SidebarGroupingMode;
   isCollapsed: boolean;
@@ -266,7 +353,7 @@ function SessionGroupSection({
           <button
             type="button"
             onClick={onToggle}
-            className="flex min-w-0 flex-1 items-center gap-1.5 py-2 pl-3 pr-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:text-sidebar-accent-foreground"
+            className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 py-2 pl-3 pr-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:text-sidebar-accent-foreground"
           >
             <WorkspaceGroupMarker group={group} groupingMode={groupingMode} />
             <span className="truncate">{group.label}</span>
@@ -284,12 +371,12 @@ function SessionGroupSection({
       </div>
       <div
         className={cn(
-          "grid",
-          isCollapsed ? "grid-rows-[0fr] overflow-hidden" : "grid-rows-[1fr]",
+          "grid min-w-0 transition-[grid-template-rows] duration-300 ease-out",
+          isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
         )}
       >
-        <div className={isCollapsed ? "overflow-hidden" : "overflow-x-clip"}>
-          <div className="flex flex-col gap-1 pl-3 pt-0.5">
+        <div className="min-w-0 overflow-hidden">
+          <div className="flex min-w-0 flex-col gap-1 pl-3 pt-0.5">
             <SidebarMotionList>
               {visibleItems.map((row) => {
                 const owner = row.workspace?.githubPr?.owner?.trim();
@@ -299,6 +386,7 @@ function SessionGroupSection({
                 return (
                   <SidebarMotionItem key={row.sessionId}>
                     <SessionSidebarRow
+                      isActive={sidebarSessionRowIsActive(row, activeSession)}
                       onArchive={onArchive}
                       row={row}
                       branchPrs={key ? prsByKey.get(key) : undefined}
@@ -343,6 +431,7 @@ export function SessionSidebarList({
   const t = useTranslations("appShell.task");
   const rows = useMemo(() => groups.flatMap((group) => group.items), [groups]);
   const prsByKey = useSessionBranchPrMap(rows);
+  const activeSession = useActiveSidebarSession();
 
   if (!sessionsLoaded && catalogCount === 0) return null;
   if (sessionsLoaded && catalogCount === 0) {
@@ -365,6 +454,7 @@ export function SessionSidebarList({
             return (
               <SidebarMotionItem key={`${groupingMode}:${group.key}`}>
                 <SessionGroupSection
+                  activeSession={activeSession}
                   group={group}
                   groupingMode={groupingMode}
                   isCollapsed={collapsedWorkspaceGroups[stateKey] ?? false}

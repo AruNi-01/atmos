@@ -29,6 +29,7 @@ const SESSION_STATUS_EVENTS = new Set([
   "agent_attention_cleared",
   "agent_attention_summary_updated",
   "agent_attention_summary_cleared",
+  "terminal_title_updated",
 ]);
 
 type CandidateLoad = {

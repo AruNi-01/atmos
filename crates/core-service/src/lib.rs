@@ -10,9 +10,10 @@ pub use service::agent_status::{
     apply_host_event, chat_status_session_id, generate_attention_summary,
     parse_chat_status_session_id, provider_to_tool, resolve_workspace_agent_group_key,
     AgentAttentionLatch, AgentAttentionReason, AgentAttentionSummary, AgentOccupancy,
-    AgentStatusContext, AgentStatusEvent, AgentStatusRecord, AgentStatusService, AgentStatusUpdate,
-    AgentSurface, AgentToolType, AttentionSummaryPayload, AttentionSummarySettings,
-    AttentionSummaryStatus, WorkspaceAgentGroupKey, WorkspaceAgentGroupSnapshot,
+    AgentSessionChatRef, AgentSessionLiveSet, AgentStatusContext, AgentStatusEvent,
+    AgentStatusRecord, AgentStatusService, AgentStatusUpdate, AgentSurface, AgentToolType,
+    AttentionSummaryPayload, AttentionSummarySettings, AttentionSummaryStatus,
+    WorkspaceAgentGroupKey, WorkspaceAgentGroupSnapshot,
 };
 
 pub use service::agent_chat::{
@@ -28,9 +29,9 @@ pub use service::agent_chat::{
     PREFETCH_POLL,
 };
 pub use service::automation::{
-    ensure_builtin_terminal_agents_upgraded, AutomationAgentCapability, TerminalAgentCliStatus,
-    TerminalAgentOption, TerminalAgentOptions, TerminalAgentOptionsSource,
-    TerminalAgentOptionsStatus,
+    ensure_builtin_terminal_agents_upgraded, terminal_agent_command_names,
+    AutomationAgentCapability, TerminalAgentCliStatus, TerminalAgentOption, TerminalAgentOptions,
+    TerminalAgentOptionsSource, TerminalAgentOptionsStatus,
 };
 pub use service::automation::{
     parse_standalone_scope, standalone_definition_dir, standalone_scope_id, AutomationArtifact,

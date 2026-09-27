@@ -38,6 +38,7 @@ export type SessionInboxSnapshot = {
   group_key: string;
   updated_at: string;
   context_id?: string | null;
+  surface_id?: string | null;
 };
 
 export type SessionInboxWorkspace = {
@@ -64,6 +65,9 @@ export type SessionInboxRow = {
   projectScoped: boolean;
   workspaceId: string | null;
   terminalCandidateId: string | null;
+  /** Terminal panes open the terminal. Chat snapshots open that chat. */
+  kind: "terminal" | "chat";
+  chatId: string | null;
   /** Catalog key for `agent_session_archive`. Null when the pane never reported status. */
   archiveSessionId: string | null;
 };
@@ -159,71 +163,75 @@ export function joinSessionRows(input: SessionInboxInput): SessionInboxRow[] {
   const archived = new Set(input.archivedWorkspaceIds ?? []);
   const pending = new Set(input.pendingWorkspaceIds ?? []);
   const workspaceById = new Map((input.workspaces ?? []).map((workspace) => [workspace.id, workspace]));
-  const projectById = new Map((input.projects ?? []).map((project) => [project.id, project]));
-  const bySessionId = new Map<string, SessionInboxSnapshot>();
+  const candidateByPane = new Map<string, SessionInboxCandidate>();
+  const candidateBySession = new Map<string, SessionInboxCandidate>();
 
-  for (const snapshot of input.snapshots) {
-    if (snapshot.surface !== "terminal") continue;
-    const sessionId = clean(snapshot.session_id);
-    if (!sessionId) continue;
-    bySessionId.set(sessionId, snapshot);
-  }
-
-  const used = new Set<string>();
-  const takeSnapshot = (key: string | null) => {
-    if (!key) return null;
-    const snapshot = bySessionId.get(key);
-    if (!snapshot || used.has(key)) return null;
-    used.add(key);
-    return snapshot;
-  };
-
-  const rows: SessionInboxRow[] = [];
   for (const candidate of input.candidates) {
     if (archived.has(candidate.workspaceId)) continue;
-    const snapshot =
-      takeSnapshot(clean(candidate.sessionId)) ?? takeSnapshot(paneKey(candidate));
-    const workspace = workspaceById.get(candidate.workspaceId);
-    rows.push({
-      id: candidate.id,
-      bucket: snapshot ? asBucket(snapshot.group_key) : "done",
-      title: candidateTitle(candidate),
-      updatedAt: snapshot ? snapshot.updated_at : null,
-      projectName: clean(candidate.projectName) ?? clean(workspace?.projectName),
-      workspaceName: clean(candidate.workspaceName) ?? clean(workspace?.workspaceName),
-      branch: clean(candidate.branch) ?? clean(workspace?.branch),
-      prState: null,
-      projectScoped: false,
-      workspaceId: candidate.workspaceId,
-      terminalCandidateId: candidate.id,
-      archiveSessionId: snapshot ? snapshot.session_id : null,
-    });
+    const pane = paneKey(candidate);
+    if (pane && !candidateByPane.has(pane)) candidateByPane.set(pane, candidate);
+    const sessionId = clean(candidate.sessionId);
+    if (sessionId && !candidateBySession.has(sessionId)) candidateBySession.set(sessionId, candidate);
   }
 
-  const orphans = [...bySessionId.entries()]
-    .filter(([sessionId]) => !used.has(sessionId))
-    .map(([, snapshot]) => snapshot)
-    .sort((left, right) => left.session_id.localeCompare(right.session_id));
+  const rows: SessionInboxRow[] = [];
+  const snapshots = [...input.snapshots].sort((left, right) =>
+    left.session_id.localeCompare(right.session_id),
+  );
 
-  for (const snapshot of orphans) {
+  for (const snapshot of snapshots) {
+    if (snapshot.surface !== "terminal" && snapshot.surface !== "chat") continue;
+    const sessionId = clean(snapshot.session_id);
+    if (!sessionId) continue;
     const contextId = clean(snapshot.context_id);
-    if (contextId && (archived.has(contextId) || pending.has(contextId))) continue;
-    const workspace = contextId ? workspaceById.get(contextId) : undefined;
-    const project = contextId && !workspace ? projectById.get(contextId) : undefined;
-    const projectScoped = !workspace;
+    if (contextId && archived.has(contextId)) continue;
+
+    if (snapshot.surface === "chat") {
+      const chatId =
+        clean(snapshot.surface_id) ??
+        (sessionId.startsWith("chat:") ? clean(sessionId.slice("chat:".length)) : null);
+      const workspace = contextId ? workspaceById.get(contextId) : undefined;
+      if (!chatId || !workspace) continue;
+      rows.push({
+        id: sessionId,
+        bucket: asBucket(snapshot.group_key),
+        title: sessionId,
+        updatedAt: snapshot.updated_at,
+        projectName: clean(workspace.projectName),
+        workspaceName: clean(workspace.workspaceName),
+        branch: clean(workspace.branch),
+        prState: null,
+        projectScoped: false,
+        workspaceId: workspace.id,
+        terminalCandidateId: null,
+        kind: "chat",
+        chatId,
+        archiveSessionId: sessionId,
+      });
+      continue;
+    }
+
+    const candidate = candidateBySession.get(sessionId) ?? candidateByPane.get(sessionId);
+    if (!candidate && !(contextId && pending.has(contextId))) continue;
+    const workspaceId = candidate?.workspaceId ?? contextId;
+    if (!workspaceId || archived.has(workspaceId)) continue;
+    const workspace = workspaceById.get(workspaceId);
+    if (!candidate && !workspace) continue;
     rows.push({
-      id: snapshot.session_id,
+      id: candidate?.id ?? sessionId,
       bucket: asBucket(snapshot.group_key),
-      title: snapshot.session_id,
+      title: candidate ? candidateTitle(candidate) : sessionId,
       updatedAt: snapshot.updated_at,
-      projectName: projectScoped ? clean(project?.name) : clean(workspace?.projectName),
-      workspaceName: projectScoped ? null : clean(workspace?.workspaceName),
-      branch: projectScoped ? null : clean(workspace?.branch),
+      projectName: clean(candidate?.projectName) ?? clean(workspace?.projectName),
+      workspaceName: clean(candidate?.workspaceName) ?? clean(workspace?.workspaceName),
+      branch: clean(candidate?.branch) ?? clean(workspace?.branch),
       prState: null,
-      projectScoped,
-      workspaceId: workspace?.id ?? null,
-      terminalCandidateId: null,
-      archiveSessionId: snapshot.session_id,
+      projectScoped: false,
+      workspaceId,
+      terminalCandidateId: candidate?.id ?? null,
+      kind: "terminal",
+      chatId: null,
+      archiveSessionId: sessionId,
     });
   }
 

@@ -79,6 +79,7 @@ import {
   type SidebarListView,
 } from '@/app-shell/left-sidebar-settings';
 import { SessionSidebarList } from '@/app-shell/sidebar/SessionSidebarList';
+import { newChatDraftSessionRows } from '@/app-shell/sidebar/new-chat-draft-sessions';
 import {
   buildSidebarSessionRows,
   filterSidebarSessions,
@@ -86,10 +87,10 @@ import {
 } from '@/app-shell/sidebar/session-grouping';
 import { sessionLiveGroupKey } from '@/app-shell/sidebar/session-live-group';
 import { useSidebarAgentSessions } from '@/app-shell/sidebar/use-sidebar-agent-sessions';
+import { useAgentChatCenterTabsStore } from '@/features/agent/store/use-agent-chat-center-tabs';
 import { useAgentStatusStore } from '@/features/agent/store/agent-status-store';
 import { useWorkspaceAgentGroupingHoldStore } from '@/features/agent/store/workspace-agent-grouping-hold';
 import { sessionTerminalTitleMap } from '@/app-shell/sidebar/session-terminal-title';
-import { terminalSessionIsCurrentAgent } from '@/features/agent/lib/agent-status-pane-title';
 import { useTerminalStore } from '@/features/terminal/store/use-terminal-store';
 import { isWorkspaceSetupBlocking } from '@/features/workspace/lib/workspace-setup';
 import {
@@ -1350,6 +1351,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         [agentSessionSnapshots, codeReviewPanes, projectWikiPanes, workspacePanes],
     );
 
+    const agentChatTabsByContext = useAgentChatCenterTabsStore((state) => state.tabsByContext);
     const liveAgentSessions = useAgentStatusStore((state) => state.sessions);
     const agentStatusHydrated = useAgentStatusStore((state) => state.statusHydrated);
     const attentionRevision = useAgentAttentionStore((state) => state.revision);
@@ -1361,12 +1363,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         }
         const attentionPanes = useAgentAttentionStore.getState().panes;
         const groupingHold = useWorkspaceAgentGroupingHoldStore.getState();
-        const paneState = { workspacePanes, projectWikiPanes, codeReviewPanes };
         const snapshots = agentSessionSnapshots
-            .filter((snapshot) =>
-                snapshot.surface !== "terminal" ||
-                terminalSessionIsCurrentAgent(snapshot.session_id, paneState),
-            )
             .map((snapshot) => ({
             ...snapshot,
             group_key: sessionLiveGroupKey(
@@ -1380,12 +1377,18 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     : false,
             ),
         }));
-        const built = buildSidebarSessionRows({
-            snapshots,
-            projects,
-            chatTitles: agentSessionChatTitles,
-            terminalTitles: sessionTerminalTitles,
-        });
+        const built = [
+            ...buildSidebarSessionRows({
+                snapshots,
+                projects,
+                chatTitles: agentSessionChatTitles,
+                terminalTitles: sessionTerminalTitles,
+            }),
+            ...newChatDraftSessionRows({
+                tabsByContext: agentChatTabsByContext,
+                projects,
+            }),
+        ];
         const filtered = filterSidebarSessions(built, sidebarWorkspaceFilters, groups);
         return {
             total: built.length,
@@ -1398,6 +1401,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             }),
         };
     }, [
+        agentChatTabsByContext,
         agentSessionChatTitles,
         agentSessionSnapshots,
         agentStatusHydrated,
@@ -1408,15 +1412,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         groupingMode,
         groups,
         groupsT,
-        codeReviewPanes,
         projects,
-        projectWikiPanes,
         sessionTerminalTitles,
         sidebarListView,
         sidebarWorkspaceFilters,
         taskT,
         workspaceLabels,
-        workspacePanes,
     ]);
 
     const pinnedWorkspaceSection = shouldShowGlobalPinnedSection ? (
@@ -1498,7 +1499,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             activeProjectId={currentProjectId}
             activeWorkspaceId={currentWorkspaceId}
             availableLabels={workspaceLabels}
-            className="py-1.5"
+            className="overflow-x-hidden py-1.5 pr-2"
             expandedProjectIds={expandedProjects}
             hideWorkspaceList
             isAnyProjectDragging={isAnyProjectDragging}

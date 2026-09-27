@@ -12,7 +12,7 @@ use crate::error::{Result, ServiceError};
 use core_engine::{TmuxEngine, TmuxPaneProcess, TmuxPaneSnapshot, TmuxWindowAtmosMetadata};
 use infra::db::repo::{ProjectRepo, WorkspaceRepo};
 use sea_orm::DatabaseConnection;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
@@ -51,6 +51,25 @@ const HYDRATION_COMPLETE_MESSAGE: &str = "atmos-hydration-complete";
 
 fn is_usable_browser_size(cols: u16, rows: u16) -> bool {
     cols >= MIN_BROWSER_COLS && rows >= MIN_BROWSER_ROWS
+}
+
+fn absorb_session_windows(
+    ids: &mut HashSet<String>,
+    by_session: &HashMap<String, Vec<String>>,
+    session_name: &str,
+    context_id: &str,
+) -> usize {
+    let Some(windows) = by_session.get(session_name) else {
+        return 0;
+    };
+    let mut added = 0usize;
+    for window_name in windows {
+        let pane_id = format!("{context_id}:{window_name}");
+        if ids.insert(pane_id) {
+            added += 1;
+        }
+    }
+    added
 }
 
 fn validate_side_chat_id(value: &str) -> Result<()> {
@@ -201,6 +220,99 @@ impl TerminalService {
 
     pub fn list_terminal_titles(&self) -> Vec<TerminalTitleUpdate> {
         self.titles.list()
+    }
+
+    /// Panes whose dynamic title is a path or a non-agent command.
+    /// The window is still open; the agent has exited back to a shell.
+    pub fn shell_agent_pane_ids(&self, commands: &HashSet<String>) -> HashSet<String> {
+        let mut ids = HashSet::new();
+        if commands.is_empty() {
+            return ids;
+        }
+        for title in self.titles.list() {
+            let workspace_id = title.workspace_id.trim();
+            let window_name = title.tmux_window_name.trim();
+            let Some(dynamic) = title.dynamic_title.as_deref() else {
+                continue;
+            };
+            if workspace_id.is_empty() || window_name.is_empty() {
+                continue;
+            }
+            if title_hub::dynamic_title_runs_agent(dynamic, commands) == Some(false) {
+                ids.insert(format!("{workspace_id}:{window_name}"));
+            }
+        }
+        ids
+    }
+
+    /// Stable pane ids (`{context}:{window}`) for tmux windows that still exist.
+    /// `Ok(None)` means the inventory could not be trusted, so callers must not
+    /// treat every terminal session as closed.
+    pub async fn list_open_stable_pane_ids(&self) -> Result<Option<HashSet<String>>> {
+        if self.tmux_engine.get_server_pid().is_none() {
+            return Ok(None);
+        }
+        let listed = match self.tmux_engine.list_windows_all() {
+            Ok(windows) => windows,
+            Err(error) => {
+                debug!("open terminal inventory skipped: {error}");
+                return Ok(None);
+            }
+        };
+        let Some(db) = self.db.as_ref() else {
+            return Ok(None);
+        };
+        let mut by_session: HashMap<String, Vec<String>> = HashMap::new();
+        for (session_name, window_name) in &listed {
+            by_session
+                .entry(session_name.clone())
+                .or_default()
+                .push(window_name.clone());
+        }
+        let projects = match ProjectRepo::new(db).list().await {
+            Ok(projects) => projects,
+            Err(error) => {
+                debug!("open terminal inventory skipped: {error}");
+                return Ok(None);
+            }
+        };
+        let workspace_repo = WorkspaceRepo::new(db);
+        let mut ids = HashSet::new();
+        let mut matched = 0usize;
+        for project in &projects {
+            matched += absorb_session_windows(
+                &mut ids,
+                &by_session,
+                &self.tmux_engine.get_session_name(&project.guid),
+                &project.guid,
+            );
+            let workspaces = match workspace_repo.list_by_project(&project.guid).await {
+                Ok(workspaces) => workspaces,
+                Err(error) => {
+                    debug!("open terminal inventory skipped: {error}");
+                    return Ok(None);
+                }
+            };
+            for workspace in &workspaces {
+                for session_name in [
+                    self.tmux_engine.get_session_name(&workspace.guid),
+                    self.tmux_engine
+                        .get_session_name_from_names(&project.name, &workspace.name),
+                ] {
+                    matched += absorb_session_windows(
+                        &mut ids,
+                        &by_session,
+                        &session_name,
+                        &workspace.guid,
+                    );
+                }
+            }
+        }
+        if !listed.is_empty() && matched == 0 {
+            debug!("open terminal inventory matched no workspace windows");
+            return Ok(None);
+        }
+        Ok(Some(ids))
     }
 
     pub fn terminal_title_for(

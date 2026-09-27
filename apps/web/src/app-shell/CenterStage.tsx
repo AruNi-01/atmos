@@ -1506,6 +1506,7 @@ const CenterStage: React.FC = () => {
       }
       closeSurfaceIfUnowned(effectiveContextId, value, () => {
         useAgentChatCenterTabsStore.getState().closeTab(effectiveContextId, value);
+        useDialogStore.getState().clearAgentChatDraftsForInstance(value);
       });
     },
     [activateNextAfterClosing, effectiveContextId],

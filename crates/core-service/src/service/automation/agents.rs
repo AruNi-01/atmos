@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -757,6 +757,41 @@ fn probe_terminal_agent_options(agent_id: &str) -> Result<TerminalAgentOptions> 
         None,
         TerminalAgentOptionsSource::Live,
     ))
+}
+
+/// Command names the shell dynamic title uses to mean “an agent is in the foreground”.
+/// Includes built-ins and any custom `cmd` in the user terminal-agent file.
+pub fn terminal_agent_command_names() -> HashSet<String> {
+    let mut names = HashSet::new();
+    if let Ok(built_ins) = load_builtin_terminal_agents() {
+        for agent in built_ins {
+            insert_command_name(&mut names, &agent.cmd);
+        }
+    }
+    if let Ok(file) = load_terminal_code_agent_file() {
+        for entry in file.agents {
+            if let Some(cmd) = non_empty(&entry.cmd) {
+                insert_command_name(&mut names, &cmd);
+            }
+        }
+    }
+    names
+}
+
+fn insert_command_name(names: &mut HashSet<String>, cmd: &str) {
+    let Some(token) = cmd.split_whitespace().next() else {
+        return;
+    };
+    let base = token
+        .trim_matches(|ch| ch == '"' || ch == '\'')
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase();
+    if !base.is_empty() {
+        names.insert(base);
+    }
 }
 
 fn load_builtin_terminal_agents() -> Result<Vec<TerminalAgentDefinition>> {

@@ -15,6 +15,10 @@ export type AgentChatCenterTab = {
   providerId: string | null;
   openedAt: number;
   hasMessages: boolean;
+  /** Title to restore while this New Chat tab has no unsent text. */
+  idleTitle?: string;
+  /** Unsent composer text. Empty until the user types, cleared once a session exists. */
+  draftPrompt?: string;
 };
 
 export function normalizeAgentChatCenterTab(
@@ -27,6 +31,15 @@ export function normalizeAgentChatCenterTab(
 }
 
 export const EMPTY_AGENT_CHAT_TABS: AgentChatCenterTab[] = [];
+
+const DRAFT_PROMPT_TITLE_LIMIT = 48;
+
+/** Single-line title for an unsent New Chat prompt. */
+export function draftPromptTitle(text: string, limit = DRAFT_PROMPT_TITLE_LIMIT): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  if (flat.length <= limit) return flat;
+  return `${flat.slice(0, limit - 1).trimEnd()}…`;
+}
 
 type AgentChatCenterTabsStore = {
   tabsByContext: Record<string, AgentChatCenterTab[]>;
@@ -58,6 +71,8 @@ type AgentChatCenterTabsStore = {
     hasMessages?: boolean;
   }) => void;
   closeTab: (contextId: string, value: string) => void;
+  /** Remember unsent New Chat text. A blank prompt restores the idle tab title. */
+  setDraftPrompt: (instanceKey: string, prompt: string) => void;
   requestActivate: (contextId: string, value: string) => void;
   clearPendingActivate: () => void;
   requestNewChat: () => void;
@@ -166,12 +181,15 @@ export const useAgentChatCenterTabsStore = create<AgentChatCenterTabsStore>()(
         const value = buildAgentChatTabValue(`draft:${draftId}`);
         const existing = (get().tabsByContext[contextId] ?? []).find((tab) => tab.value === value);
         if (existing) return existing;
+        const idleTitle = title?.trim() || "Chat";
         const tab: AgentChatCenterTab = {
           id: value,
           value,
           contextId,
           chatId: null,
-          title: title?.trim() || "Chat",
+          title: idleTitle,
+          idleTitle,
+          draftPrompt: "",
           cwd: "",
           providerId: null,
           openedAt: Date.now(),
@@ -198,11 +216,40 @@ export const useAgentChatCenterTabsStore = create<AgentChatCenterTabsStore>()(
                     cwd: cwd ?? tab.cwd,
                     providerId: providerId ?? tab.providerId,
                     hasMessages: hasMessages ?? tab.hasMessages,
+                    draftPrompt: "",
                   }
                 : tab,
             ),
           },
         }));
+      },
+      setDraftPrompt: (instanceKey, prompt) => {
+        const needle = instanceKey.trim();
+        if (!needle) return;
+        const text = prompt.replace(/\s+/g, " ").trim();
+        set((state) => {
+          let changed = false;
+          const tabsByContext = { ...state.tabsByContext };
+          for (const [contextId, tabs] of Object.entries(state.tabsByContext)) {
+            let contextChanged = false;
+            const next = tabs.map((tab) => {
+              if (tab.value !== needle || tab.chatId) return tab;
+              contextChanged = true;
+              const idleTitle = tab.idleTitle?.trim() || "Chat";
+              return {
+                ...tab,
+                idleTitle,
+                draftPrompt: text,
+                title: text ? draftPromptTitle(text) : idleTitle,
+              };
+            });
+            if (contextChanged) {
+              changed = true;
+              tabsByContext[contextId] = next;
+            }
+          }
+          return changed ? { tabsByContext } : state;
+        });
       },
       patchChat: ({ contextId, chatId, title, providerId, cwd, hasMessages }) => {
         set((state) => ({
