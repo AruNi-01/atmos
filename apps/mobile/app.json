@@ -16,6 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "land.atmos.mobile",
+      "deploymentTarget": "16.4",
       "infoPlist": {
         "NSCameraUsageDescription": "Atmos uses the camera to scan a temporary pair QR from Desktop or Web.",
         "UIApplicationSceneManifest": {
@@ -87,7 +88,8 @@
             "showMenuAtLaunch": false
           }
         }
-      ]
+      ],
+      "./plugins/with-ios-pod-deployment-target.js"
     ],
     "experiments": {
       "typedRoutes": true

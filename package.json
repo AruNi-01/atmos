@@ -75,6 +75,13 @@
     "tailwindcss": "4.3.0",
     "@tailwindcss/postcss": "4.3.0",
     "@tailwindcss/node": "4.3.0",
-    "@tailwindcss/oxide": "4.3.0"
+    "@tailwindcss/oxide": "4.3.0",
+    "expo-modules-jsi": "56.0.13"
+  },
+  "trustedDependencies": [
+    "@shopify/react-native-skia"
+  ],
+  "patchedDependencies": {
+    "@shopify/react-native-skia@2.6.2": "patches/@shopify%2Freact-native-skia@2.6.2.patch"
   }
 }

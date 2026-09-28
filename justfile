@@ -110,6 +110,16 @@ mobile-ios:
     export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
     cd apps/mobile && bun run ios
 
+# Expo prebuild output is gitignored. Create it once per worktree.
+mobile-ios-prepare:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ -f apps/mobile/ios/Atmos.xcworkspace/contents.xcworkspacedata ]]; then
+        exit 0
+    fi
+    cd apps/mobile
+    CI=1 bunx expo prebuild --platform ios
+
 # Build the Release app and install it on a connected iPhone. Does not use Metro.
 # Installs as Atmos (land.atmos.mobile). Does not replace Atmos Dev.
 # Usage: just mobile-ios-release
@@ -135,6 +145,7 @@ mobile-ios-release *args:
         exit 1
     fi
 
+    just mobile-ios-prepare
     ios_dir="apps/mobile/ios"
     xcodebuild \
         -workspace "$ios_dir/Atmos.xcworkspace" \
@@ -187,6 +198,7 @@ mobile-ios-dev *args:
         exit 1
     fi
 
+    just mobile-ios-prepare
     ios_dir="apps/mobile/ios"
     plist="$ios_dir/Atmos/Info.plist"
     backup="$(mktemp)"

@@ -1,0 +1,14 @@
+diff --git a/package.json b/package.json
+index 649d2c20b3a588cb574e1de7455bb5cd53f2cbe4..468e6f84e78b7a9049acdf3d19e0b35938398601 100644
+--- a/package.json
++++ b/package.json
+@@ -150,6 +150,9 @@
+       "componentProvider": {
+         "SkiaPictureView": "SkiaPictureView",
+         "SkiaWebGPUView": "SkiaWebGPUView"
++      },
++      "modulesProvider": {
++        "RNSkiaModule": "RNSkiaModule"
+       }
+     }
+   },
