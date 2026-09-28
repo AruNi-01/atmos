@@ -104,6 +104,7 @@ export function useHostSessionList({
   const [debouncedQuery, setDebouncedQuery] = useState(query);
   const pendingSync = useRef(false);
   const mountSyncPending = useRef(syncOnMount);
+  const syncInFlight = useRef(false);
   const onSourcesSyncedRef = useRef(onSourcesSynced);
   onSourcesSyncedRef.current = onSourcesSynced;
   const hasSessions = useRef(false);
@@ -157,17 +158,22 @@ export function useHostSessionList({
   );
 
   useEffect(() => {
-    if (!connected) return;
+    if (!connected) {
+      // The in-flight scan cannot finish. Reconnect must be allowed to scan again.
+      syncInFlight.current = false;
+      setIsSyncing(false);
+      return;
+    }
     let cancelled = false;
     const generation = ++generationRef.current;
     loadingMoreRef.current = false;
-    const sync = pendingSync.current || mountSyncPending.current;
+    // Refresh always scans. The mount scan does not start again while one is
+    // already in flight: the server emits host_session_index_updated before that
+    // response returns, and syncing on the reload loops forever.
+    const sync = pendingSync.current || (mountSyncPending.current && !syncInFlight.current);
     pendingSync.current = false;
     if (sync) {
-      // The server emits host_session_index_updated before this response returns.
-      // That reload must not sync again, or the palette rescans forever.
-      mountSyncPending.current = false;
-      onSourcesSyncedRef.current?.();
+      syncInFlight.current = true;
       setIsSyncing(true);
     }
     if (!hasSessions.current) {
@@ -189,6 +195,11 @@ export function useHostSessionList({
       })
       .then((response) => {
         if (cancelled || generationRef.current !== generation) return;
+        if (sync || syncInFlight.current) {
+          syncInFlight.current = false;
+          mountSyncPending.current = false;
+          onSourcesSyncedRef.current?.();
+        }
         const nextSessions = response.sessions;
         const nextHits = response.hits ?? [];
         setSessions(nextSessions);
@@ -202,6 +213,7 @@ export function useHostSessionList({
       })
       .catch((err: unknown) => {
         if (cancelled || isCancelledError(err) || generationRef.current !== generation) return;
+        if (sync) syncInFlight.current = false;
         setError(err instanceof Error ? err.message : "error");
       })
       .finally(() => {

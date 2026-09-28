@@ -242,14 +242,17 @@ describe("global search focus", () => {
     const hook = read("../../features/agent-sessions/hooks/use-host-session-list.ts");
     expect(hook).toContain("syncOnMount = false");
     expect(hook).toContain("mountSyncPending");
-    const syncRequest = hook.slice(
-      hook.indexOf("const sync = pendingSync.current || mountSyncPending.current"),
-      hook.indexOf("void hostSessionApi"),
-    );
-    expect(syncRequest).toContain("mountSyncPending.current = false");
-    expect(syncRequest).toContain("onSourcesSyncedRef.current?.()");
-    const syncResponse = hook.slice(hook.indexOf("void hostSessionApi"), hook.indexOf("const loadMore"));
-    expect(syncResponse).not.toContain("mountSyncPending.current = false");
+    expect(hook).toContain("syncInFlight");
+    const syncRequest = hook.slice(hook.indexOf("const sync ="), hook.indexOf("void hostSessionApi"));
+    expect(syncRequest).toContain("mountSyncPending.current && !syncInFlight.current");
+    expect(syncRequest).not.toContain("mountSyncPending.current = false");
+    expect(syncRequest).not.toContain("onSourcesSyncedRef.current?.()");
+    const disconnected = hook.slice(hook.indexOf("if (!connected)"), hook.indexOf("let cancelled"));
+    expect(disconnected).toContain("syncInFlight.current = false");
+    expect(disconnected).not.toContain("onSourcesSyncedRef");
+    const syncResponse = hook.slice(hook.indexOf(".then((response)"), hook.indexOf(".catch("));
+    expect(syncResponse).toContain("mountSyncPending.current = false");
+    expect(syncResponse).toContain("onSourcesSyncedRef.current?.()");
 
     const content = read("../global-search-content.tsx");
     expect(content).toContain('value="sessions"');
