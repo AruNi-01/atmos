@@ -11,6 +11,7 @@ import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import { useMobileTheme } from "@/theme/theme-store";
 import { creditsLabel, extraSections, providerHeading, usageRows, type UsageRow } from "@/features/quota-usage/quota-rows";
+import { noteSavedAutoRefresh, seedSavedAutoRefresh, type SavedAutoRefresh } from "@/features/quota-usage/auto-refresh-interval";
 import { mergeQuotaSwitchSnapshot } from "@/features/quota-usage/quota-switch-snapshot";
 import { ChevronDownIcon, ChevronUpIcon, SettingsIcon } from "@/ui/icons/lucide-native";
 import { ProviderGlyph } from "@/ui/icons/provider-glyph";
@@ -56,6 +57,8 @@ export function QuotaUsageScreen() {
   const switchGeneration = useRef(new Map<string, number>());
   const nextSwitchGeneration = useRef(0);
   const autoRefreshGeneration = useRef(0);
+  const savedAutoRefresh = useRef<SavedAutoRefresh | null>(null);
+  const autoRefreshInFlight = useRef(0);
   const write = (overview: QuotaOverviewResponse) => {
     setActionError(null);
     queryClient.setQueryData(queryKey, overview);
@@ -180,10 +183,18 @@ export function QuotaUsageScreen() {
   const autoRefresh = useMutation({
     mutationFn: (minutes: number | null) => wsActions.quotaSetAutoRefresh(client!, minutes),
     onMutate: (minutes) => {
+      autoRefreshInFlight.current += 1;
       const generation = autoRefreshGeneration.current + 1;
       autoRefreshGeneration.current = generation;
       const previous = queryClient.getQueryData<QuotaOverviewResponse>(queryKey);
-      const previousMinutes = previous?.auto_refresh.interval_minutes ?? null;
+      // Seed from the cache before the optimistic write, then keep that saved value
+      // across a second selection. Rolling back to the optimistic interval shows a
+      // choice the Computer never stored when both requests fail.
+      savedAutoRefresh.current = seedSavedAutoRefresh(
+        savedAutoRefresh.current,
+        previous?.auto_refresh.interval_minutes ?? null,
+      );
+      const rollbackMinutes = savedAutoRefresh.current.minutes;
       if (previous) {
         queryClient.setQueryData<QuotaOverviewResponse>(queryKey, {
           ...previous,
@@ -191,20 +202,39 @@ export function QuotaUsageScreen() {
         });
       }
       setActionError(null);
-      return { generation, previousMinutes, started: new Map(switchGeneration.current) };
+      return { generation, rollbackMinutes, started: new Map(switchGeneration.current) };
     },
     onSuccess: (overview, _minutes, context) => {
+      if (context && savedAutoRefresh.current) {
+        savedAutoRefresh.current = noteSavedAutoRefresh(
+          savedAutoRefresh.current,
+          context.generation,
+          overview.auto_refresh.interval_minutes ?? null,
+        );
+      }
       if (!context || context.generation !== autoRefreshGeneration.current) return;
       applyOverview(overview, refreshStillCurrent(context.started), true);
     },
     onError: (error: unknown, _minutes, context) => {
       if (!context || context.generation !== autoRefreshGeneration.current) return;
+      const rollbackMinutes = savedAutoRefresh.current?.minutes ?? context.rollbackMinutes;
       queryClient.setQueryData<QuotaOverviewResponse>(queryKey, (current) =>
-        current ? { ...current, auto_refresh: { interval_minutes: context.previousMinutes } } : current,
+        current ? { ...current, auto_refresh: { interval_minutes: rollbackMinutes } } : current,
       );
       setActionError(actionMessage(error));
     },
+    onSettled: () => {
+      autoRefreshInFlight.current = Math.max(0, autoRefreshInFlight.current - 1);
+    },
   });
+  // Overview refetches while idle are server truth. Do not adopt an optimistic picker value.
+  useEffect(() => {
+    if (autoRefreshInFlight.current > 0 || !overviewQuery.isSuccess) return;
+    const minutes = overviewQuery.data.auto_refresh.interval_minutes ?? null;
+    savedAutoRefresh.current = savedAutoRefresh.current
+      ? { ...savedAutoRefresh.current, minutes }
+      : { minutes, appliedGeneration: 0 };
+  }, [overviewQuery.data, overviewQuery.isSuccess]);
 
   const overview = overviewQuery.data ?? null;
   const providers = [...(overview?.providers ?? [])].sort((left, right) => left.label.localeCompare(right.label));
