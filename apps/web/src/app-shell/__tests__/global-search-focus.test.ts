@@ -242,7 +242,14 @@ describe("global search focus", () => {
     const hook = read("../../features/agent-sessions/hooks/use-host-session-list.ts");
     expect(hook).toContain("syncOnMount = false");
     expect(hook).toContain("mountSyncPending");
-    expect(hook).toContain("pendingSync.current || mountSyncPending.current");
+    const syncRequest = hook.slice(
+      hook.indexOf("const sync = pendingSync.current || mountSyncPending.current"),
+      hook.indexOf("void hostSessionApi"),
+    );
+    expect(syncRequest).toContain("mountSyncPending.current = false");
+    expect(syncRequest).toContain("onSourcesSyncedRef.current?.()");
+    const syncResponse = hook.slice(hook.indexOf("void hostSessionApi"), hook.indexOf("const loadMore"));
+    expect(syncResponse).not.toContain("mountSyncPending.current = false");
 
     const content = read("../global-search-content.tsx");
     expect(content).toContain('value="sessions"');

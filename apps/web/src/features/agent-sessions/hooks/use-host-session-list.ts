@@ -163,11 +163,15 @@ export function useHostSessionList({
     loadingMoreRef.current = false;
     const sync = pendingSync.current || mountSyncPending.current;
     pendingSync.current = false;
+    if (sync) {
+      // The server emits host_session_index_updated before this response returns.
+      // That reload must not sync again, or the palette rescans forever.
+      mountSyncPending.current = false;
+      onSourcesSyncedRef.current?.();
+      setIsSyncing(true);
+    }
     if (!hasSessions.current) {
       setIsLoading(true);
-    }
-    if (sync) {
-      setIsSyncing(true);
     }
     const needle = debouncedQuery.trim();
     void hostSessionApi
@@ -185,10 +189,6 @@ export function useHostSessionList({
       })
       .then((response) => {
         if (cancelled || generationRef.current !== generation) return;
-        if (sync) {
-          mountSyncPending.current = false;
-          onSourcesSyncedRef.current?.();
-        }
         const nextSessions = response.sessions;
         const nextHits = response.hits ?? [];
         setSessions(nextSessions);
