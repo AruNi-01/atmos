@@ -43,10 +43,22 @@ import {
   type GroupedAppItems,
   type SubView,
 } from '@/app-shell/global-search-content';
+import { SessionSubView } from '@/app-shell/global-search-sessions';
 import {
+  GLOBAL_SEARCH_TABS,
   resolveGlobalSearchSelectedValue,
   resolveGlobalSearchTypeahead,
 } from '@/app-shell/global-search-focus';
+import {
+  EMPTY_HOST_SESSION_FILTERS,
+  type HostSessionFilters,
+  type HostSessionOpenTarget,
+} from '@/features/agent-sessions/lib/host-session-filters';
+import {
+  DEFAULT_HOST_SESSION_SORT,
+  type HostSessionGroupMode,
+  type HostSessionSort,
+} from '@/features/agent-sessions/lib/host-session-groups';
 
 function normalizeGlobalSearchValue(value: string) {
   return value
@@ -166,6 +178,11 @@ export function GlobalSearch() {
 
   // Sub-view state (null = search, inline panels reuse the command dialog shell)
   const [subView, setSubView] = useState<SubView | null>(null);
+  const [sessionTarget, setSessionTarget] = useState<HostSessionOpenTarget | null>(null);
+  const [sessionFilters, setSessionFilters] = useState<HostSessionFilters>(EMPTY_HOST_SESSION_FILTERS);
+  const [sessionSort, setSessionSort] = useState<HostSessionSort>(DEFAULT_HOST_SESSION_SORT);
+  const [sessionGroupMode, setSessionGroupMode] = useState<HostSessionGroupMode>("all");
+  const [firstSessionValue, setFirstSessionValue] = useState("");
 
   const [searchQuery, setSearchQuery] = useState('');
   const [codeSearchResults, setCodeSearchResults] = useState<SearchMatch[]>([]);
@@ -264,7 +281,7 @@ export function GlobalSearch() {
   // Keyboard shortcut to switch tabs when search is open
   useHotkeys('tab', () => {
     if (!isGlobalSearchOpen) return;
-    const tabs: SearchTab[] = ['app', 'files', 'code'];
+    const tabs: SearchTab[] = [...GLOBAL_SEARCH_TABS];
     const currentIndex = tabs.indexOf(globalSearchTab);
     const nextIndex = (currentIndex + 1) % tabs.length;
     setGlobalSearchTab(tabs[nextIndex]);
@@ -285,6 +302,11 @@ export function GlobalSearch() {
       setCodeSearchResults([]);
       setSelectedValue('');
       setSubView(null);
+      setSessionTarget(null);
+      setSessionFilters(EMPTY_HOST_SESSION_FILTERS);
+      setSessionSort(DEFAULT_HOST_SESSION_SORT);
+      setSessionGroupMode("all");
+      setFirstSessionValue("");
     }
   }, [isGlobalSearchOpen]);
 
@@ -298,7 +320,7 @@ export function GlobalSearch() {
   }, []);
 
   useLayoutEffect(() => {
-    if (!isGlobalSearchOpen || subView) return;
+    if (!isGlobalSearchOpen || subView || sessionTarget) return;
     const focus = () => inputRef.current?.focus();
     focus();
     const frame = requestAnimationFrame(focus);
@@ -307,12 +329,19 @@ export function GlobalSearch() {
       cancelAnimationFrame(frame);
       window.clearTimeout(timeout);
     };
-  }, [isGlobalSearchOpen, subView]);
+  }, [isGlobalSearchOpen, subView, sessionTarget]);
 
   useEffect(() => {
-    if (!isGlobalSearchOpen || subView) return;
+    if (!isGlobalSearchOpen || subView || sessionTarget) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest("[data-slot='dropdown-menu-content'], [data-slot='dropdown-menu-sub-content']")
+      ) {
+        return;
+      }
       const currentQuery = searchQueryRef.current;
       const result = resolveGlobalSearchTypeahead(event, inputRef.current, currentQuery);
       if (!result) return;
@@ -326,7 +355,7 @@ export function GlobalSearch() {
 
     document.addEventListener('keydown', onKeyDown, true);
     return () => document.removeEventListener('keydown', onKeyDown, true);
-  }, [isGlobalSearchOpen, subView]);
+  }, [isGlobalSearchOpen, subView, sessionTarget]);
 
   // Auto-scroll to selected item
   useEffect(() => {
@@ -502,9 +531,10 @@ export function GlobalSearch() {
         firstAppItemId,
         firstFilePath,
         firstCodeValue,
+        firstSessionValue,
       }),
     );
-  }, [globalSearchTab, searchQuery, isGlobalSearchOpen, firstAppItemId, firstFilePath, firstCodeValue]);
+  }, [globalSearchTab, searchQuery, isGlobalSearchOpen, firstAppItemId, firstFilePath, firstCodeValue, firstSessionValue]);
 
   const handleFileSelect = (path: string) => {
     const contextId = centerContextId;
@@ -522,6 +552,8 @@ export function GlobalSearch() {
     }
   };
 
+  const drilledIn = subView != null || sessionTarget != null;
+
   return (
     <CommandDialog
       showCloseButton={false}
@@ -530,17 +562,37 @@ export function GlobalSearch() {
       onValueChange={setSelectedValue}
       open={isGlobalSearchOpen}
       onOpenChange={(open) => {
-        if (!open && subView) {
+        if (!open && drilledIn) {
           setSubView(null);
+          setSessionTarget(null);
           return;
         }
         setGlobalSearchOpen(open);
       }}
+      onPointerDownOutside={(event) => {
+        const target = event.target;
+        if (
+          target instanceof Element &&
+          target.closest("[data-slot='dropdown-menu-content'], [data-slot='dropdown-menu-sub-content']")
+        ) {
+          event.preventDefault();
+        }
+      }}
       onCloseAutoFocus={onCloseAutoFocusPrevent}
       onOpenAutoFocus={focusSearchInput}
-      className="w-[min(640px,calc(100vw-2rem))] sm:max-w-[640px] h-[min(64vh,640px)]"
+      className={
+        sessionTarget
+          ? "w-[min(960px,calc(100vw-2rem))] sm:max-w-[960px] h-[min(86vh,860px)]"
+          : "w-[min(640px,calc(100vw-2rem))] sm:max-w-[640px] h-[min(64vh,640px)]"
+      }
     >
-      {subView === 'todo' ? (
+      {sessionTarget ? (
+        <SessionSubView
+          target={sessionTarget}
+          searchQuery={searchQuery}
+          onBack={() => setSessionTarget(null)}
+        />
+      ) : subView === 'todo' ? (
         <TodoSubView
           currentProject={currentProject}
           currentWorkspace={currentWorkspace}
@@ -590,11 +642,21 @@ export function GlobalSearch() {
           isSearchingCode={isSearchingCode}
           searchQuery={searchQuery}
           selectedValue={selectedValue}
+          sessionControls={{
+            filters: sessionFilters,
+            sort: sessionSort,
+            groupMode: sessionGroupMode,
+            onFiltersChange: setSessionFilters,
+            onSortChange: setSessionSort,
+            onGroupModeChange: setSessionGroupMode,
+          }}
           setGlobalSearchTab={setGlobalSearchTab}
           setHoveredValue={setHoveredValue}
           setSearchQuery={setSearchQuery}
           onCodeResultSelect={handleCodeResultSelect}
           onFileSelect={handleFileSelect}
+          onFirstSessionValue={setFirstSessionValue}
+          onOpenSession={setSessionTarget}
         />
       )}
     </CommandDialog>

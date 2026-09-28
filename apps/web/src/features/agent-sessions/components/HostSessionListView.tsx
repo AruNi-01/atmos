@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { motion } from "motion/react";
 import {
@@ -22,34 +22,29 @@ import {
   TooltipTrigger,
   cn,
 } from "@workspace/ui";
-import { formatLocalDateTime, formatRelativeTime, parseUTCDate } from "@atmos/shared";
 import {
   ChevronDown,
   Folder,
   Loader2,
-  MessageSquare,
   RotateCcw,
   Search,
 } from "lucide-react";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { HostSessionFilterSortMenu } from "@/features/agent-sessions/components/HostSessionFilterSortMenu";
+import { HostSessionResultCard } from "@/features/agent-sessions/components/HostSessionResultCard";
 import { useHostSessionList } from "@/features/agent-sessions/hooks/use-host-session-list";
 import { useHostSessionListQuery } from "@/features/agent-sessions/hooks/use-host-session-list-query";
 import { useHostSessionSelection } from "@/features/agent-sessions/hooks/use-host-session-selection";
 import {
   EMPTY_HOST_SESSION_FILTERS,
-  formatHostSessionBytes,
-  hasAtmosChatTag,
   hostSessionFilterCount,
-  hostSessionHighlightParts,
-  hostSessionProjectLabel,
+  hostSessionOpenTarget,
   type HostSessionFilters,
 } from "@/features/agent-sessions/lib/host-session-filters";
 import {
   DEFAULT_HOST_SESSION_SORT,
   flattenHostSessionRows,
   hostSessionAgentIconId,
-  hostSessionAgentLabel,
   type HostSessionGroupMode,
   type HostSessionSort,
   type HostSessionVirtualRow,
@@ -92,28 +87,8 @@ function HostSessionGroupGlyph({
   );
 }
 
-function HostSessionHighlight({ text, query }: { text: string; query: string }) {
-  return (
-    <>
-      {hostSessionHighlightParts(text, query).map((part, index) =>
-        part.match ? (
-          <mark
-            key={`${part.text}-${index}`}
-            className="rounded-sm bg-info/35 px-0.5 text-foreground"
-          >
-            {part.text}
-          </mark>
-        ) : (
-          <React.Fragment key={`${part.text}-${index}`}>{part.text}</React.Fragment>
-        ),
-      )}
-    </>
-  );
-}
-
 export function HostSessionListView() {
   const t = useTranslations("agentSessions");
-  const locale = useLocale();
   const router = useAppRouter();
   const { listQuery: query, setListQuery: setQuery } = useHostSessionListQuery();
   const [groupMode, setGroupMode] = useState<HostSessionGroupMode>("all");
@@ -505,11 +480,9 @@ export function HostSessionListView() {
                     }
 
                     const session = row.session;
-                    const projectLabel = hostSessionProjectLabel(session);
-                    const agentLabel = hostSessionAgentLabel(session.provider_id);
-                    const title = session.title.trim() || session.native_id;
                     const hit = hitByRoot.get(session.key);
-                    const searching = query.trim().length > 0;
+                    const selected =
+                      selectedKey === session.key || selectedKey === hit?.session_key;
                     return (
                       <div
                         key={item.key}
@@ -524,101 +497,19 @@ export function HostSessionListView() {
                         }}
                       >
                         <div className="pb-2">
-                        <button
-                          type="button"
-                          className={cn(
-                            "group flex h-[84px] w-full items-center justify-between rounded-lg border px-4 text-left hover:border-primary/30 hover:bg-muted/50 hover:shadow-sm",
-                            selectedKey === session.key || selectedKey === hit?.session_key
-                              ? "border-primary/40 bg-muted/50 shadow-sm"
-                              : "border-border bg-background",
-                          )}
-                          aria-current={
-                            selectedKey === session.key || selectedKey === hit?.session_key
-                              ? "true"
-                              : undefined
-                          }
-                          onClick={() => {
-                            if (hit && hit.kind !== "title") {
-                              selectKey(hit.session_key, {
-                                messageId: hit.message_id,
-                                seq: hit.seq,
+                          <HostSessionResultCard
+                            session={session}
+                            hit={hit}
+                            query={query}
+                            selected={selected}
+                            onSelect={() => {
+                              const target = hostSessionOpenTarget(session, hit);
+                              selectKey(target.key, {
+                                messageId: target.messageId,
+                                seq: target.seq,
                               });
-                              return;
-                            }
-                            selectKey(hit?.session_key ?? session.key);
-                          }}
-                        >
-                          <div className="flex min-w-0 flex-1 items-center gap-4">
-                            <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/50 bg-muted/30 transition-colors duration-150 group-hover:border-primary/20 group-hover:bg-primary/5">
-                              <AgentIcon
-                                registryId={hostSessionAgentIconId(session.provider_id)}
-                                name={agentLabel}
-                                size={22}
-                              />
-                            </div>
-                            <div className="flex min-w-0 flex-1 flex-col">
-                              <div className="flex min-w-0 items-center gap-2">
-                                <span className="truncate text-sm font-semibold text-foreground transition-colors duration-150 group-hover:text-primary">
-                                  {searching ? (
-                                    <HostSessionHighlight text={title} query={query} />
-                                  ) : (
-                                    title
-                                  )}
-                                </span>
-                                {hasAtmosChatTag(session) ? (
-                                  <span className="shrink-0 rounded-md border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                    {t("atmosChatTag")}
-                                  </span>
-                                ) : null}
-                              </div>
-                              <div className="mt-1 flex min-w-0 items-center gap-3 text-xs text-muted-foreground">
-                                {searching && hit?.snippet ? (
-                                  <span className="block min-w-0 truncate">
-                                    <HostSessionHighlight text={hit.snippet} query={query} />
-                                  </span>
-                                ) : (
-                                  <>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="flex min-w-0 items-center gap-1">
-                                      <Folder className="size-3 shrink-0" />
-                                      <span className="block max-w-[220px] truncate">
-                                        {projectLabel || t("unknownProject")}
-                                      </span>
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent className="max-w-xs break-all">
-                                    {session.cwd || t("unknownProject")}
-                                  </TooltipContent>
-                                </Tooltip>
-                                {session.message_count != null ? (
-                                  <>
-                                    <span className="text-border">·</span>
-                                    <span className="flex shrink-0 items-center gap-1">
-                                      <MessageSquare className="size-3 shrink-0" />
-                                      <span className="whitespace-nowrap">
-                                        {t("messageCount", { count: session.message_count })}
-                                      </span>
-                                    </span>
-                                  </>
-                                ) : null}
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="ml-4 shrink-0 text-right">
-                            <div className="text-[11px] font-medium tabular-nums text-muted-foreground">
-                              {formatHostSessionBytes(session.byte_size) ?? "–"}
-                            </div>
-                            <div className="mt-0.5 whitespace-nowrap text-[10px] tabular-nums text-muted-foreground/55">
-                              {session.updated_at &&
-                              !Number.isNaN(parseUTCDate(session.updated_at).getTime())
-                                ? `${formatLocalDateTime(session.updated_at, "yyyy/MM/dd HH:mm")} · ${formatRelativeTime(session.updated_at, locale)}`
-                                : ""}
-                            </div>
-                          </div>
-                        </button>
+                            }}
+                          />
                         </div>
                       </div>
                     );

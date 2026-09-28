@@ -3,7 +3,6 @@
 import React from "react";
 import {
   ArrowDown,
-  ArrowLeft,
   ArrowUp,
   CheckSquare,
   Code,
@@ -33,6 +32,7 @@ import type { Task } from "@/features/workspace/hooks/use-workspace-context";
 import { TaskListPanel } from "@/features/workspace/components/TaskListPanel";
 import { CommitActionsContainer } from "@/app-shell/sidebar/CommitActionsContainer";
 import { QuotaPopover } from "@/app-shell/QuotaPopover";
+import { GlobalSearchSubViewFrame } from "@/app-shell/global-search-subview";
 import {
   CodePreviewTooltip,
   CodeSearchResultItem,
@@ -41,6 +41,12 @@ import {
   type SearchTab,
 } from "@/app-shell/global-search-parts";
 import { useTranslations } from "next-intl";
+import { MessageSquare } from "lucide-react";
+import {
+  SessionSearchResults,
+  type SessionSearchControls,
+} from "@/app-shell/global-search-sessions";
+import type { HostSessionOpenTarget } from "@/features/agent-sessions/lib/host-session-filters";
 
 type SubView = "todo" | "commit" | "usage" | "note";
 
@@ -53,47 +59,6 @@ interface SearchWorkspaceSummary {
   id: string;
   name: string;
   localPath?: string | null;
-}
-
-interface GlobalSearchSubViewFrameProps {
-  icon: React.ReactNode;
-  title: string;
-  onBack: () => void;
-  children: React.ReactNode;
-}
-
-function GlobalSearchSubViewFrame({
-  icon,
-  title,
-  onBack,
-  children,
-}: GlobalSearchSubViewFrameProps) {
-  const t = useTranslations("appShell");
-  return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
-        <button
-          onClick={onBack}
-          className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          <ArrowLeft className="size-4" />
-        </button>
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          {icon}
-          <span className="truncate text-sm font-semibold">{title}</span>
-        </div>
-      </div>
-
-      {children}
-
-      <div className="mt-auto flex h-[38px] shrink-0 select-none items-center justify-end border-t border-border/40 bg-transparent px-4 text-[11px] text-muted-foreground/80">
-        <span className="flex items-center gap-1.5 opacity-80">
-          <kbd className="flex h-[18px] items-center justify-center rounded border border-border/60 bg-background px-1.5 font-sans text-[10px] font-medium uppercase shadow-sm">Esc</kbd>
-          <span>{t("globalSearch.back")}</span>
-        </span>
-      </div>
-    </div>
-  );
 }
 
 interface TodoSubViewProps {
@@ -287,11 +252,14 @@ interface GlobalSearchMainViewProps {
   isSearchingCode: boolean;
   searchQuery: string;
   selectedValue: string;
+  sessionControls: SessionSearchControls;
   setGlobalSearchTab: (tab: SearchTab) => void;
   setHoveredValue: (value: string | null) => void;
   setSearchQuery: (query: string) => void;
   onCodeResultSelect: (match: SearchMatch) => void;
   onFileSelect: (path: string) => void;
+  onFirstSessionValue: (value: string) => void;
+  onOpenSession: (target: HostSessionOpenTarget) => void;
 }
 
 function EmptyState({ children }: { children: React.ReactNode }) {
@@ -480,13 +448,17 @@ export function GlobalSearchMainView({
   isSearchingCode,
   searchQuery,
   selectedValue,
+  sessionControls,
   setGlobalSearchTab,
   setHoveredValue,
   setSearchQuery,
   onCodeResultSelect,
   onFileSelect,
+  onFirstSessionValue,
+  onOpenSession,
 }: GlobalSearchMainViewProps) {
   const t = useTranslations("appShell");
+  const sessionsT = useTranslations("agentSessions");
   return (
     <>
       <CodePreviewTooltip
@@ -498,13 +470,17 @@ export function GlobalSearchMainView({
       <div className="shrink-0 pt-1">
         <CommandInputWithoutBorder
           ref={inputRef}
-          placeholder={t("globalSearch.placeholder")}
+          placeholder={
+            globalSearchTab === "sessions"
+              ? sessionsT("searchPlaceholder")
+              : t("globalSearch.placeholder")
+          }
           value={searchQuery}
           onValueChange={setSearchQuery}
         />
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[20px] bg-muted/50 shadow-inner/5 dark:bg-black/60">
-        <div className="flex shrink-0 items-center px-3.5 py-1.5">
+        <div className="flex shrink-0 items-center overflow-x-auto px-3.5 py-1.5">
           <Tabs
             value={globalSearchTab}
             onValueChange={(value) => setGlobalSearchTab(value as SearchTab)}
@@ -522,6 +498,10 @@ export function GlobalSearchMainView({
               <TabsTrigger value="code" tabIndex={-1} className="h-7 gap-1.5 px-3 text-sm">
                 <Code className="size-3.5 shrink-0" />
                 {t("globalSearch.tabs.code")}
+              </TabsTrigger>
+              <TabsTrigger value="sessions" tabIndex={-1} className="h-7 gap-1.5 px-3 text-sm">
+                <MessageSquare className="size-3.5 shrink-0" />
+                {t("globalSearch.tabs.sessions")}
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -554,6 +534,14 @@ export function GlobalSearchMainView({
                   searchQuery={searchQuery}
                   setHoveredValue={setHoveredValue}
                   onCodeResultSelect={onCodeResultSelect}
+                />
+              ) : null}
+              {globalSearchTab === "sessions" ? (
+                <SessionSearchResults
+                  query={searchQuery}
+                  controls={sessionControls}
+                  onFirstValueChange={onFirstSessionValue}
+                  onOpen={onOpenSession}
                 />
               ) : null}
             </CommandList>

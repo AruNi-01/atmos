@@ -152,15 +152,26 @@ function HostSessionResumeMenu({
 
 export function HostSessionDetailView({
   selectedKey,
+  messageId: messageIdProp,
+  seq: seqProp,
+  searchQuery,
 }: {
   selectedKey: string;
+  /** When set (including null), ignore the Agent Sessions URL locator. */
+  messageId?: string | null;
+  seq?: number | null;
+  /** When set, seed transcript find from this query instead of the list search box. */
+  searchQuery?: string;
 }) {
   const t = useTranslations("agentSessions");
   const reserveClose = useDrawerCloseReserve();
   const router = useAppRouter();
   const projects = useProjects();
-  const { messageId, seq } = useHostSessionSelection();
+  const urlSelection = useHostSessionSelection();
+  const messageId = messageIdProp !== undefined ? messageIdProp : urlSelection.messageId;
+  const seq = seqProp !== undefined ? seqProp : urlSelection.seq;
   const { listQuery } = useHostSessionListQuery();
+  const findSource = searchQuery !== undefined ? searchQuery : listQuery;
   const { preview, isLoading, error } = useHostSessionPreview(selectedKey);
   const [resumeBusy, setResumeBusy] = useState<"chat" | "tui" | null>(null);
   const [tuiCommand, setTuiCommand] = useState<string | null>(null);
@@ -224,8 +235,8 @@ export function HostSessionDetailView({
     [locatorIndex, seedHits],
   );
 
-  const listQueryRef = useRef(listQuery);
-  listQueryRef.current = listQuery;
+  const listQueryRef = useRef(findSource);
+  listQueryRef.current = findSource;
 
   React.useEffect(() => {
     setTuiCommand(null);

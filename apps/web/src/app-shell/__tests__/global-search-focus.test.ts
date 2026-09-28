@@ -149,6 +149,24 @@ describe("global search focus", () => {
     expect(
       resolveGlobalSearchSelectedValue({
         isOpen: true,
+        tab: "sessions",
+        query: "",
+        firstSessionValue: "session:abc",
+      }),
+    ).toBe("session:abc");
+
+    expect(
+      resolveGlobalSearchSelectedValue({
+        isOpen: true,
+        tab: "sessions",
+        query: "refactor",
+        firstSessionValue: "session:def",
+      }),
+    ).toBe("session:def");
+
+    expect(
+      resolveGlobalSearchSelectedValue({
+        isOpen: true,
         tab: "app",
         query: "missing",
       }),
@@ -178,5 +196,27 @@ describe("global search focus", () => {
     expect(command).toContain("shouldFilter={shouldFilter}");
     expect(command).toContain("value={value}");
     expect(command).toContain("onValueChange={onValueChange}");
+  });
+
+  it("adds a sessions tab that reuses agent session search and the detail view", () => {
+    const focus = read("../global-search-focus.ts");
+    expect(focus).toContain('"sessions"');
+
+    const search = read("../GlobalSearch.tsx");
+    expect(search).toContain("GLOBAL_SEARCH_TABS");
+    expect(search).toContain("SessionSubView");
+    expect(search).toContain("onOpenSession={setSessionTarget}");
+
+    const panel = read("../global-search-sessions.tsx");
+    expect(panel).toContain("useHostSessionList");
+    expect(panel).toContain("HostSessionResultBody");
+    expect(panel).toContain("HostSessionFilterSortMenu");
+    expect(panel).toContain("HostSessionDetailView");
+    expect(panel).toContain("hostSessionOpenTarget");
+    expect(panel).toContain("searchQuery={searchQuery}");
+
+    const content = read("../global-search-content.tsx");
+    expect(content).toContain('value="sessions"');
+    expect(content).toContain("SessionSearchResults");
   });
 });

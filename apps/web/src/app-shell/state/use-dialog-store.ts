@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import type { FileUIPart } from "ai";
 import type { AgentChatMode } from '@/features/agent/types/index';
+import type { SearchTab } from '@/app-shell/global-search-focus';
 
 export interface QueuedAgentPrompt {
   id: string;
@@ -68,8 +69,8 @@ interface DialogStore {
   
   isGlobalSearchOpen: boolean;
   setGlobalSearchOpen: (open: boolean) => void;
-  globalSearchTab: 'app' | 'files' | 'code';
-  setGlobalSearchTab: (tab: 'app' | 'files' | 'code') => void;
+  globalSearchTab: SearchTab;
+  setGlobalSearchTab: (tab: SearchTab) => void;
 
   pendingAgentChatMode: AgentChatMode | null;
   setPendingAgentChatMode: (mode: AgentChatMode | null) => void;
