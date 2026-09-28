@@ -437,6 +437,7 @@ export function buildObserverGraph({
 export function layoutObserverGraph(
   graph: ObserverGraph,
   expandedAgentIds: Set<string>,
+  measuredHeights?: ReadonlyMap<string, number>,
 ): Map<string, { x: number; y: number }> {
   const children = new Map<string, string[]>();
   for (const node of graph.nodes) {
@@ -452,6 +453,8 @@ export function layoutObserverGraph(
   const GAP_Y = 48;
 
   function height(id: string): number {
+    const measured = measuredHeights?.get(id);
+    if (measured != null && measured > 0) return measured;
     const node = byId.get(id);
     if (!node) return 108;
     if (node.kind === "subagent") return 128;

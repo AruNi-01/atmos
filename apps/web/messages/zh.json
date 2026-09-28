@@ -2949,8 +2949,6 @@
     "recentWorkspacesHint": "最近 5 个 workspace",
     "recentContextsEmpty": "还没有最近打开的项目或工作区",
     "relayout": "重新布局",
-    "resetLayout": "重置布局",
-    "dragCard": "移动卡片",
     "openPane": "打开面板",
     "openChat": "打开对话",
     "close": "关闭",

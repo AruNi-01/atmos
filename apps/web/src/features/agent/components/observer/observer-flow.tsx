@@ -4,18 +4,27 @@ import type { CSSProperties } from "react";
 import {
   Handle,
   Position,
-  getSmoothStepPath,
   type Edge,
   type EdgeProps,
   type Node,
   type NodeProps,
 } from "@xyflow/react";
-import { ChevronRight, FolderGit2, GitBranch, GripVertical, Monitor } from "lucide-react";
-import { useState } from "react";
+import { ChevronRight, FolderGit2, GitBranch, Monitor } from "lucide-react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { MatrixOrb, Popover, PopoverContent, PopoverTrigger, cn } from "@workspace/ui";
-import type { AgentPendingPermission, AgentTodoItem } from "@atmos/api-types/ws/dto/events";
+import {
+  MatrixOrb,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  cn,
+} from "@workspace/ui";
+import type {
+  AgentPendingPermission,
+  AgentTodoItem,
+} from "@atmos/api-types/ws/dto/events";
 import { observerStaggerMs } from "@/features/agent/lib/observer-graph-motion";
+import { observerWirePath } from "@/features/agent/lib/observer-wire-motion";
 import "./observer-flow.css";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { AgentPermissionCard } from "@/features/agent/components/AgentPermissionCard";
@@ -44,6 +53,8 @@ export type ObserverFlowData = {
   onToggle: () => void;
   sessionTitle?: string;
   attentionReason?: AttentionReason | null;
+  boxHeight?: number;
+  onHeight?: (id: string, height: number) => void;
 };
 
 export type ObserverEdgeData = {
@@ -181,6 +192,8 @@ function ObserverNodeCard({
   sessionTitle,
   attentionReason,
   onToggle,
+  boxHeight,
+  onHeight,
 }: {
   data: ObserverGraphNode;
   selected: boolean;
@@ -189,6 +202,8 @@ function ObserverNodeCard({
   sessionTitle?: string;
   attentionReason?: AttentionReason | null;
   onToggle: () => void;
+  boxHeight?: number;
+  onHeight?: (id: string, height: number) => void;
 }) {
   const t = useTranslations("AgentObserver");
   const tone = kindTone(data);
@@ -219,7 +234,8 @@ function ObserverNodeCard({
     },
   });
   const permission = data.pendingPermission;
-  const needsPermission = state === "permission_request" || data.liveKind === "permission";
+  const needsPermission =
+    state === "permission_request" || data.liveKind === "permission";
   const attention =
     needsPermission || attentionReason === "permission_request"
       ? "permission_request"
@@ -229,11 +245,35 @@ function ObserverNodeCard({
   const canToggle = observerCardCanFold(data);
   const folded = collapsed;
   const exiting = presence === "exit";
+  const cardRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const card = cardRef.current;
+    const body = bodyRef.current;
+    if (!card || !body || !onHeight) return;
+    const publish = () => {
+      const style = getComputedStyle(card);
+      const extra =
+        parseFloat(style.paddingTop) +
+        parseFloat(style.paddingBottom) +
+        parseFloat(style.borderTopWidth) +
+        parseFloat(style.borderBottomWidth);
+      onHeight(data.id, Math.round(body.scrollHeight + extra));
+    };
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(body);
+    return () => observer.disconnect();
+  }, [data, onHeight]);
   const caption = [
     occupancyLabel(t, state) || null,
-    (data.kind === "agent" || data.kind === "subagent") && headline !== name ? name : null,
+    (data.kind === "agent" || data.kind === "subagent") && headline !== name
+      ? name
+      : null,
     data.chat ? t("chat") : data.sideChat ? t("sideChat") : null,
-    data.kind === "agent" && data.turnCount > 0 ? t("turns", { count: data.turnCount }) : null,
+    data.kind === "agent" && data.turnCount > 0
+      ? t("turns", { count: data.turnCount })
+      : null,
     data.kind === "agent" && data.childCount > 0
       ? t("children", { count: data.childCount })
       : null,
@@ -244,14 +284,14 @@ function ObserverNodeCard({
   ].filter(Boolean);
 
   const handleStyle = {
-    width: 10,
-    height: 10,
-    minWidth: 10,
-    minHeight: 10,
-    background: tone.handle,
-    borderWidth: 2,
-    borderColor: "var(--background)",
-    borderRadius: 9999,
+    width: 8,
+    height: 8,
+    minWidth: 8,
+    minHeight: 8,
+    opacity: 0,
+    pointerEvents: "none",
+    border: "none",
+    background: "transparent",
   } as const;
 
   return (
@@ -266,8 +306,16 @@ function ObserverNodeCard({
         selected && "ring-1 ring-foreground/25",
         exiting && "is-exiting",
       )}
+      ref={cardRef}
       data-presence={presence}
-      style={{ "--observer-stagger": `${observerStaggerMs(data.depth)}ms` } as CSSProperties}
+      style={
+        {
+          "--observer-stagger": `${observerStaggerMs(data.depth)}ms`,
+          ...(boxHeight != null
+            ? { height: boxHeight, overflow: "hidden" }
+            : null),
+        } as CSSProperties
+      }
     >
       <Handle
         type="target"
@@ -276,78 +324,92 @@ function ObserverNodeCard({
         style={handleStyle}
       />
 
-      <div className="observer-card-header flex items-center gap-2">
-        <button
-          type="button"
-          aria-label={t("dragCard")}
-          className={cn(
-            "observer-drag-handle relative flex size-6 shrink-0 items-center justify-center",
-            tone.kicker,
-          )}
-        >
-          <span className="observer-kind-glyph flex size-6 items-center justify-center">
+      <div ref={bodyRef}>
+        <div className="observer-card-header flex items-center gap-2">
+          <span
+            className={cn(
+              "observer-kind-glyph flex size-6 shrink-0 items-center justify-center",
+              tone.kicker,
+            )}
+          >
             <KindGlyph node={data} />
           </span>
-          <span className="observer-drag-grip absolute inset-0 flex items-center justify-center text-muted-foreground">
-            <GripVertical className="size-3.5" />
-          </span>
-        </button>
-        <div className={cn("min-w-0 flex-1 truncate text-[13px] font-medium leading-none", tone.kicker)} title={headline}>
-          {headline}
+          <div
+            className={cn(
+              "min-w-0 flex-1 truncate text-[13px] font-medium leading-none",
+              tone.kicker,
+            )}
+            title={headline}
+          >
+            {headline}
+          </div>
+          {canToggle ? (
+            <div className="flex shrink-0 items-center gap-0.5">
+              <span
+                className={cn(
+                  "min-w-[1.25rem] text-right text-[11px] font-medium tabular-nums text-muted-foreground",
+                  !(folded && data.descendantCount > 0) && "invisible",
+                )}
+              >
+                {data.descendantCount}
+              </span>
+              <button
+                type="button"
+                aria-label={t(folded ? "expand" : "fold")}
+                className="nodrag nopan flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-background/80 hover:text-foreground"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggle();
+                }}
+              >
+                <ChevronRight
+                  className={cn(
+                    "size-3.5 transition-transform",
+                    folded && "rotate-90",
+                  )}
+                />
+              </button>
+            </div>
+          ) : null}
         </div>
-        {canToggle ? (
-          <div className="flex shrink-0 items-center gap-0.5">
-            <span
-              className={cn(
-                "min-w-[1.25rem] text-right text-[11px] font-medium tabular-nums text-muted-foreground",
-                !(folded && data.descendantCount > 0) && "invisible",
-              )}
-            >
-              {data.descendantCount}
-            </span>
-            <button
-              type="button"
-              aria-label={t(folded ? "expand" : "fold")}
-              className="nodrag nopan flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-background/80 hover:text-foreground"
-              onClick={(event) => {
-                event.stopPropagation();
-                onToggle();
-              }}
-            >
-              <ChevronRight className={cn("size-3.5 transition-transform", folded && "rotate-90")} />
-            </button>
-          </div>
-        ) : null}
-      </div>
 
-      <div className={cn("mt-2.5 rounded-lg px-2.5 py-2", tone.well)}>
-        {needsPermission && permission ? (
-          <ObserverPermissionLine
-            node={data}
-            permission={permission}
-            label={wellTitle}
-          />
-        ) : (
-          <div className="truncate text-[13px] font-medium leading-5" title={wellTitle}>
-            {wellTitle}
-          </div>
-        )}
-        {caption.length > 0 ? (
-          <div className="mt-0.5 truncate text-[11px] leading-4 text-muted-foreground" title={caption.join(" · ")}>
-            {caption.join(" · ")}
-          </div>
-        ) : null}
-        {data.todos.length > 0 ? <ObserverTodos todos={data.todos} /> : null}
-        {data.visibleTurns.length > 0 ? (
-          <ol className="mt-2 max-h-32 space-y-1 overflow-y-auto border-t border-border/60 pt-2 text-[11px] text-muted-foreground">
-            {data.visibleTurns.map((turn) => (
-              <li key={turn.turn_id} className="truncate">
-                {turn.prompt || t("emptyPrompt")}
-              </li>
-            ))}
-            {data.extraTurns > 0 ? <li>{t("moreTurns", { count: data.extraTurns })}</li> : null}
-          </ol>
-        ) : null}
+        <div className={cn("mt-2.5 rounded-lg px-2.5 py-2", tone.well)}>
+          {needsPermission && permission ? (
+            <ObserverPermissionLine
+              node={data}
+              permission={permission}
+              label={wellTitle}
+            />
+          ) : (
+            <div
+              className="truncate text-[13px] font-medium leading-5"
+              title={wellTitle}
+            >
+              {wellTitle}
+            </div>
+          )}
+          {caption.length > 0 ? (
+            <div
+              className="mt-0.5 truncate text-[11px] leading-4 text-muted-foreground"
+              title={caption.join(" · ")}
+            >
+              {caption.join(" · ")}
+            </div>
+          ) : null}
+          {data.todos.length > 0 ? <ObserverTodos todos={data.todos} /> : null}
+          {data.visibleTurns.length > 0 ? (
+            <ol className="mt-2 max-h-32 space-y-1 overflow-y-auto border-t border-border/60 pt-2 text-[11px] text-muted-foreground">
+              {data.visibleTurns.map((turn) => (
+                <li key={turn.turn_id} className="truncate">
+                  {turn.prompt || t("emptyPrompt")}
+                </li>
+              ))}
+              {data.extraTurns > 0 ? (
+                <li>{t("moreTurns", { count: data.extraTurns })}</li>
+              ) : null}
+            </ol>
+          ) : null}
+        </div>
       </div>
 
       <Handle
@@ -366,10 +428,16 @@ function currentTodo(todos: AgentTodoItem[]): AgentTodoItem | undefined {
     return status === "in_progress" || status === "in-progress";
   });
   if (active) return active;
-  return todos.find((todo) => {
-    const status = todo.status.trim().toLowerCase();
-    return status !== "completed" && status !== "cancelled" && status !== "canceled";
-  }) ?? todos[0];
+  return (
+    todos.find((todo) => {
+      const status = todo.status.trim().toLowerCase();
+      return (
+        status !== "completed" &&
+        status !== "cancelled" &&
+        status !== "canceled"
+      );
+    }) ?? todos[0]
+  );
 }
 
 function ObserverTodos({ todos }: { todos: AgentTodoItem[] }) {
@@ -388,21 +456,34 @@ function ObserverTodos({ todos }: { todos: AgentTodoItem[] }) {
           setOpen((value) => !value);
         }}
       >
-        <ChevronRight className={cn("mt-0.5 size-3 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} />
-        <span className="min-w-0 flex-1 truncate text-[12px] leading-4 text-foreground" title={current.content}>
+        <ChevronRight
+          className={cn(
+            "mt-0.5 size-3 shrink-0 text-muted-foreground transition-transform",
+            open && "rotate-90",
+          )}
+        />
+        <span
+          className="min-w-0 flex-1 truncate text-[12px] leading-4 text-foreground"
+          title={current.content}
+        >
           {current.content}
         </span>
       </button>
       {open ? (
         <ul className="mt-1 max-h-28 space-y-1 overflow-y-auto pl-4">
           {todos.map((todo, index) => {
-            const done = todo.status === "completed" || todo.status === "cancelled" || todo.status === "canceled";
+            const done =
+              todo.status === "completed" ||
+              todo.status === "cancelled" ||
+              todo.status === "canceled";
             return (
               <li
                 key={`${todo.content}-${index}`}
                 className={cn(
                   "truncate text-[11px] leading-4",
-                  done ? "text-muted-foreground line-through" : "text-foreground",
+                  done
+                    ? "text-muted-foreground line-through"
+                    : "text-foreground",
                 )}
                 title={todo.content}
               >
@@ -429,14 +510,20 @@ const PANEL_REPLY_TOOLS = new Set([
 
 function canReplyFromPanel(node: ObserverGraphNode): boolean {
   const sessionId = node.session?.session_id ?? node.activity?.session_id ?? "";
-  if (node.chat || node.session?.surface === "chat" || sessionId.startsWith("chat:")) {
+  if (
+    node.chat ||
+    node.session?.surface === "chat" ||
+    sessionId.startsWith("chat:")
+  ) {
     return true;
   }
   const tool = node.session?.tool ?? node.activity?.tool;
   return Boolean(tool && PANEL_REPLY_TOOLS.has(tool));
 }
 
-function toPendingPermission(permission: AgentPendingPermission): PendingPermission {
+function toPendingPermission(
+  permission: AgentPendingPermission,
+): PendingPermission {
   return {
     request_id: permission.request_id,
     tool: permission.tool,
@@ -490,9 +577,13 @@ function ObserverPermissionLine({
     );
   }
   const chat =
-    node.chat || node.session?.surface === "chat" || Boolean(sessionId?.startsWith("chat:"));
+    node.chat ||
+    node.session?.surface === "chat" ||
+    Boolean(sessionId?.startsWith("chat:"));
   const chatId = chat
-    ? node.session?.surface_id ?? node.activity?.surface_id ?? sessionId?.replace(/^chat:/, "")
+    ? (node.session?.surface_id ??
+      node.activity?.surface_id ??
+      sessionId?.replace(/^chat:/, ""))
     : undefined;
 
   return (
@@ -518,7 +609,11 @@ function ObserverPermissionLine({
           markdown={permission.content_markdown ?? null}
           onRespond={(optionId) => {
             if (chatId) {
-              void agentChatApi.permissionRespond(chatId, permission.request_id, optionId);
+              void agentChatApi.permissionRespond(
+                chatId,
+                permission.request_id,
+                optionId,
+              );
               setOpen(false);
               return;
             }
@@ -539,7 +634,10 @@ function ObserverPermissionLine({
   );
 }
 
-function ObserverFlowNode({ data, selected }: NodeProps<Node<ObserverFlowData>>) {
+function ObserverFlowNode({
+  data,
+  selected,
+}: NodeProps<Node<ObserverFlowData>>) {
   return (
     <ObserverNodeCard
       data={data.node}
@@ -549,6 +647,43 @@ function ObserverFlowNode({ data, selected }: NodeProps<Node<ObserverFlowData>>)
       sessionTitle={data.sessionTitle}
       attentionReason={data.attentionReason}
       onToggle={data.onToggle}
+      boxHeight={data.boxHeight}
+      onHeight={data.onHeight}
+    />
+  );
+}
+
+const WIRE_CAP_GAP = 8;
+
+function wireCapX(
+  x: number,
+  position: Position | undefined,
+  fallback: Position,
+): number {
+  const side = position ?? fallback;
+  if (side === Position.Left) return x - WIRE_CAP_GAP;
+  if (side === Position.Right) return x + WIRE_CAP_GAP;
+  return x;
+}
+
+function ObserverWireCap({
+  cx,
+  cy,
+  fill,
+}: {
+  cx: number;
+  cy: number;
+  fill: string;
+}) {
+  return (
+    <circle
+      cx={cx}
+      cy={cy}
+      r={4}
+      fill={fill}
+      stroke="var(--background)"
+      strokeWidth={2}
+      className="observer-edge-cap"
     />
   );
 }
@@ -562,39 +697,28 @@ function ObserverFlowEdge({
   sourcePosition,
   targetPosition,
   data,
-  markerEnd,
 }: EdgeProps<Edge<ObserverEdgeData>>) {
   const spawn = data?.kind === "spawn";
-  const [edgePath] = getSmoothStepPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-    borderRadius: 16,
-  });
+  const x1 = wireCapX(sourceX, sourcePosition, Position.Right);
+  const x2 = wireCapX(targetX, targetPosition, Position.Left);
+  const edgePath = observerWirePath(x1, sourceY, x2, targetY);
   const stroke = spawn
     ? "color-mix(in oklch, var(--success) 70%, transparent)"
-    : "color-mix(in oklch, var(--muted-foreground) 40%, transparent)";
+    : "color-mix(in oklch, var(--muted-foreground) 55%, transparent)";
   return (
     <>
       <path
         id={id}
         d={edgePath}
         fill="none"
-        pathLength={spawn ? undefined : 1}
-        markerEnd={markerEnd}
         className={cn(
           "react-flow__edge-path observer-edge-stroke",
           spawn && "observer-edge-spawn",
         )}
-        style={{
-          stroke,
-          strokeWidth: spawn ? 1.8 : 1.35,
-          ["--observer-stagger" as string]: "0ms",
-        }}
+        style={{ stroke, strokeWidth: 1 }}
       />
+      <ObserverWireCap cx={x1} cy={sourceY} fill={stroke} />
+      <ObserverWireCap cx={x2} cy={targetY} fill={stroke} />
       <path
         d={edgePath}
         fill="none"

@@ -1,11 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import {
   Background,
   BackgroundVariant,
-  ControlButton,
   Controls,
   ReactFlow,
   applyNodeChanges,
@@ -16,7 +22,7 @@ import {
   type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { FoldVertical, LayoutGrid, Trash2, UnfoldVertical } from "lucide-react";
+import { FoldVertical, Trash2, UnfoldVertical } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -51,6 +57,7 @@ import {
   type ObserverGraphNode,
 } from "@/features/agent/lib/agent-observer-graph";
 import { useObserverPresence } from "@/features/agent/hooks/use-observer-presence";
+import { useObserverWireMotion } from "@/features/agent/hooks/use-observer-wire-motion";
 import { useAgentStatusSessionTitles } from "@/features/agent/hooks/use-agent-status-session-titles";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import type { AttentionReason } from "@/features/agent/store/agent-attention-store";
@@ -64,7 +71,10 @@ import { ObserverDrawer } from "./ObserverDrawer";
 import { ObserverTerminalDrawer } from "./ObserverTerminalDrawer";
 
 function attentionForSession(
-  panes: Map<string, { sessionId: string; stablePaneId: string; reason: AttentionReason }>,
+  panes: Map<
+    string,
+    { sessionId: string; stablePaneId: string; reason: AttentionReason }
+  >,
   session: { session_id: string; pane_id?: string | null } | undefined,
 ): AttentionReason | null {
   if (!session) return null;
@@ -121,10 +131,18 @@ function ObserverCardMenu({
           style={{ left: menu.x, top: menu.y }}
         />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={4} className="z-[90] min-w-36">
+      <DropdownMenuContent
+        align="start"
+        sideOffset={4}
+        className="z-[90] min-w-36"
+      >
         {canFold ? (
           <DropdownMenuItem onSelect={onToggle}>
-            {collapsed ? <UnfoldVertical className="size-4" /> : <FoldVertical className="size-4" />}
+            {collapsed ? (
+              <UnfoldVertical className="size-4" />
+            ) : (
+              <FoldVertical className="size-4" />
+            )}
             <span>{collapsed ? expandLabel : foldLabel}</span>
           </DropdownMenuItem>
         ) : null}
@@ -170,7 +188,6 @@ function mergeFlowNodes(
   next: Node<ObserverFlowData>[],
 ): Node<ObserverFlowData>[] {
   if (current.length === 0) return next;
-  if (current.some((node) => node.dragging)) return current;
   if (!sameNodeLayout(current, next)) return next;
   let changed = false;
   const merged = current.map((left, i) => {
@@ -180,7 +197,9 @@ function mergeFlowNodes(
       left.data.node === right.data.node &&
       left.data.onToggle === right.data.onToggle &&
       left.data.sessionTitle === right.data.sessionTitle &&
-      left.data.attentionReason === right.data.attentionReason
+      left.data.attentionReason === right.data.attentionReason &&
+      left.data.boxHeight === right.data.boxHeight &&
+      left.data.onHeight === right.data.onHeight
     ) {
       return left;
     }
@@ -194,6 +213,8 @@ function mergeFlowNodes(
         onToggle: right.data.onToggle,
         sessionTitle: right.data.sessionTitle,
         attentionReason: right.data.attentionReason,
+        boxHeight: right.data.boxHeight,
+        onHeight: right.data.onHeight,
       },
     };
   });
@@ -266,30 +287,41 @@ export function AgentObserverView() {
     queryScope.relaySessionRevision,
   ].join(":");
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
-  const [positionOverrides, setPositionOverrides] = useState<Map<string, { x: number; y: number }>>(
+  const [measuredHeights, setMeasuredHeights] = useState<Map<string, number>>(
     () => new Map(),
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [cardMenu, setCardMenu] = useState<{ x: number; y: number; nodeId: string } | null>(
-    null,
-  );
+  const [cardMenu, setCardMenu] = useState<{
+    x: number;
+    y: number;
+    nodeId: string;
+  } | null>(null);
   const secondaryPointerAt = useRef(0);
   const markSecondaryPointer = useCallback(() => {
     secondaryPointerAt.current = performance.now();
   }, []);
   const leakedTrackpadClick = useCallback(
     (event: { button?: number; ctrlKey?: boolean }) =>
-      isLeakedTrackpadClick(event, secondaryPointerAt.current, performance.now()),
+      isLeakedTrackpadClick(
+        event,
+        secondaryPointerAt.current,
+        performance.now(),
+      ),
     [],
   );
   const [installingHooks, setInstallingHooks] = useState(false);
   const [installError, setInstallError] = useState<string | null>(null);
-  const [hookReport, setHookReport] = useState<AgentHookInstallReport | null>(null);
-  const flowRef = useRef<ReactFlowInstance<Node<ObserverFlowData>, Edge<ObserverEdgeData>> | null>(
+  const [hookReport, setHookReport] = useState<AgentHookInstallReport | null>(
     null,
   );
+  const flowRef = useRef<ReactFlowInstance<
+    Node<ObserverFlowData>,
+    Edge<ObserverEdgeData>
+  > | null>(null);
   const [layoutShift, setLayoutShift] = useState({ x: 0, y: 0 });
-  const pendingAnchorRef = useRef<{ id: string; x: number; y: number } | null>(null);
+  const pendingAnchorRef = useRef<{ id: string; x: number; y: number } | null>(
+    null,
+  );
   const placedRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
   const graph = useMemo(
@@ -305,16 +337,49 @@ export function AgentObserverView() {
     [projects, sessionsMap, activityMap, collapsedIds, computerName],
   );
 
-  const positions = useMemo(() => layoutObserverGraph(graph, new Set()), [graph]);
+  const reportHeight = useCallback((id: string, height: number) => {
+    setMeasuredHeights((prev) => {
+      const current = prev.get(id);
+      if (current != null && Math.abs(current - height) < 1) return prev;
+      const next = new Map(prev);
+      next.set(id, height);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const live = new Set(graph.nodes.map((node) => node.id));
+    setMeasuredHeights((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const id of prev.keys()) {
+        if (!live.has(id)) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [graph]);
+
+  const positions = useMemo(
+    () => layoutObserverGraph(graph, new Set(), measuredHeights),
+    [graph, measuredHeights],
+  );
   const pendingAnchor = pendingAnchorRef.current;
   const activeShift = pendingAnchor
     ? observerLayoutShiftToAnchor(positions, pendingAnchor.id, pendingAnchor)
     : layoutShift;
   const placed = useMemo(
-    () => applyObserverLayoutShift(positions, { x: activeShift.x, y: activeShift.y }),
+    () =>
+      applyObserverLayoutShift(positions, {
+        x: activeShift.x,
+        y: activeShift.y,
+      }),
     [activeShift.x, activeShift.y, positions],
   );
   placedRef.current = placed;
+  const wire = useObserverWireMotion(placed, measuredHeights);
   const titleSessions = useMemo(
     () => graph.nodes.flatMap((node) => (node.session ? [node.session] : [])),
     [graph.nodes],
@@ -363,7 +428,8 @@ export function AgentObserverView() {
           ? (graph.nodes.find((item) => item.id === node.parentId) ?? node)
           : node;
       const session =
-        target.session ?? (target.activity ? sessionFromActivity(target.activity) : null);
+        target.session ??
+        (target.activity ? sessionFromActivity(target.activity) : null);
       if (!session) return;
       navigateToAgentStatusSession(session, router, projects);
     },
@@ -371,10 +437,8 @@ export function AgentObserverView() {
   );
 
   const toggleNode = useCallback((node: ObserverGraphNode) => {
-    const rendered =
-      flowRef.current?.getNode(node.id)?.position ??
-      placedRef.current.get(node.id) ??
-      { x: 0, y: 0 };
+    const rendered = flowRef.current?.getNode(node.id)?.position ??
+      placedRef.current.get(node.id) ?? { x: 0, y: 0 };
     pendingAnchorRef.current = { id: node.id, x: rendered.x, y: rendered.y };
     setCollapsedIds((prev) => {
       const next = new Set(prev);
@@ -389,13 +453,16 @@ export function AgentObserverView() {
     if (!pending) return;
     pendingAnchorRef.current = null;
     const next = observerLayoutShiftToAnchor(positions, pending.id, pending);
-    setLayoutShift((prev) => (prev.x === next.x && prev.y === next.y ? prev : next));
+    setLayoutShift((prev) =>
+      prev.x === next.x && prev.y === next.y ? prev : next,
+    );
   }, [positions]);
 
   const liveNodes: Node<ObserverFlowData>[] = useMemo(
     () =>
       graph.nodes.map((node) => {
-        const position = positionOverrides.get(node.id) ?? placed.get(node.id) ?? { x: 0, y: 0 };
+        const position = wire.positions.get(node.id) ??
+          placed.get(node.id) ?? { x: 0, y: 0 };
         return {
           id: node.id,
           position,
@@ -404,17 +471,34 @@ export function AgentObserverView() {
             collapsed: collapsedIds.has(node.id),
             presence: "live",
             onToggle: () => toggleNode(node),
-            sessionTitle: node.session ? sessionTitles[node.session.session_id] : undefined,
+            sessionTitle: node.session
+              ? sessionTitles[node.session.session_id]
+              : undefined,
             attentionReason:
-              node.kind === "subagent" ? null : attentionForSession(attentionPanes, node.session),
+              node.kind === "subagent"
+                ? null
+                : attentionForSession(attentionPanes, node.session),
+            boxHeight: wire.boxHeights.get(node.id),
+            onHeight: reportHeight,
           },
           type: "observer",
           selected: node.id === selectedId,
-          dragHandle: ".observer-drag-handle",
+          draggable: false,
           style: { width: 288 },
         };
       }),
-    [attentionPanes, collapsedIds, graph.nodes, placed, positionOverrides, selectedId, sessionTitles, toggleNode],
+    [
+      attentionPanes,
+      collapsedIds,
+      graph.nodes,
+      placed,
+      reportHeight,
+      selectedId,
+      sessionTitles,
+      toggleNode,
+      wire.boxHeights,
+      wire.positions,
+    ],
   );
 
   const seenEdgeIdsRef = useRef<Set<string>>(new Set());
@@ -433,12 +517,13 @@ export function AgentObserverView() {
         target: edge.target,
         type: "observer" as const,
         animated: false,
-        className: [
-          entering ? "observer-edge-entering" : undefined,
-          edge.kind === "spawn" ? "observer-edge-spawn" : undefined,
-        ]
-          .filter(Boolean)
-          .join(" ") || undefined,
+        className:
+          [
+            entering ? "observer-edge-entering" : undefined,
+            edge.kind === "spawn" ? "observer-edge-spawn" : undefined,
+          ]
+            .filter(Boolean)
+            .join(" ") || undefined,
         data: {
           kind: edge.kind,
           presence: "live" as const,
@@ -447,9 +532,18 @@ export function AgentObserverView() {
     });
   }, [graph.edges]);
 
-  const { exitingNodes, exitingEdges } = useObserverPresence(liveNodes, liveEdges);
-  const liveNodeIds = useMemo(() => new Set(liveNodes.map((node) => node.id)), [liveNodes]);
-  const liveEdgeIds = useMemo(() => new Set(liveEdges.map((edge) => edge.id)), [liveEdges]);
+  const { exitingNodes, exitingEdges } = useObserverPresence(
+    liveNodes,
+    liveEdges,
+  );
+  const liveNodeIds = useMemo(
+    () => new Set(liveNodes.map((node) => node.id)),
+    [liveNodes],
+  );
+  const liveEdgeIds = useMemo(
+    () => new Set(liveEdges.map((edge) => edge.id)),
+    [liveEdges],
+  );
 
   const flowNodes = useMemo(
     () => [
@@ -461,31 +555,34 @@ export function AgentObserverView() {
           draggable: false,
           selectable: false,
           className: "observer-node-exiting",
-          data: { ...node.data, presence: "exit" as const },
+          data: {
+            ...node.data,
+            presence: "exit" as const,
+            onHeight: undefined,
+          },
         })),
     ],
     [exitingNodes, liveNodeIds, liveNodes],
   );
 
-  const flowEdges = useMemo((): Edge<ObserverEdgeData>[] => [
+  const flowEdges = useMemo(
+    (): Edge<ObserverEdgeData>[] => [
       ...liveEdges,
       ...exitingEdges
         .filter((edge) => !liveEdgeIds.has(edge.id))
-        .map(
-          (edge): Edge<ObserverEdgeData> => ({
-            ...edge,
-            className: [
-              edge.data?.kind === "spawn" ? "observer-edge-spawn" : undefined,
-              "observer-edge-exiting",
-            ]
-              .filter(Boolean)
-              .join(" "),
-            data: {
-              kind: edge.data?.kind ?? "owns",
-              presence: "exit",
-            },
-          }),
-        ),
+        .map((edge): Edge<ObserverEdgeData> => ({
+          ...edge,
+          className: [
+            edge.data?.kind === "spawn" ? "observer-edge-spawn" : undefined,
+            "observer-edge-exiting",
+          ]
+            .filter(Boolean)
+            .join(" "),
+          data: {
+            kind: edge.data?.kind ?? "owns",
+            presence: "exit",
+          },
+        })),
     ],
     [exitingEdges, liveEdgeIds, liveEdges],
   );
@@ -501,38 +598,40 @@ export function AgentObserverView() {
     setEdges((current) => mergeFlowEdges(current, flowEdges));
   }, [flowEdges]);
 
-  const onNodesChange = useCallback((changes: NodeChange<Node<ObserverFlowData>>[]) => {
-    const leaked =
-      performance.now() - secondaryPointerAt.current < TRACKPAD_SECONDARY_CLICK_WINDOW_MS;
-    const next = leaked ? changes.filter((change) => change.type !== "select") : changes;
-    setNodes((current) => applyNodeChanges(next, current));
-  }, []);
+  const onNodesChange = useCallback(
+    (changes: NodeChange<Node<ObserverFlowData>>[]) => {
+      const leaked =
+        performance.now() - secondaryPointerAt.current <
+        TRACKPAD_SECONDARY_CLICK_WINDOW_MS;
+      const next = changes.filter((change) => {
+        if (change.type === "position") return false;
+        if (leaked && change.type === "select") return false;
+        return true;
+      });
+      setNodes((current) => applyNodeChanges(next, current));
+    },
+    [],
+  );
 
-  const onNodeDragStop = useCallback((_event: MouseEvent | TouchEvent, node: Node<ObserverFlowData>) => {
-    setPositionOverrides((prev) => {
-      const next = new Map(prev);
-      next.set(node.id, node.position);
-      return next;
-    });
-  }, []);
+  const onNodeClick: NodeMouseHandler = useCallback(
+    (event, node) => {
+      if (leakedTrackpadClick(event)) return;
+      setSelectedId(node.id);
+    },
+    [leakedTrackpadClick],
+  );
 
-  const resetLayout = useCallback(() => {
-    setPositionOverrides(new Map());
-  }, []);
-
-  const onNodeClick: NodeMouseHandler = useCallback((event, node) => {
-    if (leakedTrackpadClick(event)) return;
-    setSelectedId(node.id);
-  }, [leakedTrackpadClick]);
-
-  const onNodeContextMenu: NodeMouseHandler = useCallback((event, node) => {
-    markSecondaryPointer();
-    const found = graph.nodes.find((item) => item.id === node.id);
-    if (!found) return;
-    event.preventDefault();
-    if (!observerCardCanFold(found) && !observerCardCanRemove(found)) return;
-    setCardMenu({ x: event.clientX, y: event.clientY, nodeId: found.id });
-  }, [graph.nodes, markSecondaryPointer]);
+  const onNodeContextMenu: NodeMouseHandler = useCallback(
+    (event, node) => {
+      markSecondaryPointer();
+      const found = graph.nodes.find((item) => item.id === node.id);
+      if (!found) return;
+      event.preventDefault();
+      if (!observerCardCanFold(found) && !observerCardCanRemove(found)) return;
+      setCardMenu({ x: event.clientX, y: event.clientY, nodeId: found.id });
+    },
+    [graph.nodes, markSecondaryPointer],
+  );
 
   const removeAgentCard = useCallback((node: ObserverGraphNode) => {
     const sessionId = node.session?.session_id ?? node.activity?.session_id;
@@ -554,7 +653,6 @@ export function AgentObserverView() {
   );
 
   const selected = graph.nodes.find((node) => node.id === selectedId) ?? null;
-  const canResetLayout = positionOverrides.size > 0;
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
@@ -600,15 +698,13 @@ export function AgentObserverView() {
               if (event.button !== 0 || event.ctrlKey) markSecondaryPointer();
             }}
             onNodeDoubleClick={onNodeDoubleClick}
-            onNodeDragStop={onNodeDragStop}
             onInit={(instance) => {
               flowRef.current = instance;
               instance.fitView({ padding: 0.18 });
             }}
             nodesConnectable={false}
-            nodesDraggable
+            nodesDraggable={false}
             selectNodesOnDrag={false}
-            nodeDragThreshold={5}
             elementsSelectable
             minZoom={0.2}
             proOptions={{ hideAttribution: true }}
@@ -622,16 +718,7 @@ export function AgentObserverView() {
             <Controls
               showInteractive={false}
               className="!overflow-hidden !rounded-lg !border !border-border !bg-card !shadow-none [&>button]:!border-border [&>button]:!bg-card [&>button]:!fill-foreground [&>button]:!text-foreground"
-            >
-              <ControlButton
-                onClick={resetLayout}
-                disabled={!canResetLayout}
-                title={t("resetLayout")}
-                aria-label={t("resetLayout")}
-              >
-                <LayoutGrid className="size-3.5" />
-              </ControlButton>
-            </Controls>
+            />
           </ReactFlow>
         )}
       </div>
@@ -639,19 +726,25 @@ export function AgentObserverView() {
         ? createPortal(
             <ObserverCardMenu
               menu={cardMenu}
-              node={graph.nodes.find((item) => item.id === cardMenu.nodeId) ?? null}
+              node={
+                graph.nodes.find((item) => item.id === cardMenu.nodeId) ?? null
+              }
               collapsed={collapsedIds.has(cardMenu.nodeId)}
               foldLabel={t("fold")}
               expandLabel={t("expand")}
               removeLabel={t("remove")}
               onClose={() => setCardMenu(null)}
               onToggle={() => {
-                const node = graph.nodes.find((item) => item.id === cardMenu.nodeId);
+                const node = graph.nodes.find(
+                  (item) => item.id === cardMenu.nodeId,
+                );
                 if (node) toggleNode(node);
                 setCardMenu(null);
               }}
               onRemove={() => {
-                const node = graph.nodes.find((item) => item.id === cardMenu.nodeId);
+                const node = graph.nodes.find(
+                  (item) => item.id === cardMenu.nodeId,
+                );
                 if (node) removeAgentCard(node);
               }}
             />,
@@ -662,7 +755,9 @@ export function AgentObserverView() {
       <ObserverDrawer
         node={selected}
         sessionTitle={
-          selected?.session ? sessionTitles[selected.session.session_id] : undefined
+          selected?.session
+            ? sessionTitles[selected.session.session_id]
+            : undefined
         }
         onClose={() => setSelectedId(null)}
         onOpenSession={openSession}

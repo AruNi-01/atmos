@@ -116,6 +116,12 @@ describe("buildObserverGraph", () => {
     expect(agentA.x).toBe(agentB.x);
     expect(agentA.x).toBeGreaterThan(workspace.x);
     expect(Math.abs(agentA.y - agentB.y)).toBeGreaterThan(40);
+    const upper = agentA.y < agentB.y ? "agent:a" : "agent:b";
+    const lower = upper === "agent:a" ? "agent:b" : "agent:a";
+    const measured = layoutObserverGraph(graph, new Set(), new Map([[upper, 420]]));
+    expect(measured.get(lower)!.y).toBeGreaterThan(
+      (lower === "agent:a" ? agentA : agentB).y,
+    );
   });
 
   it("falls back to Unassigned when bind is unknown", () => {
@@ -548,9 +554,11 @@ describe("Observer pane jump", () => {
     expect(source).toContain("navigateToAgentStatusSession(session, router, projects)");
     expect(source).toContain("OBSERVER_NODE_TYPES");
     expect(source).toContain("ObserverDrawer");
-    expect(source).toContain("ControlButton");
-    expect(source).toContain("resetLayout");
-    expect(source).toContain("dragHandle");
+    expect(source).toContain("nodesDraggable={false}");
+    expect(source).toContain("useObserverWireMotion");
+    expect(source).not.toContain("dragHandle");
+    expect(source).not.toContain("positionOverrides");
+    expect(source).not.toContain("onNodeDragStop");
     expect(source).toContain("ProjectEmpty");
     expect(source).toContain('variant="Minimal"');
     expect(source).toContain("IconActivity");
@@ -587,20 +595,22 @@ describe("Observer pane jump", () => {
     expect(install).toContain("hooksInstalled");
   });
 
-  it("swaps the header glyph for a drag handle and shows folded descendant counts", () => {
+  it("keeps the kind glyph and shows folded descendant counts without a drag handle", () => {
     const source = readFileSync(
       join(import.meta.dir, "../../components/observer/observer-flow.tsx"),
       "utf8",
     );
-    expect(source).toContain("observer-drag-handle");
-    expect(source).toContain("GripVertical");
+    expect(source).not.toContain("observer-drag-handle");
+    expect(source).not.toContain("GripVertical");
+    expect(source).toContain("observerWirePath");
+    expect(source).toContain("observer-edge-cap");
     expect(source).toContain("descendantCount");
     expect(source).toContain("observerNodeTitle");
     expect(source).toContain("sessionTitle");
     expect(source).not.toContain('t("kindAgent")');
     expect(source).not.toContain('t("kindSubagent")');
     expect(source).toContain("is-exiting");
-    expect(source).toContain("pathLength={spawn ? undefined : 1}");
+    expect(source).not.toContain("getSmoothStepPath");
     expect(source).toContain("Position.Left");
     expect(source).toContain("Position.Right");
     expect(source).toContain("ChevronRight");
@@ -610,8 +620,8 @@ describe("Observer pane jump", () => {
       source.indexOf("observer-card-header"),
       source.indexOf("mt-2.5 rounded-lg"),
     );
-    expect(header.indexOf("observer-drag-handle")).toBeGreaterThan(-1);
-    expect(header.indexOf("observer-drag-handle")).toBeLessThan(header.indexOf("descendantCount"));
+    expect(header.indexOf("observer-kind-glyph")).toBeGreaterThan(-1);
+    expect(header.indexOf("observer-kind-glyph")).toBeLessThan(header.indexOf("descendantCount"));
     expect(header.indexOf("descendantCount")).toBeLessThan(header.indexOf("ChevronRight"));
   });
 
@@ -624,11 +634,10 @@ describe("Observer pane jump", () => {
     expect(css).toContain("observer-edge-exiting");
     expect(css).toContain("observer-edge-spawn");
     expect(css).toContain("stroke-dasharray: 6 4");
+    expect(css).toContain("observer-edge-cap");
     expect(css).not.toContain("observer-edge-label");
-    expect(css).toContain(".observer-flow .react-flow__node.draggable");
+    expect(css).not.toContain(".observer-drag-handle");
     expect(css).toContain(".observer-card {\n  cursor: pointer;");
-    expect(css).toContain(".observer-drag-handle {\n  cursor: grab;");
-    expect(css).toContain(".observer-drag-handle:hover .observer-drag-grip");
     expect(css).not.toContain(".observer-card-header:hover .observer-drag-grip");
     expect(css).not.toContain(".react-flow__edge:not(.animated)");
     expect(css).not.toContain(".react-flow__edge.animated");
@@ -784,7 +793,6 @@ describe("product name", () => {
     expect(en.AgentObserver.installHooks).toBe("Install {count} hooks");
     expect(en.AgentObserver.hooksInstalled).toBe("{count} hooks installed");
     expect(en.AgentObserver.recentWorkspacesHint).toBe("Recent 5 workspaces");
-    expect(en.AgentObserver.resetLayout).toBe("Reset layout");
     expect(en.AgentObserver.stepsHint).toBe(
       "Hooks only see tool steps. Open the pane for the full turn.",
     );
