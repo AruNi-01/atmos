@@ -62,6 +62,10 @@ export function SessionHomeScreen() {
         <Section label="Recent">
           <ListSkeleton />
         </Section>
+      ) : inbox.recent.length === 0 && inbox.pinnedIds.length === 0 ? (
+        <Section>
+          <EmptyState layout="section" message="Sessions from your workspaces show up here." title="No sessions" />
+        </Section>
       ) : (
         <SessionHomeLists
           archiveChat={inbox.archiveChat}

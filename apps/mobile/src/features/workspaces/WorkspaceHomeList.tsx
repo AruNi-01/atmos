@@ -281,7 +281,7 @@ function WorkspaceGroup({
       </Pressable>
       <CollapsibleRows open={open}>
         <View style={{ paddingTop: spacing.sectionLabelGap }}>
-          <Section clip={false}>
+          <Section>
             {items.map((item, index) => {
               const row = (
                 <Row

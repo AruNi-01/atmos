@@ -153,7 +153,7 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
         }}
       />
       <AppScreen>
-        <Section clip={false}>
+        <Section>
           {loading && orderedRows.length === 0 ? (
             <ListSkeleton />
           ) : orderedRows.length === 0 ? (

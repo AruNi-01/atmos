@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Platform, View } from "react-native";
 import { BottomSheet, RNHostView } from "@expo/ui";
-import { environment, presentationBackground } from "@expo/ui/swift-ui/modifiers";
+import { environment, frame, presentationBackground } from "@expo/ui/swift-ui/modifiers";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { MobileThemeColorScheme } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -19,7 +19,9 @@ type SnapPoint = "half" | "full" | { fraction: number } | { height: number };
 export function ExpoDrawer({
   children,
   colorScheme,
+  contentPaddingBottom,
   contentPaddingHorizontal = 16,
+  fillBackground = true,
   isPresented,
   matchContents = true,
   onDismiss,
@@ -29,7 +31,10 @@ export function ExpoDrawer({
   children: ReactNode;
   colorScheme?: MobileThemeColorScheme;
   /** Inset between the sheet edge and its content. */
+  contentPaddingBottom?: number;
   contentPaddingHorizontal?: number;
+  /** Paint a rect behind the content. Leave the sheet's own rounded background visible instead. */
+  fillBackground?: boolean;
   isPresented: boolean;
   /** Size the sheet to its content. Turn off to fill the detent and top-align short lists. */
   matchContents?: boolean;
@@ -45,6 +50,7 @@ export function ExpoDrawer({
       ? [
           environment("colorScheme", palette.scheme),
           presentationBackground(palette.colors.sheetBackground),
+          ...(matchContents ? [] : [frame({ alignment: "top", maxHeight: Number.POSITIVE_INFINITY, maxWidth: Number.POSITIVE_INFINITY })]),
         ]
       : undefined;
 
@@ -59,14 +65,16 @@ export function ExpoDrawer({
       <RNHostView matchContents={matchContents}>
         <View
           style={{
-            backgroundColor: palette.colors.sheetBackground,
-            flex: matchContents ? undefined : 1,
+            backgroundColor: fillBackground ? palette.colors.sheetBackground : "transparent",
             alignSelf: "stretch",
             justifyContent: "flex-start",
-            paddingBottom: Math.max(insets.bottom, 24),
+            paddingBottom: contentPaddingBottom ?? Math.max(insets.bottom, 24),
             paddingHorizontal: contentPaddingHorizontal,
             paddingTop: 16,
             width: "100%",
+            // A scroll view inside a detent must not report its full content height,
+            // or the sheet treats the drag as its own pan and snaps back.
+            ...(matchContents ? {} : { flexGrow: 1, height: 0 }),
           }}
         >
           {children}

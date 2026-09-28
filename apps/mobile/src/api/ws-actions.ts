@@ -29,6 +29,8 @@ import type { QuotaOverviewRequest } from "@atmos/api-types/ws/dto/quota";
 import type { TokenUsageOverviewRequest } from "@atmos/api-types/ws/dto/token-usage";
 import type { MobileWsClient } from "@/api/mobile-ws-client";
 
+const QUOTA_ACTION_TIMEOUT_MS = 15_000;
+
 export const wsActions = {
   projectWorkspaceBootstrap(client: MobileWsClient) {
     return client.request("project_workspace_bootstrap");
@@ -282,13 +284,13 @@ export const wsActions = {
     });
   },
   quotaSetProviderSwitch(client: MobileWsClient, providerId: string, enabled: boolean) {
-    return client.request("quota_set_provider_switch", { provider_id: providerId, enabled });
+    return client.request("quota_set_provider_switch", { provider_id: providerId, enabled }, { timeoutMs: QUOTA_ACTION_TIMEOUT_MS });
   },
   quotaSetAllProvidersSwitch(client: MobileWsClient, enabled: boolean) {
-    return client.request("quota_set_all_providers_switch", { enabled });
+    return client.request("quota_set_all_providers_switch", { enabled }, { timeoutMs: QUOTA_ACTION_TIMEOUT_MS });
   },
   quotaSetAutoRefresh(client: MobileWsClient, intervalMinutes: number | null) {
-    return client.request("quota_set_auto_refresh", { interval_minutes: intervalMinutes });
+    return client.request("quota_set_auto_refresh", { interval_minutes: intervalMinutes }, { timeoutMs: QUOTA_ACTION_TIMEOUT_MS });
   },
   hostSessionKeysForChat(client: MobileWsClient, chatId: string) {
     return client.request("host_session_keys_for_chat", { chat_id: chatId });

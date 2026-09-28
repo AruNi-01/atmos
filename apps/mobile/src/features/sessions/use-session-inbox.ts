@@ -155,7 +155,7 @@ export function useSessionInbox() {
   }, [client, connected, focused, queryClient, selectedServerId]);
 
   const model = useMemo(() => {
-    if (connected && (statusQuery.isPending || bootstrapQuery.isPending)) {
+    if (connected && (statusQuery.isLoading || bootstrapQuery.isLoading)) {
       return {
         rows: [],
         cards: sessionInboxCards([]),
@@ -223,7 +223,7 @@ export function useSessionInbox() {
     chatTitleQuery.data,
     chatTitleQuery.isSuccess,
     statusQuery.data,
-    statusQuery.isPending,
+    statusQuery.isLoading,
   ]);
 
   const error =
@@ -259,7 +259,7 @@ export function useSessionInbox() {
     error,
     fetchNextPage,
     hasNextPage: Boolean(statusQuery.hasNextPage),
-    isLoading: connected && (statusQuery.isPending || bootstrapQuery.isPending),
+    isLoading: connected && (statusQuery.isLoading || bootstrapQuery.isLoading),
     pinnedIds,
     refresh,
     togglePin,

@@ -1,12 +1,15 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { Host } from "@expo/ui";
+import { MenuView } from "@expo/ui/community/menu";
+import { Image } from "@expo/ui/swift-ui";
+import { Stack, type NativeStackHeaderItem } from "expo-router";
 import type { SFSymbol } from "sf-symbols-typescript";
 import { wsActions } from "@/api/ws-actions";
 import { AnimatedMetric } from "@/features/token-usage/animated-metric";
-import { ChartAxisLabels, ScrollableChart, UsageGrowthChart, UsageHeatmap, UsageStackedChart } from "@/features/token-usage/charts";
-import { formatCurrencyDetailed, formatMetric, formatPercent } from "@/features/token-usage/format";
+import { ScrollableChart, UsageGrowthChart, UsageHeatmap, UsageStackedChart } from "@/features/token-usage/charts";
+import { formatCompactNumber, formatCurrencyCompact, formatMetric, formatPercent } from "@/features/token-usage/format";
 import {
   buildHeatmap,
   chartColors,
@@ -42,6 +45,9 @@ import { MenuPicker } from "@/ui/primitives/menu-picker";
 import { NativeSegmentedControl } from "@/ui/primitives/native-segmented-control";
 
 const MIX_LABEL = { input: "Input", output: "Output", cacheRead: "Cache read", cacheWrite: "Cache write", reasoning: "Reasoning" } as const;
+
+const METRIC_SYMBOL = { tokens: "centsign.circle", cost: "dollarsign" } as const satisfies Record<UsageMetric, SFSymbol>;
+const DIMENSION_SYMBOL = { agent: "cpu", model: "brain" } as const satisfies Record<UsageDimension, SFSymbol>;
 
 export function TokenUsageScreen() {
   const theme = useMobileTheme();
@@ -80,15 +86,19 @@ export function TokenUsageScreen() {
   const bars = useMemo(() => stacked(days, resolution, metric, dimension), [days, dimension, metric, resolution]);
   const barColors = useMemo(() => chartColors(bars.keys, theme.isDark), [bars.keys, theme.isDark]);
   const mix = useMemo(() => tokenMix(days), [days]);
+  const modelProviders = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const row of overview?.by_model ?? []) {
+      if (row.provider_id) map.set(row.model_id, row.provider_id);
+    }
+    return map;
+  }, [overview?.by_model]);
   const mixColors = theme.isDark ? MIX_COLORS_DARK : MIX_COLORS_LIGHT;
   const selected = weeks.flatMap((week) => week.cells).find((cell) => cell.date === selectedDate) ?? null;
   const hero = metric === "cost" ? (overview?.summary.total_cost_usd ?? 0) : (overview?.summary.total_tokens ?? 0);
   const reload = () => {
     if (connected) refresh.mutate();
   };
-
-  const metricSymbol: SFSymbol = metric === "cost" ? "dollarsign" : "chart.bar";
-  const dimensionSymbol: SFSymbol = dimension === "model" ? "brain" : "person.2";
 
   return (
     <>
@@ -99,8 +109,33 @@ export function TokenUsageScreen() {
           ...(process.env.EXPO_OS === "ios"
             ? {
                 unstable_headerLeftItems: () => [
-                  headerIcon(metricSymbol, "Usage metric", () => setMetric((current) => (current === "tokens" ? "cost" : "tokens")), theme.colors.label, "usage-metric"),
-                  headerIcon(dimensionSymbol, "Usage dimension", () => setDimension((current) => (current === "agent" ? "model" : "agent")), theme.colors.label, "usage-dimension"),
+                  {
+                    type: "custom",
+                    element: (
+                      <View style={styles.headerIcons}>
+                        <HeaderChoice
+                          accessibilityLabel="Usage metric"
+                          actions={[
+                            { id: "tokens", image: METRIC_SYMBOL.tokens, state: metric === "tokens" ? "on" : "off", title: "Tokens" },
+                            { id: "cost", image: METRIC_SYMBOL.cost, state: metric === "cost" ? "on" : "off", title: "Cost" },
+                          ]}
+                          onAction={(id) => setMetric(id === "cost" ? "cost" : "tokens")}
+                        >
+                          <SymbolMark name={METRIC_SYMBOL[metric]} />
+                        </HeaderChoice>
+                        <HeaderChoice
+                          accessibilityLabel="Usage dimension"
+                          actions={[
+                            { id: "agent", image: DIMENSION_SYMBOL.agent, state: dimension === "agent" ? "on" : "off", title: "Agent" },
+                            { id: "model", image: DIMENSION_SYMBOL.model, state: dimension === "model" ? "on" : "off", title: "Model" },
+                          ]}
+                          onAction={(id) => setDimension(id === "model" ? "model" : "agent")}
+                        >
+                          <SymbolMark name={DIMENSION_SYMBOL[dimension]} />
+                        </HeaderChoice>
+                      </View>
+                    ),
+                  },
                 ],
                 unstable_headerRightItems: () => [
                   headerIcon("square.and.arrow.up", "Share", () => setShareOpen(true), theme.colors.label, "usage-share"),
@@ -109,12 +144,26 @@ export function TokenUsageScreen() {
             : {
                 headerLeft: () => (
                   <View style={styles.headerIcons}>
-                    <Pressable accessibilityLabel="Usage metric" hitSlop={8} onPress={() => setMetric((current) => (current === "tokens" ? "cost" : "tokens"))}>
-                      {metric === "cost" ? <DollarSignIcon color={theme.colors.label} size={22} /> : <CoinsIcon color={theme.colors.label} size={22} />}
-                    </Pressable>
-                    <Pressable accessibilityLabel="Usage dimension" hitSlop={8} onPress={() => setDimension((current) => (current === "agent" ? "model" : "agent"))}>
-                      {dimension === "model" ? <BrainCircuitIcon color={theme.colors.label} size={22} /> : <BotIcon color={theme.colors.label} size={22} />}
-                    </Pressable>
+                    <HeaderChoice
+                      accessibilityLabel="Usage metric"
+                      actions={[
+                        { id: "tokens", state: metric === "tokens" ? "on" : "off", title: "Tokens" },
+                        { id: "cost", state: metric === "cost" ? "on" : "off", title: "Cost" },
+                      ]}
+                      onAction={(id) => setMetric(id === "cost" ? "cost" : "tokens")}
+                    >
+                      {metric === "cost" ? <DollarSignIcon color={theme.colors.label} size={16} /> : <CoinsIcon color={theme.colors.label} size={16} />}
+                    </HeaderChoice>
+                    <HeaderChoice
+                      accessibilityLabel="Usage dimension"
+                      actions={[
+                        { id: "agent", state: dimension === "agent" ? "on" : "off", title: "Agent" },
+                        { id: "model", state: dimension === "model" ? "on" : "off", title: "Model" },
+                      ]}
+                      onAction={(id) => setDimension(id === "model" ? "model" : "agent")}
+                    >
+                      {dimension === "model" ? <BrainCircuitIcon color={theme.colors.label} size={16} /> : <BotIcon color={theme.colors.label} size={16} />}
+                    </HeaderChoice>
                   </View>
                 ),
                 headerRight: () => (
@@ -128,9 +177,7 @@ export function TokenUsageScreen() {
       <UsageScroll onRefresh={reload} refreshing={refresh.isPending || overviewQuery.isRefetching}>
         {!connected ? <Text style={{ color: theme.colors.secondaryLabel }}>Connect to a Computer to see token usage.</Text> : null}
         <InlineError message={overviewQuery.error instanceof Error ? overviewQuery.error.message : null} />
-        <Text style={{ color: theme.colors.tertiaryLabel, fontSize: 12 }}>
-          {overview ? `Updated ${formatUpdated(overview.generated_at)}` : "Local session history"}
-        </Text>
+        {!overview ? <Text style={{ color: theme.colors.tertiaryLabel, fontSize: 12 }}>Local session history</Text> : null}
         <AnimatedMetric
           format={(value) => formatMetric(value, metric)}
           style={[styles.hero, { color: theme.colors.label }]}
@@ -171,9 +218,12 @@ export function TokenUsageScreen() {
           </View>
           <View style={styles.legend}>
             {mix.map((slice, index) => (
-              <Text key={slice.id} style={{ color: theme.colors.secondaryLabel, fontSize: 12 }}>
-                {MIX_LABEL[slice.id]} {formatMetric(slice.value, "tokens")}
-              </Text>
+              <View key={slice.id} style={styles.legendItem}>
+                <View style={{ backgroundColor: mixColors[index], borderRadius: 4, height: 8, width: 8 }} />
+                <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12 }}>
+                  {MIX_LABEL[slice.id]} {formatMetric(slice.value, "tokens")}
+                </Text>
+              </View>
             ))}
           </View>
         </View>
@@ -198,9 +248,9 @@ export function TokenUsageScreen() {
         {selected?.detail ? (
           <View style={{ gap: 4 }}>
             <Text style={[styles.section, { color: theme.colors.label }]}>{formatDay(selected.date)}</Text>
-            <Detail label="Tokens" value={formatMetric(selected.detail.total_tokens, "tokens", "detailed")} />
-            <Detail label="Cost" value={formatCurrencyDetailed(selected.detail.total_cost_usd)} />
-            <Detail label="Messages" value={formatMetric(selected.detail.message_count, "tokens", "detailed")} />
+            <Detail label="Tokens" value={formatCompactNumber(selected.detail.total_tokens)} />
+            <Detail label="Cost" value={formatCurrencyCompact(selected.detail.total_cost_usd)} />
+            <Detail label="Messages" value={formatCompactNumber(selected.detail.message_count)} />
           </View>
         ) : null}
         <NativeSegmentedControl
@@ -208,27 +258,56 @@ export function TokenUsageScreen() {
           options={[{ label: "Month", value: "month" }, { label: "Day", value: "day" }]}
           selectedValue={resolution}
         />
-        <ScrollableChart height={236} pointCount={series.length} pointWidth={36}>
+        <ScrollableChart height={220}>
           {({ width }) => (
-            <View style={{ gap: 6, width }}>
-              <UsageGrowthChart color={theme.isDark ? "#38BDF8" : "#0284C7"} height={210} values={series.map((point) => point.value)} width={width} />
-              <ChartAxisLabels labels={series.map((point) => point.label)} />
-            </View>
+            <UsageGrowthChart
+              color={theme.isDark ? "#38BDF8" : "#0284C7"}
+              formatValue={(value) => formatMetric(value, metric)}
+              height={220}
+              labelColor={theme.colors.secondaryLabel}
+              labels={series.map((point) => point.label)}
+              values={series.map((point) => point.value)}
+              width={width}
+            />
           )}
         </ScrollableChart>
-        <ScrollableChart height={230} pointCount={bars.bars.length} pointWidth={44}>
+        <ScrollableChart height={220}>
           {({ width }) => (
-            <View style={{ gap: 6, width }}>
-              <UsageStackedChart colors={bars.keys.map((id) => barColors.get(id) ?? theme.colors.label)} height={200} series={bars.bars.map((bar) => bar.segments)} width={width} />
-              <ChartAxisLabels labels={bars.bars.map((bar) => bar.label)} />
-            </View>
+            <UsageStackedChart
+              colors={bars.keys.map((id) => barColors.get(id) ?? theme.colors.label)}
+              formatValue={(value) => formatMetric(value, metric)}
+              height={220}
+              labelColor={theme.colors.secondaryLabel}
+              labels={bars.bars.map((bar) => bar.label)}
+              names={bars.labels}
+              series={bars.bars.map((bar) => bar.segments)}
+              width={width}
+            />
           )}
         </ScrollableChart>
         <View style={styles.legend}>
-          {bars.labels.map((label, index) => (
-            <Text key={label} style={{ color: barColors.get(bars.keys[index] ?? "") ?? theme.colors.secondaryLabel, fontSize: 12 }}>{label}</Text>
-          ))}
+          {bars.labels.map((label, index) => {
+            const id = bars.keys[index] ?? "";
+            const color = barColors.get(id) ?? theme.colors.secondaryLabel;
+            return (
+              <View key={id || label} style={styles.legendItem}>
+                {dimension === "model" ? (
+                  <ProviderGlyph color={color} providerId={modelProviders.get(id) ?? "unknown"} size={14} />
+                ) : id === "other" ? (
+                  <BotIcon color={color} size={14} />
+                ) : (
+                  <MobileAgentIcon agentId={id} size={14} />
+                )}
+                <Text style={{ color, fontSize: 12 }}>{label}</Text>
+              </View>
+            );
+          })}
         </View>
+        {overview ? (
+          <Text style={{ color: theme.colors.tertiaryLabel, fontSize: 12, textAlign: "right" }}>
+            Updated {formatUpdated(overview.generated_at)}
+          </Text>
+        ) : null}
       </UsageScroll>
       <ShareSheet
         isDark={theme.isDark}
@@ -243,18 +322,47 @@ export function TokenUsageScreen() {
   );
 }
 
-function headerIcon(name: SFSymbol, label: string, onPress: () => void, tintColor: string, id: string) {
+function headerIcon(name: SFSymbol, label: string, onPress: () => void, tintColor: string, id: string): NativeStackHeaderItem {
   return {
     accessibilityLabel: label,
-    icon: { type: "sfSymbol" as const, name },
+    icon: { type: "sfSymbol", name },
     identifier: id,
     label: "",
     onPress,
     sharesBackground: true,
     tintColor,
-    type: "button" as const,
-    variant: "plain" as const,
+    type: "button",
+    variant: "plain",
   };
+}
+
+function SymbolMark({ name }: { name: SFSymbol }) {
+  const theme = useMobileTheme();
+  return (
+    <Host colorScheme={theme.colorScheme} matchContents seedColor={theme.colors.label}>
+      <Image size={22} systemName={name} />
+    </Host>
+  );
+}
+
+function HeaderChoice({
+  accessibilityLabel,
+  actions,
+  children,
+  onAction,
+}: {
+  accessibilityLabel: string;
+  actions: Array<{ id: string; image?: SFSymbol; state: "on" | "off"; title: string }>;
+  children: ReactNode;
+  onAction: (id: string) => void;
+}) {
+  return (
+    <MenuView actions={actions} onPressAction={(event) => onAction(event.nativeEvent.event)} shouldOpenOnLongPress={false}>
+      <View accessibilityLabel={accessibilityLabel} accessibilityRole="button" style={styles.headerChoice}>
+        {children}
+      </View>
+    </MenuView>
+  );
 }
 
 function StatCard({
@@ -275,9 +383,9 @@ function StatCard({
     <View style={[styles.stat, { backgroundColor: theme.colors.card, borderColor: theme.colors.separator }]}>
       <Text style={{ color: theme.colors.tertiaryLabel, fontSize: 13 }}>{label}</Text>
       <AnimatedMetric format={(next) => formatMetric(next, metric)} style={[styles.statValue, { color: theme.colors.label }]} value={value} />
-      <Text numberOfLines={2} style={{ color: theme.colors.secondaryLabel, fontSize: 12, marginTop: 6, paddingRight: 36 }}>{note}</Text>
-      <View style={styles.art}>
-        <StatArt color={theme.isDark ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.18)"} kind={art} />
+      <Text numberOfLines={2} style={{ color: theme.colors.secondaryLabel, fontSize: 12, marginTop: 6, paddingRight: 52 }}>{note}</Text>
+      <View pointerEvents="none" style={styles.art}>
+        <StatArt color={theme.isDark ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.16)"} kind={art} />
       </View>
     </View>
   );
@@ -294,12 +402,14 @@ function Detail({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  art: { bottom: -8, position: "absolute", right: -6 },
+  art: { bottom: -10, position: "absolute", right: -8 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, justifyContent: "space-between" },
-  headerIcons: { alignItems: "center", flexDirection: "row", gap: 14 },
+  headerChoice: { alignItems: "center", height: 44, justifyContent: "center", width: 44 },
+  headerIcons: { alignItems: "center", flexDirection: "row", height: 44 },
   hero: { fontSize: 40, fontVariant: ["tabular-nums"], fontWeight: "700" },
   label: { flex: 1, fontSize: 14, fontWeight: "600" },
   legend: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  legendItem: { alignItems: "center", flexDirection: "row", gap: 6 },
   panel: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, gap: 8, padding: 14 },
   row: { alignItems: "center", flexDirection: "row", gap: 8 },
   section: { flex: 1, fontSize: 16, fontWeight: "700" },

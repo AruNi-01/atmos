@@ -6,6 +6,7 @@ import {
   createWsSession,
   DEFAULT_MOBILE_RECONNECT,
   type ConnectionState as KernelState,
+  type WsRequestCallOpts,
   type WsSession,
 } from "@atmos/api-client/ws";
 import type { WebSocketLike } from "@atmos/api-client/platform";
@@ -191,9 +192,10 @@ export class MobileWsClient {
   request<A extends MappedWsAction>(
     action: A,
     data?: WsContract[A]["input"],
+    opts?: WsRequestCallOpts,
   ): Promise<WsContract[A]["output"]>;
-  request(action: string, data?: unknown): Promise<unknown> {
-    return this.session.request(action as never, data as never).catch((err) => {
+  request(action: string, data?: unknown, opts?: WsRequestCallOpts): Promise<unknown> {
+    return this.session.request(action as never, data as never, opts).catch((err) => {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes("not connected")) {
         return Promise.reject(

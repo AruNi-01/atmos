@@ -25,6 +25,10 @@ type RecentPhoto = ComposerPhoto;
 
 const PHOTO_SIZE = 104;
 
+function displayablePhotoUri(uri: string): boolean {
+  return /^(file|content|ph|assets-library|https?|data):/i.test(uri);
+}
+
 export function AgentChatAddSheet(props: {
   onClose: () => void;
   onPatch: (patch: ComposerPatch) => void;
@@ -69,7 +73,8 @@ export function AgentChatAddSheet(props: {
     const remaining = PHOTO_LIMIT - base.length;
     if (remaining <= 0) return;
     if (!hasNativeModule("ExponentImagePicker")) return;
-    const imagePicker = await import("expo-image-picker");
+    // `import()` splits on native dev and throws "Requiring unknown module".
+    const imagePicker = require("expo-image-picker") as typeof import("expo-image-picker");
     libraryOpen.current = true;
     props.onClose();
     try {
@@ -127,7 +132,9 @@ export function AgentChatAddSheet(props: {
                         width: PHOTO_SIZE,
                       }}
                     >
-                      <Image source={{ uri: photo.uri }} style={{ height: PHOTO_SIZE, width: PHOTO_SIZE }} />
+                      {displayablePhotoUri(photo.uri) ? (
+                        <Image source={{ uri: photo.uri }} style={{ height: PHOTO_SIZE, width: PHOTO_SIZE }} />
+                      ) : null}
                       {selected ? (
                         <View
                           style={{
@@ -253,7 +260,8 @@ function useRecentPhotos(active: boolean): { photos: RecentPhoto[]; status: "unk
     let cancelled = false;
     void (async () => {
       try {
-        const mediaLibrary = await import("expo-media-library");
+        // `import()` splits on native dev and throws "Requiring unknown module".
+        const mediaLibrary = require("expo-media-library") as typeof import("expo-media-library");
         const current = await mediaLibrary.getPermissionsAsync(false, ["photo"]);
         let granted = current.granted;
         if (!granted && current.canAskAgain) {
@@ -272,18 +280,25 @@ function useRecentPhotos(active: boolean): { photos: RecentPhoto[]; status: "unk
           .orderBy({ key: mediaLibrary.AssetField.CREATION_TIME, ascending: false })
           .limit(12)
           .exe();
-        const resolved = await Promise.all(assets.map(async (asset) => {
-          const info = await asset.getInfo();
-          return {
-            id: info.id || asset.id,
-            uri: info.uri,
-            filename: info.filename || "photo.jpg",
-            mediaType: "image/jpeg",
-          };
-        }));
-        if (!cancelled) setPhotos(resolved.filter((photo) => photo.uri.length > 0));
+        const resolved = (await Promise.all(assets.map(async (asset) => {
+          try {
+            const info = await asset.getInfo();
+            const uri = typeof info.uri === "string" ? info.uri : "";
+            const id = (typeof info.id === "string" && info.id) || asset.id;
+            if (!displayablePhotoUri(uri) || !id) return null;
+            return {
+              id,
+              uri,
+              filename: (typeof info.filename === "string" && info.filename) || "photo.jpg",
+              mediaType: "image/jpeg",
+            };
+          } catch {
+            return null;
+          }
+        }))).filter((photo): photo is RecentPhoto => photo != null);
+        if (!cancelled) setPhotos(resolved);
       } catch {
-        if (!cancelled) setStatus("denied");
+        if (!cancelled) setStatus((current) => (current === "granted" ? current : "denied"));
       }
     })();
     return () => {

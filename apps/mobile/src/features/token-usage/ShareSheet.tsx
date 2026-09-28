@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Image, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import WebView, { type WebViewMessageEvent } from "react-native-webview";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Host } from "@expo/ui";
+import { Host } from "@expo/ui";
+import { Button, HStack, Spacer } from "@expo/ui/swift-ui";
+import { buttonStyle, controlSize, disabled } from "@expo/ui/swift-ui/modifiers";
 import {
   hubDeleteUsagePage,
   hubGetUsagePage,
@@ -14,9 +16,10 @@ import { formatCompactNumber, formatCurrencyCompact } from "@/features/token-usa
 import { shareCardHtml } from "@/features/token-usage/share-card-html";
 import { mapOverviewToSharePayload } from "@/features/token-usage/share-payload";
 import { useMobileTheme } from "@/theme/theme-store";
+import { FacebookMark, RedditMark, ThreadsMark, XMark } from "@/features/token-usage/social-icons";
 import { DownloadIcon } from "@/ui/icons/lucide-native";
 import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
-import { expoUiButtonHostStyle, expoUiPrimaryStyle } from "@/ui/primitives/expo-ui-button-styles";
+import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { NativeSegmentedControl } from "@/ui/primitives/native-segmented-control";
 import { NativeTextInput } from "@/ui/primitives/native-text-input";
 
@@ -86,7 +89,8 @@ export function ShareSheet({
         style={styles.web}
       />
     </View>
-    <ExpoDrawer isPresented={open} onDismiss={onDismiss} snapPoints={[{ fraction: 0.72 }]}>
+    <ExpoDrawer isPresented={open} matchContents={false} onDismiss={onDismiss} snapPoints={[{ fraction: 0.78 }]}>
+      <View style={styles.sheet}>
       <NativeSegmentedControl
         onValueChange={setTab}
         options={[
@@ -94,9 +98,10 @@ export function ShareSheet({
           { label: "Publish", value: "publish" },
         ]}
         selectedValue={tab}
+        style={styles.tabs}
       />
       {tab === "share" ? (
-        <View style={{ gap: 12, marginTop: 12 }}>
+        <View style={styles.pane}>
           <View style={[styles.preview, { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.separator }]}>
             {preview ? (
               <Image resizeMode="cover" source={{ uri: preview }} style={styles.previewImage} />
@@ -105,29 +110,35 @@ export function ShareSheet({
             )}
           </View>
           <View style={styles.actions}>
-            <Social label="X" onPress={() => openSocial(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`)} />
-            <Social label="Reddit" onPress={() => openSocial(`https://www.reddit.com/submit?url=${encodeURIComponent(SITE)}&title=${encodeURIComponent(shareText.split("\n")[0] ?? shareText)}`)} />
-            <Social label="Facebook" onPress={() => openSocial(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(SITE)}`)} />
-            <Social label="Threads" onPress={() => openSocial(`https://www.threads.net/intent/post?text=${encodeURIComponent(shareText)}`)} />
-            <Pressable accessibilityLabel="Save image" onPress={() => webRef.current?.injectJavaScript("window.shareCard && window.shareCard(); true;")}>
-              <DownloadIcon color={theme.colors.label} size={18} />
-            </Pressable>
+            <Social icon={<XMark color={theme.colors.label} />} label="X" onPress={() => openSocial(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`)} />
+            <Social icon={<RedditMark color={theme.colors.label} />} label="Reddit" onPress={() => openSocial(`https://www.reddit.com/submit?url=${encodeURIComponent(SITE)}&title=${encodeURIComponent(shareText.split("\n")[0] ?? shareText)}`)} />
+            <Social icon={<FacebookMark color={theme.colors.label} />} label="Facebook" onPress={() => openSocial(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(SITE)}`)} />
+            <Social icon={<ThreadsMark color={theme.colors.label} />} label="Threads" onPress={() => openSocial(`https://www.threads.net/intent/post?text=${encodeURIComponent(shareText)}`)} />
+            <GlassPanel interactive shadow={false} style={styles.socialGlass}>
+              <Pressable accessibilityLabel="Save image" onPress={() => webRef.current?.injectJavaScript("window.shareCard && window.shareCard(); true;")} style={styles.socialButton}>
+                <DownloadIcon color={theme.colors.label} size={16} />
+              </Pressable>
+            </GlassPanel>
           </View>
         </View>
       ) : (
         <PublishPane onDone={onDismiss} overview={overview} />
       )}
+      </View>
     </ExpoDrawer>
     </>
   );
 }
 
-function Social({ label, onPress }: { label: string; onPress: () => void }) {
+function Social({ icon, label, onPress }: { icon: ReactNode; label: string; onPress: () => void }) {
   const theme = useMobileTheme();
   return (
-    <Pressable onPress={onPress} style={[styles.social, { borderColor: theme.colors.separator }]}>
-      <Text style={{ color: theme.colors.label, fontSize: 12, fontWeight: "700" }}>{label}</Text>
-    </Pressable>
+    <GlassPanel interactive shadow={false} style={styles.socialGlass}>
+      <Pressable accessibilityLabel={label} onPress={onPress} style={styles.socialButton}>
+        {icon}
+        <Text style={{ color: theme.colors.label, fontSize: 13, fontWeight: "600" }}>{label}</Text>
+      </Pressable>
+    </GlassPanel>
   );
 }
 
@@ -177,7 +188,6 @@ function PublishPane({
       onDone();
     },
   });
-  const look = expoUiPrimaryStyle(theme.colors, publish.isPending || !overview);
   const slug = page?.handle || handle.trim().replace(/^@+/, "");
   const url = page?.url ?? (slug ? `${SITE}/tok/@${slug}` : null);
 
@@ -186,7 +196,7 @@ function PublishPane({
   }, [page?.handle]);
 
   return (
-    <View style={{ gap: 12, marginTop: 12 }}>
+    <View style={styles.pane}>
       <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13 }}>Handle</Text>
       <NativeTextInput
         editable={!claimed && !publish.isPending}
@@ -208,26 +218,32 @@ function PublishPane({
         </Pressable>
       ) : null}
       {error ? <Text style={{ color: theme.colors.red }}>{error}</Text> : null}
-      <Host colorScheme={theme.colorScheme} matchContents seedColor={look.seedColor} style={expoUiButtonHostStyle}>
-        <Button
-          disabled={publish.isPending || !overview}
-          label={publish.isPending ? "Publishing…" : live ? "Update" : "Publish"}
-          onPress={() => publish.mutate()}
-          style={look.style}
-          variant={look.variant}
-        />
+      <Host colorScheme={theme.colorScheme} matchContents={{ vertical: true }} style={{ width: "100%" }}>
+        <HStack alignment="center" spacing={8}>
+          {live ? (
+            <Button
+              label={turnOff.isPending ? "Turning off…" : "Turn off"}
+              modifiers={[buttonStyle("glass"), controlSize("regular"), disabled(turnOff.isPending)]}
+              onPress={turnOff.isPending ? undefined : () => turnOff.mutate()}
+            />
+          ) : null}
+          <Spacer />
+          <Button
+            label={publish.isPending ? "Publishing…" : live ? "Update" : "Publish"}
+            modifiers={[buttonStyle("glass"), controlSize("regular"), disabled(publish.isPending || !overview)]}
+            onPress={publish.isPending || !overview ? undefined : () => publish.mutate()}
+          />
+        </HStack>
       </Host>
-      {live ? (
-        <Pressable onPress={() => turnOff.mutate()}>
-          <Text style={{ color: theme.colors.secondaryLabel, textAlign: "center" }}>Turn off</Text>
-        </Pressable>
-      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  actions: { alignItems: "center", flexDirection: "row", gap: 8 },
+  actions: { alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  pane: { alignSelf: "stretch", gap: 12, marginTop: 12, width: "100%" },
+  sheet: { alignSelf: "stretch", width: "100%" },
+  tabs: { alignSelf: "stretch", width: "100%" },
   hiddenWeb: { height: 1, opacity: 0, overflow: "hidden", width: 1 },
   web: { height: 480, width: 320 },
   preview: {
@@ -240,5 +256,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   previewImage: { height: "100%", width: "100%" },
-  social: { borderRadius: 8, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 8, paddingVertical: 6 },
+  socialButton: { alignItems: "center", flexDirection: "row", gap: 6, paddingHorizontal: 10, paddingVertical: 8 },
+  socialGlass: { borderRadius: 999 },
 });

@@ -37,14 +37,18 @@ const SPRING = {
 export function ExpoDrawer({
   children,
   colorScheme,
+  contentPaddingBottom,
   contentPaddingHorizontal = 16,
+  fillBackground = true,
   isPresented,
   onDismiss,
   testID,
 }: {
   children: ReactNode;
   colorScheme?: MobileThemeColorScheme;
+  contentPaddingBottom?: number;
   contentPaddingHorizontal?: number;
+  fillBackground?: boolean;
   isPresented: boolean;
   onDismiss: () => void;
   snapPoints?: SnapPoint[];
@@ -155,11 +159,11 @@ export function ExpoDrawer({
           style={[
             styles.sheet,
             {
-              backgroundColor: palette.colors.sheetBackground,
+              backgroundColor: fillBackground ? palette.colors.sheetBackground : "transparent",
               borderRadius: radius,
               bottom: inset,
               left: inset,
-              paddingBottom: Math.max(insets.bottom, 24),
+              paddingBottom: contentPaddingBottom ?? Math.max(insets.bottom, 24),
               right: inset,
               top,
             },

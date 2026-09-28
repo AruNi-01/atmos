@@ -2,10 +2,10 @@ import { Circle, Path, Rect, Svg, Text as SvgText } from "react-native-svg";
 
 export type StatArtKind = "messages" | "days" | "cost" | "tokens";
 
-/** Large corner glyph, same role as the web dither illustration (about 76px, clipped by the card). */
+/** Corner mark clipped by the stat card, between a watermark and a full illustration. */
 export function StatArt({ color, kind }: { color: string; kind: StatArtKind }) {
   return (
-    <Svg height={92} viewBox="0 0 80 80" width={92}>
+    <Svg height={64} viewBox="0 0 80 80" width={64}>
       {kind === "messages" ? (
         <>
           <Path d="M14 16h52a10 10 0 0 1 10 10v22a10 10 0 0 1-10 10H40L24 72V58H14A10 10 0 0 1 4 48V26A10 10 0 0 1 14 16z" fill={color} />
