@@ -28,6 +28,10 @@ export type HostSessionListParams = {
   query?: string;
   filters?: HostSessionFilters;
   sort?: HostSessionSort;
+  /** Rescan host session sources on the first successful load of this hook. */
+  syncOnMount?: boolean;
+  /** Fires after a source sync is applied to the list. */
+  onSourcesSynced?: () => void;
 };
 
 function mergeSessions(
@@ -63,6 +67,8 @@ export function useHostSessionList({
   query = "",
   filters,
   sort = DEFAULT_HOST_SESSION_SORT,
+  syncOnMount = false,
+  onSourcesSynced,
 }: HostSessionListParams = {}): {
   sessions: HostSessionListItem[];
   hits: HostSessionSearchHit[];
@@ -97,6 +103,9 @@ export function useHostSessionList({
   const [reloadToken, setReloadToken] = useState(0);
   const [debouncedQuery, setDebouncedQuery] = useState(query);
   const pendingSync = useRef(false);
+  const mountSyncPending = useRef(syncOnMount);
+  const onSourcesSyncedRef = useRef(onSourcesSynced);
+  onSourcesSyncedRef.current = onSourcesSynced;
   const hasSessions = useRef(false);
   const generationRef = useRef(0);
   const loadingMoreRef = useRef(false);
@@ -152,7 +161,7 @@ export function useHostSessionList({
     let cancelled = false;
     const generation = ++generationRef.current;
     loadingMoreRef.current = false;
-    const sync = pendingSync.current;
+    const sync = pendingSync.current || mountSyncPending.current;
     pendingSync.current = false;
     if (!hasSessions.current) {
       setIsLoading(true);
@@ -176,6 +185,10 @@ export function useHostSessionList({
       })
       .then((response) => {
         if (cancelled || generationRef.current !== generation) return;
+        if (sync) {
+          mountSyncPending.current = false;
+          onSourcesSyncedRef.current?.();
+        }
         const nextSessions = response.sessions;
         const nextHits = response.hits ?? [];
         setSessions(nextSessions);

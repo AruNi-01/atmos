@@ -206,14 +206,43 @@ describe("global search focus", () => {
     expect(search).toContain("GLOBAL_SEARCH_TABS");
     expect(search).toContain("SessionSubView");
     expect(search).toContain("onOpenSession={setSessionTarget}");
+    expect(search).toContain("onNavigated={() => setGlobalSearchOpen(false)}");
+    expect(search).toContain("sessionSyncOnMount={!sessionSourcesSynced}");
+    expect(search).toContain("onSessionSourcesSynced={() => setSessionSourcesSynced(true)}");
 
     const panel = read("../global-search-sessions.tsx");
     expect(panel).toContain("useHostSessionList");
+    expect(panel).toContain("syncOnMount");
+    expect(panel).toContain('aria-label={t("refresh")}');
+    expect(panel).toContain("refresh()");
     expect(panel).toContain("HostSessionResultBody");
     expect(panel).toContain("HostSessionFilterSortMenu");
     expect(panel).toContain("HostSessionDetailView");
+    expect(panel).toContain("onNavigated={onNavigated}");
     expect(panel).toContain("hostSessionOpenTarget");
     expect(panel).toContain("searchQuery={searchQuery}");
+
+    const detail = read("../../features/agent-sessions/components/HostSessionDetailView.tsx");
+    expect(detail).toContain("onNavigated?.()");
+    const chatResume = detail.slice(
+      detail.indexOf("const handleResumeChat"),
+      detail.indexOf("const handleResumeTui"),
+    );
+    const tuiResume = detail.slice(
+      detail.indexOf("const handleResumeTui"),
+      detail.indexOf("const handleCopyCommand"),
+    );
+    expect(chatResume).toContain("onNavigated?.()");
+    expect(tuiResume).toContain("if (launched)");
+    expect(tuiResume.indexOf("onNavigated?.()")).toBeGreaterThan(tuiResume.indexOf("if (launched)"));
+    expect(tuiResume.indexOf("onNavigated?.()")).toBeLessThan(
+      tuiResume.indexOf("setTuiCommand(formatHostSessionTuiLaunch"),
+    );
+
+    const hook = read("../../features/agent-sessions/hooks/use-host-session-list.ts");
+    expect(hook).toContain("syncOnMount = false");
+    expect(hook).toContain("mountSyncPending");
+    expect(hook).toContain("pendingSync.current || mountSyncPending.current");
 
     const content = read("../global-search-content.tsx");
     expect(content).toContain('value="sessions"');

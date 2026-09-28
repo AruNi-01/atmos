@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CommandGroup, CommandItem, TooltipProvider, cn } from "@workspace/ui";
-import { Folder, Loader2, MessageSquare } from "lucide-react";
+import { Button, CommandGroup, CommandItem, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from "@workspace/ui";
+import { Folder, Loader2, MessageSquare, RotateCcw } from "lucide-react";
 import { GlobalSearchSubViewFrame } from "@/app-shell/global-search-subview";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { HostSessionDetailView } from "@/features/agent-sessions/components/HostSessionDetailView";
@@ -48,11 +48,15 @@ const SESSION_COMMAND_ITEM_CLASS = cn(
 function SessionSearchResults({
   query,
   controls,
+  syncOnMount,
+  onSourcesSynced,
   onFirstValueChange,
   onOpen,
 }: {
   query: string;
   controls: SessionSearchControls;
+  syncOnMount: boolean;
+  onSourcesSynced: () => void;
   onFirstValueChange: (value: string) => void;
   onOpen: (target: HostSessionOpenTarget) => void;
 }) {
@@ -66,13 +70,14 @@ function SessionSearchResults({
     searchProgress,
     isLoading,
     isLoadingMore,
+    isSyncing,
     hasMore,
     facetProviders,
     facetProjects,
     error,
     refresh,
     loadMore,
-  } = useHostSessionList({ query, filters, sort });
+  } = useHostSessionList({ query, filters, sort, syncOnMount, onSourcesSynced });
 
   const hitByRoot = useMemo(() => {
     const map = new Map<string, (typeof hits)[number]>();
@@ -124,17 +129,39 @@ function SessionSearchResults({
             <span className="truncate">{t("title")}</span>
           )}
         </div>
-        <HostSessionFilterSortMenu
-          sessions={sessions}
-          facetProviders={facetProviders}
-          facetProjects={facetProjects}
-          filters={filters}
-          groupMode={groupMode}
-          sort={sort}
-          onFiltersChange={onFiltersChange}
-          onGroupModeChange={onGroupModeChange}
-          onSortChange={onSortChange}
-        />
+        <div className="flex shrink-0 items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-7 shrink-0 text-muted-foreground"
+                aria-label={t("refresh")}
+                disabled={isLoading || isSyncing}
+                onClick={() => refresh()}
+              >
+                {isLoading || isSyncing ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <RotateCcw className="size-3.5" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("refresh")}</TooltipContent>
+          </Tooltip>
+          <HostSessionFilterSortMenu
+            sessions={sessions}
+            facetProviders={facetProviders}
+            facetProjects={facetProjects}
+            filters={filters}
+            groupMode={groupMode}
+            sort={sort}
+            onFiltersChange={onFiltersChange}
+            onGroupModeChange={onGroupModeChange}
+            onSortChange={onSortChange}
+          />
+        </div>
       </div>
 
       {isLoading && sessions.length === 0 ? (
@@ -217,10 +244,12 @@ function SessionSubView({
   target,
   searchQuery,
   onBack,
+  onNavigated,
 }: {
   target: HostSessionOpenTarget;
   searchQuery: string;
   onBack: () => void;
+  onNavigated: () => void;
 }) {
   const t = useTranslations("appShell");
   return (
@@ -235,6 +264,7 @@ function SessionSubView({
           messageId={target.messageId}
           seq={target.seq}
           searchQuery={searchQuery}
+          onNavigated={onNavigated}
         />
       </div>
     </GlobalSearchSubViewFrame>

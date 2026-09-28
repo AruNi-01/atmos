@@ -155,6 +155,7 @@ export function HostSessionDetailView({
   messageId: messageIdProp,
   seq: seqProp,
   searchQuery,
+  onNavigated,
 }: {
   selectedKey: string;
   /** When set (including null), ignore the Agent Sessions URL locator. */
@@ -162,6 +163,8 @@ export function HostSessionDetailView({
   seq?: number | null;
   /** When set, seed transcript find from this query instead of the list search box. */
   searchQuery?: string;
+  /** Called after Resume navigates away (Chat, or a launched TUI). */
+  onNavigated?: () => void;
 }) {
   const t = useTranslations("agentSessions");
   const reserveClose = useDrawerCloseReserve();
@@ -312,6 +315,7 @@ export function HostSessionDetailView({
     setResumeBusy("chat");
     try {
       await resumeHostSessionInChat(selectedKey, router, projects);
+      onNavigated?.();
     } catch (err) {
       toastManager.add({
         title: t("resumeChatFailed"),
@@ -321,7 +325,7 @@ export function HostSessionDetailView({
     } finally {
       setResumeBusy(null);
     }
-  }, [projects, router, selectedKey, t]);
+  }, [onNavigated, projects, router, selectedKey, t]);
 
   const handleResumeTui = useCallback(async () => {
     if (!session) return;
@@ -336,6 +340,7 @@ export function HostSessionDetailView({
       );
       if (launched) {
         setTuiCommand(null);
+        onNavigated?.();
         return;
       }
       setTuiCommand(formatHostSessionTuiLaunch(result));
@@ -348,7 +353,7 @@ export function HostSessionDetailView({
     } finally {
       setResumeBusy(null);
     }
-  }, [projects, router, selectedKey, session, t]);
+  }, [onNavigated, projects, router, selectedKey, session, t]);
 
   const handleCopyCommand = useCallback(async () => {
     if (!tuiCommand) return;

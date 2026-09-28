@@ -183,6 +183,7 @@ export function GlobalSearch() {
   const [sessionSort, setSessionSort] = useState<HostSessionSort>(DEFAULT_HOST_SESSION_SORT);
   const [sessionGroupMode, setSessionGroupMode] = useState<HostSessionGroupMode>("all");
   const [firstSessionValue, setFirstSessionValue] = useState("");
+  const [sessionSourcesSynced, setSessionSourcesSynced] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [codeSearchResults, setCodeSearchResults] = useState<SearchMatch[]>([]);
@@ -307,6 +308,7 @@ export function GlobalSearch() {
       setSessionSort(DEFAULT_HOST_SESSION_SORT);
       setSessionGroupMode("all");
       setFirstSessionValue("");
+      setSessionSourcesSynced(false);
     }
   }, [isGlobalSearchOpen]);
 
@@ -591,6 +593,7 @@ export function GlobalSearch() {
           target={sessionTarget}
           searchQuery={searchQuery}
           onBack={() => setSessionTarget(null)}
+          onNavigated={() => setGlobalSearchOpen(false)}
         />
       ) : subView === 'todo' ? (
         <TodoSubView
@@ -657,6 +660,8 @@ export function GlobalSearch() {
           onFileSelect={handleFileSelect}
           onFirstSessionValue={setFirstSessionValue}
           onOpenSession={setSessionTarget}
+          sessionSyncOnMount={!sessionSourcesSynced}
+          onSessionSourcesSynced={() => setSessionSourcesSynced(true)}
         />
       )}
     </CommandDialog>

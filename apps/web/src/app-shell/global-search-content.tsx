@@ -260,6 +260,8 @@ interface GlobalSearchMainViewProps {
   onFileSelect: (path: string) => void;
   onFirstSessionValue: (value: string) => void;
   onOpenSession: (target: HostSessionOpenTarget) => void;
+  sessionSyncOnMount: boolean;
+  onSessionSourcesSynced: () => void;
 }
 
 function EmptyState({ children }: { children: React.ReactNode }) {
@@ -456,6 +458,8 @@ export function GlobalSearchMainView({
   onFileSelect,
   onFirstSessionValue,
   onOpenSession,
+  sessionSyncOnMount,
+  onSessionSourcesSynced,
 }: GlobalSearchMainViewProps) {
   const t = useTranslations("appShell");
   const sessionsT = useTranslations("agentSessions");
@@ -540,6 +544,8 @@ export function GlobalSearchMainView({
                 <SessionSearchResults
                   query={searchQuery}
                   controls={sessionControls}
+                  syncOnMount={sessionSyncOnMount}
+                  onSourcesSynced={onSessionSourcesSynced}
                   onFirstValueChange={onFirstSessionValue}
                   onOpen={onOpenSession}
                 />
