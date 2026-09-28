@@ -506,7 +506,8 @@
       "tabs": {
         "app": "App",
         "files": "Files",
-        "code": "Code"
+        "code": "Code",
+        "sessions": "Session"
       },
       "placeholder": "Search...",
       "noResults": "No results.",
@@ -9540,6 +9541,7 @@
     "emptyTranscript": "This session has no messages to preview.",
     "emptySearch": "No sessions match that search.",
     "loading": "Loading sessions",
+    "loadMore": "Load more",
     "loadingTranscript": "Loading transcript",
     "refresh": "Refresh",
     "searchPlaceholder": "Search titles and messages",

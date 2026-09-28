@@ -28,6 +28,10 @@ export type HostSessionListParams = {
   query?: string;
   filters?: HostSessionFilters;
   sort?: HostSessionSort;
+  /** Rescan host session sources on the first successful load of this hook. */
+  syncOnMount?: boolean;
+  /** Fires after a source sync is applied to the list. */
+  onSourcesSynced?: () => void;
 };
 
 function mergeSessions(
@@ -63,6 +67,8 @@ export function useHostSessionList({
   query = "",
   filters,
   sort = DEFAULT_HOST_SESSION_SORT,
+  syncOnMount = false,
+  onSourcesSynced,
 }: HostSessionListParams = {}): {
   sessions: HostSessionListItem[];
   hits: HostSessionSearchHit[];
@@ -97,6 +103,10 @@ export function useHostSessionList({
   const [reloadToken, setReloadToken] = useState(0);
   const [debouncedQuery, setDebouncedQuery] = useState(query);
   const pendingSync = useRef(false);
+  const mountSyncPending = useRef(syncOnMount);
+  const syncInFlight = useRef(false);
+  const onSourcesSyncedRef = useRef(onSourcesSynced);
+  onSourcesSyncedRef.current = onSourcesSynced;
   const hasSessions = useRef(false);
   const generationRef = useRef(0);
   const loadingMoreRef = useRef(false);
@@ -148,17 +158,26 @@ export function useHostSessionList({
   );
 
   useEffect(() => {
-    if (!connected) return;
+    if (!connected) {
+      // The in-flight scan cannot finish. Reconnect must be allowed to scan again.
+      syncInFlight.current = false;
+      setIsSyncing(false);
+      return;
+    }
     let cancelled = false;
     const generation = ++generationRef.current;
     loadingMoreRef.current = false;
-    const sync = pendingSync.current;
+    // Refresh always scans. The mount scan does not start again while one is
+    // already in flight: the server emits host_session_index_updated before that
+    // response returns, and syncing on the reload loops forever.
+    const sync = pendingSync.current || (mountSyncPending.current && !syncInFlight.current);
     pendingSync.current = false;
+    if (sync) {
+      syncInFlight.current = true;
+      setIsSyncing(true);
+    }
     if (!hasSessions.current) {
       setIsLoading(true);
-    }
-    if (sync) {
-      setIsSyncing(true);
     }
     const needle = debouncedQuery.trim();
     void hostSessionApi
@@ -176,6 +195,11 @@ export function useHostSessionList({
       })
       .then((response) => {
         if (cancelled || generationRef.current !== generation) return;
+        if (sync || syncInFlight.current) {
+          syncInFlight.current = false;
+          mountSyncPending.current = false;
+          onSourcesSyncedRef.current?.();
+        }
         const nextSessions = response.sessions;
         const nextHits = response.hits ?? [];
         setSessions(nextSessions);
@@ -189,6 +213,7 @@ export function useHostSessionList({
       })
       .catch((err: unknown) => {
         if (cancelled || isCancelledError(err) || generationRef.current !== generation) return;
+        if (sync) syncInFlight.current = false;
         setError(err instanceof Error ? err.message : "error");
       })
       .finally(() => {

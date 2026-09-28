@@ -506,7 +506,8 @@
       "tabs": {
         "app": "应用",
         "files": "文件",
-        "code": "代码"
+        "code": "代码",
+        "sessions": "会话"
       },
       "placeholder": "搜索...",
       "noResults": "未找到结果。",
@@ -9540,6 +9541,7 @@
     "emptyTranscript": "此会话没有可预览的消息。",
     "emptySearch": "没有符合搜索条件的会话。",
     "loading": "正在加载会话",
+    "loadMore": "加载更多",
     "loadingTranscript": "正在加载记录",
     "refresh": "刷新",
     "searchPlaceholder": "搜索标题和消息",

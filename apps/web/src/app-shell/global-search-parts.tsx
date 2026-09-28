@@ -16,10 +16,11 @@ import {
 } from "@workspace/ui";
 import type { SearchMatch } from "@/api/ws-api";
 import type { GithubPrPayload } from "@/api/ws/github-api";
+import type { SearchTab } from "@/app-shell/global-search-focus";
 import { WorkspaceAgentStatusMark } from "@/features/agent/components/WorkspaceAgentStatusMark";
 import { WorkspacePrStatusIcon } from "@/features/github/components/WorkspacePrStatusIcon";
 
-export type SearchTab = "app" | "files" | "code";
+export type { SearchTab };
 
 export interface AppSearchItem {
   id: string;
