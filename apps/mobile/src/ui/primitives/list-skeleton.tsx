@@ -6,6 +6,23 @@ import { useMobileTheme } from "@/theme/theme-store";
 
 const PLACEHOLDER_ROWS = ["Session title", "Another session", "One more session"] as const;
 
+/** One title line while the real session name is still loading. */
+export function TitleSkeleton({ width = 132 }: { width?: number }) {
+  const theme = useMobileTheme();
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{
+        backgroundColor: theme.colors.cardSubtle,
+        borderRadius: 6,
+        height: 14,
+        width,
+      }}
+    />
+  );
+}
+
 /** Placeholder rows for a grouped list. iOS uses Expo UI's SwiftUI redaction. */
 export function ListSkeleton({ rows = 3 }: { rows?: number }) {
   if (Platform.OS === "ios") {

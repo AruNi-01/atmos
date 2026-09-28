@@ -270,6 +270,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const [groupingMode, setGroupingMode] = useState<SidebarGroupingMode>('project');
     const [sidebarListView, setSidebarListView] = useState<SidebarListView>('workspace');
     const {
+        hasMore: agentSessionsHasMore,
+        loadMore: loadMoreAgentSessions,
         snapshots: agentSessionSnapshots,
         chatTitles: agentSessionChatTitles,
         loaded: agentSessionsLoaded,
@@ -1684,6 +1686,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             collapsedWorkspaceGroups={collapsedWorkspaceGroups}
             groupingMode={groupingMode}
             groups={sessionCatalog.groups}
+            hasMore={agentSessionsHasMore}
+            onShowMore={() => {
+              void loadMoreAgentSessions();
+            }}
             projects={projects}
             onArchiveSession={archiveAgentSession}
             sessionsLoaded={agentSessionsLoaded}

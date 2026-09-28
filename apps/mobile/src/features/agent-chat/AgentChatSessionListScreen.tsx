@@ -6,6 +6,7 @@ import { wsActions } from "@/api/ws-actions";
 import { copy } from "@/features/agent-chat/copy";
 import { historyTimeLabel, type ChatListRow } from "@/features/agent-chat/list-rows";
 import { useAgentChatList } from "@/features/agent-chat/use-agent-chat-list";
+import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -84,12 +85,13 @@ export function AgentChatSessionListScreen({ workspaceId }: { workspaceId: strin
                     },
                   ]);
                 }}
-                onPress={(row) =>
+                onPress={(row) => {
+                  const title = row.title.trim();
                   router.push({
                     pathname: "/workspace/[workspaceId]/chat/[chatId]",
-                    params: { chatId: row.id, workspaceId },
-                  })
-                }
+                    params: title ? { chatId: row.id, title, workspaceId } : { chatId: row.id, workspaceId },
+                  });
+                }}
                 rows={list.rows}
               />
             )}
@@ -135,7 +137,13 @@ function ChatSessionRows({
     return (
       <View key={row.id}>
         {index > 0 ? <Separator /> : null}
-        <Row onLongPress={() => onLongPress(row)} onPress={() => onPress(row)} subtitle={row.place} title={row.title}>
+        <Row
+          leading={<MobileAgentIcon agentId={row.providerId} size={18} />}
+          onLongPress={() => onLongPress(row)}
+          onPress={() => onPress(row)}
+          subtitle={row.place}
+          title={row.title}
+        >
           {time ? (
             <Text
               style={[

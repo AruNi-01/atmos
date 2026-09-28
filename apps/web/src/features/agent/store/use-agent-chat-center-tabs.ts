@@ -41,6 +41,15 @@ export function draftPromptTitle(text: string, limit = DRAFT_PROMPT_TITLE_LIMIT)
   return `${flat.slice(0, limit - 1).trimEnd()}…`;
 }
 
+const DRAFT_PROMPT_TITLE_LIMIT = 48;
+
+/** Single-line title for an unsent New Chat prompt. */
+export function draftPromptTitle(text: string, limit = DRAFT_PROMPT_TITLE_LIMIT): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  if (flat.length <= limit) return flat;
+  return `${flat.slice(0, limit - 1).trimEnd()}…`;
+}
+
 type AgentChatCenterTabsStore = {
   tabsByContext: Record<string, AgentChatCenterTab[]>;
   pendingActivate: { contextId: string; value: string } | null;
@@ -71,6 +80,8 @@ type AgentChatCenterTabsStore = {
     hasMessages?: boolean;
   }) => void;
   closeTab: (contextId: string, value: string) => void;
+  /** Remember unsent New Chat text. A blank prompt restores the idle tab title. */
+  setDraftPrompt: (instanceKey: string, prompt: string) => void;
   /** Remember unsent New Chat text. A blank prompt restores the idle tab title. */
   setDraftPrompt: (instanceKey: string, prompt: string) => void;
   requestActivate: (contextId: string, value: string) => void;

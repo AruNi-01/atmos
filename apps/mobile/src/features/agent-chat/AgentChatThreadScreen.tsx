@@ -1,16 +1,17 @@
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
-import { Stack, type NativeStackHeaderItem } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter, type NativeStackHeaderItem } from "expo-router";
 import type { SFSymbol } from "sf-symbols-typescript";
 import { ChatKeyboardFrame } from "./chat-keyboard-frame";
 import { wsActions } from "@/api/ws-actions";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import { useMobileTheme } from "@/theme/theme-store";
-import { MessagesSquareIcon } from "@/ui/icons/lucide-native";
+import { ChevronLeftIcon, MessagesSquareIcon } from "@/ui/icons/lucide-native";
 import { AppScreen, InlineError } from "@/ui/layout/app-screen";
 import { nativeCompactTitleOptions } from "@/ui/navigation/native-screen-options";
+import { TitleSkeleton } from "@/ui/primitives/list-skeleton";
 import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
 import { AgentChatComposer } from "./AgentChatComposer";
 import { AgentChatPermissionCard } from "./AgentChatPermissionCard";
@@ -41,6 +42,20 @@ type PickedConfig = {
   fast: string | null;
   context: string | null;
 };
+
+function backHeaderItem(onPress: () => void, tintColor: string): NativeStackHeaderItem {
+  return {
+    accessibilityLabel: "Back",
+    icon: { type: "sfSymbol", name: "chevron.backward" satisfies SFSymbol },
+    identifier: "agent-chat-back",
+    label: "",
+    onPress,
+    sharesBackground: true,
+    tintColor,
+    type: "button",
+    variant: "plain",
+  };
+}
 
 function messagesHeaderItem(onPress: () => void, tintColor: string): NativeStackHeaderItem {
   return {
@@ -86,9 +101,10 @@ export function AgentChatThreadScreen({
   const theme = useMobileTheme();
   const { client, state: wsState } = useMobileWs();
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
-  const { rows } = useAgentChatList(workspaceId);
+  const routeTitle = useLocalSearchParams<{ title?: string | string[] }>().title;
+  const passedTitle = (Array.isArray(routeTitle) ? routeTitle[0] : routeTitle)?.trim() ?? "";
+  const { loading: listLoading, rows } = useAgentChatList(workspaceId);
   const matchedTitle = rows.find((row) => row.id === chatId)?.title.trim() ?? "";
-  const screenTitle = matchedTitle.length > 0 ? matchedTitle : copy.history;
   const listProviderId = rows.find((row) => row.id === chatId)?.providerId.trim() ?? "";
   const [picked, setPicked] = useState<PickedConfig | null>(null);
   const active = picked?.chatId === chatId ? picked : null;
@@ -100,6 +116,9 @@ export function AgentChatThreadScreen({
       return wsActions.agentChatGet(client, { chat_id: chatId });
     },
   });
+  const snapshotTitle = snapshotQuery.data?.meta.title?.trim() ?? "";
+  const screenTitle = passedTitle || matchedTitle || snapshotTitle;
+  const titlePending = screenTitle.length === 0 && (listLoading || snapshotQuery.isPending);
   const savedConfig = snapshotQuery.data?.meta.descriptor.current_config;
   const providerId = (active?.providerId ?? snapshotQuery.data?.meta.provider_id ?? listProviderId).trim();
   const modelId = active?.model ?? savedConfig?.model ?? null;
@@ -273,25 +292,47 @@ export function AgentChatThreadScreen({
     void cancel().catch(() => undefined);
   }, [cancel]);
 
+  const router = useRouter();
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else {
+      router.replace({
+        pathname: "/workspace/[workspaceId]",
+        params: { workspaceId },
+      });
+    }
+  };
   const openMessages = () => setMessagesOpen(true);
   const header = (
     <Stack.Screen
       options={{
         ...nativeCompactTitleOptions(screenTitle, theme.colors),
+        ...(titlePending ? { headerTitle: () => <TitleSkeleton width={148} /> } : {}),
         headerBackButtonDisplayMode: "minimal",
-        ...(userMessages.length > 0
-          ? process.env.EXPO_OS === "ios"
-            ? {
-                unstable_headerRightItems: () => [messagesHeaderItem(openMessages, theme.colors.label)],
-              }
-            : {
-                headerRight: () => (
-                  <Pressable accessibilityLabel={copy.messages} accessibilityRole="button" hitSlop={12} onPress={openMessages}>
-                    <MessagesSquareIcon color={theme.colors.label} size={22} strokeWidth={2.2} />
-                  </Pressable>
-                ),
-              }
-          : {}),
+        headerBackVisible: false,
+        ...(process.env.EXPO_OS === "ios"
+          ? {
+              unstable_headerLeftItems: () => [backHeaderItem(goBack, theme.colors.label)],
+              ...(userMessages.length > 0
+                ? { unstable_headerRightItems: () => [messagesHeaderItem(openMessages, theme.colors.label)] }
+                : {}),
+            }
+          : {
+              headerLeft: () => (
+                <Pressable accessibilityLabel="Back" accessibilityRole="button" hitSlop={12} onPress={goBack}>
+                  <ChevronLeftIcon color={theme.colors.label} size={22} strokeWidth={2.2} />
+                </Pressable>
+              ),
+              ...(userMessages.length > 0
+                ? {
+                    headerRight: () => (
+                      <Pressable accessibilityLabel={copy.messages} accessibilityRole="button" hitSlop={12} onPress={openMessages}>
+                        <MessagesSquareIcon color={theme.colors.label} size={22} strokeWidth={2.2} />
+                      </Pressable>
+                    ),
+                  }
+                : {}),
+            }),
       }}
     />
   );

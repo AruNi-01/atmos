@@ -33,6 +33,11 @@ pub struct HostSessionSetArchivedRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HostSessionKeysForChatRequest {
+    pub chat_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HostSessionDeleteRequest {
     pub keys: Vec<String>,
     pub include_atmos_chat: bool,

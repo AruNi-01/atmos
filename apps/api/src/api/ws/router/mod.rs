@@ -1034,6 +1034,10 @@ impl WsMessageService {
                 self.handle_host_session_delete(parse_request(request.data)?)
                     .await
             }
+            WsAction::HostSessionKeysForChat => {
+                self.handle_host_session_keys_for_chat(parse_request(request.data)?)
+                    .await
+            }
 
             // Automation
             WsAction::AutomationList => {
@@ -1512,7 +1516,15 @@ impl WsMessageService {
 
             WsAction::LinkPreview => self.handle_link_preview(request.data).await,
 
-            WsAction::AgentSessionStatusList => self.handle_agent_session_status_list().await,
+            WsAction::AgentSessionStatusList => {
+                let data = if request.data.is_null() {
+                    serde_json::json!({})
+                } else {
+                    request.data
+                };
+                self.handle_agent_session_status_list(parse_request(data)?)
+                    .await
+            }
             WsAction::AgentSessionArchive => {
                 self.handle_agent_session_archive(parse_request(request.data)?)
                     .await

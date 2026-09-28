@@ -35,6 +35,17 @@ describe("formatSessionRowSubtitle", () => {
     ).toBe("main · Open");
   });
 
+  test("hides the workspace when it matches the branch", () => {
+    expect(
+      formatSessionRowSubtitle({
+        projectName: "atmos",
+        workspaceName: "atmos/koffing",
+        branch: "atmos/koffing",
+        prState: null,
+      }),
+    ).toBe("atmos · atmos/koffing");
+  });
+
   test("project-scoped omits workspace", () => {
     expect(
       formatSessionRowSubtitle({

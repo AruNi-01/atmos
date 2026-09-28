@@ -15,6 +15,8 @@ export type MobileTerminalEntry = {
   /** Sticky session topic from the broadcast title, matching the web center tab. */
   sessionOscTitle?: string;
   isNew?: boolean;
+  /** Typed into the shell once, after this new terminal is created. */
+  pendingLaunchCommand?: string;
 };
 
 type TerminalState = {

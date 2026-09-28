@@ -308,6 +308,7 @@ impl AgentChatService {
                     provider_id: entry.provider_id,
                     cwd: entry.cwd,
                     updated_at: updated.to_rfc3339(),
+                    title: entry.title.filter(|title| !title.trim().is_empty()),
                 })
             })
             .collect())

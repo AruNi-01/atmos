@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Button, Host } from "@expo/ui";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
@@ -16,6 +16,7 @@ import { useComputerStore } from "@/stores/computer-store";
 import { useSessionStore } from "@/stores/session-store";
 import { useMobileTheme } from "@/theme/theme-store";
 import { ListFilterIcon, SettingsIcon } from "@/ui/icons/lucide-native";
+import { AtmosLogo } from "@/ui/AtmosLogo";
 import { AppScreen, EmptyState, InlineError } from "@/ui/layout/app-screen";
 import { settingsHeaderItem, workspaceFilterHeaderItem } from "@/ui/navigation/home-header-items";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
@@ -128,10 +129,31 @@ export function WorkspaceListScreen() {
     }
   }, [bootstrapQuery, computersQuery]);
 
+  const cachedComputerId =
+    sessionHydrated && computersQuery.isSuccess
+      ? getAutoConnectComputerId({
+          activeClientSession: null,
+          computers,
+          selectedServerId,
+        })
+      : null;
+  const isConnectingCachedComputer =
+    hasDeviceCredential &&
+    !createSession.isError &&
+    (createSession.isPending ||
+      (Boolean(cachedComputerId || activeClientSession) && wsState !== "open"));
+  const isLoadingHome =
+    !deviceCredentialLoaded ||
+    !sessionHydrated ||
+    (hasDeviceCredential && computersQuery.isPending) ||
+    isConnectingCachedComputer ||
+    (isHomeConnected && bootstrapQuery.isPending);
+
   const header = (
     <Stack.Screen
       options={{
         ...nativeLargeTitleOptions("Workspace", theme.colors),
+        headerShown: !isLoadingHome,
         headerShadowVisible: false,
         headerTintColor: theme.colors.label,
         ...(process.env.EXPO_OS === "ios"
@@ -171,25 +193,6 @@ export function WorkspaceListScreen() {
     />
   );
 
-  const cachedComputerId =
-    sessionHydrated && computersQuery.isSuccess
-      ? getAutoConnectComputerId({
-          activeClientSession: null,
-          computers,
-          selectedServerId,
-        })
-      : null;
-  const isConnectingCachedComputer =
-    hasDeviceCredential &&
-    !createSession.isError &&
-    (createSession.isPending ||
-      (Boolean(cachedComputerId || activeClientSession) && wsState !== "open"));
-  const isLoadingHome =
-    !deviceCredentialLoaded ||
-    !sessionHydrated ||
-    (hasDeviceCredential && computersQuery.isPending) ||
-    isConnectingCachedComputer ||
-    (isHomeConnected && bootstrapQuery.isPending);
   const needsComputerChoice =
     hasDeviceCredential &&
     sessionHydrated &&
@@ -237,12 +240,17 @@ function HomeLoading() {
   const theme = useMobileTheme();
 
   return (
-    <AppScreen contentFlex>
-      <View style={{ alignItems: "center", gap: 12 }}>
-        <ActivityIndicator color={theme.colors.secondaryLabel} />
-        <Text style={{ color: theme.colors.secondaryLabel, fontSize: 15, lineHeight: 20 }}>Loading</Text>
-      </View>
-    </AppScreen>
+    <View
+      accessibilityRole="progressbar"
+      style={{
+        alignItems: "center",
+        backgroundColor: theme.colors.background,
+        flex: 1,
+        justifyContent: "center",
+      }}
+    >
+      <AtmosLogo breathe />
+    </View>
   );
 }
 

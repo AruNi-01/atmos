@@ -15,7 +15,7 @@ export type WorkspaceTerminalHref = {
 
 export type WorkspaceChatThreadHref = {
   pathname: "/workspace/[workspaceId]/chat/[chatId]";
-  params: { workspaceId: string; chatId: string };
+  params: { workspaceId: string; chatId: string; title?: string };
 };
 
 export type SessionDestination = {
@@ -23,6 +23,8 @@ export type SessionDestination = {
   workspaceId: string | null;
   terminalCandidateId: string | null;
   chatId: string | null;
+  title?: string | null;
+  titlePending?: boolean;
 };
 
 export function openWorkspaceChatList(workspaceId: string | null): WorkspaceChatListHref | null {
@@ -57,9 +59,10 @@ export function openSessionDestination(
   const workspaceId = row.workspaceId?.trim() ?? "";
   const chatId = row.chatId?.trim() ?? "";
   if (workspaceId && chatId) {
+    const title = row.titlePending ? "" : row.title?.trim() ?? "";
     return {
       pathname: "/workspace/[workspaceId]/chat/[chatId]",
-      params: { workspaceId, chatId },
+      params: title ? { workspaceId, chatId, title } : { workspaceId, chatId },
     };
   }
   if (!workspaceId) return null;

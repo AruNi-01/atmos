@@ -174,12 +174,14 @@ export function sessionChatId(snapshot: Pick<
 export function sessionRowTitle(
   snapshot: Pick<
     AgentSessionStatusSnapshot,
-    "session_id" | "surface" | "surface_id" | "tool"
+    "session_id" | "surface" | "surface_id" | "tool" | "title"
   >,
   chatTitles: Readonly<Record<string, string>> = {},
   terminalTitles: Readonly<Record<string, string>> = {},
 ): string {
   if (snapshot.surface === "chat") {
+    const direct = snapshot.title?.trim() ?? "";
+    if (direct) return direct;
     const chatId = sessionChatId(snapshot);
     const titled = chatId ? chatTitles[chatId]?.trim() : "";
     if (titled) return titled;
@@ -200,8 +202,12 @@ export function formatSessionRowSubtitle(parts: {
   branch?: string | null;
   prState?: string | null;
 }): string {
-  return [parts.projectName, parts.workspaceName, parts.branch, parts.prState]
-    .map((part) => part?.trim() ?? "")
+  const project = parts.projectName?.trim() ?? "";
+  const workspace = parts.workspaceName?.trim() ?? "";
+  const branch = parts.branch?.trim() ?? "";
+  const prState = parts.prState?.trim() ?? "";
+  const showWorkspace = workspace.length > 0 && workspace.toLowerCase() !== branch.toLowerCase();
+  return [project, showWorkspace ? workspace : "", branch, prState]
     .filter((part) => part.length > 0)
     .join(" · ");
 }
@@ -563,4 +569,34 @@ export function groupSidebarSessions(
     .sort((a, b) => timestampOf(b[1][0]?.updatedAt ?? "") - timestampOf(a[1][0]?.updatedAt ?? ""))
     .map(([key]) => key);
   return groupsFromBuckets(buckets, keys, (key) => names.get(key) ?? unknownProjectLabel);
+}
+
+/** Pinned rows leave their groups and keep the saved pin order. */
+export function splitPinnedSessionGroups(
+  groups: readonly SidebarSessionGroup[],
+  pinnedIds: readonly string[],
+): { pinned: SidebarSessionRow[]; groups: SidebarSessionGroup[] } {
+  if (pinnedIds.length === 0) return { pinned: [], groups: [...groups] };
+  const byId = new Map<string, SidebarSessionRow>();
+  for (const group of groups) {
+    for (const row of group.items) byId.set(row.sessionId, row);
+  }
+  const pinnedSet = new Set<string>();
+  const pinned: SidebarSessionRow[] = [];
+  for (const id of pinnedIds) {
+    const row = byId.get(id);
+    if (!row || pinnedSet.has(id)) continue;
+    pinnedSet.add(id);
+    pinned.push(row);
+  }
+  if (pinnedSet.size === 0) return { pinned: [], groups: [...groups] };
+  return {
+    pinned,
+    groups: groups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((row) => !pinnedSet.has(row.sessionId)),
+      }))
+      .filter((group) => group.items.length > 0),
+  };
 }

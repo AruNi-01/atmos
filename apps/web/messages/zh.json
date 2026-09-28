@@ -1406,6 +1406,7 @@
         "empty": "没有会话",
         "noMatches": "没有匹配的会话",
         "archive": "归档",
+        "pinned": "置顶",
         "unknownProject": "未知项目"
       },
       "grouping": {

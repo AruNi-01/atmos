@@ -11,7 +11,7 @@ export const SESSION_BUCKET_LABEL: Record<SessionBucket, string> = {
   done: "Done",
 };
 
-const RECENT_LIMIT = 5;
+const RECENT_LIMIT = 8;
 
 export type SessionInboxCard = {
   bucket: SessionBucket;
@@ -39,6 +39,8 @@ export type SessionInboxSnapshot = {
   updated_at: string;
   context_id?: string | null;
   surface_id?: string | null;
+  tool?: string | null;
+  title?: string | null;
 };
 
 export type SessionInboxWorkspace = {
@@ -57,6 +59,8 @@ export type SessionInboxRow = {
   id: string;
   bucket: SessionBucket;
   title: string;
+  /** Chat title is still loading. The row shows a skeleton instead of a placeholder word. */
+  titlePending?: boolean;
   updatedAt: string | null;
   projectName: string | null;
   /** Stable project id for a project-scoped session. */
@@ -69,6 +73,8 @@ export type SessionInboxRow = {
   terminalCandidateId: string | null;
   /** Terminal panes open the terminal. Chat snapshots open that chat. */
   kind: "terminal" | "chat";
+  /** Agent id for the row icon. Null until the session reports a tool. */
+  agentId: string | null;
   chatId: string | null;
   /** Catalog key for `agent_session_archive`. Null when the pane never reported status. */
   archiveSessionId: string | null;
@@ -84,11 +90,15 @@ export type SessionInboxInput = {
   pendingWorkspaceIds?: string[];
   /** Saved chat titles keyed by chat id. */
   chatTitles?: Readonly<Record<string, string>>;
+  /** True until the chat-title request has settled. Missing titles stay blank, not "Chat". */
+  chatTitlesPending?: boolean;
 };
 
 export type SessionWorkspaceRecord = {
   id: string;
   projectName: string | null;
+  /** Set for a project-scoped session so same-named projects stay distinct. */
+  projectId: string | null;
   workspaceName: string | null;
   branch: string;
   localPath: string;
@@ -150,6 +160,7 @@ export function sessionWorkspaceSources(bootstrap: SessionBootstrapLike | null |
       const projectKey = workspace.project_guid || projectId;
       active.push({
         id: workspace.guid,
+        projectId: workspace.project_guid || projectId,
         projectName: projectNameById.get(projectKey) ?? projectNameById.get(projectId) ?? null,
         workspaceName: clean(workspace.display_name) ?? clean(workspace.name),
         branch: workspace.branch ?? "",
@@ -196,10 +207,12 @@ export function joinSessionRows(input: SessionInboxInput): SessionInboxRow[] {
         (sessionId.startsWith("chat:") ? clean(sessionId.slice("chat:".length)) : null);
       const workspace = contextId ? workspaceById.get(contextId) : undefined;
       if (!chatId || !workspace) continue;
+      const knownTitle = input.chatTitles?.[chatId]?.trim() ?? "";
       rows.push({
         id: sessionId,
         bucket: asBucket(snapshot.group_key),
-        title: input.chatTitles?.[chatId]?.trim() || "Chat",
+        title: knownTitle,
+        titlePending: knownTitle.length === 0 && input.chatTitlesPending === true,
         updatedAt: snapshot.updated_at,
         projectName: clean(workspace.projectName),
         workspaceName: clean(workspace.workspaceName),
@@ -209,6 +222,7 @@ export function joinSessionRows(input: SessionInboxInput): SessionInboxRow[] {
         workspaceId: workspace.id,
         terminalCandidateId: null,
         kind: "chat",
+        agentId: clean(snapshot.tool),
         chatId,
         archiveSessionId: sessionId,
       });
@@ -234,6 +248,7 @@ export function joinSessionRows(input: SessionInboxInput): SessionInboxRow[] {
       workspaceId,
       terminalCandidateId: candidate?.id ?? null,
       kind: "terminal",
+      agentId: clean(snapshot.tool),
       chatId: null,
       archiveSessionId: sessionId,
     });
@@ -263,6 +278,36 @@ export function recentSessionRows(rows: SessionInboxRow[], limit = RECENT_LIMIT)
 
 export function filterSessionRows(rows: SessionInboxRow[], bucket: SessionBucket): SessionInboxRow[] {
   return rows.filter((row) => row.bucket === bucket);
+}
+
+/** Catalog id used for pin, archive, and delete. */
+export function sessionPinId(row: SessionInboxRow): string {
+  return row.archiveSessionId ?? row.id;
+}
+
+/** Pinned rows keep the saved order. Everyone else stays in the original order. */
+export function orderPinnedRows<T>(
+  rows: readonly T[],
+  pinnedIds: readonly string[],
+  idOf: (row: T) => string,
+): T[] {
+  if (pinnedIds.length === 0 || rows.length === 0) return [...rows];
+  const byId = new Map<string, T>();
+  for (const row of rows) byId.set(idOf(row), row);
+  const pinned = new Set<string>();
+  const ordered: T[] = [];
+  for (const id of pinnedIds) {
+    const row = byId.get(id);
+    if (!row || pinned.has(id)) continue;
+    pinned.add(id);
+    ordered.push(row);
+  }
+  if (pinned.size === 0) return [...rows];
+  for (const row of rows) {
+    if (pinned.has(idOf(row))) continue;
+    ordered.push(row);
+  }
+  return ordered;
 }
 
 export function buildSessionInbox(input: SessionInboxInput) {

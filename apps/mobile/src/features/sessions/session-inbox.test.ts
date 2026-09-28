@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildSessionInbox,
   filterSessionRows,
+  orderPinnedRows,
   type SessionInboxCandidate,
   type SessionInboxSnapshot,
 } from "./session-inbox";
@@ -89,7 +90,7 @@ describe("session inbox", () => {
     expect(permission.every((row) => row.bucket === "permission")).toBe(true);
   });
 
-  test("recent list is the five newest panes", () => {
+  test("recent list is the eight newest panes", () => {
     const times = [
       "2026-09-22T00:00:00Z",
       "2026-09-22T01:00:00Z",
@@ -97,6 +98,9 @@ describe("session inbox", () => {
       "2026-09-22T03:00:00Z",
       "2026-09-22T04:00:00Z",
       "2026-09-22T05:00:00Z",
+      "2026-09-22T06:00:00Z",
+      "2026-09-22T07:00:00Z",
+      "2026-09-22T08:00:00Z",
     ];
     const inbox = buildSessionInbox({
       candidates: times.map((time, index) =>
@@ -115,8 +119,8 @@ describe("session inbox", () => {
       ),
     });
 
-    expect(inbox.recent).toHaveLength(5);
-    expect(inbox.recent.map((row) => row.updatedAt)).toEqual([...times].reverse().slice(0, 5));
+    expect(inbox.recent).toHaveLength(8);
+    expect(inbox.recent.map((row) => row.updatedAt)).toEqual([...times].reverse().slice(0, 8));
     for (let index = 1; index < inbox.recent.length; index += 1) {
       expect(Date.parse(inbox.recent[index - 1]!.updatedAt!)).toBeGreaterThan(
         Date.parse(inbox.recent[index]!.updatedAt!),
@@ -203,6 +207,7 @@ describe("session inbox", () => {
           surface: "chat",
           group_key: "running",
           context_id: "ws",
+          tool: "claude-code",
         }),
         snapshot({
           session_id: "ws:side-chat",
@@ -219,6 +224,7 @@ describe("session inbox", () => {
     });
 
     expect(inbox.rows.find((row) => row.id === "chat:abc")).toMatchObject({
+      agentId: "claude-code",
       archiveSessionId: "chat:abc",
       bucket: "running",
       chatId: "abc",
@@ -234,6 +240,27 @@ describe("session inbox", () => {
     expect(inbox.rows.some((row) => row.id === "preview:1" || row.archiveSessionId === "preview:1")).toBe(false);
   });
 
+  test("a chat without a loaded title stays blank instead of Chat", () => {
+    const inbox = buildSessionInbox({
+      candidates: [],
+      snapshots: [
+        snapshot({
+          session_id: "chat:abc",
+          surface: "chat",
+          group_key: "done",
+          context_id: "ws",
+        }),
+      ],
+      workspaces: [{ id: "ws", projectName: "Atmos", workspaceName: "api", branch: "main" }],
+      chatTitlesPending: true,
+    });
+
+    expect(inbox.rows.find((row) => row.id === "chat:abc")).toMatchObject({
+      title: "",
+      titlePending: true,
+    });
+  });
+
   test("drops a terminal whose window is already gone", () => {
     const inbox = buildSessionInbox({
       candidates: [],
@@ -246,6 +273,7 @@ describe("session inbox", () => {
         }),
       ],
       workspaces: [{ id: "ws", projectName: "Atmos", workspaceName: "api", branch: "main" }],
+      chatTitles: { abc: "Fix login" },
     });
 
     expect(inbox.rows).toEqual([]);
@@ -290,5 +318,14 @@ describe("session inbox", () => {
     });
 
     expect(inbox.rows).toHaveLength(0);
+  });
+
+  test("pinned ids stay in saved order ahead of the rest", () => {
+    const rows = [{ id: "a" }, { id: "b" }, { id: "c" }];
+    expect(orderPinnedRows(rows, ["c", "a", "missing"], (row) => row.id).map((row) => row.id)).toEqual([
+      "c",
+      "a",
+      "b",
+    ]);
   });
 });

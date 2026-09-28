@@ -49,6 +49,8 @@ export const hostSessionApi = {
     include_atmos_chat: boolean;
     include_source: boolean;
   }) => wsRequest("host_session_delete", input),
+  keysForChat: (chatId: string) =>
+    wsRequest("host_session_keys_for_chat", { chat_id: chatId }),
   get: (key: string) => wsRequest("host_session_get", { key }),
   resumeChat: (key: string) => wsRequest("host_session_resume_chat", { key }),
   resumeTui: (key: string) => wsRequest("host_session_resume_tui", { key }),

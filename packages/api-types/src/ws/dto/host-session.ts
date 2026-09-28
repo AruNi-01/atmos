@@ -50,6 +50,14 @@ export type HostSessionSetArchivedResponse = {
   keys: string[];
 };
 
+export type HostSessionKeysForChatRequest = {
+  chat_id: string;
+};
+
+export type HostSessionKeysForChatResponse = {
+  keys: string[];
+};
+
 export type HostSessionDeleteRequest = {
   keys: string[];
   include_atmos_chat: boolean;

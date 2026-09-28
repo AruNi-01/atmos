@@ -218,9 +218,11 @@ function WorkspaceRow({
         <Text style={[styles.workspaceTitle, { color: theme.colors.label }]} numberOfLines={2}>
           {title}
         </Text>
-        <Text style={[styles.workspaceBranch, { color: theme.colors.secondaryLabel }]} numberOfLines={1}>
-          {branch}
-        </Text>
+        {branch.trim().toLowerCase() === title.trim().toLowerCase() ? null : (
+          <Text style={[styles.workspaceBranch, { color: theme.colors.secondaryLabel }]} numberOfLines={1}>
+            {branch}
+          </Text>
+        )}
       </Pressable>
       <WorkspaceStatusMenu
         status={status}

@@ -37,6 +37,7 @@ export function rowsForTerminalEntries(
         projectScoped: false,
         terminalCandidateId: entry.id,
         kind: "terminal",
+        agentId: null,
         chatId: null,
         title,
         updatedAt: null,

@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactNode } from "react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   type LayoutChangeEvent,
   RefreshControl,
@@ -20,6 +20,7 @@ type AppScreenProps = PropsWithChildren<{
   contentFlex?: boolean;
   footer?: ReactNode;
   /** Pull down and release to refresh. Omit to leave the scroll view as-is. */
+  onEndReached?: () => void;
   onRefresh?: () => void | Promise<void>;
   refreshing?: boolean;
   surface?: "screen" | "sheet";
@@ -32,6 +33,7 @@ export function AppScreen({
   children,
   contentFlex = false,
   footer,
+  onEndReached,
   onRefresh,
   refreshing = false,
   surface = "screen",
@@ -57,6 +59,19 @@ export function AppScreen({
   // NativeWind className merge cannot drop the bottom inset under the dock.
   const footerClearance = Math.max(footerHeight, FOOTER_HEIGHT_FALLBACK) + spacing.sectionGap;
 
+  const endReached = useRef(false);
+  const handleScroll = (event: { nativeEvent: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } } }) => {
+    if (!onEndReached) return;
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const nearEnd = layoutMeasurement.height + contentOffset.y >= contentSize.height - 280;
+    if (nearEnd && !endReached.current) {
+      endReached.current = true;
+      onEndReached();
+    } else if (!nearEnd) {
+      endReached.current = false;
+    }
+  };
+
   const scroll = (
     <ScrollView
       // Explicit RN flex + background (not only NativeWind) so form sheets keep a
@@ -71,6 +86,8 @@ export function AppScreen({
       }}
       contentInsetAdjustmentBehavior="automatic"
       keyboardShouldPersistTaps="handled"
+      onScroll={onEndReached ? handleScroll : undefined}
+      scrollEventThrottle={200}
       refreshControl={
         onRefresh ? (
           <RefreshControl
@@ -179,8 +196,11 @@ function ConnectionBanner({ message }: { message: string }) {
 
 export function Section({
   children,
+  clip = true,
   label,
 }: PropsWithChildren<{
+  /** Clip children to the card. Turn off when a row needs a horizontal swipe. */
+  clip?: boolean;
   label?: string;
 }>) {
   const theme = useMobileTheme();
@@ -208,7 +228,7 @@ export function Section({
           borderRadius: 24,
           borderWidth: StyleSheet.hairlineWidth,
           minHeight: 1,
-          overflow: "hidden",
+          overflow: clip ? "hidden" : "visible",
         }}
       >
         {children}

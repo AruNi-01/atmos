@@ -1,6 +1,6 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
-import { terminalActivityTitle, workspaceActivityRows } from "./workspace-activity";
+import { terminalActivityTitle, terminalAgentId, workspaceActivityRows } from "./workspace-activity";
 
 describe("workspace activity list", () => {
   test("keeps chats and terminals in one list, newest chats first", () => {
@@ -13,6 +13,14 @@ describe("workspace activity list", () => {
     });
     expect(rows.map((row) => row.id)).toEqual(["new", "old", "pane"]);
     expect(rows.map((row) => row.kind)).toEqual(["chat", "chat", "terminal"]);
+  });
+
+  test("matches a terminal to the agent reported by its session", () => {
+    expect(terminalAgentId(
+      "ws",
+      { id: "pane", session_id: null, tmux_window_name: "codex" },
+      [{ session_id: "ws:codex", tool: "codex" }],
+    )).toBe("codex");
   });
 
   test("terminal title prefers the session title", () => {

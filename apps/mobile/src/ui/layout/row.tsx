@@ -5,6 +5,7 @@ import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 
 export function Row({
+  leading,
   title,
   subtitle,
   meta,
@@ -12,6 +13,7 @@ export function Row({
   onPress,
   children,
 }: {
+  leading?: ReactNode;
   title: string;
   subtitle?: string;
   meta?: string;
@@ -37,6 +39,7 @@ export function Row({
           justifyContent: "space-between",
         }}
       >
+        {leading}
         <Text
           numberOfLines={2}
           style={[
@@ -76,7 +79,10 @@ export function Row({
       {subtitle ? (
         <Text
           numberOfLines={2}
-          style={[typography.rowSubtitle, { color: theme.colors.secondaryLabel }]}
+          style={[
+            typography.rowSubtitle,
+            { color: theme.colors.secondaryLabel, paddingLeft: leading ? 28 : 0 },
+          ]}
         >
           {subtitle}
         </Text>

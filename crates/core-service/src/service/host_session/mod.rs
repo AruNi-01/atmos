@@ -604,6 +604,31 @@ impl HostSessionService {
         })
     }
 
+    /// Host session keys whose native transcript is linked to this Atmos chat.
+    pub async fn keys_for_atmos_chat(&self, chat_id: &str) -> Result<Vec<String>> {
+        let chat_id = chat_id.trim();
+        if chat_id.is_empty() {
+            return Ok(Vec::new());
+        }
+        let wanted: HashSet<(String, String)> = self
+            .chat_handle_index()
+            .into_iter()
+            .filter(|(_, id)| id == chat_id)
+            .map(|(key, _)| key)
+            .collect();
+        if wanted.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows = self.repo().list_all().await?;
+        Ok(rows
+            .into_iter()
+            .filter(|row| {
+                wanted.contains(&(join_provider_id(&row.provider_id), row.native_id.clone()))
+            })
+            .map(|row| row.session_key)
+            .collect())
+    }
+
     async fn resolve_row(&self, key: &str) -> Result<(&dyn SessionSource, HostSessionRef, bool)> {
         let (provider_id, native_id) = parse_session_key(key)?;
         let source = self

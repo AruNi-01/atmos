@@ -40,6 +40,12 @@ export function TerminalTabsBar({
     scrollRef.current?.scrollTo({ x, animated: true });
   }, [contentWidth, selectedIndex, trackWidth]);
 
+  useEffect(() => {
+    if (selectedIndex < 0 || trackWidth <= 0 || contentWidth <= trackWidth) return;
+    const x = Math.max(0, selectedIndex * TAB_SLOT - (trackWidth - TAB_SLOT) / 2);
+    scrollRef.current?.scrollTo({ x, animated: true });
+  }, [contentWidth, selectedIndex, trackWidth]);
+
   return (
     <View style={styles.root}>
       {leading}

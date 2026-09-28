@@ -10,7 +10,11 @@ export const POPOVER_PRESENT_ANIMATION = {
 export type IosPopoverDirection = "top" | "bottom" | "leading" | "trailing" | "any" | "none";
 export type IosPopoverTriggerKind = "tap" | "longPress";
 
+export type IosPopoverBackground = "default" | "blur" | "glass" | "clearGlass";
+
 export type IosPopoverProps = {
+  /** iOS popover material. Android keeps the modal surface. */
+  background?: IosPopoverBackground;
   children: ReactNode;
   direction?: IosPopoverDirection;
   trigger?: IosPopoverTriggerKind;

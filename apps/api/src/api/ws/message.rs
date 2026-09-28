@@ -616,6 +616,7 @@ pub enum WsAction {
     HostSessionResumeTui,
     HostSessionSetArchived,
     HostSessionDelete,
+    HostSessionKeysForChat,
 
     // ===== Automation 操作 =====
     AutomationList,
@@ -898,10 +899,21 @@ pub enum WsAction {
     LinkPreview,
 
     // ===== Per-session inbox =====
-    /// Live occupancy merged with the inbox catalog. Empty body.
+    /// Live occupancy merged with the inbox catalog. Pages of 100, newest first.
+    /// Each chat row includes its title.
     AgentSessionStatusList,
     /// Set archived_at. Unknown id is success.
     AgentSessionArchive,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentSessionStatusListRequest {
+    /// Page size. Missing or zero means 100. Values above 100 are clamped.
+    #[serde(default)]
+    pub limit: u32,
+    /// Previous page's last `updated_at` and `session_id`, separated by a newline.
+    #[serde(default)]
+    pub cursor: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

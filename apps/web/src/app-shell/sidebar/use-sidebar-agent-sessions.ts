@@ -4,58 +4,75 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AgentSessionStatusSnapshot } from "@atmos/api-types/ws/dto/agent-status";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { isComputerQueryScopeCurrent, wsRequest } from "@/api/ws/request";
-import { agentChatApi } from "@/api/ws/agent-chat-api";
 import { useAgentChatCenterTabsStore } from "@/features/agent/store/use-agent-chat-center-tabs";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 
-const CHAT_TITLE_PAGE_LIMIT = 200;
+const SESSION_PAGE_SIZE = 100;
 
-export function useSidebarAgentSessions(loadChatTitles: boolean) {
+export function useSidebarAgentSessions(enabled: boolean) {
   const [snapshots, setSnapshots] = useState<AgentSessionStatusSnapshot[]>([]);
-  const [listedTitles, setListedTitles] = useState<Record<string, string>>({});
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const scope = useComputerQueryScope();
   const generation = useRef(0);
+  const loadingMore = useRef(false);
   const tabsByContext = useAgentChatCenterTabsStore((state) => state.tabsByContext);
 
   useEffect(() => {
     setSnapshots([]);
-    setListedTitles({});
+    setNextCursor(null);
     setLoaded(false);
   }, [scope]);
 
   const reload = useCallback(async () => {
+    if (!enabled) return;
     const ticket = generation.current + 1;
     generation.current = ticket;
     const expected = scope;
     try {
-      const response = await wsRequest("agent_session_status_list", {});
-      if (ticket !== generation.current || !isComputerQueryScopeCurrent(expected)) return;
-      const sessions = response.sessions ?? [];
-      setSnapshots(sessions);
-      setLoaded(true);
-
-      if (!loadChatTitles || !sessions.some((session) => session.surface === "chat")) return;
-      const listed = await agentChatApi.list({
-        all: true,
-        limit: CHAT_TITLE_PAGE_LIMIT,
+      const response = await wsRequest("agent_session_status_list", {
+        limit: SESSION_PAGE_SIZE,
+        cursor: null,
       });
       if (ticket !== generation.current || !isComputerQueryScopeCurrent(expected)) return;
-      const titles: Record<string, string> = {};
-      for (const item of listed.items ?? []) {
-        const title = item.title?.trim();
-        if (item.deleted || !title) continue;
-        titles[item.id] = title;
-      }
-      setListedTitles(titles);
+      setSnapshots(response.sessions ?? []);
+      setNextCursor(response.next_cursor);
+      setLoaded(true);
     } catch (error) {
       if (ticket !== generation.current) return;
       console.error("Failed to load agent session statuses:", error);
       setSnapshots([]);
-      setListedTitles({});
+      setNextCursor(null);
       setLoaded(true);
     }
-  }, [loadChatTitles, scope]);
+  }, [enabled, scope]);
+
+  const loadMore = useCallback(async () => {
+    if (!enabled || !nextCursor || loadingMore.current) return;
+    loadingMore.current = true;
+    const ticket = generation.current;
+    const expected = scope;
+    try {
+      const response = await wsRequest("agent_session_status_list", {
+        limit: SESSION_PAGE_SIZE,
+        cursor: nextCursor,
+      });
+      if (ticket !== generation.current || !isComputerQueryScopeCurrent(expected)) return;
+      setSnapshots((current) => {
+        const seen = new Set(current.map((session) => session.session_id));
+        return [
+          ...current,
+          ...(response.sessions ?? []).filter((session) => !seen.has(session.session_id)),
+        ];
+      });
+      setNextCursor(response.next_cursor);
+    } catch (error) {
+      if (ticket !== generation.current) return;
+      console.error("Failed to load more agent sessions:", error);
+    } finally {
+      loadingMore.current = false;
+    }
+  }, [enabled, nextCursor, scope]);
 
   useEffect(() => {
     void reload();
@@ -103,16 +120,17 @@ export function useSidebarAgentSessions(loadChatTitles: boolean) {
         if (tab.chatId && title) titles[tab.chatId] = title;
       }
     }
-    return { ...titles, ...listedTitles };
-  }, [listedTitles, tabsByContext]);
+    return titles;
+  }, [tabsByContext]);
 
   const archiveSession = useCallback(
     async (sessionId: string) => {
       await wsRequest("agent_session_archive", { session_id: sessionId });
+      setSnapshots((current) => current.filter((session) => session.session_id !== sessionId));
       await reload();
     },
     [reload],
   );
 
-  return { archiveSession, snapshots, chatTitles, loaded };
+  return { archiveSession, hasMore: Boolean(nextCursor), loadMore, snapshots, chatTitles, loaded };
 }

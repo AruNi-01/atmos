@@ -1,17 +1,26 @@
 import {
+  Archive,
   ArrowUp,
   Bell,
   Bot,
+  BrainCircuit,
+  Calendar,
+  ChartColumnBig,
   Check,
+  Coins,
+  Cpu,
   CircleCheck,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
   ChevronUp,
   ChevronRight,
   Clock,
   Clock3,
+  DollarSign,
   Download,
   Flag,
+  Gauge,
   Folder,
   FolderKanban,
   Folders,
@@ -32,11 +41,13 @@ import {
   ListFilter,
   Search,
   Send,
+  Share2,
   Shield,
   Sparkles,
   Star,
   LogOut,
   Pencil,
+  Pin,
   Plus,
   PlusCircle,
   Paperclip,
@@ -54,16 +65,27 @@ import {
   Timer,
   Trash2,
   User,
+  Wifi,
+  WifiOff,
   X,
 } from "lucide-react-native";
 
+export const ArchiveIcon = Archive;
 export const ArrowUpIcon = ArrowUp;
 export const BellIcon = Bell;
 export const BotIcon = Bot;
+export const BrainCircuitIcon = BrainCircuit;
+export const CalendarIcon = Calendar;
+export const ChartColumnBigIcon = ChartColumnBig;
+export const CoinsIcon = Coins;
+export const CpuIcon = Cpu;
+export const DollarSignIcon = DollarSign;
+export const GaugeIcon = Gauge;
 export const CircleCheckIcon = CircleCheck;
 export const CheckIcon = Check;
 export const CheckCircleIcon = CheckCircle2;
 export const ChevronDownIcon = ChevronDown;
+export const ChevronLeftIcon = ChevronLeft;
 export const ChevronUpIcon = ChevronUp;
 export const ChevronRightIcon = ChevronRight;
 export const LayoutGridIcon = LayoutGrid;
@@ -89,6 +111,7 @@ export const MessageCircleIcon = MessageCircle;
 export const MessageSquareIcon = MessageSquare;
 export const SearchIcon = Search;
 export const SendIcon = Send;
+export const ShareIcon = Share2;
 export const ShieldIcon = Shield;
 export const SparklesIcon = Sparkles;
 export const StarIcon = Star;
@@ -99,6 +122,7 @@ export const LinkIcon = Link2;
 export const LoaderCircleIcon = LoaderCircle;
 export const LogOutIcon = LogOut;
 export const PencilIcon = Pencil;
+export const PinIcon = Pin;
 export const PlusIcon = Plus;
 export const PlusCircleIcon = PlusCircle;
 export const PaperclipIcon = Paperclip;
@@ -113,4 +137,6 @@ export const SunMoonIcon = SunMoon;
 export const TerminalIcon = SquareTerminal;
 export const TrashIcon = Trash2;
 export const UserIcon = User;
+export const WifiIcon = Wifi;
+export const WifiOffIcon = WifiOff;
 export const XIcon = X;

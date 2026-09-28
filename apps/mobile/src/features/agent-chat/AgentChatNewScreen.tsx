@@ -1,12 +1,15 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
-import { Stack, useRouter } from "expo-router";
+import { Stack, useRouter, type NativeStackHeaderItem } from "expo-router";
+import type { SFSymbol } from "sf-symbols-typescript";
 import { ChatKeyboardFrame } from "./chat-keyboard-frame";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import { spacing } from "@/theme/spacing";
 import { useMobileTheme } from "@/theme/theme-store";
+import { ChevronLeftIcon } from "@/ui/icons/lucide-native";
+import { AtmosLogo } from "@/ui/AtmosLogo";
 import { AppScreen, InlineError } from "@/ui/layout/app-screen";
 import { nativeCompactTitleOptions } from "@/ui/navigation/native-screen-options";
 import { AgentChatComposer } from "./AgentChatComposer";
@@ -21,6 +24,20 @@ import type { ComposerPhoto } from "./photo-attachment";
 import { useAgentFavorites } from "./use-agent-favorites";
 import { useMentionFiles } from "./use-mention-files";
 import { useNewChat } from "./use-new-chat";
+
+function backHeaderItem(onPress: () => void, tintColor: string): NativeStackHeaderItem {
+  return {
+    accessibilityLabel: "Back",
+    icon: { type: "sfSymbol", name: "chevron.backward" satisfies SFSymbol },
+    identifier: "agent-chat-back",
+    label: "",
+    onPress,
+    sharesBackground: true,
+    tintColor,
+    type: "button",
+    variant: "plain",
+  };
+}
 
 function registryAgents(
   agents: Array<{ enabled?: boolean; icon?: string | null; id: string; installed: boolean; name: string }> | undefined,
@@ -106,14 +123,34 @@ export function AgentChatNewScreen({ workspaceId }: { workspaceId: string }) {
       });
     });
   }, [draft, photos, router, workspaceId]);
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else {
+      router.replace({
+        pathname: "/workspace/[workspaceId]",
+        params: { workspaceId },
+      });
+    }
+  };
 
   return (
     <View style={{ backgroundColor: theme.colors.background, flex: 1 }}>
       <Stack.Screen
         options={{
           ...nativeCompactTitleOptions(copy.newChat, theme.colors),
+          headerBackButtonDisplayMode: "minimal",
+          headerBackVisible: false,
           headerShadowVisible: false,
           headerTintColor: theme.colors.label,
+          ...(process.env.EXPO_OS === "ios"
+            ? { unstable_headerLeftItems: () => [backHeaderItem(goBack, theme.colors.label)] }
+            : {
+                headerLeft: () => (
+                  <Pressable accessibilityLabel="Back" accessibilityRole="button" hitSlop={12} onPress={goBack}>
+                    <ChevronLeftIcon color={theme.colors.label} size={22} strokeWidth={2.2} />
+                  </Pressable>
+                ),
+              }),
         }}
       />
       <ChatKeyboardFrame
@@ -153,7 +190,7 @@ export function AgentChatNewScreen({ workspaceId }: { workspaceId: string }) {
         }
       >
         <AppScreen contentFlex>
-          {draft.loading ? <ActivityIndicator color={theme.colors.secondaryLabel} /> : null}
+          <AtmosLogo />
           <InlineError message={draft.error} />
         </AppScreen>
       </ChatKeyboardFrame>

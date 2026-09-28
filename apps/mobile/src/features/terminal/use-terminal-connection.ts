@@ -144,12 +144,14 @@ export function useTerminalConnection({
   const activeEntryLabelRef = useRef(activeEntry?.label);
   const activeEntryTmuxWindowIndexRef = useRef(activeEntry?.tmuxWindowIndex);
   const activeEntryTmuxWindowNameRef = useRef(activeEntry?.tmuxWindowName);
+  const pendingLaunchCommandRef = useRef(activeEntry?.pendingLaunchCommand);
   const projectNameRef = useRef(projectName);
   const workspaceNameRef = useRef(workspaceName);
   activeEntryIsNewRef.current = activeEntry?.isNew;
   activeEntryLabelRef.current = activeEntry?.label;
   activeEntryTmuxWindowIndexRef.current = activeEntry?.tmuxWindowIndex;
   activeEntryTmuxWindowNameRef.current = activeEntry?.tmuxWindowName;
+  pendingLaunchCommandRef.current = activeEntry?.pendingLaunchCommand;
   projectNameRef.current = projectName;
   workspaceNameRef.current = workspaceName;
 
@@ -265,10 +267,19 @@ export function useTerminalConnection({
         setAttached(true);
         setTerminalError(null);
         if (message.type === "terminal_created" && activeEntryIsNewRef.current) {
+          const launch = pendingLaunchCommandRef.current?.trim();
           updateEntry(workspaceId, activeEntryId, {
             isNew: false,
+            pendingLaunchCommand: undefined,
             tmuxWindowName: activeEntryTmuxWindowNameRef.current ?? activeEntryLabelRef.current,
           });
+          if (launch) {
+            client.send({
+              type: "terminal_input",
+              session_id: activeSessionId,
+              data: `${launch}\r`,
+            });
+          }
         }
         if (message.snapshot) {
           webViewRef.current?.restoreSnapshot(message.snapshot);

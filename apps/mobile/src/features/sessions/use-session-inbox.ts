@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo } from "react";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFocusEffect, useIsFocused } from "expo-router";
 import type { MobileWsClient } from "@/api/mobile-ws-client";
 import type { TerminalWorkspaceCandidate } from "@/api/types";
@@ -24,9 +24,14 @@ import {
   recentSessionRows,
   sessionInboxCards,
   sessionWorkspaceSources,
+  SESSION_BUCKETS,
+  SESSION_BUCKET_LABEL,
   type SessionInboxCandidate,
+  type SessionInboxCard,
   type SessionWorkspaceRecord,
 } from "./session-inbox";
+import type { AgentSessionStatusCounts } from "@atmos/api-types/ws/dto/agent-status";
+import { useSessionRowActions } from "./use-session-row-actions";
 
 const SESSION_STATUS_EVENTS = new Set([
   "agent_status_changed",
@@ -107,10 +112,12 @@ export function useSessionInbox() {
     queryFn: () => loadSessionBranchPrs(client!, prPlan.targets),
   });
 
-  const statusQuery = useQuery({
+  const statusQuery = useInfiniteQuery({
     queryKey: ["agent-session-status-list", selectedServerId],
     enabled: Boolean(client && connected),
-    queryFn: () => wsActions.agentSessionStatusList(client!),
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) => wsActions.agentSessionStatusList(client!, pageParam),
+    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
   });
 
   const chatTitleQuery = useQuery({
@@ -127,9 +134,6 @@ export function useSessionInbox() {
       });
       void queryClient.invalidateQueries({
         queryKey: ["session-terminal-candidates", selectedServerId],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ["session-chat-titles", selectedServerId],
       });
     }, [client, connected, queryClient, selectedServerId]),
   );
@@ -186,14 +190,16 @@ export function useSessionInbox() {
       }
     }
 
+    const pages = statusQuery.data?.pages ?? [];
     const joined = joinSessionRows({
       candidates,
-      snapshots: statusQuery.data?.sessions ?? [],
+      snapshots: pages.flatMap((page) => page.sessions),
       workspaces: sources.active,
       projects: sources.projects,
       archivedWorkspaceIds: sources.archivedIds,
       pendingWorkspaceIds,
       chatTitles: chatTitleQuery.data,
+      chatTitlesPending: !chatTitleQuery.isSuccess,
     });
     const prByWorkspace = prStateByWorkspace(sources.active, prPlan.byWorkspaceId, prQuery.data);
     const rows = joined.map((row) => ({
@@ -203,7 +209,7 @@ export function useSessionInbox() {
 
     return {
       rows,
-      cards: sessionInboxCards(rows),
+      cards: pages[0]?.counts ? cardsFromCounts(pages[0].counts) : sessionInboxCards(rows),
       recent: recentSessionRows(rows),
     };
   }, [
@@ -215,7 +221,8 @@ export function useSessionInbox() {
     prQuery.data,
     sources,
     chatTitleQuery.data,
-    statusQuery.data?.sessions,
+    chatTitleQuery.isSuccess,
+    statusQuery.data,
     statusQuery.isPending,
   ]);
 
@@ -226,72 +233,36 @@ export function useSessionInbox() {
       ? "Some terminals could not be loaded."
       : null);
 
-  const archiveSession = useCallback(
-    async (sessionId: string) => {
-      if (!client || !connected) return;
-      await wsActions.agentSessionArchive(client, sessionId);
-      await queryClient.invalidateQueries({
-        queryKey: ["agent-session-status-list", selectedServerId],
-      });
-    },
-    [client, connected, queryClient, selectedServerId],
-  );
-
-  const knownChatTitles = chatTitleQuery.data;
-  const titleLookup = useRef(freshChatTitleLookup());
-  const liveChatIds = useMemo(
-    () => (statusQuery.data?.sessions ?? [])
-      .map((session) => chatSessionId(session))
-      .filter((id) => id.length > 0),
-    [statusQuery.data?.sessions],
-  );
-  const missingChatTitles = useMemo(
-    () => missingChatTitleKey(
-      liveChatIds,
-      knownChatTitles,
-      chatTitleQuery.isSuccess,
-      titleLookup.current.gaveUp,
-    ),
-    [chatTitleQuery.isSuccess, knownChatTitles, liveChatIds],
-  );
-
-  useEffect(() => {
-    const plan = planChatTitleLookup(titleLookup.current, missingChatTitles, liveChatIds);
-    titleLookup.current = plan.state;
-    if (!plan.requested) return;
-    const requested = plan.requested;
-    const presentAtRequest = liveChatIds;
-    const queryKey = ["session-chat-titles", selectedServerId] as const;
-    void queryClient.invalidateQueries({ queryKey }).then(() => {
-      const titles = queryClient.getQueryData<Record<string, string>>(queryKey) ?? {};
-      titleLookup.current = settleChatTitleLookup(
-        titleLookup.current,
-        requested,
-        titles,
-        presentAtRequest,
-      );
-    });
-  }, [liveChatIds, missingChatTitles, queryClient, selectedServerId]);
+  const { archiveChat, deleteChat, pinnedIds, togglePin } = useSessionRowActions();
 
   const refresh = useCallback(async () => {
     if (!client || !connected) return;
-    titleLookup.current = freshChatTitleLookup();
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["workspace-bootstrap", selectedServerId] }),
       queryClient.invalidateQueries({ queryKey: ["agent-session-status-list", selectedServerId] }),
       queryClient.invalidateQueries({ queryKey: ["session-terminal-candidates", selectedServerId] }),
-      queryClient.invalidateQueries({ queryKey: ["session-chat-titles", selectedServerId] }),
       queryClient.invalidateQueries({ queryKey: ["session-git-status", selectedServerId] }),
       queryClient.invalidateQueries({ queryKey: ["session-branch-prs", selectedServerId] }),
+      queryClient.invalidateQueries({ queryKey: ["workspace-sidebar-sessions", selectedServerId] }),
     ]);
   }, [client, connected, queryClient, selectedServerId]);
 
+  const fetchNextPage = useCallback(() => {
+    if (!statusQuery.hasNextPage || statusQuery.isFetchingNextPage) return;
+    void statusQuery.fetchNextPage();
+  }, [statusQuery]);
+
   return {
-    archiveSession,
+    archiveChat,
     connected,
+    deleteChat,
     error,
+    fetchNextPage,
+    hasNextPage: Boolean(statusQuery.hasNextPage),
     isLoading: connected && (statusQuery.isPending || bootstrapQuery.isPending),
+    pinnedIds,
     refresh,
+    togglePin,
     ...model,
   };
 }
@@ -439,6 +410,14 @@ function chatSessionId(session: { surface?: string; surface_id?: string | null; 
   const surfaceId = session.surface_id?.trim();
   if (surfaceId) return surfaceId;
   return session.session_id.startsWith("chat:") ? session.session_id.slice("chat:".length) : "";
+}
+
+function cardsFromCounts(counts: AgentSessionStatusCounts): SessionInboxCard[] {
+  return SESSION_BUCKETS.map((bucket) => ({
+    bucket,
+    label: SESSION_BUCKET_LABEL[bucket],
+    count: counts[bucket],
+  }));
 }
 
 function isSessionInboxNotification(message: unknown): boolean {

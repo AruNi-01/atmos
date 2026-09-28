@@ -143,7 +143,9 @@ export class MobileWsClient {
         },
         log: (level, msg) => {
           if (level === "error") {
-            console.error(`[mobile-ws] ${msg} ${redactUrl(this.wsUrl)}`);
+            // console.error opens the dev red box. A dropped Computer socket
+            // already shows the in-app disconnected state and then retries.
+            console.warn(`[mobile-ws] ${msg} ${redactUrl(this.wsUrl)}`);
           }
         },
       },

@@ -39,6 +39,33 @@ describe("openSessionDestination", () => {
     });
   });
 
+  test("a known chat title travels with the row", () => {
+    expect(openSessionDestination({
+      kind: "chat",
+      workspaceId: "ws-1",
+      terminalCandidateId: null,
+      chatId: "chat-1",
+      title: "Fix login",
+    })).toEqual({
+      pathname: "/workspace/[workspaceId]/chat/[chatId]",
+      params: { workspaceId: "ws-1", chatId: "chat-1", title: "Fix login" },
+    });
+  });
+
+  test("a pending chat title is not passed as Chat", () => {
+    expect(openSessionDestination({
+      kind: "chat",
+      workspaceId: "ws-1",
+      terminalCandidateId: null,
+      chatId: "chat-1",
+      title: "Chat",
+      titlePending: true,
+    })).toEqual({
+      pathname: "/workspace/[workspaceId]/chat/[chatId]",
+      params: { workspaceId: "ws-1", chatId: "chat-1" },
+    });
+  });
+
   test("a chat row without an id opens the workspace list", () => {
     expect(openSessionDestination({
       kind: "chat",

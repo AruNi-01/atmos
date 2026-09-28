@@ -21,6 +21,11 @@ function clean(value: string | null | undefined): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function sameName(left: string | null, right: string | null): boolean {
+  if (!left || !right) return false;
+  return left.toLowerCase() === right.toLowerCase();
+}
+
 /** Project · workspace · branch · PR, dropping empty parts. Project-scoped rows omit the workspace. */
 export function formatSessionRowSubtitle(input: {
   projectName?: string | null;
@@ -32,8 +37,12 @@ export function formatSessionRowSubtitle(input: {
   omitPlace?: boolean;
 }): string {
   const project = input.omitPlace ? null : clean(input.projectName);
-  const workspace = input.omitPlace || input.projectScoped ? null : clean(input.workspaceName);
-  return [project, workspace, clean(input.branch), prStateLabel(input.prState)]
+  const branch = clean(input.branch);
+  const workspaceName = clean(input.workspaceName);
+  const workspace = input.omitPlace || input.projectScoped || sameName(workspaceName, branch)
+    ? null
+    : workspaceName;
+  return [project, workspace, branch, prStateLabel(input.prState)]
     .filter((part): part is string => Boolean(part))
     .join(" · ");
 }

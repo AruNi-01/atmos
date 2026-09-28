@@ -154,6 +154,26 @@ describe("sidebar session view", () => {
     expect(rows.map((row) => row.sessionId)).toEqual(["workspace-1:kept"]);
   });
 
+  test("a session with no workspace or project is omitted", () => {
+    const rows = buildSidebarSessionRows({
+      projects: [project([workspace()])],
+      snapshots: [
+        snapshot({
+          session_id: "missing:1",
+          context_id: null,
+          surface: "terminal",
+          group_key: "done",
+        }),
+        snapshot({
+          session_id: "workspace-1:kept",
+          surface: "terminal",
+          group_key: "done",
+        }),
+      ],
+    });
+    expect(rows.map((row) => row.sessionId)).toEqual(["workspace-1:kept"]);
+  });
+
   test("agent group-by uses each session bucket", () => {
     const ws = workspace();
     const rows = buildSidebarSessionRows({
@@ -205,6 +225,12 @@ describe("sidebar session view", () => {
       branch: "",
       prState: null,
     })).toBe("");
+    expect(formatSessionRowSubtitle({
+      projectName: "atmos",
+      workspaceName: "atmos/koffing",
+      branch: "atmos/koffing",
+      prState: null,
+    })).toBe("atmos · atmos/koffing");
   });
 
   test("active session matches the open chat or terminal, not the status group", () => {

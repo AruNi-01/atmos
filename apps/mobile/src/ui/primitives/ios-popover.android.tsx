@@ -7,7 +7,7 @@ import type {
 } from "./ios-popover.types";
 
 export { POPOVER_PRESENT_ANIMATION } from "./ios-popover.types";
-export type { IosPopoverDirection, IosPopoverProps, IosPopoverTriggerKind } from "./ios-popover.types";
+export type { IosPopoverBackground, IosPopoverDirection, IosPopoverProps, IosPopoverTriggerKind } from "./ios-popover.types";
 
 type PopoverContextValue = {
   direction: IosPopoverDirection;

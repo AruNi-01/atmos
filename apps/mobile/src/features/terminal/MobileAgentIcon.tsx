@@ -4,6 +4,7 @@ import { BotIcon } from "@/ui/icons/lucide-native";
 
 const AGENT_ICON_ALIASES: Record<string, string[]> = {
   // NOTE: do NOT alias bare "agent" → cursor (APP-036 contested freehand identity).
+  ampcode: ["amp"],
   "antigravity-acp": ["antigravity"],
   "antigravity-cli": ["antigravity"],
   "augment": ["auggie"],
@@ -128,6 +129,38 @@ const AGENT_ICON_ASSETS: Record<string, ImageSourcePropType> = {
   "trae": require("../../../assets/agents/trae.png"),
   "windsurf": require("../../../assets/agents/windsurf.png"),
 };
+
+/** Point size of an SF Symbol in a native menu row. */
+const MENU_ICON_POINT_SIZE = 18;
+
+/**
+ * Image icon for a native menu row. The bundled marks are 96px, which UIKit
+ * draws at 96pt unless the source scale is raised. Keep the packager asset
+ * flag so debug builds can still load the file.
+ */
+export function mobileAgentMenuIcon(agentId: string): {
+  source: ImageSourcePropType;
+  tinted: boolean;
+  type: "image";
+} | undefined {
+  const iconName = resolveAgentIconName(agentId);
+  if (!iconName) return undefined;
+  const asset = AGENT_ICON_ASSETS[iconName];
+  const resolved = asset ? Image.resolveAssetSource(asset) : undefined;
+  if (!resolved?.uri || !resolved.width) return undefined;
+  const tinted = matchesGlyph(agentId, iconName, LIGHT_GLYPHS) || matchesGlyph(agentId, iconName, DARK_GLYPHS);
+  const pixels = resolved.width * (resolved.scale || 1);
+  return {
+    source: {
+      ...resolved,
+      width: MENU_ICON_POINT_SIZE,
+      height: MENU_ICON_POINT_SIZE,
+      scale: pixels / MENU_ICON_POINT_SIZE,
+    },
+    tinted,
+    type: "image",
+  };
+}
 
 export function MobileAgentIcon({
   agentId,

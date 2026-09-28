@@ -17,11 +17,14 @@ import { openSessionDestination } from "@/features/agent-chat/navigation";
 import {
   filterSessionRows,
   isSessionBucket,
+  orderPinnedRows,
+  sessionPinId,
   type SessionBucket,
   type SessionInboxCard,
   type SessionInboxRow,
 } from "./session-inbox";
 import { SessionRowList } from "./session-row-list";
+import { type SessionDeleteChoice } from "./session-row-actions";
 import { useSessionInbox } from "./use-session-inbox";
 
 const DISCONNECTED_TITLE = "Computer not connected";
@@ -41,7 +44,11 @@ export function SessionHomeScreen() {
   }
 
   return (
-    <AppScreen onRefresh={onRefresh} refreshing={refreshing}>
+      <AppScreen
+        onEndReached={inbox.fetchNextPage}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+      >
       <SessionCardGrid
         cards={inbox.cards}
         onPress={(bucket) =>
@@ -51,19 +58,21 @@ export function SessionHomeScreen() {
           })
         }
       />
-      {inbox.isLoading && inbox.recent.length === 0 ? (
+      {inbox.isLoading && inbox.recent.length === 0 && inbox.pinnedIds.length === 0 ? (
         <Section label="Recent">
           <ListSkeleton />
         </Section>
-      ) : inbox.recent.length > 0 ? (
-        <Section label="Recent">
-          <SessionRowList
-            onArchive={inbox.archiveSession}
-            onPress={(row) => openSessionRow(router, row)}
-            rows={inbox.recent}
-          />
-        </Section>
-      ) : null}
+      ) : (
+        <SessionHomeLists
+          archiveChat={inbox.archiveChat}
+          deleteChat={inbox.deleteChat}
+          onPress={(row) => openSessionRow(router, row)}
+          pinnedIds={inbox.pinnedIds}
+          recent={inbox.recent}
+          rows={inbox.rows}
+          togglePin={inbox.togglePin}
+        />
+      )}
       <InlineError message={inbox.error} />
     </AppScreen>
   );
@@ -74,6 +83,9 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
   const inbox = useSessionInbox();
   const { onRefresh, refreshing } = usePullRefresh(inbox.refresh);
   const parsed = bucket && isSessionBucket(bucket) ? bucket : null;
+  const rows = parsed
+    ? orderPinnedRows(filterSessionRows(inbox.rows, parsed), inbox.pinnedIds, sessionPinId)
+    : [];
 
   if (!inbox.connected) {
     return (
@@ -83,10 +95,12 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
     );
   }
 
-  const rows = parsed ? filterSessionRows(inbox.rows, parsed) : [];
-
   return (
-    <AppScreen onRefresh={onRefresh} refreshing={refreshing}>
+    <AppScreen
+      onEndReached={inbox.fetchNextPage}
+      onRefresh={onRefresh}
+      refreshing={refreshing}
+    >
       {parsed ? (
         <Section>
           {inbox.isLoading ? (
@@ -95,8 +109,17 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
             <EmptyState layout="section" message="This list is empty." title="No sessions" />
           ) : (
             <SessionRowList
-              onArchive={inbox.archiveSession}
+              onArchiveChat={(row) =>
+                row.chatId ? inbox.archiveChat(sessionPinId(row), row.chatId) : Promise.resolve()
+              }
+              onDeleteChat={(row, choice) =>
+                row.chatId
+                  ? inbox.deleteChat(sessionPinId(row), row.chatId, choice)
+                  : Promise.resolve()
+              }
               onPress={(row) => openSessionRow(router, row)}
+              onTogglePin={inbox.togglePin}
+              pinnedIds={inbox.pinnedIds}
               rows={rows}
             />
           )}
@@ -106,6 +129,56 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
       )}
       <InlineError message={inbox.error} />
     </AppScreen>
+  );
+}
+
+function SessionHomeLists({
+  archiveChat,
+  deleteChat,
+  onPress,
+  pinnedIds,
+  recent,
+  rows,
+  togglePin,
+}: {
+  archiveChat: (sessionId: string, chatId: string) => Promise<void>;
+  deleteChat: (sessionId: string, chatId: string, choice: SessionDeleteChoice) => Promise<void>;
+  onPress: (row: SessionInboxRow) => void;
+  pinnedIds: readonly string[];
+  recent: SessionInboxRow[];
+  rows: SessionInboxRow[];
+  togglePin: (sessionId: string) => void;
+}) {
+  const pinnedSet = new Set(pinnedIds);
+  const pinnedRows = pinnedIds.flatMap((id) => {
+    const row = rows.find((item) => sessionPinId(item) === id);
+    return row ? [row] : [];
+  });
+  const recentRows = recent.filter((row) => !pinnedSet.has(sessionPinId(row)));
+  const rowActions = {
+    onArchiveChat: (row: SessionInboxRow) =>
+      row.chatId ? archiveChat(sessionPinId(row), row.chatId) : Promise.resolve(),
+    onDeleteChat: (row: SessionInboxRow, choice: SessionDeleteChoice) =>
+      row.chatId ? deleteChat(sessionPinId(row), row.chatId, choice) : Promise.resolve(),
+    onTogglePin: togglePin,
+    pinnedIds,
+  };
+
+  if (pinnedRows.length === 0 && recentRows.length === 0) return null;
+
+  return (
+    <>
+      {pinnedRows.length > 0 ? (
+        <Section label="Pinned">
+          <SessionRowList onPress={onPress} rows={pinnedRows} {...rowActions} />
+        </Section>
+      ) : null}
+      {recentRows.length > 0 ? (
+        <Section label="Recent">
+          <SessionRowList onPress={onPress} rows={recentRows} {...rowActions} />
+        </Section>
+      ) : null}
+    </>
   );
 }
 

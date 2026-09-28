@@ -102,4 +102,15 @@ impl WsMessageService {
         }))
         .map_err(|e| ServiceError::Processing(format!("serialize host session delete: {e}")))
     }
+
+    pub(super) async fn handle_host_session_keys_for_chat(
+        &self,
+        req: HostSessionKeysForChatRequest,
+    ) -> Result<Value> {
+        let keys = self
+            .host_session_service
+            .keys_for_atmos_chat(&req.chat_id)
+            .await?;
+        Ok(serde_json::json!({ "keys": keys }))
+    }
 }

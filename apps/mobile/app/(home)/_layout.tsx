@@ -1,14 +1,15 @@
+import { useWindowDimensions } from "react-native";
 import { GlassProvider } from "@rbayuokt/expo-adaptive-glass";
 import {
   GlassNavigationTabBar,
   GlassScreenBackdrop,
   type GlassNavigationTabBarProps,
 } from "@rbayuokt/expo-adaptive-glass/navigation";
-import { useWindowDimensions } from "react-native";
 import { Tabs } from "expo-router";
+import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { useMobileTheme } from "@/theme/theme-store";
 import { HomeTabBarInsetContext } from "@/ui/layout/home-tab-bar-inset";
-import { LayoutGridIcon, MessagesSquareIcon } from "@/ui/icons/lucide-native";
+import { ChartColumnBigIcon, GaugeIcon, LayoutGridIcon, MessagesSquareIcon } from "@/ui/icons/lucide-native";
 
 /**
  * The library pins the pill to `safeArea.bottom + 8`, which leaves a dead band
@@ -26,7 +27,7 @@ const GLASS_TAB_SCROLL_CLEARANCE = GLASS_TAB_BAR_BOTTOM + GLASS_TAB_BAR_BODY + 8
  * label keeps the text planted and lets the lens travel between them.
  */
 const GLASS_TAB_SLOT = 104;
-const GLASS_TAB_COUNT = 2;
+const GLASS_TAB_COUNT = 4;
 
 export const unstable_settings = {
   initialRouteName: "(workspace)",
@@ -59,7 +60,10 @@ type TabBarProps = {
   >;
   insets: GlassNavigationTabBarProps["insets"];
   navigation: GlassNavigationTabBarProps["navigation"];
-  state: GlassNavigationTabBarProps["state"];
+  state: {
+    index: number;
+    routes: { key: string; name: string; params?: object }[];
+  };
 };
 
 function glassTabBarProps(
@@ -93,7 +97,51 @@ function glassTabBarProps(
   };
 }
 
+/**
+ * Icon-only system tab bar. It floats over the page, so lists scroll
+ * underneath and each icon is the hit target. System insets already clear
+ * the last row.
+ */
+function IosHomeTabs() {
+  const theme = useMobileTheme();
+
+  return (
+    <HomeTabBarInsetContext.Provider value={0}>
+      <NativeTabs
+        iconColor={{
+          default: theme.colors.secondaryLabel,
+          selected: theme.colors.label,
+        }}
+        minimizeBehavior="never"
+        tintColor={theme.colors.label}
+      >
+        <NativeTabs.Trigger name="(workspace)">
+          <NativeTabs.Trigger.Icon sf="square.grid.2x2" />
+          <NativeTabs.Trigger.Label hidden>Workspace</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="session">
+          <NativeTabs.Trigger.Icon sf="bubble.left.and.bubble.right" />
+          <NativeTabs.Trigger.Label hidden>Session</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="token-usage">
+          <NativeTabs.Trigger.Icon sf="chart.bar" />
+          <NativeTabs.Trigger.Label hidden>Tokens</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="quota-usage">
+          <NativeTabs.Trigger.Icon sf="gauge.with.dots.needle.67percent" />
+          <NativeTabs.Trigger.Label hidden>Quota</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+      </NativeTabs>
+    </HomeTabBarInsetContext.Provider>
+  );
+}
+
 export default function HomeTabsLayout() {
+  if (process.env.EXPO_OS === "ios") return <IosHomeTabs />;
+  return <AndroidHomeTabs />;
+}
+
+function AndroidHomeTabs() {
   const { width: windowWidth } = useWindowDimensions();
   const theme = useMobileTheme();
   const barWidth = Math.min(GLASS_TAB_SLOT * GLASS_TAB_COUNT, windowWidth - 32);
@@ -110,11 +158,6 @@ export default function HomeTabsLayout() {
           tabBarInactiveTintColor: theme.colors.secondaryLabel,
         }}
         tabBar={(props) => (
-          // The app provider stays clear (clarity 1), which switches iOS 26 glass
-          // to UIGlassEffect.clear and thins the blur. This bar has no clarity prop,
-          // so a local provider is what turns it into the frosted regular material.
-          // The bar stays up when the Computer is disconnected so Session can show
-          // its not-connected state.
           <GlassProvider clarity={0} quality="ultra">
             <GlassNavigationTabBar
               {...glassTabBarProps(props, theme.colors.label, theme.colors.secondaryLabel)}
@@ -130,6 +173,7 @@ export default function HomeTabsLayout() {
             title: "Workspace",
             tabBarAccessibilityLabel: "Workspace",
             tabBarIcon: ({ color, size }) => <LayoutGridIcon color={color} size={size} />,
+            tabBarShowLabel: false,
           }}
         />
         <Tabs.Screen
@@ -138,6 +182,23 @@ export default function HomeTabsLayout() {
             title: "Session",
             tabBarAccessibilityLabel: "Session",
             tabBarIcon: ({ color, size }) => <MessagesSquareIcon color={color} size={size} />,
+            tabBarShowLabel: false,
+          }}
+        />
+        <Tabs.Screen
+          name="token-usage"
+          options={{
+            title: "Tokens",
+            tabBarAccessibilityLabel: "Token usage",
+            tabBarIcon: ({ color, size }) => <ChartColumnBigIcon color={color} size={size} />,
+          }}
+        />
+        <Tabs.Screen
+          name="quota-usage"
+          options={{
+            title: "Quota",
+            tabBarAccessibilityLabel: "Quota usage",
+            tabBarIcon: ({ color, size }) => <GaugeIcon color={color} size={size} />,
           }}
         />
       </Tabs>

@@ -92,6 +92,14 @@ impl<'a> AgentSessionCatalogRepo<'a> {
         Ok(())
     }
 
+    /// Removes the row. Unknown ids are success. Used when the chat or terminal is gone.
+    pub async fn delete(&self, session_id: &str) -> Result<()> {
+        agent_session_catalog::Entity::delete_by_id(session_id.to_string())
+            .exec(self.db)
+            .await?;
+        Ok(())
+    }
+
     /// Sets `archived_at` when the row exists and is not already archived.
     /// Unknown ids and repeat archives are success.
     pub async fn archive(&self, session_id: &str) -> Result<()> {

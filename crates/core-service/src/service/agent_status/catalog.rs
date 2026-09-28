@@ -124,6 +124,15 @@ impl CatalogBridge {
         Ok(())
     }
 
+    pub(super) fn enqueue_delete(&self, session_id: &str) -> Result<(), String> {
+        let tx = self.sender()?;
+        tx.send(CatalogJob::Delete {
+            session_id: session_id.to_string(),
+        })
+        .map_err(|_| "catalog queue closed".to_string())?;
+        Ok(())
+    }
+
     pub(super) async fn archive(&self, session_id: &str) -> Result<(), String> {
         let tx = self.sender()?;
         let (done_tx, done_rx) = oneshot::channel();
@@ -184,6 +193,11 @@ impl CatalogBridge {
                     CatalogJob::Upsert(row) => {
                         if let Err(err) = store.upsert(row).await {
                             warn!("agent session catalog upsert failed: {err}");
+                        }
+                    }
+                    CatalogJob::Delete { session_id } => {
+                        if let Err(err) = store.delete(&session_id).await {
+                            warn!("agent session catalog delete failed: {err}");
                         }
                     }
                     CatalogJob::Delete { session_id } => {

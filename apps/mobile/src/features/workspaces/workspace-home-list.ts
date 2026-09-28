@@ -33,6 +33,7 @@ export const EMPTY_WORKSPACE_HOME_FILTERS: WorkspaceHomeFilters = {
 export type WorkspaceHomeEntry = {
   id: string;
   kind: "project" | "workspace";
+  pinned: boolean;
   projectId: string;
   projectName: string;
   title: string;
@@ -149,6 +150,7 @@ export function visibleWorkspaceEntries({
       entries.push({
         id: workspace.guid,
         kind: "workspace",
+        pinned: workspace.is_pinned,
         projectId,
         projectName: projectName.get(projectId) ?? "Other",
         title: workspaceTitle(workspace),
@@ -222,6 +224,7 @@ export function groupWorkspaceEntries({
       const projectEntry: WorkspaceHomeEntry = {
         id: project.guid,
         kind: "project",
+        pinned: false,
         projectId: project.guid,
         projectName: project.name,
         title: project.name,

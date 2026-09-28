@@ -1,6 +1,8 @@
 import type {
   HostSessionDeleteRequest,
   HostSessionDeleteResponse,
+  HostSessionKeysForChatRequest,
+  HostSessionKeysForChatResponse,
   HostSessionGetRequest,
   HostSessionGetResponse,
   HostSessionListRequest,
@@ -37,5 +39,9 @@ export type HostSessionContract = {
   host_session_delete: {
     input: HostSessionDeleteRequest;
     output: HostSessionDeleteResponse;
+  };
+  host_session_keys_for_chat: {
+    input: HostSessionKeysForChatRequest;
+    output: HostSessionKeysForChatResponse;
   };
 };

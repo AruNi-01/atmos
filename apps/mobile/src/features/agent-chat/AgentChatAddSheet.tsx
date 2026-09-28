@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Image, Linking, Pressable, ScrollView, Text, View } from "react-native";
-import { AssetField, MediaType, Query, getPermissionsAsync, requestPermissionsAsync } from "expo-media-library";
+import { Image, Linking, NativeModules, Pressable, ScrollView, Text, TurboModuleRegistry, View } from "react-native";
 import type { SFSymbol } from "sf-symbols-typescript";
 import { useMobileTheme } from "@/theme/theme-store";
 import {
@@ -69,6 +68,7 @@ export function AgentChatAddSheet(props: {
     const base = draftRef.current;
     const remaining = PHOTO_LIMIT - base.length;
     if (remaining <= 0) return;
+    if (!hasNativeModule("ExponentImagePicker")) return;
     const imagePicker = await import("expo-image-picker");
     libraryOpen.current = true;
     props.onClose();
@@ -163,6 +163,8 @@ export function AgentChatAddSheet(props: {
               })}
             </View>
           </ScrollView>
+        ) : recent.status === "unavailable" ? (
+          <Text style={{ color: theme.colors.secondaryLabel, fontSize: 15 }}>{copy.photosNeedRebuild}</Text>
         ) : recent.status === "denied" ? (
           <Pressable accessibilityRole="button" onPress={() => void Linking.openSettings()}>
             <Text style={{ color: theme.colors.secondaryLabel, fontSize: 15 }}>{copy.allowPhotos}</Text>
@@ -227,18 +229,35 @@ function permissionSymbol(id: string): SFSymbol {
   return "shield";
 }
 
-function useRecentPhotos(active: boolean): { photos: RecentPhoto[]; status: "unknown" | "granted" | "denied" } {
+function hasNativeModule(name: string): boolean {
+  const expoModules = (globalThis as { expo?: { modules?: Record<string, object | undefined> } }).expo?.modules;
+  if (expoModules?.[name]) return true;
+  if (NativeModules[name]) return true;
+  try {
+    return TurboModuleRegistry.get(name) != null;
+  } catch {
+    return false;
+  }
+}
+
+function useRecentPhotos(active: boolean): { photos: RecentPhoto[]; status: "unknown" | "granted" | "denied" | "unavailable" } {
   const [photos, setPhotos] = useState<RecentPhoto[]>([]);
-  const [status, setStatus] = useState<"unknown" | "granted" | "denied">("unknown");
+  const [status, setStatus] = useState<"unknown" | "granted" | "denied" | "unavailable">("unknown");
   useEffect(() => {
     if (!active) return;
+    if (!hasNativeModule("ExpoMediaLibraryNext")) {
+      setStatus("unavailable");
+      setPhotos([]);
+      return;
+    }
     let cancelled = false;
     void (async () => {
       try {
-        const current = await getPermissionsAsync(false, ["photo"]);
+        const mediaLibrary = await import("expo-media-library");
+        const current = await mediaLibrary.getPermissionsAsync(false, ["photo"]);
         let granted = current.granted;
         if (!granted && current.canAskAgain) {
-          const next = await requestPermissionsAsync(false, ["photo"]);
+          const next = await mediaLibrary.requestPermissionsAsync(false, ["photo"]);
           granted = next.granted;
         }
         if (cancelled) return;
@@ -248,9 +267,9 @@ function useRecentPhotos(active: boolean): { photos: RecentPhoto[]; status: "unk
           return;
         }
         setStatus("granted");
-        const assets = await new Query()
-          .eq(AssetField.MEDIA_TYPE, MediaType.IMAGE)
-          .orderBy({ key: AssetField.CREATION_TIME, ascending: false })
+        const assets = await new mediaLibrary.Query()
+          .eq(mediaLibrary.AssetField.MEDIA_TYPE, mediaLibrary.MediaType.IMAGE)
+          .orderBy({ key: mediaLibrary.AssetField.CREATION_TIME, ascending: false })
           .limit(12)
           .exe();
         const resolved = await Promise.all(assets.map(async (asset) => {

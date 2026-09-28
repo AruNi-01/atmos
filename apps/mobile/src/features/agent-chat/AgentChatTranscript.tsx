@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
 import { useMobileTheme } from "@/theme/theme-store";
+import { AtmosLogo } from "@/ui/AtmosLogo";
 import { EmptyState } from "@/ui/layout/app-screen";
 import { ChevronRightIcon } from "@/ui/icons/lucide-native";
 import { AgentChatDetailSheet, type DetailPage } from "./AgentChatDetailSheet";
@@ -28,6 +29,15 @@ import { pathDisplay } from "./path-display";
 import { isHiddenTranscriptChromePart } from "./tool-kind";
 
 const BOTTOM_SLOP = 64;
+
+function EmptyChat() {
+  return (
+    <View style={{ alignItems: "center", gap: 28 }}>
+      <AtmosLogo />
+      <EmptyState message={copy.emptyDescription} title={copy.emptyTitle} />
+    </View>
+  );
+}
 
 function distanceFromBottom(event: NativeScrollEvent): number {
   const { contentOffset, contentSize, layoutMeasurement } = event;
@@ -382,7 +392,7 @@ export function AgentChatTranscript({
       data={rows}
       keyboardShouldPersistTaps="handled"
       keyExtractor={(item) => item.id}
-      ListEmptyComponent={<EmptyState message={copy.emptyDescription} title={copy.emptyTitle} />}
+      ListEmptyComponent={<EmptyChat />}
       onContentSizeChange={onContentSizeChange}
       onLayout={onLayout}
       onScroll={onScroll}

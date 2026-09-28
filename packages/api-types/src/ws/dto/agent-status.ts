@@ -26,10 +26,27 @@ export type AgentSessionStatusSnapshot = {
   group_key: AgentSessionGroupKey;
   updated_at: string;
   project_path: string | null;
+  /** Chat title. Empty for terminal rows. */
+  title?: string | null;
+};
+
+export type AgentSessionStatusCounts = {
+  permission: number;
+  attention: number;
+  running: number;
+  done: number;
+};
+
+export type AgentSessionStatusListRequest = {
+  limit?: number | null;
+  cursor?: string | null;
 };
 
 export type AgentSessionStatusListResponse = {
   sessions: AgentSessionStatusSnapshot[];
+  next_cursor: string | null;
+  total: number;
+  counts: AgentSessionStatusCounts;
 };
 
 export type AgentSessionArchiveRequest = {

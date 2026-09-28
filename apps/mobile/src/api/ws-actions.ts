@@ -24,6 +24,9 @@ import type {
   GithubPrPayload,
   WorkspaceSetupProgressNotification,
 } from "@/api/types";
+import type { AgentSessionStatusListResponse } from "@atmos/api-types/ws/dto/agent-status";
+import type { QuotaOverviewRequest } from "@atmos/api-types/ws/dto/quota";
+import type { TokenUsageOverviewRequest } from "@atmos/api-types/ws/dto/token-usage";
 import type { MobileWsClient } from "@/api/mobile-ws-client";
 
 export const wsActions = {
@@ -172,8 +175,14 @@ export const wsActions = {
   ) {
     return client.request("terminal_workspace_candidates", payload);
   },
-  agentSessionStatusList(client: MobileWsClient) {
-    return client.request("agent_session_status_list");
+  codeAgentCustomGet(client: MobileWsClient) {
+    return client.request("code_agent_custom_get");
+  },
+  agentSessionStatusList(client: MobileWsClient, cursor: string | null = null) {
+    return client.request("agent_session_status_list", {
+      limit: 100,
+      cursor,
+    }) as Promise<AgentSessionStatusListResponse>;
   },
   agentSessionArchive(client: MobileWsClient, sessionId: string) {
     return client.request("agent_session_archive", { session_id: sessionId });
@@ -254,6 +263,68 @@ export const wsActions = {
   },
   agentChatDelete(client: MobileWsClient, payload: AgentChatIdRequest) {
     return client.request("agent_chat_delete", payload);
+  },
+  tokenUsageOverview(client: MobileWsClient, input: TokenUsageOverviewRequest = {}) {
+    return client.request("token_usage_overview_get", {
+      refresh: input.refresh ?? false,
+      try_cookies: input.try_cookies ?? false,
+      year: input.year ?? null,
+      since: input.since ?? null,
+      until: input.until ?? null,
+      clients: input.clients ?? null,
+      group_by: input.group_by ?? null,
+    });
+  },
+  quotaOverview(client: MobileWsClient, input: QuotaOverviewRequest = {}) {
+    return client.request("quota_get_overview", {
+      refresh: input.refresh ?? false,
+      provider_id: input.provider_id ?? null,
+    });
+  },
+  quotaSetProviderSwitch(client: MobileWsClient, providerId: string, enabled: boolean) {
+    return client.request("quota_set_provider_switch", { provider_id: providerId, enabled });
+  },
+  quotaSetAllProvidersSwitch(client: MobileWsClient, enabled: boolean) {
+    return client.request("quota_set_all_providers_switch", { enabled });
+  },
+  quotaSetAutoRefresh(client: MobileWsClient, intervalMinutes: number | null) {
+    return client.request("quota_set_auto_refresh", { interval_minutes: intervalMinutes });
+  },
+  hostSessionKeysForChat(client: MobileWsClient, chatId: string) {
+    return client.request("host_session_keys_for_chat", { chat_id: chatId });
+  },
+  hostSessionSetArchived(client: MobileWsClient, keys: string[], archived: boolean) {
+    return client.request("host_session_set_archived", { keys, archived });
+  },
+  hostSessionDelete(
+    client: MobileWsClient,
+    input: { keys: string[]; include_atmos_chat: boolean; include_source: boolean },
+  ) {
+    return client.request("host_session_delete", input);
+  },
+  functionSettingsGet(client: MobileWsClient) {
+    return client.request("function_settings_get");
+  },
+  functionSettingsUpdate(
+    client: MobileWsClient,
+    functionName: string,
+    key: string,
+    value: unknown,
+  ) {
+    return client.request("function_settings_update", {
+      function_name: functionName,
+      key,
+      value,
+    });
+  },
+  workspaceSetPinned(client: MobileWsClient, guid: string, pinned: boolean) {
+    return client.request(pinned ? "workspace_pin" : "workspace_unpin", { guid });
+  },
+  workspaceArchive(client: MobileWsClient, guid: string) {
+    return client.request("workspace_archive", { guid });
+  },
+  workspaceDelete(client: MobileWsClient, guid: string) {
+    return client.request("workspace_delete", { guid });
   },
 };
 

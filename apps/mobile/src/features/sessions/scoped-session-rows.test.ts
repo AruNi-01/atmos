@@ -13,6 +13,7 @@ function row(partial: Partial<SessionInboxRow> & Pick<SessionInboxRow, "id">): S
     projectScoped: false,
     terminalCandidateId: partial.id,
     kind: "terminal",
+    agentId: null,
     chatId: null,
     title: partial.id,
     updatedAt: null,
