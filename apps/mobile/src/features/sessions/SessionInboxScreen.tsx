@@ -108,8 +108,14 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
     >
       {parsed ? (
         <Section>
-          {inbox.isLoading ? (
+          {inbox.isLoading || (rows.length === 0 && inbox.isFetchingNextPage) ? (
             <ListSkeleton />
+          ) : rows.length === 0 && inbox.hasNextPage ? (
+            <EmptyState
+              layout="section"
+              message="Nothing in the loaded pages. Load more to check later pages."
+              title="No sessions yet"
+            />
           ) : rows.length === 0 ? (
             <EmptyState layout="section" message="This list is empty." title="No sessions" />
           ) : (

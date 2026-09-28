@@ -49,7 +49,9 @@ export function ShareSheet({
   const [preview, setPreview] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
-  const saveLock = useRef(false);
+  const saveRequest = useRef(0);
+  const activeSave = useRef<number | null>(null);
+  const saveStarted = useRef<number | null>(null);
   const tokens = formatCompactNumber(totalTokens);
   const cost = formatCurrencyCompact(totalCost);
   const shareText = `My AI agent usage on Atmos: ${tokens} tokens · ${cost}\nAtmosphere for Agentic Builders\n${SITE}`;
@@ -67,7 +69,9 @@ export function ShareSheet({
 
   useEffect(() => {
     if (!open) {
-      saveLock.current = false;
+      saveRequest.current += 1;
+      activeSave.current = null;
+      saveStarted.current = null;
       setPreview(null);
       setSaveError(null);
       setSaveState("idle");
@@ -75,31 +79,39 @@ export function ShareSheet({
   }, [open]);
 
   const requestSave = () => {
-    if (saveLock.current) return;
-    saveLock.current = true;
+    if (activeSave.current !== null) return;
+    const request = saveRequest.current + 1;
+    saveRequest.current = request;
+    activeSave.current = request;
     setSaveError(null);
     setSaveState("saving");
     webRef.current?.injectJavaScript("window.shareCard && window.shareCard(); true;");
   };
 
-  const saveImage = (dataUrl: string) => {
+  const saveImage = (dataUrl: string, request: number) => {
     void saveUsageCardImage(dataUrl)
       .then(() => {
+        if (saveRequest.current !== request) return;
+        activeSave.current = null;
         setSaveState("saved");
       })
       .catch((reason: unknown) => {
+        if (saveRequest.current !== request) return;
+        activeSave.current = null;
         setSaveState("idle");
         setSaveError(reason instanceof Error ? reason.message : "Could not save this image.");
-      })
-      .finally(() => {
-        saveLock.current = false;
       });
   };
 
   const onMessage = (event: WebViewMessageEvent) => {
     const payload = JSON.parse(event.nativeEvent.data) as { type?: string; url?: string };
     if (payload.type === "preview" && payload.url) setPreview(payload.url);
-    if (payload.type === "save-image" && payload.url) saveImage(payload.url);
+    if (payload.type === "save-image" && payload.url) {
+      const request = activeSave.current;
+      if (request == null || request !== saveRequest.current || saveStarted.current === request) return;
+      saveStarted.current = request;
+      saveImage(payload.url, request);
+    }
   };
 
   const openSocial = (url: string) => {

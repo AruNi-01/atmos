@@ -55,6 +55,7 @@ export function QuotaUsageScreen() {
   });
   const switchGeneration = useRef(new Map<string, number>());
   const nextSwitchGeneration = useRef(0);
+  const autoRefreshGeneration = useRef(0);
   const write = (overview: QuotaOverviewResponse) => {
     setActionError(null);
     queryClient.setQueryData(queryKey, overview);
@@ -68,20 +69,30 @@ export function QuotaUsageScreen() {
   const applyOverview = (
     overview: QuotaOverviewResponse,
     acceptIncoming: (providerId: string) => boolean,
+    acceptAutoRefresh: boolean,
   ) => {
     const current = queryClient.getQueryData<QuotaOverviewResponse>(queryKey);
     write({
       ...overview,
+      auto_refresh: !current || acceptAutoRefresh ? overview.auto_refresh : current.auto_refresh,
       providers: mergeQuotaSwitchSnapshot(current?.providers, overview.providers, acceptIncoming),
     });
   };
   const refreshStillCurrent = (started: ReadonlyMap<string, number>) => (providerId: string) =>
     switchGeneration.current.get(providerId) === started.get(providerId);
+  const intervalStillCurrent = (seen: number | undefined) => seen === autoRefreshGeneration.current;
   const refresh = useMutation({
     mutationFn: () => wsActions.quotaOverview(client!, { refresh: true, provider_id: null }),
-    onMutate: () => ({ started: new Map(switchGeneration.current) }),
+    onMutate: () => ({
+      autoRefreshGeneration: autoRefreshGeneration.current,
+      started: new Map(switchGeneration.current),
+    }),
     onSuccess: (overview, _value, context) =>
-      applyOverview(overview, refreshStillCurrent(context?.started ?? new Map())),
+      applyOverview(
+        overview,
+        refreshStillCurrent(context?.started ?? new Map()),
+        intervalStillCurrent(context?.autoRefreshGeneration),
+      ),
   });
   const toggleOne = useMutation({
     mutationFn: (input: { enabled: boolean; providerId: string }) =>
@@ -99,13 +110,14 @@ export function QuotaUsageScreen() {
         });
       }
       setActionError(null);
-      return { generation, previousEnabled };
+      return { autoRefreshGeneration: autoRefreshGeneration.current, generation, previousEnabled };
     },
     onSuccess: (overview, input, context) =>
       applyOverview(
         overview,
         (providerId) =>
           providerId === input.providerId && switchGeneration.current.get(providerId) === context?.generation,
+        intervalStillCurrent(context?.autoRefreshGeneration),
       ),
     onError: (error: unknown, input, context) => {
       if (!context || switchGeneration.current.get(input.providerId) !== context.generation) return;
@@ -139,13 +151,14 @@ export function QuotaUsageScreen() {
         });
       }
       setActionError(null);
-      return { generation, ids, previousEnabled };
+      return { autoRefreshGeneration: autoRefreshGeneration.current, generation, ids, previousEnabled };
     },
     onSuccess: (overview, _enabled, context) => {
       const ids = new Set(context?.ids ?? []);
       applyOverview(
         overview,
         (providerId) => ids.has(providerId) && switchGeneration.current.get(providerId) === context?.generation,
+        intervalStillCurrent(context?.autoRefreshGeneration),
       );
     },
     onError: (error: unknown, _enabled, context) => {
@@ -166,10 +179,31 @@ export function QuotaUsageScreen() {
   });
   const autoRefresh = useMutation({
     mutationFn: (minutes: number | null) => wsActions.quotaSetAutoRefresh(client!, minutes),
-    onMutate: () => ({ started: new Map(switchGeneration.current) }),
-    onSuccess: (overview, _minutes, context) =>
-      applyOverview(overview, refreshStillCurrent(context?.started ?? new Map())),
-    onError: (error: unknown) => setActionError(actionMessage(error)),
+    onMutate: (minutes) => {
+      const generation = autoRefreshGeneration.current + 1;
+      autoRefreshGeneration.current = generation;
+      const previous = queryClient.getQueryData<QuotaOverviewResponse>(queryKey);
+      const previousMinutes = previous?.auto_refresh.interval_minutes ?? null;
+      if (previous) {
+        queryClient.setQueryData<QuotaOverviewResponse>(queryKey, {
+          ...previous,
+          auto_refresh: { interval_minutes: minutes },
+        });
+      }
+      setActionError(null);
+      return { generation, previousMinutes, started: new Map(switchGeneration.current) };
+    },
+    onSuccess: (overview, _minutes, context) => {
+      if (!context || context.generation !== autoRefreshGeneration.current) return;
+      applyOverview(overview, refreshStillCurrent(context.started), true);
+    },
+    onError: (error: unknown, _minutes, context) => {
+      if (!context || context.generation !== autoRefreshGeneration.current) return;
+      queryClient.setQueryData<QuotaOverviewResponse>(queryKey, (current) =>
+        current ? { ...current, auto_refresh: { interval_minutes: context.previousMinutes } } : current,
+      );
+      setActionError(actionMessage(error));
+    },
   });
 
   const overview = overviewQuery.data ?? null;
