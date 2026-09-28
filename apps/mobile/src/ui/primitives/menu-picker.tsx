@@ -94,7 +94,7 @@ export function MenuPickerRow({
       <Text numberOfLines={1} style={[typography.rowTitle, { color: theme.colors.label, flex: 1 }]}>
         {label}
       </Text>
-      <View style={{ alignItems: "flex-end", height: 32, justifyContent: "center", overflow: "hidden" }}>
+      <View style={{ alignItems: "flex-end", alignSelf: "center", justifyContent: "center" }}>
         <MenuPicker onValueChange={onValueChange} options={options} selectedValue={selectedValue} />
       </View>
     </View>

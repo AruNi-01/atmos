@@ -425,8 +425,8 @@ const styles = StyleSheet.create({
   row: { alignItems: "center", flexDirection: "row", gap: 10 },
   section: { fontSize: 13, fontWeight: "600", paddingHorizontal: 20, paddingTop: 8 },
   settingsContent: { flexGrow: 1 },
-  settingsControl: { alignItems: "flex-end", height: 32, justifyContent: "center", overflow: "hidden" },
-  settingsTrailing: { alignItems: "flex-end", height: 52, justifyContent: "center", width: 92 },
+  settingsControl: { alignItems: "flex-end", justifyContent: "center" },
+  settingsTrailing: { alignItems: "flex-end", alignSelf: "center", justifyContent: "center" },
   settingsRow: {
     alignItems: "center",
     alignSelf: "stretch",
