@@ -11,6 +11,7 @@ import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import { useMobileTheme } from "@/theme/theme-store";
 import { creditsLabel, extraSections, providerHeading, usageRows, type UsageRow } from "@/features/quota-usage/quota-rows";
+import { mergeQuotaSwitchSnapshot } from "@/features/quota-usage/quota-switch-snapshot";
 import { ChevronDownIcon, ChevronUpIcon, SettingsIcon } from "@/ui/icons/lucide-native";
 import { ProviderGlyph } from "@/ui/icons/provider-glyph";
 import { InlineError } from "@/ui/layout/app-screen";
@@ -52,30 +53,43 @@ export function QuotaUsageScreen() {
       return wsActions.quotaOverview(client, { refresh: false, provider_id: null });
     },
   });
-  const writeGeneration = useRef(0);
+  const switchGeneration = useRef(new Map<string, number>());
+  const nextSwitchGeneration = useRef(0);
   const write = (overview: QuotaOverviewResponse) => {
     setActionError(null);
     queryClient.setQueryData(queryKey, overview);
   };
-  const startWrite = () => {
-    writeGeneration.current += 1;
-    return writeGeneration.current;
+  const bumpSwitches = (ids: readonly string[]) => {
+    const generation = nextSwitchGeneration.current + 1;
+    nextSwitchGeneration.current = generation;
+    for (const id of ids) switchGeneration.current.set(id, generation);
+    return generation;
   };
-  const applyOverview = (overview: QuotaOverviewResponse, generation: number) => {
-    if (generation !== writeGeneration.current) return;
-    write(overview);
+  const applyOverview = (
+    overview: QuotaOverviewResponse,
+    acceptIncoming: (providerId: string) => boolean,
+  ) => {
+    const current = queryClient.getQueryData<QuotaOverviewResponse>(queryKey);
+    write({
+      ...overview,
+      providers: mergeQuotaSwitchSnapshot(current?.providers, overview.providers, acceptIncoming),
+    });
   };
+  const refreshStillCurrent = (started: ReadonlyMap<string, number>) => (providerId: string) =>
+    switchGeneration.current.get(providerId) === started.get(providerId);
   const refresh = useMutation({
     mutationFn: () => wsActions.quotaOverview(client!, { refresh: true, provider_id: null }),
-    onMutate: () => ({ generation: startWrite() }),
-    onSuccess: (overview, _value, context) => applyOverview(overview, context?.generation ?? 0),
+    onMutate: () => ({ started: new Map(switchGeneration.current) }),
+    onSuccess: (overview, _value, context) =>
+      applyOverview(overview, refreshStillCurrent(context?.started ?? new Map())),
   });
   const toggleOne = useMutation({
     mutationFn: (input: { enabled: boolean; providerId: string }) =>
       wsActions.quotaSetProviderSwitch(client!, input.providerId, input.enabled),
     onMutate: (input) => {
-      const generation = startWrite();
+      const generation = bumpSwitches([input.providerId]);
       const previous = queryClient.getQueryData<QuotaOverviewResponse>(queryKey);
+      const previousEnabled = previous?.providers.find((provider) => provider.id === input.providerId)?.switch_enabled;
       if (previous) {
         queryClient.setQueryData<QuotaOverviewResponse>(queryKey, {
           ...previous,
@@ -85,20 +99,39 @@ export function QuotaUsageScreen() {
         });
       }
       setActionError(null);
-      return { generation, previous };
+      return { generation, previousEnabled };
     },
-    onSuccess: (overview, _input, context) => applyOverview(overview, context?.generation ?? 0),
-    onError: (error: unknown, _input, context) => {
-      if (!context || context.generation !== writeGeneration.current) return;
-      if (context.previous) queryClient.setQueryData(queryKey, context.previous);
+    onSuccess: (overview, input, context) =>
+      applyOverview(
+        overview,
+        (providerId) =>
+          providerId === input.providerId && switchGeneration.current.get(providerId) === context?.generation,
+      ),
+    onError: (error: unknown, input, context) => {
+      if (!context || switchGeneration.current.get(input.providerId) !== context.generation) return;
+      if (context.previousEnabled !== undefined) {
+        queryClient.setQueryData<QuotaOverviewResponse>(queryKey, (current) => {
+          if (!current) return current;
+          return {
+            ...current,
+            providers: current.providers.map((provider) =>
+              provider.id === input.providerId
+                ? { ...provider, switch_enabled: context.previousEnabled as boolean }
+                : provider,
+            ),
+          };
+        });
+      }
       setActionError(actionMessage(error));
     },
   });
   const toggleAll = useMutation({
     mutationFn: (enabled: boolean) => wsActions.quotaSetAllProvidersSwitch(client!, enabled),
     onMutate: (enabled) => {
-      const generation = startWrite();
       const previous = queryClient.getQueryData<QuotaOverviewResponse>(queryKey);
+      const ids = (previous?.providers ?? []).map((provider) => provider.id);
+      const generation = bumpSwitches(ids);
+      const previousEnabled = new Map((previous?.providers ?? []).map((provider) => [provider.id, provider.switch_enabled]));
       if (previous) {
         queryClient.setQueryData<QuotaOverviewResponse>(queryKey, {
           ...previous,
@@ -106,23 +139,37 @@ export function QuotaUsageScreen() {
         });
       }
       setActionError(null);
-      return { generation, previous };
+      return { generation, ids, previousEnabled };
     },
-    onSuccess: (overview, _enabled, context) => applyOverview(overview, context?.generation ?? 0),
+    onSuccess: (overview, _enabled, context) => {
+      const ids = new Set(context?.ids ?? []);
+      applyOverview(
+        overview,
+        (providerId) => ids.has(providerId) && switchGeneration.current.get(providerId) === context?.generation,
+      );
+    },
     onError: (error: unknown, _enabled, context) => {
-      if (!context || context.generation !== writeGeneration.current) return;
-      if (context.previous) queryClient.setQueryData(queryKey, context.previous);
+      if (!context) return;
+      queryClient.setQueryData<QuotaOverviewResponse>(queryKey, (current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          providers: current.providers.map((provider) => {
+            if (switchGeneration.current.get(provider.id) !== context.generation) return provider;
+            const enabled = context.previousEnabled.get(provider.id);
+            return enabled === undefined ? provider : { ...provider, switch_enabled: enabled };
+          }),
+        };
+      });
       setActionError(actionMessage(error));
     },
   });
   const autoRefresh = useMutation({
     mutationFn: (minutes: number | null) => wsActions.quotaSetAutoRefresh(client!, minutes),
-    onMutate: () => ({ generation: startWrite() }),
-    onSuccess: (overview, _minutes, context) => applyOverview(overview, context?.generation ?? 0),
-    onError: (error: unknown, _minutes, context) => {
-      if (!context || context.generation !== writeGeneration.current) return;
-      setActionError(actionMessage(error));
-    },
+    onMutate: () => ({ started: new Map(switchGeneration.current) }),
+    onSuccess: (overview, _minutes, context) =>
+      applyOverview(overview, refreshStillCurrent(context?.started ?? new Map())),
+    onError: (error: unknown) => setActionError(actionMessage(error)),
   });
 
   const overview = overviewQuery.data ?? null;

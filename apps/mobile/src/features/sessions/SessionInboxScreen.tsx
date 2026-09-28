@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Pressable, Text, useWindowDimensions, View } from "react-native";
+import { useCallback, useState } from "react";
+import { Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { ListSkeleton } from "@/ui/primitives/list-skeleton";
@@ -84,28 +84,13 @@ export function SessionHomeScreen() {
 
 export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) {
   const router = useRouter();
+  const theme = useMobileTheme();
   const inbox = useSessionInbox();
-  const { height: windowHeight } = useWindowDimensions();
-  const [contentHeight, setContentHeight] = useState(0);
   const { onRefresh, refreshing } = usePullRefresh(inbox.refresh);
   const parsed = bucket && isSessionBucket(bucket) ? bucket : null;
   const rows = parsed
     ? orderPinnedRows(filterSessionRows(inbox.rows, parsed), inbox.pinnedIds, sessionPinId)
     : [];
-  const listShorterThanScreen =
-    rows.length === 0 || (contentHeight > 0 && contentHeight < windowHeight - 160);
-  useEffect(() => {
-    if (!parsed || !listShorterThanScreen) return;
-    if (!inbox.hasNextPage || inbox.isFetchingNextPage || inbox.fetchNextPageFailed) return;
-    inbox.fetchNextPage();
-  }, [
-    inbox.fetchNextPage,
-    inbox.fetchNextPageFailed,
-    inbox.hasNextPage,
-    inbox.isFetchingNextPage,
-    listShorterThanScreen,
-    parsed,
-  ]);
 
   if (!inbox.connected) {
     return (
@@ -123,28 +108,39 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
     >
       {parsed ? (
         <Section>
-          <View onLayout={(event) => setContentHeight(event.nativeEvent.layout.height)}>
-            {inbox.isLoading || (rows.length === 0 && inbox.hasNextPage && !inbox.fetchNextPageFailed) ? (
-              <ListSkeleton />
-            ) : rows.length === 0 ? (
-              <EmptyState layout="section" message="This list is empty." title="No sessions" />
-            ) : (
-              <SessionRowList
-                onArchiveChat={(row) =>
-                  row.chatId ? inbox.archiveChat(sessionPinId(row), row.chatId) : Promise.resolve()
-                }
-                onDeleteChat={(row, choice) =>
-                  row.chatId
-                    ? inbox.deleteChat(sessionPinId(row), row.chatId, choice)
-                    : Promise.resolve()
-                }
-                onPress={(row) => openSessionRow(router, row)}
-                onTogglePin={inbox.togglePin}
-                pinnedIds={inbox.pinnedIds}
-                rows={rows}
-              />
-            )}
-          </View>
+          {inbox.isLoading ? (
+            <ListSkeleton />
+          ) : rows.length === 0 ? (
+            <EmptyState layout="section" message="This list is empty." title="No sessions" />
+          ) : (
+            <SessionRowList
+              onArchiveChat={(row) =>
+                row.chatId ? inbox.archiveChat(sessionPinId(row), row.chatId) : Promise.resolve()
+              }
+              onDeleteChat={(row, choice) =>
+                row.chatId
+                  ? inbox.deleteChat(sessionPinId(row), row.chatId, choice)
+                  : Promise.resolve()
+              }
+              onPress={(row) => openSessionRow(router, row)}
+              onTogglePin={inbox.togglePin}
+              pinnedIds={inbox.pinnedIds}
+              rows={rows}
+            />
+          )}
+          {inbox.hasNextPage ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ busy: inbox.isFetchingNextPage }}
+              disabled={inbox.isFetchingNextPage}
+              onPress={inbox.fetchNextPage}
+              style={{ alignItems: "center", paddingVertical: 12 }}
+            >
+              <Text style={{ color: theme.colors.secondaryLabel, fontSize: 15 }}>
+                {inbox.isFetchingNextPage ? "Loading..." : "Load more"}
+              </Text>
+            </Pressable>
+          ) : null}
         </Section>
       ) : (
         <EmptyState message="This session list is not available." title="Unknown list" />

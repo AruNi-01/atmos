@@ -13,8 +13,16 @@ function hasNativeModule(name: string): boolean {
   }
 }
 
+let saveQueue: Promise<void> = Promise.resolve();
+
 /** Write the share-card PNG into the photo library. Does not open a text share sheet. */
-export async function saveUsageCardImage(dataUrl: string): Promise<void> {
+export function saveUsageCardImage(dataUrl: string): Promise<void> {
+  const run = saveQueue.then(() => writeUsageCardImage(dataUrl), () => writeUsageCardImage(dataUrl));
+  saveQueue = run.then(() => undefined, () => undefined);
+  return run;
+}
+
+async function writeUsageCardImage(dataUrl: string): Promise<void> {
   const base64 = pngBase64FromDataUrl(dataUrl);
   if (!hasNativeModule("ExpoMediaLibraryNext")) {
     throw new Error("Saving images is not available in this build.");
@@ -27,9 +35,12 @@ export async function saveUsageCardImage(dataUrl: string): Promise<void> {
   }
   if (!granted) throw new Error("Allow photo access to save this image.");
 
-  const file = new File(Paths.cache, "atmos-token-usage.png");
-  if (file.exists) file.delete();
+  const file = new File(Paths.cache, `atmos-token-usage-${Date.now()}-${Math.random().toString(16).slice(2)}.png`);
   file.create();
-  file.write(base64, { encoding: "base64" });
-  await mediaLibrary.Asset.create(file.uri);
+  try {
+    file.write(base64, { encoding: "base64" });
+    await mediaLibrary.Asset.create(file.uri);
+  } finally {
+    if (file.exists) file.delete();
+  }
 }

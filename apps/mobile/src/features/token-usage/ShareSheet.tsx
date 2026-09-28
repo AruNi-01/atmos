@@ -49,6 +49,7 @@ export function ShareSheet({
   const [preview, setPreview] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const saveLock = useRef(false);
   const tokens = formatCompactNumber(totalTokens);
   const cost = formatCurrencyCompact(totalCost);
   const shareText = `My AI agent usage on Atmos: ${tokens} tokens · ${cost}\nAtmosphere for Agentic Builders\n${SITE}`;
@@ -66,15 +67,22 @@ export function ShareSheet({
 
   useEffect(() => {
     if (!open) {
+      saveLock.current = false;
       setPreview(null);
       setSaveError(null);
       setSaveState("idle");
     }
   }, [open]);
 
-  const saveImage = (dataUrl: string) => {
+  const requestSave = () => {
+    if (saveLock.current) return;
+    saveLock.current = true;
     setSaveError(null);
     setSaveState("saving");
+    webRef.current?.injectJavaScript("window.shareCard && window.shareCard(); true;");
+  };
+
+  const saveImage = (dataUrl: string) => {
     void saveUsageCardImage(dataUrl)
       .then(() => {
         setSaveState("saved");
@@ -82,6 +90,9 @@ export function ShareSheet({
       .catch((reason: unknown) => {
         setSaveState("idle");
         setSaveError(reason instanceof Error ? reason.message : "Could not save this image.");
+      })
+      .finally(() => {
+        saveLock.current = false;
       });
   };
 
@@ -136,7 +147,7 @@ export function ShareSheet({
                 accessibilityLabel={saveState === "saved" ? "Saved to photos" : "Save image"}
                 accessibilityState={{ busy: saveState === "saving", disabled: saveState === "saving" }}
                 disabled={saveState === "saving"}
-                onPress={() => webRef.current?.injectJavaScript("window.shareCard && window.shareCard(); true;")}
+                onPress={requestSave}
                 style={styles.socialButton}
               >
                 <DownloadIcon color={theme.colors.label} size={16} />
