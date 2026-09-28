@@ -4,15 +4,17 @@ import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 import { Separator } from "@/ui/layout/row";
-import { CheckIcon, WifiIcon, WifiOffIcon } from "@/ui/icons/lucide-native";
+import { CheckIcon, ChevronRightIcon, WifiIcon, WifiOffIcon } from "@/ui/icons/lucide-native";
 
 export function ComputerList({
   computers,
+  onManage,
   onPress,
   onlyOnline = false,
   selectedServerId,
 }: {
   computers: ComputerRow[];
+  onManage?: (computer: ComputerRow) => void;
   onPress?: (computer: ComputerRow) => void;
   onlyOnline?: boolean;
   selectedServerId: string | null;
@@ -26,7 +28,12 @@ export function ComputerList({
         return (
           <View key={computer.server_id}>
             {index > 0 ? <Separator /> : null}
-            <ComputerListItem computer={computer} onPress={press} selected={selected} />
+            <ComputerListItem
+              computer={computer}
+              onManage={onManage ? () => onManage(computer) : undefined}
+              onPress={press}
+              selected={selected}
+            />
           </View>
         );
       })}
@@ -36,10 +43,12 @@ export function ComputerList({
 
 function ComputerListItem({
   computer,
+  onManage,
   onPress,
   selected,
 }: {
   computer: ComputerRow;
+  onManage?: () => void;
   onPress?: () => void;
   selected: boolean;
 }) {
@@ -74,6 +83,16 @@ function ComputerListItem({
       </View>
       {selected ? (
         <CheckIcon color={theme.colors.label} size={18} strokeWidth={2.6} />
+      ) : null}
+      {onManage ? (
+        <Pressable
+          accessibilityLabel="Rename or revoke"
+          accessibilityRole="button"
+          hitSlop={8}
+          onPress={onManage}
+        >
+          <ChevronRightIcon color={theme.colors.tertiaryLabel} size={18} strokeWidth={2.6} />
+        </Pressable>
       ) : null}
     </View>
   );

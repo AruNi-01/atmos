@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeIn, FadeOut, LinearTransition, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
@@ -52,18 +52,29 @@ export function QuotaUsageScreen() {
       return wsActions.quotaOverview(client, { refresh: false, provider_id: null });
     },
   });
+  const writeGeneration = useRef(0);
   const write = (overview: QuotaOverviewResponse) => {
     setActionError(null);
     queryClient.setQueryData(queryKey, overview);
   };
+  const startWrite = () => {
+    writeGeneration.current += 1;
+    return writeGeneration.current;
+  };
+  const applyOverview = (overview: QuotaOverviewResponse, generation: number) => {
+    if (generation !== writeGeneration.current) return;
+    write(overview);
+  };
   const refresh = useMutation({
     mutationFn: () => wsActions.quotaOverview(client!, { refresh: true, provider_id: null }),
-    onSuccess: write,
+    onMutate: () => ({ generation: startWrite() }),
+    onSuccess: (overview, _value, context) => applyOverview(overview, context?.generation ?? 0),
   });
   const toggleOne = useMutation({
     mutationFn: (input: { enabled: boolean; providerId: string }) =>
       wsActions.quotaSetProviderSwitch(client!, input.providerId, input.enabled),
     onMutate: (input) => {
+      const generation = startWrite();
       const previous = queryClient.getQueryData<QuotaOverviewResponse>(queryKey);
       if (previous) {
         queryClient.setQueryData<QuotaOverviewResponse>(queryKey, {
@@ -74,17 +85,19 @@ export function QuotaUsageScreen() {
         });
       }
       setActionError(null);
-      return { previous };
+      return { generation, previous };
     },
-    onSuccess: write,
+    onSuccess: (overview, _input, context) => applyOverview(overview, context?.generation ?? 0),
     onError: (error: unknown, _input, context) => {
-      if (context?.previous) queryClient.setQueryData(queryKey, context.previous);
+      if (!context || context.generation !== writeGeneration.current) return;
+      if (context.previous) queryClient.setQueryData(queryKey, context.previous);
       setActionError(actionMessage(error));
     },
   });
   const toggleAll = useMutation({
     mutationFn: (enabled: boolean) => wsActions.quotaSetAllProvidersSwitch(client!, enabled),
     onMutate: (enabled) => {
+      const generation = startWrite();
       const previous = queryClient.getQueryData<QuotaOverviewResponse>(queryKey);
       if (previous) {
         queryClient.setQueryData<QuotaOverviewResponse>(queryKey, {
@@ -93,18 +106,23 @@ export function QuotaUsageScreen() {
         });
       }
       setActionError(null);
-      return { previous };
+      return { generation, previous };
     },
-    onSuccess: write,
+    onSuccess: (overview, _enabled, context) => applyOverview(overview, context?.generation ?? 0),
     onError: (error: unknown, _enabled, context) => {
-      if (context?.previous) queryClient.setQueryData(queryKey, context.previous);
+      if (!context || context.generation !== writeGeneration.current) return;
+      if (context.previous) queryClient.setQueryData(queryKey, context.previous);
       setActionError(actionMessage(error));
     },
   });
   const autoRefresh = useMutation({
     mutationFn: (minutes: number | null) => wsActions.quotaSetAutoRefresh(client!, minutes),
-    onSuccess: write,
-    onError: (error: unknown) => setActionError(actionMessage(error)),
+    onMutate: () => ({ generation: startWrite() }),
+    onSuccess: (overview, _minutes, context) => applyOverview(overview, context?.generation ?? 0),
+    onError: (error: unknown, _minutes, context) => {
+      if (!context || context.generation !== writeGeneration.current) return;
+      setActionError(actionMessage(error));
+    },
   });
 
   const overview = overviewQuery.data ?? null;
@@ -336,7 +354,7 @@ function ProviderCard({ expanded = false, provider }: { expanded?: boolean; prov
                       {row.resetText ? <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12 }}>{row.resetText}</Text> : null}
                       {row.percent == null && row.value ? <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12 }}>{row.value}</Text> : null}
                     </View>
-                    {amount ? <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12 }}>{amount}</Text> : null}
+                    {row.percent != null && amount ? <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12 }}>{amount}</Text> : null}
                     {row.percent != null ? <UsageTrack percent={row.percent} /> : null}
                   </View>
                 );

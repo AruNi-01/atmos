@@ -3,40 +3,47 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { CodeAgentCustomEntry } from "@atmos/api-types/ws/dto/settings";
 import { wsActions } from "@/api/ws-actions";
 import { useMobileWs } from "@/providers/MobileWsProvider";
-import { mergeTerminalLaunchAgents, type MobileLaunchAgent } from "./terminal-launch-agents";
+import { useSessionStore } from "@/stores/session-store";
+import {
+  mergeTerminalLaunchAgents,
+  terminalLaunchAgentCacheKey,
+  type MobileLaunchAgent,
+} from "./terminal-launch-agents";
 
-const CACHE_KEY = "atmos.mobile.code-agent-custom";
-
-/** Cached agent list first, then a background refresh from the Computer. */
+/** Cached agent list for this Computer, then a background refresh. */
 export function useTerminalLaunchAgents(active: boolean): MobileLaunchAgent[] {
   const { client, state } = useMobileWs();
+  const selectedServerId = useSessionStore((store) => store.selectedServerId);
   const [custom, setCustom] = useState<CodeAgentCustomEntry[] | null>(null);
 
   useEffect(() => {
+    const key = terminalLaunchAgentCacheKey(selectedServerId);
     let cancelled = false;
-    void AsyncStorage.getItem(CACHE_KEY).then((raw) => {
-      if (cancelled || !raw) return;
-      const parsed = parseCachedAgents(raw);
-      if (parsed) setCustom(parsed);
-    }).catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!active || !client || state !== "open") return undefined;
-    let cancelled = false;
+    let fetched = false;
+    setCustom(null);
+    if (key) {
+      void AsyncStorage.getItem(key).then((raw) => {
+        if (cancelled || fetched || !raw) return;
+        const parsed = parseCachedAgents(raw);
+        if (parsed) setCustom(parsed);
+      }).catch(() => undefined);
+    }
+    if (!active || !client || state !== "open" || !key) {
+      return () => {
+        cancelled = true;
+      };
+    }
     void wsActions.codeAgentCustomGet(client).then((payload) => {
       if (cancelled) return;
+      fetched = true;
       const agents = Array.isArray(payload.agents) ? payload.agents : [];
       setCustom(agents);
-      void AsyncStorage.setItem(CACHE_KEY, JSON.stringify(agents)).catch(() => undefined);
+      void AsyncStorage.setItem(key, JSON.stringify(agents)).catch(() => undefined);
     }).catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [active, client, state]);
+  }, [active, client, selectedServerId, state]);
 
   return useMemo(() => mergeTerminalLaunchAgents(custom), [custom]);
 }

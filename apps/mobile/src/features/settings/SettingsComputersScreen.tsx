@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Animated, Easing, Pressable, View } from "react-native";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { ComputerList } from "@/features/computers/ComputerPicker";
 import { useMobileSettingsController } from "@/features/settings/use-mobile-settings-controller";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -62,6 +62,7 @@ function RefreshComputersButton({ tintColor }: { tintColor: string }) {
 }
 
 export function SettingsComputersScreen() {
+  const router = useRouter();
   const settings = useMobileSettingsController();
   const theme = useMobileTheme();
 
@@ -117,6 +118,12 @@ export function SettingsComputersScreen() {
         <Section>
           <ComputerList
             computers={settings.activeComputers}
+            onManage={(computer) =>
+              router.push({
+                pathname: "/settings/computer",
+                params: { serverId: computer.server_id },
+              })
+            }
             onPress={(computer) => settings.selectComputer(computer)}
             selectedServerId={settings.selectedServerId}
           />

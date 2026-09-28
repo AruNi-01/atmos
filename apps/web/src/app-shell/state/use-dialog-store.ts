@@ -233,19 +233,6 @@ export const useDialogStore = create<DialogStore>((set, get) => ({
     }
     return changed ? { agentChatDrafts: nextDrafts } : state;
   }),
-  clearAgentChatDraftsForInstance: (instanceKey) => set((state) => {
-    const instance = instanceKey.trim();
-    if (!instance) return state;
-    const suffix = `:instance:${instance}`;
-    let changed = false;
-    const nextDrafts = { ...state.agentChatDrafts };
-    for (const key of Object.keys(nextDrafts)) {
-      if (!key.endsWith(suffix)) continue;
-      delete nextDrafts[key];
-      changed = true;
-    }
-    return changed ? { agentChatDrafts: nextDrafts } : state;
-  }),
   peekQueuedAgentChatPrompt: (workspaceId, projectId, mode, instanceKey) => {
     const queueKey = getAgentPromptQueueKey(workspaceId, projectId, mode, instanceKey);
     return get().agentChatPromptQueues[queueKey]?.[0] ?? null;

@@ -4,7 +4,6 @@ export function shareCardHtml(args: {
   days: string;
   isDark: boolean;
   messages: string;
-  shareText: string;
   tokens: string;
 }) {
   const bg = args.isDark ? "#0c0c0c" : "#efefef";
@@ -54,21 +53,7 @@ ctx.fillText("Atmosphere for Agentic Builders", 36, pageH + 62);
 function post(payload){ window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify(payload)); }
 post({ type: "preview", url: canvas.toDataURL("image/png") });
 window.shareCard = function(){
-  canvas.toBlob(async (blob) => {
-    const file = new File([blob], "atmos-token-usage.png", { type: "image/png" });
-    const text = ${JSON.stringify(args.shareText)};
-    try {
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], text });
-        post({ type: "shared" });
-        return;
-      }
-    } catch (error) {
-      if (error && error.name === "AbortError") return;
-    }
-    post({ type: "preview", url: canvas.toDataURL("image/png") });
-    post({ type: "share-fallback" });
-  });
+  post({ type: "save-image", url: canvas.toDataURL("image/png") });
 };
 </script></body></html>`;
 }

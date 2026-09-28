@@ -54,21 +54,6 @@ pub(super) fn parse_all_windows(output: &str) -> Vec<(String, String)> {
         .collect()
 }
 
-pub(super) fn parse_all_windows(output: &str) -> Vec<(String, String)> {
-    output
-        .lines()
-        .filter_map(|line| {
-            let (session_name, window_name) = line.split_once('\t')?;
-            let session_name = session_name.trim();
-            let window_name = window_name.trim();
-            if session_name.is_empty() || window_name.is_empty() {
-                return None;
-            }
-            Some((session_name.to_string(), window_name.to_string()))
-        })
-        .collect()
-}
-
 pub(super) fn parse_workspace_id_from_session_name(session_name: &str) -> String {
     session_name.replace('_', "-")
 }
@@ -509,18 +494,6 @@ impl TmuxEngine {
         Ok(parse_all_windows(&output))
     }
 
-    /// Every window on this tmux server, as `(session_name, window_name)`.
-    /// An idle server with no sessions is an empty list.
-    pub fn list_windows_all(&self) -> Result<Vec<(String, String)>> {
-        let output = self.run_tmux(&[
-            "list-windows",
-            "-a",
-            "-F",
-            "#{session_name}\t#{window_name}",
-        ])?;
-        Ok(parse_all_windows(&output))
-    }
-
     /// List windows in a session
     pub fn list_windows(&self, session_name: &str) -> Result<Vec<TmuxWindowInfo>> {
         let output = self.run_tmux(&[
@@ -693,19 +666,6 @@ mod tests {
         preferred_existing_session_name, session_name_from_names, session_name_from_workspace_id,
     };
 
-    #[test]
-    fn test_parse_all_windows() {
-        let parsed = parse_all_windows("proj_ws\tclaude\n\nonly-session\n\tblank\nproj_ws\t1\n");
-        assert_eq!(
-            parsed,
-            vec![
-                ("proj_ws".to_string(), "claude".to_string()),
-                ("proj_ws".to_string(), "1".to_string()),
-            ]
-        );
-    }
-
-    #[test]
     #[test]
     fn test_parse_all_windows() {
         let parsed = parse_all_windows("proj_ws\tclaude\n\nonly-session\n\tblank\nproj_ws\t1\n");

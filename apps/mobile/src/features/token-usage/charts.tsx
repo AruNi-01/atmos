@@ -6,10 +6,41 @@ import { Area, CartesianChart, Line, StackedBar, useChartPressState } from "vict
 import { spacing } from "@/theme/spacing";
 import type { HeatmapWeek } from "@/features/token-usage/model";
 
+const MIN_POINT_WIDTH = 36;
 const SERIES = ["s0", "s1", "s2", "s3", "s4", "s5"] as const;
 type SeriesKey = (typeof SERIES)[number];
 type StackRow = { x: number } & Record<SeriesKey, number>;
 const SPRING = { type: "spring" as const, duration: 450 };
+
+function WideChart({
+  children,
+  height,
+  points,
+  viewportWidth,
+}: {
+  children: (width: number) => ReactNode;
+  height: number;
+  points: number;
+  viewportWidth: number;
+}) {
+  const width = Math.max(viewportWidth, points * MIN_POINT_WIDTH);
+  const scrollRef = useRef<ScrollView>(null);
+  useEffect(() => {
+    if (width <= viewportWidth) return;
+    scrollRef.current?.scrollToEnd({ animated: false });
+  }, [viewportWidth, width]);
+  if (width <= viewportWidth) return <>{children(width)}</>;
+  return (
+    <ScrollView
+      horizontal
+      ref={scrollRef}
+      showsHorizontalScrollIndicator={false}
+      style={{ height, width: viewportWidth }}
+    >
+      {children(width)}
+    </ScrollView>
+  );
+}
 
 export function ScrollableChart({
   children,
@@ -53,13 +84,15 @@ export function UsageGrowthChart({
   const peak = Math.max(1, ...values);
   const active = isActive && index >= 0 && index < values.length ? index : -1;
   return (
-    <View style={{ height, width }}>
+    <WideChart height={height} points={values.length} viewportWidth={width}>
+      {(chartWidth) => (
+    <View style={{ height, width: chartWidth }}>
       <CartesianChart
         chartPressState={state}
         data={data}
         domain={{ y: [0, peak * 1.08] }}
         domainPadding={{ left: 8, right: 12, top: 16 }}
-        explicitSize={{ height, width }}
+        explicitSize={{ height, width: chartWidth }}
         frame={{ lineColor: "rgba(113,113,122,0.28)", lineWidth: 1 }}
         padding={{ bottom: 28, left: 56, right: 8, top: 12 }}
         xAxis={{
@@ -90,6 +123,8 @@ export function UsageGrowthChart({
       </CartesianChart>
       {active >= 0 ? <ChartTip title={labels[active] ?? ""} lines={[formatValue(values[active] ?? 0)]} /> : null}
     </View>
+      )}
+    </WideChart>
   );
 }
 
@@ -135,13 +170,15 @@ export function UsageStackedChart({
   const active = isActive && index >= 0 && index < series.length ? index : -1;
   const activeSegments = active >= 0 ? series[active] ?? [] : [];
   return (
-    <View style={{ height, width }}>
+    <WideChart height={height} points={series.length} viewportWidth={width}>
+      {(chartWidth) => (
+    <View style={{ height, width: chartWidth }}>
       <CartesianChart
         chartPressState={state}
         data={data}
         domain={{ y: [0, peak * 1.08] }}
         domainPadding={{ left: 8, right: 12, top: 16 }}
-        explicitSize={{ height, width }}
+        explicitSize={{ height, width: chartWidth }}
         frame={{ lineColor: "rgba(113,113,122,0.28)", lineWidth: 1 }}
         padding={{ bottom: 28, left: 56, right: 8, top: 12 }}
         xAxis={{
@@ -181,6 +218,8 @@ export function UsageStackedChart({
         />
       ) : null}
     </View>
+      )}
+    </WideChart>
   );
 }
 

@@ -162,31 +162,6 @@ impl TitleHub {
         persist_records(&self.inner);
     }
 
-    /// Drop a destroyed window so a reused name does not inherit its titles.
-    pub fn forget(&self, workspace_id: &str, window_name: &str) {
-        if workspace_id.is_empty() || window_name.is_empty() {
-            return;
-        }
-        let key = format!("{workspace_id}\0{window_name}");
-        {
-            let mut records = self.inner.records.lock().unwrap_or_else(|e| e.into_inner());
-            if records.remove(&key).is_none() {
-                return;
-            }
-        }
-        self.inner
-            .scanners
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .remove(&key);
-        self.inner
-            .pending
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .remove(&key);
-        persist_records(&self.inner);
-    }
-
     pub fn lookup(&self, workspace_id: &str, window_name: &str) -> Option<TerminalTitleUpdate> {
         if workspace_id.is_empty() || window_name.is_empty() {
             return None;
@@ -688,47 +663,6 @@ fn is_path_dynamic_title(title: &str) -> bool {
         || (trimmed.contains('/') && !trimmed.contains(' '))
 }
 
-/// Whether a shell dynamic title is an agent command.
-/// `None` means the title is missing or only a tmux index, so the caller
-/// should keep the existing session. `Some(false)` is a path or another command.
-pub(super) fn dynamic_title_runs_agent(title: &str, commands: &HashSet<String>) -> Option<bool> {
-    let title = title.trim();
-    if title.is_empty() || is_tmux_index(title) || commands.is_empty() {
-        return None;
-    }
-    if is_path_dynamic_title(title) {
-        return Some(false);
-    }
-    let token = command_token(title);
-    if token.is_empty() {
-        return None;
-    }
-    if commands.contains(&token) || (commands.contains("grok") && token.starts_with("grok-")) {
-        return Some(true);
-    }
-    Some(false)
-}
-
-fn command_token(title: &str) -> String {
-    let token = title.split_whitespace().next().unwrap_or("").trim();
-    token
-        .trim_matches(|ch| ch == '"' || ch == '\'')
-        .rsplit(['/', '\\'])
-        .next()
-        .unwrap_or("")
-        .trim()
-        .to_ascii_lowercase()
-}
-
-fn is_path_dynamic_title(title: &str) -> bool {
-    let trimmed = title.trim();
-    trimmed.starts_with(".../")
-        || trimmed.starts_with("~/")
-        || trimmed == "~"
-        || trimmed.starts_with('/')
-        || (trimmed.contains('/') && !trimmed.contains(' '))
-}
-
 fn is_tmux_index(value: &str) -> bool {
     !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit())
 }
@@ -819,58 +753,6 @@ mod tests {
         hub.forget("ws", "claude");
         assert!(hub.lookup("ws", "claude").is_none());
         let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn forget_drops_a_destroyed_window_title() {
-        let dir = std::env::temp_dir().join(format!("atmos-title-hub-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).expect("dir");
-        let hub = TitleHub::start(dir.join("titles.json"));
-        let identity = TitleIdentity {
-            workspace_id: "ws".into(),
-            tmux_window_name: "claude".into(),
-            tmux_window_index: Some(1),
-            session_id: "sess".into(),
-        };
-        hub.apply(
-            &identity,
-            OscHit::Shim {
-                kind: ShimKind::Shell,
-                start: true,
-                payload: "claude".into(),
-            },
-        );
-        assert!(hub.lookup("ws", "claude").is_some());
-        hub.forget("ws", "claude");
-        assert!(hub.lookup("ws", "claude").is_none());
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn dynamic_title_distinguishes_agent_command_from_shell() {
-        let commands = HashSet::from([
-            "claude".to_string(),
-            "codex".to_string(),
-            "cursor-agent".to_string(),
-            "grok".to_string(),
-        ]);
-        assert_eq!(dynamic_title_runs_agent("claude", &commands), Some(true));
-        assert_eq!(
-            dynamic_title_runs_agent("cursor-agent", &commands),
-            Some(true)
-        );
-        assert_eq!(
-            dynamic_title_runs_agent("grok-macos-aarch64", &commands),
-            Some(true)
-        );
-        assert_eq!(
-            dynamic_title_runs_agent(".../proj/app", &commands),
-            Some(false)
-        );
-        assert_eq!(dynamic_title_runs_agent("vim", &commands), Some(false));
-        assert_eq!(dynamic_title_runs_agent("3", &commands), None);
-        assert_eq!(dynamic_title_runs_agent("", &commands), None);
     }
 
     #[test]

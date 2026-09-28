@@ -68,6 +68,7 @@
         "expo-media-library",
         {
           "photosPermission": "Atmos shows your recent photos so you can attach them to a chat.",
+          "savePhotosPermission": "Atmos saves the token usage card to your photos.",
           "isAccessMediaLocationEnabled": false
         }
       ],

@@ -20,6 +20,11 @@ type BuiltinLaunchAgent = {
 
 const BUILTIN_LAUNCH_AGENTS = terminalAgents as BuiltinLaunchAgent[];
 
+export function terminalLaunchAgentCacheKey(serverId: string | null): string | null {
+  const id = serverId?.trim();
+  return id ? `atmos.mobile.code-agent-custom:${id}` : null;
+}
+
 export function mergeTerminalLaunchAgents(
   custom: readonly CodeAgentCustomEntry[] | null | undefined,
   builtins: readonly BuiltinLaunchAgent[] = BUILTIN_LAUNCH_AGENTS,

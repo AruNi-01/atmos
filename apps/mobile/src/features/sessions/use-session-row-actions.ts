@@ -5,6 +5,7 @@ import { wsActions } from "@/api/ws-actions";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import {
+  deletionFailureMessage,
   parseArchivedSessionIds,
   parsePinnedSessionIds,
   sessionDeleteFlags,
@@ -127,7 +128,12 @@ export function useSessionRowActions() {
       const flags = sessionDeleteFlags(choice);
       const { keys } = await wsActions.hostSessionKeysForChat(client, chatId);
       if (keys.length > 0) {
-        await wsActions.hostSessionDelete(client, { keys, ...flags });
+        const result = await wsActions.hostSessionDelete(client, { keys, ...flags });
+        const failure = deletionFailureMessage(result.failures);
+        if (failure) {
+          void queryClient.invalidateQueries({ queryKey: statusKey });
+          throw new Error(failure);
+        }
       } else if (flags.include_atmos_chat) {
         await wsActions.agentChatDelete(client, { chat_id: chatId });
       }

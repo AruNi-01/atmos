@@ -13,6 +13,7 @@ import {
 } from "@atmos/hub-client";
 import type { TokenUsageOverviewResponse } from "@atmos/api-types/ws/dto/token-usage";
 import { formatCompactNumber, formatCurrencyCompact } from "@/features/token-usage/format";
+import { saveUsageCardImage } from "@/features/token-usage/save-usage-card";
 import { shareCardHtml } from "@/features/token-usage/share-card-html";
 import { mapOverviewToSharePayload } from "@/features/token-usage/share-payload";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -46,6 +47,8 @@ export function ShareSheet({
   const webRef = useRef<WebView>(null);
   const [tab, setTab] = useState<"share" | "publish">("share");
   const [preview, setPreview] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const tokens = formatCompactNumber(totalTokens);
   const cost = formatCurrencyCompact(totalCost);
   const shareText = `My AI agent usage on Atmos: ${tokens} tokens · ${cost}\nAtmosphere for Agentic Builders\n${SITE}`;
@@ -56,22 +59,36 @@ export function ShareSheet({
         days: String(overview?.summary.active_days ?? 0),
         isDark,
         messages: formatCompactNumber(messages),
-        shareText,
         tokens,
       }),
-    [cost, isDark, messages, overview?.summary.active_days, shareText, tokens],
+    [cost, isDark, messages, overview?.summary.active_days, tokens],
   );
 
   useEffect(() => {
-    if (!open) setPreview(null);
+    if (!open) {
+      setPreview(null);
+      setSaveError(null);
+      setSaveState("idle");
+    }
   }, [open]);
+
+  const saveImage = (dataUrl: string) => {
+    setSaveError(null);
+    setSaveState("saving");
+    void saveUsageCardImage(dataUrl)
+      .then(() => {
+        setSaveState("saved");
+      })
+      .catch((reason: unknown) => {
+        setSaveState("idle");
+        setSaveError(reason instanceof Error ? reason.message : "Could not save this image.");
+      });
+  };
 
   const onMessage = (event: WebViewMessageEvent) => {
     const payload = JSON.parse(event.nativeEvent.data) as { type?: string; url?: string };
     if (payload.type === "preview" && payload.url) setPreview(payload.url);
-    if (payload.type === "share-fallback") {
-      void Linking.openURL(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`);
-    }
+    if (payload.type === "save-image" && payload.url) saveImage(payload.url);
   };
 
   const openSocial = (url: string) => {
@@ -115,11 +132,21 @@ export function ShareSheet({
             <Social icon={<FacebookMark color={theme.colors.label} />} label="Facebook" onPress={() => openSocial(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(SITE)}`)} />
             <Social icon={<ThreadsMark color={theme.colors.label} />} label="Threads" onPress={() => openSocial(`https://www.threads.net/intent/post?text=${encodeURIComponent(shareText)}`)} />
             <GlassPanel interactive shadow={false} style={styles.socialGlass}>
-              <Pressable accessibilityLabel="Save image" onPress={() => webRef.current?.injectJavaScript("window.shareCard && window.shareCard(); true;")} style={styles.socialButton}>
+              <Pressable
+                accessibilityLabel={saveState === "saved" ? "Saved to photos" : "Save image"}
+                accessibilityState={{ busy: saveState === "saving", disabled: saveState === "saving" }}
+                disabled={saveState === "saving"}
+                onPress={() => webRef.current?.injectJavaScript("window.shareCard && window.shareCard(); true;")}
+                style={styles.socialButton}
+              >
                 <DownloadIcon color={theme.colors.label} size={16} />
               </Pressable>
             </GlassPanel>
           </View>
+          {saveError ? <Text style={{ color: theme.colors.red, fontSize: 13 }}>{saveError}</Text> : null}
+          {saveState === "saved" ? (
+            <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13 }}>Saved to photos</Text>
+          ) : null}
         </View>
       ) : (
         <PublishPane onDone={onDismiss} overview={overview} />

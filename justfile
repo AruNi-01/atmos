@@ -111,10 +111,24 @@ mobile-ios:
     cd apps/mobile && bun run ios
 
 # Expo prebuild output is gitignored. Create it once per worktree.
+# An existing workspace still gets the pod deployment-target snippet if prebuild
+# ran before that plugin existed. pod install applies it.
 mobile-ios-prepare:
     #!/usr/bin/env bash
     set -euo pipefail
-    if [[ -f apps/mobile/ios/Atmos.xcworkspace/contents.xcworkspacedata ]]; then
+    ios_workspace="apps/mobile/ios/Atmos.xcworkspace/contents.xcworkspacedata"
+    podfile="apps/mobile/ios/Podfile"
+    marker="Atmos raises pod deployment targets"
+    if [[ -f "$ios_workspace" ]]; then
+        if [[ -f "$podfile" ]] && ! grep -q "$marker" "$podfile"; then
+            node -e '
+                const fs = require("fs");
+                const { ensurePodDeploymentTarget } = require("./apps/mobile/plugins/with-ios-pod-deployment-target");
+                const path = "apps/mobile/ios/Podfile";
+                fs.writeFileSync(path, ensurePodDeploymentTarget(fs.readFileSync(path, "utf8")));
+            '
+            (cd apps/mobile/ios && pod install)
+        fi
         exit 0
     fi
     cd apps/mobile

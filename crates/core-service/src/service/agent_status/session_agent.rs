@@ -41,31 +41,6 @@ pub struct AgentSessionLiveSet {
     pub shell_terminal_panes: HashSet<String>,
 }
 
-/// A chat that still exists on disk. The session list includes it even before
-/// the first status hook, and drops it once the chat is deleted.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AgentSessionChatRef {
-    pub id: String,
-    pub context_id: String,
-    pub provider_id: String,
-    pub cwd: String,
-    pub updated_at: String,
-}
-
-/// Live backing objects for the agent session list.
-///
-/// `open_terminal_panes` is `None` when the terminal inventory could not be
-/// read. In that case terminal rows are kept. `Some` is the set of stable
-/// pane ids (`{context}:{window}`) that still exist.
-#[derive(Debug, Clone, Default)]
-pub struct AgentSessionLiveSet {
-    pub chats: Vec<AgentSessionChatRef>,
-    pub open_terminal_panes: Option<HashSet<String>>,
-    /// Open windows whose dynamic title is a shell, not an agent command.
-    /// The catalog row stays so the session returns when an agent starts again.
-    pub shell_terminal_panes: HashSet<String>,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AgentSessionStatusSnapshot {
     pub session_id: String,
@@ -636,32 +611,6 @@ impl AgentStatusService {
             }
             let _ = catalog.enqueue_delete(session_id);
         }
-    }
-}
-
-fn terminal_pane_id(row: &AgentSessionStatusSnapshot) -> Option<String> {
-    if let Some(id) = row
-        .surface_id
-        .as_deref()
-        .map(str::trim)
-        .filter(|id| id.contains(':') && !id.starts_with("chat:"))
-    {
-        return Some(id.to_string());
-    }
-    let session_id = row.session_id.trim();
-    if session_id.contains(':') && !session_id.starts_with("chat:") {
-        return Some(session_id.to_string());
-    }
-    None
-}
-
-fn context_from_pane_id(pane_id: &str) -> Option<String> {
-    let (context, window) = pane_id.split_once(':')?;
-    let context = context.trim();
-    if context.is_empty() || window.trim().is_empty() {
-        None
-    } else {
-        Some(context.to_string())
     }
 }
 
@@ -1338,117 +1287,6 @@ mod tests {
         assert_eq!(restored[0].session_id, "ws-1:agent");
     }
 
-    #[tokio::test]
-    async fn live_list_hides_shell_title_and_restores_when_agent_returns() {
-        let test_db = setup_db().await;
-        let service = AgentStatusService::with_db(Arc::clone(&test_db.db));
-        AgentSessionCatalogRepo::new(&test_db.db)
-            .upsert(&catalog_row("ws-1:agent", "2026-01-01T00:00:00+00:00"))
-            .await
-            .expect("seed");
-
-        let hidden = service
-            .list_live_agent_sessions(AgentSessionLiveSet {
-                chats: Vec::new(),
-                open_terminal_panes: Some(HashSet::from(["ws-1:agent".to_string()])),
-                shell_terminal_panes: HashSet::from(["ws-1:agent".to_string()]),
-            })
-            .await
-            .expect("hide shell");
-        assert!(hidden.is_empty());
-        service.flush_catalog().await;
-        assert!(AgentSessionCatalogRepo::new(&test_db.db)
-            .get("ws-1:agent")
-            .await
-            .expect("read")
-            .is_some());
-
-        let restored = service
-            .list_live_agent_sessions(AgentSessionLiveSet {
-                chats: Vec::new(),
-                open_terminal_panes: Some(HashSet::from(["ws-1:agent".to_string()])),
-                shell_terminal_panes: HashSet::new(),
-            })
-            .await
-            .expect("restore agent");
-        assert_eq!(restored.len(), 1);
-        assert_eq!(restored[0].session_id, "ws-1:agent");
-    }
-
-    #[tokio::test]
-    async fn live_list_follows_open_chats_and_terminal_windows() {
-        let test_db = setup_db().await;
-        let service = AgentStatusService::with_db(Arc::clone(&test_db.db));
-        service.update_state(
-            "ws-live:open",
-            AgentToolType::ClaudeCode,
-            AgentOccupancy::Running,
-            Some("/tmp/open".into()),
-            &pane_ctx("ws-live", "ws-live:open"),
-            OccupancyUpdateKind::NewTurn,
-        );
-        AgentSessionCatalogRepo::new(&test_db.db)
-            .upsert(&catalog_row("ws-live:closed", "2026-01-01T00:00:00+00:00"))
-            .await
-            .expect("seed closed pane");
-        service.flush_catalog().await;
-
-        let listed = service
-            .list_live_agent_sessions(AgentSessionLiveSet {
-                chats: vec![AgentSessionChatRef {
-                    id: "chat-1".into(),
-                    context_id: "ws-live".into(),
-                    provider_id: "codex".into(),
-                    cwd: "/tmp/chat".into(),
-                    updated_at: "2026-04-01T00:00:00+00:00".into(),
-                }],
-                open_terminal_panes: Some(HashSet::from(["ws-live:open".to_string()])),
-            })
-            .await
-            .expect("live list");
-        let ids: Vec<_> = listed.iter().map(|row| row.session_id.as_str()).collect();
-        assert_eq!(ids, vec!["chat:chat-1", "ws-live:open"]);
-        assert_eq!(
-            session_by_id(&listed, "chat:chat-1").surface_id.as_deref(),
-            Some("chat-1")
-        );
-        assert_eq!(
-            session_by_id(&listed, "chat:chat-1").context_id.as_deref(),
-            Some("ws-live")
-        );
-
-        service.flush_catalog().await;
-        assert!(AgentSessionCatalogRepo::new(&test_db.db)
-            .get("ws-live:closed")
-            .await
-            .expect("read")
-            .is_none());
-        assert!(AgentSessionCatalogRepo::new(&test_db.db)
-            .get("ws-live:open")
-            .await
-            .expect("read")
-            .is_some());
-    }
-
-    #[tokio::test]
-    async fn live_list_keeps_terminals_when_inventory_is_unavailable() {
-        let test_db = setup_db().await;
-        AgentSessionCatalogRepo::new(&test_db.db)
-            .upsert(&catalog_row("ws-1:kept", "2026-01-01T00:00:00+00:00"))
-            .await
-            .expect("seed");
-        let service = AgentStatusService::with_db(Arc::clone(&test_db.db));
-        let listed = service
-            .list_live_agent_sessions(AgentSessionLiveSet {
-                chats: Vec::new(),
-                open_terminal_panes: None,
-            })
-            .await
-            .expect("live list");
-        assert_eq!(listed.len(), 1);
-        assert_eq!(listed[0].session_id, "ws-1:kept");
-    }
-
     fn catalog_row(session_id: &str, updated_at: &str) -> AgentSessionCatalogRow {
         AgentSessionCatalogRow {
             session_id: session_id.to_string(),
@@ -1528,11 +1366,6 @@ mod tests {
 
         async fn archived_session_ids(&self) -> std::result::Result<HashSet<String>, String> {
             Ok(self.archived.lock().clone())
-        }
-
-        async fn delete(&self, session_id: &str) -> std::result::Result<(), String> {
-            self.rows.lock().remove(session_id);
-            Ok(())
         }
 
         async fn delete(&self, session_id: &str) -> std::result::Result<(), String> {

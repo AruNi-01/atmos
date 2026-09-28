@@ -1,6 +1,7 @@
 import { agentChatApi } from "@/api/ws/agent-chat-api";
 import { hostSessionApi } from "@/api/ws/host-session-api";
 import type { SidebarSessionRow } from "@/app-shell/sidebar/session-grouping";
+import { deletionFailureMessage } from "@/app-shell/sidebar/session-delete-failure";
 
 export type SessionDeleteOptions = {
   includeAtmosChat: boolean;
@@ -31,11 +32,13 @@ export async function deleteLinkedHostSessions(
 ): Promise<void> {
   const { keys } = await hostSessionApi.keysForChat(chatId);
   if (keys.length > 0) {
-    await hostSessionApi.deleteSessions({
+    const result = await hostSessionApi.deleteSessions({
       keys,
       include_atmos_chat: options.includeAtmosChat,
       include_source: options.includeSource,
     });
+    const failure = deletionFailureMessage(result.failures);
+    if (failure) throw new Error(failure);
     return;
   }
   if (options.includeAtmosChat) {

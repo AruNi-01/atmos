@@ -154,12 +154,53 @@ export function useMobileSettingsController() {
       ),
   });
 
+  const renameComputer = useMutation({
+    mutationFn: async (input: { serverId: string; displayName: string }) => {
+      const token = requireDeviceCredential();
+      const displayName = input.displayName.trim();
+      if (!input.serverId || !displayName) throw new Error("Enter a Computer name.");
+      return client.withDeviceCredential(token).renameComputer(input.serverId, displayName);
+    },
+    onSuccess: () => {
+      setError(null);
+      void queryClient.invalidateQueries({ queryKey: ["computers"] });
+    },
+    onError: (nextError) =>
+      setError(nextError instanceof Error ? nextError.message : "Rename failed."),
+  });
+
+  const revokeComputer = useMutation({
+    mutationFn: async (serverId: string) => {
+      const token = requireDeviceCredential();
+      return client.withDeviceCredential(token).revokeComputer(serverId);
+    },
+    onSuccess: (_result, serverId) => {
+      if (selectedServerId === serverId) selectServer(null);
+      setError(null);
+      void queryClient.invalidateQueries({ queryKey: ["computers"] });
+      router.back();
+    },
+    onError: (nextError) =>
+      setError(nextError instanceof Error ? nextError.message : "Revoke failed."),
+  });
+
   const selectComputer = (computer: ComputerRow) => {
     if (computer.online) {
       switchComputer.mutate(computer.server_id);
       return;
     }
     selectServer(computer.server_id);
+  };
+
+  const confirmRevokeComputer = (serverId: string) => {
+    Alert.alert("Revoke Computer", "This Computer will be removed from your Hub account.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Revoke",
+        style: "destructive",
+        onPress: () => revokeComputer.mutate(serverId),
+      },
+    ]);
   };
 
   const confirmSignOutPhone = () => {
@@ -181,11 +222,14 @@ export function useMobileSettingsController() {
     activeComputers,
     canSaveRelaySettings,
     computersQuery,
+    confirmRevokeComputer,
     confirmSignOutPhone,
     createRegisterCommand,
     error,
     hasDeviceCredential,
     registerCommand,
+    renameComputer,
+    revokeComputer,
     relayConfigured,
     relayDraft,
     relaySecretDraft,

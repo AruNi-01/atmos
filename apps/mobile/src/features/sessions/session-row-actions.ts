@@ -25,3 +25,9 @@ export function parsePinnedSessionIds(settings: unknown): string[] {
 export function parseArchivedSessionIds(settings: unknown): string[] {
   return parseSidebarIdList(settings, "archived_session_ids");
 }
+
+/** Partial host-session deletes still return success. Surface that instead of hiding the chat. */
+export function deletionFailureMessage(failures: readonly string[]): string | null {
+  const messages = failures.map((item) => item.trim()).filter((item) => item.length > 0);
+  return messages.length > 0 ? messages.join("; ") : null;
+}
