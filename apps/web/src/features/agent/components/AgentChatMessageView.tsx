@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Message, MessageContent, cn } from "@workspace/ui";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
@@ -39,6 +39,20 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
   const locale = useLocale();
   const userText = textFromParts(message.parts);
   const userTime = formatUserMessageTime(message.created_at, locale);
+  const hasUserMeta = Boolean(userTime) || userText.trim().length > 0;
+  const chromeRef = useRef<HTMLDivElement>(null);
+  const [metaOpen, setMetaOpen] = useState(false);
+
+  useEffect(() => {
+    if (!metaOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Node && chromeRef.current?.contains(target)) return;
+      setMetaOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [metaOpen]);
   const assistantText = assistantCopyText(message);
   const hasAttachments = message.parts.some((part) => part.type === "attachment");
   const [fileApi, setFileApi] = useState<{
@@ -82,9 +96,27 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
     >
       {message.role === "user" ? (
         <div
+          ref={chromeRef}
           className={cn("group relative w-full", isPendingUserEcho(message) && "opacity-[0.65]")}
           data-user-message-chrome=""
+          data-user-message-meta-open={metaOpen && hasUserMeta ? "" : undefined}
           data-agent-chat-pending-echo={isPendingUserEcho(message) ? "" : undefined}
+          onClick={(event) => {
+            if (!hasUserMeta) return;
+            const target = event.target;
+            if (!(target instanceof Element)) return;
+            if (target.closest("a, button, [data-paste-chip], [data-url-chip]")) return;
+            const selection = window.getSelection();
+            if (
+              selection &&
+              !selection.isCollapsed &&
+              selection.anchorNode &&
+              chromeRef.current?.contains(selection.anchorNode)
+            ) {
+              return;
+            }
+            setMetaOpen((open) => !open);
+          }}
         >
           <Message from="user" className="gap-0">
             <MessageContent rounded="2xl">
@@ -106,8 +138,8 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
                 />
               ) : null}
             </MessageContent>
-            {userTime || userText.trim() ? (
-              <div data-user-message-meta="" className="user-message-meta">
+            {hasUserMeta ? (
+              <div data-user-message-meta="" className="user-message-meta" inert={metaOpen ? undefined : true}>
                 <div className="user-message-meta-clip">
                   <div className="user-message-meta-row">
                     {userTime ? (

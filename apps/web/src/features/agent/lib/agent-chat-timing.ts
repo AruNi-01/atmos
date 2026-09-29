@@ -93,7 +93,7 @@ export function promptToCompleteMs(
   return ms > 0 ? ms : undefined;
 }
 
-/** Compact hover timestamp under a user bubble, e.g. "Jul 29, 9:23 AM". */
+/** Compact timestamp under a user bubble, e.g. "Jul 29, 9:23 AM". Shown on click. */
 export function formatUserMessageTime(
   value: string | null | undefined,
   locale: string,

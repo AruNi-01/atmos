@@ -1,4 +1,4 @@
-/* User prompt copy/time chrome: collapsed to 0 height until hover/focus. */
+/* User prompt chrome under the bubble: collapsed until the message is clicked. */
 .user-message-meta {
   display: grid;
   grid-template-rows: 0fr;
@@ -29,28 +29,24 @@
     transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-[data-user-message-chrome]:hover .user-message-meta,
-[data-user-message-chrome]:focus-within .user-message-meta {
+[data-user-message-chrome][data-user-message-meta-open] .user-message-meta {
   grid-template-rows: 1fr;
   pointer-events: auto;
   transition-duration: 280ms;
   transition-delay: 0ms;
 }
 
-[data-user-message-chrome]:hover .user-message-meta-item,
-[data-user-message-chrome]:focus-within .user-message-meta-item {
+[data-user-message-chrome][data-user-message-meta-open] .user-message-meta-item {
   opacity: 1;
   transform: translateY(0);
   transition-duration: 220ms, 280ms;
 }
 
-[data-user-message-chrome]:hover .user-message-meta-item:nth-child(1),
-[data-user-message-chrome]:focus-within .user-message-meta-item:nth-child(1) {
+[data-user-message-chrome][data-user-message-meta-open] .user-message-meta-item:nth-child(1) {
   transition-delay: 30ms;
 }
 
-[data-user-message-chrome]:hover .user-message-meta-item:nth-child(2),
-[data-user-message-chrome]:focus-within .user-message-meta-item:nth-child(2) {
+[data-user-message-chrome][data-user-message-meta-open] .user-message-meta-item:nth-child(2) {
   transition-delay: 70ms;
 }
 

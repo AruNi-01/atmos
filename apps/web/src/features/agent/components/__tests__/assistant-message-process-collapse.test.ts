@@ -90,8 +90,9 @@ describe("assistant process collapse chrome", () => {
     expect(messageView).toContain("UserMessageBody");
   });
 
-  it("lets user copy/time chrome take space only while hovered", () => {
+  it("reveals the user message meta row on click", () => {
     expect(messageView).toContain('data-user-message-meta=""');
+    expect(messageView).toContain("data-user-message-meta-open");
     expect(messageView).toContain("user-message-meta");
     expect(messageView).toContain("user-message-meta-clip");
     expect(messageView).toContain("user-message-meta-item");
@@ -105,8 +106,14 @@ describe("assistant process collapse chrome", () => {
     );
     expect(css).toContain("grid-template-rows: 0fr");
     expect(css).toContain("grid-template-rows: 1fr");
-    expect(css).toContain("[data-user-message-chrome]:hover .user-message-meta");
-    expect(css).toContain("[data-user-message-chrome]:focus-within .user-message-meta");
+    expect(css).toContain(
+      "[data-user-message-chrome][data-user-message-meta-open] .user-message-meta",
+    );
+    expect(css).toContain(
+      "[data-user-message-chrome][data-user-message-meta-open] .user-message-meta-item",
+    );
+    expect(css).not.toContain(":hover");
+    expect(css).not.toContain(":focus-within");
     expect(css).toContain("prefers-reduced-motion: reduce");
   });
 });
