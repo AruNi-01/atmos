@@ -44,7 +44,7 @@ pub use git::{
     FileDiffInfo, GitBlobLocator, GitEngine, GitStatus, HistoryCommit, HistoryPage, HistoryRef,
     HistoryRefKind, WorktreeInfo,
 };
-pub use github::GithubEngine;
+pub use github::{attach_base_ref_changes, timeline_has_base_ref_change, GithubEngine};
 pub use host_devices::{
     boot_android_argv, boot_ios_argv, camera_feed_path, camera_wiring_matches, clear_camera_png,
     collect_android_snapshot, collect_ios_snapshot, create_android_avd_argv, create_ios_argv,

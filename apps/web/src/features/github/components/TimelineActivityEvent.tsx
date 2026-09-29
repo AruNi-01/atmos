@@ -9,7 +9,6 @@ import {
   Edit2,
   ExternalLink,
   Eye,
-  GitBranch,
   GitCommit,
   GitMerge,
   GitPullRequest,
@@ -25,6 +24,7 @@ import {
   ArrowRightLeft,
   XCircle,
 } from "lucide-react";
+import { cn } from "@/shared/lib/utils";
 import { GithubUserAvatar } from "@/features/github/components/GithubUserHoverCard";
 import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
 import type {
@@ -38,6 +38,31 @@ const timelineIconRailClass =
 const timelineIconShellClass =
   "flex size-5 items-center justify-center rounded-full border border-border/50 bg-muted ring-4 ring-background";
 const timelineIconClass = "size-3 text-muted-foreground";
+
+/** GitHub `git-branch` octicon, the timeline mark for a base-branch change. */
+function GithubGitBranchIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      fill="currentColor"
+      className={className}
+    >
+      <path d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.493 2.493 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Zm-6 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm8.25-.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM4.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z" />
+    </svg>
+  );
+}
+
+function BranchRefChip({ name }: { name: string }) {
+  return (
+    <span
+      title={name}
+      className="inline-block min-w-0 max-w-full truncate rounded-md bg-sky-500/15 px-1.5 py-px align-middle font-mono text-[11px] leading-4 text-sky-800 dark:bg-sky-400/15 dark:text-sky-200"
+    >
+      {name}
+    </span>
+  );
+}
 
 function ActivityIcon({ id }: { id: TimelineActivityIconId }) {
   switch (id) {
@@ -62,7 +87,7 @@ function ActivityIcon({ id }: { id: TimelineActivityIconId }) {
     case "rocket":
       return <Rocket className={timelineIconClass} />;
     case "branch":
-      return <GitBranch className={timelineIconClass} />;
+      return <GithubGitBranchIcon className="size-3.5 text-muted-foreground" />;
     case "lock":
       return <Lock className={timelineIconClass} />;
     case "unlock":
@@ -99,6 +124,22 @@ function lockReasonLabel(
       return t("lockReasons.spam");
     default:
       return reason || "";
+  }
+}
+
+function baseRefChangeLead(
+  copyId: TimelineActivityCopyId,
+  t: ReturnType<typeof useTranslations<"github.timeline">>,
+): string | null {
+  switch (copyId) {
+    case "baseRefChanged":
+      return t("events.baseRefChangedFrom");
+    case "automaticBaseChangeSucceeded":
+      return t("events.automaticBaseChangeSucceededFrom");
+    case "automaticBaseChangeFailed":
+      return t("events.automaticBaseChangeFailedFrom");
+    default:
+      return null;
   }
 }
 
@@ -284,6 +325,10 @@ export function TimelineActivityEvent({
   const copyId = mapped.copyId ?? "updatedThis";
   const text = activityCopy(copyId, mapped, t);
   const extras = mapped.extras;
+  const baseRefFrom = extras.baseRefFrom ?? "";
+  const baseRefTo = extras.baseRefTo ?? "";
+  const baseRefLead = baseRefChangeLead(copyId, t);
+  const showBaseRefs = Boolean(baseRefLead && baseRefFrom && baseRefTo);
   const time = createdAt
     ? formatDistanceToNow(new Date(createdAt), { addSuffix: true, locale })
     : "";
@@ -308,7 +353,12 @@ export function TimelineActivityEvent({
             <ActivityIcon id={mapped.iconId} />
           </div>
         </div>
-        <div className="flex min-w-0 flex-1 items-center gap-2 text-xs">
+        <div
+          className={cn(
+            "flex min-w-0 flex-1 items-center text-xs",
+            showBaseRefs ? "flex-wrap gap-x-1.5 gap-y-1" : "gap-2",
+          )}
+        >
           <GithubUserAvatar
             username={actorLogin}
             avatarUrl={actorAvatarUrl}
@@ -323,7 +373,16 @@ export function TimelineActivityEvent({
               {t("bot")}
             </span>
           ) : null}
-          <span className="min-w-0 truncate text-muted-foreground">{text}</span>
+          {showBaseRefs && baseRefLead ? (
+            <>
+              <span className="text-muted-foreground">{baseRefLead}</span>
+              <BranchRefChip name={baseRefFrom} />
+              <span className="text-muted-foreground">{t("events.baseRefChangedTo")}</span>
+              <BranchRefChip name={baseRefTo} />
+            </>
+          ) : (
+            <span className="min-w-0 truncate text-muted-foreground">{text}</span>
+          )}
           {extras.label?.name ? (
             <span
               className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"

@@ -240,6 +240,8 @@ export type TimelineEventExtras = {
   projectPreviousColumn?: string;
   projectId?: number;
   commentCount?: number;
+  baseRefFrom?: string;
+  baseRefTo?: string;
 };
 
 export type TimelineItemLike = TimelineRefLike & {
@@ -288,6 +290,7 @@ export type TimelineItemLike = TimelineRefLike & {
     project_url?: string;
   };
   comments?: unknown[];
+  base_ref_change?: { from?: string; to?: string };
 };
 
 type RelatedIssueLike = {
@@ -366,6 +369,14 @@ function parseRelatedIssue(
 ): TimelineReference | null {
   if (!ref?.number) return null;
   return parseTimelineIssueSource(ref, owner, repo);
+}
+
+function fillBaseRefChange(extras: TimelineEventExtras, item: TimelineItemLike) {
+  const from = item.base_ref_change?.from?.trim() ?? "";
+  const to = item.base_ref_change?.to?.trim() ?? "";
+  if (!from || !to) return;
+  extras.baseRefFrom = from;
+  extras.baseRefTo = to;
 }
 
 function fillProjectCard(
@@ -527,10 +538,13 @@ export function mapTimelineEvent(
     case "head_ref_restored":
       return mapped("activity", "headRefRestored", "branch");
     case "base_ref_changed":
+      fillBaseRefChange(extras, item);
       return mapped("activity", "baseRefChanged", "branch");
     case "automatic_base_change_succeeded":
+      fillBaseRefChange(extras, item);
       return mapped("activity", "automaticBaseChangeSucceeded", "branch");
     case "automatic_base_change_failed":
+      fillBaseRefChange(extras, item);
       return mapped("activity", "automaticBaseChangeFailed", "branch");
     case "ready_for_review":
       return mapped("activity", "readyForReview", "eye");
