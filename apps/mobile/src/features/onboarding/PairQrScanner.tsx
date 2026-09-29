@@ -122,6 +122,7 @@ export function PairQrScanner({
         ]}
       >
         <CameraView
+          active={!locked}
           style={styles.camera}
           facing="back"
           barcodeScannerSettings={{ barcodeTypes: ["qr"] }}

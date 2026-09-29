@@ -42,6 +42,7 @@ export async function hubClaimMobilePair(
   const res = await fetch(`${base}/v1/mobile-pair/claim`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
+    credentials: "omit",
     body: JSON.stringify({ pair_code: pairCode.trim() }),
   });
   if (!res.ok) {
