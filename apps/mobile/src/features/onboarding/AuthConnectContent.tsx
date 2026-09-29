@@ -16,6 +16,7 @@ import { useAuthSignIn } from "@/features/onboarding/use-auth-sign-in";
 import { radii } from "@/theme/radii";
 import { spacing } from "@/theme/spacing";
 import { useMobileTheme } from "@/theme/theme-store";
+import { AtmosLogo } from "@/ui/AtmosLogo";
 import { AppScreen, InlineError } from "@/ui/layout/app-screen";
 import { QrCodeIcon } from "@/ui/icons/lucide-native";
 import { GithubMark, GoogleMark } from "@/ui/icons/oauth-marks";
@@ -248,8 +249,6 @@ export function AuthConnectContent({
   const dockBadgeBg = theme.isDark
     ? "rgba(255, 255, 255, 0.10)"
     : "rgba(255, 255, 255, 0.12)";
-  // Home screen sits under the large title; keep the viewfinder below “Atmos”.
-  const scannerOffsetTop = isSheet ? 0 : 148;
 
   return (
     <View style={[styles.root, { backgroundColor: heroBackground }]}>
@@ -259,6 +258,7 @@ export function AuthConnectContent({
           {
             backgroundColor: heroBackground,
             bottom: dockHeight,
+            paddingTop: isSheet ? 0 : insets.top,
           },
         ]}
       >
@@ -275,13 +275,14 @@ export function AuthConnectContent({
               },
             ]}
           >
-            <View style={styles.brandBlock}>
-              {/* Sheet owns its own title; screen sits under the native “Atmos” header. */}
+            <View style={[styles.brandBlock, !isSheet && styles.screenBrand]}>
               {isSheet ? (
                 <Text style={[styles.productName, { color: theme.colors.label }]}>
                   {PRODUCT_NAME}
                 </Text>
-              ) : null}
+              ) : (
+                <AtmosLogo />
+              )}
               <Text
                 style={[
                   isSheet ? styles.productSlogan : styles.screenSlogan,
@@ -301,7 +302,6 @@ export function AuthConnectContent({
                 styles.scannerLayer,
                 {
                   opacity: scannerOpacity,
-                  paddingTop: scannerOffsetTop,
                   transform: [{ scale: scannerScale }],
                 },
               ]}
@@ -316,7 +316,12 @@ export function AuthConnectContent({
                   disabled={auth.busy || !scannerOpen}
                   onScanned={(value) => {
                     setScannerOpen(false);
-                    auth.claimPair.mutate(value);
+                    // Stop the capture session before the claim. iOS reports
+                    // "The network connection was lost" if fetch starts while
+                    // the camera is still running.
+                    setTimeout(() => {
+                      auth.claimPair.mutate(value);
+                    }, 450);
                   }}
                 />
               </View>
@@ -528,6 +533,10 @@ const styles = StyleSheet.create({
     gap: 10,
     maxWidth: 340,
     width: "100%",
+  },
+  // Same mark and gap as the empty Chat screen.
+  screenBrand: {
+    gap: 28,
   },
   productName: {
     fontSize: 40,

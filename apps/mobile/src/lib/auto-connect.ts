@@ -7,7 +7,7 @@ import { useSessionStore } from "@/stores/session-store";
 
 /**
  * After device credential is accepted: list computers and open a session when
- * exactly one online computer is available (or a previous selection is online).
+ * the account has one Computer, or a previous selection is still online.
  */
 export async function autoConnectAfterAuth(client: RelayClient): Promise<{
   computers: ComputerRow[];

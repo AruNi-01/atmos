@@ -4,7 +4,17 @@ import type { ComputerRow } from "@/api/types";
 import { getAutoConnectComputerId, selectableOnlineComputers } from "@/features/computers/computer-selection";
 
 describe("computer auto selection", () => {
-  test("auto-connects the only online computer when none is selected", () => {
+  test("selects the only computer even when it is offline or a previous choice is stale", () => {
+    expect(
+      getAutoConnectComputerId({
+        activeClientSession: null,
+        computers: [computer({ server_id: "only", online: false })],
+        selectedServerId: "old",
+      }),
+    ).toBe("only");
+  });
+
+  test("does not guess among several computers when only one is online", () => {
     expect(
       getAutoConnectComputerId({
         activeClientSession: null,
@@ -14,7 +24,7 @@ describe("computer auto selection", () => {
         ],
         selectedServerId: null,
       }),
-    ).toBe("online");
+    ).toBeNull();
   });
 
   test("keeps the selected online computer even when another computer is online", () => {

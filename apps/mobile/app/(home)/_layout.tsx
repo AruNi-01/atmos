@@ -1,4 +1,4 @@
-import { useWindowDimensions } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import { GlassProvider } from "@rbayuokt/expo-adaptive-glass";
 import {
   GlassNavigationTabBar,
@@ -7,7 +7,10 @@ import {
 } from "@rbayuokt/expo-adaptive-glass/navigation";
 import { Tabs } from "expo-router";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
+import { AuthConnectContent } from "@/features/onboarding/AuthConnectContent";
+import { useSessionStore } from "@/stores/session-store";
 import { useMobileTheme } from "@/theme/theme-store";
+import { AtmosLogo } from "@/ui/AtmosLogo";
 import { HomeTabBarInsetContext } from "@/ui/layout/home-tab-bar-inset";
 import { ChartColumnBigIcon, GaugeIcon, LayoutGridIcon, MessagesSquareIcon } from "@/ui/icons/lucide-native";
 
@@ -136,7 +139,40 @@ function IosHomeTabs() {
   );
 }
 
+/**
+ * Login and QR pair both store a device credential. Until one of those
+ * succeeds, tab switches have nothing to open, so the home route is the
+ * connect screen instead of the tab navigator.
+ */
+function UnconnectedComputerScreen({ ready }: { ready: boolean }) {
+  const theme = useMobileTheme();
+
+  if (!ready) {
+    return (
+      <View
+        accessibilityRole="progressbar"
+        style={{
+          alignItems: "center",
+          backgroundColor: theme.colors.background,
+          flex: 1,
+          justifyContent: "center",
+        }}
+      >
+        <AtmosLogo breathe />
+      </View>
+    );
+  }
+
+  return <AuthConnectContent presentation="screen" />;
+}
+
 export default function HomeTabsLayout() {
+  const deviceCredentialLoaded = useSessionStore((state) => state.deviceCredentialLoaded);
+  const hasDeviceCredential = useSessionStore((state) => state.hasDeviceCredential);
+
+  if (!deviceCredentialLoaded || !hasDeviceCredential) {
+    return <UnconnectedComputerScreen ready={deviceCredentialLoaded} />;
+  }
   if (process.env.EXPO_OS === "ios") return <IosHomeTabs />;
   return <AndroidHomeTabs />;
 }

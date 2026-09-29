@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import { activeComputers } from "@atmos/relay-client";
 import { Button, Host } from "@expo/ui";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import type { ProjectWorkspaceBootstrapResponse } from "@/api/types";
 import { wsActions } from "@/api/ws-actions";
 import { getAutoConnectComputerId } from "@/features/computers/computer-selection";
-import { AuthConnectContent } from "@/features/onboarding/AuthConnectContent";
 import { WorkspaceHomeList } from "@/features/workspaces/WorkspaceHomeList";
 
 import { useRelayClient } from "@/hooks/use-relay-client";
@@ -14,6 +14,7 @@ import { requireDeviceCredential } from "@/lib/device-credential";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useComputerStore } from "@/stores/computer-store";
 import { useSessionStore } from "@/stores/session-store";
+import { spacing } from "@/theme/spacing";
 import { useMobileTheme } from "@/theme/theme-store";
 import { ListFilterIcon, SettingsIcon } from "@/ui/icons/lucide-native";
 import { AtmosLogo } from "@/ui/AtmosLogo";
@@ -193,23 +194,21 @@ export function WorkspaceListScreen() {
     />
   );
 
+  const availableComputers = activeComputers(computers);
   const needsComputerChoice =
     hasDeviceCredential &&
     sessionHydrated &&
     computersQuery.isFetched &&
     !isConnectingCachedComputer &&
+    wsState !== "open" &&
+    availableComputers.length > 1;
+  const singleComputerFailed =
+    hasDeviceCredential &&
+    sessionHydrated &&
+    computersQuery.isFetched &&
+    availableComputers.length === 1 &&
+    !isConnectingCachedComputer &&
     wsState !== "open";
-
-  if (!hasDeviceCredential && deviceCredentialLoaded && sessionHydrated) {
-    // Same pair / OAuth surface as the sign-in sheet, embedded full-page under
-    // the Workspace header — no intermediate empty “Pair via QR” home.
-    return (
-      <>
-        {header}
-        <AuthConnectContent presentation="screen" />
-      </>
-    );
-  }
 
   return (
     <>
@@ -221,6 +220,8 @@ export function WorkspaceListScreen() {
           message={sessionError ?? computersError}
           onPress={() => router.push("/settings/computers")}
         />
+      ) : singleComputerFailed ? (
+        <SingleComputerFailure message={sessionError ?? computersError} />
       ) : (
         <AppScreen onRefresh={refreshWorkspaces} refreshing={refreshing}>
           <WorkspaceHomeList
@@ -254,6 +255,27 @@ function HomeLoading() {
   );
 }
 
+function SingleComputerFailure({ message }: { message?: string | null }) {
+  const theme = useMobileTheme();
+
+  return (
+    <View
+      style={{
+        alignItems: "center",
+        backgroundColor: theme.colors.background,
+        flex: 1,
+        justifyContent: "center",
+        paddingHorizontal: spacing.screenX,
+      }}
+    >
+      <EmptyState
+        message={message || "Check that the Computer is online."}
+        title="Could not connect"
+      />
+    </View>
+  );
+}
+
 function ChooseComputerPrompt({
   message,
   onPress,
@@ -265,7 +287,15 @@ function ChooseComputerPrompt({
   const button = expoUiPrimaryStyle(theme.colors);
 
   return (
-    <AppScreen contentFlex>
+    <View
+      style={{
+        alignItems: "center",
+        backgroundColor: theme.colors.background,
+        flex: 1,
+        justifyContent: "center",
+        paddingHorizontal: spacing.screenX,
+      }}
+    >
       <View style={{ alignSelf: "stretch", gap: 20, paddingHorizontal: 8 }}>
         <EmptyState
           message="Choose a Computer to see workspaces."
@@ -287,6 +317,6 @@ function ChooseComputerPrompt({
         </Host>
         <InlineError message={message} />
       </View>
-    </AppScreen>
+    </View>
   );
 }
