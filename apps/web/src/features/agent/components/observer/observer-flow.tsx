@@ -297,33 +297,39 @@ function ObserverNodeCard({
   return (
     <div
       className={cn(
-        "observer-card w-[288px] rounded-xl border px-3 pt-2.5 pb-3",
-        tone.shell,
-        attention === "permission_request" &&
-          "agent-attention-ring-card agent-attention-ring-permission",
-        attention === "task_complete" &&
-          "agent-attention-ring-card agent-attention-ring-complete",
-        selected && "ring-1 ring-foreground/25",
-        exiting && "is-exiting",
+        "observer-card-shell relative w-[288px]",
+        exiting && "pointer-events-none",
       )}
-      ref={cardRef}
-      data-presence={presence}
-      style={
-        {
-          "--observer-stagger": `${observerStaggerMs(data.depth)}ms`,
-          ...(boxHeight != null
-            ? { height: boxHeight, overflow: "hidden" }
-            : null),
-        } as CSSProperties
-      }
     >
+      {/* Outside the scaled card so the first handle measure stays on the real edge. */}
       <Handle
         type="target"
         position={Position.Left}
         isConnectable={false}
         style={handleStyle}
       />
-
+      <div
+        className={cn(
+          "observer-card w-full rounded-xl border px-3 pt-2.5 pb-3",
+          tone.shell,
+          attention === "permission_request" &&
+            "agent-attention-ring-card agent-attention-ring-permission",
+          attention === "task_complete" &&
+            "agent-attention-ring-card agent-attention-ring-complete",
+          selected && "ring-1 ring-foreground/25",
+          exiting && "is-exiting",
+        )}
+        ref={cardRef}
+        data-presence={presence}
+        style={
+          {
+            "--observer-stagger": `${observerStaggerMs(data.depth)}ms`,
+            ...(boxHeight != null
+              ? { height: boxHeight, overflow: "hidden" }
+              : null),
+          } as CSSProperties
+        }
+      >
       <div ref={bodyRef}>
         <div className="observer-card-header flex items-center gap-2">
           <span
@@ -410,6 +416,7 @@ function ObserverNodeCard({
             </ol>
           ) : null}
         </div>
+      </div>
       </div>
 
       <Handle

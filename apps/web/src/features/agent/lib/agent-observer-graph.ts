@@ -53,6 +53,8 @@ export type ObserverGraphEdge = {
 export type ObserverGraph = {
   nodes: ObserverGraphNode[];
   edges: ObserverGraphEdge[];
+  /** Visible nodes plus cards hidden by a folded parent. Heights stay cached for expand. */
+  knownIds: string[];
 };
 
 /** Any card with children can fold, except a subagent, which has no children of its own. */
@@ -431,7 +433,54 @@ export function buildObserverGraph({
     (edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target),
   );
 
-  return { nodes: visibleNodes, edges: visibleEdges };
+  return {
+    nodes: visibleNodes,
+    edges: visibleEdges,
+    knownIds: nodes.map((node) => node.id),
+  };
+}
+
+export function observerNodeHeight(
+  node: Pick<
+    ObserverGraphNode,
+    "id" | "kind" | "visibleTurns" | "extraTurns" | "todos"
+  >,
+  expandedAgentIds?: ReadonlySet<string>,
+): number {
+  if (node.kind === "subagent") return 128;
+  if (node.kind === "agent") {
+    const extra = expandedAgentIds?.has(node.id)
+      ? Math.min(node.visibleTurns.length, 6) * 22 +
+        (node.extraTurns > 0 ? 18 : 0)
+      : 0;
+    const todos = node.todos.length > 0 ? 28 : 0;
+    return 136 + extra + todos;
+  }
+  return 112;
+}
+
+/** Keep React Flow's measured box when a layout pass replaces the node object. */
+export function preserveMeasuredNodes<
+  T extends { id: string; measured?: { width?: number; height?: number } },
+>(current: readonly T[], next: readonly T[]): T[] {
+  if (current.length === 0) return next as T[];
+  const measuredById = new Map<string, { width: number; height: number }>();
+  for (const node of current) {
+    const width = node.measured?.width;
+    const height = node.measured?.height;
+    if (width != null && width > 0 && height != null && height > 0) {
+      measuredById.set(node.id, { width, height });
+    }
+  }
+  if (measuredById.size === 0) return next as T[];
+  return next.map((node) => {
+    const width = node.measured?.width;
+    const height = node.measured?.height;
+    if (width != null && width > 0 && height != null && height > 0) return node;
+    const measured = measuredById.get(node.id);
+    if (!measured) return node;
+    return { ...node, measured };
+  });
 }
 
 export function layoutObserverGraph(
@@ -457,15 +506,7 @@ export function layoutObserverGraph(
     if (measured != null && measured > 0) return measured;
     const node = byId.get(id);
     if (!node) return 108;
-    if (node.kind === "subagent") return 128;
-    if (node.kind === "agent") {
-      const extra = expandedAgentIds.has(id)
-        ? Math.min(node.visibleTurns.length, 6) * 22 + (node.extraTurns > 0 ? 18 : 0)
-        : 0;
-      const todos = node.todos.length > 0 ? 28 : 0;
-      return 136 + extra + todos;
-    }
-    return 112;
+    return observerNodeHeight(node, expandedAgentIds);
   }
 
   function subtreeHeight(id: string): number {

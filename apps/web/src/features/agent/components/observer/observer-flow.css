@@ -1,5 +1,7 @@
 /* Observer graph motion.
    Cards enter and exit with opacity and a slight scale.
+   Handles stay on .observer-card-shell, outside that scale, so the wire
+   caps keep their gap on the first measure.
    Wire travel is stepped in JS so the curve stays on the card centers.
    Reduced motion keeps opacity and drops movement. */
 

@@ -18,6 +18,7 @@ import {
   observerCardCanRemove,
   observerLayoutShiftToAnchor,
   observerLiveHeadline,
+  preserveMeasuredNodes,
   observerNodeTitle,
   sessionFromActivity,
   toolLineText,
@@ -366,8 +367,18 @@ describe("buildObserverGraph", () => {
       expandedAgentIds: new Set(),
     });
     expect(folded.nodes.some((n) => n.id === "child:lead:c1")).toBe(false);
+    expect(folded.knownIds).toContain("child:lead:c1");
     expect(folded.nodes.find((n) => n.id === "agent:lead")?.descendantCount).toBe(1);
     expect(folded.edges.some((e) => e.target === "child:lead:c1")).toBe(false);
+  });
+
+  it("keeps a measured node box when the flow replaces the node object", () => {
+    const next = preserveMeasuredNodes(
+      [{ id: "project", measured: { width: 288, height: 112 } }, { id: "gone", measured: { width: 288, height: 80 } }],
+      [{ id: "project" }, { id: "agent" }],
+    );
+    expect(next[0]?.measured).toEqual({ width: 288, height: 112 });
+    expect(next[1]?.measured).toBeUndefined();
   });
 
   it("keeps a folded card at its previous point without fitting the viewport", () => {
@@ -572,6 +583,9 @@ describe("Observer pane jump", () => {
     expect(source).toContain("mergeFlowEdges");
     expect(source).toContain("observerLayoutShiftToAnchor");
     expect(source).toContain("pendingAnchorRef");
+    expect(source).toContain("preserveMeasuredNodes");
+    expect(source).toContain("initialWidth");
+    expect(source).toContain("knownIds");
     expect(source).not.toContain("ObserverViewportFitter");
     expect(source).not.toContain("pendingFocusRootRef");
     expect(source).not.toContain("observerSubtreeIds");
@@ -604,6 +618,10 @@ describe("Observer pane jump", () => {
     expect(source).not.toContain("GripVertical");
     expect(source).toContain("observerWirePath");
     expect(source).toContain("observer-edge-cap");
+    expect(source).toContain("observer-card-shell");
+    const shell = source.slice(source.indexOf("observer-card-shell"));
+    expect(shell.indexOf("<Handle")).toBeGreaterThan(-1);
+    expect(shell.indexOf("<Handle")).toBeLessThan(shell.indexOf("observer-card w-full"));
     expect(source).toContain("descendantCount");
     expect(source).toContain("observerNodeTitle");
     expect(source).toContain("sessionTitle");

@@ -53,6 +53,8 @@ import {
   observerCardCanFold,
   observerCardCanRemove,
   observerLayoutShiftToAnchor,
+  observerNodeHeight,
+  preserveMeasuredNodes,
   sessionFromActivity,
   type ObserverGraphNode,
 } from "@/features/agent/lib/agent-observer-graph";
@@ -187,11 +189,13 @@ function mergeFlowNodes(
   current: Node<ObserverFlowData>[],
   next: Node<ObserverFlowData>[],
 ): Node<ObserverFlowData>[] {
-  if (current.length === 0) return next;
-  if (!sameNodeLayout(current, next)) return next;
+  // A replacement without `measured` makes React Flow drop the box and hide the node.
+  const carried = preserveMeasuredNodes(current, next);
+  if (current.length === 0) return carried;
+  if (!sameNodeLayout(current, carried)) return carried;
   let changed = false;
   const merged = current.map((left, i) => {
-    const right = next[i];
+    const right = carried[i];
     if (
       left.selected === right.selected &&
       left.data.node === right.data.node &&
@@ -199,7 +203,9 @@ function mergeFlowNodes(
       left.data.sessionTitle === right.data.sessionTitle &&
       left.data.attentionReason === right.data.attentionReason &&
       left.data.boxHeight === right.data.boxHeight &&
-      left.data.onHeight === right.data.onHeight
+      left.data.onHeight === right.data.onHeight &&
+      left.measured?.width === right.measured?.width &&
+      left.measured?.height === right.measured?.height
     ) {
       return left;
     }
@@ -207,6 +213,7 @@ function mergeFlowNodes(
     return {
       ...left,
       selected: right.selected,
+      measured: right.measured ?? left.measured,
       data: {
         ...left.data,
         node: right.data.node,
@@ -348,7 +355,7 @@ export function AgentObserverView() {
   }, []);
 
   useEffect(() => {
-    const live = new Set(graph.nodes.map((node) => node.id));
+    const live = new Set(graph.knownIds);
     setMeasuredHeights((prev) => {
       let changed = false;
       const next = new Map(prev);
@@ -360,7 +367,7 @@ export function AgentObserverView() {
       }
       return changed ? next : prev;
     });
-  }, [graph]);
+  }, [graph.knownIds]);
 
   const positions = useMemo(
     () => layoutObserverGraph(graph, new Set(), measuredHeights),
@@ -451,12 +458,15 @@ export function AgentObserverView() {
   useLayoutEffect(() => {
     const pending = pendingAnchorRef.current;
     if (!pending) return;
-    pendingAnchorRef.current = null;
     const next = observerLayoutShiftToAnchor(positions, pending.id, pending);
     setLayoutShift((prev) =>
       prev.x === next.x && prev.y === next.y ? prev : next,
     );
-  }, [positions]);
+    // Folded cards report height a frame after they return. Hold the anchor
+    // until then so the opened card does not step upward on the correction.
+    const waiting = graph.nodes.some((node) => !measuredHeights.has(node.id));
+    if (!waiting) pendingAnchorRef.current = null;
+  }, [graph.nodes, measuredHeights, positions]);
 
   const liveNodes: Node<ObserverFlowData>[] = useMemo(
     () =>
@@ -484,6 +494,9 @@ export function AgentObserverView() {
           type: "observer",
           selected: node.id === selectedId,
           draggable: false,
+          initialWidth: 288,
+          initialHeight:
+            measuredHeights.get(node.id) ?? observerNodeHeight(node),
           style: { width: 288 },
         };
       }),
@@ -491,6 +504,7 @@ export function AgentObserverView() {
       attentionPanes,
       collapsedIds,
       graph.nodes,
+      measuredHeights,
       placed,
       reportHeight,
       selectedId,
