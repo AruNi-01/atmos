@@ -14,10 +14,6 @@ export const AGENT_CHAT_ASSISTANT_MERMAID_ROW_ESTIMATE = 480;
 /** StickToBottom scroll container class — virtualizer reads this, not the context. */
 export const AGENT_CHAT_SCROLL_CLASS = "agent-chat-scroll";
 
-/** Fade messages into the composer so the bottom edge is not a hard clip. */
-export const AGENT_CHAT_COMPOSER_FADE_CLASS =
-  "pointer-events-none absolute inset-x-0 bottom-0 z-10 h-14 bg-gradient-to-t from-background from-10% via-background/70 to-transparent";
-
 /** In-flow spacer under the last message when no above-composer overlays are open. */
 export const AGENT_CHAT_TRANSCRIPT_BASE_BOTTOM_PAD_PX = 40;
 

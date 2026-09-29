@@ -324,6 +324,45 @@ html:not([data-theme-ready="true"]) body {
   .agent-chat-scroll {
     overflow-anchor: none;
   }
+
+  /*
+   * Transcript edge fades. Same curve on both ends: the bottom always blends
+   * into the composer; the top appears once the list has scrolled.
+   */
+  .agent-chat-edge-fade {
+    --agent-chat-fade-stops:
+      var(--background) 0%,
+      color-mix(in oklab, var(--background) 88%, transparent) 24%,
+      color-mix(in oklab, var(--background) 46%, transparent) 58%,
+      transparent 100%;
+    pointer-events: none;
+    position: absolute;
+    inset-inline: 0;
+    z-index: 10;
+    height: 3.5rem;
+  }
+
+  .agent-chat-edge-fade[data-agent-chat-edge-fade="bottom"] {
+    bottom: 0;
+    background: linear-gradient(to top, var(--agent-chat-fade-stops));
+  }
+
+  .agent-chat-edge-fade[data-agent-chat-edge-fade="top"] {
+    top: 0;
+    background: linear-gradient(to bottom, var(--agent-chat-fade-stops));
+    opacity: 0;
+    transition: opacity 160ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .agent-chat-edge-fade[data-agent-chat-edge-fade="top"][data-active="true"] {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .agent-chat-edge-fade[data-agent-chat-edge-fade="top"] {
+      transition: none;
+    }
+  }
 }
 
 /*

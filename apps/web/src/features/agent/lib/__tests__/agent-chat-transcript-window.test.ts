@@ -5,7 +5,6 @@ import {
   AGENT_CHAT_ASSISTANT_MERMAID_ROW_ESTIMATE,
   AGENT_CHAT_ASSISTANT_ROW_ESTIMATE,
   AGENT_CHAT_MERMAID_KEEPALIVE,
-  AGENT_CHAT_COMPOSER_FADE_CLASS,
   AGENT_CHAT_OVERLAY_PAD_SHRINK_MS,
   AGENT_CHAT_SCROLL_CLASS,
   AGENT_CHAT_TRANSCRIPT_BASE_BOTTOM_PAD_PX,
@@ -166,8 +165,7 @@ describe("transcript virtual list wiring", () => {
     expect(list).not.toContain("stickyUserPinLayout");
     expect(list).not.toContain("pin?.translateY");
     expect(panel).toContain("relative z-0 min-h-0 flex-1 overflow-hidden data-[agent-chat-own-send]:z-20");
-    expect(panel).toContain("data-agent-chat-composer-fade");
-    expect(panel).toContain("AGENT_CHAT_COMPOSER_FADE_CLASS");
+    expect(panel).toContain("<AgentChatEdgeFades");
     expect(list).toContain("StickToBottomStop");
     expect(list).toContain("skipEndAnchorRef");
     expect(list).toContain("itemKeyRef");
@@ -210,10 +208,27 @@ describe("agentMessageHasMermaid", () => {
 });
 
 describe("composer fade", () => {
-  it("fades transcript tokens into the composer without a hard clip", () => {
-    expect(AGENT_CHAT_COMPOSER_FADE_CLASS).toContain("absolute inset-x-0 bottom-0");
-    expect(AGENT_CHAT_COMPOSER_FADE_CLASS).toContain("from-background");
-    expect(AGENT_CHAT_COMPOSER_FADE_CLASS).not.toContain("backdrop-blur");
+  it("fades both transcript edges with one curve and no blur", () => {
+    const fades = readFileSync(
+      join(import.meta.dir, "../../components/AgentChatEdgeFades.tsx"),
+      "utf8",
+    );
+    const css = readFileSync(join(import.meta.dir, "../../../../app/globals.css"), "utf8");
+    expect(fades).toContain('data-agent-chat-edge-fade="top"');
+    expect(fades).toContain('data-agent-chat-edge-fade="bottom"');
+    expect(fades).toContain('data-agent-chat-composer-fade=""');
+    expect(fades).toContain("scrollTop >");
+    const detail = readFileSync(
+      join(import.meta.dir, "../../../agent-sessions/components/HostSessionDetailView.tsx"),
+      "utf8",
+    );
+    expect(detail).toContain("<AgentChatEdgeFades");
+    expect(css).toContain(".agent-chat-edge-fade");
+    expect(css).toContain('data-agent-chat-edge-fade="bottom"');
+    expect(css).toContain('data-agent-chat-edge-fade="top"');
+    expect(css).toContain("linear-gradient(to top, var(--agent-chat-fade-stops))");
+    expect(css).toContain("linear-gradient(to bottom, var(--agent-chat-fade-stops))");
+    expect(css).not.toContain("backdrop-blur");
   });
 });
 

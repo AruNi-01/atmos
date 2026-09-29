@@ -44,13 +44,11 @@ import {
   transcriptFindQuery,
 } from "@/features/agent/lib/transcript-find";
 import { AgentChatAboveComposerOverlays } from "@/features/agent/components/AgentChatAboveComposerOverlays";
+import { AgentChatEdgeFades } from "@/features/agent/components/AgentChatEdgeFades";
 import { SubagentConversationOverlay } from "@/features/agent/components/SubagentConversationOverlay";
 import { SubagentOverlayProvider } from "@/features/agent/components/subagent-overlay-context";
 import { grokChromeAgentIds } from "@/features/agent/lib/grok-chrome";
-import {
-  AGENT_CHAT_COMPOSER_FADE_CLASS,
-  transcriptBottomPadPx,
-} from "@/features/agent/lib/agent-chat-transcript-window";
+import { transcriptBottomPadPx } from "@/features/agent/lib/agent-chat-transcript-window";
 
 function HostSessionResumeMenu({
   resumeChat,
@@ -526,11 +524,7 @@ export function HostSessionDetailView({
                 />
               ) : null}
               {messages.length > 0 ? (
-                <div
-                  data-agent-chat-composer-fade=""
-                  aria-hidden="true"
-                  className={AGENT_CHAT_COMPOSER_FADE_CLASS}
-                />
+                <AgentChatEdgeFades rootRef={transcriptRef} resetKey={selectedKey} />
               ) : null}
               </FindHighlightProvider>
             </div>

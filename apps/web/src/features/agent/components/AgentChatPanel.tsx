@@ -52,13 +52,13 @@ import { isAgentNewChatLanding } from "../lib/agent-composer-placeholder";
 import { findSubagentToolCall } from "../lib/subagent-tasks";
 import { useReducedMotion, motion } from "motion/react";
 import {
-  AGENT_CHAT_COMPOSER_FADE_CLASS,
   AGENT_CHAT_OVERLAY_PAD_SHRINK_MS,
   AGENT_CHAT_SCROLL_CLASS,
   findAgentChatScrollElement,
   transcriptBottomPadPx,
   transcriptBottomPadStyle,
 } from "../lib/agent-chat-transcript-window";
+import { AgentChatEdgeFades } from "./AgentChatEdgeFades";
 import {
   composerDockMotion,
   composerTranscriptChrome,
@@ -1220,10 +1220,9 @@ export function AgentChatPanel({
           />
         ) : null}
         {messages.length > 0 ? (
-          <div
-            data-agent-chat-composer-fade=""
-            aria-hidden="true"
-            className={AGENT_CHAT_COMPOSER_FADE_CLASS}
+          <AgentChatEdgeFades
+            rootRef={transcriptRef}
+            resetKey={liveChatId || chatId || "draft"}
           />
         ) : null}
         </FindHighlightProvider>
