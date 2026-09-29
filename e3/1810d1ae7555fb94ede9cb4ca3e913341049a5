@@ -1,0 +1,22 @@
+apps/web/src/app/globals.css
+  h_5be255725524c8 327-365
+apps/web/src/features/agent-sessions/components/HostSessionDetailView.tsx
+  h_5be255725524c8 47,51,527
+apps/web/src/features/agent/components/AgentChatEdgeFades.tsx
+  h_5be255725524c8 1-59
+apps/web/src/features/agent/components/AgentChatPanel.tsx
+  h_5be255725524c8 61,1223-1225
+apps/web/src/features/agent/lib/__tests__/agent-chat-transcript-window.test.ts
+  h_5be255725524c8 168,211-231
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e31810d1ae7555fb94ede9cb4ca3e913341049a5",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
