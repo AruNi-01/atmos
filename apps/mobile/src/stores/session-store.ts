@@ -14,10 +14,14 @@ type SessionState = {
   relayAuthRevision: number;
   selectedServerId: string | null;
   activeClientSession: ClientSessionResponse | null;
+  /** True after the persisted Computer choice has been read. */
+  sessionHydrated: boolean;
   setDeviceCredentialLoaded: (hasDeviceCredential: boolean) => void;
   setRelayUrl: (url: string) => void;
   setRelaySecretKey: (secretKey: string) => void;
   selectServer: (serverId: string | null) => void;
+  /** Remember the Computer and its session together, without clearing the session in between. */
+  adoptComputerSession: (serverId: string, session: ClientSessionResponse) => void;
   setClientSession: (session: ClientSessionResponse | null) => void;
   clearClientSession: () => void;
   clearSession: () => void;
@@ -33,6 +37,7 @@ export const useSessionStore = create<SessionState>()(
       relayAuthRevision: 0,
       selectedServerId: null,
       activeClientSession: null,
+      sessionHydrated: false,
       setDeviceCredentialLoaded: (hasDeviceCredential) =>
         set({
           deviceCredentialLoaded: true,
@@ -58,6 +63,11 @@ export const useSessionStore = create<SessionState>()(
         set({
           selectedServerId: serverId,
           activeClientSession: null,
+        }),
+      adoptComputerSession: (selectedServerId, activeClientSession) =>
+        set({
+          selectedServerId,
+          activeClientSession,
         }),
       setClientSession: (activeClientSession) => set({ activeClientSession }),
       clearClientSession: () =>
@@ -94,6 +104,13 @@ export const useSessionStore = create<SessionState>()(
         };
       },
       storage: createJSONStorage(() => AsyncStorage),
+      onRehydrateStorage: () => () => {
+        useSessionStore.setState({ sessionHydrated: true });
+      },
     },
   ),
 );
+
+useSessionStore.persist.onFinishHydration(() => {
+  useSessionStore.setState({ sessionHydrated: true });
+});

@@ -22,6 +22,26 @@ pub struct HostSessionListRequest {
     pub offset: Option<u32>,
     #[serde(default)]
     pub sync: bool,
+    #[serde(default)]
+    pub include_archived: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HostSessionSetArchivedRequest {
+    pub keys: Vec<String>,
+    pub archived: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HostSessionKeysForChatRequest {
+    pub chat_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HostSessionDeleteRequest {
+    pub keys: Vec<String>,
+    pub include_atmos_chat: bool,
+    pub include_source: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

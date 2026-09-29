@@ -49,6 +49,8 @@ mod m20260917_000042_add_host_session_parent;
 mod m20260917_000043_create_host_session_search;
 mod m20260918_000044_add_host_session_byte_size;
 mod m20260918_000045_add_host_session_scan_fingerprint;
+mod m20260922_000046_create_agent_session_catalog;
+mod m20260927_000047_add_host_session_archived;
 
 pub struct Migrator;
 
@@ -100,6 +102,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260917_000043_create_host_session_search::Migration),
             Box::new(m20260918_000044_add_host_session_byte_size::Migration),
             Box::new(m20260918_000045_add_host_session_scan_fingerprint::Migration),
+            Box::new(m20260922_000046_create_agent_session_catalog::Migration),
+            Box::new(m20260927_000047_add_host_session_archived::Migration),
         ]
     }
 }

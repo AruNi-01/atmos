@@ -1406,6 +1406,16 @@
         "low": "低",
         "trigger": "优先级"
       },
+      "view": {
+        "sectionLabel": "视图",
+        "workspace": "工作区",
+        "session": "会话",
+        "empty": "没有会话",
+        "noMatches": "没有匹配的会话",
+        "archive": "归档",
+        "pinned": "置顶",
+        "unknownProject": "未知项目"
+      },
       "grouping": {
         "project": "按项目",
         "group": "按分组",
@@ -8238,8 +8248,12 @@
         "headRefDeleted": "删除了该分支",
         "headRefRestored": "恢复了该分支",
         "baseRefChanged": "更改了基准分支",
+        "baseRefChangedFrom": "将基准分支从",
+        "baseRefChangedTo": "改为",
         "automaticBaseChangeSucceeded": "已自动更改基准分支",
+        "automaticBaseChangeSucceededFrom": "已自动将基准分支从",
         "automaticBaseChangeFailed": "自动更改基准分支失败",
+        "automaticBaseChangeFailedFrom": "未能将基准分支从",
         "markedAsDuplicate": "将此项标记为重复",
         "unmarkedAsDuplicate": "取消了此项的重复标记",
         "pinned": "置顶了此项",
@@ -9565,6 +9579,10 @@
     "copied": "已复制",
     "copyFailed": "无法复制命令",
     "listAria": "宿主会话",
+    "archived": "已归档",
+    "selectSession": "选择{title}",
+    "emptyArchivedTitle": "归档会话已隐藏",
+    "emptyArchived": "归档不会删除数据。打开筛选里的显示归档即可再次看到。",
     "messageCount": "{count} 条消息",
     "tabs": {
       "agent": "智能体",
@@ -9598,7 +9616,8 @@
         "lastYear": "去年"
       },
       "clear": "清除筛选",
-      "reset": "重置"
+      "reset": "重置",
+      "showArchived": "显示归档"
     },
     "sort": {
       "trigger": "排序",
@@ -9610,6 +9629,23 @@
       "ascending": "升序",
       "descending": "倒序",
       "reset": "重置"
+    },
+    "bulk": {
+      "label": "会话操作",
+      "selectAll": "全选",
+      "deselectAll": "取消全选",
+      "archive": "归档",
+      "unarchive": "取消归档",
+      "archiveMixed": "所选内容里同时有归档和未归档的会话",
+      "delete": "删除",
+      "close": "关闭",
+      "includeChat": "包括 Atmos Chat 数据",
+      "includeSource": "包括原始 Session 数据",
+      "holdToDelete": "按住删除",
+      "held": "已确认",
+      "undo": "撤销",
+      "undoTitle": "即将删除 {count} 项",
+      "failed": "无法更新会话"
     }
   },
   "skills": {

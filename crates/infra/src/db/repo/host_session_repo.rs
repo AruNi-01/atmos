@@ -43,6 +43,9 @@ pub struct HostSessionIndexQuery {
     pub offset: u32,
     pub roots_only: bool,
     pub session_keys: Option<Vec<String>>,
+    /// When false, archived rows stay out of the page. Search catch-up and
+    /// the scan cache ask for them so their flags survive the next sync.
+    pub include_archived: bool,
 }
 
 impl Default for HostSessionIndexQuery {
@@ -59,6 +62,7 @@ impl Default for HostSessionIndexQuery {
             offset: 0,
             roots_only: true,
             session_keys: None,
+            include_archived: false,
         }
     }
 }
@@ -104,6 +108,7 @@ pub struct HostSessionIndexRow {
     pub parent_native_id: Option<String>,
     pub source_mtime_ms: i64,
     pub source_size: i64,
+    pub archived: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -148,6 +153,7 @@ impl<'a> HostSessionRepo<'a> {
             .query(&HostSessionIndexQuery {
                 roots_only: false,
                 limit: 50_000,
+                include_archived: true,
                 ..Default::default()
             })
             .await?
@@ -227,6 +233,9 @@ impl<'a> HostSessionRepo<'a> {
         if let Some(before) = query.updated_before {
             finder = finder.filter(host_session::Column::LastActiveAt.lt(before.naive_utc()));
         }
+        if !query.include_archived {
+            finder = finder.filter(host_session::Column::Archived.eq(false));
+        }
 
         let order = match query.sort_order {
             HostSessionSortOrder::Asc => sea_orm::Order::Asc,
@@ -269,6 +278,52 @@ impl<'a> HostSessionRepo<'a> {
         let txn = self.db.begin().await?;
         sync_index_in_txn(&txn, rows, index_revision).await?;
         txn.commit().await?;
+        Ok(())
+    }
+
+    pub async fn set_archived(
+        &self,
+        keys: &[String],
+        archived: bool,
+    ) -> Result<Vec<String>, InfraError> {
+        if keys.is_empty() {
+            return Ok(Vec::new());
+        }
+        let existing = host_session::Entity::find()
+            .filter(host_session::Column::SessionKey.is_in(keys.to_vec()))
+            .filter(host_session::Column::IsDeleted.eq(false))
+            .all(self.db)
+            .await?;
+        let mut updated = Vec::with_capacity(existing.len());
+        let now = Utc::now().naive_utc();
+        for model in existing {
+            let key = model.session_key.clone();
+            let mut active: host_session::ActiveModel = model.into();
+            active.archived = Set(archived);
+            active.updated_at = Set(now);
+            active.update(self.db).await?;
+            updated.push(key);
+        }
+        Ok(updated)
+    }
+
+    pub async fn delete_sessions(&self, keys: &[String]) -> Result<(), InfraError> {
+        if keys.is_empty() {
+            return Ok(());
+        }
+        let key_list = keys.to_vec();
+        host_session_search::Entity::delete_many()
+            .filter(host_session_search::Column::SessionKey.is_in(key_list.clone()))
+            .exec(self.db)
+            .await?;
+        host_session_search_cursor::Entity::delete_many()
+            .filter(host_session_search_cursor::Column::SessionKey.is_in(key_list.clone()))
+            .exec(self.db)
+            .await?;
+        host_session::Entity::delete_many()
+            .filter(host_session::Column::SessionKey.is_in(key_list))
+            .exec(self.db)
+            .await?;
         Ok(())
     }
 
@@ -691,6 +746,9 @@ fn index_active_model(
         parent_native_id: Set(row.parent_native_id.clone()),
         source_mtime_ms: Set(row.source_mtime_ms),
         source_size: Set(row.source_size),
+        // New rows start active. Conflict updates omit this column so a
+        // rescan keeps an archive flag the user already set.
+        archived: Set(false),
     }
 }
 
@@ -805,6 +863,7 @@ fn into_row(model: host_session::Model) -> HostSessionIndexRow {
             .filter(|value| !value.trim().is_empty()),
         source_mtime_ms: model.source_mtime_ms,
         source_size: model.source_size,
+        archived: model.archived,
     }
 }
 
@@ -833,6 +892,7 @@ mod tests {
             parent_native_id: None,
             source_mtime_ms: 0,
             source_size: 0,
+            archived: false,
         }
     }
 
@@ -1165,5 +1225,75 @@ mod tests {
         let kept = repo.search_text("kept body").await.unwrap();
         assert_eq!(kept[0].session_key, "claude:a");
         assert!(repo.search_text("gone body").await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn archive_flag_hides_rows_and_survives_sync() {
+        let db = mem_db().await;
+        let repo = HostSessionRepo::new(&db);
+        repo.sync_index(
+            &[
+                row("claude:a", "claude", "alpha", 30),
+                row("claude:b", "claude", "beta", 40),
+            ],
+            1,
+        )
+        .await
+        .unwrap();
+        let updated = repo
+            .set_archived(&["claude:a".to_string()], true)
+            .await
+            .unwrap();
+        assert_eq!(updated, vec!["claude:a".to_string()]);
+
+        let visible = repo.query(&HostSessionIndexQuery::default()).await.unwrap();
+        assert_eq!(visible.total, 1);
+        assert_eq!(visible.sessions[0].session_key, "claude:b");
+
+        let with_archived = repo
+            .query(&HostSessionIndexQuery {
+                include_archived: true,
+                ..HostSessionIndexQuery::default()
+            })
+            .await
+            .unwrap();
+        let alpha = with_archived
+            .sessions
+            .iter()
+            .find(|session| session.session_key == "claude:a")
+            .unwrap();
+        assert!(alpha.archived);
+
+        repo.sync_index(
+            &[
+                row("claude:a", "claude", "alpha renamed", 30),
+                row("claude:b", "claude", "beta", 40),
+            ],
+            1,
+        )
+        .await
+        .unwrap();
+        let after_sync = repo
+            .query(&HostSessionIndexQuery {
+                include_archived: true,
+                ..HostSessionIndexQuery::default()
+            })
+            .await
+            .unwrap();
+        let alpha = after_sync
+            .sessions
+            .iter()
+            .find(|session| session.session_key == "claude:a")
+            .unwrap();
+        assert!(alpha.archived);
+        assert_eq!(alpha.title, "alpha renamed");
+        assert!(
+            !after_sync
+                .sessions
+                .iter()
+                .find(|session| session.session_key == "claude:b")
+                .unwrap()
+                .archived
+        );
     }
 }

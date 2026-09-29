@@ -1,22 +1,22 @@
 # ATMOS - Justfile
-# 使用 Just (https://github.com/casey/just) 管理跨语言任务
-# 安装: brew install just (macOS) / cargo install just
+# Cross-language tasks via Just (https://github.com/casey/just)
+# Install: brew install just (macOS) / cargo install just
 
-# 设置默认 shell
+# Default shell
 set shell := ["zsh", "-cu"]
 set positional-arguments
 # set shell := ["powershell.exe", "-c"]
 
-# 显示所有可用命令
+# List every available command
 default:
     @just --list --unsorted
 
 # ============================================
-# 开发命令 (Development)
+# Development
 # ============================================
 
-# 启动 Web 开发服务器
-# 用法:
+# Start the web dev server
+# Usage:
 #   just dev-web
 #   just dev-web --port 3001
 #   just dev-web --web-port 3001 --api-port 4040
@@ -53,25 +53,221 @@ dev-web *args:
         cd apps/web && bun x next dev --turbopack --port "$web_port"
     fi
 
-# 启动 Web 开发服务器 (使用 portless)
+# Start the web dev server with portless
 dev-web-portless:
     bun --filter web dev:portless
 
-# 启动 landing 开发服务器
+# Start the landing dev server
 dev-landing:
     bun --filter landing dev
 
-# 启动 landing 开发服务器 (使用 portless)
+# Start the landing dev server with portless
 dev-landing-portless:
     bun --filter landing dev:portless
 
-# 启动 docs 开发服务器
+# Start the docs dev server
 dev-docs:
     bun --filter docs dev
 
-# 启动 Mobile Expo 开发服务器
+# Same as bunx expo start --dev-client. An installed app connects here; no reinstall.
+# Phone and Mac must share Wi-Fi. Alias: just dm
 dev-mobile:
-    cd apps/mobile && bun run start
+    cd apps/mobile && bunx expo start --dev-client --scheme atmos --lan
+
+# Start Metro for the installed Atmos Dev app. VPN is fine: uses the Wi-Fi address, not the 198.18 virtual interface.
+# Bundle id land.atmos.mobile.dev. Does not replace the Release Atmos app. Alias: just dmp
+dev-mobile-phone:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    is_lan_ip() {
+        local ip="$1"
+        [[ "$ip" == 10.* || "$ip" == 192.168.* || "$ip" == 172.1[6-9].* || "$ip" == 172.2[0-9].* || "$ip" == 172.3[0-1].* ]]
+    }
+
+    host=""
+    for iface in en0 en1; do
+        ip="$(ipconfig getifaddr "$iface" 2>/dev/null || true)"
+        if [[ -n "$ip" ]] && is_lan_ip "$ip"; then
+            host="$ip"
+            break
+        fi
+    done
+
+    if [[ -z "$host" ]]; then
+        echo "No Wi-Fi address found. Connect this computer to the LAN, or turn off the proxy TUN, then try again." >&2
+        exit 1
+    fi
+
+    echo "Phone URL: http://${host}:8081"
+    cd apps/mobile
+    REACT_NATIVE_PACKAGER_HOSTNAME="$host" bunx expo start --dev-client --scheme atmos-dev --lan
+
+# Build and install on the iOS simulator (first run, or after a native dependency change)
+mobile-ios:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+    cd apps/mobile && bun run ios
+
+# Expo prebuild output is gitignored. Create it once per worktree.
+# An existing workspace still gets the pod deployment-target snippet if prebuild
+# ran before that plugin existed. pod install applies it.
+mobile-ios-prepare:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ios_workspace="apps/mobile/ios/Atmos.xcworkspace/contents.xcworkspacedata"
+    podfile="apps/mobile/ios/Podfile"
+    marker="Atmos raises pod deployment targets"
+    if [[ -f "$ios_workspace" ]]; then
+        if [[ -f "$podfile" ]] && ! grep -q "$marker" "$podfile"; then
+            node -e '
+                const fs = require("fs");
+                const { ensurePodDeploymentTarget } = require("./apps/mobile/plugins/with-ios-pod-deployment-target");
+                const path = "apps/mobile/ios/Podfile";
+                fs.writeFileSync(path, ensurePodDeploymentTarget(fs.readFileSync(path, "utf8")));
+            '
+            (cd apps/mobile/ios && pod install)
+        fi
+        exit 0
+    fi
+    cd apps/mobile
+    CI=1 bunx expo prebuild --platform ios
+
+# Build the Release app and install it on a connected iPhone. Does not use Metro.
+# Installs as Atmos (land.atmos.mobile). Does not replace Atmos Dev.
+# Usage: just mobile-ios-release
+#       just mobile-ios-release 00008120-000108901432201E
+mobile-ios-release *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    unset EXPO_PUBLIC_ATMOS_MOBILE_DEV_IMPORT_DEVICE EXPO_PUBLIC_ATMOS_MOBILE_DEV_DEVICE_SETTINGS_URL
+    export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+
+    if [[ $# -gt 0 ]]; then
+        device="$1"
+    else
+        device="$(xcrun devicectl list devices 2>/dev/null | awk '
+            /physical/ && $0 !~ /shutdown|unavailable/ {
+                for (i = 1; i <= NF; i++) if ($i ~ /^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{16}$/) { print $i; exit }
+            }
+        ')"
+    fi
+    if [[ -z "${device:-}" ]]; then
+        echo "No connected iPhone found. Plug it in and unlock it, or run: just mobile-ios-release <UDID>" >&2
+        xcrun devicectl list devices >&2 || true
+        exit 1
+    fi
+
+    just mobile-ios-prepare
+    ios_dir="apps/mobile/ios"
+    xcodebuild \
+        -workspace "$ios_dir/Atmos.xcworkspace" \
+        -scheme Atmos \
+        -configuration Release \
+        -destination "generic/platform=iOS" \
+        -allowProvisioningUpdates \
+        PRODUCT_BUNDLE_IDENTIFIER=land.atmos.mobile \
+        DEVELOPMENT_TEAM=2PNT5GQDAK \
+        CODE_SIGN_STYLE=Automatic \
+        build
+
+    app="$(find "$HOME/Library/Developer/Xcode/DerivedData" -path '*/Build/Products/Release-iphoneos/Atmos.app/Info.plist' ! -path '*/Index.noindex/*' -print -quit)"
+    app="${app%/Info.plist}"
+    if [[ -z "$app" || ! -d "$app" ]]; then
+        echo "Built Atmos.app was not found." >&2
+        exit 1
+    fi
+    bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")"
+    display_name="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$app/Info.plist")"
+    if [[ "$bundle_id" != "land.atmos.mobile" || "$display_name" != "Atmos" ]]; then
+        echo "Build is not Release Atmos ($display_name / $bundle_id). Install stopped." >&2
+        exit 1
+    fi
+    xcrun devicectl device install app --device "$device" "$app"
+    echo "Installed $display_name ($bundle_id)"
+
+# Build Atmos Dev and install it on a connected iPhone. Live reload needs Metro.
+# Installs as Atmos Dev (land.atmos.mobile.dev). Does not replace the Release Atmos app.
+# After install, start Metro with just dev-mobile-phone.
+# Usage: just mobile-ios-dev
+#       just mobile-ios-dev 00008120-000108901432201E
+mobile-ios-dev *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+
+    if [[ $# -gt 0 ]]; then
+        device="$1"
+    else
+        device="$(xcrun devicectl list devices 2>/dev/null | awk '
+            /physical/ && $0 !~ /shutdown|unavailable/ {
+                for (i = 1; i <= NF; i++) if ($i ~ /^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{16}$/) { print $i; exit }
+            }
+        ')"
+    fi
+    if [[ -z "${device:-}" ]]; then
+        echo "No connected iPhone found. Plug it in and unlock it, or run: just mobile-ios-dev <UDID>" >&2
+        xcrun devicectl list devices >&2 || true
+        exit 1
+    fi
+
+    just mobile-ios-prepare
+    ios_dir="apps/mobile/ios"
+    plist="$ios_dir/Atmos/Info.plist"
+    backup="$(mktemp)"
+    cp "$plist" "$backup"
+    restore_plist() { cp "$backup" "$plist"; }
+    trap restore_plist EXIT
+    /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName Atmos Dev' "$plist"
+    /usr/libexec/PlistBuddy -c 'Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 atmos-dev' "$plist"
+    /usr/libexec/PlistBuddy -c 'Set :CFBundleURLTypes:0:CFBundleURLSchemes:1 land.atmos.mobile.dev' "$plist"
+    /usr/libexec/PlistBuddy -c 'Set :CFBundleURLTypes:1:CFBundleURLSchemes:0 exp+atmos-mobile-dev' "$plist"
+
+    xcodebuild \
+        -workspace "$ios_dir/Atmos.xcworkspace" \
+        -scheme Atmos \
+        -configuration Debug \
+        -destination "generic/platform=iOS" \
+        -allowProvisioningUpdates \
+        PRODUCT_BUNDLE_IDENTIFIER=land.atmos.mobile.dev \
+        DEVELOPMENT_TEAM=2PNT5GQDAK \
+        CODE_SIGN_STYLE=Automatic \
+        build
+
+    app="$(find "$HOME/Library/Developer/Xcode/DerivedData" -path '*/Build/Products/Debug-iphoneos/Atmos.app/Info.plist' ! -path '*/Index.noindex/*' -print -quit)"
+    app="${app%/Info.plist}"
+    if [[ -z "$app" || ! -d "$app" ]]; then
+        echo "Built Atmos Dev app was not found." >&2
+        exit 1
+    fi
+    bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")"
+    display_name="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$app/Info.plist")"
+    if [[ "$bundle_id" != "land.atmos.mobile.dev" || "$display_name" != "Atmos Dev" ]]; then
+        echo "Build is not Atmos Dev ($display_name / $bundle_id). Install stopped." >&2
+        exit 1
+    fi
+    xcrun devicectl device install app --device "$device" "$app"
+    echo "Installed $display_name ($bundle_id). For live reload, run just dev-mobile-phone"
+
+# Build and install a same-bundle-id Debug app on a connected iPhone. This replaces the Release Atmos app.
+# To keep Release installed beside Dev, use just mobile-ios-dev.
+# Usage: just mobile-ios-device
+#       just mobile-ios-device 00008120-000108901432201E
+mobile-ios-device *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+    cd apps/mobile
+    if [[ $# -gt 0 ]]; then
+        bunx expo run:ios --device "$@"
+    else
+        bunx expo run:ios --device
+    fi
+
+# Build and install on an Android device or emulator
+mobile-android:
+    cd apps/mobile && bun run android
 
 # ── Desktop (Electron is the production default shell) ──────────────────────
 # prepare-sidecar stages shared Atmos Server + web static under the runtime layout.
@@ -89,7 +285,7 @@ dev-desktop-tauri:
     @echo "⚠️  apps/desktop (Tauri) is deprecated. Prefer: just dev-desktop"
     bash ./scripts/desktop/prepare-sidecar.sh && cd apps/desktop && bun run tauri dev --no-watch --no-dev-server-wait --config src-tauri/tauri.debug.conf.json
 
-# Desktop 分开启动: 仅后端 (开发模式，使用 cargo run)
+# Start the desktop backend only (dev mode, cargo run)
 dev-desktop-backend:
     RUST_LOG=info cargo run --bin api
 
@@ -138,10 +334,10 @@ release-desktop-dry-run version *args:
 release-desktop-electron-dry-run version *args:
     just release-desktop-dry-run {{version}} {{args}}
 
-# 启动 API 服务器
-# 直接 cargo run，Ctrl+C 信号能正确传播，避免 shell 先于 api 退出导致输出乱序
-# 需要热重载时用 dev-api-watch
-# 用法:
+# Start the API server
+# Runs cargo run directly so Ctrl+C reaches the process, instead of the shell exiting first and scrambling the output
+# For hot reload, use dev-api-watch
+# Usage:
 #   just dev-api
 #   just dev-api --port 4040
 #   just dev-api -p 4040
@@ -196,12 +392,12 @@ dev-api *args:
         cargo run --bin api -- --cleanup-stale-clients "$cleanup_stale_clients"
     fi
 
-# 启动 Atmos Hub（Better Auth / devices / integrations；packages/hub wrangler dev）
-# 用法:
+# Start Atmos Hub (Better Auth / devices / integrations; packages/hub wrangler dev)
+# Usage:
 #   just dev-hub
 #   just dev-hub --port 8787
 #   just dh
-# 需要 packages/hub/.dev.vars（secrets）；默认 http://localhost:8787
+# Requires packages/hub/.dev.vars (secrets). Default http://localhost:8787
 dev-hub *args:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -232,7 +428,7 @@ dev-hub *args:
     echo "Atmos Hub → http://localhost:${port}  (BETTER_AUTH_URL in .dev.vars should match)"
     bunx wrangler dev --port "$port"
 
-# 启动 API 服务器 (热重载，Ctrl+C 时 cargo watch 可能先退出导致输出乱序)
+# Start the API server with hot reload. On Ctrl+C, cargo watch may exit first and scramble the output
 dev-api-watch *args:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -280,12 +476,12 @@ dev-api-watch *args:
         cargo watch -x "run --bin api -- --cleanup-stale-clients $cleanup_stale_clients" -w apps/api -w crates
     fi
 
-# 运行 CLI 帮助
+# Run CLI help
 dev-cli:
     cargo run --bin atmos -- --help
 
-# 同时启动所有开发服务器 (并行运行)
-# 用法:
+# Start every dev server in parallel
+# Usage:
 #   just dev-all
 #   just dev-all --web-port 3001 --api-port 4040
 #   just dev-all --web-port 3001 --api-port 4040 --cleanup-stale-clients false
@@ -322,29 +518,29 @@ dev-all *args:
         esac
     done
 
-    echo "启动所有开发服务器... web=${web_port} api=${api_port}"
+    echo "Starting dev servers... web=${web_port} api=${api_port}"
     just dev-web --web-port "$web_port" --api-port "$api_port" & just dev-api --port "$api_port" --web-port "$web_port" --cleanup-stale-clients "$cleanup_stale_clients"
 
 # ============================================
-# 版本命令 (Release / Version)
+# Release / Version
 # ============================================
 
-# 校验 production desktop 版本（apps/desktop-electron/package.json）
+# Check the production desktop version (apps/desktop-electron/package.json)
 check-desktop-version:
     node -e "const p=require('./apps/desktop-electron/package.json'); if(!p.version) process.exit(1); console.log('desktop-electron version', p.version);"
 
 # ============================================
-# 构建命令 (Build)
+# Build
 # ============================================
-# 构建 API 服务器 (release 模式)
+# Build the API server (release)
 build-api:
     cargo build --release --bin api
 
-# 构建 CLI 工具 (release 模式)
+# Build the CLI (release)
 build-cli:
     cargo build --release --bin atmos
 
-# 构建本地 Web runtime 产物 (api + atmos + web)
+# Build the local web runtime artifacts (api + atmos + web)
 build-local-runtime *args:
     node ./scripts/local-runtime/build-runtime.mjs {{args}}
 
@@ -360,26 +556,26 @@ pack-serve-sim *args:
 pack-serve-emu *args:
     bash scripts/serve-emu/pack.sh {{args}}
 
-# 构建所有 Rust 项目
+# Build every Rust package
 build-rust:
     cargo build --release --workspace
 
-# 构建所有项目
+# Build every project
 build-all:
     bun run build
     cargo build --release --workspace
 
 # ============================================
-# 安装命令 (Install)
+# Install
 # ============================================
 
-# 安装 CLI 到 cargo bin（~/.cargo/bin/atmos）
+# Install the CLI into cargo bin (~/.cargo/bin/atmos)
 install-cli:
     cargo install --path apps/cli
 
-# 一键用本仓库最新 CLI 替换本机 atmos
-# 写入产品路径 ~/.atmos/bin/atmos；若存在 ~/.cargo/bin 则一并覆盖
-# 用法: just use-local-cli
+# Replace the local atmos binary with this repo's latest CLI
+# Writes ~/.atmos/bin/atmos, and also ~/.cargo/bin/atmos when that directory exists
+# Usage: just use-local-cli
 use-local-cli:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -409,16 +605,16 @@ use-local-cli:
       echo "path:    atmos not on PATH — add export PATH=\"\$HOME/.atmos/bin:\$PATH\""
     fi
 
-# 安装所有依赖
+# Install every dependency
 install-deps:
     bun install
     cargo fetch
 
 # ============================================
-# 代码质量 (Code Quality)
+# Code quality
 # ============================================
 
-# 运行所有 lint 检查
+# Run every lint check
 lint:
     bun lint
     cargo clippy --workspace
@@ -431,131 +627,131 @@ typecheck:
 typecheck-bench:
     bun run typecheck:bench
 
-# 格式化所有代码
+# Format all code
 fmt:
     bun run prettier --write .
     cargo fmt --all
 
-# 检查格式问题 (不修改文件)
+# Check formatting without writing files
 fmt-check:
     bun run prettier --check .
     cargo fmt --all --check
 
 # ============================================
-# 测试 (Testing)
+# Testing
 # ============================================
 
-# 运行所有测试
+# Run every test
 test:
     bun test
     cargo test --workspace
 
-# 运行 Playwright E2E 测试
+# Run Playwright end-to-end tests
 test-e2e *args:
     bun run --cwd e2e test -- {{args}}
 
-# 运行 Playwright E2E smoke 测试
+# Run Playwright end-to-end smoke tests
 test-e2e-smoke *args:
     bun run --cwd e2e test:smoke -- {{args}}
 
-# 以 headed 模式运行 Playwright E2E 测试
+# Run Playwright end-to-end tests in headed mode
 test-e2e-headed *args:
     bun run --cwd e2e test:headed -- {{args}}
 
-# 安装 Playwright Chromium 浏览器
+# Install the Playwright Chromium browser
 install-e2e-browsers:
     bun run --cwd e2e install:browsers
 
-# 打开最近一次 Playwright HTML 报告
+# Open the latest Playwright HTML report
 e2e-report:
     bun run --cwd e2e report
 
-# 仅运行前端测试
+# Run frontend tests only
 test-web:
     bun test
 
-# 仅运行 Rust 测试
+# Run Rust tests only
 test-rust:
     cargo test --workspace
 
-# 运行 API 测试
+# Run API tests
 test-api:
     cargo test --package api
 
-# 运行测试并显示覆盖率
+# Run tests and show coverage
 test-coverage:
     cargo test --workspace -- --nocapture
     cargo tarpaulin --workspace --out Html
 
 # ============================================
-# 清理 (Clean)
+# Clean
 # ============================================
 
-# 清理所有构建产物
+# Remove every build artifact
 clean:
     rm -rf node_modules
     rm -rf .next
     rm -rf target
     bun pm cache rm
 
-# 清理 Rust 构建产物
+# Remove Rust build artifacts
 clean-rust:
     cargo clean
 
-# 清理 Node 模块
+# Remove Node modules
 clean-node:
     rm -rf node_modules
     rm -rf apps/*/node_modules
     rm -rf packages/*/node_modules
 
 # ============================================
-# 工具命令 (Utilities)
+# Utilities
 # ============================================
 
-# 更新所有依赖
+# Update every dependency
 update:
     bun update
     cargo update
 
-# 检查过时的依赖
+# Check for outdated dependencies
 outdated:
     bun outdated
     cargo outdated
 
-# 运行安全审计
+# Run a security audit
 audit:
     bun audit
     cargo audit
 
-# 显示项目信息
+# Show project info
 info:
-    @echo "=== Bun 版本 ==="
+    @echo "=== Bun version ==="
     @bun --version
-    @echo "\n=== Cargo 版本 ==="
+    @echo "\n=== Cargo version ==="
     @cargo --version
-    @echo "\n=== Rust 版本 ==="
+    @echo "\n=== Rust version ==="
     @rustc --version
-    @echo "\n=== Node 版本 ==="
+    @echo "\n=== Node version ==="
     @node --version
 
 # ============================================
-# 组合命令 (Composite)
+# Composite
 # ============================================
 
-# 完整的 CI 流程: lint + test + build
+# Full CI flow: lint + test + build
 ci: lint test build-all
-    @echo "CI 流程完成 ✓"
+    @echo "CI finished"
 
-# 预提交检查: fmt + lint + test
+# Pre-commit check: fmt + lint + test
 pre-commit: fmt lint test
-    @echo "预提交检查完成 ✓"
+    @echo "Pre-commit check finished"
 
-# 完整清理并重新安装
+# Clean everything and reinstall dependencies
 fresh: clean install-deps
-    @echo "项目已刷新 ✓"
+    @echo "Project refreshed"
 
 # ============================================
-# 快捷别名 (Aliases)
+# Aliases
 # ============================================
 
 alias dw := dev-web
@@ -569,6 +765,10 @@ alias dl := dev-landing
 alias dlp := dev-landing-portless
 alias d-d := dev-docs
 alias dm := dev-mobile
+alias dmp := dev-mobile-phone
+alias mio := mobile-ios
+alias mid := mobile-ios-device
+alias ma := mobile-android
 alias da := dev-api
 alias dh := dev-hub
 alias t := test

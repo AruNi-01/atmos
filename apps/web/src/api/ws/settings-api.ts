@@ -61,6 +61,11 @@ export interface FunctionSettings {
     /** Sidebar list grouping — independent of `workspace_kanban_view.grouping_mode`. */
     grouping_mode?: "project" | "group" | "status" | "time" | "label" | "priority" | "agent";
     label_group_order?: string[];
+    /**
+     * Sidebar list: workspace rows or per-session rows.
+     * The kanban board does not read this.
+     */
+    view?: "workspace" | "session";
     /** Sidebar list filters — independent of `workspace_kanban_view` board filters. */
     filters?: {
       statuses?: string[];

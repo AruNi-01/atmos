@@ -158,6 +158,7 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
       ref={setNodeRef}
       style={style}
       data-workspace-id={workspace.id}
+      className="w-full min-w-0"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}

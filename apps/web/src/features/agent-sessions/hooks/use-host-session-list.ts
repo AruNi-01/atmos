@@ -83,11 +83,13 @@ export function useHostSessionList({
   facetProjects: string[];
   error: string | null;
   refresh: () => void;
+  reload: () => void;
   loadMore: () => void;
 } {
   const connected = useWebSocketStore((state) => state.connectionState === "connected");
   const providerId = filters?.providerId ?? null;
   const project = filters?.project ?? null;
+  const includeArchived = filters?.showArchived ?? false;
   const { updatedAfter, updatedBefore } = hostSessionDateBounds(filters ?? EMPTY_HOST_SESSION_FILTERS);
   const [sessions, setSessions] = useState<HostSessionListItem[]>([]);
   const [hits, setHits] = useState<HostSessionSearchHit[]>([]);
@@ -129,6 +131,10 @@ export function useHostSessionList({
 
   const refresh = useCallback(() => {
     pendingSync.current = true;
+    setReloadToken((token) => token + 1);
+  }, []);
+
+  const reload = useCallback(() => {
     setReloadToken((token) => token + 1);
   }, []);
 
@@ -192,6 +198,7 @@ export function useHostSessionList({
         limit: HOST_SESSION_PAGE_SIZE,
         offset: 0,
         sync,
+        include_archived: includeArchived,
       })
       .then((response) => {
         if (cancelled || generationRef.current !== generation) return;
@@ -232,6 +239,7 @@ export function useHostSessionList({
     project,
     providerId,
     reloadToken,
+    includeArchived,
     sort.field,
     sort.order,
     updatedAfter,
@@ -258,6 +266,7 @@ export function useHostSessionList({
         limit: HOST_SESSION_PAGE_SIZE,
         offset: loaded,
         sync: false,
+        include_archived: includeArchived,
       })
       .then((response) => {
         if (generationRef.current !== generation) return;
@@ -288,7 +297,7 @@ export function useHostSessionList({
         loadingMoreRef.current = false;
         setIsLoadingMore(false);
       });
-  }, [connected, debouncedQuery, mergeFacets, project, providerId, sort.field, sort.order, updatedAfter, updatedBefore]);
+  }, [connected, debouncedQuery, includeArchived, mergeFacets, project, providerId, sort.field, sort.order, updatedAfter, updatedBefore]);
 
   useEffect(() => {
     if (!connected) return;
@@ -324,6 +333,7 @@ export function useHostSessionList({
     facetProjects,
     error,
     refresh,
+    reload,
     loadMore,
   };
 }

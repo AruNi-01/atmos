@@ -19,6 +19,7 @@
     "./ws/dto/linear": "./src/ws/dto/linear.ts",
     "./ws/dto/link-preview": "./src/ws/dto/link-preview.ts",
     "./ws/dto/agent": "./src/ws/dto/agent.ts",
+    "./ws/dto/agent-status": "./src/ws/dto/agent-status.ts",
     "./ws/dto/automation": "./src/ws/dto/automation.ts",
     "./ws/dto/canvas": "./src/ws/dto/canvas.ts",
     "./ws/dto/center-layout": "./src/ws/dto/center-layout.ts",

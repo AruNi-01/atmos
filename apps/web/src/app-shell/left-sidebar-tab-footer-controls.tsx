@@ -8,6 +8,7 @@ import {
   WorkspaceKanbanFilterMenu,
   type WorkspaceKanbanFilters,
 } from "@/app-shell/sidebar/WorkspaceKanbanFilterMenu";
+import type { SidebarListView } from "@/app-shell/sidebar/sidebar-list-view";
 import type { SidebarGroupingMode } from "@/app-shell/sidebar/workspace-status";
 import { useOpenSettings } from "@/features/settings/lib/open-settings";
 import {
@@ -42,19 +43,23 @@ export function LeftSidebarFooter({
   filters,
   groupingMode,
   groups = [],
+  listView,
   projects,
   onAddProject,
   onFiltersChange,
   onGroupingModeChange,
+  onListViewChange,
 }: {
   availableLabels: WorkspaceLabel[];
   filters: WorkspaceKanbanFilters;
   groupingMode: SidebarGroupingMode;
   groups?: Group[];
+  listView: SidebarListView;
   projects: Project[];
   onAddProject: () => void;
   onFiltersChange: (filters: WorkspaceKanbanFilters) => void;
   onGroupingModeChange: (mode: SidebarGroupingMode) => void;
+  onListViewChange: (view: SidebarListView) => void;
 }) {
   const t = useTranslations("AppShell.chrome");
 
@@ -88,11 +93,14 @@ export function LeftSidebarFooter({
             onFiltersChange={onFiltersChange}
             triggerVariant="icon"
             triggerClassName="pr-0.5"
-            align="end"
+            align="start"
             side="top"
             showGrouping
             groupingMode={groupingMode}
             onGroupingModeChange={onGroupingModeChange}
+            showView
+            listView={listView}
+            onListViewChange={onListViewChange}
           />
           <LeftSidebarSettingsButton />
         </div>

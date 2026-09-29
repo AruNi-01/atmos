@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::sync::{Arc, Mutex as StdMutex};
 
 mod agents;
+pub use agents::terminal_agent_command_names;
 mod artifacts;
 mod complete;
 mod events;

@@ -1406,6 +1406,16 @@
         "low": "Low",
         "trigger": "Priority"
       },
+      "view": {
+        "sectionLabel": "View",
+        "workspace": "Workspace",
+        "session": "Session",
+        "empty": "No sessions",
+        "noMatches": "No matching sessions",
+        "archive": "Archive",
+        "pinned": "Pinned",
+        "unknownProject": "Unknown project"
+      },
       "grouping": {
         "project": "By Project",
         "group": "By Group",
@@ -8238,8 +8248,12 @@
         "headRefDeleted": "deleted the branch",
         "headRefRestored": "restored the branch",
         "baseRefChanged": "changed the base branch",
+        "baseRefChangedFrom": "changed the base branch from",
+        "baseRefChangedTo": "to",
         "automaticBaseChangeSucceeded": "changed the base branch automatically",
+        "automaticBaseChangeSucceededFrom": "automatically changed the base branch from",
         "automaticBaseChangeFailed": "failed to change the base branch automatically",
+        "automaticBaseChangeFailedFrom": "failed to change the base branch from",
         "markedAsDuplicate": "marked this as a duplicate",
         "unmarkedAsDuplicate": "unmarked this as a duplicate",
         "pinned": "pinned this",
@@ -9565,6 +9579,10 @@
     "copied": "Copied",
     "copyFailed": "Could not copy command",
     "listAria": "Host sessions",
+    "archived": "Archived",
+    "selectSession": "Select {title}",
+    "emptyArchivedTitle": "Archived sessions are hidden",
+    "emptyArchived": "Archived sessions stay on disk. Show archived sessions to see them again.",
     "messageCount": "{count, plural, one {# message} other {# messages}}",
     "tabs": {
       "agent": "Agent",
@@ -9598,7 +9616,8 @@
         "lastYear": "Last year"
       },
       "clear": "Clear filters",
-      "reset": "Reset"
+      "reset": "Reset",
+      "showArchived": "Show archived"
     },
     "sort": {
       "trigger": "Sort",
@@ -9610,6 +9629,23 @@
       "ascending": "Ascending",
       "descending": "Descending",
       "reset": "Reset"
+    },
+    "bulk": {
+      "label": "Session actions",
+      "selectAll": "Select all",
+      "deselectAll": "Deselect all",
+      "archive": "Archive",
+      "unarchive": "Unarchive",
+      "archiveMixed": "Selection includes archived and active sessions",
+      "delete": "Delete",
+      "close": "Close",
+      "includeChat": "Include Atmos Chat data",
+      "includeSource": "Include original session data",
+      "holdToDelete": "Hold to delete",
+      "held": "Ready",
+      "undo": "Undo",
+      "undoTitle": "{count, plural, one {Deleting # session} other {Deleting # sessions}}",
+      "failed": "Could not update sessions"
     }
   },
   "skills": {

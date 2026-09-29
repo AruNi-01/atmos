@@ -487,16 +487,9 @@ impl WsMessageService {
         req: GithubIssueTimelinePageRequest,
     ) -> Result<Value> {
         let per_page = req.per_page.clamp(1, 100);
-        let endpoint = format!(
-            "repos/{}/{}/issues/{}/timeline?per_page={}&page={}",
-            req.owner, req.repo, req.issue_number, per_page, req.page
-        );
-        let args = vec!["api", &endpoint];
         let items = self
-            .github_engine
-            .run_gh(&args)
-            .await
-            .unwrap_or(Value::Array(vec![]));
+            .load_issue_timeline_items(&req.owner, &req.repo, req.issue_number, req.page, per_page)
+            .await;
         let count = items.as_array().map(|items| items.len()).unwrap_or(0);
 
         Ok(json!({
@@ -825,26 +818,57 @@ impl WsMessageService {
         req: GithubPrTimelinePageRequest,
     ) -> Result<Value> {
         let per_page = req.per_page.clamp(1, 100);
-        let endpoint = format!(
-            "repos/{}/{}/issues/{}/timeline?per_page={}&page={}",
-            req.owner, req.repo, req.pr_number, per_page, req.page
-        );
-        let args = vec!["api", &endpoint];
         let items = self
-            .github_engine
-            .run_gh(&args)
-            .await
-            .unwrap_or(Value::Array(vec![]));
-
+            .load_issue_timeline_items(&req.owner, &req.repo, req.pr_number, req.page, per_page)
+            .await;
         let count = items.as_array().map(|a| a.len()).unwrap_or(0);
-        let has_more = count == per_page as usize;
 
         Ok(json!({
             "items": items,
             "page": req.page,
             "per_page": per_page,
-            "has_more": has_more,
+            "has_more": count == per_page as usize,
         }))
+    }
+
+    /// Issue and pull request timelines share GitHub's issues timeline route.
+    /// Base-branch changes on that route do not include the old and new names.
+    async fn load_issue_timeline_items(
+        &self,
+        owner: &str,
+        repo: &str,
+        number: u64,
+        page: u64,
+        per_page: u64,
+    ) -> Value {
+        let endpoint = format!(
+            "repos/{owner}/{repo}/issues/{number}/timeline?per_page={per_page}&page={page}"
+        );
+        let args = vec!["api", endpoint.as_str()];
+        let mut items = self
+            .github_engine
+            .run_gh(&args)
+            .await
+            .unwrap_or(Value::Array(vec![]));
+        if core_engine::timeline_has_base_ref_change(&items) {
+            match self
+                .github_engine
+                .pull_request_base_ref_changes(owner, repo, number)
+                .await
+            {
+                Ok(graphql) => core_engine::attach_base_ref_changes(&mut items, &graphql),
+                Err(error) => {
+                    tracing::warn!(
+                        %error,
+                        owner,
+                        repo,
+                        number,
+                        "GitHub timeline base branch names unavailable"
+                    );
+                }
+            }
+        }
+        items
     }
 
     pub(super) async fn handle_github_pr_detail_sidebar(

@@ -30,6 +30,9 @@ import {
   Search,
 } from "lucide-react";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { hostSessionApi } from "@/api/ws/host-session-api";
+import { HostSessionBulkToolbar } from "@/features/agent-sessions/components/HostSessionBulkToolbar";
+import { HostSessionCheckReveal } from "@/features/agent-sessions/components/HostSessionCheckReveal";
 import { HostSessionFilterSortMenu } from "@/features/agent-sessions/components/HostSessionFilterSortMenu";
 import { HostSessionResultCard } from "@/features/agent-sessions/components/HostSessionResultCard";
 import { useHostSessionList } from "@/features/agent-sessions/hooks/use-host-session-list";
@@ -41,6 +44,11 @@ import {
   hostSessionOpenTarget,
   type HostSessionFilters,
 } from "@/features/agent-sessions/lib/host-session-filters";
+import {
+  hostSessionArchiveAction,
+  nextHostSessionSelection,
+  sessionIsArchived,
+} from "@/features/agent-sessions/lib/host-session-selection";
 import {
   DEFAULT_HOST_SESSION_SORT,
   flattenHostSessionRows,
@@ -107,9 +115,22 @@ export function HostSessionListView() {
     facetProjects,
     error,
     refresh,
+    reload,
     loadMore,
   } = useHostSessionList({ query, filters, sort });
   const { selectedKey, selectKey } = useHostSessionSelection();
+  const [checkedKeys, setCheckedKeys] = useState<Set<string>>(() => new Set());
+  const [archivedOverride, setArchivedOverride] = useState<Record<string, boolean>>({});
+  const [concealedKeys, setConcealedKeys] = useState<string[]>([]);
+  const [pendingDelete, setPendingDelete] = useState<{
+    token: number;
+    keys: string[];
+    includeChat: boolean;
+    includeSource: boolean;
+  } | null>(null);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const undoTokenRef = useRef(0);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [closingGroups, setClosingGroups] = useState<Record<string, boolean>>({});
   const parentRef = useRef<HTMLDivElement>(null);
@@ -127,9 +148,27 @@ export function HostSessionListView() {
     }
     return map;
   }, [hits]);
+  const archivedOf = useCallback(
+    (session: (typeof sessions)[number]) =>
+      archivedOverride[session.key] ?? sessionIsArchived(session),
+    [archivedOverride],
+  );
+  const visibleSessions = useMemo(
+    () =>
+      sessions.filter((session) => {
+        if (pendingDelete?.keys.includes(session.key) || concealedKeys.includes(session.key)) {
+          return false;
+        }
+        if (!filters.showArchived && archivedOf(session)) return false;
+        return true;
+      }),
+    [archivedOf, concealedKeys, filters.showArchived, pendingDelete, sessions],
+  );
+  const visibleKeySig = visibleSessions.map((session) => session.key).join("\n");
+  const sessionStamp = sessions.map((session) => `${session.key}:${session.archived}`).join("|");
   const rows = useMemo(
-    () => flattenHostSessionRows(sessions, groupMode, t("unknownProject"), sort, collapsed),
-    [collapsed, groupMode, sessions, sort, t],
+    () => flattenHostSessionRows(visibleSessions, groupMode, t("unknownProject"), sort, collapsed),
+    [collapsed, groupMode, sort, t, visibleSessions],
   );
   rowsRef.current = rows;
 
@@ -261,6 +300,117 @@ export function HostSessionListView() {
     };
   }, []);
 
+  useEffect(() => {
+    setArchivedOverride((current) => (Object.keys(current).length === 0 ? current : {}));
+  }, [sessionStamp]);
+
+  useEffect(() => {
+    setConcealedKeys((current) => (current.length === 0 ? current : []));
+  }, [sessions]);
+
+  useEffect(() => {
+    if (pendingDelete) return;
+    const visible = new Set(visibleKeySig ? visibleKeySig.split("\n") : []);
+    setCheckedKeys((current) => {
+      let changed = false;
+      const next = new Set<string>();
+      for (const key of current) {
+        if (visible.has(key)) next.add(key);
+        else changed = true;
+      }
+      return changed ? next : current;
+    });
+  }, [pendingDelete, visibleKeySig]);
+
+  const checkedList = useMemo(() => [...checkedKeys], [checkedKeys]);
+  const archiveAction = hostSessionArchiveAction(checkedList, (key) => {
+    const session = sessions.find((item) => item.key === key);
+    return session ? archivedOf(session) : false;
+  });
+  const allChecked =
+    visibleSessions.length > 0 && visibleSessions.every((session) => checkedKeys.has(session.key));
+
+  const clearChecks = useCallback(() => {
+    setPendingDelete(null);
+    setCheckedKeys(new Set());
+    setBulkError(null);
+  }, []);
+
+  const toggleChecked = useCallback((key: string, selected: boolean) => {
+    setCheckedKeys((current) => {
+      const next = new Set(current);
+      if (selected) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  }, []);
+
+  const archiveChecked = useCallback(async () => {
+    if (archiveAction !== "archive" && archiveAction !== "unarchive") return;
+    const keys = [...checkedKeys];
+    const archived = archiveAction === "archive";
+    setBulkBusy(true);
+    setBulkError(null);
+    try {
+      await hostSessionApi.setArchived(keys, archived);
+      setArchivedOverride((current) => {
+        const next = { ...current };
+        for (const key of keys) next[key] = archived;
+        return next;
+      });
+      reload();
+    } catch (err: unknown) {
+      setBulkError(err instanceof Error ? err.message : t("bulk.failed"));
+    } finally {
+      setBulkBusy(false);
+    }
+  }, [archiveAction, checkedKeys, reload, t]);
+
+  const armDelete = useCallback(
+    (options: { includeChat: boolean; includeSource: boolean }) => {
+      if (checkedKeys.size === 0) return;
+      undoTokenRef.current += 1;
+      setBulkError(null);
+      setPendingDelete({
+        token: undoTokenRef.current,
+        keys: [...checkedKeys],
+        includeChat: options.includeChat,
+        includeSource: options.includeSource,
+      });
+    },
+    [checkedKeys],
+  );
+
+  const commitDelete = useCallback(async () => {
+    const pending = pendingDelete;
+    if (!pending || bulkBusy) return;
+    setBulkBusy(true);
+    setBulkError(null);
+    try {
+      const result = await hostSessionApi.deleteSessions({
+        keys: pending.keys,
+        include_atmos_chat: pending.includeChat,
+        include_source: pending.includeSource,
+      });
+      setConcealedKeys(result.deleted_keys);
+      setCheckedKeys((current) => {
+        const next = new Set(current);
+        for (const key of result.deleted_keys) next.delete(key);
+        return next;
+      });
+      if (result.failures.length > 0) {
+        setBulkError(result.failures.join("; "));
+      }
+      reload();
+    } catch (err: unknown) {
+      setBulkError(err instanceof Error ? err.message : t("bulk.failed"));
+      reload();
+    } finally {
+      setPendingDelete(null);
+      setBulkBusy(false);
+    }
+  }, [bulkBusy, pendingDelete, reload, t]);
+
   const filterCount = hostSessionFilterCount(filters);
   const emptyKind =
     query.trim() ? "search" : sessions.length === 0 ? "homes" : filterCount > 0 ? "filters" : "list";
@@ -276,7 +426,7 @@ export function HostSessionListView() {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="flex h-full min-h-0 flex-col bg-background/50" data-testid="host-session-list">
+      <div className="relative flex h-full min-h-0 flex-col bg-background/50" data-testid="host-session-list">
         <div className="sticky top-0 z-10 shrink-0 bg-background/50 px-8 py-6 backdrop-blur-sm">
           <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -361,7 +511,12 @@ export function HostSessionListView() {
           viewportClassName="outline-none"
         >
           <div className="px-8">
-            <div className="mx-auto w-full max-w-5xl pb-12">
+            <div
+              className={cn(
+                "mx-auto w-full max-w-5xl",
+                checkedKeys.size > 0 || pendingDelete ? "pb-28" : "pb-12",
+              )}
+            >
               {isLoading && sessions.length === 0 ? (
                 <div className="mt-6 space-y-3">
                   {Array.from({ length: 5 }).map((_, index) => (
@@ -398,23 +553,36 @@ export function HostSessionListView() {
                     )
                   }
                   title={
-                    emptyKind === "homes"
-                      ? t("emptyHomesTitle")
-                      : emptyKind === "search"
-                        ? t("emptySearchTitle")
-                        : t("emptyListTitle")
+                    sessions.length > 0 && visibleSessions.length === 0 && !filters.showArchived
+                      ? t("emptyArchivedTitle")
+                      : emptyKind === "homes"
+                        ? t("emptyHomesTitle")
+                        : emptyKind === "search"
+                          ? t("emptySearchTitle")
+                          : t("emptyListTitle")
                   }
                   description={
-                    emptyKind === "homes"
-                      ? t("emptyHomes")
-                      : emptyKind === "search"
-                        ? t("emptySearch")
-                        : t("emptyList")
+                    sessions.length > 0 && visibleSessions.length === 0 && !filters.showArchived
+                      ? t("emptyArchived")
+                      : emptyKind === "homes"
+                        ? t("emptyHomes")
+                        : emptyKind === "search"
+                          ? t("emptySearch")
+                          : t("emptyList")
                   }
                   actions={
                     emptyKind === "search" ? (
                       <EmptyAction emphasis="quiet" onClick={() => setQuery("")}>
                         {t("clearSearch")}
+                      </EmptyAction>
+                    ) : sessions.length > 0 &&
+                      visibleSessions.length === 0 &&
+                      !filters.showArchived ? (
+                      <EmptyAction
+                        emphasis="quiet"
+                        onClick={() => setFilters({ ...filters, showArchived: true })}
+                      >
+                        {t("filter.showArchived")}
                       </EmptyAction>
                     ) : emptyKind === "filters" ? (
                       <EmptyAction
@@ -483,6 +651,7 @@ export function HostSessionListView() {
                     const hit = hitByRoot.get(session.key);
                     const selected =
                       selectedKey === session.key || selectedKey === hit?.session_key;
+                    const title = session.title.trim() || session.native_id;
                     return (
                       <div
                         key={item.key}
@@ -497,19 +666,27 @@ export function HostSessionListView() {
                         }}
                       >
                         <div className="pb-2">
-                          <HostSessionResultCard
-                            session={session}
-                            hit={hit}
-                            query={query}
-                            selected={selected}
-                            onSelect={() => {
-                              const target = hostSessionOpenTarget(session, hit);
-                              selectKey(target.key, {
-                                messageId: target.messageId,
-                                seq: target.seq,
-                              });
-                            }}
-                          />
+                          <HostSessionCheckReveal
+                            selected={checkedKeys.has(session.key)}
+                            forceOpen={checkedKeys.size > 0}
+                            label={t("selectSession", { title })}
+                            onSelectedChange={(checked) => toggleChecked(session.key, checked)}
+                          >
+                            <HostSessionResultCard
+                              session={session}
+                              hit={hit}
+                              query={query}
+                              selected={selected}
+                              archived={archivedOf(session)}
+                              onSelect={() => {
+                                const target = hostSessionOpenTarget(session, hit);
+                                selectKey(target.key, {
+                                  messageId: target.messageId,
+                                  seq: target.seq,
+                                });
+                              }}
+                            />
+                          </HostSessionCheckReveal>
                         </div>
                       </div>
                     );
@@ -524,6 +701,31 @@ export function HostSessionListView() {
             </div>
           </div>
         </ScrollArea>
+        {checkedKeys.size > 0 || pendingDelete ? (
+          <HostSessionBulkToolbar
+            count={pendingDelete ? pendingDelete.keys.length : checkedList.length}
+            allSelected={allChecked}
+            archiveAction={archiveAction}
+            busy={bulkBusy}
+            error={bulkError}
+            undoToken={pendingDelete?.token ?? null}
+            onSelectAll={() => {
+              setCheckedKeys(nextHostSessionSelection(checkedKeys, visibleSessions.map((session) => session.key)));
+            }}
+            onArchive={() => {
+              void archiveChecked();
+            }}
+            onDeleteArmed={armDelete}
+            onUndo={() => {
+              if (bulkBusy) return;
+              setPendingDelete(null);
+            }}
+            onUndoCommit={() => {
+              void commitDelete();
+            }}
+            onClose={clearChecks}
+          />
+        ) : null}
       </div>
     </TooltipProvider>
   );

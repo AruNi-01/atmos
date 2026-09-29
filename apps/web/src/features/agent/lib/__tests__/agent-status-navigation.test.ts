@@ -12,6 +12,7 @@ import {
   canNavigateToAgentStatusSession,
   isAgentStatusSideChatSession,
   resolveAgentStatusNavigationTarget,
+  shouldFlashTerminalLocate,
 } from "../agent-status-navigation";
 
 function session(
@@ -252,10 +253,20 @@ describe("canNavigateToAgentStatusSession", () => {
   });
 });
 
+describe("terminal locate flash", () => {
+  it("flashes only when the destination tab has more than one terminal", () => {
+    expect(shouldFlashTerminalLocate(0)).toBe(false);
+    expect(shouldFlashTerminalLocate(1)).toBe(false);
+    expect(shouldFlashTerminalLocate(2)).toBe(true);
+  });
+});
+
 describe("navigateToAgentStatusSession space handoff", () => {
   it("commits dest deep link before switching the owning space", () => {
     const src = readFileSync(join(import.meta.dir, "../agent-status-navigation.ts"), "utf8");
     expect(src).toContain("navigateToLocatedPane(");
+    expect(src).toContain("shouldFlashTerminalLocate(paneCount)");
+    expect(src).toContain("locate: shouldFlashTerminalLocate(paneCount)");
     expect(src).toContain("commitLocatedPaneNavigation(router, path)");
     expect(src).toContain("makeCenterSpaceKey(contextId, target.spaceId)");
     expect(src).toContain("preserveDeepLink: true");

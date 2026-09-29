@@ -258,7 +258,7 @@ impl AgentChatService {
     pub fn create(&self, req: CreateAgentChatRequest) -> Result<AgentChatMeta> {
         let catalog = self.ready_options(&req.provider_id);
         let meta = self.store.create(req)?;
-        self.store.update_meta(&meta.id, |row| {
+        let meta = self.store.update_meta(&meta.id, |row| {
             if let Some(catalog) = catalog.as_ref() {
                 agent::apply_options_to_descriptor(&mut row.descriptor, catalog);
             }
@@ -267,7 +267,52 @@ impl AgentChatService {
                 &mut row.available_commands,
                 catalog.as_ref(),
             );
-        })
+        })?;
+        self.publish_opened_chat(&meta);
+        Ok(meta)
+    }
+
+    fn publish_opened_chat(&self, meta: &AgentChatMeta) {
+        let Some(status) = self.status.get() else {
+            return;
+        };
+        let context_id = meta
+            .workspace_id
+            .clone()
+            .filter(|id| !id.trim().is_empty())
+            .or_else(|| meta.project_id.clone().filter(|id| !id.trim().is_empty()));
+        let Some(context_id) = context_id else {
+            return;
+        };
+        status.note_chat_opened(&meta.id, &context_id, &meta.provider_id, &meta.cwd);
+    }
+
+    /// Chats that still exist and can be opened from a workspace or project.
+    pub fn live_session_chats(
+        &self,
+    ) -> Result<Vec<crate::service::agent_status::AgentSessionChatRef>> {
+        let entries = self.list(None, None, None, true, None)?;
+        Ok(entries
+            .into_iter()
+            .filter_map(|entry| {
+                if entry.deleted {
+                    return None;
+                }
+                let context_id = entry
+                    .workspace_id
+                    .filter(|id| !id.trim().is_empty())
+                    .or(entry.project_id.filter(|id| !id.trim().is_empty()))?;
+                let updated = entry.last_message_at.unwrap_or(entry.updated_at);
+                Some(crate::service::agent_status::AgentSessionChatRef {
+                    id: entry.id,
+                    context_id,
+                    provider_id: entry.provider_id,
+                    cwd: entry.cwd,
+                    updated_at: updated.to_rfc3339(),
+                    title: entry.title.filter(|title| !title.trim().is_empty()),
+                })
+            })
+            .collect())
     }
 
     /// Persist the New Chat composer snapshot for `provider_id`.
@@ -533,7 +578,7 @@ impl AgentChatService {
             });
         }
         if let Some(status) = self.status.get() {
-            status.remove_session(&agent_status::chat_status_session_id(id));
+            status.close_recorded_session(&agent_status::chat_status_session_id(id));
         }
         self.store.delete(id)
     }

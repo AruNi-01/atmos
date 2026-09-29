@@ -196,6 +196,9 @@
   "host_session_get",
   "host_session_resume_chat",
   "host_session_resume_tui",
+  "host_session_set_archived",
+  "host_session_delete",
+  "host_session_keys_for_chat",
   "automation_list",
   "automation_get",
   "automation_create",
@@ -335,5 +338,7 @@
   "resource_monitor_subscribe",
   "resource_monitor_unsubscribe",
   "resource_monitor_kill_leaked",
-  "link_preview"
+  "link_preview",
+  "agent_session_status_list",
+  "agent_session_archive"
 ]

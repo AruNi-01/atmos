@@ -37,7 +37,6 @@ export async function autoConnectAfterAuth(client: RelayClient): Promise<{
   const clientSession = await client
     .withDeviceCredential(token)
     .createClientSession(target, { clientKind: "mobile" });
-  session.selectServer(target);
-  session.setClientSession(clientSession);
+  session.adoptComputerSession(target, clientSession);
   return { computers, connectedServerId: target };
 }

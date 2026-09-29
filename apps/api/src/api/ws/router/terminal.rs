@@ -214,6 +214,10 @@ impl WsMessageService {
                 .or_else(|| session.terminal_name.clone())
                 .or_else(|| session.cwd.clone())
                 .unwrap_or_else(|| "Active terminal".to_string());
+            let stored_title = resolved_window_name.as_deref().and_then(|name| {
+                self.terminal_service
+                    .terminal_title_for(&workspace_id, name)
+            });
 
             candidates.push(TerminalWorkspaceCandidate {
                 id: format!("session:{}", session.session_id),
@@ -233,6 +237,15 @@ impl WsMessageService {
                 source_pane_id: session.source_pane_id,
                 source_tmux_window_name: session.source_tmux_window_name,
                 active: true,
+                session_title: stored_title
+                    .as_ref()
+                    .and_then(|title| title.session_title.clone()),
+                dynamic_title: stored_title
+                    .as_ref()
+                    .and_then(|title| title.dynamic_title.clone()),
+                osc_title: stored_title
+                    .as_ref()
+                    .and_then(|title| title.osc_title.clone()),
             });
         }
 
@@ -257,6 +270,9 @@ impl WsMessageService {
                     .get_window_atmos_metadata(&session_name, *window_index)
                     .unwrap_or_default();
 
+                let stored_title = self
+                    .terminal_service
+                    .terminal_title_for(&workspace_id, window_name);
                 candidates.push(TerminalWorkspaceCandidate {
                     id: format!("tmux:{}:{}", session_name, window_index),
                     workspace_id: workspace_id.clone(),
@@ -275,6 +291,15 @@ impl WsMessageService {
                     source_pane_id: metadata.source_pane_id,
                     source_tmux_window_name: metadata.source_tmux_window_name,
                     active: false,
+                    session_title: stored_title
+                        .as_ref()
+                        .and_then(|title| title.session_title.clone()),
+                    dynamic_title: stored_title
+                        .as_ref()
+                        .and_then(|title| title.dynamic_title.clone()),
+                    osc_title: stored_title
+                        .as_ref()
+                        .and_then(|title| title.osc_title.clone()),
                 });
             }
         }

@@ -198,6 +198,9 @@ export const WS_ACTIONS = [
   "host_session_get",
   "host_session_resume_chat",
   "host_session_resume_tui",
+  "host_session_set_archived",
+  "host_session_delete",
+  "host_session_keys_for_chat",
   "automation_list",
   "automation_get",
   "automation_create",
@@ -338,6 +341,8 @@ export const WS_ACTIONS = [
   "resource_monitor_unsubscribe",
   "resource_monitor_kill_leaked",
   "link_preview",
+  "agent_session_status_list",
+  "agent_session_archive",
 ] as const;
 
 export type WsAction = (typeof WS_ACTIONS)[number];

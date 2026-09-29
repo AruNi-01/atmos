@@ -8,13 +8,14 @@ pub use service::agent::AgentService;
 pub use service::agent_hooks::{AgentHooksService, AtmosContext};
 pub use service::agent_status::{
     apply_host_event, chat_status_session_id, generate_attention_summary, hook_permission_response,
-    parse_chat_status_session_id, provider_to_tool, resolve_workspace_agent_group_key,
-    AgentActivity, AgentAttentionLatch, AgentAttentionReason, AgentAttentionSummary,
-    AgentChildActivity, AgentOccupancy, AgentStatusContext, AgentStatusEvent, AgentStatusRecord,
+    page_agent_sessions, parse_chat_status_session_id, provider_to_tool,
+    resolve_workspace_agent_group_key, AgentActivity, AgentAttentionLatch, AgentAttentionReason,
+    AgentAttentionSummary, AgentChildActivity, AgentOccupancy, AgentSessionChatRef,
+    AgentSessionLiveSet, AgentStatusContext, AgentStatusEvent, AgentStatusRecord,
     AgentStatusService, AgentStatusUpdate, AgentSurface, AgentTodoItem, AgentToolLine,
     AgentToolType, AgentTurn, AttentionSummaryPayload, AttentionSummarySettings,
     AttentionSummaryStatus, HookPermissionOpen, HookPermissionWait, WorkspaceAgentGroupKey,
-    WorkspaceAgentGroupSnapshot,
+    WorkspaceAgentGroupSnapshot, AGENT_SESSION_PAGE_LIMIT,
 };
 
 pub use service::agent_chat::{
@@ -30,9 +31,9 @@ pub use service::agent_chat::{
     PREFETCH_POLL,
 };
 pub use service::automation::{
-    ensure_builtin_terminal_agents_upgraded, AutomationAgentCapability, TerminalAgentCliStatus,
-    TerminalAgentOption, TerminalAgentOptions, TerminalAgentOptionsSource,
-    TerminalAgentOptionsStatus,
+    ensure_builtin_terminal_agents_upgraded, terminal_agent_command_names,
+    AutomationAgentCapability, TerminalAgentCliStatus, TerminalAgentOption, TerminalAgentOptions,
+    TerminalAgentOptionsSource, TerminalAgentOptionsStatus,
 };
 pub use service::automation::{
     parse_standalone_scope, standalone_definition_dir, standalone_scope_id, AutomationArtifact,
@@ -108,7 +109,8 @@ pub use service::terminal::{
     CapturePanePlainTextParams, CaptureSideContextParams, CapturedPanePlainText,
     CapturedSideContext, CreateSessionParams, CreateSimpleSessionParams, SessionDetail,
     SessionType, TerminalKind, TerminalMessage, TerminalResponse, TerminalService,
-    TerminalSideChatRecord, TerminalSideChatStatus, TranscriptBudget, UpsertTerminalSideChatParams,
+    TerminalSideChatRecord, TerminalSideChatStatus, TerminalTitleUpdate, TranscriptBudget,
+    UpsertTerminalSideChatParams,
 };
 pub use service::terminal_overview::build_terminal_overview_active_sessions_json;
 pub use service::test::TestService;

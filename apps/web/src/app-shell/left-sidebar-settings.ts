@@ -12,6 +12,10 @@ import {
   type WorkspaceKanbanFilters,
 } from "@/app-shell/sidebar/WorkspaceKanbanFilterMenu";
 import { WORKSPACE_PRIORITY_OPTIONS } from "@/app-shell/sidebar/workspace-metadata-controls";
+import {
+  parseSidebarListView,
+  type SidebarListView,
+} from "@/app-shell/sidebar/sidebar-list-view";
 import { WORKSPACE_WORKFLOW_STATUS_OPTIONS } from "@/app-shell/sidebar/workspace-status";
 
 type FunctionSettingsSnapshot = {
@@ -57,6 +61,18 @@ export function serializeWorkspaceSidebarFilters(
  * Left-sidebar list filters only — do not read `workspace_kanban_view`.
  * Kanban board owns its own filter state under that section.
  */
+export type { SidebarListView };
+
+/**
+ * Sidebar list view only — do not read `workspace_kanban_view`.
+ * Missing `workspace_sidebar.view` means the workspace list.
+ */
+export function parseWorkspaceSidebarView(
+  settings: FunctionSettingsSnapshot,
+): SidebarListView {
+  return parseSidebarListView(settings.workspace_sidebar?.view);
+}
+
 export function parseWorkspaceSidebarFilters(
   settings: FunctionSettingsSnapshot,
 ): WorkspaceKanbanFilters {

@@ -9,7 +9,7 @@ import {
   cn,
 } from "@workspace/ui";
 import { formatLocalDateTime, formatRelativeTime, parseUTCDate } from "@atmos/shared";
-import { Folder, MessageSquare } from "lucide-react";
+import { Archive, Folder, MessageSquare } from "lucide-react";
 import type {
   HostSessionListItem,
   HostSessionSearchHit,
@@ -58,10 +58,12 @@ export function HostSessionResultBody({
   session,
   hit,
   query,
+  archived = false,
 }: {
   session: HostSessionListItem;
   hit?: HostSessionSearchHit | null;
   query: string;
+  archived?: boolean;
 }) {
   const t = useTranslations("agentSessions");
   const locale = useLocale();
@@ -127,15 +129,30 @@ export function HostSessionResultBody({
           </div>
         </div>
       </div>
-      <div className="ml-4 shrink-0 text-right">
-        <div className="text-[11px] font-medium tabular-nums text-muted-foreground">
-          {formatHostSessionBytes(session.byte_size) ?? "–"}
+      <div className="ml-4 flex shrink-0 items-center gap-3">
+        <div className="text-right">
+          <div className="text-[11px] font-medium tabular-nums text-muted-foreground">
+            {formatHostSessionBytes(session.byte_size) ?? "–"}
+          </div>
+          <div className="mt-0.5 whitespace-nowrap text-[10px] tabular-nums text-muted-foreground/55">
+            {session.updated_at && !Number.isNaN(parseUTCDate(session.updated_at).getTime())
+              ? `${formatLocalDateTime(session.updated_at, "yyyy/MM/dd HH:mm")} · ${formatRelativeTime(session.updated_at, locale)}`
+              : ""}
+          </div>
         </div>
-        <div className="mt-0.5 whitespace-nowrap text-[10px] tabular-nums text-muted-foreground/55">
-          {session.updated_at && !Number.isNaN(parseUTCDate(session.updated_at).getTime())
-            ? `${formatLocalDateTime(session.updated_at, "yyyy/MM/dd HH:mm")} · ${formatRelativeTime(session.updated_at, locale)}`
-            : ""}
-        </div>
+        {archived ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className="inline-flex text-muted-foreground"
+                data-testid="host-session-archived-icon"
+              >
+                <Archive className="size-3.5" aria-hidden />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{t("archived")}</TooltipContent>
+          </Tooltip>
+        ) : null}
       </div>
     </>
   );
@@ -146,12 +163,14 @@ export function HostSessionResultCard({
   hit,
   query,
   selected,
+  archived = false,
   onSelect,
 }: {
   session: HostSessionListItem;
   hit?: HostSessionSearchHit | null;
   query: string;
   selected: boolean;
+  archived?: boolean;
   onSelect: () => void;
 }) {
   return (
@@ -161,7 +180,7 @@ export function HostSessionResultCard({
       aria-current={selected ? "true" : undefined}
       onClick={onSelect}
     >
-      <HostSessionResultBody session={session} hit={hit} query={query} />
+      <HostSessionResultBody session={session} hit={hit} query={query} archived={archived} />
     </button>
   );
 }

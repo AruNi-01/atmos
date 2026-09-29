@@ -614,6 +614,9 @@ pub enum WsAction {
     HostSessionGet,
     HostSessionResumeChat,
     HostSessionResumeTui,
+    HostSessionSetArchived,
+    HostSessionDelete,
+    HostSessionKeysForChat,
 
     // ===== Automation 操作 =====
     AutomationList,
@@ -894,6 +897,28 @@ pub enum WsAction {
     // ===== Link preview =====
     /// Fetch Open Graph / HTML metadata for a public http(s) URL
     LinkPreview,
+
+    // ===== Per-session inbox =====
+    /// Live occupancy merged with the inbox catalog. Pages of 100, newest first.
+    /// Each chat row includes its title.
+    AgentSessionStatusList,
+    /// Set archived_at. Unknown id is success.
+    AgentSessionArchive,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentSessionStatusListRequest {
+    /// Page size. Missing or zero means 100. Values above 100 are clamped.
+    #[serde(default)]
+    pub limit: u32,
+    /// Previous page's last `updated_at` and `session_id`, separated by a newline.
+    #[serde(default)]
+    pub cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentSessionArchiveRequest {
+    pub session_id: String,
 }
 
 /// 服务端主动推送的事件类型
@@ -938,6 +963,8 @@ pub enum WsEvent {
     AgentNotification,
     /// Current branch PR status should be refreshed
     GithubBranchPrStatusRefreshed,
+    /// Latest terminal shim / OSC title for one tmux window
+    TerminalTitleUpdated,
     /// Review comment changed
     ReviewCommentUpdated,
     /// Review message created

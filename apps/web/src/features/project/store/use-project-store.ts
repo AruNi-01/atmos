@@ -41,6 +41,7 @@ import {
   restoreWorkspaceToSnapshot,
 } from '@/features/workspace/lib/workspace-archive-undo';
 import { useWorkspaceArchiveUndoStore } from '@/features/workspace/store/use-workspace-archive-undo-store';
+import { isCancelledError } from '@/shared/lib/is-cancelled-error';
 
 export type { WorkspaceSetupProgress } from './project-store-setup-progress';
 
@@ -102,6 +103,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       await ensureProjectBootstrap();
       set({ hasLoadedProjects: true });
     } catch (error) {
+      if (isCancelledError(error)) return;
       console.error('Error fetching projects:', error);
       toastManager.add({
         title: runtimeT('common.error'),
@@ -139,7 +141,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         await ensureProjectBootstrap();
         set({ hasLoadedProjects: true });
       } catch (error) {
-        console.error('Error fetching projects:', error);
+        if (!isCancelledError(error)) {
+          console.error('Error fetching projects:', error);
+        }
       } finally {
         set({ isLoading: false });
       }

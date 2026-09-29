@@ -8,7 +8,14 @@ import type { IosPopoverDirection, IosPopoverProps, IosPopoverTriggerKind } from
 import { POPOVER_PRESENT_ANIMATION } from "./ios-popover.types";
 
 export { POPOVER_PRESENT_ANIMATION } from "./ios-popover.types";
-export type { IosPopoverDirection, IosPopoverProps, IosPopoverTriggerKind } from "./ios-popover.types";
+export type { IosPopoverBackground, IosPopoverDirection, IosPopoverProps, IosPopoverTriggerKind } from "./ios-popover.types";
+
+const BACKGROUND: Record<NonNullable<IosPopoverProps["background"]>, PopoverBackground> = {
+  blur: PopoverBackground.Blur,
+  clearGlass: PopoverBackground.ClearGlass,
+  default: PopoverBackground.Default,
+  glass: PopoverBackground.Glass,
+};
 
 const DIRECTION: Record<IosPopoverDirection, ArrowEdge> = {
   any: ArrowEdge.Any,
@@ -25,6 +32,7 @@ const TRIGGER: Record<IosPopoverTriggerKind, TriggerType> = {
 };
 
 function IosPopoverRoot({
+  background = "default",
   children,
   direction = "any",
   trigger = "tap",
@@ -32,7 +40,7 @@ function IosPopoverRoot({
   return (
     <Popover
       animation={POPOVER_PRESENT_ANIMATION}
-      background={PopoverBackground.Default}
+      background={BACKGROUND[background]}
       direction={DIRECTION[direction]}
       trigger={TRIGGER[trigger]}
     >

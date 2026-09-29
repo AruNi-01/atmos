@@ -260,6 +260,34 @@ describe("REST-shaped extra field parsing", () => {
     expect(mapTimelineEvent({ event: "base_ref_changed" }, CTX)).toMatchObject({
       classification: "activity",
       copyId: "baseRefChanged",
+      iconId: "branch",
+    });
+    expect(
+      mapTimelineEvent(
+        {
+          event: "base_ref_changed",
+          base_ref_change: {
+            from: "aarynlu/mobile-terminal-main-path-7d6c",
+            to: "main",
+          },
+        },
+        CTX,
+      ).extras,
+    ).toMatchObject({
+      baseRefFrom: "aarynlu/mobile-terminal-main-path-7d6c",
+      baseRefTo: "main",
+    });
+    expect(
+      mapTimelineEvent(
+        {
+          event: "automatic_base_change_succeeded",
+          base_ref_change: { from: "develop", to: "main" },
+        },
+        CTX,
+      ),
+    ).toMatchObject({
+      copyId: "automaticBaseChangeSucceeded",
+      extras: { baseRefFrom: "develop", baseRefTo: "main" },
     });
     expect(mapTimelineEvent({ event: "head_ref_restored" }, CTX)).toMatchObject({
       classification: "activity",

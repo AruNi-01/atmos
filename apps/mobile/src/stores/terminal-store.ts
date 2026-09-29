@@ -12,7 +12,11 @@ export type MobileTerminalEntry = {
   dynamicTitle?: string;
   /** Native OSC 0/2 title; transient display-only (APP-047). */
   oscTitle?: string;
+  /** Sticky session topic from the broadcast title, matching the web center tab. */
+  sessionOscTitle?: string;
   isNew?: boolean;
+  /** Typed into the shell once, after this new terminal is created. */
+  pendingLaunchCommand?: string;
 };
 
 type TerminalState = {

@@ -38,6 +38,54 @@ describe("agent chat center tabs", () => {
     ).toBe(false);
   });
 
+  it("shows a truncated prompt on a draft tab and clears it when a chat is bound", () => {
+    const tab = useAgentChatCenterTabsStore.getState().openDraftTab({
+      contextId: "ws-1",
+      title: "Chat",
+    });
+    useAgentChatCenterTabsStore.getState().setDraftPrompt(
+      tab.value,
+      "  explain\nthe auth flow and then keep going",
+    );
+    const drafted = useAgentChatCenterTabsStore.getState().tabsByContext["ws-1"]?.[0];
+    expect(drafted?.draftPrompt).toBe("explain the auth flow and then keep going");
+    expect(drafted?.title.startsWith("explain the auth flow")).toBe(true);
+    useAgentChatCenterTabsStore.getState().setDraftPrompt(tab.value, "   ");
+    expect(useAgentChatCenterTabsStore.getState().tabsByContext["ws-1"]?.[0]?.title).toBe("Chat");
+    useAgentChatCenterTabsStore.getState().setDraftPrompt(tab.value, "still drafting");
+    useAgentChatCenterTabsStore.getState().bindChat({
+      contextId: "ws-1",
+      value: tab.value,
+      chatId: "conv-1",
+      title: "Auth",
+    });
+    expect(useAgentChatCenterTabsStore.getState().tabsByContext["ws-1"]?.[0]?.draftPrompt).toBe("");
+  });
+
+  it("shows a truncated prompt on a draft tab and clears it when a chat is bound", () => {
+    const tab = useAgentChatCenterTabsStore.getState().openDraftTab({
+      contextId: "ws-1",
+      title: "Chat",
+    });
+    useAgentChatCenterTabsStore.getState().setDraftPrompt(
+      tab.value,
+      "  explain\nthe auth flow and then keep going",
+    );
+    const drafted = useAgentChatCenterTabsStore.getState().tabsByContext["ws-1"]?.[0];
+    expect(drafted?.draftPrompt).toBe("explain the auth flow and then keep going");
+    expect(drafted?.title.startsWith("explain the auth flow")).toBe(true);
+    useAgentChatCenterTabsStore.getState().setDraftPrompt(tab.value, "   ");
+    expect(useAgentChatCenterTabsStore.getState().tabsByContext["ws-1"]?.[0]?.title).toBe("Chat");
+    useAgentChatCenterTabsStore.getState().setDraftPrompt(tab.value, "still drafting");
+    useAgentChatCenterTabsStore.getState().bindChat({
+      contextId: "ws-1",
+      value: tab.value,
+      chatId: "conv-1",
+      title: "Auth",
+    });
+    expect(useAgentChatCenterTabsStore.getState().tabsByContext["ws-1"]?.[0]?.draftPrompt).toBe("");
+  });
+
   it("opens a draft tab without a chat id", () => {
     const tab = useAgentChatCenterTabsStore.getState().openDraftTab({
       contextId: "ws-1",

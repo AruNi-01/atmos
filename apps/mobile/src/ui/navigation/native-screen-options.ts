@@ -5,6 +5,15 @@ export function nativeLargeTitleOptions(title: string, themeColors: MobileThemeC
     title,
     headerLargeTitleEnabled: true,
     headerLargeTitleShadowVisible: false,
+    headerShadowVisible: false,
+    // Same edge on the home tabs and every pushed large-title list.
+    // `hard` draws the status-bar divider; `soft` is the fade.
+    scrollEdgeEffects: {
+      bottom: "automatic" as const,
+      left: "automatic" as const,
+      right: "automatic" as const,
+      top: "soft" as const,
+    },
     headerTitleAlign: "center" as const,
     headerLargeTitleStyle: {
       color: themeColors.label,

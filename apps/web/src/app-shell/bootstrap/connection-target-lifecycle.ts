@@ -6,15 +6,13 @@ import {
   useConnectionStore,
 } from '@/features/connection/store/connection-store';
 import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
-import { getAtmosWebQueryClient } from '@/providers/app/query-client';
+import { cancelAndRemoveQueries } from '@/providers/app/query-client';
 import { resetLegacyServerStateForConnectionChange } from '@/app-shell/bootstrap/legacy-server-state-reset';
 
 /** App-level cleanup for data that is scoped to the currently selected Computer. */
 export async function prepareConnectionTargetChange(): Promise<void> {
   // 1–3. Cancel and remove Computer-scoped Query snapshots for the outgoing target.
-  const client = getAtmosWebQueryClient();
-  await client.cancelQueries({ queryKey: ['atmos', 'computer'] });
-  client.removeQueries({ queryKey: ['atmos', 'computer'] });
+  await cancelAndRemoveQueries(['atmos', 'computer']);
 
   // 4. Synchronize the new active instance id.
   const activeInstanceId = bootstrapActiveInstance();

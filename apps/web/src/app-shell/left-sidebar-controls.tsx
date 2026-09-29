@@ -38,6 +38,11 @@ import {
   WorkspaceListShowMoreLess,
 } from "@/app-shell/sidebar/workspace-list-pagination";
 import {
+  SidebarMotionItem,
+  SidebarMotionList,
+  SidebarMotionScope,
+} from "@/app-shell/sidebar/sidebar-list-motion";
+import {
   getWorkspaceAgentGroupMeta,
   getWorkspaceWorkflowStatusMeta,
   type SidebarGroupingMode,
@@ -390,11 +395,11 @@ export function LeftSidebarDragOverlay({
   );
 }
 
-function WorkspaceGroupMarker({
+export function WorkspaceGroupMarker({
   group,
   groupingMode,
 }: {
-  group: WorkspaceGroup;
+  group: Pick<WorkspaceGroup, "key" | "label" | "color">;
   groupingMode: SidebarGroupingMode;
 }) {
   const statusMeta = groupingMode === "status"
@@ -503,7 +508,7 @@ function SortableWorkspaceGroupSection({
           className="flex min-w-0 flex-1 items-center gap-1.5 py-2 pl-3 pr-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:text-sidebar-accent-foreground"
         >
           <WorkspaceGroupMarker group={group} groupingMode={groupingMode} />
-          <span className="truncate">{group.label}</span>
+          <span className="min-w-0 truncate">{group.label}</span>
           <ChevronRight
             className={cn(
               "ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100",
@@ -535,15 +540,22 @@ function SortableWorkspaceGroupSection({
       </div>
       <div
         className={cn(
-          "grid transition-[grid-template-rows] duration-300 ease-out",
+          "grid min-w-0 transition-[grid-template-rows] duration-300 ease-out",
           isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
         )}
       >
-        <div className="overflow-hidden">
-          <div className="space-y-1 pl-3 pt-0.5">
-            {visibleItems.map((entry) =>
-              renderWorkspaceContentRow(entry, { showProjectName: true })
-            )}
+        <div className="min-w-0 overflow-hidden">
+          <div className="flex min-w-0 flex-col gap-1 pl-3 pt-0.5">
+            <SidebarMotionList>
+              {visibleItems.map((entry) => {
+                const entryKey = getSidebarEntryKey(entry);
+                return (
+                  <SidebarMotionItem key={entryKey}>
+                    {renderWorkspaceContentRow(entry, { showProjectName: true })}
+                  </SidebarMotionItem>
+                );
+              })}
+            </SidebarMotionList>
             <WorkspaceListShowMoreLess
               canShowMore={canShowMore}
               canShowLess={canShowLess}
@@ -589,7 +601,7 @@ export function GroupedWorkspaceOneColumnContent({
     .map((group) => group.key);
 
   return (
-    <ScrollArea scrollFade className="h-full">
+    <ScrollArea scrollFade className="h-full overflow-x-hidden" viewportClassName="overflow-x-hidden">
       <DndContext
         collisionDetection={closestCenter}
         sensors={sensors}
@@ -618,25 +630,28 @@ export function GroupedWorkspaceOneColumnContent({
           }
           strategy={verticalListSortingStrategy}
         >
-          <div className={cn("space-y-0.5 pl-2", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}>
-            {visibleGroups.map((group) => {
-              const stateKey = `${groupingMode}:${group.key}`;
-              return (
-                <SortableWorkspaceGroupSection
-                  key={group.key}
-                  group={group}
-                  groupingMode={groupingMode}
-                  isCollapsed={
-                    isAnyGroupDragging ||
-                    (collapsedWorkspaceGroups[stateKey] ?? false)
-                  }
-                  renderWorkspaceContentRow={renderWorkspaceContentRow}
-                  sortingEnabled={Boolean(onLabelGroupOrderChange)}
-                  toggleWorkspaceGroup={() => toggleWorkspaceGroup(stateKey)}
-                />
-              );
-            })}
-          </div>
+          <SidebarMotionScope className={cn("flex min-w-0 flex-col gap-0.5 overflow-x-clip pl-2", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}>
+            <SidebarMotionList>
+              {visibleGroups.map((group) => {
+                const stateKey = `${groupingMode}:${group.key}`;
+                return (
+                  <SidebarMotionItem key={`${groupingMode}:${group.key}`}>
+                    <SortableWorkspaceGroupSection
+                      group={group}
+                      groupingMode={groupingMode}
+                      isCollapsed={
+                        isAnyGroupDragging ||
+                        (collapsedWorkspaceGroups[stateKey] ?? false)
+                      }
+                      renderWorkspaceContentRow={renderWorkspaceContentRow}
+                      sortingEnabled={Boolean(onLabelGroupOrderChange)}
+                      toggleWorkspaceGroup={() => toggleWorkspaceGroup(stateKey)}
+                    />
+                  </SidebarMotionItem>
+                );
+              })}
+            </SidebarMotionList>
+          </SidebarMotionScope>
         </SortableContext>
       </DndContext>
     </ScrollArea>
@@ -660,33 +675,35 @@ export function GroupedWorkspaceTwoColumnLeftContent({
     : groups;
 
   return (
-    <ScrollArea scrollFade className="h-full" viewportClassName="px-2 py-1.5">
-      <div className="space-y-1">
-        {visibleGroups.map((group) => {
-          const isSelected = effectiveSelectedWorkspaceGroupKey === group.key;
+    <ScrollArea scrollFade className="h-full overflow-x-hidden" viewportClassName="overflow-x-hidden px-2 py-1.5">
+      <div className="flex flex-col gap-1">
+        <SidebarMotionList>
+          {visibleGroups.map((group) => {
+            const isSelected = effectiveSelectedWorkspaceGroupKey === group.key;
 
-          return (
-            <button
-              key={group.key}
-              type="button"
-              onClick={() => onSelectGroup(group.key)}
-              className={cn(
-                "flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em]",
-                isSelected
-                  ? "bg-sidebar-accent text-sidebar-foreground"
-                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                // Dim group chrome in attention filter so workspace rows stand out in the right pane.
-                attentionFilterMode && "opacity-45",
-              )}
-            >
-              <WorkspaceGroupMarker group={group} groupingMode={groupingMode} />
-              <span className="truncate">{group.label}</span>
-              <span className="ml-auto text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80">
-                {group.items.length}
-              </span>
-            </button>
-          );
-        })}
+            return (
+              <SidebarMotionItem key={`${groupingMode}:${group.key}`}>
+                <button
+                  type="button"
+                  onClick={() => onSelectGroup(group.key)}
+                  className={cn(
+                    "flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em]",
+                    isSelected
+                      ? "bg-sidebar-accent text-sidebar-foreground"
+                      : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                    attentionFilterMode && "opacity-45",
+                  )}
+                >
+                  <WorkspaceGroupMarker group={group} groupingMode={groupingMode} />
+                  <span className="truncate">{group.label}</span>
+                  <span className="ml-auto text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80">
+                    {group.items.length}
+                  </span>
+                </button>
+              </SidebarMotionItem>
+            );
+          })}
+        </SidebarMotionList>
       </div>
     </ScrollArea>
   );
@@ -752,23 +769,26 @@ export function GroupedWorkspaceTwoColumnRightContent({
       <div className="min-h-0 flex-1 overflow-hidden">
         <ScrollArea
           scrollFade
-          viewportClassName={cn("py-2 pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}
+          viewportClassName={cn("overflow-x-hidden py-2 pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}
         >
           {!selectedGroup ? (
             <div className="px-3 py-6 text-sm text-muted-foreground">
               {t("leftSidebarControls.selectGroupDescription")}
             </div>
           ) : (
-            <div className={cn("space-y-1", secondColumnKanban && "space-y-2")}>
-              {visibleItems.map((entry) =>
-                secondColumnKanban ? (
-                  <div key={getSidebarEntryKey(entry)}>
-                    {renderWorkspaceKanbanCard(entry)}
-                  </div>
-                ) : (
-                  renderWorkspaceContentRow(entry, { showProjectName: true })
-                ),
-              )}
+            <div className={cn("flex min-w-0 flex-col gap-1", secondColumnKanban && "gap-2")}>
+              <SidebarMotionList>
+                {visibleItems.map((entry) => {
+                  const entryKey = getSidebarEntryKey(entry);
+                  return (
+                    <SidebarMotionItem key={entryKey}>
+                      {secondColumnKanban
+                        ? renderWorkspaceKanbanCard(entry)
+                        : renderWorkspaceContentRow(entry, { showProjectName: true })}
+                    </SidebarMotionItem>
+                  );
+                })}
+              </SidebarMotionList>
               <WorkspaceListShowMoreLess
                 canShowMore={canShowMore}
                 canShowLess={canShowLess}
@@ -911,7 +931,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
       modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
     >
       <SortableContext items={visibleUnpinnedWorkspaces.map((workspace) => workspace.id)} strategy={verticalListSortingStrategy}>
-        <div className={cn("space-y-0.5", secondColumnKanban && "space-y-2")}>
+        <div className={cn("min-w-0 space-y-0.5", secondColumnKanban && "space-y-2")}>
           {visibleUnpinnedWorkspaces.map((workspace) => {
             const entry = renderProjectWorkspaceEntry(workspace);
             if (!entry) return null;
@@ -943,7 +963,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
   const headerPad = isPrimaryCollapsed
     ? cn("pl-5", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)
     : cn("pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS);
-  const projectHeaderBleed = isPrimaryCollapsed ? "-ml-5" : "-ml-3 -mr-1";
+  const projectHeaderBleed = isPrimaryCollapsed ? "-ml-5" : "-ml-3";
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -997,7 +1017,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
         <ScrollArea
           scrollFade
           viewportClassName={cn(
-            "pl-3",
+            "overflow-x-hidden pl-3",
             LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
             showPaneEmpty ? "flex items-center justify-center" : "py-2",
           )}
@@ -1029,7 +1049,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="overflow-hidden">
-                    <div className="space-y-0.5 pl-3 pt-0.5">
+                    <div className="min-w-0 space-y-0.5 pl-3 pt-0.5">
                       <DndContext
                         sensors={sensors}
                         collisionDetection={closestCenter}
@@ -1046,7 +1066,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
                         modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
                       >
                         <SortableContext items={selectedProjectPinnedEntries.map((entry) => entry.workspace.id)} strategy={verticalListSortingStrategy}>
-                          <div className={cn("space-y-0.5", secondColumnKanban && "space-y-2")}>
+                          <div className={cn("min-w-0 space-y-0.5", secondColumnKanban && "space-y-2")}>
                             {selectedProjectPinnedEntries.map((entry) =>
                               secondColumnKanban ? (
                                 isPinnedSortingDisabled ? (

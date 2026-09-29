@@ -1,3 +1,6 @@
+mod base_ref_timeline;
+pub use base_ref_timeline::{attach_base_ref_changes, timeline_has_base_ref_change};
+
 use std::sync::LazyLock;
 
 use regex::Regex;

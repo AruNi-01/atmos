@@ -134,6 +134,15 @@ pub struct TerminalWorkspaceCandidate {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_tmux_window_name: Option<String>,
     pub active: bool,
+    /// Sticky session topic detected from OSC 0/2. Null when the shell is idle.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_title: Option<String>,
+    /// Shim title: foreground command or shortened directory.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dynamic_title: Option<String>,
+    /// Latest raw OSC 0/2 window title.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub osc_title: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

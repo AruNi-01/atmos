@@ -71,6 +71,7 @@ function sameTerminalEntries(left: MobileTerminalEntry[], right: MobileTerminalE
       entry.tmuxWindowIndex === next.tmuxWindowIndex &&
       entry.dynamicTitle === next.dynamicTitle &&
       entry.oscTitle === next.oscTitle &&
+      entry.sessionOscTitle === next.sessionOscTitle &&
       entry.isNew === next.isNew
     );
   });

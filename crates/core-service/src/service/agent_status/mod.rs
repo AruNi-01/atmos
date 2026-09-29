@@ -8,7 +8,9 @@ mod activity;
 mod attention;
 mod attention_summary;
 mod attention_summary_generate;
+mod catalog;
 mod child_lifecycle;
+mod session_agent;
 mod workspace_agent_group;
 
 use std::collections::{HashMap, HashSet};
@@ -33,6 +35,10 @@ pub use attention_summary::{
     AttentionSummaryStatus,
 };
 pub use attention_summary_generate::generate_attention_summary;
+pub use session_agent::{
+    page_agent_sessions, AgentSessionChatRef, AgentSessionLiveSet, AgentSessionStatusSnapshot,
+    AGENT_SESSION_PAGE_LIMIT,
+};
 pub use workspace_agent_group::{
     resolve_workspace_agent_group_key, WorkspaceAgentGroupKey, WorkspaceAgentGroupSnapshot,
 };
@@ -386,6 +392,9 @@ pub struct AgentStatusService {
     /// Known project root paths. Kept for diagnostics / future use but
     /// primary filtering is done at the hook level via ATMOS_MANAGED env var.
     known_project_paths: RwLock<HashSet<String>>,
+    catalog: Option<catalog::CatalogBridge>,
+    /// Last inbox bucket enqueued for a pane. Same-bucket progress does not write.
+    inbox_buckets: RwLock<HashMap<String, workspace_agent_group::WorkspaceAgentGroupKey>>,
     /// Terminal permission payload waiting for the hook HTTP handler to arm a reply.
     hook_permission_stash: Mutex<HashMap<String, StashedHookPermission>>,
     /// In-flight hook replies. The HTTP handler holds the receiver.
@@ -561,6 +570,8 @@ impl AgentStatusService {
             notification_service: RwLock::new(None),
             event_tx,
             known_project_paths: RwLock::new(HashSet::new()),
+            catalog: None,
+            inbox_buckets: RwLock::new(HashMap::new()),
             hook_permission_stash: Mutex::new(HashMap::new()),
             hook_permission_tx: Mutex::new(HashMap::new()),
         }
@@ -813,6 +824,8 @@ impl AgentStatusService {
                 stable_pane_id
             );
             self.broadcast_sessions_cleared(removed.clone());
+        } else {
+            self.broadcast_sessions_cleared(vec![stable_pane_id.to_string()]);
         }
         self.drop_activity(&removed);
         self.drop_activity_matching_pane(stable_pane_id);
@@ -821,7 +834,58 @@ impl AgentStatusService {
         let mut attention_ids = removed.clone();
         attention_ids.push(stable_pane_id.to_string());
         self.clear_attention_and_summaries_matching_ids(&attention_ids);
+        self.forget_catalog_ids(&attention_ids);
         removed
+    }
+
+    /// Tell every client a chat exists, before the first status hook.
+    pub fn note_chat_opened(&self, chat_id: &str, context_id: &str, provider_id: &str, cwd: &str) {
+        let chat_id = chat_id.trim();
+        let context_id = context_id.trim();
+        if chat_id.is_empty() || context_id.is_empty() {
+            return;
+        }
+        let session_id = chat_status_session_id(chat_id);
+        let tool = provider_to_tool(provider_id);
+        let now = Utc::now().to_rfc3339();
+        self.remember_open_chat(&session_id, context_id, &tool.to_string(), cwd, &now);
+        self.broadcast_state_update(AgentStatusUpdate {
+            session_id,
+            tool,
+            state: AgentOccupancy::Idle,
+            timestamp: now,
+            project_path: {
+                let cwd = cwd.trim();
+                if cwd.is_empty() {
+                    None
+                } else {
+                    Some(cwd.to_string())
+                }
+            },
+            context_id: Some(context_id.to_string()),
+            pane_id: None,
+            terminal_kind: None,
+            side_chat_id: None,
+            source_pane_id: None,
+            hook_version: None,
+            surface: AgentSurface::Chat,
+            surface_id: Some(chat_id.to_string()),
+            space_id: None,
+            provider_id: Some(provider_id.to_string()),
+        });
+    }
+
+    /// Drop a session whose chat was deleted, and tell every client.
+    pub fn close_recorded_session(&self, session_id: &str) {
+        let session_id = session_id.trim();
+        if session_id.is_empty() {
+            return;
+        }
+        let removed = self.remove_session(session_id);
+        self.forget_catalog_ids(&[session_id.to_string()]);
+        if !removed {
+            self.broadcast_sessions_cleared(vec![session_id.to_string()]);
+        }
     }
 
     pub fn force_session_idle(&self, session_id: &str) -> Option<AgentStatusRecord> {
@@ -1163,6 +1227,8 @@ impl AgentStatusService {
                 session_id
             );
         }
+
+        self.sync_inbox_catalog(session_id);
     }
 
     fn is_running_suppressed(&self, session_id: &str) -> bool {

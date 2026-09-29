@@ -1,21 +1,20 @@
-import { useMobileTheme } from "@/theme/theme-store";
-import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
-import { Button, Host } from "@expo/ui";
-import { View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { ComputerRow } from "@/api/types";
-import { EmptyState, Section } from "@/ui/layout/app-screen";
-import { Row, Separator } from "@/ui/layout/row";
-import { expoUiButtonHostStyle, expoUiSecondaryStyle } from "@/ui/primitives/expo-ui-button-styles";
-
-const buttonStretchModifiers = expoUiButtonStretchModifiers;
+import { spacing } from "@/theme/spacing";
+import { typography } from "@/theme/typography";
+import { useMobileTheme } from "@/theme/theme-store";
+import { Separator } from "@/ui/layout/row";
+import { CheckIcon, ChevronRightIcon, WifiIcon, WifiOffIcon } from "@/ui/icons/lucide-native";
 
 export function ComputerList({
   computers,
+  onManage,
   onPress,
   onlyOnline = false,
   selectedServerId,
 }: {
   computers: ComputerRow[];
+  onManage?: (computer: ComputerRow) => void;
   onPress?: (computer: ComputerRow) => void;
   onlyOnline?: boolean;
   selectedServerId: string | null;
@@ -29,10 +28,11 @@ export function ComputerList({
         return (
           <View key={computer.server_id}>
             {index > 0 ? <Separator /> : null}
-            <Row
+            <ComputerListItem
+              computer={computer}
+              onManage={onManage ? () => onManage(computer) : undefined}
               onPress={press}
-              subtitle={selected ? "Selected" : computer.online ? "Online" : "Offline"}
-              title={computer.display_name ?? computer.server_id}
+              selected={selected}
             />
           </View>
         );
@@ -41,65 +41,74 @@ export function ComputerList({
   );
 }
 
-export function ComputerPicker({
-  computers,
-  selectedServerId,
-  onSelect,
-  onRefresh,
-  isRefreshing,
+function ComputerListItem({
+  computer,
+  onManage,
+  onPress,
+  selected,
 }: {
-  computers: ComputerRow[];
-  selectedServerId: string | null;
-  onSelect: (serverId: string) => void;
-  onRefresh: () => void;
-  isRefreshing?: boolean;
+  computer: ComputerRow;
+  onManage?: () => void;
+  onPress?: () => void;
+  selected: boolean;
 }) {
   const theme = useMobileTheme();
-  const activeComputers = computers.filter((computer) => !computer.revoked);
-  const onlineComputers = activeComputers.filter((computer) => computer.online);
-  const refreshStyle = expoUiSecondaryStyle(theme.colors, Boolean(isRefreshing));
-
-  const refreshButton = (
-    <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={refreshStyle.seedColor}
-      style={expoUiButtonHostStyle}
+  const online = computer.online;
+  const statusColor = online ? theme.colors.green : theme.colors.secondaryLabel;
+  const StatusIcon = online ? WifiIcon : WifiOffIcon;
+  const body = (
+    <View
+      style={{
+        alignItems: "center",
+        flexDirection: "row",
+        gap: spacing.rowTitleGap,
+        minHeight: spacing.rowMinHeight,
+        paddingHorizontal: spacing.rowX,
+        paddingVertical: spacing.rowY,
+      }}
     >
-      <Button
-        label={isRefreshing ? "Refreshing..." : "Refresh"}
-        onPress={onRefresh}
-        modifiers={buttonStretchModifiers}
-        style={refreshStyle.style}
-        variant={refreshStyle.variant}
-      />
-    </Host>
+      <View style={{ flex: 1, gap: spacing.rowGap, minWidth: 0 }}>
+        <Text
+          numberOfLines={2}
+          style={[typography.rowTitle, { color: theme.colors.label, fontWeight: "600" }]}
+        >
+          {computer.display_name ?? computer.server_id}
+        </Text>
+        <View style={{ alignItems: "center", flexDirection: "row", gap: 6 }}>
+          <StatusIcon color={statusColor} size={14} strokeWidth={2.4} />
+          <Text style={[typography.rowSubtitle, { color: statusColor }]}>
+            {online ? "Online" : "Offline"}
+          </Text>
+        </View>
+      </View>
+      {selected ? (
+        <CheckIcon color={theme.colors.label} size={18} strokeWidth={2.6} />
+      ) : null}
+      {onManage ? (
+        <Pressable
+          accessibilityLabel="Rename or revoke"
+          accessibilityRole="button"
+          hitSlop={8}
+          onPress={onManage}
+        >
+          <ChevronRightIcon color={theme.colors.tertiaryLabel} size={18} strokeWidth={2.6} />
+        </Pressable>
+      ) : null}
+    </View>
   );
 
+  if (!onPress) return body;
+
   return (
-    <Section label="Computer">
-      {activeComputers.length === 0 ? (
-        <View>
-          <EmptyState
-            layout="section"
-            title="No Computers"
-            message="No Computers yet."
-          />
-          <View style={{ padding: 16, paddingTop: 0 }}>{refreshButton}</View>
-        </View>
-      ) : (
-        <View>
-          <ComputerList
-            computers={activeComputers}
-            onlyOnline
-            onPress={(computer) => onSelect(computer.server_id)}
-            selectedServerId={selectedServerId}
-          />
-          {onlineComputers.length === 0 ? (
-            <View style={{ padding: 16 }}>{refreshButton}</View>
-          ) : null}
-        </View>
-      )}
-    </Section>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={({ pressed }) =>
+        pressed ? { backgroundColor: theme.colors.mutedPressed } : undefined
+      }
+    >
+      {body}
+    </Pressable>
   );
 }

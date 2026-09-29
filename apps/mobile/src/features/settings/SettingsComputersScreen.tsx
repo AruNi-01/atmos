@@ -1,55 +1,70 @@
-import { Button, Host } from "@expo/ui";
-import { useEffect } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import type { ComputerRow } from "@/api/types";
+import { useEffect, useRef } from "react";
+import { Animated, Easing, Pressable, View } from "react-native";
+import { Stack, useRouter } from "expo-router";
 import { ComputerList } from "@/features/computers/ComputerPicker";
 import { useMobileSettingsController } from "@/features/settings/use-mobile-settings-controller";
-import {
-  FieldBlock,
-  SettingsIconWell,
-  SettingsListRow,
-  SettingsProfileRow,
-  ComputerListRow,
-  ComputerStatusIndicator,
-  shortRelayHost,
-} from "@/features/settings/settings-shared";
-import { radii } from "@/theme/radii";
-import { typography } from "@/theme/typography";
-import {
-  themePreferenceOptions,
-  useMobileTheme,
-  type MobileThemePreference,
-} from "@/theme/theme-store";
+import { useMobileTheme } from "@/theme/theme-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
-import { Row, Separator } from "@/ui/layout/row";
-import {
-  ChevronRightIcon,
-  LaptopIcon,
-  LinkIcon,
-  LogOutIcon,
-  PlusCircleIcon,
-  SunMoonIcon,
-  UserIcon,
-} from "@/ui/icons/lucide-native";
-import { NativeSegmentedControl, NativeTextInput } from "@/ui/primitives/native-controls";
-import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
-import {
-  expoUiButtonHostStyle,
-  expoUiPrimaryStyle,
-  expoUiSecondaryStyle,
-} from "@/ui/primitives/expo-ui-button-styles";
+import { RefreshIcon } from "@/ui/icons/lucide-native";
+import { GlassActionButtons } from "@/ui/primitives/glass-action-buttons";
+import { ListSkeleton } from "@/ui/primitives/list-skeleton";
 
-const buttonStretchModifiers = expoUiButtonStretchModifiers;
+function RefreshComputersButton({ tintColor }: { tintColor: string }) {
+  const settings = useMobileSettingsController();
+  const fetching = settings.computersQuery.isFetching;
+  const rotation = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!fetching) {
+      rotation.stopAnimation();
+      rotation.setValue(0);
+      return;
+    }
+    const spin = Animated.loop(
+      Animated.timing(rotation, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    spin.start();
+    return () => spin.stop();
+  }, [fetching, rotation]);
+
+  return (
+    <Pressable
+      accessibilityLabel="Refresh Computers"
+      accessibilityRole="button"
+      accessibilityState={{ busy: fetching }}
+      hitSlop={8}
+      onPress={() => {
+        if (!fetching) void settings.computersQuery.refetch();
+      }}
+      style={{ alignItems: "center", height: 36, justifyContent: "center", width: 36 }}
+    >
+      <Animated.View
+        style={{
+          transform: [
+            {
+              rotate: rotation.interpolate({
+                inputRange: [0, 1],
+                outputRange: ["0deg", "360deg"],
+              }),
+            },
+          ],
+        }}
+      >
+        <RefreshIcon color={tintColor} size={20} strokeWidth={2.2} />
+      </Animated.View>
+    </Pressable>
+  );
+}
 
 export function SettingsComputersScreen() {
-  const theme = useMobileTheme();
   const router = useRouter();
   const settings = useMobileSettingsController();
-  const refreshStyle = expoUiSecondaryStyle(
-    theme.colors,
-    settings.computersQuery.isFetching,
-  );
+  const theme = useMobileTheme();
 
   return (
     <AppScreen surface="sheet">
@@ -57,15 +72,14 @@ export function SettingsComputersScreen() {
         options={{
           ...(process.env.EXPO_OS === "ios"
             ? {
-                unstable_headerRightItems: () => [
+                unstable_headerRightItems: ({ tintColor }) => [
                   {
-                    type: "button" as const,
-                    label: "Refresh",
-                    icon: { type: "sfSymbol" as const, name: "arrow.clockwise" as const },
-                    disabled: settings.computersQuery.isFetching,
-                    onPress: () => void settings.computersQuery.refetch(),
-                    accessibilityLabel: "Refresh Computers",
-                    variant: "plain" as const,
+                    type: "custom" as const,
+                    element: (
+                      <RefreshComputersButton
+                        tintColor={typeof tintColor === "string" ? tintColor : theme.colors.label}
+                      />
+                    ),
                   },
                 ],
               }
@@ -75,7 +89,11 @@ export function SettingsComputersScreen() {
         }}
       />
 
-      {settings.activeComputers.length === 0 ? (
+      {settings.computersQuery.isPending && settings.activeComputers.length === 0 ? (
+        <Section>
+          <ListSkeleton />
+        </Section>
+      ) : settings.activeComputers.length === 0 ? (
         <Section>
           <EmptyState
             layout="section"
@@ -84,27 +102,15 @@ export function SettingsComputersScreen() {
           />
           {process.env.EXPO_OS !== "ios" ? (
             <View className="px-card-padding pb-card-padding">
-              <Host
-                matchContents={{ vertical: true }}
-                colorScheme={theme.colorScheme}
-                seedColor={refreshStyle.seedColor}
-                style={expoUiButtonHostStyle}
-              >
-                <Button
-                  disabled={settings.computersQuery.isFetching}
-                  label={
-                    settings.computersQuery.isFetching ? "Refreshing..." : "Refresh"
-                  }
-                  modifiers={buttonStretchModifiers}
-                  onPress={
-                    settings.computersQuery.isFetching
-                      ? undefined
-                      : () => void settings.computersQuery.refetch()
-                  }
-                  style={refreshStyle.style}
-                  variant={refreshStyle.variant}
-                />
-              </Host>
+              <GlassActionButtons
+                actions={[
+                  {
+                    disabled: settings.computersQuery.isFetching,
+                    label: settings.computersQuery.isFetching ? "Refreshing..." : "Refresh",
+                    onPress: () => void settings.computersQuery.refetch(),
+                  },
+                ]}
+              />
             </View>
           ) : null}
         </Section>
@@ -112,13 +118,13 @@ export function SettingsComputersScreen() {
         <Section>
           <ComputerList
             computers={settings.activeComputers}
-            onPress={(computer) => {
-              settings.focusComputer(computer);
+            onManage={(computer) =>
               router.push({
                 pathname: "/settings/computer",
                 params: { serverId: computer.server_id },
-              });
-            }}
+              })
+            }
+            onPress={(computer) => settings.selectComputer(computer)}
             selectedServerId={settings.selectedServerId}
           />
         </Section>
@@ -128,5 +134,3 @@ export function SettingsComputersScreen() {
     </AppScreen>
   );
 }
-
-/** Single Computer: name field + destructive revoke row. */

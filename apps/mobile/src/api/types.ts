@@ -54,6 +54,13 @@ export type {
   TerminalWorkspaceCandidatesResponse,
 } from "@atmos/api-types/ws/dto/terminal";
 export type {
+  AgentSessionArchiveRequest,
+  AgentSessionGroupKey,
+  AgentSessionStatusListResponse,
+  AgentSessionStatusSnapshot,
+  AgentSessionSurface,
+} from "@atmos/api-types/ws/dto/agent-status";
+export type {
   WorkspaceSetupContextNotification,
   WorkspaceSetupProgressNotification,
 } from "@atmos/api-types/ws/dto/workspace";

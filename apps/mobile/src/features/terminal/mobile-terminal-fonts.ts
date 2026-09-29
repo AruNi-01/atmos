@@ -1,7 +1,8 @@
 export const terminalFontRegularUrl = require("../../../assets/fonts/HackNerdFontMono-Regular.ttf") as string;
 export const terminalFontBoldUrl = require("../../../assets/fonts/HackNerdFontMono-Bold.ttf") as string;
 
-export const MOBILE_TERMINAL_FONT_SIZE = 12;
+/** Matches the web terminal font size (`terminalFont.size`). */
+export const MOBILE_TERMINAL_FONT_SIZE = 14;
 export const MOBILE_TERMINAL_FONT_FAMILY =
   '"Hack Nerd Font Mono", "Hack Nerd Font", "Hack", "JetBrains Mono NL", "JetBrains Mono", "Fira Code", "SF Mono", Monaco, "Cascadia Code", Menlo, Consolas, "Liberation Mono", monospace';
 

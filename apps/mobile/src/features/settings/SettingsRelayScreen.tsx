@@ -1,6 +1,4 @@
-import { Button, Host } from "@expo/ui";
-import { useEffect } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import type { ComputerRow } from "@/api/types";
 import { useMobileSettingsController } from "@/features/settings/use-mobile-settings-controller";
@@ -32,20 +30,11 @@ import {
   UserIcon,
 } from "@/ui/icons/lucide-native";
 import { NativeSegmentedControl, NativeTextInput } from "@/ui/primitives/native-controls";
-import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
-import {
-  expoUiButtonHostStyle,
-  expoUiPrimaryStyle,
-  expoUiSecondaryStyle,
-} from "@/ui/primitives/expo-ui-button-styles";
-
-const buttonStretchModifiers = expoUiButtonStretchModifiers;
+import { GlassActionButtons } from "@/ui/primitives/glass-action-buttons";
 
 export function SettingsRelayScreen() {
-  const theme = useMobileTheme();
   const settings = useMobileSettingsController();
   const canSave = settings.canSaveRelaySettings && !settings.saveRelaySettings.isPending;
-  const saveStyle = expoUiPrimaryStyle(theme.colors, !canSave);
 
   return (
     <AppScreen surface="sheet">
@@ -77,27 +66,19 @@ export function SettingsRelayScreen() {
           />
         </FieldBlock>
 
-        <Host
-          matchContents={{ vertical: true }}
-          colorScheme={theme.colorScheme}
-          seedColor={saveStyle.seedColor}
-          style={expoUiButtonHostStyle}
-        >
-          <Button
-            disabled={!canSave}
-            label={
-              settings.saveRelaySettings.isPending
+        <GlassActionButtons
+          actions={[
+            {
+              disabled: !canSave,
+              label: settings.saveRelaySettings.isPending
                 ? "Saving..."
                 : settings.relayConfigured
                   ? "Saved"
-                  : "Save"
-            }
-            modifiers={buttonStretchModifiers}
-            onPress={canSave ? () => settings.saveRelaySettings.mutate() : undefined}
-            style={saveStyle.style}
-            variant={saveStyle.variant}
-          />
-        </Host>
+                  : "Save",
+              onPress: () => settings.saveRelaySettings.mutate(),
+            },
+          ]}
+        />
 
         <InlineError message={settings.error} />
       </View>

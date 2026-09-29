@@ -26,7 +26,6 @@ apps/mobile/
 │   ├── _layout.tsx
 │   ├── index.tsx            # Workspace list home
 │   ├── sign-in.tsx          # Scan / OAuth form sheet
-│   ├── computer-connect.tsx
 │   ├── workspaces.tsx
 │   ├── create-workspace.tsx
 │   ├── workspace/[workspaceId].tsx
@@ -58,7 +57,7 @@ Generated native folders `ios/` and `android/` are managed by Expo prebuild and 
 - Onboarding primary: **Hub OAuth** (system browser → `/v1/mobile-auth/*` → `acceptDeviceCredential` + `hubMe`). Secondary: **QR pair** (`/v1/mobile-pair/*`, 3 min). No paste path.
 - Sign-out: Hub `revoke` this device (best-effort) then clear store. After auth, auto-connect when a single Computer is online. Sign-out lives on the homepage account popover (APP-077).
 - Primary post-auth screen is the workspace list.
-- Workspace development is terminal-only and shows exactly one terminal renderer at a time. All workspace terminals flatten into one top tab strip; the group list is an Expo `BottomSheet`.
+- Lists open a workspace Agent Chat session list, then one chat. The terminal route `app/workspace/[workspaceId]/terminal.tsx` remains in the app and is not opened from those lists. All workspace terminals flatten into one top tab strip; the group list is an Expo `BottomSheet`.
 - Drawers / sheets use Expo Router `formSheet` or `@expo/ui` `BottomSheet`. Popovers use `expo-ios-popover` on iOS (RN modal overlay on Android). Do not use matched-sheet popovers for drawers.
 
 Spec: [specs/APP/APP-077_mobile-terminal-main-path](../../specs/APP/APP-077_mobile-terminal-main-path/) (narrows [APP-025](../../specs/APP/APP-025_mobile-app/))

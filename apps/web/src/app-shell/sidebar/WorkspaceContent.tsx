@@ -505,7 +505,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
             {...{ [SIDEBAR_SHORTCUT_TARGET_ATTR]: workspaceShortcutKey }}
             className={cn(
               // Instant hover fill — match settings SidebarMenuButton (no color fade).
-              "relative flex items-center px-3 py-1.5 rounded-md cursor-pointer border border-transparent hover:bg-sidebar-accent group/ws",
+              "relative flex w-full min-w-0 items-center px-3 py-1.5 rounded-md cursor-pointer border border-transparent hover:bg-sidebar-accent group/ws",
               isActive
                 ? "bg-sidebar-accent text-sidebar-accent-foreground"
                 : "text-muted-foreground hover:text-sidebar-accent-foreground",
@@ -561,7 +561,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
               </div>
               {/* Title takes remaining width and ellipsizes — no absolute overlays / frosted plates. */}
               <div className="flex min-w-0 flex-1 items-center gap-1.5 pl-5">
-                <span className="truncate text-[13px] font-medium">
+                <span className="min-w-0 truncate text-[13px] font-medium">
                   {primaryLabel}
                   {showProjectName && projectName && (
                     <span className="ml-1 font-normal text-muted-foreground/50">/ {projectName}</span>

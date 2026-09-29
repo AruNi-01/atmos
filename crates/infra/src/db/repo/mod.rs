@@ -1,3 +1,4 @@
+pub mod agent_session_catalog_repo;
 pub mod automation_repo;
 pub mod base;
 pub mod group_repo;
@@ -10,6 +11,7 @@ pub mod test_message_repo;
 pub mod workspace_external_issue_repo;
 pub mod workspace_repo;
 
+pub use agent_session_catalog_repo::*;
 pub use automation_repo::*;
 pub use group_repo::*;
 pub use host_session_repo::*;

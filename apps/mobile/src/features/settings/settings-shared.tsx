@@ -4,8 +4,7 @@ import type { ComputerRow } from "@/api/types";
 import { radii } from "@/theme/radii";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
-import { Row, Separator } from "@/ui/layout/row";
-import { ChevronRightIcon, LaptopIcon, UserIcon } from "@/ui/icons/lucide-native";
+import { CheckIcon, ChevronRightIcon, LaptopIcon, UserIcon, WifiIcon, WifiOffIcon } from "@/ui/icons/lucide-native";
 
 type LucideIcon = typeof LaptopIcon;
 
@@ -205,60 +204,63 @@ export function ComputerListRow({
   selectedServerId,
 }: {
   computer: ComputerRow;
-  onPress: () => void;
+  onPress?: () => void;
   selectedServerId: string | null;
 }) {
+  const theme = useMobileTheme();
   const selected = computer.server_id === selectedServerId;
+  const body = (
+    <View
+      style={{
+        alignItems: "center",
+        flexDirection: "row",
+        gap: 12,
+        minHeight: 64,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+      }}
+    >
+      <View style={{ flex: 1, gap: 4, minWidth: 0 }}>
+        <Text
+          numberOfLines={2}
+          style={[typography.rowTitle, { color: theme.colors.label, fontWeight: "600" }]}
+        >
+          {computer.display_name ?? computer.server_id}
+        </Text>
+        <ComputerStatusIndicator online={computer.online} />
+      </View>
+      {selected ? (
+        <CheckIcon color={theme.colors.label} size={18} strokeWidth={2.6} />
+      ) : null}
+    </View>
+  );
+
+  if (!onPress) return body;
 
   return (
-    <Row
-      title={computer.display_name ?? computer.server_id}
-      subtitle={computer.online ? "Online" : "Offline"}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
       onPress={onPress}
+      style={({ pressed }) =>
+        pressed ? { backgroundColor: theme.colors.mutedPressed } : undefined
+      }
     >
-      <ComputerStatusIndicator online={computer.online} selected={selected} />
-    </Row>
+      {body}
+    </Pressable>
   );
 }
 
-export function ComputerStatusIndicator({
-  online,
-  selected,
-}: {
-  online: boolean;
-  selected: boolean;
-}) {
+export function ComputerStatusIndicator({ online }: { online: boolean }) {
   const theme = useMobileTheme();
-  const label = selected ? "Selected" : online ? "Online" : "Offline";
-  const dotColor = selected
-    ? theme.colors.label
-    : online
-      ? theme.colors.green
-      : theme.colors.tertiaryLabel;
+  const statusColor = online ? theme.colors.green : theme.colors.secondaryLabel;
+  const StatusIcon = online ? WifiIcon : WifiOffIcon;
 
   return (
     <View style={{ alignItems: "center", flexDirection: "row", gap: 6 }}>
-      <View
-        style={{
-          backgroundColor: dotColor,
-          borderRadius: 999,
-          height: 6,
-          width: 6,
-        }}
-      />
-      <Text
-        style={[
-          typography.rowMeta,
-          {
-            color: selected
-              ? theme.colors.label
-              : online
-                ? theme.colors.green
-                : theme.colors.secondaryLabel,
-          },
-        ]}
-      >
-        {label}
+      <StatusIcon color={statusColor} size={14} strokeWidth={2.4} />
+      <Text style={[typography.rowSubtitle, { color: statusColor }]}>
+        {online ? "Online" : "Offline"}
       </Text>
     </View>
   );

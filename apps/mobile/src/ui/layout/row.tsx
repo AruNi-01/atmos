@@ -5,15 +5,19 @@ import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 
 export function Row({
+  leading,
   title,
   subtitle,
   meta,
+  onLongPress,
   onPress,
   children,
 }: {
+  leading?: ReactNode;
   title: string;
   subtitle?: string;
   meta?: string;
+  onLongPress?: () => void;
   onPress?: () => void;
   children?: ReactNode;
 }) {
@@ -35,6 +39,7 @@ export function Row({
           justifyContent: "space-between",
         }}
       >
+        {leading}
         <Text
           numberOfLines={2}
           style={[
@@ -74,7 +79,10 @@ export function Row({
       {subtitle ? (
         <Text
           numberOfLines={2}
-          style={[typography.rowSubtitle, { color: theme.colors.secondaryLabel }]}
+          style={[
+            typography.rowSubtitle,
+            { color: theme.colors.secondaryLabel, paddingLeft: leading ? 28 : 0 },
+          ]}
         >
           {subtitle}
         </Text>
@@ -82,10 +90,11 @@ export function Row({
     </View>
   );
 
-  if (!onPress) return content;
+  if (!onPress && !onLongPress) return content;
 
   return (
     <Pressable
+      onLongPress={onLongPress}
       onPress={onPress}
       style={({ pressed: isPressed }) =>
         isPressed ? { backgroundColor: theme.colors.mutedPressed } : undefined

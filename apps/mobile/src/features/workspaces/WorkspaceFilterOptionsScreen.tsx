@@ -59,7 +59,7 @@ export function FilterChoiceRows({
                   flexDirection: "row",
                   gap: 12,
                   minHeight: 52,
-                  paddingHorizontal: 16,
+                  paddingHorizontal: 12,
                   paddingVertical: 12,
                 }}
               >

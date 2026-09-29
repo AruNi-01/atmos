@@ -1,4 +1,8 @@
 import type {
+  HostSessionDeleteRequest,
+  HostSessionDeleteResponse,
+  HostSessionKeysForChatRequest,
+  HostSessionKeysForChatResponse,
   HostSessionGetRequest,
   HostSessionGetResponse,
   HostSessionListRequest,
@@ -7,6 +11,8 @@ import type {
   HostSessionResumeChatResponse,
   HostSessionResumeTuiRequest,
   HostSessionResumeTuiResponse,
+  HostSessionSetArchivedRequest,
+  HostSessionSetArchivedResponse,
 } from "../dto/host-session";
 
 export type HostSessionContract = {
@@ -25,5 +31,17 @@ export type HostSessionContract = {
   host_session_resume_tui: {
     input: HostSessionResumeTuiRequest;
     output: HostSessionResumeTuiResponse;
+  };
+  host_session_set_archived: {
+    input: HostSessionSetArchivedRequest;
+    output: HostSessionSetArchivedResponse;
+  };
+  host_session_delete: {
+    input: HostSessionDeleteRequest;
+    output: HostSessionDeleteResponse;
+  };
+  host_session_keys_for_chat: {
+    input: HostSessionKeysForChatRequest;
+    output: HostSessionKeysForChatResponse;
   };
 };

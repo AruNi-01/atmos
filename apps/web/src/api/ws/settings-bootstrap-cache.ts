@@ -6,7 +6,7 @@ import {
   getComputerQueryScope,
   type ComputerQueryScope,
 } from "@/api/query/query-scope";
-import { getAtmosWebQueryClient } from "@/providers/app/query-client";
+import { cancelAndRemoveQueries, getAtmosWebQueryClient } from "@/providers/app/query-client";
 import type {
   AgentBehaviourSettings,
   CodeAgentCustomPayload,
@@ -275,14 +275,8 @@ export const settingsBootstrapCache = {
   invalidate: (): void => {
     const scope = getComputerQueryScope();
     bumpSections([...SECTION_KEYS], scope);
-    try {
-      const client = getAtmosWebQueryClient();
-      const key = bootstrapQueryKey(scope);
-      void client.cancelQueries({ queryKey: key });
-      client.removeQueries({ queryKey: key });
-    } catch {
-      // ignore outside browser
-    }
+    if (typeof window === "undefined") return;
+    void cancelAndRemoveQueries(bootstrapQueryKey(scope));
   },
 
   /** Test/debug: read current Query snapshot without fetching. */

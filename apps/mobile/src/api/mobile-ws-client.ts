@@ -6,6 +6,7 @@ import {
   createWsSession,
   DEFAULT_MOBILE_RECONNECT,
   type ConnectionState as KernelState,
+  type WsRequestCallOpts,
   type WsSession,
 } from "@atmos/api-client/ws";
 import type { WebSocketLike } from "@atmos/api-client/platform";
@@ -143,7 +144,9 @@ export class MobileWsClient {
         },
         log: (level, msg) => {
           if (level === "error") {
-            console.error(`[mobile-ws] ${msg} ${redactUrl(this.wsUrl)}`);
+            // console.error opens the dev red box. A dropped Computer socket
+            // already shows the in-app disconnected state and then retries.
+            console.warn(`[mobile-ws] ${msg} ${redactUrl(this.wsUrl)}`);
           }
         },
       },
@@ -189,9 +192,10 @@ export class MobileWsClient {
   request<A extends MappedWsAction>(
     action: A,
     data?: WsContract[A]["input"],
+    opts?: WsRequestCallOpts,
   ): Promise<WsContract[A]["output"]>;
-  request(action: string, data?: unknown): Promise<unknown> {
-    return this.session.request(action as never, data as never).catch((err) => {
+  request(action: string, data?: unknown, opts?: WsRequestCallOpts): Promise<unknown> {
+    return this.session.request(action as never, data as never, opts).catch((err) => {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes("not connected")) {
         return Promise.reject(

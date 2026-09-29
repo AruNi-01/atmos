@@ -4,13 +4,18 @@ export type TerminalShortcut =
   | {
       id: string;
       label: string;
-      action: "new-terminal" | "paste" | "switch-terminal" | "workspace-list";
+      action: "copy" | "new-terminal" | "paste" | "switch-terminal" | "workspace-list";
       kind: "action";
     };
 
 export const terminalShortcuts: TerminalShortcut[] = [
   { id: "esc", label: "Esc", sequence: "\u001b", kind: "sequence" },
+  { id: "at", label: "@", sequence: "@", kind: "sequence" },
+  { id: "slash", label: "/", sequence: "/", kind: "sequence" },
   { id: "tab", label: "Tab", sequence: "\t", kind: "sequence" },
+  { id: "shift-tab", label: "⇧Tab", sequence: "\u001b[Z", kind: "sequence" },
+  { id: "enter", label: "↵", sequence: "\r", kind: "sequence" },
+  { id: "shift-enter", label: "⇧Enter", sequence: "\u001b[13;2u", kind: "sequence" },
   { id: "up", label: "↑", sequence: "\u001b[A", kind: "sequence" },
   { id: "down", label: "↓", sequence: "\u001b[B", kind: "sequence" },
   { id: "left", label: "←", sequence: "\u001b[D", kind: "sequence" },
@@ -20,6 +25,9 @@ export const terminalShortcuts: TerminalShortcut[] = [
   { id: "ctrl-l", label: "⌃L", sequence: "\u000c", kind: "sequence" },
   { id: "ctrl-a", label: "⌃A", sequence: "\u0001", kind: "sequence" },
   { id: "ctrl-e", label: "⌃E", sequence: "\u0005", kind: "sequence" },
+  { id: "command-c", label: "⌘C", action: "copy", kind: "action" },
+  { id: "command-v", label: "⌘V", action: "paste", kind: "action" },
+  { id: "command-z", label: "⌘Z", sequence: "\u001f", kind: "sequence" },
   { id: "agent-continue", label: "Continue", insertText: "continue", submit: true, kind: "text" },
   { id: "agent-yes", label: "Yes", insertText: "yes", submit: true, kind: "text" },
   { id: "agent-no", label: "No", insertText: "no", submit: true, kind: "text" },

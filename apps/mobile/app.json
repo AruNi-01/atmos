@@ -16,8 +16,20 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "land.atmos.mobile",
+      "deploymentTarget": "16.4",
       "infoPlist": {
-        "NSCameraUsageDescription": "Atmos uses the camera to scan a temporary pair QR from Desktop or Web."
+        "NSCameraUsageDescription": "Atmos uses the camera to scan a temporary pair QR from Desktop or Web.",
+        "UIApplicationSceneManifest": {
+          "UIApplicationSupportsMultipleScenes": false,
+          "UISceneConfigurations": {
+            "UIWindowSceneSessionRoleApplication": [
+              {
+                "UISceneConfigurationName": "Default Configuration",
+                "UISceneDelegateClassName": "Atmos.SceneDelegate"
+              }
+            ]
+          }
+        }
       }
     },
     "android": {
@@ -46,6 +58,21 @@
         }
       ],
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Atmos shows your photos so you can attach them to a chat.",
+          "cameraPermission": "Atmos uses the camera to scan a temporary pair QR from Desktop or Web."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Atmos shows your recent photos so you can attach them to a chat.",
+          "savePhotosPermission": "Atmos saves the token usage card to your photos.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ],
+      [
         "expo-dev-client",
         {
           "skipOnboarding": true,
@@ -62,7 +89,8 @@
             "showMenuAtLaunch": false
           }
         }
-      ]
+      ],
+      "./plugins/with-ios-pod-deployment-target.js"
     ],
     "experiments": {
       "typedRoutes": true

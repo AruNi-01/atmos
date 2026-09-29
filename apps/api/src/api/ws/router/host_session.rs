@@ -18,6 +18,7 @@ impl WsMessageService {
             limit,
             offset,
             sync,
+            include_archived,
         } = req;
         let result = self
             .host_session_service
@@ -32,6 +33,7 @@ impl WsMessageService {
                 limit,
                 offset: offset.unwrap_or(0),
                 sync,
+                include_archived,
             })
             .await?;
         serde_json::to_value(result)
@@ -65,5 +67,50 @@ impl WsMessageService {
         serde_json::to_value(result).map_err(|e| {
             ServiceError::Processing(format!("serialize host session resume tui: {e}"))
         })
+    }
+
+    pub(super) async fn handle_host_session_set_archived(
+        &self,
+        req: HostSessionSetArchivedRequest,
+    ) -> Result<Value> {
+        let keys = self
+            .host_session_service
+            .set_archived(&req.keys, req.archived)
+            .await?;
+        serde_json::to_value(serde_json::json!({ "keys": keys }))
+            .map_err(|e| ServiceError::Processing(format!("serialize host session archive: {e}")))
+    }
+
+    pub(super) async fn handle_host_session_delete(
+        &self,
+        req: HostSessionDeleteRequest,
+    ) -> Result<Value> {
+        let result = self
+            .host_session_service
+            .delete_sessions(&req.keys, req.include_atmos_chat, req.include_source)
+            .await?;
+        let mut failures = result.failures;
+        for chat_id in result.atmos_chat_ids {
+            match self.agent_chat_service.delete(&chat_id).await {
+                Ok(_) | Err(ServiceError::NotFound(_)) => {}
+                Err(error) => failures.push(format!("Atmos Chat {chat_id}: {error}")),
+            }
+        }
+        serde_json::to_value(serde_json::json!({
+            "deleted_keys": result.deleted_keys,
+            "failures": failures,
+        }))
+        .map_err(|e| ServiceError::Processing(format!("serialize host session delete: {e}")))
+    }
+
+    pub(super) async fn handle_host_session_keys_for_chat(
+        &self,
+        req: HostSessionKeysForChatRequest,
+    ) -> Result<Value> {
+        let keys = self
+            .host_session_service
+            .keys_for_atmos_chat(&req.chat_id)
+            .await?;
+        Ok(serde_json::json!({ "keys": keys }))
     }
 }

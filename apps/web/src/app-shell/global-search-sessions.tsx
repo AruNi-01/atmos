@@ -219,7 +219,12 @@ function SessionSearchResults({
                 onSelect={() => onOpen(hostSessionOpenTarget(row.session, hit))}
                 className={SESSION_COMMAND_ITEM_CLASS}
               >
-                <HostSessionResultBody session={row.session} hit={hit} query={query} />
+                <HostSessionResultBody
+                  session={row.session}
+                  hit={hit}
+                  query={query}
+                  archived={row.session.archived === true}
+                />
               </CommandItem>
             );
           })}

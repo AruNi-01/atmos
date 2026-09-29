@@ -1,7 +1,9 @@
-import { forwardRef, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import TerminalDomView, { type TerminalDomHandle } from "@/features/terminal/TerminalDomView";
-import { terminalDarkTheme, terminalLightTheme, type TerminalSnapshot } from "@atmos/shared/terminal";
+import { TerminalSelectionOverlay } from "@/features/terminal/TerminalSelectionOverlay";
+import type { TerminalSelectionChrome } from "@/features/terminal/terminal-selection-chrome";
+import { terminalDarkTheme, type TerminalSnapshot } from "@atmos/shared/terminal";
 import { colors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
 
@@ -18,6 +20,7 @@ export type NativeToTerminal =
 export type TerminalWebViewHandle = {
   blur: () => void;
   send: (message: NativeToTerminal) => void;
+  copySelection: () => void;
   focus: () => void;
   writeBase64: (chunks: string[]) => void;
   restoreSnapshot: (snapshot: TerminalSnapshot) => void;
@@ -31,15 +34,21 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, {
   onResize?: (size: { cols: number; rows: number }) => void;
   onTitleChange?: (title: string) => void;
   onOscTitleChange?: (title: string | undefined) => void;
+  onCopyText?: (text: string) => void;
+  onPaste?: () => void;
   sessionId: string;
 }>(function TerminalWebView(
-  { connected, onInput, onReady, onRendererError, onResize, onTitleChange, onOscTitleChange, sessionId },
+  { connected, onInput, onReady, onRendererError, onResize, onTitleChange, onOscTitleChange, onCopyText, onPaste, sessionId },
   ref,
 ) {
   const isIos = process.env.EXPO_OS === "ios";
   const theme = useMobileTheme();
-  const terminalTheme = theme.colorScheme === "dark" ? terminalDarkTheme : terminalLightTheme;
+  const terminalTheme = terminalDarkTheme;
   const domRef = useRef<TerminalDomHandle>(null);
+  const selectionTextRef = useRef("");
+  const onCopyTextRef = useRef(onCopyText);
+  onCopyTextRef.current = onCopyText;
+  const [selection, setSelection] = useState<TerminalSelectionChrome | null>(null);
   const pendingBase64ChunksRef = useRef<string[]>([]);
   const pendingSnapshotRef = useRef<TerminalSnapshot | null>(null);
 
@@ -133,6 +142,12 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, {
     ref,
     () => ({
       blur: () => domRef.current?.blur?.(),
+      copySelection: () => {
+        const text = selectionTextRef.current;
+        if (!text) return;
+        onCopyTextRef.current?.(text);
+        domRef.current?.dismissSelection?.();
+      },
       focus: () => domRef.current?.focus?.(),
       restoreSnapshot,
       send,
@@ -142,7 +157,13 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, {
   );
 
   return (
-    <View style={[styles.frame, { backgroundColor: theme.colors.terminalBg }]} testID={`terminal-frame-${sessionId}`}>
+    <View
+      onLayout={() => {
+        domRef.current?.fit?.();
+      }}
+      style={[styles.frame, { backgroundColor: theme.colors.terminalBg }]}
+      testID={`terminal-frame-${sessionId}`}
+    >
       <TerminalDomView
         ref={domRef}
         connected={connected}
@@ -156,13 +177,32 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, {
         theme={terminalTheme}
         onTitleChange={async (nextTitle) => onTitleChange?.(nextTitle)}
         onOscTitleChange={async (nextTitle) => onOscTitleChange?.(nextTitle)}
+        onSelectionChrome={async (chrome) => {
+          selectionTextRef.current = chrome?.text ?? "";
+          setSelection(chrome);
+        }}
         dom={{
           contentInsetAdjustmentBehavior: "never",
-          keyboardDisplayRequiresUserAction: true,
+          keyboardDisplayRequiresUserAction: false,
           scrollEnabled: false,
           style: [styles.dom, { backgroundColor: theme.colors.terminalBg }],
           ...(isIos ? { hideKeyboardAccessoryView: true, useExpoDOMWebView: false } : { useExpoDOMWebView: true }),
         }}
+      />
+      <TerminalSelectionOverlay
+        onCopy={(text) => {
+          onCopyText?.(text);
+          setTimeout(() => {
+            domRef.current?.dismissSelection();
+            setSelection(null);
+          }, 700);
+        }}
+        onPaste={() => {
+          onPaste?.();
+          domRef.current?.dismissSelection();
+          setSelection(null);
+        }}
+        selection={selection}
       />
     </View>
   );

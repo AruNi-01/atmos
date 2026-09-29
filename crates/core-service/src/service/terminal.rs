@@ -12,7 +12,7 @@ use crate::error::{Result, ServiceError};
 use core_engine::{TmuxEngine, TmuxPaneProcess, TmuxPaneSnapshot, TmuxWindowAtmosMetadata};
 use infra::db::repo::{ProjectRepo, WorkspaceRepo};
 use sea_orm::DatabaseConnection;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
@@ -25,6 +25,7 @@ mod mouse_mode_watch;
 mod run_log_tee;
 mod runtime;
 mod text_capture;
+mod title_hub;
 mod types;
 
 use mouse_mode_watch::{pane_watch_key, MouseModeWatchRegistry};
@@ -34,6 +35,8 @@ use runtime::{run_control_mode_tmux_session, run_simple_pty_session};
 pub use text_capture::{
     process_captured_pane_text, select_transcript, strip_ansi_and_controls, TranscriptBudget,
 };
+pub use title_hub::TerminalTitleUpdate;
+use title_hub::{title_hub, TitleHub, TitleIdentity};
 pub use types::{
     AttachSessionParams, CapturePanePlainTextParams, CaptureSideContextParams,
     CapturedPanePlainText, CapturedSideContext, CreateSessionParams, CreateSimpleSessionParams,
@@ -48,6 +51,25 @@ const HYDRATION_COMPLETE_MESSAGE: &str = "atmos-hydration-complete";
 
 fn is_usable_browser_size(cols: u16, rows: u16) -> bool {
     cols >= MIN_BROWSER_COLS && rows >= MIN_BROWSER_ROWS
+}
+
+fn absorb_session_windows(
+    ids: &mut HashSet<String>,
+    by_session: &HashMap<String, Vec<String>>,
+    session_name: &str,
+    context_id: &str,
+) -> usize {
+    let Some(windows) = by_session.get(session_name) else {
+        return 0;
+    };
+    let mut added = 0usize;
+    for window_name in windows {
+        let pane_id = format!("{context_id}:{window_name}");
+        if ids.insert(pane_id) {
+            added += 1;
+        }
+    }
+    added
 }
 
 fn validate_side_chat_id(value: &str) -> Result<()> {
@@ -87,6 +109,8 @@ pub struct TerminalService {
     mouse_mode_watches: Arc<MouseModeWatchRegistry>,
     /// APP-055: project-local Run terminal log tee (single writer).
     run_log_tee: Arc<RunLogTee>,
+    /// Latest shim / OSC titles, debounced and broadcast to every client.
+    titles: TitleHub,
 }
 
 impl Default for TerminalService {
@@ -110,6 +134,7 @@ impl TerminalService {
             }
         };
 
+        let titles = title_hub();
         Self {
             sessions: Arc::new(Mutex::new(HashMap::new())),
             tmux_engine: Arc::new(TmuxEngine::new()),
@@ -119,8 +144,9 @@ impl TerminalService {
             shims_dir,
             db: None,
             agent_hooks: std::sync::RwLock::new(None),
-            mouse_mode_watches: Arc::new(MouseModeWatchRegistry::new()),
+            mouse_mode_watches: Arc::new(MouseModeWatchRegistry::new(titles.clone())),
             run_log_tee: Arc::new(RunLogTee::new()),
+            titles,
         }
     }
 
@@ -188,6 +214,134 @@ impl TerminalService {
     }
 
     /// Wire agent-hooks cleanup when terminal panes / tmux windows are destroyed.
+    pub fn subscribe_title_events(&self) -> tokio::sync::broadcast::Receiver<TerminalTitleUpdate> {
+        self.titles.subscribe()
+    }
+
+    pub fn list_terminal_titles(&self) -> Vec<TerminalTitleUpdate> {
+        self.titles.list()
+    }
+
+    /// Panes whose dynamic title is a path or a non-agent command.
+    /// The window is still open; the agent has exited back to a shell.
+    pub fn shell_agent_pane_ids(&self, commands: &HashSet<String>) -> HashSet<String> {
+        let mut ids = HashSet::new();
+        if commands.is_empty() {
+            return ids;
+        }
+        for title in self.titles.list() {
+            let workspace_id = title.workspace_id.trim();
+            let window_name = title.tmux_window_name.trim();
+            let Some(dynamic) = title.dynamic_title.as_deref() else {
+                continue;
+            };
+            if workspace_id.is_empty() || window_name.is_empty() {
+                continue;
+            }
+            if title_hub::dynamic_title_runs_agent(dynamic, commands) == Some(false) {
+                ids.insert(format!("{workspace_id}:{window_name}"));
+            }
+        }
+        ids
+    }
+
+    /// Stable pane ids (`{context}:{window}`) for tmux windows that still exist.
+    /// `Ok(None)` means the inventory could not be trusted, so callers must not
+    /// treat every terminal session as closed.
+    pub async fn list_open_stable_pane_ids(&self) -> Result<Option<HashSet<String>>> {
+        if self.tmux_engine.get_server_pid().is_none() {
+            return Ok(None);
+        }
+        let listed = match self.tmux_engine.list_windows_all() {
+            Ok(windows) => windows,
+            Err(error) => {
+                debug!("open terminal inventory skipped: {error}");
+                return Ok(None);
+            }
+        };
+        let Some(db) = self.db.as_ref() else {
+            return Ok(None);
+        };
+        let mut by_session: HashMap<String, Vec<String>> = HashMap::new();
+        for (session_name, window_name) in &listed {
+            by_session
+                .entry(session_name.clone())
+                .or_default()
+                .push(window_name.clone());
+        }
+        let projects = match ProjectRepo::new(db).list().await {
+            Ok(projects) => projects,
+            Err(error) => {
+                debug!("open terminal inventory skipped: {error}");
+                return Ok(None);
+            }
+        };
+        let workspace_repo = WorkspaceRepo::new(db);
+        let mut ids = HashSet::new();
+        let mut matched = 0usize;
+        for project in &projects {
+            matched += absorb_session_windows(
+                &mut ids,
+                &by_session,
+                &self.tmux_engine.get_session_name(&project.guid),
+                &project.guid,
+            );
+            let workspaces = match workspace_repo.list_by_project(&project.guid).await {
+                Ok(workspaces) => workspaces,
+                Err(error) => {
+                    debug!("open terminal inventory skipped: {error}");
+                    return Ok(None);
+                }
+            };
+            for workspace in &workspaces {
+                for session_name in [
+                    self.tmux_engine.get_session_name(&workspace.guid),
+                    self.tmux_engine
+                        .get_session_name_from_names(&project.name, &workspace.name),
+                ] {
+                    matched += absorb_session_windows(
+                        &mut ids,
+                        &by_session,
+                        &session_name,
+                        &workspace.guid,
+                    );
+                }
+            }
+        }
+        if !listed.is_empty() && matched == 0 {
+            debug!("open terminal inventory matched no workspace windows");
+            return Ok(None);
+        }
+        Ok(Some(ids))
+    }
+
+    pub fn terminal_title_for(
+        &self,
+        workspace_id: &str,
+        window_name: &str,
+    ) -> Option<TerminalTitleUpdate> {
+        self.titles.lookup(workspace_id, window_name)
+    }
+
+    fn observe_terminal_output(
+        &self,
+        output_tx: mpsc::UnboundedSender<Vec<u8>>,
+        identity: TitleIdentity,
+    ) -> mpsc::UnboundedSender<Vec<u8>> {
+        let hub = self.titles.clone();
+        hub.begin_stream(&identity);
+        let (bridged_tx, mut bridged_rx) = mpsc::unbounded_channel::<Vec<u8>>();
+        tokio::spawn(async move {
+            while let Some(data) = bridged_rx.recv().await {
+                hub.observe_bytes(&identity, &data);
+                if output_tx.send(data).is_err() {
+                    break;
+                }
+            }
+        });
+        bridged_tx
+    }
+
     pub fn set_agent_status_service(&self, service: Arc<super::agent_status::AgentStatusService>) {
         *self.agent_hooks.write().expect("agent_hooks lock") = Some(service);
     }
@@ -202,6 +356,7 @@ impl TerminalService {
                 hooks.clear_sessions_for_stable_pane(&stable_pane_id);
             }
         }
+        self.titles.forget(workspace_id, terminal_name);
     }
 
     /// Create terminal service with custom TmuxEngine
@@ -232,6 +387,7 @@ impl TerminalService {
             }
         };
 
+        let titles = title_hub();
         Self {
             sessions: Arc::new(Mutex::new(HashMap::new())),
             tmux_engine: tmux_engine.unwrap_or_else(|| Arc::new(TmuxEngine::new())),
@@ -241,8 +397,9 @@ impl TerminalService {
             shims_dir,
             db,
             agent_hooks: std::sync::RwLock::new(None),
-            mouse_mode_watches: Arc::new(MouseModeWatchRegistry::new()),
+            mouse_mode_watches: Arc::new(MouseModeWatchRegistry::new(titles.clone())),
             run_log_tee: Arc::new(RunLogTee::new()),
+            titles,
         }
     }
 
@@ -259,6 +416,7 @@ impl TerminalService {
         &self,
         tmux_session: &str,
         window_index: u32,
+        identity: TitleIdentity,
     ) {
         let still_live = {
             let sessions = self.sessions.lock().await;
@@ -287,6 +445,7 @@ impl TerminalService {
             window_index,
             pane_id,
             self.tmux_engine.socket_file_path(),
+            identity,
         );
     }
 
@@ -818,8 +977,17 @@ impl TerminalService {
 
         // Channel for receiving PTY output
         let (raw_output_tx, output_rx) = mpsc::unbounded_channel::<Vec<u8>>();
+        let output_tx = self.observe_terminal_output(
+            raw_output_tx,
+            TitleIdentity {
+                workspace_id: workspace_id.clone(),
+                tmux_window_name: terminal_name.clone().unwrap_or_default(),
+                tmux_window_index: None,
+                session_id: session_id.clone(),
+            },
+        );
         let output_tx =
-            self.maybe_bridge_run_log_output(raw_output_tx, cwd.clone(), terminal_name.clone());
+            self.maybe_bridge_run_log_output(output_tx, cwd.clone(), terminal_name.clone());
 
         // Channel for receiving initialization result
         let (init_tx, init_rx) = oneshot::channel::<Result<Option<u32>>>();
@@ -1147,8 +1315,17 @@ impl TerminalService {
         // Channel for receiving PTY output
         let (raw_output_tx, output_rx) = mpsc::unbounded_channel::<Vec<u8>>();
         // APP-055: bridge live output into project-local run logs for run-* windows.
+        let output_tx = self.observe_terminal_output(
+            raw_output_tx,
+            TitleIdentity {
+                workspace_id: workspace_id.clone(),
+                tmux_window_name: terminal_name.clone().unwrap_or_default(),
+                tmux_window_index: Some(window_index),
+                session_id: session_id.clone(),
+            },
+        );
         let output_tx =
-            self.maybe_bridge_run_log_output(raw_output_tx, cwd.clone(), terminal_name.clone());
+            self.maybe_bridge_run_log_output(output_tx, cwd.clone(), terminal_name.clone());
         // Keep a clone so we can inject a synthetic title OSC after init
         let title_tx = output_tx.clone();
 

@@ -1518,6 +1518,7 @@ const CenterStage: React.FC = () => {
       // persist store now — closeSurfaceIfUnowned no-ops while the layout still
       // lists them, and a workspace hop restores from that leftover store.
       useAgentChatCenterTabsStore.getState().closeTab(effectiveContextId, value);
+      useDialogStore.getState().clearAgentChatDraftsForInstance(value);
     },
     [activateNextAfterClosing, effectiveContextId],
   );

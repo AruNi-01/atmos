@@ -31,12 +31,11 @@ export function useMobileSettingsController() {
   const setRelaySecretKey = useSessionStore((state) => state.setRelaySecretKey);
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
   const selectServer = useSessionStore((state) => state.selectServer);
-  const setClientSession = useSessionStore((state) => state.setClientSession);
+  const adoptComputerSession = useSessionStore((state) => state.adoptComputerSession);
   const clearClientSession = useSessionStore((state) => state.clearClientSession);
   const clearSession = useSessionStore((state) => state.clearSession);
   const setComputers = useComputerStore((state) => state.setComputers);
   const [relayDraft, setRelayDraft] = useState(relayUrl);
-  const [renameValue, setRenameValue] = useState("");
   const [registerCommand, setRegisterCommand] = useState<string | null>(null);
   const [relaySecretDraft, setRelaySecretDraft] = useState(relaySecretKey);
   const [error, setError] = useState<string | null>(null);
@@ -106,8 +105,7 @@ export function useMobileSettingsController() {
         .createClientSession(serverId, { clientKind: "mobile" });
     },
     onSuccess: (session, serverId) => {
-      selectServer(serverId);
-      setClientSession(session);
+      adoptComputerSession(serverId, session);
       setError(null);
     },
     onError: (nextError) =>
@@ -135,35 +133,6 @@ export function useMobileSettingsController() {
       ),
   });
 
-  const rename = useMutation({
-    mutationFn: async () => {
-      const token = requireDeviceCredential();
-      if (!selectedServerId) throw new Error("Select a Computer first.");
-      return client
-        .withDeviceCredential(token)
-        .renameComputer(selectedServerId, renameValue.trim());
-    },
-    onSuccess: () => {
-      setRenameValue("");
-      void queryClient.invalidateQueries({ queryKey: ["computers"] });
-    },
-    onError: (nextError) =>
-      setError(nextError instanceof Error ? nextError.message : "Rename failed."),
-  });
-
-  const revoke = useMutation({
-    mutationFn: async (serverId: string) => {
-      const token = requireDeviceCredential();
-      return client.withDeviceCredential(token).revokeComputer(serverId);
-    },
-    onSuccess: (_, serverId) => {
-      if (selectedServerId === serverId) selectServer(null);
-      void queryClient.invalidateQueries({ queryKey: ["computers"] });
-    },
-    onError: (nextError) =>
-      setError(nextError instanceof Error ? nextError.message : "Revoke failed."),
-  });
-
   const signOutPhone = useMutation({
     mutationFn: async () => {
       await signOutThisPhone();
@@ -185,6 +154,36 @@ export function useMobileSettingsController() {
       ),
   });
 
+  const renameComputer = useMutation({
+    mutationFn: async (input: { serverId: string; displayName: string }) => {
+      const token = requireDeviceCredential();
+      const displayName = input.displayName.trim();
+      if (!input.serverId || !displayName) throw new Error("Enter a Computer name.");
+      return client.withDeviceCredential(token).renameComputer(input.serverId, displayName);
+    },
+    onSuccess: () => {
+      setError(null);
+      void queryClient.invalidateQueries({ queryKey: ["computers"] });
+    },
+    onError: (nextError) =>
+      setError(nextError instanceof Error ? nextError.message : "Rename failed."),
+  });
+
+  const revokeComputer = useMutation({
+    mutationFn: async (serverId: string) => {
+      const token = requireDeviceCredential();
+      return client.withDeviceCredential(token).revokeComputer(serverId);
+    },
+    onSuccess: (_result, serverId) => {
+      if (selectedServerId === serverId) selectServer(null);
+      setError(null);
+      void queryClient.invalidateQueries({ queryKey: ["computers"] });
+      router.back();
+    },
+    onError: (nextError) =>
+      setError(nextError instanceof Error ? nextError.message : "Revoke failed."),
+  });
+
   const selectComputer = (computer: ComputerRow) => {
     if (computer.online) {
       switchComputer.mutate(computer.server_id);
@@ -193,25 +192,15 @@ export function useMobileSettingsController() {
     selectServer(computer.server_id);
   };
 
-  /** Select for settings detail (rename/revoke) without opening a session. */
-  const focusComputer = (computer: ComputerRow) => {
-    selectServer(computer.server_id);
-  };
-
-  const confirmRevokeSelectedComputer = () => {
-    if (!selectedServerId) return;
-    Alert.alert(
-      "Revoke Computer",
-      "This Computer will be removed from your Hub account.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Revoke",
-          style: "destructive",
-          onPress: () => revoke.mutate(selectedServerId),
-        },
-      ],
-    );
+  const confirmRevokeComputer = (serverId: string) => {
+    Alert.alert("Revoke Computer", "This Computer will be removed from your Hub account.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Revoke",
+        style: "destructive",
+        onPress: () => revokeComputer.mutate(serverId),
+      },
+    ]);
   };
 
   const confirmSignOutPhone = () => {
@@ -233,21 +222,19 @@ export function useMobileSettingsController() {
     activeComputers,
     canSaveRelaySettings,
     computersQuery,
-    confirmRevokeSelectedComputer,
+    confirmRevokeComputer,
     confirmSignOutPhone,
     createRegisterCommand,
     error,
-    focusComputer,
     hasDeviceCredential,
     registerCommand,
+    renameComputer,
+    revokeComputer,
     relayConfigured,
     relayDraft,
     relaySecretDraft,
     relayUrl,
     relayUrlSaveState,
-    rename,
-    renameValue,
-    revoke,
     saveRelaySettings,
     selectComputer,
     selectedComputer,
@@ -255,7 +242,6 @@ export function useMobileSettingsController() {
     setError,
     setRelayDraft,
     setRelaySecretDraft,
-    setRenameValue,
     signOutPhone,
     switchComputer,
   };

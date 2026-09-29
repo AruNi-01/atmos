@@ -21,6 +21,7 @@ export type HostSessionListItem = {
   resume_chat: HostSessionResumeSupport;
   resume_tui: HostSessionResumeSupport;
   parent_native_id?: string | null;
+  archived?: boolean;
 };
 
 export type HostSessionSortField = "started_at" | "updated_at" | "byte_size";
@@ -37,6 +38,35 @@ export type HostSessionListRequest = {
   limit?: number | null;
   offset?: number | null;
   sync?: boolean | null;
+  include_archived?: boolean | null;
+};
+
+export type HostSessionSetArchivedRequest = {
+  keys: string[];
+  archived: boolean;
+};
+
+export type HostSessionSetArchivedResponse = {
+  keys: string[];
+};
+
+export type HostSessionKeysForChatRequest = {
+  chat_id: string;
+};
+
+export type HostSessionKeysForChatResponse = {
+  keys: string[];
+};
+
+export type HostSessionDeleteRequest = {
+  keys: string[];
+  include_atmos_chat: boolean;
+  include_source: boolean;
+};
+
+export type HostSessionDeleteResponse = {
+  deleted_keys: string[];
+  failures: string[];
 };
 
 export type HostSessionSearchHit = {

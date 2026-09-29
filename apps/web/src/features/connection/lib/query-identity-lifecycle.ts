@@ -1,6 +1,6 @@
 "use client";
 
-import { getAtmosWebQueryClient } from "@/providers/app/query-client";
+import { cancelAndRemoveQueries } from "@/providers/app/query-client";
 import { getComputerQueryScope, getRelayQueryScope } from "@/api/query/query-scope";
 import {
   resolveRelayUrl,
@@ -21,16 +21,12 @@ type RelaySessionTransport = {
   relayClientToken: string | null;
 };
 
-function removeComputerQueries(): void {
-  const client = getAtmosWebQueryClient();
-  void client.cancelQueries({ queryKey: ["atmos", "computer"] });
-  client.removeQueries({ queryKey: ["atmos", "computer"] });
+function removeComputerQueries(): Promise<void> {
+  return cancelAndRemoveQueries(["atmos", "computer"]);
 }
 
-function removeRelayQueries(): void {
-  const client = getAtmosWebQueryClient();
-  void client.cancelQueries({ queryKey: ["atmos", "relay"] });
-  client.removeQueries({ queryKey: ["atmos", "relay"] });
+function removeRelayQueries(): Promise<void> {
+  return cancelAndRemoveQueries(["atmos", "relay"]);
 }
 
 /**
@@ -62,8 +58,8 @@ export async function applyIdentityBearingComputerSettings(
 
   if (identityChanged) {
     store.bumpRelayAuthRevision();
-    removeRelayQueries();
-    removeComputerQueries();
+    await removeRelayQueries();
+    await removeComputerQueries();
     const { clearWebRelayClientCache } = await import(
       "@/features/connection/lib/create-web-relay-client"
     );
@@ -86,15 +82,15 @@ export async function applyRelaySessionTransport(
   if (!changed) return;
 
   // Cancel previous Computer-scoped HTTP/WS snapshots before accepting new gateway identity.
-  removeComputerQueries();
+  await removeComputerQueries();
   store.setRelaySessionTransport(session);
 }
 
 export async function clearQueryStateForLogout(): Promise<void> {
   const store = useAtmosComputerStore.getState();
   store.bumpRelayAuthRevision();
-  removeRelayQueries();
-  removeComputerQueries();
+  await removeRelayQueries();
+  await removeComputerQueries();
   const { clearWebRelayClientCache } = await import(
     "@/features/connection/lib/create-web-relay-client"
   );
@@ -103,7 +99,7 @@ export async function clearQueryStateForLogout(): Promise<void> {
 
 /** Clear Relay session fields and Computer Query roots together. */
 export async function resetRelaySessionForQuery(): Promise<void> {
-  removeComputerQueries();
+  await removeComputerQueries();
   useAtmosComputerStore.getState().resetRelaySession();
 }
 

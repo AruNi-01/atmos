@@ -66,6 +66,18 @@ describe("launchpad feature list scroll areas", () => {
     expect(archived).not.toContain("scrollbar-on-hover");
   });
 
+  it("scrolls workspace view tabs away with the title instead of pinning them over the list", () => {
+    const shell = read("../../features/workspace/components/WorkspacesManagementView.tsx");
+    const recent = read("../../features/workspace/components/RecentWorkspacesView.tsx");
+    const archived = read("../../features/workspace/components/ArchivedWorkspacesView.tsx");
+    expect(shell).toContain("LaunchpadPageTabs");
+    expect(shell).toContain("viewSwitcher={viewSwitcher}");
+    expect(shell).not.toContain("absolute");
+    expect(shell).not.toContain("WorkspaceViewTabsSpacer");
+    expect(recent.indexOf("viewSwitcher")).toBeLessThan(recent.indexOf("sticky top-0"));
+    expect(archived.indexOf("viewSwitcher")).toBeLessThan(archived.indexOf("sticky top-0"));
+  });
+
   it("fades Skills catalog, files tree, and modal lists", () => {
     const view = read("../../features/skills/components/SkillsView.tsx");
     const detail = read("../../features/skills/components/SkillDetail.tsx");

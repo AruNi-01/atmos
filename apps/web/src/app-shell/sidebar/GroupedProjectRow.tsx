@@ -214,7 +214,7 @@ export function GroupedProjectRow({
         data-ws-row=""
         {...{ [SIDEBAR_SHORTCUT_TARGET_ATTR]: projectShortcutKey }}
         className={cn(
-          "relative flex cursor-pointer items-center rounded-md border border-transparent px-3 py-1.5 hover:bg-sidebar-accent group/ws",
+          "relative flex w-full min-w-0 cursor-pointer items-center rounded-md border border-transparent px-3 py-1.5 hover:bg-sidebar-accent group/ws",
           isActive
             ? "bg-sidebar-accent text-sidebar-accent-foreground"
             : "text-muted-foreground hover:text-sidebar-accent-foreground",
@@ -235,7 +235,7 @@ export function GroupedProjectRow({
             )}
           </div>
           <div className="flex min-w-0 flex-1 items-center gap-1.5 pl-5">
-            <span className="truncate text-[13px] font-medium">{project.name}</span>
+            <span className="min-w-0 truncate text-[13px] font-medium">{project.name}</span>
             {managedPr ? (
               <WorkspacePrLifecycleIcon
                 state={managedPr.state}

@@ -1,5 +1,6 @@
 import type { WsAction } from "./actions";
 import type { AgentContract } from "./contract/agent";
+import type { AgentStatusContract } from "./contract/agent-status";
 import type { AutomationContract } from "./contract/automation";
 import type { CanvasContract } from "./contract/canvas";
 import type { CenterLayoutContract } from "./contract/center-layout";
@@ -42,6 +43,7 @@ export type WsContract = FsContract &
   ReviewContract &
   SkillsContract &
   AgentContract &
+  AgentStatusContract &
   AgentChatContract &
   HostSessionContract &
   AutomationContract &

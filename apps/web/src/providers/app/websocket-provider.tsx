@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { useAgentStatusStore } from '@/features/agent/store/agent-status-store';
 import { useAgentActivityStore } from '@/features/agent/store/agent-activity-store';
+import { initServerTerminalTitles } from '@/features/terminal/lib/terminal-server-title';
 import { useAgentNotifications } from '@/features/agent/hooks/use-agent-notifications';
 import { useAutomationRunSurfaceSync } from '@/features/automations/hooks/use-automation-run-surface-sync';
 import { useDismissExitedAgentStatusSessions } from '@/features/agent/hooks/use-dismiss-exited-agent-status-sessions';
@@ -102,6 +103,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     if (connectionState === 'connected') {
       useAgentStatusStore.getState().init();
       useAgentActivityStore.getState().init();
+      initServerTerminalTitles();
       useLayoutSettingsStore.getState().loadSettings();
       void useExperimentSettingsStore.getState().loadSettings();
       void useAgentActivityIndicatorSettingsStore.getState().loadSettings();

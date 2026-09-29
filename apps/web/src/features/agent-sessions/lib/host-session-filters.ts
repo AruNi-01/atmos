@@ -8,6 +8,7 @@ export type HostSessionFilters = {
   project: string | null;
   dateFrom: string | null;
   dateTo: string | null;
+  showArchived: boolean;
 };
 
 export const EMPTY_HOST_SESSION_FILTERS: HostSessionFilters = {
@@ -15,6 +16,7 @@ export const EMPTY_HOST_SESSION_FILTERS: HostSessionFilters = {
   project: null,
   dateFrom: null,
   dateTo: null,
+  showArchived: false,
 };
 
 export const HOST_SESSION_QUICK_RANGES = [
@@ -78,7 +80,8 @@ export function hostSessionFilterCount(filters: HostSessionFilters): number {
   return (
     (filters.providerId ? 1 : 0) +
     (filters.project ? 1 : 0) +
-    (filters.dateFrom || filters.dateTo ? 1 : 0)
+    (filters.dateFrom || filters.dateTo ? 1 : 0) +
+    (filters.showArchived ? 1 : 0)
   );
 }
 

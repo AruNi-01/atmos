@@ -1,45 +1,15 @@
 import { Button, Host } from "@expo/ui";
-import { useEffect } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import type { ComputerRow } from "@/api/types";
+import { useEffect, useRef, useState } from "react";
+import { Pressable, Text, View } from "react-native";
+import { useLocalSearchParams } from "expo-router";
 import { useMobileSettingsController } from "@/features/settings/use-mobile-settings-controller";
-import {
-  FieldBlock,
-  SettingsIconWell,
-  SettingsListRow,
-  SettingsProfileRow,
-  ComputerListRow,
-  ComputerStatusIndicator,
-  shortRelayHost,
-} from "@/features/settings/settings-shared";
-import { radii } from "@/theme/radii";
+import { FieldBlock } from "@/features/settings/settings-shared";
 import { typography } from "@/theme/typography";
-import {
-  themePreferenceOptions,
-  useMobileTheme,
-  type MobileThemePreference,
-} from "@/theme/theme-store";
+import { useMobileTheme } from "@/theme/theme-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
-import { Row, Separator } from "@/ui/layout/row";
-import {
-  ChevronRightIcon,
-  LaptopIcon,
-  LinkIcon,
-  LogOutIcon,
-  PlusCircleIcon,
-  SunMoonIcon,
-  UserIcon,
-} from "@/ui/icons/lucide-native";
-import { NativeSegmentedControl, NativeTextInput } from "@/ui/primitives/native-controls";
+import { NativeTextInput } from "@/ui/primitives/native-controls";
 import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
-import {
-  expoUiButtonHostStyle,
-  expoUiPrimaryStyle,
-  expoUiSecondaryStyle,
-} from "@/ui/primitives/expo-ui-button-styles";
-
-const buttonStretchModifiers = expoUiButtonStretchModifiers;
+import { expoUiButtonHostStyle, expoUiPrimaryStyle } from "@/ui/primitives/expo-ui-button-styles";
 
 export function SettingsComputerDetailScreen() {
   const theme = useMobileTheme();
@@ -47,31 +17,21 @@ export function SettingsComputerDetailScreen() {
   const settings = useMobileSettingsController();
   const serverId = typeof params.serverId === "string" ? params.serverId : null;
   const computer =
-    settings.activeComputers.find((row) => row.server_id === serverId) ??
-    settings.selectedComputer;
-  const renameDisabled =
-    !serverId ||
-    settings.rename.isPending ||
-    !settings.renameValue.trim();
+    settings.activeComputers.find((row) => row.server_id === serverId) ?? null;
+  const [name, setName] = useState(computer?.display_name ?? "");
+  const prefilledServerId = useRef<string | null>(null);
+  const trimmed = name.trim();
+  const renameDisabled = !serverId || settings.renameComputer.isPending || trimmed.length === 0;
   const renameStyle = expoUiPrimaryStyle(theme.colors, renameDisabled);
 
   useEffect(() => {
-    if (!serverId) return;
-    const row = settings.activeComputers.find((c) => c.server_id === serverId);
-    if (row && settings.selectedServerId !== serverId) {
-      settings.focusComputer(row);
-    }
-  }, [serverId, settings.activeComputers, settings.focusComputer, settings.selectedServerId]);
+    if (!computer) return;
+    if (prefilledServerId.current === computer.server_id) return;
+    prefilledServerId.current = computer.server_id;
+    setName(computer.display_name ?? "");
+  }, [computer]);
 
-  useEffect(() => {
-    if (computer) {
-      settings.setRenameValue(computer.display_name ?? "");
-    }
-    // Prefill once per computer open.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [computer?.server_id]);
-
-  if (!computer) {
+  if (!computer || !serverId) {
     return (
       <AppScreen surface="sheet">
         <EmptyState title="Computer not found" message="Go back and pick a Computer." />
@@ -81,56 +41,50 @@ export function SettingsComputerDetailScreen() {
 
   return (
     <AppScreen surface="sheet">
-      <View className="gap-5">
+      <View style={{ gap: 20 }}>
         <FieldBlock label="Name">
-          <NativeTextInput
-            onChangeText={settings.setRenameValue}
-            placeholder="Computer name"
-            value={settings.renameValue}
-          />
+          <NativeTextInput onChangeText={setName} placeholder="Computer name" value={name} />
         </FieldBlock>
-
-        <Text className="px-1 text-secondary-label" style={typography.rowSubtitle}>
+        <Text style={[typography.rowSubtitle, { color: theme.colors.secondaryLabel, paddingHorizontal: 4 }]}>
           {computer.server_id}
         </Text>
-
         <Host
-          matchContents={{ vertical: true }}
           colorScheme={theme.colorScheme}
+          matchContents={{ vertical: true }}
           seedColor={renameStyle.seedColor}
           style={expoUiButtonHostStyle}
         >
           <Button
             disabled={renameDisabled}
-            label={settings.rename.isPending ? "Saving..." : "Save name"}
-            modifiers={buttonStretchModifiers}
-            onPress={renameDisabled ? undefined : () => settings.rename.mutate()}
+            label={settings.renameComputer.isPending ? "Saving..." : "Save name"}
+            modifiers={expoUiButtonStretchModifiers}
+            onPress={
+              renameDisabled
+                ? undefined
+                : () => settings.renameComputer.mutate({ serverId, displayName: trimmed })
+            }
             style={renameStyle.style}
             variant={renameStyle.variant}
           />
         </Host>
-
         <Section>
           <Pressable
             accessibilityRole="button"
-            disabled={settings.revoke.isPending}
-            onPress={settings.confirmRevokeSelectedComputer}
+            disabled={settings.revokeComputer.isPending}
+            onPress={() => settings.confirmRevokeComputer(serverId)}
             style={({ pressed }) =>
               pressed ? { backgroundColor: theme.colors.mutedPressed } : undefined
             }
           >
-            <View className="min-h-row-min-height items-center justify-center px-row-x py-row-y">
+            <View style={{ alignItems: "center", justifyContent: "center", minHeight: 52, paddingHorizontal: 16 }}>
               <Text style={[typography.rowTitle, { color: theme.colors.red }]}>
-                {settings.revoke.isPending ? "Revoking..." : "Revoke Computer"}
+                {settings.revokeComputer.isPending ? "Revoking..." : "Revoke Computer"}
               </Text>
             </View>
           </Pressable>
         </Section>
-
         <InlineError message={settings.error} />
       </View>
     </AppScreen>
   );
 }
-
-/** Register: one action + optional command block. */

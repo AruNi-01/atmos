@@ -26,6 +26,7 @@ pub struct Model {
     pub parent_native_id: Option<String>,
     pub source_mtime_ms: i64,
     pub source_size: i64,
+    pub archived: bool,
 }
 
 impl_base_entity!(Model);
