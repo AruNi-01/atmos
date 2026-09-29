@@ -351,7 +351,9 @@ async function snapshotFrameToJpeg(
   frame: HTMLElement,
   options?: { invalidate?: boolean },
 ): Promise<string | null> {
+  const epoch = captureEpoch;
   return withCaptureLock(async () => {
+    if (epoch !== captureEpoch) return null;
     if (!frame.isConnected) return null;
     if (frame.getAttribute("data-tier") === "warm") return null;
     const origin = frame.getBoundingClientRect();
@@ -405,6 +407,7 @@ async function snapshotFrameToJpeg(
     if (frame.isConnected) {
       paintXtermHosts(outCtx, frame, origin, dest);
     }
+    if (epoch !== captureEpoch) return null;
     try {
       return out.toDataURL("image/jpeg", JPEG_QUALITY);
     } catch {
@@ -423,6 +426,7 @@ export async function snapshotMountedCenterSpaceThumbnails(
   options?: { invalidate?: boolean },
 ): Promise<Array<{ spaceId: string; dataUrl: string }>> {
   if (!canCapture() || !hostId) return [];
+  const epoch = captureEpoch;
   const frame = queryActiveFrame(hostId);
   if (!frame) return [];
   const key =
@@ -433,7 +437,7 @@ export async function snapshotMountedCenterSpaceThumbnails(
   const spaceId = parseCenterSpaceKey(key || hostId).spaceId;
   const workArea = queryCenterWorkArea() ?? frame;
   const dataUrl = await snapshotFrameToJpeg(workArea, options);
-  if (!dataUrl) return [];
+  if (epoch !== captureEpoch || !dataUrl) return [];
   return [{ spaceId, dataUrl }];
 }
 

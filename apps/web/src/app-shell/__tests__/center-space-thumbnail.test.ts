@@ -133,7 +133,7 @@ describe("center space thumbnail mapping", () => {
     expect(preview).toContain("paintCenterSpaceTerminalOverlay");
   });
 
-  it("snapshots the outgoing space before the slide so hidden frames cannot overwrite it", () => {
+  it("does not snapdom on the space switch path", () => {
     const switchSrc = readFileSync(
       join(dir, "center-space/center-space-switch.ts"),
       "utf8",
@@ -145,29 +145,26 @@ describe("center space thumbnail mapping", () => {
     expect(thumb).toContain("isActiveCaptureFrame");
     expect(thumb).toContain('data-tier") === "active"');
     expect(thumb).toContain("frame.isConnected");
-    expect(switchSrc).toContain("await rememberMountedThumbnails(hostId)");
+    expect(thumb).toContain("epoch !== captureEpoch");
+    expect(switchSrc).not.toContain("rememberMountedThumbnails");
+    expect(switchSrc).toContain("requestIdleCallback");
     const createAt = switchSrc.indexOf("export async function openNewCenterSpace");
     const switchAt = switchSrc.indexOf("export async function switchCenterSpace");
     const createBody = switchSrc.slice(createAt, switchAt);
     const switchBody = switchSrc.slice(switchAt, switchSrc.indexOf("export async function deleteCenterSpace"));
-    expect(createBody).toContain("await rememberMountedThumbnails(hostId)");
-    expect(createBody).not.toContain("captureActiveCenterSpaceThumbnail");
-    expect(switchBody).toContain("await rememberMountedThumbnails(hostId)");
-    expect(createBody.indexOf("await rememberMountedThumbnails(hostId)")).toBeLessThan(
+    expect(createBody).not.toContain("await captureActiveCenterSpaceThumbnail");
+    expect(switchBody).not.toContain("await captureActiveCenterSpaceThumbnail");
+    expect(createBody.indexOf("invalidateCenterSpaceThumbnailCapture()")).toBeLessThan(
       createBody.indexOf("runCenterSpaceSlide"),
     );
-    expect(switchBody.indexOf("await rememberMountedThumbnails(hostId)")).toBeLessThan(
+    expect(switchBody.indexOf("invalidateCenterSpaceThumbnailCapture()")).toBeLessThan(
       switchBody.indexOf("runCenterSpaceSlide"),
     );
-    expect(createBody.indexOf("await rememberMountedThumbnails(hostId)")).toBeLessThan(
-      createBody.indexOf("invalidateCenterSpaceThumbnailCapture()"),
+    expect(createBody.indexOf("runCenterSpaceSlide")).toBeLessThan(
+      createBody.indexOf("scheduleIncomingSpaceThumbnail"),
     );
-    const rememberAt = switchSrc.indexOf("async function rememberMountedThumbnails");
-    const rememberBody = switchSrc.slice(
-      rememberAt,
-      switchSrc.indexOf("export async function captureActiveCenterSpaceThumbnail"),
+    expect(switchBody.indexOf("runCenterSpaceSlide")).toBeLessThan(
+      switchBody.indexOf("scheduleIncomingSpaceThumbnail"),
     );
-    expect(rememberBody).toContain("invalidate: true");
-    expect(rememberBody).toContain("snapshotMountedCenterSpaceThumbnails");
   });
 });

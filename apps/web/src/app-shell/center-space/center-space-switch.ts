@@ -38,14 +38,6 @@ function applyThumbnails(
   );
 }
 
-async function rememberMountedThumbnails(hostId: string): Promise<void> {
-  if (!hostId) return;
-  const thumbs = await snapshotMountedCenterSpaceThumbnails(hostId, {
-    invalidate: true,
-  });
-  applyThumbnails(hostId, thumbs);
-}
-
 export async function captureActiveCenterSpaceThumbnail(hostId: string): Promise<void> {
   if (!hostId) return;
   const thumbs = await snapshotMountedCenterSpaceThumbnails(hostId);
@@ -71,9 +63,16 @@ export async function refreshActiveCenterSpacePreview(hostId: string): Promise<v
 
 function scheduleIncomingSpaceThumbnail(hostId: string): void {
   if (typeof window === "undefined" || !hostId) return;
-  window.setTimeout(() => {
+  // The slide has already committed. Snapdom walks the center tree on the
+  // main thread, so run it when the browser is idle instead of on the click.
+  const run = () => {
     void captureActiveCenterSpaceThumbnail(hostId);
-  }, CENTER_SPACE_SLIDE_MS);
+  };
+  if (typeof requestIdleCallback === "function") {
+    requestIdleCallback(run, { timeout: 1600 });
+    return;
+  }
+  window.setTimeout(run, CENTER_SPACE_SLIDE_MS);
 }
 
 function paintIncomingSpace(incoming: string): void {
@@ -95,7 +94,7 @@ export async function openNewCenterSpace(
   // cannot inherit the host's open tabs / URL tool tab.
   useCenterPaneLayoutStore.getState().setLayout(incoming, createEmptyCenterLayout());
   let space: CenterSpaceRecord | null = null;
-  await rememberMountedThumbnails(hostId);
+  // Drop an in-flight preview. Waiting for snapdom here froze the new-space hop.
   invalidateCenterSpaceThumbnailCapture();
   await runCenterSpaceSlide("forward", () => {
     clearCenterDeepLinkUrl();
@@ -127,7 +126,9 @@ export async function switchCenterSpace(
   if (currentId === spaceId) return;
   const incoming = makeCenterSpaceKey(hostId, spaceId);
   const direction = centerSpaceSlideDirection(current.spaces, currentId, spaceId);
-  await rememberMountedThumbnails(hostId);
+  // Do not screenshot the outgoing space on this path. snapdom blocks the
+  // main thread for a second or two, so the slide cannot start. The fan keeps
+  // the last idle thumbnail; the incoming space refreshes after the hop.
   invalidateCenterSpaceThumbnailCapture();
   await runCenterSpaceSlide(
     direction,

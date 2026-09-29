@@ -194,14 +194,29 @@ export function CenterSpaceSwitcher() {
   }, [surfaceKey]);
 
   React.useEffect(() => {
-    if (!hostId || open || spaces.length < 2) return;
-    // Snapdom mutates live nodes while measuring. Running that during the
-    // first workspace hydrate prunes tabs / blanks the center. Skip once.
-    if (!allowIdleCaptureRef.current) {
+    if (!hostId || open) return;
+    // Snapdom mutates live nodes while measuring. Load it now, but do not
+    // shoot until after the first hydrate — an early shot can prune tabs.
+    // The flag flips inside the timer so a tab change cannot cancel this shot,
+    // and the recurring effect below stays disabled until then.
+    if (allowIdleCaptureRef.current) return;
+    prefetchCenterSpaceSnapdom();
+    const late = window.setTimeout(() => {
       allowIdleCaptureRef.current = true;
-      prefetchCenterSpaceSnapdom();
-      return;
-    }
+      if (typeof requestIdleCallback === "function") {
+        requestIdleCallback(() => {
+          void captureActiveCenterSpaceThumbnail(hostId);
+        }, { timeout: 1600 });
+        return;
+      }
+      void captureActiveCenterSpaceThumbnail(hostId);
+    }, 1200);
+    return () => window.clearTimeout(late);
+  }, [hostId, open]);
+
+  React.useEffect(() => {
+    if (!hostId || open || spaces.length < 2) return;
+    if (!allowIdleCaptureRef.current) return;
     let idle = 0;
     let timeout = 0;
     const run = () => {
