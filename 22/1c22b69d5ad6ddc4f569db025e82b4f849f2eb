@@ -1,0 +1,14 @@
+apps/mobile/app.json
+  h_5be255725524c8 21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "221c22b69d5ad6ddc4f569db025e82b4f849f2eb",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
