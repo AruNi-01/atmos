@@ -1,4 +1,7 @@
-import type { HostSessionListItem } from "@atmos/api-types/ws/dto/host-session";
+import type {
+  HostSessionListItem,
+  HostSessionSearchHit,
+} from "@atmos/api-types/ws/dto/host-session";
 
 export type HostSessionFilters = {
   providerId: string | null;
@@ -213,6 +216,31 @@ export function hostSessionHref(
     params.set("seq", String(locator.seq));
   }
   return `/agent-sessions?${params.toString()}`;
+}
+
+export type HostSessionOpenTarget = {
+  key: string;
+  messageId: string | null;
+  seq: number | null;
+};
+
+/** Same row-open rule as Agent Sessions: transcript hits open the matched message. */
+export function hostSessionOpenTarget(
+  session: HostSessionListItem,
+  hit?: HostSessionSearchHit | null,
+): HostSessionOpenTarget {
+  if (hit && hit.kind !== "title") {
+    return {
+      key: hit.session_key,
+      messageId: hit.message_id,
+      seq: Number.isInteger(hit.seq) && hit.seq >= 0 ? hit.seq : null,
+    };
+  }
+  return {
+    key: hit?.session_key ?? session.key,
+    messageId: null,
+    seq: null,
+  };
 }
 
 function escapeHostSessionRegExp(value: string): string {

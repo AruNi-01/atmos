@@ -497,9 +497,20 @@ impl AgentRuntime for GrokMappedSession {
                         continue;
                     };
                     // Live catalog: `_x.ai/models/update` carries
-                    // `availableModels[]._meta.totalContextTokens` (window).
+                    // `availableModels[]._meta.totalContextTokens` (window)
+                    // and `reasoningEfforts` (per-model thinking).
                     if is_grok_models_update(&method) {
                         self.map.load_model_context_windows(&params);
+                        let incoming = options::models_from_grok_catalog(&params);
+                        options::overlay_grok_models(
+                            &mut self.map.supported_options.models,
+                            &incoming,
+                        );
+                        crate::options::apply_grok_fast_options(
+                            &mut self.map.supported_options.models,
+                            &mut self.map.current_config,
+                            &mut self.map.supported_options.fast,
+                        );
                     }
                     if self.map.replaying {
                         continue;
@@ -658,7 +669,7 @@ fn provider_descriptor(current: AgentCurrentConfig) -> AgentDescriptor {
 }
 
 fn current_config_from(cfg: &AgentRuntimeConfig) -> AgentCurrentConfig {
-    AgentCurrentConfig {
+    let mut current = AgentCurrentConfig {
         model: cfg.model.clone(),
         thinking: cfg.thinking.clone(),
         mode: cfg.mode.clone(),
@@ -667,9 +678,11 @@ fn current_config_from(cfg: &AgentRuntimeConfig) -> AgentCurrentConfig {
             .as_deref()
             .and_then(crate::policy::normalize_stored_permission)
             .or_else(|| cfg.permission_mode.clone()),
-        fast: None,
+        fast: cfg.fast.clone(),
         context: None,
-    }
+    };
+    crate::options::apply_grok_fast_current_config(&mut current, &[]);
+    current
 }
 
 async fn open_grok_session(

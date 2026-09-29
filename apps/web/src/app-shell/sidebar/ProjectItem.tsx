@@ -67,6 +67,7 @@ import {
   LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS,
 } from "@/app-shell/sidebar-layout-constants";
 import { SidebarHeldShortcutBadge } from "@/app-shell/HeldShortcutBadge";
+import { SidebarEmptyWorkspaces } from "@/shared/components/SidebarEmptyState";
 import { useSidebarShortcutDigit } from "@/app-shell/held-shortcut-prefix-store";
 import { SIDEBAR_SHORTCUT_TARGET_ATTR } from "@/app-shell/shortcut-prefix";
 
@@ -529,7 +530,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
         className="ml-4"
       />
       {project.workspaces.length === 0 && !attentionFilterMode && (
-        <div className="py-2 text-[12px] text-muted-foreground italic ml-4">{t("leftSidebarControls.noWorkspaces")}</div>
+        <SidebarEmptyWorkspaces onAdd={() => onAddWorkspace(project.id)} />
       )}
     </div>
   );

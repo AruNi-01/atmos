@@ -23,6 +23,7 @@ describe("drawer close chrome", () => {
       "apps/web/src/features/task/components/TaskLinearDrawer.tsx",
       "apps/web/src/features/automations/components/AutomationRunDrawer.tsx",
       "apps/web/src/features/agent-sessions/components/HostSessionDrawer.tsx",
+      "apps/web/src/features/agent/components/observer/ObserverDrawer.tsx",
     ];
     for (const rel of hosts) {
       const src = read(rel);
@@ -57,6 +58,14 @@ describe("drawer close chrome", () => {
       "apps/web/src/features/task/components/TaskLinearDrawer.tsx",
     );
     expect(linear).toContain("drawerCloseReserveClass");
+
+    const observer = read(
+      "apps/web/src/features/agent/components/observer/ObserverDrawer.tsx",
+    );
+    expect(observer).toContain("drawerCloseReserveClass");
+    expect(observer).toContain("useTaskDrawerInsets");
+    expect(observer).toContain("ObserverConversation");
+    expect(observer).not.toContain("turnsHeading");
 
     const session = read(
       "apps/web/src/features/agent-sessions/components/HostSessionDetailView.tsx",

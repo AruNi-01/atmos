@@ -13,6 +13,7 @@ use super::plan::OptionsParserKind;
 pub mod cursor;
 pub mod droid;
 pub mod droid_catalog;
+pub mod grok;
 pub mod parse;
 
 pub use cursor::{
@@ -29,9 +30,12 @@ pub use droid_catalog::{
     droid_catalog_path, overlay_droid_model_catalog, refresh_droid_factory_catalog,
     set_droid_catalog_path,
 };
+pub use grok::{
+    apply_grok_fast_current_config, apply_grok_fast_options, collapse_grok_fast_models,
+    encode_grok_fast_model, grok_fast_base,
+};
 pub use parse::{
-    apply_grok_thinking_overlay, grok_thinking_for_model_id, model_id_is_table_noise,
-    parse_droid_help, parse_line_list,
+    apply_grok_thinking_overlay, model_id_is_table_noise, parse_droid_help, parse_line_list,
 };
 
 #[derive(Debug, Clone)]

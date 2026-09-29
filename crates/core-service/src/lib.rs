@@ -7,13 +7,15 @@ pub use error::{Result, ServiceError};
 pub use service::agent::AgentService;
 pub use service::agent_hooks::{AgentHooksService, AtmosContext};
 pub use service::agent_status::{
-    apply_host_event, chat_status_session_id, generate_attention_summary, page_agent_sessions,
-    parse_chat_status_session_id, provider_to_tool, resolve_workspace_agent_group_key,
-    AgentAttentionLatch, AgentAttentionReason, AgentAttentionSummary, AgentOccupancy,
-    AgentSessionChatRef, AgentSessionLiveSet, AgentStatusContext, AgentStatusEvent,
-    AgentStatusRecord, AgentStatusService, AgentStatusUpdate, AgentSurface, AgentToolType,
-    AttentionSummaryPayload, AttentionSummarySettings, AttentionSummaryStatus,
-    WorkspaceAgentGroupKey, WorkspaceAgentGroupSnapshot, AGENT_SESSION_PAGE_LIMIT,
+    apply_host_event, chat_status_session_id, generate_attention_summary, hook_permission_response,
+    page_agent_sessions, parse_chat_status_session_id, provider_to_tool,
+    resolve_workspace_agent_group_key, AgentActivity, AgentAttentionLatch, AgentAttentionReason,
+    AgentAttentionSummary, AgentChildActivity, AgentOccupancy, AgentSessionChatRef,
+    AgentSessionLiveSet, AgentStatusContext, AgentStatusEvent, AgentStatusRecord,
+    AgentStatusService, AgentStatusUpdate, AgentSurface, AgentTodoItem, AgentToolLine,
+    AgentToolType, AgentTurn, AttentionSummaryPayload, AttentionSummarySettings,
+    AttentionSummaryStatus, HookPermissionOpen, HookPermissionWait, WorkspaceAgentGroupKey,
+    WorkspaceAgentGroupSnapshot, AGENT_SESSION_PAGE_LIMIT,
 };
 
 pub use service::agent_chat::{

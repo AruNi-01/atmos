@@ -29,12 +29,16 @@ import {
   displayedComposerConfigValue,
   configKindMatches,
   collapseDroidFastModels,
+  collapseGrokFastModels,
   droidCleanDisplayLabel,
+  grokCleanDisplayLabel,
   foldDroidFastSelection,
+  foldGrokFastSelection,
   foldDroidComposerOptions,
   foldDroidModePermissionSelection,
   fastIdAfterModelChange,
   isDroidChatProvider,
+  isGrokChatProvider,
   modelsHavePerModelFast,
   rememberFastForModel,
 } from "@/features/agent/lib/agent-chat-thread";
@@ -397,6 +401,82 @@ describe("agent chat helpers", () => {
     ]);
     expect(options.find((item) => item.id === "model")?.currentValue).toBe("claude-opus-5");
     expect(options.find((item) => item.id === "fast")?.currentValue).toBe("true");
+  });
+
+  it("collapses Grok -build-fast siblings into one model plus a Fast toggle", () => {
+    expect(isGrokChatProvider("grok")).toBe(true);
+    expect(grokCleanDisplayLabel("Grok 4.7 Fast")).toBe("Grok 4.7");
+    const collapsed = collapseGrokFastModels([
+      { id: "grok-4.7", label: "Grok 4.7" },
+      { id: "grok-4.7-build-fast", label: "Grok 4.7 Fast" },
+      { id: "grok-4.6", label: "Grok 4.6" },
+      { id: "grok-4.5", label: "Grok 4.5" },
+      { id: "grok-composer-2.5-fast", label: "Composer 2.5 Fast" },
+    ]);
+    expect(collapsed.map((model) => ({
+      id: model.id,
+      label: model.label,
+      fast: Boolean(model.fast),
+    }))).toEqual([
+      { id: "grok-4.7", label: "Grok 4.7", fast: true },
+      { id: "grok-4.6", label: "Grok 4.6", fast: false },
+      { id: "grok-4.5", label: "Grok 4.5", fast: false },
+      { id: "grok-composer-2.5-fast", label: "Composer 2.5 Fast", fast: false },
+    ]);
+    expect(collapseGrokFastModels([
+      { id: "only-build-fast", label: "Only Fast" },
+      { id: "grok-4.6", label: "Grok 4.6" },
+    ]).map((model) => model.id)).toEqual(["only-build-fast", "grok-4.6"]);
+    expect(foldGrokFastSelection(
+      "grok",
+      "grok-4.7-build-fast",
+      "",
+      collapsed,
+    )).toEqual({ modelId: "grok-4.7", fastId: "true" });
+
+    const options = optionsSnapshotToConfigOptions(
+      {
+        agent_id: "grok",
+        status: "ok",
+        models: [
+          { id: "grok-4.7", label: "Grok 4.7" },
+          { id: "grok-4.7-build-fast", label: "Grok 4.7 Fast" },
+          { id: "grok-4.6", label: "Grok 4.6" },
+        ],
+        modes: [],
+        thinking: { type: "none" },
+        strategies_used: [],
+        fetched_at: "",
+        source: "cache",
+        message: null,
+      },
+      "grok-4.7-build-fast",
+      "",
+    );
+    expect(options.find((item) => item.id === "model")?.options).toEqual([
+      { value: "grok-4.7", name: "Grok 4.7" },
+      { value: "grok-4.6", name: "Grok 4.6" },
+    ]);
+    expect(options.find((item) => item.id === "model")?.currentValue).toBe("grok-4.7");
+    expect(options.find((item) => item.id === "fast")?.currentValue).toBe("true");
+    expect(optionsSnapshotToConfigOptions(
+      {
+        agent_id: "grok",
+        status: "ok",
+        models: [
+          { id: "grok-4.7", label: "Grok 4.7", fast: true },
+          { id: "grok-4.6", label: "Grok 4.6" },
+        ],
+        modes: [],
+        thinking: { type: "none" },
+        strategies_used: [],
+        fetched_at: "",
+        source: "cache",
+        message: null,
+      },
+      "grok-4.6",
+      "",
+    ).find((item) => item.id === "fast")).toBeUndefined();
   });
 
   it("folds Droid Auto (Off/Low/Medium/High) out of Mode into Permission", () => {
@@ -1418,6 +1498,96 @@ describe("agent chat helpers", () => {
     expect(filled.supported_options.permission_modes?.map((item) => item.id)).toEqual(["ask"]);
     expect(filled.supported_options.thinking).toEqual({ type: "enum", options: ["low"] });
     expect(filled.supported_options.modes).toEqual([{ id: "plan", label: "Plan" }]);
+  });
+
+  it("unions Grok CLI catalog models onto a lagging session list", () => {
+    const descriptor: AgentDescriptor = {
+      identity: { id: "grok", name: "Grok" },
+      capabilities: {
+        steer: "unsupported",
+        resume: "supported",
+        permission: "supported",
+        configure: "supported",
+        fork: "unsupported",
+        rewind: "unsupported",
+      },
+      support: {
+        models: "supported",
+        thinking: "supported",
+        modes: "supported",
+        permission_modes: "supported",
+      },
+      supported_options: {
+        models: [
+          { id: "grok-4.6", label: "Grok 4.6" },
+          { id: "grok-4.5", label: "Grok 4.5" },
+        ],
+        thinking: { type: "none" },
+        modes: [{ id: "default", label: "Default", is_default: true }],
+        permission_modes: [{ id: "ask_always", label: "Ask always", is_default: true }],
+      },
+      current_config: { model: "grok-4.6" },
+    };
+    const grok47Thinking = {
+      type: "enum" as const,
+      arg: "thinking",
+      options: ["low", "medium", "high", "xhigh"],
+    };
+    const catalog = {
+      agent_id: "grok",
+      status: "ok" as const,
+      models: [
+        { id: "grok-4.7", label: "grok-4.7", is_default: true, thinking: grok47Thinking },
+        { id: "grok-4.7-build-fast", label: "grok-4.7-build-fast", thinking: grok47Thinking },
+        { id: "grok-4.6", label: "grok-4.6" },
+        { id: "grok-4.5", label: "grok-4.5" },
+      ],
+      modes: [{ id: "default", label: "Default", is_default: true }],
+      permission_modes: [{ id: "ask_always", label: "Ask always", is_default: true }],
+      thinking: { type: "none" as const },
+      strategies_used: [] as string[],
+      fetched_at: "",
+      source: "cache" as const,
+      message: null,
+    };
+    const filled = fillEmptyDescriptorOptionsFromSnapshot(descriptor, catalog);
+    expect(filled.supported_options.models.map((item) => ({
+      id: item.id,
+      label: item.label,
+      fast: Boolean(item.fast),
+    }))).toEqual([
+      { id: "grok-4.7", label: "grok-4.7", fast: true },
+      { id: "grok-4.6", label: "Grok 4.6", fast: false },
+      { id: "grok-4.5", label: "Grok 4.5", fast: false },
+    ]);
+    expect(filled.supported_options.models.find((item) => item.id === "grok-4.7")?.thinking)
+      .toEqual(grok47Thinking);
+    expect(
+      filled.supported_options.models.some((item) => item.id === "grok-4.7-build-fast"),
+    ).toBe(false);
+    const options = composerConfigOptions({
+      descriptor: filled,
+      catalog,
+      providerId: "grok",
+      modelId: "grok-4.7",
+      thinkingId: "",
+      modeId: "default",
+      permissionModeId: "ask_always",
+    });
+    expect(
+      options.find((item) => item.id === "thinking")?.options.map((item) => item.value),
+    ).toEqual(["low", "medium", "high", "xhigh"]);
+    expect(options.find((item) => item.id === "fast")).toBeDefined();
+    expect(composerConfigOptions({
+      descriptor: filled,
+      catalog,
+      providerId: "grok",
+      modelId: "grok-4.6",
+      thinkingId: "",
+      modeId: "default",
+      permissionModeId: "ask_always",
+    }).find((item) => item.id === "fast")).toBeUndefined();
+    expect(thinkingChoices(catalog, "grok-4.7")).toEqual(["low", "medium", "high", "xhigh"]);
   });
 
   it("fills omitted descriptor modes from the catalog", () => {

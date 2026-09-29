@@ -481,10 +481,10 @@ fn stamp_nested(payload: &mut AgentEvent, parent: &str) {
         AgentEvent::ToolCallStarted { tool_call }
         | AgentEvent::ToolCallUpdated { tool_call }
         | AgentEvent::ToolCallCompleted { tool_call }
-        | AgentEvent::ToolCallFailed { tool_call, .. } => {
-            if tool_call.parent_tool_call_id.is_none() {
-                tool_call.parent_tool_call_id = Some(parent.to_string());
-            }
+        | AgentEvent::ToolCallFailed { tool_call, .. }
+            if tool_call.parent_tool_call_id.is_none() =>
+        {
+            tool_call.parent_tool_call_id = Some(parent.to_string());
         }
         _ => {}
     }
@@ -1164,7 +1164,7 @@ mod tests {
     fn parse_merges_chunks_maps_tools_and_skips_chat_history() {
         let tmp = tempfile::tempdir().unwrap();
         let root = write_home(tmp.path());
-        let events = parse_in(&[root.clone()], MAIN_ID);
+        let events = parse_in(std::slice::from_ref(&root), MAIN_ID);
         assert!(!events.is_empty());
 
         let user = events.iter().find_map(|event| match &event.payload {

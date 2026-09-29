@@ -19,7 +19,10 @@ import {
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { cn } from "@/shared/lib/utils";
 import { CENTER_STAGE_RADIUS_CLASS } from "@/app-shell/sidebar-layout-constants";
-import type { CenterToolTabValue } from "@/app-shell/center-tool-tabs";
+import {
+  GITHUB_HUB_CENTER_TAB_VISIBLE,
+  type CenterToolTabValue,
+} from "@/app-shell/center-tool-tabs";
 import {
   EMPTY_PANE_LIST_MAX_WIDTH_PX,
   UNMEASURED_EMPTY_PANE_LAUNCHER_PLAN,
@@ -388,7 +391,7 @@ export function buildDefaultEmptyPaneActions(input: {
       icon: <Play />,
       onSelect: () => input.onCreateToolTab("run"),
     },
-    ...(input.hideGitChrome
+    ...(input.hideGitChrome || !GITHUB_HUB_CENTER_TAB_VISIBLE
       ? []
       : [
           {

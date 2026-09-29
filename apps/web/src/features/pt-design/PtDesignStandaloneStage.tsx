@@ -1,17 +1,16 @@
 "use client";
 
-import React from "react";
-import { useQueryStates } from "nuqs";
-import { ptDesignParams } from "@/shared/lib/nuqs/searchParams";
 import { PtDesignCenterPanel } from "./PtDesignCenterPanel";
 import { PtDesignOverview } from "./PtDesignOverview";
+import { usePtDesignRememberedDesign } from "./lib/use-pt-design-remembered-design";
 
 export const PT_DESIGN_GLOBAL_CONTEXT_ID = "global";
 
 /** Prototype Design launchpad: library overview, then a selected board. */
 export function PtDesignStandaloneStage() {
-  const [{ design }, setParams] = useQueryStates(ptDesignParams);
+  const { design, ready, closeDesign } = usePtDesignRememberedDesign(PT_DESIGN_GLOBAL_CONTEXT_ID);
 
+  if (!ready) return null;
   if (!design) {
     return <PtDesignOverview />;
   }
@@ -20,7 +19,7 @@ export function PtDesignStandaloneStage() {
     <PtDesignCenterPanel
       contextId={design}
       openMode="canvas"
-      onBack={() => void setParams({ design: null })}
+      onBack={closeDesign}
     />
   );
 }

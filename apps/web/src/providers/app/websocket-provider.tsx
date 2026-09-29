@@ -4,6 +4,7 @@ import { useEffect, ReactNode, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { useAgentStatusStore } from '@/features/agent/store/agent-status-store';
+import { useAgentActivityStore } from '@/features/agent/store/agent-activity-store';
 import { initServerTerminalTitles } from '@/features/terminal/lib/terminal-server-title';
 import { useAgentNotifications } from '@/features/agent/hooks/use-agent-notifications';
 import { useAutomationRunSurfaceSync } from '@/features/automations/hooks/use-automation-run-surface-sync';
@@ -101,6 +102,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     // the event listener persists across reconnections (same Map ref).
     if (connectionState === 'connected') {
       useAgentStatusStore.getState().init();
+      useAgentActivityStore.getState().init();
       initServerTerminalTitles();
       useLayoutSettingsStore.getState().loadSettings();
       void useExperimentSettingsStore.getState().loadSettings();
@@ -117,6 +119,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     if (connectionState !== 'connected') return;
     if (prev === 'connected') return;
     // Transition into connected from connecting/reconnecting/disconnected.
+    useAgentStatusStore.getState().resetForConnectionChange();
+    useAgentActivityStore.getState().resetForConnectionChange();
     void invalidateAfterComputerReconnect(
       getAtmosWebQueryClient(),
       getComputerQueryScope(),

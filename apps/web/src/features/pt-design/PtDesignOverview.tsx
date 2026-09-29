@@ -19,6 +19,10 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
+  EmptyAction,
+  IconDocument,
+  IconPlus,
+  IconSearch,
   Input,
   MinimalCard,
   MinimalCardDescription,
@@ -77,6 +81,7 @@ import {
   type PtDesignOverviewView,
 } from "./lib/pt-design-overview-view";
 import type { Project } from "@/shared/types/domain";
+import { PageEmptyState } from "@/shared/components/PageEmptyState";
 
 const SCOPE_FILTERS: Array<{
   id: Exclude<PtDesignFilterScope, "workspace">;
@@ -298,10 +303,17 @@ export function PtDesignOverview({
               <EmptyOverview
                 filtered={listed.length > 0}
                 onNew={handleNew}
+                onClear={() => {
+                  setQuery("");
+                  void setScope("all");
+                }}
                 copy={{
-                  empty: t("empty"),
-                  emptyFilter: query.trim() ? t("emptySearch") : t("emptyFilter"),
-                  newDesign: t("newDesign"),
+                  title: t("emptyTitle"),
+                  description: t("empty"),
+                  filterTitle: query.trim() ? t("emptySearchTitle") : t("emptyFilterTitle"),
+                  filterDescription: query.trim() ? t("emptySearch") : t("emptyFilter"),
+                  newDesign: t("emptyNew"),
+                  clear: query.trim() ? t("clearSearch") : t("clearFilters"),
                 }}
               />
             )}
@@ -417,22 +429,38 @@ function OverviewFilterMenu({
 function EmptyOverview({
   filtered,
   onNew,
+  onClear,
   copy,
 }: {
   filtered: boolean;
   onNew: () => void;
-  copy: { empty: string; emptyFilter: string; newDesign: string };
+  onClear: () => void;
+  copy: {
+    title: string;
+    description: string;
+    filterTitle: string;
+    filterDescription: string;
+    newDesign: string;
+    clear: string;
+  };
 }) {
   return (
-    <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-border px-6 py-16 text-center">
-      <p className="text-sm text-muted-foreground">{filtered ? copy.emptyFilter : copy.empty}</p>
-      {filtered ? null : (
-        <Button className="mt-4" size="sm" onClick={onNew}>
-          <Plus className="size-4" />
-          {copy.newDesign}
-        </Button>
-      )}
-    </div>
+    <PageEmptyState
+      icon={filtered ? <IconSearch /> : <IconDocument />}
+      title={filtered ? copy.filterTitle : copy.title}
+      description={filtered ? copy.filterDescription : copy.description}
+      actions={
+        filtered ? (
+          <EmptyAction emphasis="quiet" onClick={onClear}>
+            {copy.clear}
+          </EmptyAction>
+        ) : (
+          <EmptyAction icon={<IconPlus />} onClick={onNew}>
+            {copy.newDesign}
+          </EmptyAction>
+        )
+      }
+    />
   );
 }
 

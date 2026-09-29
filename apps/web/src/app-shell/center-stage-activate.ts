@@ -4,7 +4,11 @@
  */
 
 import { attachCenterTab } from "@/app-shell/center-space/center-open-context";
-import type { CenterTabAttachPlacement } from "@/app-shell/center-pane/center-pane-layout";
+import {
+  layoutOwnsTab,
+  type CenterTabAttachPlacement,
+} from "@/app-shell/center-pane/center-pane-layout";
+import { useCenterPaneLayoutStore } from "@/app-shell/center-pane/center-pane-layout-store";
 import { useOverviewCenterTabStore } from "@/app-shell/center-overview-tab";
 import { recordCenterTabActivation } from "@/app-shell/center-stage-tab-activation-stack";
 import { FIXED_TABS } from "@/app-shell/center-stage-fixed-tabs";
@@ -67,9 +71,17 @@ export function activateCenterChromeTab(
     attach?: boolean;
     placement?: CenterTabAttachPlacement;
     attentionAck?: PaneFocusAck;
+    /**
+     * Deep links / explicit opens mint a missing surface. Last-tab restore
+     * after Close must not recreate a tab the user already dismissed.
+     */
+    createIfMissing?: boolean;
   },
 ): void {
   if (!contextId || !tab) return;
+  const createIfMissing = opts?.createIfMissing !== false;
+  const layout = useCenterPaneLayoutStore.getState().getLayout(contextId);
+  const ownedByLayout = Boolean(layout && layoutOwnsTab(layout, tab));
 
   const chatStore = useAgentChatCenterTabsStore.getState();
   const parsedChatId = parseAgentChatTabValue(tab);
@@ -82,6 +94,7 @@ export function activateCenterChromeTab(
       tab,
     );
     if (activation.ignore) return;
+    if (!activation.existing && !createIfMissing) return;
     if (parsedChatId.startsWith("draft:")) {
       boundChatId = activation.existing?.chatId?.trim() || null;
     } else {
@@ -91,6 +104,42 @@ export function activateCenterChromeTab(
       if (opened.contextId !== contextId) return;
       resolvedTab = opened.value;
       boundChatId = opened.chatId ?? parsedChatId;
+    }
+  }
+
+  if (!createIfMissing && !ownedByLayout) {
+    if (
+      isCenterToolTabValue(resolvedTab) &&
+      !useToolCenterTabsStore.getState().isOpen(contextId, resolvedTab)
+    ) {
+      return;
+    }
+    if (
+      resolvedTab === SIMULATOR_TAB_VALUE &&
+      !useSimulatorCenterTabStore.getState().isOpen(contextId)
+    ) {
+      return;
+    }
+    if (
+      resolvedTab === GIT_HISTORY_TAB_VALUE &&
+      !useGitHistoryCenterTabStore.getState().isOpen(contextId)
+    ) {
+      return;
+    }
+    if (
+      resolvedTab === "overview" &&
+      !useOverviewCenterTabStore.getState().isOpen(contextId)
+    ) {
+      return;
+    }
+    if (
+      isTerminalTab(resolvedTab) &&
+      !useTerminalStore
+        .getState()
+        .getTerminalTabs(contextId)
+        .some((item) => item.id === resolvedTab)
+    ) {
+      return;
     }
   }
 

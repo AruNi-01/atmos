@@ -1,10 +1,9 @@
-import { Button, TabsContent } from "@workspace/ui";
+import { EmptyAction, IconBookmark, IconSearch, TabsContent } from "@workspace/ui";
 import { useTranslations } from "next-intl";
 import { motion } from "motion/react";
-import { BookOpen, ExternalLink, Link2 } from "lucide-react";
+import { ExternalLink, Link2 } from "lucide-react";
 import type { SkillResourceCategory } from "../lib/market-data";
-import { EmptyState } from "./SkillsViewEmptyState";
-import { RESOURCES_EMPTY_COPY } from "../lib/skills-view-utils";
+import { PageEmptyState } from "@/shared/components/PageEmptyState";
 
 export function SkillsResourcesTab({
   categories,
@@ -18,19 +17,22 @@ export function SkillsResourcesTab({
   onClearSearch: () => void;
 }) {
   const t = useTranslations("skills.resourcesTab");
+  const hasQuery = Boolean(query.trim());
 
   return (
     <TabsContent keepMounted value="resources">
       {resultCount === 0 ? (
-        <EmptyState
-          icon={<BookOpen className="size-8" />}
-          title={t("empty.title")}
-          description={RESOURCES_EMPTY_COPY}
-          action={
-            query ? (
-              <Button variant="link" onClick={onClearSearch} className="mt-4">
+        <PageEmptyState
+          icon={hasQuery ? <IconSearch /> : <IconBookmark />}
+          title={hasQuery ? t("empty.noMatchesTitle") : t("empty.noneTitle")}
+          description={
+            hasQuery ? t("empty.noMatchesDescription") : t("empty.noneDescription")
+          }
+          actions={
+            hasQuery ? (
+              <EmptyAction emphasis="quiet" onClick={onClearSearch}>
                 {t("empty.clearSearch")}
-              </Button>
+              </EmptyAction>
             ) : undefined
           }
         />

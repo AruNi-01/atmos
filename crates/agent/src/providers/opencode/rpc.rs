@@ -264,10 +264,11 @@ pub fn models_from_providers(body: &Value) -> (AgentSupportedOptions, Option<Str
 }
 
 fn thinking_from_model_variants(model: &Value) -> Option<AgentThinkingSupport> {
-    let options = variant_ids_from_model(model);
+    let mut options = variant_ids_from_model(model);
     if options.is_empty() {
         None
     } else {
+        crate::options::effort::sort_thinking_levels(&mut options);
         Some(AgentThinkingSupport::Enum {
             arg: Some("variant".into()),
             options,

@@ -42,7 +42,7 @@ pub(super) fn handle_event(
                 OccupancyUpdateKind::NewTurn,
             );
         }
-        "BeforeAgentStart" | "AgentStart" => {
+        "BeforeAgentStart" => {
             service.update_state(
                 &session_id,
                 AgentToolType::Pi,
@@ -52,7 +52,7 @@ pub(super) fn handle_event(
                 OccupancyUpdateKind::NewTurn,
             );
         }
-        "ToolCall" | "ToolResult" => {
+        "AgentStart" | "ToolCall" | "ToolResult" => {
             service.update_state(
                 &session_id,
                 AgentToolType::Pi,

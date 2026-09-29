@@ -19,12 +19,18 @@ export function isLiveAgentRuntimeStatus(status: string | null | undefined): boo
 export function isAgentNewChatLanding({
   messageCount,
   isResumingHistory,
+  hasPersistenceHandle = false,
+  resumeTranscript = false,
 }: {
   chatId?: string | null;
   messageCount: number;
   isResumingHistory: boolean;
+  hasPersistenceHandle?: boolean;
+  resumeTranscript?: boolean;
 }): boolean {
-  return messageCount === 0 && !isResumingHistory;
+  if (messageCount > 0 || isResumingHistory) return false;
+  if (hasPersistenceHandle || resumeTranscript) return false;
+  return true;
 }
 
 export function resolveAgentComposerPlaceholderKind({

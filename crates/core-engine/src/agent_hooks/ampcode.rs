@@ -59,18 +59,29 @@ export default function (amp: PluginAPI) {{
     await post({{ hook_event_name: "SessionStart" }})
   }})
 
-  amp.on("agent.start", async (_event, _ctx) => {{
-    await post({{ hook_event_name: "AgentStart" }})
+  amp.on("agent.start", async (event, _ctx) => {{
+    await post({{
+      hook_event_name: "AgentStart",
+      prompt: event?.prompt ?? event?.text ?? undefined,
+    }})
   }})
 
   amp.on("tool.call", async (event, _ctx) => {{
     // Fire-and-forget: do not await so tool execution is never stalled by hook latency
-    post({{ hook_event_name: "ToolCall", tool: event.tool }})
+    post({{
+      hook_event_name: "ToolCall",
+      tool: event.tool,
+      arguments: event.args ?? event.arguments ?? event.input,
+    }})
     return {{ action: "allow" }}
   }})
 
-  amp.on("tool.result", async (_event, _ctx) => {{
-    await post({{ hook_event_name: "ToolResult" }})
+  amp.on("tool.result", async (event, _ctx) => {{
+    await post({{
+      hook_event_name: "ToolResult",
+      tool: event?.tool,
+      arguments: event?.args ?? event?.arguments ?? event?.input,
+    }})
     return {{ action: "allow" }}
   }})
 
@@ -190,4 +201,22 @@ fn which_exists(cmd: &str) -> bool {
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn plugin_posts_prompt_and_tool_extras() {
+        let source = build_plugin_source(4310);
+        assert!(source.contains(r#"amp.on("agent.start""#), "{source}");
+        assert!(source.contains("prompt: event?.prompt"), "{source}");
+        assert!(source.contains(r#"amp.on("tool.call""#), "{source}");
+        assert!(
+            source.contains(r#"hook_event_name: "ToolCall""#),
+            "{source}"
+        );
+        assert!(source.contains("arguments: event.args"), "{source}");
+    }
 }

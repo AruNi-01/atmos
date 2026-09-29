@@ -29,21 +29,6 @@ fn is_atmos_hook(hook_entry: &Value) -> bool {
     false
 }
 
-fn build_cmd(port: u16, event_name: &str) -> String {
-    let url = hook_url(port);
-    let hook_version = hook_version_assignment();
-    let hook_version_header = hook_version_header_shell();
-    format!(
-        r#"{guard} && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d '{{"hook_event_name":"{event_name}"}}' '{url}' >/dev/null 2>&1 || true"#,
-        guard = atmos_managed_guard(),
-        hook_version = hook_version,
-        context_headers = atmos_context_curl_headers(),
-        hook_version_header = hook_version_header,
-        event_name = event_name,
-        url = url,
-    )
-}
-
 fn build_stdin_cmd(port: u16, _event_name: &str) -> String {
     let url = hook_url(port);
     let hook_version = hook_version_assignment();
@@ -61,7 +46,7 @@ fn build_stdin_cmd(port: u16, _event_name: &str) -> String {
 fn build_hook_entries(port: u16) -> Value {
     json!({
         "sessionStart": [{
-            "command": build_cmd(port, "sessionStart")
+            "command": build_stdin_cmd(port, "sessionStart")
         }],
         "beforeSubmitPrompt": [{
             "command": build_stdin_cmd(port, "beforeSubmitPrompt")
@@ -78,12 +63,18 @@ fn build_hook_entries(port: u16) -> Value {
             "command": build_stdin_cmd(port, "postToolUseFailure"),
             "matcher": "*"
         }],
+        "subagentStart": [{
+            "command": build_stdin_cmd(port, "subagentStart")
+        }],
+        "subagentStop": [{
+            "command": build_stdin_cmd(port, "subagentStop")
+        }],
         "stop": [{
             "command": build_stdin_cmd(port, "stop"),
             "loop_limit": 5
         }],
         "sessionEnd": [{
-            "command": build_cmd(port, "sessionEnd")
+            "command": build_stdin_cmd(port, "sessionEnd")
         }]
     })
 }
@@ -235,4 +226,23 @@ fn which_exists(cmd: &str) -> bool {
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prompt_and_tool_hooks_forward_stdin() {
+        let entries = build_hook_entries(4310);
+        for event in ["beforeSubmitPrompt", "preToolUse", "postToolUse"] {
+            let cmd = entries[event][0]["command"].as_str().unwrap();
+            assert!(cmd.contains("cat | curl"), "{event}: {cmd}");
+            assert!(cmd.contains("-d @-"), "{event}: {cmd}");
+            assert!(
+                !cmd.contains(&format!(r#"{{"hook_event_name":"{event}"}}"#)),
+                "{event}: {cmd}"
+            );
+        }
+    }
 }

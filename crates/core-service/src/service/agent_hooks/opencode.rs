@@ -64,6 +64,16 @@ pub(super) fn handle_event(
                 },
             );
         }
+        "chat.message" | "UserPromptSubmit" => {
+            service.update_state(
+                &session_id,
+                AgentToolType::Opencode,
+                AgentOccupancy::Running,
+                project_path,
+                ctx,
+                OccupancyUpdateKind::NewTurn,
+            );
+        }
         "agent.running"
         | "message.part.delta"
         | "message.part.updated"

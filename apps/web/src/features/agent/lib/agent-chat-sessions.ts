@@ -301,3 +301,20 @@ export async function openAgentChatHistoryRow(
     buildAgentChatCenterHref(tabHost, projects, tab.value),
   );
 }
+
+export function openNewAgentChatInContext(
+  hostId: string,
+  router: NavigateToLocatedPaneRouter,
+  projects: Project[],
+  title?: string | null,
+): void {
+  const contextId = hostId.trim();
+  if (!contextId) return;
+  const store = useAgentChatCenterTabsStore.getState();
+  const tab = store.openDraftTab({
+    contextId,
+    title: title?.trim() || "Chat",
+  });
+  store.requestActivate(contextId, tab.value);
+  commitLocatedPaneNavigation(router, buildAgentChatCenterHref(contextId, projects, tab.value));
+}

@@ -64,7 +64,10 @@ import {
   SquareTerminal as TerminalIcon,
 } from "lucide-react";
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
-import type { CenterToolTabValue } from "@/app-shell/center-tool-tabs";
+import {
+  GITHUB_HUB_CENTER_TAB_VISIBLE,
+  type CenterToolTabValue,
+} from "@/app-shell/center-tool-tabs";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { usePtDesignOpenTitle } from "@/features/pt-design/lib/use-pt-design-open-title";
 import { AutomationTabMark } from "@/features/automations/components/AutomationTabMark";
@@ -1883,7 +1886,7 @@ function CenterStageNewTabMenu({
             <Play className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{runLabel}</span>
           </button>
-          {hideGitChrome ? null : (
+          {hideGitChrome || !GITHUB_HUB_CENTER_TAB_VISIBLE ? null : (
           <button
             type="button"
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"

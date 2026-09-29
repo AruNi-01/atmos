@@ -2,8 +2,9 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Button } from "@workspace/ui";
+import { EmptyAction, IconDiscovery } from "@workspace/ui";
 import { desktopInvoke } from "@/shared/lib/desktop-bridge";
+import { PageEmptyState } from "@/shared/components/PageEmptyState";
 import { startablePlatforms } from "../types";
 import type {
   SimulatorDevicePlatform,
@@ -53,46 +54,35 @@ export function SimulatorSetupCard({
   }, [action, onRetry]);
 
   return (
-    <div className="flex h-full w-full items-center justify-center p-8">
-      <div className="flex w-full max-w-sm flex-col gap-5">
-        <div className="space-y-1.5">
-          <h2 className="text-base font-medium text-foreground">{title}</h2>
-          <p className="text-sm text-muted-foreground">{body}</p>
-          {error ? (
-            <p className="text-sm text-destructive">{error}</p>
-          ) : null}
-        </div>
-        {showChooser ? (
-          <div className="flex w-full gap-2">
+    <PageEmptyState
+      icon={<IconDiscovery />}
+      title={title}
+      description={error ? `${body} ${error}` : body}
+      actions={
+        showChooser ? (
+          <>
             {platforms.includes("ios") ? (
-              <Button
-                type="button"
-                size="xl"
-                className="min-w-0 flex-1"
+              <EmptyAction
+                icon={<SimulatorPlatformIcon platform="ios" />}
                 onClick={() => onStart("ios")}
               >
-                <SimulatorPlatformIcon platform="ios" className="size-5" />
                 {t("actions.startIos")}
-              </Button>
+              </EmptyAction>
             ) : null}
             {platforms.includes("android") ? (
-              <Button
-                type="button"
-                size="xl"
-                className="min-w-0 flex-1"
+              <EmptyAction
+                emphasis={platforms.includes("ios") ? "secondary" : "primary"}
+                icon={<SimulatorPlatformIcon platform="android" />}
                 onClick={() => onStart("android")}
               >
-                <SimulatorPlatformIcon platform="android" className="size-5" />
                 {t("actions.startAndroid")}
-              </Button>
+              </EmptyAction>
             ) : null}
-          </div>
+          </>
         ) : action ? (
-          <Button type="button" size="xl" className="w-full" onClick={onAction}>
-            {t(`actions.${action.id}`)}
-          </Button>
-        ) : null}
-      </div>
-    </div>
+          <EmptyAction onClick={onAction}>{t(`actions.${action.id}`)}</EmptyAction>
+        ) : undefined
+      }
+    />
   );
 }

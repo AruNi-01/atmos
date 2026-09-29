@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, jest, mock, test } from "bun:t
 import {
   ATTENTION_AUTO_CLEAR_MS,
   clearAgentAttentionAutoClearTimers,
+  attentionHostId,
   filterProjectsByAttention,
   setAgentPaneAcknowledgedHandler,
   useAgentAttentionStore,
@@ -442,6 +443,19 @@ describe("agent-attention-store", () => {
     expect(store.hasPaneAttention("agent-session-other")).toBe(false);
   });
 
+  test("extra-space context ids still count as host workspace attention", () => {
+    const store = useAgentAttentionStore.getState();
+    store.raise({
+      stablePaneId: "ws-1:cs__space-abc__1",
+      contextId: "ws-1::space::abc",
+      reason: "task_complete",
+    });
+    expect(attentionHostId("ws-1::space::abc")).toBe("ws-1");
+    expect(store.hasContextAttention("ws-1")).toBe(true);
+    expect(store.getContextReason("ws-1")).toBe("task_complete");
+    expect(store.hasContextAttention("p1")).toBe(false);
+  });
+
   test("tab aggregation: any pane keeps attention", () => {
     const store = useAgentAttentionStore.getState();
     store.raise({
@@ -484,7 +498,7 @@ describe("filterProjectsByAttention", () => {
     expect(filtered[0]?.workspaces.map((w) => w.id)).toEqual(["w1"]);
   });
 
-  test("hides all workspaces when the project itself needs attention", () => {
+  test("keeps latched workspaces even when the project also needs attention", () => {
     const projects = [
       {
         id: "p1",
@@ -494,8 +508,33 @@ describe("filterProjectsByAttention", () => {
     const filtered = filterProjectsByAttention(projects, ["p1", "w1"]);
     expect(filtered).toHaveLength(1);
     expect(filtered[0]?.id).toBe("p1");
-    // Project-level latch wins: children stay hidden so the project row is the target.
+    expect(filtered[0]?.workspaces.map((w) => w.id)).toEqual(["w1"]);
+  });
+
+  test("hides unlatched sibling workspaces when only the project needs attention", () => {
+    const projects = [
+      {
+        id: "p1",
+        workspaces: [{ id: "w1" }, { id: "w2" }],
+      },
+    ];
+    const filtered = filterProjectsByAttention(projects, ["p1"]);
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0]?.id).toBe("p1");
     expect(filtered[0]?.workspaces).toEqual([]);
+  });
+
+  test("matches extra-space context ids to the host workspace", () => {
+    const projects = [
+      {
+        id: "p1",
+        workspaces: [{ id: "w1" }, { id: "w2" }],
+      },
+    ];
+    const filtered = filterProjectsByAttention(projects, ["w1::space::review"]);
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0]?.id).toBe("p1");
+    expect(filtered[0]?.workspaces.map((w) => w.id)).toEqual(["w1"]);
   });
 
   test("drops projects with no attention on self or children", () => {

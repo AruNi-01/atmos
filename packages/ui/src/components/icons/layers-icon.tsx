@@ -1,11 +1,11 @@
 "use client";
 
-import type { Variants } from "motion/react";
+import type { Transition } from "motion/react";
 import { motion, useAnimation } from "motion/react";
 import type { HTMLAttributes } from "react";
 import { forwardRef, useCallback, useImperativeHandle, useRef } from "react";
 
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 export interface LayersIconHandle {
   startAnimation: () => void;
@@ -16,16 +16,11 @@ interface LayersIconProps extends HTMLAttributes<HTMLDivElement> {
   size?: number;
 }
 
-const LAYER_VARIANTS: Variants = {
-  normal: { y: 0 },
-  animate: (i: number) => ({
-    y: [0, i * 1.25, 0],
-    transition: {
-      delay: i * 0.05,
-      duration: 0.4,
-      ease: [0.16, 1, 0.3, 1],
-    },
-  }),
+const DEFAULT_TRANSITION: Transition = {
+  type: "spring",
+  stiffness: 100,
+  damping: 14,
+  mass: 1,
 };
 
 const LayersIcon = forwardRef<LayersIconHandle, LayersIconProps>(
@@ -37,17 +32,21 @@ const LayersIcon = forwardRef<LayersIconHandle, LayersIconProps>(
       isControlledRef.current = true;
 
       return {
-        startAnimation: () => controls.start("animate"),
+        startAnimation: async () => {
+          await controls.start("firstState");
+          await controls.start("secondState");
+        },
         stopAnimation: () => controls.start("normal"),
       };
     });
 
     const handleMouseEnter = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
+      async (e: React.MouseEvent<HTMLDivElement>) => {
         if (isControlledRef.current) {
           onMouseEnter?.(e);
         } else {
-          controls.start("animate");
+          await controls.start("firstState");
+          await controls.start("secondState");
         }
       },
       [controls, onMouseEnter],
@@ -82,26 +81,26 @@ const LayersIcon = forwardRef<LayersIconHandle, LayersIconProps>(
           width={size}
           xmlns="http://www.w3.org/2000/svg"
         >
+          <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" />
           <motion.path
             animate={controls}
-            custom={0}
-            d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"
-            initial="normal"
-            variants={LAYER_VARIANTS}
+            d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"
+            transition={DEFAULT_TRANSITION}
+            variants={{
+              normal: { y: 0 },
+              firstState: { y: -9 },
+              secondState: { y: 0 },
+            }}
           />
           <motion.path
             animate={controls}
-            custom={1}
-            d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"
-            initial="normal"
-            variants={LAYER_VARIANTS}
-          />
-          <motion.path
-            animate={controls}
-            custom={2}
-            d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"
-            initial="normal"
-            variants={LAYER_VARIANTS}
+            d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"
+            transition={DEFAULT_TRANSITION}
+            variants={{
+              normal: { y: 0 },
+              firstState: { y: -5 },
+              secondState: { y: 0 },
+            }}
           />
         </svg>
       </div>

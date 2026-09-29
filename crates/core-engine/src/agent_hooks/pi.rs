@@ -54,13 +54,60 @@ export default function (pi: any) {{
   pi.on("session_start", (event: any) =>
     post("SessionStart", {{ reason: event?.reason }})
   )
-  pi.on("before_agent_start", () => post("BeforeAgentStart"))
+  pi.on("before_agent_start", (event: any) =>
+    post("BeforeAgentStart", {{ prompt: event?.prompt }})
+  )
   pi.on("agent_start", () => post("AgentStart"))
-  pi.on("tool_call", (event: any) => {{
-    post("ToolCall", {{ tool: event?.toolName, tool_call_id: event?.toolCallId }})
+  pi.on("tool_call", async (event: any) => {{
+    const tool = String(event?.toolName ?? "")
+    const args = event?.args ?? event?.arguments ?? event?.input ?? {{}}
+    const command = String(args?.command ?? "")
+    const dangerous = tool.toLowerCase() === "bash"
+      && /\brm\s+-rf\b|\bsudo\b|\bchmod\s+[0-7]*777\b|\bchown\b[^;\n]*\b777\b/.test(command)
+    if (!dangerous) {{
+      void post("ToolCall", {{
+        tool,
+        tool_call_id: event?.toolCallId,
+        arguments: args,
+      }})
+      return
+    }}
+    try {{
+      const response = await fetch(ATMOS_URL, {{
+        method: "POST",
+        headers: {{
+          "Content-Type": "application/json",
+          "X-Atmos-Context": process.env.ATMOS_CONTEXT_ID ?? "",
+          "X-Atmos-Pane": process.env.ATMOS_PANE_ID ?? "",
+          "X-Atmos-Terminal-Kind": process.env.ATMOS_TERMINAL_KIND ?? "",
+          "X-Atmos-Side-Chat-Id": process.env.ATMOS_SIDE_CHAT_ID ?? "",
+          "X-Atmos-Source-Pane": process.env.ATMOS_SOURCE_PANE_ID ?? "",
+          {hook_version_header}
+        }},
+        body: JSON.stringify({{
+          hook_event_name: "PermissionRequest",
+          tool_name: "Bash",
+          tool_use_id: event?.toolCallId,
+          tool_input: {{ command }},
+          cwd: process.cwd(),
+        }}),
+        signal: AbortSignal.timeout(590000),
+      }})
+      const body = await response.json().catch(() => null)
+      const behavior = body?.hookSpecificOutput?.decision?.behavior
+      if (behavior === "deny") {{
+        return {{ block: true, reason: "Denied" }}
+      }}
+    }} catch {{
+      // Atmos is not waiting. Let the tool continue.
+    }}
   }})
   pi.on("tool_result", (event: any) =>
-    post("ToolResult", {{ tool: event?.toolName, tool_call_id: event?.toolCallId }})
+    post("ToolResult", {{
+      tool: event?.toolName,
+      tool_call_id: event?.toolCallId,
+      arguments: event?.args ?? event?.arguments ?? event?.input,
+    }})
   )
   pi.on("agent_end", () => post("AgentEnd"))
   pi.on("session_shutdown", (event: any) =>
@@ -175,4 +222,25 @@ fn which_exists(cmd: &str) -> bool {
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extension_posts_prompt_from_before_agent_start() {
+        let source = build_extension_source(4310);
+        assert!(source.contains(r#"pi.on("before_agent_start""#), "{source}");
+        assert!(source.contains(r#"post("BeforeAgentStart""#), "{source}");
+        assert!(source.contains("prompt: event?.prompt"), "{source}");
+        assert!(source.contains(r#"pi.on("agent_start""#), "{source}");
+        assert!(source.contains(r#"post("AgentStart")"#), "{source}");
+        assert!(
+            !source.contains(r#"post("AgentStart", { prompt:"#),
+            "{source}"
+        );
+        assert!(source.contains(r#"post("ToolCall""#), "{source}");
+        assert!(source.contains("tool: event?.toolName"), "{source}");
+    }
 }

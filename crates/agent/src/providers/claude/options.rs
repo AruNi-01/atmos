@@ -10,6 +10,7 @@ use tokio::time::timeout;
 #[cfg(test)]
 use crate::contract::AgentMode;
 use crate::contract::{AgentModel, AgentRuntimeConfig, AgentThinkingSupport};
+use crate::options::effort::sort_thinking_levels;
 #[cfg(test)]
 use crate::options::probe::cli::parse::agent_modes_from_named_keys;
 use crate::options::probe::cli::parse::commands_from_value;
@@ -157,12 +158,29 @@ pub(crate) fn claude_modes() -> Vec<AgentMode> {
     crate::policy::default_collaboration_modes()
 }
 
-pub(crate) fn models_from_initialize(payload: &Value) -> Vec<AgentModel> {
-    let items = payload
+fn initialize_model_items(payload: &Value) -> Vec<Value> {
+    fn array_from(value: &Value) -> Option<Vec<Value>> {
+        if let Some(items) = value.as_array() {
+            return Some(items.clone());
+        }
+        let object = value.as_object()?;
+        object
+            .get("available")
+            .or_else(|| object.get("availableModels"))
+            .or_else(|| object.get("models"))
+            .or_else(|| object.get("items"))
+            .and_then(Value::as_array)
+            .cloned()
+    }
+    payload
         .get("models")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+        .and_then(array_from)
+        .or_else(|| payload.get("availableModels").and_then(array_from))
+        .unwrap_or_default()
+}
+
+pub(crate) fn models_from_initialize(payload: &Value) -> Vec<AgentModel> {
+    let items = initialize_model_items(payload);
     let mut models = Vec::new();
     for (index, item) in items.iter().enumerate() {
         if let Some(id) = item.as_str() {
@@ -218,15 +236,48 @@ pub(crate) fn models_from_initialize(payload: &Value) -> Vec<AgentModel> {
     models
 }
 
-fn thinking_from_supported_effort_levels(item: &Value) -> Option<AgentThinkingSupport> {
-    let levels = item.get("supportedEffortLevels")?.as_array()?;
-    let options: Vec<String> = levels
-        .iter()
-        .filter_map(Value::as_str)
+fn effort_level_id(value: &Value) -> Option<String> {
+    value
+        .as_str()
+        .or_else(|| {
+            value
+                .get("value")
+                .or_else(|| value.get("id"))
+                .or_else(|| value.get("effort"))
+                .or_else(|| value.get("reasoningEffort"))
+                .and_then(Value::as_str)
+        })
         .map(str::trim)
         .filter(|level| !level.is_empty())
         .map(str::to_string)
-        .collect();
+}
+
+fn effort_levels_from_value(value: &Value) -> Vec<String> {
+    let Some(items) = value.as_array() else {
+        return Vec::new();
+    };
+    let mut options = Vec::new();
+    for item in items {
+        let Some(level) = effort_level_id(item) else {
+            continue;
+        };
+        if !options.iter().any(|existing| existing == &level) {
+            options.push(level);
+        }
+    }
+    sort_thinking_levels(&mut options);
+    options
+}
+
+fn thinking_from_supported_effort_levels(item: &Value) -> Option<AgentThinkingSupport> {
+    let levels = item
+        .get("supportedEffortLevels")
+        .or_else(|| item.get("supported_effort_levels"))
+        .or_else(|| item.get("supportedReasoningEfforts"))
+        .or_else(|| item.get("supported_reasoning_efforts"))
+        .or_else(|| item.get("supportedReasoningLevels"))
+        .or_else(|| item.get("effortLevels"))?;
+    let options = effort_levels_from_value(levels);
     if options.is_empty() {
         None
     } else {
@@ -254,32 +305,22 @@ pub(crate) fn thinking_from_initialize(payload: &Value) -> AgentThinkingSupport 
     let mut options = payload
         .get("effortLevels")
         .or_else(|| payload.get("thinking"))
-        .and_then(Value::as_array)
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(Value::as_str)
-                .map(str::to_string)
-                .collect::<Vec<_>>()
-        })
+        .map(effort_levels_from_value)
         .unwrap_or_default();
     if options.is_empty() {
-        if let Some(models) = payload.get("models").and_then(Value::as_array) {
-            for model in models {
-                let Some(levels) = model.get("supportedEffortLevels").and_then(Value::as_array)
-                else {
-                    continue;
-                };
+        for model in initialize_model_items(payload) {
+            if let Some(AgentThinkingSupport::Enum {
+                options: levels, ..
+            }) = thinking_from_supported_effort_levels(&model)
+            {
                 for level in levels {
-                    let Some(level) = level.as_str() else {
-                        continue;
-                    };
-                    if !options.iter().any(|existing| existing == level) {
-                        options.push(level.to_string());
+                    if !options.iter().any(|existing| existing == &level) {
+                        options.push(level);
                     }
                 }
             }
         }
+        sort_thinking_levels(&mut options);
     }
     if options.is_empty() {
         AgentThinkingSupport::None
@@ -418,5 +459,43 @@ mod tests {
             other => panic!("expected per-model effort, got {other:?}"),
         }
         assert!(models[1].thinking.is_none());
+    }
+
+    #[test]
+    fn initialize_reads_nested_models_and_object_effort_levels() {
+        let payload = json!({
+            "models": {
+                "available": [
+                    {
+                        "id": "opus",
+                        "displayName": "Opus",
+                        "isDefault": true,
+                        "supportedReasoningEfforts": [
+                            {"value": "high"},
+                            {"id": "medium"},
+                            "low"
+                        ]
+                    },
+                    {
+                        "value": "sonnet",
+                        "supported_effort_levels": ["low", "medium"]
+                    }
+                ]
+            }
+        });
+        let models = models_from_initialize(&payload);
+        assert_eq!(models.len(), 2);
+        match &models[0].thinking {
+            Some(AgentThinkingSupport::Enum { options, .. }) => {
+                assert_eq!(options, &["low", "medium", "high"]);
+            }
+            other => panic!("expected object efforts, got {other:?}"),
+        }
+        match thinking_from_initialize(&payload) {
+            AgentThinkingSupport::Enum { options, .. } => {
+                assert_eq!(options, vec!["low", "medium", "high"]);
+            }
+            other => panic!("expected union, got {other:?}"),
+        }
     }
 }

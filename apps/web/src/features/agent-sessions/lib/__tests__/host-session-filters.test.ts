@@ -10,6 +10,7 @@ import {
   hostSessionHighlightParts,
   hostSessionHref,
   hostSessionMessageIndex,
+  hostSessionOpenTarget,
   hostSessionQuickRangeBounds,
   hostSessionSearchTerms,
   matchHostSessionQuickRange,
@@ -208,5 +209,34 @@ describe("host session filters", () => {
     });
     expect(bounds.updatedAfter).toBe(new Date(2026, 8, 18).toISOString());
     expect(bounds.updatedBefore).toBe(new Date(2026, 8, 19).toISOString());
+  });
+
+  test("opens a transcript hit on its message and a title hit on the session", () => {
+    const session = item({ key: "root", provider_id: "claude" });
+    expect(
+      hostSessionOpenTarget(session, {
+        session_key: "child",
+        root_session_key: "root",
+        kind: "user",
+        message_id: "m1",
+        seq: 4,
+        snippet: "hello",
+      }),
+    ).toEqual({ key: "child", messageId: "m1", seq: 4 });
+    expect(
+      hostSessionOpenTarget(session, {
+        session_key: "root",
+        root_session_key: "root",
+        kind: "title",
+        message_id: null,
+        seq: 0,
+        snippet: "title",
+      }),
+    ).toEqual({ key: "root", messageId: null, seq: null });
+    expect(hostSessionOpenTarget(session)).toEqual({
+      key: "root",
+      messageId: null,
+      seq: null,
+    });
   });
 });

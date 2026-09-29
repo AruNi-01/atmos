@@ -57,6 +57,10 @@ import {
   type WorkspaceGroup,
 } from "@/app-shell/sidebar/workspace-grouping";
 import {
+  SidebarEmptyProjects,
+  SidebarEmptyWorkspaces,
+} from "@/shared/components/SidebarEmptyState";
+import {
   selectAttentionFilterMode,
   useAgentAttentionStore,
 } from "@/features/agent/store/agent-attention-store";
@@ -117,6 +121,7 @@ export function LeftSidebarSortableProjectList({
   selectedProjectId,
   sensors,
   showDragOverlay = false,
+  onAddProject,
   onAddWorkspace,
   onArchiveWorkspace,
   onConfigureScripts,
@@ -159,6 +164,7 @@ export function LeftSidebarSortableProjectList({
   selectedProjectId?: string | null;
   sensors: DndSensors;
   showDragOverlay?: boolean;
+  onAddProject?: () => void;
   onAddWorkspace: (projectId: string) => void;
   onArchiveWorkspace: ProjectItemProps["onArchiveWorkspace"];
   onConfigureScripts: (projectId: string) => void;
@@ -188,8 +194,19 @@ export function LeftSidebarSortableProjectList({
   onSetWorkspaceGroup?: ProjectItemProps["onSetWorkspaceGroup"];
   onCreateGroup?: ProjectItemProps["onCreateGroup"];
 }) {
+  const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
+  const showEmptyProjects =
+    projects.length === 0 && Boolean(onAddProject) && !attentionFilterMode;
+
   return (
-    <ScrollArea scrollFade className="h-full" viewportClassName={className}>
+    <ScrollArea
+      scrollFade
+      className="h-full"
+      viewportClassName={cn(className, showEmptyProjects && "flex items-center justify-center")}
+    >
+      {showEmptyProjects && onAddProject ? (
+        <SidebarEmptyProjects onAdd={onAddProject} />
+      ) : (
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -248,6 +265,7 @@ export function LeftSidebarSortableProjectList({
           />
         ) : null}
       </DndContext>
+      )}
     </ScrollArea>
   );
 }
@@ -799,8 +817,10 @@ export function ProjectWorkspaceTwoColumnRightContent({
   selectedProjectUnpinnedWorkspaces,
   sensors,
   showPinnedSection,
+  hasNoProjects = false,
   renderWorkspaceItemRow,
   renderWorkspaceKanbanCard,
+  onAddProject,
   onAddWorkspace,
   onArchiveWorkspace,
   onConfigureScripts,
@@ -846,6 +866,8 @@ export function ProjectWorkspaceTwoColumnRightContent({
     },
   ) => React.ReactNode;
   renderWorkspaceKanbanCard: (entry: FlattenedWorkspaceEntry) => React.ReactNode;
+  hasNoProjects?: boolean;
+  onAddProject?: () => void;
   onAddWorkspace: (projectId: string) => void;
   onArchiveWorkspace: ProjectItemProps["onArchiveWorkspace"];
   onConfigureScripts: (projectId: string) => void;
@@ -871,6 +893,13 @@ export function ProjectWorkspaceTwoColumnRightContent({
   onWorkspacesExpandedChange: (open: boolean) => void;
 }) {
   const t = useTranslations("AppShell.chrome");
+  const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
+  const projectHasNoWorkspaces =
+    selectedProjectPinnedEntries.length === 0 &&
+    selectedProjectUnpinnedWorkspaces.length === 0;
+  const showPaneEmpty =
+    (!selectedProject && Boolean(hasNoProjects) && Boolean(onAddProject) && !attentionFilterMode) ||
+    (Boolean(selectedProject) && projectHasNoWorkspaces && !attentionFilterMode);
   const {
     visibleCount,
     canShowMore,
@@ -987,12 +1016,22 @@ export function ProjectWorkspaceTwoColumnRightContent({
       <div className="min-h-0 flex-1 overflow-hidden">
         <ScrollArea
           scrollFade
-          viewportClassName="overflow-x-hidden py-2 pl-3 pr-3"
+          viewportClassName={cn(
+            "overflow-x-hidden pl-3",
+            LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+            showPaneEmpty ? "flex items-center justify-center" : "py-2",
+          )}
         >
         {!selectedProject ? (
-          <div className="px-3 py-6 text-sm text-muted-foreground">
-            {t("leftSidebarControls.selectProjectDescription")}
-          </div>
+          hasNoProjects && onAddProject && !attentionFilterMode ? (
+            <SidebarEmptyProjects onAdd={onAddProject} />
+          ) : (
+            <div className="px-3 py-6 text-sm text-muted-foreground">
+              {t("leftSidebarControls.selectProjectDescription")}
+            </div>
+          )
+        ) : projectHasNoWorkspaces && !attentionFilterMode ? (
+          <SidebarEmptyWorkspaces onAdd={() => onAddWorkspace(selectedProject.id)} />
         ) : (
           <div className="space-y-2">
             {showPinnedSection && selectedProjectPinnedEntries.length > 0 ? (
@@ -1074,11 +1113,6 @@ export function ProjectWorkspaceTwoColumnRightContent({
                   <div className="overflow-hidden">
                     <div className="pl-3 pt-0.5">
                       {unpinnedList}
-                      {selectedProjectUnpinnedWorkspaces.length === 0 ? (
-                        <div className="px-1 py-2 text-sm text-muted-foreground">
-                          {t("leftSidebarControls.noWorkspaces")}
-                        </div>
-                      ) : null}
                     </div>
                   </div>
                 </CollapsibleContent>
@@ -1086,11 +1120,6 @@ export function ProjectWorkspaceTwoColumnRightContent({
             ) : (
               <section className="space-y-1.5">
                 {unpinnedList}
-                {selectedProjectUnpinnedWorkspaces.length === 0 ? (
-                  <div className="px-3 py-4 text-sm text-muted-foreground">
-                    {t("leftSidebarControls.noWorkspaces")}
-                  </div>
-                ) : null}
               </section>
             )}
           </div>

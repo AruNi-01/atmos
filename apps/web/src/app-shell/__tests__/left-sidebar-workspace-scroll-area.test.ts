@@ -37,7 +37,9 @@ describe("left sidebar workspace list scroll areas", () => {
   it("keeps project titles sticky inside the faded one-column project list", () => {
     const list = read("../left-sidebar-controls.tsx");
     const projectItem = read("../sidebar/ProjectItem.tsx");
-    expect(list).toContain("<ScrollArea scrollFade className=\"h-full\" viewportClassName={className}>");
+    expect(list).toContain("scrollFade");
+    expect(list).toContain("className=\"h-full\"");
+    expect(list).toContain("viewportClassName={cn(className, showEmptyProjects && \"flex items-center justify-center\")}");
     expect(projectItem).toContain("LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS");
     expect(projectItem).not.toContain("data-sidebar-group-body-scroll");
   });

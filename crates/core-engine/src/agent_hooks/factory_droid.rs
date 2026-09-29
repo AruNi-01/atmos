@@ -115,7 +115,7 @@ fn build_hook_entries(port: u16) -> Value {
     json!({
         "SessionStart": [build_fixed_cmd(port, "SessionStart", false)],
         "SessionEnd": [build_fixed_cmd(port, "SessionEnd", true)],
-        "UserPromptSubmit": [build_fixed_cmd(port, "UserPromptSubmit", false)],
+        "UserPromptSubmit": [build_stdin_cmd(port, false)],
         "PreToolUse": [build_stdin_cmd(port, true)],
         "PostToolUse": [build_stdin_cmd(port, true)],
         "Notification": [build_stdin_cmd(port, true)],
@@ -273,4 +273,23 @@ fn which_exists(cmd: &str) -> bool {
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prompt_and_tool_hooks_forward_stdin() {
+        let entries = build_hook_entries(4310);
+        for event in ["UserPromptSubmit", "PreToolUse", "PostToolUse"] {
+            let cmd = entries[event][0]["hooks"][0]["command"].as_str().unwrap();
+            assert!(cmd.contains("cat | curl"), "{event}: {cmd}");
+            assert!(cmd.contains("-d @-"), "{event}: {cmd}");
+            assert!(
+                !cmd.contains(&format!(r#"{{"hook_event_name":"{event}"}}"#)),
+                "{event}: {cmd}"
+            );
+        }
+    }
 }

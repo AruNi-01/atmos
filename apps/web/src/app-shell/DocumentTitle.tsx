@@ -49,6 +49,8 @@ export function DocumentTitle() {
           return t("diskAnalyzer");
         case "token-usage":
           return t("tokenUsage");
+        case "agent-observer":
+          return t("agentObserver");
         case "tasks":
           return t("tasks");
         case "pt-design":

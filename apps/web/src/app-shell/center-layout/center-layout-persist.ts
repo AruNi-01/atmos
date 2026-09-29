@@ -66,12 +66,10 @@ function applyDocument(doc: CenterLayoutDocument, keepThumbs: boolean) {
     useCenterSpaceStore.setState({
       byHost: spaces,
       hydrated: true,
-      diskSynced: true,
     });
     useCenterPaneSavedLayoutStore.setState({
       layouts: doc.savedLayouts,
       hydrated: true,
-      diskSynced: true,
     });
     useOverviewCenterTabStore.setState({
       visibleByContext: doc.overviewTabs,

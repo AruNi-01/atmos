@@ -3,6 +3,7 @@
 import "./excalidraw-assets";
 import React from "react";
 import { DefaultSidebar, Excalidraw, MainMenu, Sidebar, convertToExcalidrawElements, useHandleLibrary } from "@excalidraw/excalidraw";
+import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { ArrowLeft, FolderOpen, Library, Save, Sparkles, Users } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { SharePopover, type ShareCopy } from "./SharePopover";
@@ -116,46 +117,7 @@ function excalidrawHistoryButton(
   return root?.querySelector('[data-testid="button-redo"]') ?? null;
 }
 
-type ExcalidrawApi = {
-  updateScene: (next: Record<string, unknown>) => void;
-  scrollToContent: (
-    target?: unknown,
-    opts?: {
-      animate?: boolean;
-      duration?: number;
-      fitToContent?: boolean;
-      minZoom?: number;
-      maxZoom?: number;
-      canvasOffsets?: { top?: number; right?: number; bottom?: number; left?: number };
-    },
-  ) => void;
-  toggleSidebar: (next: { name: string; tab?: string; force?: boolean }) => unknown;
-  id: string;
-  updateLibrary: (opts: {
-    libraryItems: unknown;
-    merge?: boolean;
-    prompt?: boolean;
-    openLibraryMenu?: boolean;
-    defaultStatus?: "published" | "unpublished";
-  }) => Promise<unknown>;
-  getSceneElements: () => readonly ExcalidrawCompatElement[];
-  getSceneElementsIncludingDeleted: () => readonly ExcalidrawCompatElement[];
-  getFiles?: () => Record<string, unknown>;
-  addFiles?: (files: unknown[]) => void;
-  history?: { clear: () => void };
-  getAppState: () => {
-    scrollX: number;
-    scrollY: number;
-    zoom: { value: number };
-    width: number;
-    height: number;
-    viewBackgroundColor: string;
-    selectedElementIds: Record<string, boolean>;
-    currentItemStrokeColor?: string;
-    openSidebar?: { name: string; tab?: string } | null;
-    viewModeEnabled?: boolean;
-  };
-};
+type ExcalidrawApi = ExcalidrawImperativeAPI;
 
 export type BoardMenuItem = {
   id: "give-to-agent" | "save" | "open";
@@ -383,7 +345,7 @@ function bindHostApi(api: ExcalidrawApi): ExcalidrawHostApi {
     getFiles: () =>
       typeof api.getFiles === "function" ? api.getFiles() : {},
     addFiles: (files) => {
-      api.addFiles?.(files);
+      api.addFiles(files as never);
     },
     getAppState: () => {
       const state = api.getAppState();
@@ -458,7 +420,7 @@ export default function ExcalidrawBoard({
     const api = apiRef.current;
     if (!api || !handedOffRef.current) return;
     api.updateScene({
-      elements: hydrateHandleElements(api.getSceneElementsIncludingDeleted()),
+      elements: hydrateHandleElements(api.getSceneElementsIncludingDeleted()) as never,
       captureUpdate: "NEVER",
     });
   }, [catalogStyle?.radius]);
@@ -478,9 +440,13 @@ export default function ExcalidrawBoard({
     [],
   );
 
-  const bindExcalidrawApi = React.useCallback((api: unknown) => {
-    apiRef.current = api as ExcalidrawApi;
-    wrapToggleSidebar(apiRef.current, () => boardRef.current);
+  const bindExcalidrawApi = React.useCallback((api: ExcalidrawApi | null) => {
+    if (!api) {
+      apiRef.current = null;
+      return;
+    }
+    apiRef.current = api;
+    wrapToggleSidebar(api, () => boardRef.current);
   }, []);
 
   const focusEditBoard = React.useCallback(() => {
@@ -514,9 +480,9 @@ export default function ExcalidrawBoard({
     });
   }, []);
 
-  // Excalidraw calls `excalidrawAPI` from `_App`'s constructor — before mount —
-  // and then `restore(initialData)` with `elements: []`. First `onChange` runs after
-  // that restore (`isLoading` is already false). Hand the host API over here so
+  // `onExcalidrawAPI` fires before the editor is mounted (and again with null
+  // on unmount). `restore(initialData)` can still publish an empty scene first.
+  // Hand the host API over on the first `onChange` after that restore so
   // loadPersist cannot be wiped by the empty initialData restore.
 
   const handleSceneChange = React.useCallback(
@@ -584,7 +550,7 @@ export default function ExcalidrawBoard({
             );
             if (!writeEls && !stroke) return;
             liveApi.updateScene({
-              ...(writeEls ? { elements: inkedNow } : {}),
+              ...(writeEls ? { elements: inkedNow as never } : {}),
               ...(stroke ? { appState: { currentItemStrokeColor: stroke } } : {}),
               captureUpdate: "NEVER",
             });
@@ -632,7 +598,7 @@ export default function ExcalidrawBoard({
   }, []);
 
   useHandleLibrary({
-    excalidrawAPI: libraryHost as never,
+    excalidrawAPI: libraryHost,
     adapter: libraryAdapter,
   });
 
@@ -775,7 +741,7 @@ export default function ExcalidrawBoard({
             </div>
           </div>
         )}
-        excalidrawAPI={bindExcalidrawApi}
+        onExcalidrawAPI={bindExcalidrawApi}
         onChange={handleSceneChange}
       >
         {menuItems && menuItems.length > 0 ? (

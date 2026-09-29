@@ -212,10 +212,10 @@ fn stamp_nested(payload: &mut AgentEvent, parent: &str) {
         AgentEvent::ToolCallStarted { tool_call }
         | AgentEvent::ToolCallUpdated { tool_call }
         | AgentEvent::ToolCallCompleted { tool_call }
-        | AgentEvent::ToolCallFailed { tool_call, .. } => {
-            if tool_call.parent_tool_call_id.is_none() {
-                tool_call.parent_tool_call_id = Some(parent.to_string());
-            }
+        | AgentEvent::ToolCallFailed { tool_call, .. }
+            if tool_call.parent_tool_call_id.is_none() =>
+        {
+            tool_call.parent_tool_call_id = Some(parent.to_string());
         }
         _ => {}
     }
@@ -387,14 +387,14 @@ fn peek_meta(lines: &[&str], filename_id: &str) -> PeekMeta {
                     model = Some(found);
                 }
             }
-            Some("response_item") if title.is_none() => {
-                if payload_type(payload) == Some("message")
-                    && payload.get("role").and_then(Value::as_str) == Some("user")
-                {
-                    let text = message_text(payload, &["input_text", "text"]);
-                    if !text.is_empty() && !is_environment_context_only(&text) {
-                        title = Some(preview_title(&text));
-                    }
+            Some("response_item")
+                if title.is_none()
+                    && payload_type(payload) == Some("message")
+                    && payload.get("role").and_then(Value::as_str) == Some("user") =>
+            {
+                let text = message_text(payload, &["input_text", "text"]);
+                if !text.is_empty() && !is_environment_context_only(&text) {
+                    title = Some(preview_title(&text));
                 }
             }
             _ => {}

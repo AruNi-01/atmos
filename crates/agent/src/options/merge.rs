@@ -8,6 +8,7 @@ use crate::options::probe::cli::cursor::{
 };
 use crate::options::probe::cli::droid::collapse_droid_fast_models;
 use crate::options::probe::cli::droid_catalog::overlay_droid_model_catalog;
+use crate::options::probe::cli::grok::collapse_grok_fast_models;
 use crate::options::{AgentOptionsSnapshot, OptionsProbeStrategy, OptionsSource, OptionsStatus};
 use crate::policy::{
     canonicalize_chat_provider_id, expand_sparse_permission_modes, is_droid_chat_provider,
@@ -141,6 +142,9 @@ pub fn merge_options_snapshots(
             crate::options::probe::cli::droid::fold_droid_composer_options(modes, permission_modes);
         modes = folded.0;
         permission_modes = folded.1;
+    }
+    if canonicalize_chat_provider_id(agent_id) == "grok" {
+        models = collapse_grok_fast_models(models);
     }
 
     let auth_message = fragments.iter().find_map(|fragment| {

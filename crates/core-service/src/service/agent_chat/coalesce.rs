@@ -19,6 +19,7 @@ impl TextChunkCoalescer {
         }
     }
 
+    #[cfg(test)]
     pub(super) fn is_empty(&self) -> bool {
         self.pending.is_empty()
     }

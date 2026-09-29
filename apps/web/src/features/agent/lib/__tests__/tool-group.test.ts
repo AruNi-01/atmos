@@ -337,6 +337,61 @@ describe("segmentAssistantParts", () => {
     )).toEqual([parts[3]]);
   });
 
+  it("hides grok chrome rows that duplicate a user spawn in the host tree", () => {
+    const parts: AgentPart[] = [
+      tool({
+        tool_call_id: "tc_rust",
+        kind: "subagent",
+        name: "spawn_subagent",
+        params: { type: "subagent", description: "Explore Rust backend layers", agent_type: "explore" },
+      }),
+      tool({
+        tool_call_id: "tc_front",
+        kind: "subagent",
+        name: "spawn_subagent",
+        params: { type: "subagent", description: "Explore frontend apps", agent_type: "explore" },
+      }),
+      tool({
+        tool_call_id: "sa-rust",
+        kind: "subagent",
+        name: "grok_chrome",
+        params: { type: "subagent", description: "Explore Rust backend layers", agent_type: "explore", task_id: "sa-rust" },
+      }),
+      tool({
+        tool_call_id: "sa-front",
+        kind: "subagent",
+        name: "grok_chrome",
+        params: { type: "subagent", description: "Explore frontend apps", agent_type: "explore", task_id: "sa-front" },
+      }),
+    ];
+    const compact = segmentAssistantParts(parts, "compact");
+    expect(compact).toHaveLength(1);
+    expect(compact[0]).toMatchObject({ type: "tool_group", origIndexes: [0, 1] });
+    expect(countToolGroupOverview(toolCallPartsFromGroup(
+      compact[0]?.type === "tool_group" ? compact[0].parts : [],
+    ))).toEqual([{ kind: "subagent", count: 2 }]);
+  });
+
+  it("keeps orphan grok chrome spawns in the host tree", () => {
+    const parts: AgentPart[] = [
+      tool({
+        tool_call_id: "sa-plan",
+        kind: "subagent",
+        name: "grok_chrome",
+        params: { type: "subagent", description: "goal plan writer", agent_type: "general-purpose" },
+      }),
+      tool({
+        tool_call_id: "sa-a",
+        kind: "subagent",
+        name: "grok_chrome",
+        params: { type: "subagent", description: "goal achievement skeptic", agent_type: "general-purpose" },
+      }),
+    ];
+    expect(segmentAssistantParts(parts, "compact")).toMatchObject([
+      { type: "tool_group", origIndexes: [0, 1] },
+    ]);
+  });
+
   it("detailed keeps every tool on its own row", () => {
     const parts: AgentPart[] = [
       { type: "thinking", text: "hmm" },

@@ -40,6 +40,7 @@ type CommandDialogProps = React.ComponentProps<typeof Dialog> &
     showCloseButton?: boolean
     onCloseAutoFocus?: (event: Event) => void
     onOpenAutoFocus?: (event: Event) => void
+    onPointerDownOutside?: (event: Event) => void
   }
 
 function CommandDialog({
@@ -50,6 +51,7 @@ function CommandDialog({
   showCloseButton = true,
   onCloseAutoFocus,
   onOpenAutoFocus,
+  onPointerDownOutside,
   shouldFilter,
   value,
   onValueChange,
@@ -62,6 +64,7 @@ function CommandDialog({
         showCloseButton={showCloseButton}
         onCloseAutoFocus={onCloseAutoFocus}
         onOpenAutoFocus={onOpenAutoFocus}
+        onPointerDownOutside={onPointerDownOutside}
       >
         <DialogHeader className="sr-only">
           <DialogTitle>{title}</DialogTitle>

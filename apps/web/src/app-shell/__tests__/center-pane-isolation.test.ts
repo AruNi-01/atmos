@@ -275,6 +275,17 @@ describe("center pane tab isolation", () => {
     expect(panels).not.toContain(": [undefined]");
   });
 
+  it("does not treat lastTab as membership for closable tool surfaces", () => {
+    const stage = readSibling("CenterStage.tsx");
+    expect(stage).not.toContain("storedLastTab === \"files\"");
+    expect(stage).not.toContain("storedLastTab === tab");
+    expect(stage).not.toContain("openToolTab(effectiveContextId, storedLastTab)");
+    expect(stage).not.toContain("storedLastTab === SIMULATOR_TAB_VALUE");
+    expect(stage).not.toContain("storedLastTab === GIT_HISTORY_TAB_VALUE");
+    expect(stage).toContain("createIfMissing: false");
+    expect(stage).toContain("tab.kind === \"overview\"");
+  });
+
   it("does not default-open overview in host center chrome", () => {
     const stage = readSibling("CenterStage.tsx");
     expect(stage).toContain("useOverviewCenterTabStore");

@@ -1,0 +1,62 @@
+{
+  "protocolVersion": 1,
+  "_meta": {
+    "agentVersion": "1.0.17",
+    "modelState": {
+      "currentModelId": "grok-4.7",
+      "availableModels": [
+        {
+          "modelId": "grok-4.7",
+          "name": "Grok 4.7",
+          "_meta": {
+            "totalContextTokens": 500000,
+            "reasoningEfforts": [
+              { "id": "xhigh", "value": "xhigh" },
+              { "id": "high", "value": "high" },
+              { "id": "medium", "value": "medium" },
+              { "id": "low", "value": "low" }
+            ]
+          }
+        },
+        {
+          "modelId": "grok-4.7-build-fast",
+          "name": "Grok 4.7 Fast",
+          "_meta": {
+            "totalContextTokens": 500000,
+            "reasoningEfforts": [
+              { "id": "xhigh", "value": "xhigh" },
+              { "id": "high", "value": "high" },
+              { "id": "medium", "value": "medium" },
+              { "id": "low", "value": "low" }
+            ]
+          }
+        },
+        {
+          "modelId": "grok-4.6",
+          "name": "Grok 4.6",
+          "_meta": {
+            "totalContextTokens": 500000,
+            "reasoningEfforts": [
+              { "id": "xhigh", "value": "xhigh" },
+              { "id": "high", "value": "high" },
+              { "id": "medium", "value": "medium" },
+              { "id": "low", "value": "low" }
+            ]
+          }
+        },
+        {
+          "modelId": "grok-4.5",
+          "name": "Grok 4.5",
+          "_meta": {
+            "totalContextTokens": 500000,
+            "reasoningEfforts": [
+              { "id": "high", "value": "high" },
+              { "id": "medium", "value": "medium" },
+              { "id": "low", "value": "low" }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

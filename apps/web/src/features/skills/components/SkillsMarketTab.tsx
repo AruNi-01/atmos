@@ -1,26 +1,27 @@
 import Link from "next/link";
 import {
-  Button,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
+  EmptyAction,
+  IconBag,
+  IconSearch,
   TabsContent,
 } from "@workspace/ui";
 import { motion } from "motion/react";
+import { useTranslations } from "next-intl";
 import {
   ArrowDownToLine,
   ChevronRight,
   ExternalLink,
   Puzzle,
-  Store,
 } from "lucide-react";
 import {
   resolveSkillSourceUrl,
   type SkillMarketCategory,
   type SkillMarketItem,
 } from "../lib/market-data";
-import { EmptyState } from "./SkillsViewEmptyState";
-import { MARKET_EMPTY_COPY } from "../lib/skills-view-utils";
+import { PageEmptyState } from "@/shared/components/PageEmptyState";
 
 export function SkillsMarketTab({
   categories,
@@ -39,18 +40,21 @@ export function SkillsMarketTab({
   onClearSearch: () => void;
   onInstallSkill: (item: SkillMarketItem) => void;
 }) {
+  const t = useTranslations("skills.marketTab");
+  const hasQuery = Boolean(query.trim());
+
   return (
     <TabsContent keepMounted value="market">
       {resultCount === 0 ? (
-        <EmptyState
-          icon={<Store className="size-8" />}
-          title="No market skills matched"
-          description={MARKET_EMPTY_COPY}
-          action={
-            query ? (
-              <Button variant="link" onClick={onClearSearch} className="mt-4">
-                Clear search
-              </Button>
+        <PageEmptyState
+          icon={hasQuery ? <IconSearch /> : <IconBag />}
+          title={hasQuery ? t("empty.noMatchesTitle") : t("empty.noneTitle")}
+          description={hasQuery ? t("empty.noMatchesDescription") : t("empty.noneDescription")}
+          actions={
+            hasQuery ? (
+              <EmptyAction emphasis="quiet" onClick={onClearSearch}>
+                {t("empty.clearSearch")}
+              </EmptyAction>
             ) : undefined
           }
         />

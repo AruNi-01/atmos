@@ -99,6 +99,13 @@ fn spawn_agent_status_forwarder(
                             WsEvent::AgentStatusCleared,
                             json!({ "session_ids": session_ids }),
                         ),
+                        AgentStatusEvent::ActivityUpdated(activity) => {
+                            (WsEvent::AgentActivityUpdated, json!(activity))
+                        }
+                        AgentStatusEvent::ActivityCleared { session_ids } => (
+                            WsEvent::AgentActivityCleared,
+                            json!({ "session_ids": session_ids }),
+                        ),
                         AgentStatusEvent::AttentionRaised(latch) => {
                             (WsEvent::AgentAttentionRaised, json!(latch))
                         }

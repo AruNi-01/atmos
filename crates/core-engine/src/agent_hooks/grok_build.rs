@@ -117,6 +117,12 @@ fn build_hook_entries(port: u16) -> Value {
             "matcher": ".*",
             "hooks": [command_hook(true, None)]
         }],
+        "SubagentStart": [{
+            "hooks": [command_hook(true, None)]
+        }],
+        "SubagentStop": [{
+            "hooks": [command_hook(true, None)]
+        }],
         // No restrictive matcher: Grok's regex dialect for OR is unconfirmed.
         // Server-side filter keeps only permission_prompt / elicitation_dialog.
         "Notification": [{
@@ -366,6 +372,19 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("atmos-grok-hooks-{name}-{suffix}"));
         std::fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn user_prompt_and_tool_hooks_forward_stdin() {
+        let entries = build_hook_entries(4310);
+        for event in ["UserPromptSubmit", "PreToolUse", "PostToolUse"] {
+            let cmd = entries[event][0]["hooks"][0]["command"].as_str().unwrap();
+            assert!(
+                cmd.contains("payload=$(cat)") || cmd.contains("cat |"),
+                "{event}: {cmd}"
+            );
+            assert!(cmd.contains("-d @-"), "{event}: {cmd}");
+        }
     }
 
     #[test]

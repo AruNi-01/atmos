@@ -338,6 +338,14 @@ mod tests {
     }
 
     #[test]
+    fn hook_script_forwards_stdin_payload() {
+        let script = build_hook_script(4310);
+        assert!(script.contains(r#"payload="$(cat)""#), "{script}");
+        assert!(script.contains(r#"-d "$payload""#), "{script}");
+        assert!(!script.contains(r#"{"hook_event_name""#), "{script}");
+    }
+
+    #[test]
     fn remove_config_block_is_idempotent() {
         let current = install_config_entries(
             "hooks:\n  post_tool_call:\n    - command: old\n",

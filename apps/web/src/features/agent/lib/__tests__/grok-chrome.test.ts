@@ -6,6 +6,7 @@ import {
   formatGrokElapsed,
   formatGrokTokens,
   grokChromeAgentIds,
+  grokChromeDuplicatesUserSpawn,
   grokGoalPhaseSections,
   grokGoalStatusKey,
   grokWorkflowPhaseSections,
@@ -232,5 +233,22 @@ describe("grok chrome phase sections", () => {
         [],
       ),
     ).toEqual([]);
+  });
+});
+
+describe("grokChromeDuplicatesUserSpawn", () => {
+  it("treats synthesized chrome with the same description as a user spawn duplicate", () => {
+    const spawn: AgentToolCallPart = {
+      type: "tool_call",
+      tool_call_id: "tc_rust",
+      name: "spawn_subagent",
+      kind: "subagent",
+      status: "running",
+      params: { type: "subagent", description: "Explore Rust backend layers", agent_type: "explore" },
+    };
+    const chrome = chromeChild("sa-rust", "Explore Rust backend layers");
+    expect(grokChromeDuplicatesUserSpawn(chrome, [spawn, chrome])).toBe(true);
+    expect(grokChromeDuplicatesUserSpawn(chrome, [chrome])).toBe(false);
+    expect(grokChromeDuplicatesUserSpawn(spawn, [spawn, chrome])).toBe(false);
   });
 });

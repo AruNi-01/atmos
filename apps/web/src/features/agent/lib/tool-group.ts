@@ -4,6 +4,7 @@ import {
   isSubagentWaitTool,
   type AgentToolCallPart,
 } from "@/features/agent/lib/agent-tool-kind";
+import { isHiddenGrokChromePart } from "@/features/agent/lib/grok-chrome";
 import {
   isAssistantAnswerTextPart,
   isSoftAssistantProcessPart,
@@ -155,6 +156,7 @@ export function segmentAssistantParts(
 
   parts.forEach((part, origIndex) => {
     if (isNestedSubagentChild(part, parts)) return;
+    if (isHiddenGrokChromePart(part, parts)) return;
     if (isHiddenTranscriptChromePart(part)) return;
     if (part.type === "tool_call" && isSubagentWaitTool(part)) return;
     if (density === "compact") {

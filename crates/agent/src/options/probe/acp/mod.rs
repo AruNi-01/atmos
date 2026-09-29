@@ -62,6 +62,8 @@ impl AcpOptionsProbe for NoopAcpOptionsProbe {
 
 const PROBE_TIMEOUT: Duration = Duration::from_secs(15);
 const NPX_PROBE_TIMEOUT: Duration = Duration::from_secs(60);
+const CATALOG_IDLE_AFTER_COMPLETE: Duration = Duration::from_millis(250);
+const CATALOG_IDLE_WAITING_FOR_THINKING: Duration = Duration::from_secs(2);
 
 fn program_basename(program: &str) -> &str {
     Path::new(program)
@@ -580,18 +582,79 @@ impl AcpOptionsProbe for StdioAcpOptionsProbe {
     }
 }
 
+fn merge_config_option_updates(
+    dest: &mut Vec<AgentConfigOption>,
+    incoming: Vec<AgentConfigOption>,
+) {
+    for next in incoming {
+        if next.id.is_empty() {
+            continue;
+        }
+        if let Some(existing) = dest.iter_mut().find(|item| item.id == next.id) {
+            if next.options.is_empty() {
+                if next.current_value.is_some() {
+                    existing.current_value = next.current_value;
+                }
+                if existing.name.is_none() {
+                    existing.name = next.name;
+                }
+                continue;
+            }
+            if existing.options.is_empty() || next.options.len() >= existing.options.len() {
+                let fallback_current = existing.current_value.clone();
+                let fallback_name = existing.name.clone();
+                *existing = next;
+                if existing.current_value.is_none() {
+                    existing.current_value = fallback_current;
+                }
+                if existing.name.is_none() {
+                    existing.name = fallback_name;
+                }
+            } else if next.current_value.is_some() {
+                existing.current_value = next.current_value;
+            }
+        } else {
+            dest.push(next);
+        }
+    }
+}
+
+fn config_options_have_models(options: &[AgentConfigOption]) -> bool {
+    options
+        .iter()
+        .any(|option| is_model_config_id(&option.id) && !option.options.is_empty())
+}
+
+fn config_options_have_thinking(options: &[AgentConfigOption]) -> bool {
+    !thinking_support_from_options(options).is_none()
+}
+
+/// Session/new often emits mode-only or models-only config first. A later
+/// `config_option_update` carries effort/thinking. Do not treat the first
+/// non-empty update as the full catalog.
+fn catalog_drain_is_ready(options: &[AgentConfigOption], quiet: Duration) -> bool {
+    if !config_options_have_models(options) {
+        return false;
+    }
+    if config_options_have_thinking(options) {
+        return quiet >= CATALOG_IDLE_AFTER_COMPLETE;
+    }
+    quiet >= CATALOG_IDLE_WAITING_FOR_THINKING
+}
+
 async fn drain_config_options(
     handle: &mut AcpSessionHandle,
     max: Duration,
 ) -> Vec<AgentConfigOption> {
     let deadline = Instant::now() + max;
     let mut options = Vec::new();
+    let mut last_catalog_update: Option<Instant> = None;
     while Instant::now() < deadline {
         match timeout(Duration::from_millis(250), handle.recv_event()).await {
             Ok(Some(AcpSessionEvent::ConfigOptionsUpdate(next))) => {
                 if !next.is_empty() {
-                    options = next;
-                    break;
+                    merge_config_option_updates(&mut options, next);
+                    last_catalog_update = Some(Instant::now());
                 }
             }
             Ok(Some(AcpSessionEvent::SessionEnded | AcpSessionEvent::SessionClosed { .. })) => {
@@ -604,8 +667,10 @@ async fn drain_config_options(
             Ok(None) => break,
             Ok(Some(_)) => {}
             Err(_) => {
-                if !options.is_empty() {
-                    break;
+                if let Some(updated) = last_catalog_update {
+                    if catalog_drain_is_ready(&options, updated.elapsed()) {
+                        break;
+                    }
                 }
             }
         }
@@ -1113,5 +1178,81 @@ mod tests {
             .collect();
         assert_eq!(mode_options.len(), 1);
         assert_eq!(mode_options[0].current_value.as_deref(), Some("build"));
+    }
+
+    fn select_option(id: &str, current: Option<&str>, values: &[&str]) -> AgentConfigOption {
+        AgentConfigOption {
+            id: id.into(),
+            name: Some(id.into()),
+            description: None,
+            category: None,
+            r#type: "select".into(),
+            current_value: current.map(str::to_string),
+            options: values
+                .iter()
+                .map(|value| AgentConfigOptionValue {
+                    value: (*value).into(),
+                    name: Some((*value).into()),
+                    description: None,
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn catalog_drain_does_not_stop_on_mode_only_or_models_without_quiet() {
+        let mode_only = vec![select_option("mode", Some("ask"), &["ask", "code"])];
+        assert!(!catalog_drain_is_ready(
+            &mode_only,
+            CATALOG_IDLE_WAITING_FOR_THINKING
+        ));
+        let models = vec![select_option("model", Some("opus"), &["opus", "sonnet"])];
+        assert!(!catalog_drain_is_ready(
+            &models,
+            CATALOG_IDLE_AFTER_COMPLETE
+        ));
+        assert!(catalog_drain_is_ready(
+            &models,
+            CATALOG_IDLE_WAITING_FOR_THINKING
+        ));
+        let models_and_effort = vec![
+            select_option("model", Some("opus"), &["opus", "sonnet"]),
+            select_option("effort", Some("high"), &["low", "high"]),
+        ];
+        assert!(catalog_drain_is_ready(
+            &models_and_effort,
+            CATALOG_IDLE_AFTER_COMPLETE
+        ));
+    }
+
+    #[test]
+    fn later_config_update_merges_thinking_without_wiping_models() {
+        let mut options = vec![select_option("mode", Some("ask"), &["ask", "plan"])];
+        merge_config_option_updates(
+            &mut options,
+            vec![select_option("model", Some("opus"), &["opus", "sonnet"])],
+        );
+        merge_config_option_updates(
+            &mut options,
+            vec![select_option(
+                "reasoning_effort",
+                Some("high"),
+                &["off", "low", "high"],
+            )],
+        );
+        merge_config_option_updates(&mut options, vec![select_option("mode", Some("plan"), &[])]);
+        let result = probe_result_from_config_options(&options, PathBuf::from("/tmp"), true);
+        assert_eq!(result.models.len(), 2);
+        assert_eq!(result.models[0].id, "opus");
+        match &result.thinking {
+            AgentThinkingSupport::Enum { arg, options } => {
+                assert_eq!(arg.as_deref(), Some("reasoning_effort"));
+                assert_eq!(options, &["off", "low", "high"]);
+            }
+            other => panic!("expected later thinking, got {other:?}"),
+        }
+        assert_eq!(result.modes.len(), 2);
+        assert_eq!(result.modes[1].id, "plan");
+        assert!(result.modes[1].is_default);
     }
 }

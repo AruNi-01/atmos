@@ -1,6 +1,4 @@
-import type React from "react";
 import { Skeleton } from "@workspace/ui";
-import { motion } from "motion/react";
 
 export function SkillsSkeletonGrid() {
   return (
@@ -24,32 +22,5 @@ export function SkillsSkeletonGrid() {
         </div>
       ))}
     </div>
-  );
-}
-
-export function EmptyState({
-  icon,
-  title,
-  description,
-  action,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="flex flex-col items-center justify-center py-24 text-center"
-    >
-      <div className="mb-5 flex size-16 items-center justify-center rounded-3xl bg-muted/20 text-muted-foreground/30">
-        {icon}
-      </div>
-      <h3 className="text-base font-semibold text-foreground">{title}</h3>
-      <p className="mt-2 max-w-sm text-sm text-muted-foreground text-pretty">{description}</p>
-      {action}
-    </motion.div>
   );
 }

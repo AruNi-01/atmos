@@ -52,6 +52,7 @@ export function AgentChatHistorySidebarFrame({
   expandLabel,
   showCollapsedExpandButton = true,
   width,
+  fitParent = false,
   isResizing,
   onResizeStart,
   onCollapsedExpand,
@@ -62,6 +63,8 @@ export function AgentChatHistorySidebarFrame({
   expandLabel: string;
   showCollapsedExpandButton?: boolean;
   width: number;
+  /** Fill the overlay box. The box owns the pixel width so the column stays fixed. */
+  fitParent?: boolean;
   isResizing: boolean;
   onResizeStart: (event: React.MouseEvent) => void;
   onCollapsedExpand: () => void;
@@ -72,12 +75,13 @@ export function AgentChatHistorySidebarFrame({
       <div
         ref={frameRef}
         className={cn(
-          "relative h-full min-h-0 shrink-0",
+          "relative h-full min-h-0",
+          fitParent ? "min-w-0 flex-1" : "shrink-0",
           !isResizing && "transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
           collapsed ? "overflow-visible" : "overflow-hidden",
         )}
         style={{
-          width: collapsed ? 0 : width,
+          width: collapsed ? 0 : fitParent ? undefined : width,
           willChange: isResizing ? "width" : undefined,
         }}
       >

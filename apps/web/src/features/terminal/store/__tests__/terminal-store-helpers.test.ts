@@ -10,6 +10,7 @@ import {
   createLayoutFromTmuxWindows,
   isAutomationTmuxWindowName,
   panesMissingTmuxWindows,
+  shouldHydrateFixedTabFromTmuxWindows,
   terminalTabsAfterUnpersistedHydrate,
 } from "../terminal-store-helpers";
 
@@ -80,6 +81,18 @@ describe("terminalTabsAfterUnpersistedHydrate", () => {
   it("reuses one empty panes record for missing scopes", () => {
     expect(EMPTY_TERMINAL_TAB_PANES).toBe(EMPTY_TERMINAL_TAB_PANES);
     expect(Object.keys(EMPTY_TERMINAL_TAB_PANES)).toEqual([]);
+  });
+});
+
+describe("shouldHydrateFixedTabFromTmuxWindows", () => {
+  it("attaches live tmux windows when there is no persisted layout", () => {
+    expect(shouldHydrateFixedTabFromTmuxWindows(null)).toBe(true);
+    expect(shouldHydrateFixedTabFromTmuxWindows(undefined)).toBe(true);
+  });
+
+  it("does not resurrect windows after the user closed every terminal tab", () => {
+    expect(shouldHydrateFixedTabFromTmuxWindows({ tabs: [] })).toBe(false);
+    expect(shouldHydrateFixedTabFromTmuxWindows({ tabs: [{ id: "term" }] })).toBe(true);
   });
 });
 

@@ -24,6 +24,7 @@ import {
   resolveAgentStateForPaneId,
 } from "@/features/agent/store/agent-status-idle";
 import { useWorkspaceAgentGroupingHoldStore } from "@/features/agent/store/workspace-agent-grouping-hold";
+import { useAgentActivityStore } from "@/features/agent/store/agent-activity-store";
 
 export {
   collectIdleSessionIdsForPane,
@@ -141,7 +142,7 @@ interface AgentStatusStore {
   hasPermissionRequest: () => boolean;
   getGlobalState: () => AgentOccupancy;
   forceSessionIdle: (sessionId: string) => Promise<void>;
-  removeSession: (sessionId: string) => Promise<void>;
+  removeSession: (sessionId: string, options?: { keepActivity?: boolean }) => Promise<void>;
   /**
    * Drop idle hook sessions for a focused/acknowledged pane.
    * Sticky attention already holds "needs attention"; idle rows do not need to
@@ -444,7 +445,7 @@ export const useAgentStatusStore = create<AgentStatusStore>((set, get) => ({
     }
   },
 
-  removeSession: async (sessionId: string) => {
+  removeSession: async (sessionId: string, options?: { keepActivity?: boolean }) => {
     let previous: AgentStatusRecord | undefined;
 
     set((state) => {
@@ -455,26 +456,41 @@ export const useAgentStatusStore = create<AgentStatusStore>((set, get) => ({
       return { sessions };
     });
 
-    if (!previous) return;
+    const hadSession = Boolean(previous);
+    if (!hadSession && options?.keepActivity) return;
     const previousSession = previous;
+    const activity = options?.keepActivity
+      ? undefined
+      : useAgentActivityStore.getState().records.get(sessionId);
+    if (!options?.keepActivity) {
+      useAgentActivityStore.getState().forget(sessionId);
+    }
 
     try {
-      await agentStatusApi.removeSession(sessionId);
+      await agentStatusApi.removeSession(sessionId, options);
     } catch (error) {
+      const missing =
+        error instanceof Error && error.message.includes("404");
+      if (missing) return;
       console.warn("[AgentStatusStore] Failed to remove session:", error);
-      set((state) => {
-        if (state.sessions.has(sessionId)) return state;
-        const sessions = new Map(state.sessions);
-        sessions.set(sessionId, previousSession);
-        return { sessions };
-      });
+      if (previousSession) {
+        set((state) => {
+          if (state.sessions.has(sessionId)) return state;
+          const sessions = new Map(state.sessions);
+          sessions.set(sessionId, previousSession);
+          return { sessions };
+        });
+      }
+      if (activity) {
+        useAgentActivityStore.getState().restore(sessionId, activity);
+      }
     }
   },
 
   dismissIdleSessionsForPane: (stablePaneId) => {
     const toRemove = collectIdleSessionIdsForPane(get().sessions, stablePaneId);
     for (const id of toRemove) {
-      void get().removeSession(id);
+      void get().removeSession(id, { keepActivity: true });
     }
   },
 

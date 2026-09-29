@@ -1,3 +1,6 @@
+export const GLOBAL_SEARCH_TABS = ["app", "files", "code", "sessions"] as const;
+export type SearchTab = (typeof GLOBAL_SEARCH_TABS)[number];
+
 const GLOBAL_SEARCH_SHORTCUT_KEYS = new Set([
   "Tab",
   "Enter",
@@ -47,15 +50,19 @@ export function resolveGlobalSearchSelectedValue({
   firstAppItemId,
   firstFilePath,
   firstCodeValue,
+  firstSessionValue,
 }: {
   isOpen: boolean;
-  tab: "app" | "files" | "code";
+  tab: SearchTab;
   query: string;
   firstAppItemId?: string;
   firstFilePath?: string;
   firstCodeValue?: string;
+  firstSessionValue?: string;
 }): string {
-  if (!isOpen || query.trim() === "") return "";
+  if (!isOpen) return "";
+  if (tab === "sessions") return firstSessionValue ?? "";
+  if (query.trim() === "") return "";
   if (tab === "app") return firstAppItemId ?? "";
   if (tab === "files") return firstFilePath ?? "";
   return firstCodeValue ?? "";

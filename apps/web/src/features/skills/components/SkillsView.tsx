@@ -391,6 +391,7 @@ export const SkillsView: React.FC = () => {
                     query={query}
                     isFilterActive={isFilterActive}
                     onResetFilters={() => void setParams({ q: "", filter: "all", projects: "" })}
+                    onBrowseMarket={() => void setParams({ skillsTab: "market" })}
                     onOpenSkill={handleOpenInstalledSkill}
                     onSkillUpdated={handleSkillUpdated}
                     onSkillDeleted={handleSkillDeleted}

@@ -99,7 +99,7 @@ pub fn option_support_for_provider(provider_id: &str) -> AgentOptionSupport {
             thinking: Capability::Supported,
             modes: Capability::Supported,
             permission_modes: Capability::Supported,
-            fast: Capability::Unsupported,
+            fast: Capability::Supported,
             context: Capability::Unsupported,
         },
         "opencode" => AgentOptionSupport {
@@ -233,7 +233,7 @@ mod tests {
         );
         assert_eq!(
             option_support_for_provider("grok").fast,
-            Capability::Unsupported
+            Capability::Supported
         );
         assert_eq!(
             option_support_for_provider("cursor").fast,

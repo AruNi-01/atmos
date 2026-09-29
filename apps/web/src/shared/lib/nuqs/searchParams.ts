@@ -13,6 +13,7 @@ import {
   parseAsString,
   parseAsStringEnum,
 } from "nuqs";
+import { GLOBAL_SEARCH_TABS, type SearchTab } from "@/app-shell/global-search-focus";
 
 // ---------------------------------------------------------------------------
 // CenterStage – tab & wiki page
@@ -48,11 +49,11 @@ export const centerStageParams = {
 // ---------------------------------------------------------------------------
 // GlobalSearch
 // ---------------------------------------------------------------------------
-export type SearchTab = "app" | "files" | "code";
+export type { SearchTab };
 
 export const globalSearchParams = {
   search: parseAsBoolean.withDefault(false),
-  searchTab: parseAsStringEnum<SearchTab>(["app", "files", "code"]).withDefault("app"),
+  searchTab: parseAsStringEnum<SearchTab>([...GLOBAL_SEARCH_TABS]).withDefault("app"),
 };
 
 // ---------------------------------------------------------------------------

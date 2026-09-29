@@ -644,7 +644,40 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn grok_cli_models_get_thinking_overlay_not_terminal_manual() {
+    async fn grok_cli_models_get_thinking_from_native_probe_not_ids() {
+        struct GrokNativeEfforts;
+        #[async_trait]
+        impl NativeOptionsProbe for GrokNativeEfforts {
+            async fn probe(
+                &self,
+                _agent_id: &str,
+                isolated_cwd: &Path,
+            ) -> Result<NativeOptionsProbeResult, String> {
+                Ok(NativeOptionsProbeResult {
+                    models: vec![AgentModel {
+                        id: "grok-4.5".into(),
+                        label: "Grok 4.5".into(),
+                        group: None,
+                        is_default: true,
+                        thinking: Some(AgentThinkingSupport::Enum {
+                            arg: Some("thinking".into()),
+                            options: vec!["low".into(), "medium".into(), "high".into()],
+                        }),
+                        context: Vec::new(),
+                        fast: false,
+                        multiplier: None,
+                        fast_multiplier: None,
+                    }],
+                    modes: Vec::new(),
+                    permission_modes: Vec::new(),
+                    thinking: AgentThinkingSupport::None,
+                    commands: Vec::new(),
+                    cwd: isolated_cwd.to_path_buf(),
+                    closed: true,
+                })
+            }
+        }
+
         let root = tempfile::tempdir().unwrap();
         let engine = OptionsProbe {
             command_runner: Box::new(FakeCli {
@@ -657,12 +690,16 @@ mod tests {
                 },
             }),
             acp_probe: Box::new(NoopAcpOptionsProbe),
-            native_probe: Box::new(NoopNativeOptionsProbe),
+            native_probe: Box::new(GrokNativeEfforts),
             probe_root: root.path().to_path_buf(),
         };
         let spec = ProbePlan {
             agent_id: "grok".into(),
-            strategies: vec![OptionsProbeStrategy::Config, OptionsProbeStrategy::Cli],
+            strategies: vec![
+                OptionsProbeStrategy::Config,
+                OptionsProbeStrategy::Cli,
+                OptionsProbeStrategy::Native,
+            ],
             cli_command: vec!["grok".into(), "models".into()],
             parser: OptionsParserKind::GrokLineList,
             thinking: AgentThinkingSupport::Manual {
@@ -684,7 +721,7 @@ mod tests {
                 assert_eq!(options, &["low", "medium", "high"]);
                 assert_ne!(arg.as_deref(), Some("--reasoning-effort"));
             }
-            other => panic!("expected overlay thinking, got {other:?}"),
+            other => panic!("expected probed thinking, got {other:?}"),
         }
         let composer = catalog
             .models

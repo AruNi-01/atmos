@@ -51,7 +51,7 @@ fn build_agent_config(port: u16) -> Value {
         hook_version_header = hook_version_header.as_str(),
     );
     let prompt_submit_cmd = format!(
-        r#"{guard} && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d '{{"hook_event_name":"userPromptSubmit"}}' '{url}' >/dev/null 2>&1 || true"#,
+        r#"{guard} && {hook_version} && cat | curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d @- '{url}' >/dev/null 2>&1 || true"#,
         guard = guard,
         hook_version = hook_version.as_str(),
         context_headers = context_headers,
@@ -247,4 +247,19 @@ fn which_exists(cmd: &str) -> bool {
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prompt_and_tool_hooks_forward_stdin() {
+        let config = build_agent_config(4310);
+        for event in ["userPromptSubmit", "preToolUse", "postToolUse"] {
+            let cmd = config["hooks"][event][0]["command"].as_str().unwrap();
+            assert!(cmd.contains("cat | curl"), "{event}: {cmd}");
+            assert!(cmd.contains("-d @-"), "{event}: {cmd}");
+        }
+    }
 }

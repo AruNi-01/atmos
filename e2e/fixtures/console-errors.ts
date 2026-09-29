@@ -15,8 +15,8 @@ const allowedConsoleErrorPatterns = [
   /\[WebSocket\] Error: Event/i,
   // TanStack Query cancels in-flight settings bootstrap on computer/scope change.
   /CancelledError\b/,
-  // Canvas probes the default pin doc; missing docs 404 is expected until first save.
-  /\[response\.404\] .*\/api\/canvas\/documents\/Default\.atmos\.tldr(?:\?.*)?$/i,
+  // Canvas probes the default pin doc; missing docs 404/400 until first save.
+  /\[response\.(404|400)\] .*\/api\/canvas\/documents\/Default\.atmos\.tldr(?:\?.*)?$/i,
   // APP-067 S16 sends a chat turn; CI hosts may have a leftover custom agent selected
   // that is not installed, which surfaces as a pageerror after the user message lands.
   /agent not found: custom agent:/i,

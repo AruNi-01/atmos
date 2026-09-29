@@ -2,11 +2,10 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Button, cn, Skeleton, Switch } from "@workspace/ui";
+import { Button, cn, EmptyAction, IconDiscovery, IconPlus, IconSearch, Skeleton, Switch } from "@workspace/ui";
 import type { RegistryAgent, CustomAgent, NativeChatAgent } from "@/api/ws-api";
 import {
   Loader2,
-  Search,
   Trash2,
   ArrowDownToLine,
   CircleFadingArrowUp,
@@ -21,6 +20,7 @@ import {
   registryAgentEnabled,
 } from "@/features/agent/lib/custom-agent-registry";
 import { motion } from "motion/react";
+import { PageEmptyState } from "@/shared/components/PageEmptyState";
 
 export function needsUpdate(
   installedVersion: string,
@@ -521,37 +521,59 @@ export const NativeAgentCard = React.memo<NativeAgentCardProps>(
 /* ------------------------------------------------------------------ */
 
 export interface AgentEmptyStateProps {
-  message: string;
-  query: string;
-  onClearSearch: () => void;
+  title: string;
+  description: string;
+  icon?: React.ReactNode;
+  query?: string;
+  onClearSearch?: () => void;
+  primaryLabel?: string;
+  onPrimary?: () => void;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
 }
 
 export const AgentEmptyState: React.FC<AgentEmptyStateProps> = ({
-  message,
+  title,
+  description,
+  icon,
   query,
   onClearSearch,
+  primaryLabel,
+  onPrimary,
+  secondaryLabel,
+  onSecondary,
 }) => {
   const t = useTranslations("Agent.components");
+  const hasQuery = Boolean(query?.trim());
+  const clearAction =
+    hasQuery && onClearSearch ? (
+      <EmptyAction emphasis="quiet" onClick={onClearSearch}>
+        {t("managerCards.emptyState.clearSearch")}
+      </EmptyAction>
+    ) : null;
+  const startActions =
+    !hasQuery && (onPrimary || onSecondary) ? (
+      <>
+        {onPrimary && primaryLabel ? (
+          <EmptyAction icon={<IconPlus />} onClick={onPrimary}>
+            {primaryLabel}
+          </EmptyAction>
+        ) : null}
+        {onSecondary && secondaryLabel ? (
+          <EmptyAction emphasis="quiet" onClick={onSecondary}>
+            {secondaryLabel}
+          </EmptyAction>
+        ) : null}
+      </>
+    ) : null;
 
   return (
-    <motion.div
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    className="flex flex-col items-center justify-center py-24 text-center"
-  >
-    <div className="size-16 rounded-3xl bg-muted/20 flex items-center justify-center mb-4">
-      <Search className="size-8 text-muted-foreground/30" />
-    </div>
-    <h3 className="text-base font-medium text-foreground">{t("managerCards.emptyState.title")}</h3>
-    <p className="mt-1 text-sm text-muted-foreground max-w-[280px] text-pretty">
-      {message}
-    </p>
-    {query && (
-      <Button variant="link" onClick={onClearSearch} className="mt-4">
-        {t("managerCards.emptyState.clearSearch")}
-      </Button>
-    )}
-  </motion.div>
+    <PageEmptyState
+      icon={hasQuery ? <IconSearch /> : (icon ?? <IconDiscovery />)}
+      title={title}
+      description={description}
+      actions={clearAction ?? startActions}
+    />
   );
 };
 

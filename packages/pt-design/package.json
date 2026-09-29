@@ -31,7 +31,7 @@
     "typescript": "6.0.3"
   },
   "dependencies": {
-    "@excalidraw/excalidraw": "0.18.1",
+    "@excalidraw/excalidraw": "0.18.0-c0ad61c",
     "@modelcontextprotocol/sdk": "1.30.0",
     "@zumer/snapdom": "^2.24.7",
     "ink": "^7.1.1",

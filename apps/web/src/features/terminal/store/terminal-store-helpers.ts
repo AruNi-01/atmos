@@ -661,6 +661,13 @@ export function hydratePersistedTab(
   };
 }
 
+export function shouldHydrateFixedTabFromTmuxWindows(
+  persistedLayout: { tabs: unknown[] } | null | undefined,
+): boolean {
+  if (!persistedLayout) return true;
+  return persistedLayout.tabs.length > 0;
+}
+
 export function createInitialLayout(
   workspaceId: string,
   existingPanes: Record<string, TerminalPaneProps> = {},

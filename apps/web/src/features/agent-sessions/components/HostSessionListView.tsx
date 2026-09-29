@@ -1,13 +1,20 @@
 "use client";
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { motion } from "motion/react";
 import {
   Badge,
   Button,
+  EmptyAction,
+  IconArrowRight,
+  IconChat,
+  IconDanger,
+  IconFilter,
+  IconSearch,
   Input,
+  LayersIcon,
   ScrollArea,
   Tooltip,
   TooltipContent,
@@ -15,14 +22,10 @@ import {
   TooltipTrigger,
   cn,
 } from "@workspace/ui";
-import { formatLocalDateTime, formatRelativeTime, parseUTCDate } from "@atmos/shared";
 import {
-  Archive,
   ChevronDown,
   Folder,
-  Layers,
   Loader2,
-  MessageSquare,
   RotateCcw,
   Search,
 } from "lucide-react";
@@ -31,16 +34,14 @@ import { hostSessionApi } from "@/api/ws/host-session-api";
 import { HostSessionBulkToolbar } from "@/features/agent-sessions/components/HostSessionBulkToolbar";
 import { HostSessionCheckReveal } from "@/features/agent-sessions/components/HostSessionCheckReveal";
 import { HostSessionFilterSortMenu } from "@/features/agent-sessions/components/HostSessionFilterSortMenu";
+import { HostSessionResultCard } from "@/features/agent-sessions/components/HostSessionResultCard";
 import { useHostSessionList } from "@/features/agent-sessions/hooks/use-host-session-list";
 import { useHostSessionListQuery } from "@/features/agent-sessions/hooks/use-host-session-list-query";
 import { useHostSessionSelection } from "@/features/agent-sessions/hooks/use-host-session-selection";
 import {
   EMPTY_HOST_SESSION_FILTERS,
-  formatHostSessionBytes,
-  hasAtmosChatTag,
   hostSessionFilterCount,
-  hostSessionHighlightParts,
-  hostSessionProjectLabel,
+  hostSessionOpenTarget,
   type HostSessionFilters,
 } from "@/features/agent-sessions/lib/host-session-filters";
 import {
@@ -52,11 +53,12 @@ import {
   DEFAULT_HOST_SESSION_SORT,
   flattenHostSessionRows,
   hostSessionAgentIconId,
-  hostSessionAgentLabel,
   type HostSessionGroupMode,
   type HostSessionSort,
   type HostSessionVirtualRow,
 } from "@/features/agent-sessions/lib/host-session-groups";
+import { PageEmptyState } from "@/shared/components/PageEmptyState";
+import { useAppRouter } from "@/shared/hooks/use-app-router";
 
 const SESSION_ROW_ESTIMATE = 92;
 const HEADER_ROW_ESTIMATE = 48;
@@ -93,56 +95,9 @@ function HostSessionGroupGlyph({
   );
 }
 
-function HostSessionHighlight({ text, query }: { text: string; query: string }) {
-  return (
-    <>
-      {hostSessionHighlightParts(text, query).map((part, index) =>
-        part.match ? (
-          <mark
-            key={`${part.text}-${index}`}
-            className="rounded-sm bg-info/35 px-0.5 text-foreground"
-          >
-            {part.text}
-          </mark>
-        ) : (
-          <React.Fragment key={`${part.text}-${index}`}>{part.text}</React.Fragment>
-        ),
-      )}
-    </>
-  );
-}
-
-function HostSessionEmptyState({
-  icon,
-  title,
-  description,
-  action,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-      className="flex flex-col items-center justify-center py-24 text-center"
-    >
-      <div className="mb-5 flex size-16 items-center justify-center rounded-3xl bg-muted/20 text-muted-foreground/30">
-        {icon}
-      </div>
-      <h3 className="text-base font-semibold text-foreground">{title}</h3>
-      <p className="mt-2 max-w-sm text-sm text-pretty text-muted-foreground">{description}</p>
-      {action}
-    </motion.div>
-  );
-}
-
 export function HostSessionListView() {
   const t = useTranslations("agentSessions");
-  const locale = useLocale();
+  const router = useAppRouter();
   const { listQuery: query, setListQuery: setQuery } = useHostSessionListQuery();
   const [groupMode, setGroupMode] = useState<HostSessionGroupMode>("all");
   const [filters, setFilters] = useState<HostSessionFilters>(EMPTY_HOST_SESSION_FILTERS);
@@ -458,7 +413,7 @@ export function HostSessionListView() {
 
   const filterCount = hostSessionFilterCount(filters);
   const emptyKind =
-    sessions.length === 0 ? "homes" : query.trim() ? "search" : filterCount > 0 ? "filters" : "list";
+    query.trim() ? "search" : sessions.length === 0 ? "homes" : filterCount > 0 ? "filters" : "list";
   const indexing =
     searchStatus === "indexing" ||
     (searchProgress != null &&
@@ -477,7 +432,7 @@ export function HostSessionListView() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex min-w-0 items-center gap-4">
                 <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20">
-                  <Layers className="size-6" />
+                  <LayersIcon className="size-6" size={24} />
                 </div>
                 <div className="min-w-0">
                   <h2 className="text-xl font-bold tracking-tight text-balance text-foreground">
@@ -578,30 +533,23 @@ export function HostSessionListView() {
                   ))}
                 </div>
               ) : error && sessions.length === 0 ? (
-                <HostSessionEmptyState
-                  icon={<Layers className="size-8" />}
+                <PageEmptyState
+                  icon={<IconDanger />}
                   title={t("errorTitle")}
                   description={t("error")}
-                  action={
-                    <Button
-                      type="button"
-                      variant="link"
-                      onClick={() => refresh()}
-                      className="mt-4"
-                    >
-                      {t("retry")}
-                    </Button>
+                  actions={
+                    <EmptyAction onClick={() => refresh()}>{t("retry")}</EmptyAction>
                   }
                 />
               ) : rows.length === 0 ? (
-                <HostSessionEmptyState
+                <PageEmptyState
                   icon={
                     emptyKind === "search" ? (
-                      <Search className="size-8" />
+                      <IconSearch />
                     ) : emptyKind === "homes" ? (
-                      <Layers className="size-8" />
+                      <IconChat />
                     ) : (
-                      <Folder className="size-8" />
+                      <IconFilter />
                     )
                   }
                   title={
@@ -622,37 +570,36 @@ export function HostSessionListView() {
                           ? t("emptySearch")
                           : t("emptyList")
                   }
-                  action={
+                  actions={
                     emptyKind === "search" ? (
-                      <Button
-                        type="button"
-                        variant="link"
-                        onClick={() => setQuery("")}
-                        className="mt-4"
-                      >
+                      <EmptyAction emphasis="quiet" onClick={() => setQuery("")}>
                         {t("clearSearch")}
-                      </Button>
+                      </EmptyAction>
                     ) : sessions.length > 0 &&
                       visibleSessions.length === 0 &&
                       !filters.showArchived ? (
-                      <Button
-                        type="button"
-                        variant="link"
+                      <EmptyAction
+                        emphasis="quiet"
                         onClick={() => setFilters({ ...filters, showArchived: true })}
-                        className="mt-4"
                       >
                         {t("filter.showArchived")}
-                      </Button>
+                      </EmptyAction>
                     ) : emptyKind === "filters" ? (
-                      <Button
-                        type="button"
-                        variant="link"
+                      <EmptyAction
+                        emphasis="quiet"
                         onClick={() => setFilters(EMPTY_HOST_SESSION_FILTERS)}
-                        className="mt-4"
                       >
                         {t("filter.clear")}
-                      </Button>
-                    ) : null
+                      </EmptyAction>
+                    ) : emptyKind === "homes" ? (
+                      <EmptyAction
+                        emphasis="quiet"
+                        trailing={<IconArrowRight />}
+                        onClick={() => router.push("/agent-observer")}
+                      >
+                        {t("openObserver")}
+                      </EmptyAction>
+                    ) : undefined
                   }
                 />
               ) : (
@@ -701,11 +648,10 @@ export function HostSessionListView() {
                     }
 
                     const session = row.session;
-                    const projectLabel = hostSessionProjectLabel(session);
-                    const agentLabel = hostSessionAgentLabel(session.provider_id);
-                    const title = session.title.trim() || session.native_id;
                     const hit = hitByRoot.get(session.key);
-                    const searching = query.trim().length > 0;
+                    const selected =
+                      selectedKey === session.key || selectedKey === hit?.session_key;
+                    const title = session.title.trim() || session.native_id;
                     return (
                       <div
                         key={item.key}
@@ -720,124 +666,27 @@ export function HostSessionListView() {
                         }}
                       >
                         <div className="pb-2">
-                        <HostSessionCheckReveal
-                          selected={checkedKeys.has(session.key)}
-                          forceOpen={checkedKeys.size > 0}
-                          label={t("selectSession", { title })}
-                          onSelectedChange={(selected) => toggleChecked(session.key, selected)}
-                        >
-                        <button
-                          type="button"
-                          data-testid="host-session-item"
-                          className={cn(
-                            "group flex h-[84px] w-full items-center justify-between rounded-lg border px-4 text-left hover:border-primary/30 hover:bg-muted/50 hover:shadow-sm",
-                            selectedKey === session.key || selectedKey === hit?.session_key
-                              ? "border-primary/40 bg-muted/50 shadow-sm"
-                              : "border-border bg-background",
-                          )}
-                          aria-current={
-                            selectedKey === session.key || selectedKey === hit?.session_key
-                              ? "true"
-                              : undefined
-                          }
-                          onClick={() => {
-                            if (hit && hit.kind !== "title") {
-                              selectKey(hit.session_key, {
-                                messageId: hit.message_id,
-                                seq: hit.seq,
-                              });
-                              return;
-                            }
-                            selectKey(hit?.session_key ?? session.key);
-                          }}
-                        >
-                          <div className="flex min-w-0 flex-1 items-center gap-4">
-                            <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/50 bg-muted/30 transition-colors duration-150 group-hover:border-primary/20 group-hover:bg-primary/5">
-                              <AgentIcon
-                                registryId={hostSessionAgentIconId(session.provider_id)}
-                                name={agentLabel}
-                                size={22}
-                              />
-                            </div>
-                            <div className="flex min-w-0 flex-1 flex-col">
-                              <div className="flex min-w-0 items-center gap-2">
-                                <span className="truncate text-sm font-semibold text-foreground transition-colors duration-150 group-hover:text-primary">
-                                  {searching ? (
-                                    <HostSessionHighlight text={title} query={query} />
-                                  ) : (
-                                    title
-                                  )}
-                                </span>
-                                {hasAtmosChatTag(session) ? (
-                                  <span className="shrink-0 rounded-md border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                    {t("atmosChatTag")}
-                                  </span>
-                                ) : null}
-                              </div>
-                              <div className="mt-1 flex min-w-0 items-center gap-3 text-xs text-muted-foreground">
-                                {searching && hit?.snippet ? (
-                                  <span className="block min-w-0 truncate">
-                                    <HostSessionHighlight text={hit.snippet} query={query} />
-                                  </span>
-                                ) : (
-                                  <>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="flex min-w-0 items-center gap-1">
-                                      <Folder className="size-3 shrink-0" />
-                                      <span className="block max-w-[220px] truncate">
-                                        {projectLabel || t("unknownProject")}
-                                      </span>
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent className="max-w-xs break-all">
-                                    {session.cwd || t("unknownProject")}
-                                  </TooltipContent>
-                                </Tooltip>
-                                {session.message_count != null ? (
-                                  <>
-                                    <span className="text-border">·</span>
-                                    <span className="flex shrink-0 items-center gap-1">
-                                      <MessageSquare className="size-3 shrink-0" />
-                                      <span className="whitespace-nowrap">
-                                        {t("messageCount", { count: session.message_count })}
-                                      </span>
-                                    </span>
-                                  </>
-                                ) : null}
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="ml-4 flex shrink-0 items-center gap-3">
-                            <div className="text-right">
-                            <div className="text-[11px] font-medium tabular-nums text-muted-foreground">
-                              {formatHostSessionBytes(session.byte_size) ?? "–"}
-                            </div>
-                            <div className="mt-0.5 whitespace-nowrap text-[10px] tabular-nums text-muted-foreground/55">
-                              {session.updated_at &&
-                              !Number.isNaN(parseUTCDate(session.updated_at).getTime())
-                                ? `${formatLocalDateTime(session.updated_at, "yyyy/MM/dd HH:mm")} · ${formatRelativeTime(session.updated_at, locale)}`
-                                : ""}
-                            </div>
-                            </div>
-                            {archivedOf(session) ? (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span
-                                    className="inline-flex text-muted-foreground"
-                                    data-testid="host-session-archived-icon"
-                                  >
-                                    <Archive className="size-3.5" aria-hidden />
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>{t("archived")}</TooltipContent>
-                              </Tooltip>
-                            ) : null}
-                          </div>
-                        </button>
-                        </HostSessionCheckReveal>
+                          <HostSessionCheckReveal
+                            selected={checkedKeys.has(session.key)}
+                            forceOpen={checkedKeys.size > 0}
+                            label={t("selectSession", { title })}
+                            onSelectedChange={(checked) => toggleChecked(session.key, checked)}
+                          >
+                            <HostSessionResultCard
+                              session={session}
+                              hit={hit}
+                              query={query}
+                              selected={selected}
+                              archived={archivedOf(session)}
+                              onSelect={() => {
+                                const target = hostSessionOpenTarget(session, hit);
+                                selectKey(target.key, {
+                                  messageId: target.messageId,
+                                  seq: target.seq,
+                                });
+                              }}
+                            />
+                          </HostSessionCheckReveal>
                         </div>
                       </div>
                     );

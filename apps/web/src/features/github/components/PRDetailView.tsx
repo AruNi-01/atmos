@@ -2,8 +2,6 @@ import React from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import {
   Button,
-  TabsSubtle,
-  TabsSubtleItem,
   Avatar,
   AvatarImage,
   AvatarFallback,
@@ -13,6 +11,7 @@ import {
   cn,
   useDrawerCloseReserve,
 } from '@workspace/ui';
+import { Tabs, TabsList, TabsTrigger } from '@workspace/ui/components/motion/tabs';
 import { GithubUserAvatar, GithubUserHoverCard } from '@/features/github/components/GithubUserHoverCard';
 import { useGithubPRDetail, useGithubPRDetailSidebar, useGithubPRTimeline, useGithubPRFiles } from '@/features/github/hooks/use-github';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
@@ -79,7 +78,6 @@ interface PRDetailViewProps {
 }
 
 type PRMainTab = 'description' | 'checks' | 'discussion' | 'commits' | 'files';
-const PR_MAIN_TABS: PRMainTab[] = ['description', 'checks', 'discussion', 'commits', 'files'];
 
 // Persist PR tab selection across center tab switches (survives unmount/remount).
 const prMainTabCache = new Map<number, PRMainTab>();
@@ -532,58 +530,54 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                   </div>
 
                       <div className="sticky top-0 z-20 border-t border-border/40 bg-background pb-3 pt-3">
-                        <TabsSubtle
-                          activeLabel
-                          idPrefix={`pr-${pr.number}`}
-                          selectedIndex={PR_MAIN_TABS.indexOf(activeMainTab)}
-                          onSelect={(index) => {
-                            const tab = PR_MAIN_TABS[index];
-                            if (tab) handleMainTabChange(tab);
-                          }}
+                        <Tabs
+                          className="min-w-0 max-w-full"
+                          value={activeMainTab}
+                          variant="pill"
+                          onValueChange={handleMainTabChange}
                         >
-                          <TabsSubtleItem index={0} icon={FileText} label={t('tabs.description')} />
-                          <TabsSubtleItem
-                            index={1}
-                            icon={ListChecks}
-                            label={(() => {
-                              const checks: StatusCheck[] = Array.isArray(pr.statusCheckRollup)
-                                ? pr.statusCheckRollup
-                                : [];
-                              const failing = checks.filter(
-                                (c) =>
-                                  c.state === 'FAILURE' ||
-                                  c.state === 'ERROR' ||
-                                  c.conclusion === 'FAILURE' ||
-                                  c.conclusion === 'ERROR' ||
-                                  c.conclusion === 'ACTION_REQUIRED',
-                              ).length;
-                              return failing > 0
-                                ? t('tabs.checksWithFailures', { count: failing })
-                                : t('tabs.checks', { count: checks.length });
-                            })()}
-                          />
-                          <TabsSubtleItem
-                            index={2}
-                            icon={MessageSquare}
-                            label={
-                              sidebarData?.totalCommentsCount != null
+                          <TabsList className="h-8 max-w-full gap-0.5 overflow-x-auto p-0.5 scrollbar-hide">
+                            <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="description">
+                              <FileText className="size-3.5 shrink-0" />
+                              {t('tabs.description')}
+                            </TabsTrigger>
+                            <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="checks">
+                              <ListChecks className="size-3.5 shrink-0" />
+                              {(() => {
+                                const checks: StatusCheck[] = Array.isArray(pr.statusCheckRollup)
+                                  ? pr.statusCheckRollup
+                                  : [];
+                                const failing = checks.filter(
+                                  (c) =>
+                                    c.state === 'FAILURE' ||
+                                    c.state === 'ERROR' ||
+                                    c.conclusion === 'FAILURE' ||
+                                    c.conclusion === 'ERROR' ||
+                                    c.conclusion === 'ACTION_REQUIRED',
+                                ).length;
+                                return failing > 0
+                                  ? t('tabs.checksWithFailures', { count: failing })
+                                  : t('tabs.checks', { count: checks.length });
+                              })()}
+                            </TabsTrigger>
+                            <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="discussion">
+                              <MessageSquare className="size-3.5 shrink-0" />
+                              {sidebarData?.totalCommentsCount != null
                                 ? t('tabs.discussionWithCount', {
                                     count: sidebarData.totalCommentsCount,
                                   })
-                                : t('tabs.discussion')
-                            }
-                          />
-                          <TabsSubtleItem
-                            index={3}
-                            icon={GitCommit}
-                            label={t('tabs.commits', { count: pr.commits?.length || 0 })}
-                          />
-                          <TabsSubtleItem
-                            index={4}
-                            icon={FileCode}
-                            label={t('tabs.filesChanged', { count: pr.changedFiles ?? 0 })}
-                          />
-                        </TabsSubtle>
+                                : t('tabs.discussion')}
+                            </TabsTrigger>
+                            <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="commits">
+                              <GitCommit className="size-3.5 shrink-0" />
+                              {t('tabs.commits', { count: pr.commits?.length || 0 })}
+                            </TabsTrigger>
+                            <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="files">
+                              <FileCode className="size-3.5 shrink-0" />
+                              {t('tabs.filesChanged', { count: pr.changedFiles ?? 0 })}
+                            </TabsTrigger>
+                          </TabsList>
+                        </Tabs>
                       </div>
 
                 {/* Description tab */}
