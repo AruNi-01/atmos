@@ -1,0 +1,18 @@
+apps/web/src/app-shell/__tests__/global-search-focus.test.ts
+  h_5be255725524c8 218-221
+apps/web/src/app-shell/global-search-content.tsx
+  h_5be255725524c8 45
+apps/web/src/app-shell/global-search-sessions.tsx
+  h_5be255725524c8 3,5-6,19,34-45,60,70,79-80,94-96,98-110,112-113,129-133,135-139,141-147,149-154,156,158
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "714bf36c25e5f72bfabf5181241415603f77652a",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
