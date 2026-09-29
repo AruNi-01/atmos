@@ -213,10 +213,12 @@ describe("global search focus", () => {
     const panel = read("../global-search-sessions.tsx");
     expect(panel).toContain("useHostSessionList");
     expect(panel).toContain("syncOnMount");
-    expect(panel).toContain('aria-label={t("refresh")}');
     expect(panel).toContain("refresh()");
     expect(panel).toContain("HostSessionResultBody");
-    expect(panel).toContain("HostSessionFilterSortMenu");
+    expect(panel).not.toContain("HostSessionFilterSortMenu");
+    expect(panel).not.toContain('t("loadMore")');
+    expect(panel).toContain("sessionListScrollParent");
+    expect(panel).toContain("loadMore()");
     expect(panel).toContain("HostSessionDetailView");
     expect(panel).toContain("onNavigated={onNavigated}");
     expect(panel).toContain("hostSessionOpenTarget");

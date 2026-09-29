@@ -50,15 +50,8 @@ import {
   resolveGlobalSearchTypeahead,
 } from '@/app-shell/global-search-focus';
 import {
-  EMPTY_HOST_SESSION_FILTERS,
-  type HostSessionFilters,
   type HostSessionOpenTarget,
 } from '@/features/agent-sessions/lib/host-session-filters';
-import {
-  DEFAULT_HOST_SESSION_SORT,
-  type HostSessionGroupMode,
-  type HostSessionSort,
-} from '@/features/agent-sessions/lib/host-session-groups';
 
 function normalizeGlobalSearchValue(value: string) {
   return value
@@ -179,9 +172,6 @@ export function GlobalSearch() {
   // Sub-view state (null = search, inline panels reuse the command dialog shell)
   const [subView, setSubView] = useState<SubView | null>(null);
   const [sessionTarget, setSessionTarget] = useState<HostSessionOpenTarget | null>(null);
-  const [sessionFilters, setSessionFilters] = useState<HostSessionFilters>(EMPTY_HOST_SESSION_FILTERS);
-  const [sessionSort, setSessionSort] = useState<HostSessionSort>(DEFAULT_HOST_SESSION_SORT);
-  const [sessionGroupMode, setSessionGroupMode] = useState<HostSessionGroupMode>("all");
   const [firstSessionValue, setFirstSessionValue] = useState("");
   const [sessionSourcesSynced, setSessionSourcesSynced] = useState(false);
 
@@ -304,9 +294,6 @@ export function GlobalSearch() {
       setSelectedValue('');
       setSubView(null);
       setSessionTarget(null);
-      setSessionFilters(EMPTY_HOST_SESSION_FILTERS);
-      setSessionSort(DEFAULT_HOST_SESSION_SORT);
-      setSessionGroupMode("all");
       setFirstSessionValue("");
       setSessionSourcesSynced(false);
     }
@@ -645,14 +632,6 @@ export function GlobalSearch() {
           isSearchingCode={isSearchingCode}
           searchQuery={searchQuery}
           selectedValue={selectedValue}
-          sessionControls={{
-            filters: sessionFilters,
-            sort: sessionSort,
-            groupMode: sessionGroupMode,
-            onFiltersChange: setSessionFilters,
-            onSortChange: setSessionSort,
-            onGroupModeChange: setSessionGroupMode,
-          }}
           setGlobalSearchTab={setGlobalSearchTab}
           setHoveredValue={setHoveredValue}
           setSearchQuery={setSearchQuery}

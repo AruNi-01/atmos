@@ -42,10 +42,7 @@ import {
 } from "@/app-shell/global-search-parts";
 import { useTranslations } from "next-intl";
 import { MessageSquare } from "lucide-react";
-import {
-  SessionSearchResults,
-  type SessionSearchControls,
-} from "@/app-shell/global-search-sessions";
+import { SessionSearchResults } from "@/app-shell/global-search-sessions";
 import type { HostSessionOpenTarget } from "@/features/agent-sessions/lib/host-session-filters";
 
 type SubView = "todo" | "commit" | "usage" | "note";
@@ -252,7 +249,6 @@ interface GlobalSearchMainViewProps {
   isSearchingCode: boolean;
   searchQuery: string;
   selectedValue: string;
-  sessionControls: SessionSearchControls;
   setGlobalSearchTab: (tab: SearchTab) => void;
   setHoveredValue: (value: string | null) => void;
   setSearchQuery: (query: string) => void;
@@ -450,7 +446,6 @@ export function GlobalSearchMainView({
   isSearchingCode,
   searchQuery,
   selectedValue,
-  sessionControls,
   setGlobalSearchTab,
   setHoveredValue,
   setSearchQuery,
@@ -543,7 +538,6 @@ export function GlobalSearchMainView({
               {globalSearchTab === "sessions" ? (
                 <SessionSearchResults
                   query={searchQuery}
-                  controls={sessionControls}
                   syncOnMount={sessionSyncOnMount}
                   onSourcesSynced={onSessionSourcesSynced}
                   onFirstValueChange={onFirstSessionValue}
