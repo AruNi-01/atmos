@@ -1,0 +1,20 @@
+apps/web/src/app-shell/__tests__/center-space-thumbnail.test.ts
+  h_5be255725524c8 136,148-150,155-157,160,163-164,166-167
+apps/web/src/app-shell/center-space/CenterSpaceSwitcher.tsx
+  h_5be255725524c8 197-204,206-219
+apps/web/src/app-shell/center-space/center-space-switch.ts
+  h_5be255725524c8 66-68,70-75,97,129-131
+apps/web/src/app-shell/center-space/center-space-thumbnail.ts
+  h_5be255725524c8 354,356,410,429,440
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "81fc5a5aa7e1c7a0d13bf2983dd26d57959f6e10",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
