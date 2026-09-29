@@ -1,0 +1,18 @@
+apps/mobile/src/features/onboarding/PairQrScanner.tsx
+  h_5be255725524c8 125
+apps/mobile/src/lib/mobile-pair-claim.ts
+  h_5be255725524c8 26-72,75-135
+packages/hub-client/src/mobile-pair.ts
+  h_5be255725524c8 45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ce2e66ae28982fc87967655fc53d22c920891edf",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
