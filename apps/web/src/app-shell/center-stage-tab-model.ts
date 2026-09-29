@@ -1,31 +1,38 @@
 import type { MouseEvent, PointerEvent } from "react";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
 
-/** Closable center-stage tab kinds that appear in the tab strip. */
-export type CenterTabKind =
-  | "overview"
-  | "terminal"
-  | "project-wiki"
-  | "code-review"
-  | "file"
-  | "diff"
-  | "diff-group"
-  | "review-diff"
-  | "conflict"
-  | "github-pr"
-  | "github-issue"
-  | "github-action"
-  | "git-commit"
-  | "github"
-  | "browser"
-  | "simulator"
-  | "git-history"
-  | "changes"
-  | "review"
-  | "run"
-  | "files"
-  | "pt-design"
-  | "agent-chat";
+/**
+ * Closable center-stage tab kinds that appear in the tab strip.
+ * Runtime source for layout snapshots — add a kind here and it is saved,
+ * unless it is an ephemeral document tab (see the saved-layout module).
+ */
+export const CENTER_TAB_KINDS = [
+  "overview",
+  "terminal",
+  "project-wiki",
+  "code-review",
+  "file",
+  "diff",
+  "diff-group",
+  "review-diff",
+  "conflict",
+  "github-pr",
+  "github-issue",
+  "github-action",
+  "git-commit",
+  "github",
+  "browser",
+  "simulator",
+  "git-history",
+  "changes",
+  "review",
+  "run",
+  "files",
+  "pt-design",
+  "agent-chat",
+] as const;
+
+export type CenterTabKind = (typeof CENTER_TAB_KINDS)[number];
 
 /**
  * Visual-order descriptor for a closable center tab.

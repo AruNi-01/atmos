@@ -3210,6 +3210,7 @@ const CenterStage: React.FC = () => {
       const surfaces = collectSavedSurfaces(saved);
       let browserTabValue: string | null = null;
       let terminalTabId: string | null = null;
+      const agentChatTabIdByPane = new Map<string, string>();
 
       if (surfaces.includes("browser")) {
         const tab = openBrowserCenterTab(paintId);
@@ -3222,15 +3223,45 @@ const CenterStage: React.FC = () => {
       if (surfaces.includes("simulator")) {
         openSimulatorTab(paintId);
       }
+      if (surfaces.includes("overview")) {
+        useOverviewCenterTabStore.getState().open(paintId);
+      }
+      if (surfaces.includes("git-history")) {
+        useGitHistoryCenterTabStore.getState().open(paintId);
+      }
+      if (surfaces.includes("project-wiki")) {
+        setProjectWikiVisibleMap((prev) => ({ ...prev, [paintId]: true }));
+      }
+      if (surfaces.includes("code-review")) {
+        setCodeReviewVisibleMap((prev) => ({ ...prev, [paintId]: true }));
+      }
       for (const surface of surfaces) {
         if (isToolSurfaceKind(surface)) {
           openToolTab(paintId, surface);
         }
       }
+      if (surfaces.includes("agent-chat")) {
+        for (const pane of saved.panes) {
+          const wantsChat =
+            pane.surfaces.includes("agent-chat") || pane.activeSurface === "agent-chat";
+          if (!wantsChat) continue;
+          const tab = useAgentChatCenterTabsStore.getState().openDraftTab({
+            contextId: paintId,
+            title: tabBarT("newAgentChat"),
+          });
+          agentChatTabIdByPane.set(pane.id, tab.value);
+        }
+      }
 
-      const resolveTabId = (kind: CenterSurfaceKind) => {
+      const resolveTabId = (kind: CenterSurfaceKind, paneId: string) => {
         if (kind === "terminal") {
           return terminalTabId || FIXED_TERMINAL_TAB_VALUE;
+        }
+        if (kind === "agent-chat") {
+          return (
+            agentChatTabIdByPane.get(paneId) ||
+            resolveSurfaceTabId(kind, { browserTabId: browserTabValue })
+          );
         }
         return resolveSurfaceTabId(kind, { browserTabId: browserTabValue });
       };
@@ -3253,6 +3284,9 @@ const CenterStage: React.FC = () => {
       openSimulatorTab,
       openToolTab,
       setCenterPaneLayout,
+      setCodeReviewVisibleMap,
+      setProjectWikiVisibleMap,
+      tabBarT,
     ],
   );
 

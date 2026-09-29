@@ -3,12 +3,14 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   collectSavedSurfaces,
+  LAYOUT_CENTER_SURFACE_KINDS,
   materializeSavedLayout,
   normalizeSavedCenterLayouts,
   shouldConfirmReplaceCenterLayout,
   snapshotCenterLayout,
   tabIdToSurfaceKind,
 } from "@/app-shell/center-pane/center-pane-saved-layout";
+import { CENTER_TAB_KINDS } from "@/app-shell/center-stage-tab-model";
 import {
   createDefaultLayout,
   DEFAULT_PANE_ID,
@@ -18,17 +20,29 @@ import {
 import { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/store/use-terminal-store";
 
 describe("center-pane-saved-layout", () => {
-  it("maps only plus-menu tabs to portable surface kinds", () => {
+  it("maps every center tab kind, and drops document tabs", () => {
+    const saved = new Set<string>(LAYOUT_CENTER_SURFACE_KINDS);
+    expect(saved.has("agent-chat")).toBe(true);
+    expect(saved.has("run")).toBe(true);
+    expect(saved.has("file")).toBe(false);
+    for (const kind of CENTER_TAB_KINDS) {
+      expect(tabIdToSurfaceKind(kind)).toBe(saved.has(kind) ? kind : null);
+    }
     expect(tabIdToSurfaceKind("files")).toBe("files");
     expect(tabIdToSurfaceKind("pt-design")).toBe("pt-design");
     expect(tabIdToSurfaceKind("github")).toBe("github");
     expect(tabIdToSurfaceKind(FIXED_TERMINAL_TAB_VALUE)).toBe("terminal");
+    expect(tabIdToSurfaceKind("terminal-tab:abc")).toBe("terminal");
     expect(tabIdToSurfaceKind("browser:ws:abc")).toBe("browser");
-    expect(tabIdToSurfaceKind("overview")).toBeNull();
+    expect(tabIdToSurfaceKind("agent-chat:draft:1")).toBe("agent-chat");
+    expect(tabIdToSurfaceKind("agent-chat:chat-1")).toBe("agent-chat");
+    expect(tabIdToSurfaceKind("overview")).toBe("overview");
+    expect(tabIdToSurfaceKind("git-history")).toBe("git-history");
+    expect(tabIdToSurfaceKind("project-wiki")).toBe("project-wiki");
     expect(tabIdToSurfaceKind("wiki")).toBeNull();
-    expect(tabIdToSurfaceKind("git-history")).toBeNull();
     expect(tabIdToSurfaceKind("github-pr:ws:12")).toBeNull();
     expect(tabIdToSurfaceKind("github-issue:ws:4")).toBeNull();
+    expect(tabIdToSurfaceKind("review-diff://commit/a")).toBeNull();
     expect(tabIdToSurfaceKind("/Users/me/repo/src/a.ts")).toBeNull();
   });
 
@@ -46,7 +60,8 @@ describe("center-pane-saved-layout", () => {
     const allSurfaces = collectSavedSurfaces(snap!);
     expect(allSurfaces).toContain("files");
     expect(allSurfaces).toContain("terminal");
-    expect(allSurfaces).not.toContain("overview");
+    expect(allSurfaces).toContain("overview");
+    expect(allSurfaces).not.toContain("agent-chat");
     expect(allSurfaces).not.toContain("/tmp/x.ts" as never);
     expect(allSurfaces).not.toContain("github-pr:ws:1" as never);
     const secondary = snap!.panes.find((pane) => pane.id !== DEFAULT_PANE_ID);
@@ -92,6 +107,27 @@ describe("center-pane-saved-layout", () => {
     const secondary = live.panes.find((p) => p.id !== DEFAULT_PANE_ID);
     expect(secondary && isEmptyPane(secondary)).toBe(true);
     expect(live.panes.some((p) => p.id === DEFAULT_PANE_ID || p.tabIds.includes("overview") || p.tabIds.includes(FIXED_TERMINAL_TAB_VALUE))).toBe(true);
+  });
+
+  it("snapshots an open Chat tab as the agent-chat surface", () => {
+    const layout = createDefaultLayout(
+      ["terminal", "agent-chat:chat-1", "run"],
+      "agent-chat:chat-1",
+    );
+    const snap = snapshotCenterLayout(layout, "With chat");
+    expect(snap).not.toBeNull();
+    expect(collectSavedSurfaces(snap!)).toEqual(
+      expect.arrayContaining(["terminal", "agent-chat", "run"]),
+    );
+    expect(snap!.panes[0]?.activeSurface).toBe("agent-chat");
+    const live = materializeSavedLayout(snap!, (kind, paneId) => {
+      if (kind === "agent-chat") return `agent-chat:draft:${paneId}`;
+      if (kind === "terminal") return FIXED_TERMINAL_TAB_VALUE;
+      return kind;
+    });
+    const pane = live.panes[0];
+    expect(pane?.tabIds).toContain("agent-chat:draft:" + pane?.id);
+    expect(pane?.activeTabId).toBe("agent-chat:draft:" + pane?.id);
   });
 
   it("asks for confirmation when the current stage is not overview-only", () => {
