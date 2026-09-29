@@ -11,7 +11,13 @@ import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import { useMobileTheme } from "@/theme/theme-store";
 import { creditsLabel, extraSections, providerHeading, usageRows, type UsageRow } from "@/features/quota-usage/quota-rows";
-import { noteSavedAutoRefresh, seedSavedAutoRefresh, type SavedAutoRefresh } from "@/features/quota-usage/auto-refresh-interval";
+import {
+  adoptSavedAutoRefresh,
+  noteSavedAutoRefresh,
+  savedAutoRefreshMinutes,
+  seedSavedAutoRefresh,
+  type SavedAutoRefresh,
+} from "@/features/quota-usage/auto-refresh-interval";
 import { mergeQuotaSwitchSnapshot } from "@/features/quota-usage/quota-switch-snapshot";
 import { ChevronDownIcon, ChevronUpIcon, SettingsIcon } from "@/ui/icons/lucide-native";
 import { ProviderGlyph } from "@/ui/icons/provider-glyph";
@@ -39,7 +45,10 @@ export function QuotaUsageScreen() {
   const settingsHeight = Math.max(280, Math.round(useWindowDimensions().height * 0.72) - 28);
   const queryClient = useQueryClient();
   const { client, state } = useMobileWs();
+  const selectedServerId = useSessionStore((store) => store.selectedServerId);
   const wsUrl = useSessionStore((store) => store.activeClientSession?.ws_url ?? null);
+  // The interval is stored on the Computer. A new session URL for the same Computer must keep it.
+  const computerKey = selectedServerId ?? wsUrl;
   const connected = state === "open" && client != null;
   const queryKey = ["quota-overview", wsUrl] as const;
   const [selectedId, setSelectedId] = useState(ALL);
@@ -186,15 +195,17 @@ export function QuotaUsageScreen() {
       autoRefreshInFlight.current += 1;
       const generation = autoRefreshGeneration.current + 1;
       autoRefreshGeneration.current = generation;
+      const requestComputerKey = computerKey;
+      const requestWsUrl = wsUrl;
       const previous = queryClient.getQueryData<QuotaOverviewResponse>(queryKey);
-      // Seed from the cache before the optimistic write, then keep that saved value
-      // across a second selection. Rolling back to the optimistic interval shows a
-      // choice the Computer never stored when both requests fail.
+      // Seed from this Computer's cache before the optimistic write, then keep that
+      // saved value across a second selection. Another Computer's interval is not a
+      // baseline here, and a missing overview is not Off.
       savedAutoRefresh.current = seedSavedAutoRefresh(
         savedAutoRefresh.current,
-        previous?.auto_refresh.interval_minutes ?? null,
+        requestComputerKey,
+        previous ? { minutes: previous.auto_refresh.interval_minutes ?? null } : null,
       );
-      const rollbackMinutes = savedAutoRefresh.current.minutes;
       if (previous) {
         queryClient.setQueryData<QuotaOverviewResponse>(queryKey, {
           ...previous,
@@ -202,39 +213,51 @@ export function QuotaUsageScreen() {
         });
       }
       setActionError(null);
-      return { generation, rollbackMinutes, started: new Map(switchGeneration.current) };
+      return {
+        generation,
+        computerKey: requestComputerKey,
+        wsUrl: requestWsUrl,
+        started: new Map(switchGeneration.current),
+      };
     },
     onSuccess: (overview, _minutes, context) => {
-      if (context && savedAutoRefresh.current) {
-        savedAutoRefresh.current = noteSavedAutoRefresh(
-          savedAutoRefresh.current,
-          context.generation,
-          overview.auto_refresh.interval_minutes ?? null,
-        );
-      }
-      if (!context || context.generation !== autoRefreshGeneration.current) return;
+      if (!context || context.computerKey !== computerKey || context.wsUrl !== wsUrl) return;
+      const minutes = overview.auto_refresh.interval_minutes ?? null;
+      const saved =
+        savedAutoRefresh.current?.computerKey === computerKey
+          ? savedAutoRefresh.current
+          : { computerKey, minutes, appliedGeneration: 0 };
+      savedAutoRefresh.current = noteSavedAutoRefresh(saved, context.generation, minutes);
+      if (context.generation !== autoRefreshGeneration.current) return;
       applyOverview(overview, refreshStillCurrent(context.started), true);
     },
     onError: (error: unknown, _minutes, context) => {
       if (!context || context.generation !== autoRefreshGeneration.current) return;
-      const rollbackMinutes = savedAutoRefresh.current?.minutes ?? context.rollbackMinutes;
-      queryClient.setQueryData<QuotaOverviewResponse>(queryKey, (current) =>
-        current ? { ...current, auto_refresh: { interval_minutes: rollbackMinutes } } : current,
-      );
+      if (context.computerKey !== computerKey || context.wsUrl !== wsUrl) return;
+      const rollbackMinutes = savedAutoRefreshMinutes(savedAutoRefresh.current, computerKey);
+      if (rollbackMinutes !== undefined) {
+        queryClient.setQueryData<QuotaOverviewResponse>(queryKey, (current) =>
+          current ? { ...current, auto_refresh: { interval_minutes: rollbackMinutes } } : current,
+        );
+      }
       setActionError(actionMessage(error));
     },
     onSettled: () => {
       autoRefreshInFlight.current = Math.max(0, autoRefreshInFlight.current - 1);
     },
   });
-  // Overview refetches while idle are server truth. Do not adopt an optimistic picker value.
+  // Idle overview data is this Computer's stored interval. A change in flight keeps
+  // the baseline already recorded for this Computer so the optimistic value is not saved.
   useEffect(() => {
-    if (autoRefreshInFlight.current > 0 || !overviewQuery.isSuccess) return;
-    const minutes = overviewQuery.data.auto_refresh.interval_minutes ?? null;
-    savedAutoRefresh.current = savedAutoRefresh.current
-      ? { ...savedAutoRefresh.current, minutes }
-      : { minutes, appliedGeneration: 0 };
-  }, [overviewQuery.data, overviewQuery.isSuccess]);
+    const overview = overviewQuery.data;
+    savedAutoRefresh.current = adoptSavedAutoRefresh(
+      savedAutoRefresh.current,
+      computerKey,
+      overviewQuery.isSuccess && overview != null,
+      overview?.auto_refresh.interval_minutes ?? null,
+      autoRefreshInFlight.current > 0,
+    );
+  }, [computerKey, overviewQuery.data, overviewQuery.isSuccess]);
 
   const overview = overviewQuery.data ?? null;
   const providers = [...(overview?.providers ?? [])].sort((left, right) => left.label.localeCompare(right.label));
