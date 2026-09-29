@@ -1,0 +1,24 @@
+apps/mobile/app/(home)/_layout.tsx
+  h_5be255725524c8 1,10-11,13,142-168,170-175
+apps/mobile/src/features/computers/computer-selection.test.ts
+  h_5be255725524c8 7-17,27
+apps/mobile/src/features/computers/computer-selection.ts
+  h_5be255725524c8 1,8-12,24-26,29-31
+apps/mobile/src/features/onboarding/AuthConnectContent.tsx
+  h_5be255725524c8 19,261,278,283-285,319-324,537-540
+apps/mobile/src/features/workspaces/WorkspaceListScreen.tsx
+  h_5be255725524c8 3,17,197,203-210,223-224,258-278,290-298,320
+apps/mobile/src/lib/auto-connect.ts
+  h_5be255725524c8 10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "1117b2b6b5604d5c01852079e701e16d39e7b7b1",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
