@@ -28,6 +28,10 @@ describe("run script tab bar", () => {
     expect(runList).toContain("<CenterStageScrollableTabs className=\"flex-initial\">");
     expect(runList).toContain("CenterStageStickyTabActions");
     expect(runList).toContain("<Plus className=\"size-3.5\" />");
+    expect(runList).toContain(
+      "inline-flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-active hover:text-foreground",
+    );
+    expect(runList).not.toContain("rounded-md text-muted-foreground hover:bg-accent");
   });
 
   it("unlocks the pinned Run terminal by swapping the tab icon on hover", () => {

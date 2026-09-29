@@ -505,7 +505,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
                     <button
                       type="button"
                       onClick={addTab}
-                      className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                      className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-active hover:text-foreground"
                       aria-label={newTerminalLabel}
                     >
                       <Plus className="size-3.5" />
