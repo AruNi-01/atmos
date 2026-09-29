@@ -1,0 +1,22 @@
+apps/web/src/features/agent/components/observer/AgentObserverView.tsx
+  h_5be255725524c8 56-57,192-195,198,206-208,216,358,370,465-469,497-499,507
+apps/web/src/features/agent/components/observer/observer-flow.css
+  h_5be255725524c8 3-4
+apps/web/src/features/agent/components/observer/observer-flow.tsx
+  h_5be255725524c8 300-301,304,311-332,420
+apps/web/src/features/agent/lib/__tests__/agent-observer-graph.test.ts
+  h_5be255725524c8 21,370,375-383,586-588,621-624
+apps/web/src/features/agent/lib/agent-observer-graph.ts
+  h_5be255725524c8 56-57,436-483,509
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "cd53e8e315554e01ac0417a2bfbbda6834b53028",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
