@@ -1,0 +1,20 @@
+apps/web/src/app-shell/CenterStage.tsx
+  h_5be255725524c8 3213,3226-3237,3243-3254,3256,3260-3265,3287-3289
+apps/web/src/app-shell/__tests__/center-pane-saved-layout.test.ts
+  h_5be255725524c8 6,13,23-30,35,37-41,45,63-64,112-132
+apps/web/src/app-shell/center-pane/center-pane-saved-layout.ts
+  h_5be255725524c8 4-8,21-24,34-48,50,52,55-56,58-75,77,80-108,174-176,180-182,248,255-258,267,273-276,289-290,332-336
+apps/web/src/app-shell/center-stage-tab-model.ts
+  h_5be255725524c8 4-35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a52ebd8d432407009a63b795cfcf59b527035e7b",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
