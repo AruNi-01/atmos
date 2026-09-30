@@ -59,6 +59,10 @@ export type CenterSurfaceKind = LayoutCenterSurfaceKind | "wiki";
 
 const EPHEMERAL_LAYOUT_TAB_KIND_SET = new Set<string>(EPHEMERAL_LAYOUT_TAB_KINDS);
 
+function isEphemeralLayoutTabKind(kind: CenterTabKind): kind is EphemeralLayoutTabKind {
+  return EPHEMERAL_LAYOUT_TAB_KIND_SET.has(kind);
+}
+
 export const LAYOUT_CENTER_SURFACE_KINDS: readonly LayoutCenterSurfaceKind[] =
   CENTER_TAB_KINDS.filter(
     (kind): kind is LayoutCenterSurfaceKind => !EPHEMERAL_LAYOUT_TAB_KIND_SET.has(kind),
@@ -178,7 +182,7 @@ export function normalizeSavedCenterLayouts(raw: unknown): SavedCenterLayout[] {
 export function tabIdToSurfaceKind(tabId: string): CenterSurfaceKind | null {
   if (!tabId) return null;
   const kind = centerTabKindFromTabId(tabId);
-  if (!kind || EPHEMERAL_LAYOUT_TAB_KIND_SET.has(kind)) return null;
+  if (!kind || isEphemeralLayoutTabKind(kind)) return null;
   return kind;
 }
 
