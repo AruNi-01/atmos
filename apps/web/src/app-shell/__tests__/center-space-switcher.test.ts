@@ -21,40 +21,38 @@ import {
 const dir = join(import.meta.dir, "..");
 
 describe("center space switcher open path", () => {
-  it("starts a cheap preview on hover and never waits for it before fanning", () => {
+  it("pops the header button in like the attention bell and does not screenshot", () => {
     const switcher = readFileSync(
       join(dir, "center-space/CenterSpaceSwitcher.tsx"),
       "utf8",
     );
-    expect(switcher).toContain("onPointerEnter={handlePointerEnter}");
-    expect(switcher).toContain("onPointerLeave={handlePointerLeave}");
-    expect(switcher).toContain("onFocus={handlePointerEnter}");
-    expect(switcher).toContain("schedulePreview");
-    expect(switcher).toContain("requestIdleCallback");
-    expect(switcher).toContain("void ensurePreview(true)");
-    expect(switcher).not.toContain("await ensurePreview()");
-    expect(switcher).toContain("prefetchCenterSpaceSnapdom");
-    expect(switcher).toContain("previewReadyRef.current = Boolean(");
-    expect(switcher).toContain("useCenterStageLastTab");
-    expect(switcher).toContain("captureActiveCenterSpaceThumbnail");
-    expect(switcher).toContain("allowIdleCaptureRef");
-    expect(switcher).toContain("previewReadyRef.current = false");
-    expect(switcher).toContain("refreshActiveCenterSpacePreview");
+    expect(switcher).toContain('from "motion/react"');
+    expect(switcher).toContain("AnimatePresence");
+    expect(switcher).toContain("initial={false}");
+    expect(switcher).toContain("scale: 0.45");
+    expect(switcher).toContain("WIDTH_SPRING");
+    expect(switcher).toContain("flex h-12 shrink-0 items-center self-center");
+    expect(switcher).not.toContain("ensurePreview");
+    expect(switcher).not.toContain("schedulePreview");
+    expect(switcher).not.toContain("requestIdleCallback");
+    expect(switcher).not.toContain("captureActiveCenterSpaceThumbnail");
+    expect(switcher).not.toContain("refreshActiveCenterSpacePreview");
     expect(switcher).toContain("bg-emerald-500");
-    expect(switcher).toContain("agent-attention-ring-card");
+    expect(switcher).toContain("LayoutTemplate");
     expect(switcher).toContain("offActiveSpaceAttentionReason");
     expect(switcher).toContain("hostSpaceAttentionReasons");
-    const enterAt = switcher.indexOf("const handlePointerEnter");
-    const toggleAt = switcher.indexOf("const handleToggleOpen");
-    const enterBody = switcher.slice(enterAt, toggleAt);
-    expect(enterBody).toContain("schedulePreview()");
-    expect(enterBody).not.toContain("ensurePreview()");
-    expect(switcher).not.toContain("motion/react");
+    const overview = readFileSync(
+      join(dir, "center-space/CenterSpaceOverview.tsx"),
+      "utf8",
+    );
+    expect(overview).toContain("agent-attention-ring-card");
+    expect(overview).not.toContain("thumbnailDataUrl");
+    expect(overview).not.toContain("snapdom");
     expect(switcher).not.toContain("captureCurrentPreview");
+    const toggleAt = switcher.indexOf("const handleToggleOpen");
     const openAt = switcher.indexOf("setOpen(true)", toggleAt);
-    const captureAt = switcher.indexOf("void ensurePreview(true)", toggleAt);
     expect(openAt).toBeGreaterThan(toggleAt);
-    expect(captureAt).toBeGreaterThan(openAt);
+    expect(switcher.slice(toggleAt)).not.toContain("ensurePreview");
   });
 
   it("captures the live frame with snapdom instead of cloning via html2canvas", () => {
@@ -90,12 +88,22 @@ describe("center space switcher open path", () => {
     );
     expect(preview).toContain("paintCenterSpaceTerminalOverlay");
     expect(preview).toContain("setInterval");
-    const switcher = readFileSync(
-      join(dir, "center-space/CenterSpaceSwitcher.tsx"),
+    const overview = readFileSync(
+      join(dir, "center-space/CenterSpaceOverview.tsx"),
       "utf8",
     );
-    expect(switcher).toContain("CenterSpacePreview");
-    expect(switcher).toContain("live={open && selected}");
+    expect(overview).not.toContain("object-contain");
+    expect(overview).not.toContain("thumbnailDataUrl");
+    expect(overview).toContain("data-center-space-slot");
+    expect(overview).toContain("createCenterSpaceOverviewPose");
+    expect(overview).not.toContain("live={open && selected}");
+    const pose = readFileSync(
+      join(dir, "center-space/center-space-overview-pose.ts"),
+      "utf8",
+    );
+    expect(pose).toContain("overflow = \"hidden\"");
+    expect(pose).toContain("translate3d(0px, 0px, 0px) scale(1)");
+    expect(pose).not.toContain("thumbnailDataUrl");
     expect(preview).toContain("object-contain");
     expect(preview).toContain("queryCenterWorkArea");
   });
@@ -135,7 +143,7 @@ describe("center space switcher open path", () => {
 
   it("asks for popover confirmation before deleting a space", () => {
     const switcher = readFileSync(
-      join(dir, "center-space/CenterSpaceSwitcher.tsx"),
+      join(dir, "center-space/CenterSpaceOverview.tsx"),
       "utf8",
     );
     expect(switcher).toContain("confirmDeleteId");
@@ -231,13 +239,13 @@ describe("center space switcher open path", () => {
     expect(slideSrc).toContain("OUTGOING_VT_NAME");
     expect(slideSrc).toContain("fromCard");
     expect(slideSrc).not.toContain("return start(update)");
-    const switcher = readFileSync(
-      join(dir, "center-space/CenterSpaceSwitcher.tsx"),
+    const overview = readFileSync(
+      join(dir, "center-space/CenterSpaceOverview.tsx"),
       "utf8",
     );
-    expect(switcher).toContain("fromCard");
-    expect(switcher).toContain("onPaint: () => closeFan({ immediate: true })");
-    expect(switcher).toContain("data-center-space-fan-card");
+    expect(overview).toContain("switchCenterSpace(hostId, spaceId, { animate: false })");
+    expect(overview).toContain("openNewCenterSpace(hostId, undefined, { animate: false })");
+    expect(overview).not.toContain("data-center-space-fan-card");
     const spaces = [
       { id: "main" },
       { id: "space-1" },

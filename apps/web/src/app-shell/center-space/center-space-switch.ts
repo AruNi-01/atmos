@@ -80,9 +80,15 @@ function paintIncomingSpace(incoming: string): void {
   useWorkspaceSurfaceCacheStore.getState().beginVisualSwitch(incoming);
 }
 
+export type OpenNewCenterSpaceOptions = {
+  /** Overview zoom owns the motion, so skip the center slide. */
+  animate?: boolean;
+};
+
 export async function openNewCenterSpace(
   hostId: string,
   name?: string,
+  options?: OpenNewCenterSpaceOptions,
 ): Promise<CenterSpaceRecord | null> {
   if (!hostId) return null;
   const store = useCenterSpaceStore.getState();
@@ -96,13 +102,19 @@ export async function openNewCenterSpace(
   let space: CenterSpaceRecord | null = null;
   // Drop an in-flight preview. Waiting for snapdom here froze the new-space hop.
   invalidateCenterSpaceThumbnailCapture();
-  await runCenterSpaceSlide("forward", () => {
+  if (options?.animate === false) {
     clearCenterDeepLinkUrl();
     space = store.createSpace(hostId, name, spaceId);
     if (space) paintIncomingSpace(incoming);
-  });
+  } else {
+    await runCenterSpaceSlide("forward", () => {
+      clearCenterDeepLinkUrl();
+      space = store.createSpace(hostId, name, spaceId);
+      if (space) paintIncomingSpace(incoming);
+    });
+    if (space) scheduleIncomingSpaceThumbnail(hostId);
+  }
   if (!space) return null;
-  scheduleIncomingSpaceThumbnail(hostId);
   return space;
 }
 
@@ -111,6 +123,8 @@ export type SwitchCenterSpaceOptions = {
   onPaint?: () => void;
   /** Keep `tab` / `terminalTmux` / `sideChat` — agent pane jumps own the dest URL. */
   preserveDeepLink?: boolean;
+  /** Overview zoom owns the motion, so skip the center slide. */
+  animate?: boolean;
 };
 
 export async function switchCenterSpace(
@@ -127,20 +141,27 @@ export async function switchCenterSpace(
   const incoming = makeCenterSpaceKey(hostId, spaceId);
   const direction = centerSpaceSlideDirection(current.spaces, currentId, spaceId);
   // Do not screenshot the outgoing space on this path. snapdom blocks the
-  // main thread for a second or two, so the slide cannot start. The fan keeps
-  // the last idle thumbnail; the incoming space refreshes after the hop.
+  // main thread for a second or two, so the slide cannot start. The overview
+  // scales the live frame and skips the shot entirely.
   invalidateCenterSpaceThumbnailCapture();
-  await runCenterSpaceSlide(
-    direction,
-    () => {
-      options?.onPaint?.();
-      if (!options?.preserveDeepLink) clearCenterDeepLinkUrl();
-      store.setActiveSpace(hostId, spaceId);
-      paintIncomingSpace(incoming);
-    },
-    { fromCard: options?.fromCard ?? null },
-  );
-  scheduleIncomingSpaceThumbnail(hostId);
+  if (options?.animate === false) {
+    options?.onPaint?.();
+    if (!options?.preserveDeepLink) clearCenterDeepLinkUrl();
+    store.setActiveSpace(hostId, spaceId);
+    paintIncomingSpace(incoming);
+  } else {
+    await runCenterSpaceSlide(
+      direction,
+      () => {
+        options?.onPaint?.();
+        if (!options?.preserveDeepLink) clearCenterDeepLinkUrl();
+        store.setActiveSpace(hostId, spaceId);
+        paintIncomingSpace(incoming);
+      },
+      { fromCard: options?.fromCard ?? null },
+    );
+    scheduleIncomingSpaceThumbnail(hostId);
+  }
 }
 
 export async function deleteCenterSpace(hostId: string, spaceId: string): Promise<void> {

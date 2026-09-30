@@ -539,7 +539,6 @@ const Header: React.FC = () => {
               unpushedCount={unpushedCount}
             />
           )}
-          <CenterSpaceSwitcher />
         </div>
 
         <HeaderWindowDragFiller enabled={isDesktopDragEnabled} />
@@ -570,6 +569,7 @@ const Header: React.FC = () => {
           setGlobalSearchOpen={setGlobalSearchOpen}
           setIsQuotaPopoverOpen={setIsQuotaPopoverOpen}
         />
+        <CenterSpaceSwitcher />
 
         {/* Delete Workspace Dialog */}
         {deleteWorkspaceDialog && (

@@ -209,7 +209,11 @@
       "deleteConfirmDescription": "Open tabs and terminals in this space will close.",
       "deleteConfirmCancel": "Cancel",
       "deleteConfirmAction": "Delete",
-      "limitReached": "Space limit reached"
+      "limitReached": "Space limit reached",
+      "addSpace": "New space",
+      "renameSpace": "Rename {name}",
+      "pinSpace": "Pin",
+      "unpinSpace": "Unpin"
     },
     "searchAria": "Search",
     "searchPlaceholder": "Search...",

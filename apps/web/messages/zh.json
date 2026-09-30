@@ -209,7 +209,11 @@
       "deleteConfirmDescription": "该空间中打开的标签页和终端会被关闭。",
       "deleteConfirmCancel": "取消",
       "deleteConfirmAction": "删除",
-      "limitReached": "已达到空间数量上限"
+      "limitReached": "已达到空间数量上限",
+      "addSpace": "新建空间",
+      "renameSpace": "重命名 {name}",
+      "pinSpace": "置顶",
+      "unpinSpace": "取消置顶"
     },
     "searchAria": "搜索",
     "searchPlaceholder": "搜索...",

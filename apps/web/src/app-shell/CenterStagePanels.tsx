@@ -47,7 +47,13 @@ import {
   type CenterPaneLayout,
 } from "@/app-shell/center-pane/center-pane-layout";
 import type { PaneSlotBoxCache } from "@/app-shell/center-pane/use-center-pane-slot-boxes";
-import { isExtraCenterSpaceKey } from "@/app-shell/center-space/center-space";
+import {
+  hostIdFromCenterKey,
+  isExtraCenterSpaceKey,
+  makeCenterSpaceKey,
+} from "@/app-shell/center-space/center-space";
+import { useCenterSpaceOverviewStore } from "@/app-shell/center-space/center-space-overview-store";
+import { useCenterSpaceStore } from "@/app-shell/center-space/center-space-store";
 import { useCenterPaneLayoutStore } from "@/app-shell/center-pane/center-pane-layout-store";
 import { paneHiddenByCenterFullscreen } from "@/app-shell/center-stage-fullscreen";
 import { isTerminalCenterTabValue } from "@/app-shell/center-stage-tabs";
@@ -276,10 +282,30 @@ export function CenterStagePanels({
     effectiveContextId: paintContextId,
     warmIds: warmIdList,
   });
+  // While the space gallery is open, keep every space of this host mounted so
+  // its live frame can be scaled into a card. This does not evict other warms.
+  const overviewOpen = useCenterSpaceOverviewStore((s) => s.open);
+  const overviewSpaceKey = useCenterSpaceStore((s) => {
+    if (!overviewOpen || !paintContextId) return "";
+    const hostId = hostIdFromCenterKey(paintContextId);
+    const spaces = s.byHost[hostId]?.spaces;
+    if (!spaces || spaces.length < 2) return "";
+    let key = "";
+    for (const space of spaces) {
+      key += makeCenterSpaceKey(hostId, space.id);
+      key += "\0";
+    }
+    return key;
+  });
+  const overviewPaintIds = overviewSpaceKey
+    ? overviewSpaceKey.split("\0").filter(Boolean)
+    : [];
   const contextIdsToRender = resolveContextIdsToRender({
     effectiveContextId: paintContextId,
     warmIds: warmIdList,
-    stickyLeavingIds: stickyLeavingIdsRef.current,
+    stickyLeavingIds: overviewPaintIds.length
+      ? [...stickyLeavingIdsRef.current, ...overviewPaintIds]
+      : stickyLeavingIdsRef.current,
   });
 
   // Shell visibility: live paint id (and optional visual lead from store snapshot).

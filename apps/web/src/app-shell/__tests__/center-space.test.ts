@@ -7,6 +7,7 @@ import {
   hostIdFromCenterKey,
   isExtraCenterSpaceKey,
   makeCenterSpaceKey,
+  moveCenterSpacePin,
   nextSpaceName,
   normalizeHostCenterSpaces,
   omitCenterSpaceThumbnails,
@@ -16,6 +17,10 @@ import {
   centerSpaceFanCssVars,
   centerSpaceFanPose,
 } from "@/app-shell/center-space/center-space-fan";
+import {
+  centerSpaceOverviewTransform,
+  clampCenterSpacePreviewAspect,
+} from "@/app-shell/center-space/center-space-overview-motion";
 import { useCenterSpaceStore } from "@/app-shell/center-space/center-space-store";
 import {
   createDefaultLayout,
@@ -64,6 +69,40 @@ describe("center space keys", () => {
     expect(next.activeSpaceId).toBe(DEFAULT_CENTER_SPACE_ID);
     expect(next.spaces.map((space) => space.id)).toContain("space-2");
     expect(next.spaces[0]?.name).toBe(DEFAULT_CENTER_SPACE_NAME);
+  });
+
+  it("keeps pinned spaces first and drops a non-boolean pin", () => {
+    const next = normalizeHostCenterSpaces({
+      activeSpaceId: "main",
+      spaces: [
+        { id: "main", name: "Default", createdAt: 1, updatedAt: 1 },
+        { id: "space-2", name: "Files", createdAt: 2, updatedAt: 2, pinned: true },
+        { id: "space-3", name: "Notes", createdAt: 3, updatedAt: 3, pinned: "yes" },
+      ],
+    });
+    expect(next.spaces.map((space) => space.id)).toEqual(["space-2", "main", "space-3"]);
+    expect(next.spaces[0]?.pinned).toBe(true);
+    expect(next.spaces[1]?.pinned).toBeUndefined();
+    expect(next.spaces[2]?.pinned).toBeUndefined();
+  });
+
+  it("moves a newly pinned space to the front and restores creation order on unpin", () => {
+    const base = [
+      { id: "main", name: "Default", createdAt: 1, updatedAt: 1 },
+      { id: "space-a", name: "A", createdAt: 2, updatedAt: 2 },
+      { id: "space-b", name: "B", createdAt: 3, updatedAt: 3 },
+    ];
+    const pinnedB = moveCenterSpacePin(base, "b", true, 5);
+    expect(pinnedB).toBe(base);
+    const pinned = moveCenterSpacePin(base, "space-b", true, 5);
+    expect(pinned.map((space) => space.id)).toEqual(["space-b", "main", "space-a"]);
+    expect(pinned[0]?.pinned).toBe(true);
+    const pinnedAgain = moveCenterSpacePin(pinned, "space-a", true, 6);
+    expect(pinnedAgain.map((space) => space.id)).toEqual(["space-a", "space-b", "main"]);
+    const unpinned = moveCenterSpacePin(pinnedAgain, "space-a", false, 7);
+    expect(unpinned.map((space) => space.id)).toEqual(["space-b", "main", "space-a"]);
+    expect(unpinned[1]?.pinned).toBeUndefined();
+    expect(unpinned[2]?.pinned).toBeUndefined();
   });
 
   it("renames a stored Space 1 default to Default", () => {
@@ -144,6 +183,15 @@ describe("center space keys", () => {
     expect(hovered.z).toBeGreaterThan(right.z);
     expect(hovered.scale).toBeGreaterThan(mid.scale);
     expect(centerSpaceFanPose(1, 3, false, null).opacity).toBe(0);
+    const fitted = centerSpaceOverviewTransform(
+      { left: 0, top: 0, width: 1000, height: 600 },
+      { left: 40, top: 80, width: 300, height: 200 },
+    );
+    expect(fitted.scale).toBeCloseTo(0.3);
+    expect(fitted.x).toBeCloseTo(40 + (300 - 300) / 2);
+    expect(fitted.y).toBeCloseTo(80 + (200 - 180) / 2);
+    expect(clampCenterSpacePreviewAspect(1900, 500)).toBe(1.9);
+    expect(clampCenterSpacePreviewAspect(400, 800)).toBe(1.25);
     const vars = centerSpaceFanCssVars(left);
     expect(vars["--fan-x"]).toBe(`${left.x}px`);
     expect(vars["--fan-rotate"]).toBe(`${left.rotate}deg`);
@@ -186,6 +234,45 @@ describe("center space keys", () => {
     });
     expect(stripped["ws-1"]?.spaces[0]?.thumbnailDataUrl).toBeNull();
   });
+
+  it("keeps a pin when jpeg thumbnails are stripped", () => {
+    const stripped = omitCenterSpaceThumbnails({
+      "ws-1": {
+        activeSpaceId: "space-2",
+        spaces: [
+          {
+            id: "space-2",
+            name: "Files",
+            createdAt: 2,
+            updatedAt: 2,
+            thumbnailDataUrl: "data:image/jpeg;base64,abc",
+            pinned: true,
+          },
+        ],
+      },
+    });
+    expect(stripped["ws-1"]?.spaces[0]?.thumbnailDataUrl).toBeNull();
+    expect(stripped["ws-1"]?.spaces[0]?.pinned).toBe(true);
+  });
+
+  it("refuses to rename Default and persists a pin through the store", () => {
+    const host = "ws-pin-rename";
+    useCenterSpaceStore.getState().ensureHost(host);
+    const created = useCenterSpaceStore.getState().createSpace(host, "Files");
+    expect(created?.id).toBeTruthy();
+    useCenterSpaceStore.getState().renameSpace(host, DEFAULT_CENTER_SPACE_ID, "Renamed");
+    expect(
+      useCenterSpaceStore.getState().list(host).find((space) => space.id === DEFAULT_CENTER_SPACE_ID)
+        ?.name,
+    ).toBe(DEFAULT_CENTER_SPACE_NAME);
+    useCenterSpaceStore.getState().renameSpace(host, created!.id, "  Notes  ");
+    expect(
+      useCenterSpaceStore.getState().list(host).find((space) => space.id === created!.id)?.name,
+    ).toBe("Notes");
+    useCenterSpaceStore.getState().setSpacePinned(host, created!.id, true);
+    expect(useCenterSpaceStore.getState().list(host)[0]?.id).toBe(created!.id);
+    expect(useCenterSpaceStore.getState().list(host)[0]?.pinned).toBe(true);
+  });
 });
 
 describe("center space wiring", () => {
@@ -222,7 +309,7 @@ describe("center space wiring", () => {
     expect(stage).toContain("listTmuxWindows(hostIdFromCenterKey(effectiveContextId))");
     expect(stage).not.toContain("shouldConfirmReplaceCenterLayout");
     expect(header).toContain("CenterSpaceSwitcher");
-    expect(header.indexOf("HeaderGitContext")).toBeLessThan(
+    expect(header.indexOf("<HeaderActionControls")).toBeLessThan(
       header.indexOf("<CenterSpaceSwitcher"),
     );
     expect(header).toContain("flex min-w-0 items-center gap-5");
@@ -239,37 +326,53 @@ describe("center space wiring", () => {
     expect(switcherSrc).not.toContain("useCenterSpaceSlideStore");
     expect(switcherSrc).not.toContain("await captureActiveCenterSpaceThumbnail(hostId);\n  const outgoing");
     const switcher = readFileSync(join(dir, "center-space/CenterSpaceSwitcher.tsx"), "utf8");
-    expect(switcher).toContain("centerSpaceFanPose");
+    expect(switcher).toContain("LayoutTemplate");
     expect(switcher).toContain("handleToggleOpen");
-    expect(switcher).toContain("handlePointerEnter");
-    expect(switcher).toContain("onPointerEnter={handlePointerEnter}");
-    expect(switcher).toContain("onPointerLeave={handlePointerLeave}");
-    expect(switcher).toContain("onFocus={handlePointerEnter}");
-    expect(switcher).toContain("schedulePreview");
-    expect(switcher).toContain("ensurePreview");
-    expect(switcher).toContain("void ensurePreview(true)");
-    expect(switcher).not.toContain("await ensurePreview()");
-    expect(switcher).toContain("refreshActiveCenterSpacePreview");
-    expect(switcher).toContain("center-space-fan.css");
-    expect(switcher).not.toContain("motion/react");
+    expect(switcher).toContain("motion/react");
+    expect(switcher).toContain("AnimatePresence");
+    expect(switcher).toContain("scale: 0.45");
+    expect(switcher).toContain("flex h-12 shrink-0 items-center self-center");
+    expect(switcher).not.toContain("ensurePreview");
+    expect(switcher).not.toContain("schedulePreview");
+    expect(switcher).not.toContain("captureActiveCenterSpaceThumbnail");
+    expect(switcher).not.toContain("center-space-fan.css");
     expect(switcher).not.toContain("setHoveredIndex");
     expect(switcher).not.toContain("captureCurrentPreview");
-    expect(switcher).toContain('t("defaultSpace")');
     expect(switcher).not.toContain("absolute left-1/2 top-1/2");
     expect(switcher).toContain("buttonCountAria");
-    expect(switcher).toContain("-left-1 -top-1");
-    expect(switcher).toContain("h-2.5 min-w-2.5");
-    expect(switcher).toContain("text-[8px]");
+    expect(switcher).toContain("-right-1 -top-1");
+    expect(switcher).toContain("h-3.5 min-w-3.5");
+    expect(switcher).toContain("text-[9px]");
     expect(switcher).toContain("{spaces.length}");
     expect(switcher).toContain("bg-emerald-500");
-    expect(switcher).toContain("agent-attention-ring-card");
     expect(switcher).toContain("offActiveSpaceAttentionReason");
     expect(switcher).toContain("hostSpaceAttentionReasons");
+    expect(switcher).toContain("useCenterSpaceOverviewStore");
     const toggleAt = switcher.indexOf("const handleToggleOpen");
     const openAt = switcher.indexOf("setOpen(true)", toggleAt);
-    const captureAt = switcher.indexOf("void ensurePreview(true)", toggleAt);
     expect(openAt).toBeGreaterThan(toggleAt);
-    expect(captureAt).toBeGreaterThan(openAt);
+    expect(switcher.slice(toggleAt, openAt + 20)).not.toContain("ensurePreview");
+    const overview = readFileSync(join(dir, "center-space/CenterSpaceOverview.tsx"), "utf8");
+    expect(overview).toContain('t("defaultSpace")');
+    expect(overview).toContain("border-dashed");
+    expect(overview).toContain("data-center-space-pin");
+    expect(overview).toContain('t("renameSpace"');
+    expect(overview).toContain('t("pinSpace")');
+    expect(overview).toContain('t("unpinSpace")');
+    expect(overview).toContain("group-hover/space:border-foreground/25");
+    expect(overview).not.toContain("hover:border-foreground/25");
+    expect(overview).toContain("border-0");
+    expect(overview).toContain("isDefaultCenterSpaceId");
+    expect(overview).toContain("data-center-space-overview-frame");
+    expect(overview).toContain("formatRelativeTime");
+    expect(overview).toContain("animate: false");
+    expect(overview).toContain("agent-attention-ring-card");
+    expect(overview).not.toContain("thumbnailDataUrl");
+    expect(overview).not.toContain("object-contain");
+    const shell = readFileSync(join(dir, "AppShellMain.tsx"), "utf8");
+    expect(shell.indexOf("data-center-stage-body")).toBeLessThan(
+      shell.indexOf("<CenterSpaceOverviewLayer"),
+    );
     const thumb = readFileSync(join(dir, "center-space/center-space-thumbnail.ts"), "utf8");
     expect(thumb).toContain("snapdom.toCanvas");
     expect(thumb).toContain("paintXtermBufferInto");

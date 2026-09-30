@@ -6,6 +6,7 @@ import { useQueryState } from "nuqs";
 import { PushPageStack, usePushPageTransition } from "@workspace/ui";
 
 import CenterStage from "@/app-shell/CenterStage";
+import { CenterSpaceOverviewLayer } from "@/app-shell/center-space/CenterSpaceOverview";
 import Footer from "@/app-shell/Footer";
 import { AutomationStalePromptBanner } from "@/features/automations/components/AutomationStalePromptBanner";
 import Header from "@/app-shell/Header";
@@ -121,7 +122,9 @@ export function AppShellMain() {
                   data-center-stage-body
                   className="relative min-h-0 flex-1 overflow-hidden"
                 >
-                  <CenterStage />
+                  <CenterSpaceOverviewLayer>
+                    <CenterStage />
+                  </CenterSpaceOverviewLayer>
                   <div className="pointer-events-none absolute right-4 bottom-4 z-20">
                     <div className="pointer-events-auto">
                       <AutomationStalePromptBanner />

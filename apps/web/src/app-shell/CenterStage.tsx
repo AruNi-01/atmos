@@ -3555,7 +3555,7 @@ const CenterStage: React.FC = () => {
         inert={isLaunchpadCenter || undefined}
       >
       <div data-center-stage-card="" className="desktop-no-drag relative min-h-0 flex-1 isolate">
-          <div className="absolute inset-0 min-h-0">
+          <div data-center-stage-mosaic="" className="absolute inset-0 min-h-0">
             <CenterPaneGrid
               layout={resolvedPaneLayout}
               contextId={mosaicContextId}

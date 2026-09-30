@@ -31,6 +31,8 @@ export type CenterSpaceRecord = {
   updatedAt: number;
   /** JPEG data URL captured from the center card. */
   thumbnailDataUrl?: string | null;
+  /** Pinned spaces stay at the front of the gallery. */
+  pinned?: boolean;
 };
 
 export type HostCenterSpaces = {
@@ -112,14 +114,16 @@ export function normalizeHostCenterSpaces(raw: unknown): HostCenterSpaces {
         space.id === DEFAULT_CENTER_SPACE_ID && isLegacyDefaultSpaceName(storedName)
           ? DEFAULT_CENTER_SPACE_NAME
           : storedName;
-      spaces.push({
+      const record: CenterSpaceRecord = {
         id: space.id,
         name,
         createdAt: typeof space.createdAt === "number" ? space.createdAt : Date.now(),
         updatedAt: typeof space.updatedAt === "number" ? space.updatedAt : Date.now(),
         thumbnailDataUrl:
           typeof space.thumbnailDataUrl === "string" ? space.thumbnailDataUrl : null,
-      });
+      };
+      if (space.pinned === true) record.pinned = true;
+      spaces.push(record);
       if (spaces.length >= MAX_CENTER_SPACES_PER_HOST) break;
     }
   }
@@ -132,7 +136,65 @@ export function normalizeHostCenterSpaces(raw: unknown): HostCenterSpaces {
     spaces.some((space) => space.id === row.activeSpaceId)
       ? row.activeSpaceId
       : DEFAULT_CENTER_SPACE_ID;
-  return { spaces, activeSpaceId };
+  return { spaces: orderPinnedCenterSpaces(spaces), activeSpaceId };
+}
+
+/** Pinned spaces first, keeping the relative order inside each group. */
+export function orderPinnedCenterSpaces(
+  spaces: readonly CenterSpaceRecord[],
+): CenterSpaceRecord[] {
+  let pinnedCount = 0;
+  for (const space of spaces) {
+    if (space.pinned) pinnedCount += 1;
+  }
+  if (pinnedCount === 0) return spaces.slice();
+  const pinned: CenterSpaceRecord[] = [];
+  const rest: CenterSpaceRecord[] = [];
+  for (const space of spaces) {
+    if (space.pinned) pinned.push(space);
+    else rest.push(space);
+  }
+  return [...pinned, ...rest];
+}
+
+function centerSpaceWithPinned(
+  space: CenterSpaceRecord,
+  pinned: boolean,
+  updatedAt: number,
+): CenterSpaceRecord {
+  const next: CenterSpaceRecord = {
+    id: space.id,
+    name: space.name,
+    createdAt: space.createdAt,
+    updatedAt,
+    thumbnailDataUrl: space.thumbnailDataUrl,
+  };
+  if (pinned) next.pinned = true;
+  return next;
+}
+
+/**
+ * Pin moves the space to the front. Unpin drops it back among the other
+ * unpinned spaces in creation order.
+ */
+export function moveCenterSpacePin(
+  spaces: readonly CenterSpaceRecord[],
+  spaceId: string,
+  pinned: boolean,
+  updatedAt = Date.now(),
+): CenterSpaceRecord[] {
+  const index = spaces.findIndex((space) => space.id === spaceId);
+  if (index < 0 || Boolean(spaces[index]?.pinned) === pinned) {
+    return spaces as CenterSpaceRecord[];
+  }
+  const updated = centerSpaceWithPinned(spaces[index]!, pinned, updatedAt);
+  const others = spaces.filter((space) => space.id !== spaceId);
+  if (pinned) return [updated, ...others];
+  const stillPinned = others.filter((space) => space.pinned);
+  const unpinned = [...others.filter((space) => !space.pinned), updated].sort(
+    (a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id),
+  );
+  return [...stillPinned, ...unpinned];
 }
 
 export function normalizeCenterSpacesByHost(

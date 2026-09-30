@@ -10,8 +10,10 @@ import {
   createCenterSpaceId,
   DEFAULT_CENTER_SPACE_ID,
   defaultHostSpaces,
+  isDefaultCenterSpaceId,
   MAX_CENTER_SPACES_PER_HOST,
   makeCenterSpaceKey,
+  moveCenterSpacePin,
   neighborSpaceIdAfterDelete,
   nextSpaceName,
   normalizeHostCenterSpaces,
@@ -44,6 +46,7 @@ type CenterSpaceStore = {
     thumbs: ReadonlyArray<{ spaceId: string; thumbnailDataUrl: string | null }>,
   ) => void;
   renameSpace: (hostId: string, spaceId: string, name: string) => void;
+  setSpacePinned: (hostId: string, spaceId: string, pinned: boolean) => void;
   removeSpace: (hostId: string, spaceId: string) => string | null;
 };
 
@@ -157,11 +160,21 @@ export const useCenterSpaceStore = create<CenterSpaceStore>((set, get) => ({
 
   renameSpace: (hostId, spaceId, name) => {
     const trimmed = name.trim();
-    if (!hostId || !trimmed) return;
+    if (!hostId || !trimmed || isDefaultCenterSpaceId(spaceId)) return;
     const current = get().ensureHost(hostId);
+    const existing = current.spaces.find((space) => space.id === spaceId);
+    if (!existing || existing.name === trimmed) return;
     const spaces = current.spaces.map((space) =>
       space.id === spaceId ? { ...space, name: trimmed, updatedAt: Date.now() } : space,
     );
+    commit(set, { ...get().byHost, [hostId]: { ...current, spaces } });
+  },
+
+  setSpacePinned: (hostId, spaceId, pinned) => {
+    if (!hostId || !spaceId) return;
+    const current = get().ensureHost(hostId);
+    const spaces = moveCenterSpacePin(current.spaces, spaceId, pinned);
+    if (spaces === current.spaces) return;
     commit(set, { ...get().byHost, [hostId]: { ...current, spaces } });
   },
 
