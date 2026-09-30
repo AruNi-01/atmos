@@ -1,0 +1,46 @@
+apps/web/messages/en.json
+  h_5be255725524c8 212-216
+apps/web/messages/zh.json
+  h_5be255725524c8 212-216
+apps/web/src/app-shell/AppShellMain.tsx
+  h_5be255725524c8 9,125-127
+apps/web/src/app-shell/CenterStage.tsx
+  h_5be255725524c8 3558
+apps/web/src/app-shell/CenterStagePanels.tsx
+  h_5be255725524c8 50-56,285-302,306-308
+apps/web/src/app-shell/Header.tsx
+  h_5be255725524c8 572
+apps/web/src/app-shell/__tests__/center-space-switcher.test.ts
+  h_5be255725524c8 24,29-39,41,44-50,52,55,91-92,95-106,146,242-243,246-248
+apps/web/src/app-shell/__tests__/center-space.test.ts
+  h_5be255725524c8 10,20-23,74-107,186-194,237-275,312,329,331-338,343-345,350,354-375
+apps/web/src/app-shell/center-space/CenterSpaceOverview.tsx
+  h_5be255725524c8 1-793
+apps/web/src/app-shell/center-space/CenterSpaceSwitcher.tsx
+  h_5be255725524c8 5-6,8,18,24-44,47,56,64,67-70,73-74,81-84,87-93,95,97-99,101-103,106-123,125-130,132-143,145-164
+apps/web/src/app-shell/center-space/center-space-overview-motion.ts
+  h_5be255725524c8 1-35
+apps/web/src/app-shell/center-space/center-space-overview-pose.ts
+  h_5be255725524c8 1-235
+apps/web/src/app-shell/center-space/center-space-overview-store.ts
+  h_5be255725524c8 1-18
+apps/web/src/app-shell/center-space/center-space-store.ts
+  h_5be255725524c8 13,16,49,163,165-166,173-180
+apps/web/src/app-shell/center-space/center-space-switch.ts
+  h_5be255725524c8 83-87,91,105,109-116,126-127,144-145,147-164
+apps/web/src/app-shell/center-space/center-space.ts
+  h_5be255725524c8 34-35,117,124-126,139-197
+apps/web/src/app/globals.css
+  h_5be255725524c8 225-244,795-800
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "12571307b896444b8fe91804c22e2cf2a78a259a",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
