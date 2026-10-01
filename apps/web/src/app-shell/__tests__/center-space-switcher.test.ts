@@ -101,11 +101,32 @@ describe("center space switcher open path", () => {
       join(dir, "center-space/center-space-overview-pose.ts"),
       "utf8",
     );
-    expect(pose).toContain("overflow = \"hidden\"");
+    expect(pose).toContain('? "hidden" : "visible"');
+    expect(pose).toContain('el.closest("[data-center-panel-host]")');
+    expect(pose).toContain('host.style.zIndex = "3"');
     expect(pose).toContain("translate3d(0px, 0px, 0px) scale(1)");
+    expect(pose).toContain('el.style.transition = "none"');
+    expect(pose.indexOf('el.style.transition = "none"')).toBeLessThan(
+      pose.indexOf("el.style.transform = prev.transform"),
+    );
+    expect(pose).toContain("grow(mosaic)");
     expect(pose).not.toContain("thumbnailDataUrl");
     expect(preview).toContain("object-contain");
     expect(preview).toContain("queryCenterWorkArea");
+  });
+
+  it("gives workspace frames a real box so the gallery scales the surface with the tabs", () => {
+    const panels = readFileSync(join(dir, "CenterStagePanels.tsx"), "utf8");
+    const shellAt = panels.indexOf("{contextIdsToRender.map");
+    const shell = panels.slice(Math.max(0, shellAt - 700), shellAt);
+    expect(shell).toContain("pointer-events-none absolute inset-0");
+    expect(shell).not.toContain("relative flex-1");
+    const css = readFileSync(join(dir, "../app/globals.css"), "utf8");
+    const activeRule = css.slice(
+      css.indexOf('[data-workspace-frame][data-tier="active"]'),
+      css.indexOf('[data-workspace-frame][data-tier="active"]') + 180,
+    );
+    expect(activeRule).not.toContain("pointer-events: auto");
   });
 
   it("cascades space delete through pane, run, tmux, and chrome state", () => {

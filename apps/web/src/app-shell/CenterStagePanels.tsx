@@ -528,9 +528,15 @@ export function CenterStagePanels({
   }
 
   return (
-    // Single flex child so wiki does not share height 50/50 with workspace frames.
-    // Frames stay absolute-stacked inside; wiki overlays full inset when active.
-    <div className="relative flex-1 min-h-0 min-w-0 w-full">
+    // Fill the panel host. `flex-1` does not — the host is not a flex column —
+    // and `h-full` does not either: the host's height comes from `inset`, not
+    // an explicit height, so a percentage collapses. Absolute `inset-0` is
+    // what actually stretches. A collapsed shell leaves the frames at 0
+    // height; keep-alive panels still paint via slot boxes that overflow
+    // that empty frame, so the space gallery scaled only the tab mosaic and
+    // the live surface stayed on top of the cards. pointer-events stay on
+    // the panels, which sit below the tab bar.
+    <div className="pointer-events-none absolute inset-0 min-h-0 min-w-0">
       {/* Stack workspace frames: keep warm DOM mounted, CSS-hide only. */}
       {contextIdsToRender.map((contextId) => {
         // Shell paint follows live paint / visual id (not deferred rebind).

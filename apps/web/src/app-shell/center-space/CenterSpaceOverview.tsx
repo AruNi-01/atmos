@@ -230,7 +230,7 @@ function CenterSpaceOverview({
   return (
     <div
       data-center-space-overview=""
-      className="absolute inset-0"
+      className="absolute inset-0 z-[45]"
       style={{
         opacity: posed && !dimmed ? 1 : 0,
         transition: `opacity ${CENTER_SPACE_OVERVIEW_MS}ms ${CENTER_SPACE_OVERVIEW_EASE}`,
@@ -241,7 +241,7 @@ function CenterSpaceOverview({
           data-center-space-overview-frame=""
           role="dialog"
           aria-label={t("buttonLabel")}
-          className="flex min-h-0 flex-1 flex-col rounded-xl border-2 border-dashed border-foreground/35 bg-sidebar"
+          className="flex min-h-0 flex-1 flex-col rounded-xl border-2 border-dashed border-foreground/45 bg-transparent"
           onPointerDown={(event) => {
             if (useCenterSpaceOverviewStore.getState().busy) return;
             const target = event.target;
@@ -291,7 +291,7 @@ function CenterSpaceOverview({
                       onZoom(space.id);
                     }}
                     className={cn(
-                      "relative w-full overflow-hidden rounded-xl border bg-background text-left shadow-[0_12px_32px_rgb(0_0_0/0.14)]",
+                      "relative w-full overflow-hidden rounded-xl border-2 bg-transparent text-left shadow-[0_12px_32px_rgb(0_0_0/0.28)]",
                       attentionReason
                         ? cn(
                             "agent-attention-ring-card",
@@ -300,8 +300,8 @@ function CenterSpaceOverview({
                               : "agent-attention-ring-complete",
                           )
                         : selected
-                          ? "border-foreground/40"
-                          : "border-border/70 group-hover/space:border-foreground/25",
+                          ? "border-foreground"
+                          : "border-transparent",
                     )}
                     style={{ aspectRatio: aspect }}
                   >
@@ -335,7 +335,78 @@ function CenterSpaceOverview({
                   >
                     <Pin className={cn("size-3.5", pinned && "fill-current")} />
                   </button>
-                  <div className="flex items-center justify-between gap-3 px-0.5">
+                  {canDelete ? (
+                    <Popover
+                      open={confirming}
+                      onOpenChange={(next) => {
+                        if (next) setEditingId(null);
+                        setConfirmDeleteId((current) => {
+                          if (next) return space.id;
+                          return current === space.id ? null : current;
+                        });
+                      }}
+                    >
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label={t("deleteSpace", { name: label })}
+                          className={cn(
+                            CARD_ICON_BUTTON_CLASS,
+                            "pointer-events-none absolute top-2 right-2 z-50 text-foreground/80 opacity-0 drop-shadow-[0_1px_1.5px_rgb(0_0_0/0.85)]",
+                            "hover:bg-destructive hover:text-destructive-foreground",
+                            "group-hover/space:pointer-events-auto group-hover/space:opacity-100",
+                            "focus-visible:pointer-events-auto focus-visible:opacity-100",
+                            confirming &&
+                              "pointer-events-auto bg-destructive text-destructive-foreground opacity-100",
+                          )}
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        side="bottom"
+                        align="end"
+                        sideOffset={6}
+                        className="z-[80] w-56 space-y-3 p-3"
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <p className="text-sm text-foreground">
+                          {t("deleteConfirmTitle", { name: label })}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {t("deleteConfirmDescription")}
+                        </p>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setConfirmDeleteId(null)}
+                          >
+                            {t("deleteConfirmCancel")}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              if (!hostId) return;
+                              const wasActive = space.id === activeSpaceId;
+                              setConfirmDeleteId(null);
+                              if (wasActive) onHandoff();
+                              void deleteCenterSpace(hostId, space.id);
+                            }}
+                          >
+                            {t("deleteConfirmAction")}
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  ) : null}
+                  <div className="relative z-10 flex items-center justify-between gap-3 px-0.5">
                     {editing ? (
                       <CenterSpaceNameEditor
                         name={space.name}
@@ -374,88 +445,13 @@ function CenterSpaceOverview({
                         {label}
                       </span>
                     )}
-                    <div className="relative flex h-5 shrink-0 items-center justify-end">
-                      <time
-                        dateTime={created}
-                        title={new Date(space.createdAt).toLocaleString(locale)}
-                        className={cn(
-                          "text-[12px] text-muted-foreground tabular-nums",
-                          canDelete && (confirming ? "opacity-0" : "group-hover/space:opacity-0"),
-                        )}
-                      >
-                        {formatRelativeTime(created, locale)}
-                      </time>
-                      {canDelete ? (
-                        <Popover
-                          open={confirming}
-                          onOpenChange={(next) => {
-                            if (next) setEditingId(null);
-                            setConfirmDeleteId((current) => {
-                              if (next) return space.id;
-                              return current === space.id ? null : current;
-                            });
-                          }}
-                        >
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              aria-label={t("deleteSpace", { name: label })}
-                              className={cn(
-                                CARD_ICON_BUTTON_CLASS,
-                                "absolute right-0 text-muted-foreground",
-                                "hover:bg-destructive hover:text-destructive-foreground",
-                                confirming
-                                  ? "bg-destructive text-destructive-foreground opacity-100"
-                                  : "pointer-events-none opacity-0 group-hover/space:pointer-events-auto group-hover/space:opacity-100",
-                              )}
-                              onPointerDown={(event) => event.stopPropagation()}
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              <Trash2 className="size-3.5" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent
-                            side="bottom"
-                            align="end"
-                            sideOffset={6}
-                            className="z-[80] w-56 space-y-3 p-3"
-                            onPointerDown={(event) => event.stopPropagation()}
-                            onClick={(event) => event.stopPropagation()}
-                          >
-                            <p className="text-sm text-foreground">
-                              {t("deleteConfirmTitle", { name: label })}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {t("deleteConfirmDescription")}
-                            </p>
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setConfirmDeleteId(null)}
-                              >
-                                {t("deleteConfirmCancel")}
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => {
-                                  if (!hostId) return;
-                                  const wasActive = space.id === activeSpaceId;
-                                  setConfirmDeleteId(null);
-                                  if (wasActive) onHandoff();
-                                  void deleteCenterSpace(hostId, space.id);
-                                }}
-                              >
-                                {t("deleteConfirmAction")}
-                              </Button>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      ) : null}
-                    </div>
+                    <time
+                      dateTime={created}
+                      title={new Date(space.createdAt).toLocaleString(locale)}
+                      className="shrink-0 text-[12px] text-muted-foreground tabular-nums"
+                    >
+                      {formatRelativeTime(created, locale)}
+                    </time>
                   </div>
                 </div>
               );
@@ -472,15 +468,18 @@ function CenterSpaceOverview({
                   onCreate(event.currentTarget);
                 }}
                 className={cn(
-                  "flex w-full items-center justify-center rounded-xl border border-border/60 bg-background/70 text-muted-foreground shadow-[0_12px_32px_rgb(0_0_0/0.08)]",
+                  "flex w-full items-center justify-center rounded-xl border-2 border-dashed border-foreground/45 bg-transparent text-foreground/80",
                   atLimit
                     ? "cursor-not-allowed opacity-50"
-                    : "hover:bg-accent hover:text-accent-foreground",
+                    : "hover:bg-foreground/5 hover:text-foreground",
                 )}
                 style={{ aspectRatio: aspect }}
               >
                 <Plus className="size-7 stroke-[1.5]" />
               </button>
+              <div className="px-0.5 text-[13px] font-medium text-muted-foreground">
+                {atLimit ? t("limitReached") : t("addSpace")}
+              </div>
             </div>
           </div>
           {atLimit ? (
@@ -718,14 +717,18 @@ export function CenterSpaceOverviewLayer({ children }: { children: React.ReactNo
     useCenterSpaceOverviewStore.getState().setBusy(true);
     setDimmed(true);
     const paintId = makeCenterSpaceKey(hostId, spaceId);
-    pose.applySlots(stage, collectSlots(overviewRef.current), activePaintId, false);
+    // Swap into this space while it is still parked in the card, then scale
+    // that same page home. Switching after the zoom replaces it with a cut.
+    if (spaceId !== activeSpaceId) {
+      flushSync(() => {
+        void switchCenterSpace(hostId, spaceId, { animate: false });
+      });
+    }
+    pose.applySlots(stage, collectSlots(overviewRef.current), paintId, false);
     const animated = !prefersReducedMotion() && pose.zoomHome(stage, paintId);
     void (async () => {
       try {
-        if (animated) await wait(CENTER_SPACE_OVERVIEW_MS);
-        flushSync(() => {
-          void switchCenterSpace(hostId, spaceId, { animate: false });
-        });
+        if (animated) await wait(CENTER_SPACE_OVERVIEW_MS + 40);
       } finally {
         pose.clear();
         busyRef.current = false;
@@ -733,7 +736,7 @@ export function CenterSpaceOverviewLayer({ children }: { children: React.ReactNo
         finishHandoff();
       }
     })();
-  }, [activePaintId, finishHandoff, hostId, pose]);
+  }, [activeSpaceId, finishHandoff, hostId, pose]);
 
   const onCreate = React.useCallback((source: HTMLElement) => {
     if (!hostId || busyRef.current) return;

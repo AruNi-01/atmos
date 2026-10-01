@@ -20,10 +20,21 @@ type SavedStyle = {
   backgroundColor: string;
 };
 
-function elementLayoutBox(el: HTMLElement): CenterSpaceBox | null {
+function elementLayoutBox(el: HTMLElement, allowHostFallback = true): CenterSpaceBox | null {
   const width = el.offsetWidth;
   const height = el.offsetHeight;
-  if (width < 2 || height < 2) return null;
+  const collapsed = width < 2 || height < 2;
+  // A collapsed frame still paints keep-alive panels that overflow it in
+  // panel-host coordinates. Scale that host box, or the tabs move and the
+  // surface stays full size on top of the gallery.
+  if (collapsed && allowHostFallback && el.hasAttribute("data-workspace-frame")) {
+    const host = el.closest("[data-center-panel-host]");
+    if (host instanceof HTMLElement && host !== el) {
+      const hostBox = elementLayoutBox(host, false);
+      if (hostBox) return hostBox;
+    }
+  }
+  if (collapsed) return null;
   const parent = el.offsetParent instanceof HTMLElement ? el.offsetParent : el.parentElement;
   if (!parent) return null;
   const parentRect = parent.getBoundingClientRect();
@@ -84,8 +95,10 @@ export function createCenterSpaceOverviewPose() {
 
   const clear = () => {
     for (const [el, prev] of saved) {
+      // `scale(1)` does not interpolate to `none`. Clearing the pose while
+      // the zoom transition is still set snaps the settled page in.
+      el.style.transition = "none";
       el.style.transform = prev.transform;
-      el.style.transition = prev.transition;
       el.style.opacity = prev.opacity;
       el.style.borderRadius = prev.borderRadius;
       el.style.overflow = prev.overflow;
@@ -93,6 +106,7 @@ export function createCenterSpaceOverviewPose() {
       el.style.willChange = prev.willChange;
       el.style.transformOrigin = prev.transformOrigin;
       el.style.backgroundColor = prev.backgroundColor;
+      el.style.transition = prev.transition;
       el.removeAttribute("data-center-space-posed");
     }
     saved.clear();
@@ -110,7 +124,9 @@ export function createCenterSpaceOverviewPose() {
     el.setAttribute("data-center-space-posed", "");
     el.style.transformOrigin = "0 0";
     el.style.willChange = "transform, opacity";
-    el.style.overflow = "hidden";
+    // A 0-height frame clips its overflowing panels to nothing. Only clip
+    // once the border box actually covers the surface.
+    el.style.overflow = el.offsetWidth >= 2 && el.offsetHeight >= 2 ? "hidden" : "visible";
     el.style.zIndex = el.hasAttribute("data-center-stage-mosaic") ? "1" : "2";
     if (fadeIn) {
       el.style.backgroundColor = "var(--background)";
@@ -162,6 +178,15 @@ export function createCenterSpaceOverviewPose() {
     if (!activeSlot) return;
     const mosaic = stage.querySelector<HTMLElement>("[data-center-stage-mosaic]");
     if (mosaic) place(mosaic, activeSlot, animateActive, false);
+    // The mosaic is a sibling of the panel host. Its pane leaf is an opaque
+    // bg-background, and z-index on a frame stays trapped inside the host.
+    // Lift the host above the mosaic or that leaf covers the scaled surface
+    // and the preview is only the tab strip again.
+    const host = stage.querySelector<HTMLElement>("[data-center-panel-host]");
+    if (host) {
+      remember(host);
+      host.style.zIndex = "3";
+    }
     const overlay = stage.querySelector<HTMLElement>("[data-launchpad-center-overlay]");
     if (overlay) place(overlay, activeSlot, animateActive, false);
     const active = stage.querySelector<HTMLElement>(
@@ -208,17 +233,19 @@ export function createCenterSpaceOverviewPose() {
       `[data-workspace-frame="${CSS.escape(paintId)}"]`,
     );
     if (!frame || frame.getAttribute("data-center-space-posed") == null) return false;
+    // Grow the tab chrome with the surface. Fading the mosaic and revealing
+    // it after the scale reads as the real page popping in at the end.
+    const grow = (el: HTMLElement | null) => {
+      if (!el || el.getAttribute("data-center-space-posed") == null) return;
+      el.style.opacity = "1";
+      animateToIdentity(el);
+    };
+    const mosaic = stage.querySelector<HTMLElement>("[data-center-stage-mosaic]");
+    grow(mosaic);
+    grow(stage.querySelector<HTMLElement>("[data-launchpad-center-overlay]"));
     frame.style.zIndex = "6";
     frame.style.opacity = "1";
     animateToIdentity(frame);
-    const fadeOut = (el: HTMLElement | null) => {
-      if (!el) return;
-      remember(el);
-      el.style.transition = `opacity ${CENTER_SPACE_OVERVIEW_MS}ms ${CENTER_SPACE_OVERVIEW_EASE}`;
-      el.style.opacity = "0";
-    };
-    fadeOut(stage.querySelector<HTMLElement>("[data-center-stage-mosaic]"));
-    fadeOut(stage.querySelector<HTMLElement>("[data-launchpad-center-overlay]"));
     const frames = stage.querySelectorAll<HTMLElement>("[data-workspace-frame]");
     for (const other of frames) {
       if (other === frame) continue;

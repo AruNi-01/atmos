@@ -216,16 +216,20 @@ html:not([data-theme-ready="true"]) body {
   animation-play-state: paused !important;
 }
 
+/* Do not force pointer-events here. The frame fills the card, and this rule
+   outranks the `pointer-events-none` class that lets tab-bar hits fall
+   through to the mosaic. Panels opt back in on their own slot. */
 [data-workspace-frame][data-tier="active"] {
   opacity: 1;
-  pointer-events: auto;
   z-index: 1;
 }
 
 /* Space gallery: the shell must not paint over the dashed frame, and a
    posed warm frame is a live scaled preview so its CSS may keep running.
-   The overview root has no z-index so its pin button (z-50) paints above
-   this stage. Drop the corner prompt under the gallery while it is open. */
+   The overview sits above this stage (z-45) so the dashed frame, card
+   borders, names, and corner buttons stay visible. Card faces stay
+   transparent so the scaled surface shows through. Drop the corner prompt
+   under the gallery while it is open. */
 [data-center-stage-body]:has([data-center-space-overview]) > .pointer-events-none.absolute {
   z-index: -1;
 }

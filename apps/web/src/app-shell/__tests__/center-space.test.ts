@@ -359,7 +359,8 @@ describe("center space wiring", () => {
     expect(overview).toContain('t("renameSpace"');
     expect(overview).toContain('t("pinSpace")');
     expect(overview).toContain('t("unpinSpace")');
-    expect(overview).toContain("group-hover/space:border-foreground/25");
+    expect(overview).toContain("border-transparent");
+    expect(overview).not.toContain("group-hover/space:border-foreground/25");
     expect(overview).not.toContain("hover:border-foreground/25");
     expect(overview).toContain("border-0");
     expect(overview).toContain("isDefaultCenterSpaceId");
