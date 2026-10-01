@@ -1,0 +1,24 @@
+apps/web/src/app-shell/CenterStagePanels.tsx
+  h_5be255725524c8 531-539
+apps/web/src/app-shell/__tests__/center-space-switcher.test.ts
+  h_5be255725524c8 104-106,108-112,118-131
+apps/web/src/app-shell/__tests__/center-space.test.ts
+  h_5be255725524c8 362-363
+apps/web/src/app-shell/center-space/CenterSpaceOverview.tsx
+  h_5be255725524c8 233,244,294,303-304,338-409,448-454,471,474,480-482,720-727,731,739
+apps/web/src/app-shell/center-space/center-space-overview-pose.ts
+  h_5be255725524c8 23,26-37,98-100,109,127-129,181-189,236-245
+apps/web/src/app/globals.css
+  h_5be255725524c8 219-221,229-232
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4e01ac17d98ac1c7c591c223a5f2d4b77b2ae796",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
