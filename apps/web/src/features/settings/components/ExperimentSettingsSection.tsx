@@ -12,6 +12,7 @@ import { SettingsToggleRow } from '@/features/settings/components/settings/Setti
 
 export function ExperimentSettingsSection() {
   const t = useTranslations('settings.experimentSection');
+  const sectionT = useTranslations('settings.modal.sections');
   const {
     centerWikiTabEnabled,
     loadSettings,
@@ -23,7 +24,7 @@ export function ExperimentSettingsSection() {
   }, [loadSettings]);
 
   return (
-    <SettingsSection id="experiments">
+    <SettingsSection id="experiments" title={sectionT('experiments.label')}>
       <SettingsGroup>
         <SettingsToggleRow
           title={t('centerWikiTab.title')}

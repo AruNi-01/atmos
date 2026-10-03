@@ -54,6 +54,7 @@ export function SettingsAboutSection({
   onCheckForUpdate,
 }: SettingsAboutSectionProps) {
   const t = useTranslations("settings.aboutSection");
+  const sectionT = useTranslations("settings.modal.sections");
   const isChecking = status.stage === "checking";
   const isDownloading = status.stage === "downloading";
   const isInstalling = status.stage === "installing";
@@ -65,7 +66,7 @@ export function SettingsAboutSection({
     : runtimeLabel;
 
   return (
-    <SettingsSection id="about">
+    <SettingsSection id="about" title={sectionT("about.label")}>
       <SettingsGroup>
         <SettingsGroupRow
           wide

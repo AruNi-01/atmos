@@ -597,7 +597,6 @@ export function AtmosComputerSection() {
         title={t("panels.mobilePair.title")}
         description={t("panels.mobilePair.description")}
         collapsible
-        defaultOpen={false}
       >
         <MobilePairQrPanel enabled={hasConfiguredKey} />
       </SettingsBlock>

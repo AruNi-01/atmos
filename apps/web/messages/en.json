@@ -3000,7 +3000,10 @@
     "kindProject": "Project",
     "kindWorkspace": "Workspace",
     "kindAgent": "Agent",
-    "kindSubagent": "Subagent"
+    "kindSubagent": "Subagent",
+    "filesChanged": "{count, plural, one {# file changed} other {# files changed}}",
+    "showDiff": "Show diff",
+    "hideDiff": "Hide diff"
   },
   "Agent": {
     "workspace": {
@@ -5473,10 +5476,6 @@
           "label": "Remote Access",
           "description": "Atmos Computer and Tunnel Connector."
         },
-        "apps": {
-          "label": "Apps",
-          "description": "Integrations, Browser, and Desktop Use."
-        },
         "privacy": {
           "label": "Privacy",
           "description": "Permission access and local secrets."
@@ -5491,7 +5490,7 @@
         },
         "editor": {
           "label": "Editor",
-          "description": "Editor, Canvas, and diff settings."
+          "description": "Code editor and diff settings."
         },
         "canvas": {
           "label": "Canvas",

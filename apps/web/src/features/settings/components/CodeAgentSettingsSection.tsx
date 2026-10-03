@@ -19,7 +19,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { AGENT_OPTIONS, getInteractiveAgentParams } from "@/features/wiki/components/AgentSelect";
+import { AGENT_OPTIONS } from "@/features/wiki/components/AgentSelect";
 import { resolveAgentLaunchFlags } from "@/features/agent/lib/terminal-agent-yolo";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import type { CodeAgentCustomEntry } from "@/api/ws-api";
@@ -227,13 +227,6 @@ export function CodeAgentSettingsSection({
                 const isSaving = !!savingBuiltInAgentIds[agent.id];
                 const isSyncingEnabled = !!syncingBuiltInEnabledIds[agent.id];
                 const enabled = custom?.enabled ?? true;
-                const summary = [
-                  custom?.cmd ?? agent.cmd,
-                  custom?.interactiveFlags ??
-                    getInteractiveAgentParams(agent, custom?.flags, yoloMode),
-                ]
-                  .filter(Boolean)
-                  .join(" ");
 
                 return (
                   <Collapsible
@@ -243,14 +236,25 @@ export function CodeAgentSettingsSection({
                     className="border-b border-border/60 px-2 py-3 last:border-b-0"
                   >
                     <div className="flex items-center gap-3">
-                      <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
+                      <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left">
+                        <ChevronDown
+                          className={cn(
+                            settingsCollapsibleChevronTriggerClassName,
+                            "size-4 shrink-0 transition-transform duration-150 group-hover:text-foreground",
+                            !isOpen && "-rotate-90",
+                          )}
+                        />
                         <AgentIcon registryId={agent.id} name={agent.label} size={20} />
-                        <div className="min-w-0 flex-1">
-                          <p className={settingsCollapsibleTitleClassName}>{agent.label}</p>
-                          <p className="mt-1 truncate text-xs text-muted-foreground">
-                            {summary || t("common.noParameters")}
-                          </p>
-                        </div>
+                        <p
+                          className={cn(
+                            "min-w-0 flex-1 truncate",
+                            isOpen
+                              ? "text-sm font-medium text-foreground"
+                              : settingsCollapsibleTitleClassName,
+                          )}
+                        >
+                          {agent.label}
+                        </p>
                       </CollapsibleTrigger>
 
                       <div className="flex items-center gap-3">
@@ -262,11 +266,6 @@ export function CodeAgentSettingsSection({
                           disabled={isSyncingEnabled}
                           onCheckedChange={(checked) => onBuiltInEnabledChange(agent.id, !!checked)}
                         />
-                        <CollapsibleTrigger className={settingsCollapsibleChevronTriggerClassName}>
-                          <ChevronDown
-                            className={`size-4 transition-transform duration-150 ${!isOpen ? "-rotate-90" : ""}`}
-                          />
-                        </CollapsibleTrigger>
                       </div>
                     </div>
 
@@ -342,7 +341,6 @@ export function CodeAgentSettingsSection({
                 const isSyncingEnabled = !!syncingCustomEnabledIds[agent.id];
                 const isRemoving = !!removingCustomAgentIds[agent.id];
                 const enabled = agent.enabled !== false;
-                const summary = [agent.cmd, agent.flags].filter(Boolean).join(" ");
 
                 return (
                   <Collapsible
@@ -352,16 +350,25 @@ export function CodeAgentSettingsSection({
                     className="border-b border-border/60 px-2 py-3 last:border-b-0"
                   >
                     <div className="flex items-center gap-3">
-                      <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
+                      <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left">
+                        <ChevronDown
+                          className={cn(
+                            settingsCollapsibleChevronTriggerClassName,
+                            "size-4 shrink-0 transition-transform duration-150 group-hover:text-foreground",
+                            !isOpen && "-rotate-90",
+                          )}
+                        />
                         <Bot className="size-5 shrink-0 text-muted-foreground" />
-                        <div className="min-w-0 flex-1">
-                          <p className={cn("truncate", settingsCollapsibleTitleClassName)}>
-                            {agent.label || t("custom.newAgent")}
-                          </p>
-                          <p className="mt-1 truncate text-xs text-muted-foreground">
-                            {summary || t("common.noParameters")}
-                          </p>
-                        </div>
+                        <p
+                          className={cn(
+                            "min-w-0 flex-1 truncate",
+                            isOpen
+                              ? "text-sm font-medium text-foreground"
+                              : settingsCollapsibleTitleClassName,
+                          )}
+                        >
+                          {agent.label || t("custom.newAgent")}
+                        </p>
                       </CollapsibleTrigger>
 
                       <div className="flex items-center gap-3">
@@ -373,11 +380,6 @@ export function CodeAgentSettingsSection({
                           disabled={isSyncingEnabled}
                           onCheckedChange={(checked) => onCustomAgentEnabledChange(agent.id, !!checked)}
                         />
-                        <CollapsibleTrigger className={settingsCollapsibleChevronTriggerClassName}>
-                          <ChevronDown
-                            className={`size-4 transition-transform duration-150 ${!isOpen ? "-rotate-90" : ""}`}
-                          />
-                        </CollapsibleTrigger>
                       </div>
                       <button
                         className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"

@@ -19,6 +19,13 @@ describe("Settings page group tabs", () => {
     expect(tabs).toContain('h-9 gap-1 p-1');
     expect(tabs).toContain('h-7 gap-1.5 px-3.5 text-sm');
     expect(modal).toContain("SettingsPageTabs");
+    expect(modal).toContain("<ScrollArea scrollFade className=\"size-full\">");
+    const sidebar = readFileSync(
+      join(root, "apps/web/src/features/settings/components/settings-modal-sidebar.tsx"),
+      "utf8",
+    );
+    expect(sidebar).toContain("<ScrollArea scrollFade className=\"h-full\"");
+    expect(sidebar).not.toContain("overflow-y-auto");
     expect(modal).toContain("useSettingsGroupTab");
     expect(modal).toContain("resolveSettingsTab");
     expect(modal).not.toContain("?? 'interface'");
@@ -31,14 +38,23 @@ describe("Settings page group tabs", () => {
       "utf8",
     );
     expect(sections).toContain("activeGroupTab");
-    expect(sections).toContain("activeGroupTab === 'browser'");
-    expect(sections).toContain("activeGroupTab === 'desktop-use'");
+    expect(sections).toContain("case 'integrations':");
+    expect(sections).toContain("case 'browser':");
+    expect(sections).toContain("case 'desktop-use':");
+    expect(sections).not.toContain("activeGroupTab === 'browser'");
+    expect(sections).not.toContain("activeGroupTab === 'desktop-use'");
+    expect(sections).not.toContain("case 'apps'");
     expect(sections).toContain("activeGroupTab === 'tunnel-connector'");
     expect(sections).toContain("activeGroupTab === 'labels'");
-    expect(sections).toContain("activeGroupTab === 'canvas'");
-    expect(sections).toContain("activeGroupTab === 'about'");
+    expect(sections).toContain("case 'canvas':");
+    expect(sections).not.toContain("activeGroupTab === 'canvas'");
+    expect(sections).toContain("<AppearanceSettingsSection />");
+    expect(sections).toContain("<SettingsAboutSection");
+    expect(sections).toContain("<ExperimentSettingsSection />");
+    expect(sections).not.toContain("activeGroupTab === 'about'");
+    expect(sections).not.toContain("activeGroupTab === 'experiments'");
+    expect(sections).toContain("SettingsPageStack");
     expect(sections).not.toContain("NestedSettingsSection");
-    expect(sections).not.toContain("SettingsPageStack");
   });
 
   it("highlights collapsible heading text on hover", () => {

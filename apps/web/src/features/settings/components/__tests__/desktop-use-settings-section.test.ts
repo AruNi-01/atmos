@@ -5,7 +5,7 @@ import { join } from "node:path";
 const root = join(import.meta.dir, "../../../../../../..");
 
 describe("Desktop Use settings wiring", () => {
-  it("registers desktop-use settings under Apps", () => {
+  it("registers desktop-use as its own settings item", () => {
     const data = readFileSync(
       join(root, "apps/web/src/features/settings/components/settings-modal-data.ts"),
       "utf8",
@@ -15,27 +15,27 @@ describe("Desktop Use settings wiring", () => {
       "utf8",
     );
     expect(data).toContain("desktop-use");
-    expect(sections).toContain('activeGroupTab === \'desktop-use\'');
-    expect(data).toContain('apps: mergeTopicItems("integrations", "browser", "desktop-use")');
+    expect(sections).not.toContain("activeGroupTab === 'desktop-use'");
+    expect(data).toContain('"desktop-use": mergeTopicItems("desktop-use")');
   });
 
-  it("includes apps in SettingsModalTab enum list", () => {
+  it("includes desktop-use in SettingsModalTab enum list", () => {
     const params = readFileSync(
       join(root, "apps/web/src/shared/lib/nuqs/searchParams.ts"),
       "utf8",
     );
-    expect(params).toContain('"apps"');
-    expect(params).not.toContain('"desktop-use"');
+    expect(params).toContain('"desktop-use"');
+    expect(params).not.toContain('"apps"');
   });
 
-  it("SettingsModalSections renders DesktopUseSettingsSection on Apps", () => {
+  it("SettingsModalSections renders DesktopUseSettingsSection on its own page", () => {
     const sections = readFileSync(
       join(root, "apps/web/src/features/settings/components/SettingsModalSections.tsx"),
       "utf8",
     );
     expect(sections).toContain("DesktopUseSettingsSection");
-    expect(sections).toContain("case 'apps'");
-    expect(sections).not.toContain("case 'desktop-use'");
+    expect(sections).toContain("case 'desktop-use'");
+    expect(sections).not.toContain("case 'apps'");
   });
 
   it("Desktop Use section sends OS grants to Permission access (not AppShot brand)", () => {
@@ -278,7 +278,7 @@ describe("Desktop Use settings wiring", () => {
     expect(popover).not.toContain("showAppshotPermissionsWindow");
   });
 
-  it("settings sidebar uses BlocksIcon for apps", () => {
+  it("settings sidebar uses DesktopUseIcon for desktop-use", () => {
     const sidebar = readFileSync(
       join(
         root,
@@ -286,9 +286,9 @@ describe("Desktop Use settings wiring", () => {
       ),
       "utf8",
     );
-    expect(sidebar).toContain("BlocksIcon");
-    expect(sidebar).toContain('sectionId === "apps"');
-    expect(sidebar).not.toContain('sectionId === "desktop-use"');
+    expect(sidebar).toContain("DesktopUseIcon");
+    expect(sidebar).toContain('sectionId === "desktop-use"');
+    expect(sidebar).not.toContain('sectionId === "apps"');
     const icon = readFileSync(
       join(root, "packages/ui/src/components/icons/desktop-use-icon.tsx"),
       "utf8",

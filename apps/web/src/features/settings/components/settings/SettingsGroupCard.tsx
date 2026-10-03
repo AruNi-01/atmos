@@ -19,12 +19,12 @@ export function settingsSectionDomId(anchor: string): string {
 export function SettingsSection({
   id,
   title,
-  description,
   action,
   children,
 }: {
   id?: string;
   title?: string;
+  /** Accepted so existing call sites keep type-checking. Group headings no longer show it. */
   description?: React.ReactNode;
   action?: React.ReactNode;
   children: React.ReactNode;
@@ -34,19 +34,12 @@ export function SettingsSection({
       id={id ? settingsSectionDomId(id) : undefined}
       className="scroll-mt-8 space-y-3"
     >
-      {title || description || action ? (
-        <div className="flex items-start justify-between gap-4 px-0.5">
-          <div className="min-w-0">
-            {title ? (
-              <h3 className="text-sm font-medium text-foreground">{title}</h3>
-            ) : null}
-            {description ? (
-              <div className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
-                {description}
-              </div>
-            ) : null}
-          </div>
-          {action ? <div className="shrink-0">{action}</div> : null}
+      {title || action ? (
+        <div className="flex items-center justify-between gap-4 px-0.5">
+          {title ? (
+            <h3 className="min-w-0 text-sm font-medium text-foreground">{title}</h3>
+          ) : null}
+          {action ? <div className="ml-auto shrink-0">{action}</div> : null}
         </div>
       ) : null}
       {children}
@@ -140,7 +133,6 @@ export function SettingsGroupCard({
   open,
   onOpenChange,
   title,
-  description,
   headerEnd,
   children,
 }: {
@@ -149,6 +141,7 @@ export function SettingsGroupCard({
   onOpenChange?: (open: boolean) => void;
   icon?: React.ComponentType<{ className?: string }>;
   title: string;
+  /** Accepted so existing call sites keep type-checking. Group headings no longer show it. */
   description?: React.ReactNode;
   headerEnd?: React.ReactNode;
   children: React.ReactNode;
@@ -156,22 +149,7 @@ export function SettingsGroupCard({
   const collapsible = typeof open === 'boolean' && typeof onOpenChange === 'function';
 
   const titleBlock = (
-    <div className="min-w-0 flex-1">
-      <p
-        className={
-          collapsible
-            ? settingsCollapsibleTitleClassName
-            : 'text-sm font-medium text-foreground'
-        }
-      >
-        {title}
-      </p>
-      {description ? (
-        <div className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
-          {description}
-        </div>
-      ) : null}
-    </div>
+    <p className="min-w-0 flex-1 text-sm font-medium text-foreground">{title}</p>
   );
 
   if (!collapsible) {
@@ -180,7 +158,7 @@ export function SettingsGroupCard({
         id={id ? settingsSectionDomId(id) : undefined}
         className="scroll-mt-8 space-y-3"
       >
-        <div className="flex items-start justify-between gap-4 px-0.5">
+        <div className="flex items-center justify-between gap-4 px-0.5">
           {titleBlock}
           {headerEnd ? <div className="shrink-0 self-center">{headerEnd}</div> : null}
         </div>
@@ -196,21 +174,27 @@ export function SettingsGroupCard({
       className="scroll-mt-8 space-y-3"
     >
       <section id={id ? settingsSectionDomId(id) : undefined} className="space-y-3">
-        <div className="flex items-start justify-between gap-4 px-0.5">
-          <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
-            {titleBlock}
+        <div className="flex items-center gap-2 px-0.5">
+          <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 text-left">
+            <ChevronDown
+              className={cn(
+                settingsCollapsibleChevronTriggerClassName,
+                'size-4 shrink-0 transition-transform duration-150 group-hover:text-foreground',
+                !open && '-rotate-90',
+              )}
+            />
+            <p
+              className={cn(
+                'min-w-0 flex-1',
+                open
+                  ? 'text-sm font-medium text-foreground'
+                  : settingsCollapsibleTitleClassName,
+              )}
+            >
+              {title}
+            </p>
           </CollapsibleTrigger>
-          <div className="flex shrink-0 items-center gap-2 self-center">
-            {headerEnd}
-            <CollapsibleTrigger className={settingsCollapsibleChevronTriggerClassName}>
-              <ChevronDown
-                className={cn(
-                  'size-4 transition-transform duration-150',
-                  !open && '-rotate-90',
-                )}
-              />
-            </CollapsibleTrigger>
-          </div>
+          {headerEnd ? <div className="shrink-0">{headerEnd}</div> : null}
         </div>
         <CollapsibleContent>
           <SettingsGroup>{children}</SettingsGroup>

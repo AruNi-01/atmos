@@ -65,8 +65,12 @@ describe("settingsHref", () => {
   test("restores the last group tab hash when reopening a section", () => {
     rememberSettingsTab("general");
     rememberSettingsGroupTab("general", "about");
-    expect(settingsHref()).toBe("/settings?activeSettingTab=general#about");
-    expect(settingsHref("apps", "desktop-use")).toBe("/settings?activeSettingTab=apps#desktop-use");
-    expect(settingsHref("apps")).toBe("/settings?activeSettingTab=apps#desktop-use");
+    expect(settingsHref()).toBe("/settings?activeSettingTab=general");
+    expect(settingsHref("remote-access", "tunnel-connector")).toBe(
+      "/settings?activeSettingTab=remote-access#tunnel-connector",
+    );
+    expect(settingsHref("remote-access")).toBe(
+      "/settings?activeSettingTab=remote-access#tunnel-connector",
+    );
   });
 });

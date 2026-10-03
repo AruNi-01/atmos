@@ -20,9 +20,9 @@ function openSettingsTabInApp(tab: SettingsModalTab, hash?: string): void {
   window.location.assign(settingsHref(tab, hash));
 }
 
-/** Open Settings → Apps → Desktop Use (engine / CLI). */
+/** Open Settings → Desktop Use (engine / CLI). */
 export function openDesktopUseSettingsInApp(): void {
-  openSettingsTabInApp("apps", "desktop-use");
+  openSettingsTabInApp("desktop-use");
 }
 
 /** Open Settings → Privacy (OS / cookie grants). */
@@ -37,9 +37,9 @@ function useOpenSettingsTab(tab: SettingsModalTab, hash?: string): () => void {
   }, [openSettings, tab, hash]);
 }
 
-/** Hook: open Settings → Apps → Desktop Use (engine / CLI). */
+/** Hook: open Settings → Desktop Use (engine / CLI). */
 export function useOpenDesktopUseSettings(): () => void {
-  return useOpenSettingsTab("apps", "desktop-use");
+  return useOpenSettingsTab("desktop-use");
 }
 
 /** Hook: open Settings → Privacy (TCC + browser-cookie grants). */

@@ -2,11 +2,8 @@ import type { SettingsSectionId } from "@/features/settings/components/settings-
 import { SETTINGS_SEARCH_ITEMS } from "@/features/settings/components/settings-modal-data";
 
 export const SETTINGS_SECTION_GROUP_TABS = {
-  general: ["appearance", "about", "experiments"],
-  editor: ["editor", "canvas"],
   workspace: ["workspace", "labels"],
   "remote-access": ["atmos-computer", "tunnel-connector"],
-  apps: ["integrations", "browser", "desktop-use"],
 } as const;
 
 export type SettingsSectionWithGroupTabs = keyof typeof SETTINGS_SECTION_GROUP_TABS;
@@ -18,18 +15,10 @@ const GROUP_TAB_IDS = new Set<string>(
 );
 
 const SEARCH_TOPIC_TO_GROUP_TAB: Record<string, SettingsGroupTabId> = {
-  appearance: "appearance",
-  about: "about",
-  experiments: "experiments",
-  editor: "editor",
-  canvas: "canvas",
   workspace: "workspace",
   labels: "labels",
   atmosComputer: "atmos-computer",
   tunnelConnector: "tunnel-connector",
-  integrations: "integrations",
-  browser: "browser",
-  desktopUse: "desktop-use",
 };
 
 export function getSettingsSectionGroupTabs(

@@ -19,60 +19,70 @@ afterEach(() => {
 
 describe("settings section group tabs", () => {
   test("splits stacked pages into named groups", () => {
-    expect(getSettingsSectionGroupTabs("apps")).toEqual([
-      "integrations",
-      "browser",
-      "desktop-use",
-    ]);
+    expect(getSettingsSectionGroupTabs("workspace")).toEqual(["workspace", "labels"]);
     expect(getSettingsSectionGroupTabs("remote-access")).toEqual([
       "atmos-computer",
       "tunnel-connector",
     ]);
-    expect(getSettingsSectionGroupTabs("general")).toEqual([
-      "appearance",
-      "about",
-      "experiments",
-    ]);
+    expect(getSettingsSectionGroupTabs("general")).toBeUndefined();
+    expect(getSettingsSectionGroupTabs("editor")).toBeUndefined();
+    expect(getSettingsSectionGroupTabs("canvas")).toBeUndefined();
+    expect(getSettingsSectionGroupTabs("integrations")).toBeUndefined();
+    expect(getSettingsSectionGroupTabs("browser")).toBeUndefined();
+    expect(getSettingsSectionGroupTabs("desktop-use")).toBeUndefined();
     expect(getSettingsSectionGroupTabs("interface")).toBeUndefined();
   });
 
   test("prefers a valid hash over the default group", () => {
-    expect(resolveSettingsGroupTab("apps", "browser")).toBe("browser");
-    expect(resolveSettingsGroupTab("apps", "missing", "desktop-use")).toBe("desktop-use");
-    expect(resolveSettingsGroupTab("apps", "")).toBe("integrations");
-    expect(resolveSettingsGroupTab("keyboard", "browser")).toBeNull();
+    expect(resolveSettingsGroupTab("remote-access", "tunnel-connector")).toBe("tunnel-connector");
+    expect(resolveSettingsGroupTab("remote-access", "missing", "atmos-computer")).toBe(
+      "atmos-computer",
+    );
+    expect(resolveSettingsGroupTab("remote-access", "")).toBe("atmos-computer");
+    expect(resolveSettingsGroupTab("keyboard", "tunnel-connector")).toBeNull();
   });
 
   test("remembers the last group tab in memory", () => {
-    rememberSettingsGroupTab("apps", "desktop-use");
-    expect(peekLastSettingsGroupTab("apps")).toBe("desktop-use");
-    expect(resolveSettingsGroupTab("apps", "")).toBe("desktop-use");
-    expect(resolveSettingsGroupTab("apps", "browser")).toBe("browser");
+    rememberSettingsGroupTab("remote-access", "tunnel-connector");
+    expect(peekLastSettingsGroupTab("remote-access")).toBe("tunnel-connector");
+    expect(resolveSettingsGroupTab("remote-access", "")).toBe("tunnel-connector");
+    expect(resolveSettingsGroupTab("remote-access", "atmos-computer")).toBe("atmos-computer");
   });
 
   test("maps search items onto the owning group tab", () => {
-    expect(settingsGroupTabFromTranslationKey("desktopUse.cli")).toBe("desktop-use");
+    expect(settingsGroupTabFromTranslationKey("desktopUse.cli")).toBeNull();
     expect(settingsGroupTabFromTranslationKey("atmosComputer.thisComputer")).toBe(
       "atmos-computer",
     );
     expect(
       settingsGroupTabForSearchItem({
-        sectionId: "apps",
+        sectionId: "remote-access",
+        translationKey: "tunnelConnector.providers",
+      }),
+    ).toBe("tunnel-connector");
+    expect(
+      settingsGroupTabForSearchItem({
+        sectionId: "browser",
         translationKey: "browser.cookiesImport",
       }),
-    ).toBe("browser");
+    ).toBeNull();
     expect(settingsGroupTabLabelKey("atmos-computer")).toBe("sections.atmosComputer.label");
   });
 
   test("treats other pages' group hashes as foreign", () => {
-    expect(isForeignSettingsGroupTabHash("interface", "browser")).toBe(true);
-    expect(isForeignSettingsGroupTabHash("apps", "browser")).toBe(false);
+    expect(isForeignSettingsGroupTabHash("interface", "tunnel-connector")).toBe(true);
+    expect(isForeignSettingsGroupTabHash("remote-access", "tunnel-connector")).toBe(false);
+    expect(isForeignSettingsGroupTabHash("interface", "browser")).toBe(false);
     expect(isForeignSettingsGroupTabHash("interface", "sidebar")).toBe(false);
   });
 
   test("maps in-page search onto the matching group", () => {
-    expect(resolveSettingsGroupTabFromSearch("apps", "cookies")).toBe("browser");
-    expect(resolveSettingsGroupTabFromSearch("apps", "desktop use")).toBe("desktop-use");
+    expect(resolveSettingsGroupTabFromSearch("remote-access", "private relay")).toBe(
+      "atmos-computer",
+    );
+    expect(resolveSettingsGroupTabFromSearch("remote-access", "cloudflare")).toBe(
+      "tunnel-connector",
+    );
     expect(resolveSettingsGroupTabFromSearch("interface", "launchpad")).toBeNull();
   });
 });

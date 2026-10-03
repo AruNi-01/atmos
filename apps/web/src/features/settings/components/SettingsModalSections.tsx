@@ -27,7 +27,7 @@ import { WorkspaceSettingsSection } from '@/features/settings/components/Workspa
 import { SettingsAboutSection } from '@/features/settings/components/SettingsAboutSection';
 import { SettingsAiSection, type ProviderTestState } from '@/features/settings/components/SettingsAiSection';
 import type { LocalAgentOption } from '@/app-shell/llm-providers-modal-utils';
-import { SettingsSection } from '@/features/settings/components/settings/SettingsGroupCard';
+import { SettingsPageStack, SettingsSection } from '@/features/settings/components/settings/SettingsGroupCard';
 import type { SettingsSectionId } from '@/features/settings/components/settings-modal-data';
 import type { TerminalAgentSavedRunConfig } from '@/features/agent/lib/terminal-agent-run-config';
 import type { SettingsGroupTabId } from '@/features/settings/lib/settings-section-group-tabs';
@@ -185,8 +185,9 @@ function TabbedSettingsSection({
 export function SettingsModalSections(props: SettingsModalSectionsProps) {
   switch (props.activeSection) {
     case 'general':
-      if (props.activeGroupTab === 'about') {
-        return (
+      return (
+        <SettingsPageStack>
+          <AppearanceSettingsSection />
           <SettingsAboutSection
             appVersion={props.appVersion}
             cliVersionInfo={props.cliVersionInfo}
@@ -198,12 +199,9 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
             onCheckCliVersion={props.onCheckCliVersion}
             onCheckForUpdate={props.onCheckForUpdate}
           />
-        );
-      }
-      if (props.activeGroupTab === 'experiments') {
-        return <ExperimentSettingsSection />;
-      }
-      return <AppearanceSettingsSection />;
+          <ExperimentSettingsSection />
+        </SettingsPageStack>
+      );
     case 'terminal':
       return (
         <TerminalSettingsSection
@@ -351,26 +349,12 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           <AtmosComputerSection />
         </TabbedSettingsSection>
       );
-    case 'apps':
-      if (props.activeGroupTab === 'browser') {
-        return (
-          <TabbedSettingsSection id="browser">
-            <BrowserSettingsSection />
-          </TabbedSettingsSection>
-        );
-      }
-      if (props.activeGroupTab === 'desktop-use') {
-        return (
-          <TabbedSettingsSection id="desktop-use">
-            <DesktopUseSettingsSection />
-          </TabbedSettingsSection>
-        );
-      }
-      return (
-        <TabbedSettingsSection id="integrations">
-          <IntegrationsSettingsSection />
-        </TabbedSettingsSection>
-      );
+    case 'integrations':
+      return <IntegrationsSettingsSection />;
+    case 'browser':
+      return <BrowserSettingsSection />;
+    case 'desktop-use':
+      return <DesktopUseSettingsSection />;
     case 'privacy':
       return <PermissionAccessSettingsSection />;
     case 'keyboard':
@@ -378,14 +362,9 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
     case 'interface':
       return <LayoutSettingsSection />;
     case 'editor':
-      if (props.activeGroupTab === 'canvas') {
-        return <CanvasSettingsSection />;
-      }
-      return (
-        <TabbedSettingsSection id="editor">
-          <EditorSettingsSection />
-        </TabbedSettingsSection>
-      );
+      return <EditorSettingsSection />;
+    case 'canvas':
+      return <CanvasSettingsSection />;
     default:
       return null;
   }

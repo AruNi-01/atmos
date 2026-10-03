@@ -186,13 +186,16 @@ export type SettingsModalTab =
   | "account"
   | "interface"
   | "editor"
+  | "canvas"
   | "terminal"
   | "workspace"
   | "agents"
   | "models"
   | "notifications"
   | "remote-access"
-  | "apps"
+  | "integrations"
+  | "browser"
+  | "desktop-use"
   | "privacy"
   | "keyboard";
 
@@ -203,13 +206,16 @@ export const settingsModalParams = {
     "account",
     "interface",
     "editor",
+    "canvas",
     "terminal",
     "workspace",
     "agents",
     "models",
     "notifications",
     "remote-access",
-    "apps",
+    "integrations",
+    "browser",
+    "desktop-use",
     "privacy",
     "keyboard",
   ]).withOptions({ history: "replace" }),

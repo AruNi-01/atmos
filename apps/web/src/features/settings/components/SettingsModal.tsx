@@ -29,6 +29,7 @@ import { LlmProviderEditorDialog } from '@/app-shell/LlmProvidersModal';
 import { buildLocalAgentOptions } from '@/app-shell/llm-providers-modal-utils';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { settingsModalParams } from '@/shared/lib/nuqs/searchParams';
+import { SEARCH_MATCH_BACKGROUND } from '@/shared/lib/search-highlight';
 import { useNotificationSettingsStore } from '@/features/settings/store/notification-settings-store';
 import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
 
@@ -67,16 +68,8 @@ import {
   replaceSettingsGroupHash,
 } from '@/features/settings/lib/settings-section-group-tabs';
 import {
-  Blocks,
   Computer,
-  FileCode,
-  FlaskConical,
   FolderKanban,
-  Globe,
-  Info,
-  Monitor,
-  Presentation,
-  SunMoon,
   Tags,
   Waypoints,
 } from 'lucide-react';
@@ -99,18 +92,10 @@ function escapeRegExp(value: string) {
 const toCamelCase = (str: string) => str.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
 
 const SETTINGS_GROUP_TAB_ICONS: Record<string, ComponentType<{ className?: string }>> = {
-  appearance: SunMoon,
-  about: Info,
-  experiments: FlaskConical,
-  editor: FileCode,
-  canvas: Presentation,
   workspace: FolderKanban,
   labels: Tags,
   'atmos-computer': Computer,
   'tunnel-connector': Waypoints,
-  integrations: Blocks,
-  browser: Globe,
-  'desktop-use': Monitor,
 };
 
 function buildSettingsSearchTerms(query: string) {
@@ -147,7 +132,7 @@ function ensureSettingsHighlightStyle() {
   style.id = SETTINGS_CONTENT_HIGHLIGHT_STYLE_ID;
   style.textContent = `
 ::highlight(${SETTINGS_CONTENT_HIGHLIGHT_NAME}) {
-  background-color: rgb(96 165 250 / 0.38);
+  background-color: ${SEARCH_MATCH_BACKGROUND};
   color: inherit;
 }
 `;
@@ -1107,7 +1092,7 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
           ) : null}
 
           <div className="min-h-0 flex-1 overflow-hidden">
-            <ScrollArea className="size-full">
+            <ScrollArea scrollFade className="size-full">
               <div className="px-8 py-6">
                 <SettingsModalSections
                     activeSection={resolvedActiveSection}

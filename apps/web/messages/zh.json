@@ -3000,7 +3000,10 @@
     "kindProject": "项目",
     "kindWorkspace": "工作区",
     "kindAgent": "Agent",
-    "kindSubagent": "子 Agent"
+    "kindSubagent": "子 Agent",
+    "filesChanged": "{count} 个文件已更改",
+    "showDiff": "显示差异",
+    "hideDiff": "隐藏差异"
   },
   "Agent": {
     "workspace": {
@@ -5473,10 +5476,6 @@
           "label": "远程访问",
           "description": "Atmos Computer 与 Tunnel Connector。"
         },
-        "apps": {
-          "label": "应用",
-          "description": "集成、浏览器与 Desktop Use。"
-        },
         "privacy": {
           "label": "隐私",
           "description": "权限访问与本机密钥。"
@@ -5491,7 +5490,7 @@
         },
         "editor": {
           "label": "编辑器",
-          "description": "编辑器、画布与 diff 设置。"
+          "description": "代码编辑器与 diff 设置。"
         },
         "canvas": {
           "label": "画布",

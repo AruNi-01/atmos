@@ -4,6 +4,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import {
   Input,
+  ScrollArea,
   Sidebar,
   SidebarContent,
   SidebarGroup,
@@ -25,8 +26,11 @@ import ComputerIcon from "@workspace/ui/components/icons/computer-icon";
 import { FolderKanbanIcon } from "@workspace/ui/components/icons/folder-kanban-icon";
 import KeyboardIcon from "@workspace/ui/components/icons/keyboard-icon";
 import { BlocksIcon } from "@workspace/ui/components/icons/blocks-icon";
+import WorldIcon from "@workspace/ui/components/icons/world-icon";
+import DesktopUseIcon from "@workspace/ui/components/icons/desktop-use-icon";
 import { UserIcon } from "@workspace/ui/components/icons/user-icon";
 import CodeXmlIcon from "@workspace/ui/components/ui/code-xml-icon";
+import CanvasIcon from "@workspace/ui/components/icons/canvas-icon";
 import { SunMoonIcon } from "@workspace/ui/components/icons/sun-moon-icon";
 import { KeyCircleIcon } from "@workspace/ui/components/icons/key-circle-icon";
 import type { AnimatedIconHandle } from "@workspace/ui/components/icons/types";
@@ -99,13 +103,16 @@ function SettingsSectionIcon({
   if (sectionId === "account") return <UserIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "interface") return <LayoutDashboardIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "editor") return <CodeXmlIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "canvas") return <CanvasIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "terminal") return <TerminalIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "workspace") return <FolderKanbanIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "agents") return <BotIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "models") return <BrainCircuitIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "notifications") return <BellIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "remote-access") return <ComputerIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "apps") return <BlocksIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "integrations") return <BlocksIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "browser") return <WorldIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "desktop-use") return <DesktopUseIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "privacy") return <KeyCircleIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "keyboard") return <KeyboardIcon ref={iconRef} className="shrink-0" size={16} />;
   return <InfoCircleIcon ref={iconRef} className="shrink-0" size={16} />;
@@ -231,46 +238,48 @@ export function SettingsModalSidebar({
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="gap-0.5 overflow-y-auto px-3 pb-3 pt-1">
-        {filteredGroups.length === 0 ? (
-          <div className="px-2 py-6 text-sm text-muted-foreground">
-            {t("sidebar.noSettingsFound")}
-          </div>
-        ) : null}
-        {filteredGroups.map((group) => (
-          <SidebarGroup key={group.id} className="px-2 py-0.5 first:pt-1">
-            <SidebarGroupLabel className="h-6">
-              {t(`groups.${toCamelCase(group.id)}.label`)}
-            </SidebarGroupLabel>
-            <SidebarMenu className="gap-0.5">
-              {group.items.map((itemId) => {
-                const section = SETTINGS_SECTIONS.find((item) => item.id === itemId);
-                if (!section) return null;
+      <SidebarContent className="min-h-0 gap-0 overflow-hidden">
+        <ScrollArea scrollFade className="h-full" viewportClassName="px-3 pb-3 pt-1">
+          {filteredGroups.length === 0 ? (
+            <div className="px-2 py-6 text-sm text-muted-foreground">
+              {t("sidebar.noSettingsFound")}
+            </div>
+          ) : null}
+          {filteredGroups.map((group) => (
+            <SidebarGroup key={group.id} className="px-2 py-0.5 first:pt-1">
+              <SidebarGroupLabel className="h-6">
+                {t(`groups.${toCamelCase(group.id)}.label`)}
+              </SidebarGroupLabel>
+              <SidebarMenu className="gap-0.5">
+                {group.items.map((itemId) => {
+                  const section = SETTINGS_SECTIONS.find((item) => item.id === itemId);
+                  if (!section) return null;
 
-                const isActive = activeSection === section.id;
-                const itemIconRef = sectionIconRefs[section.id];
+                  const isActive = activeSection === section.id;
+                  const itemIconRef = sectionIconRefs[section.id];
 
-                return (
-                  <SidebarMenuItem key={itemId}>
-                    <SidebarMenuButton
-                      type="button"
-                      isActive={isActive}
-                      onClick={() => onSelectSection(section.id)}
-                      className="h-8 gap-2.5 rounded-md px-2.5 text-left"
-                      onMouseEnter={() => itemIconRef.current?.startAnimation?.()}
-                      onMouseLeave={() => itemIconRef.current?.stopAnimation?.()}
-                    >
-                      <SettingsSectionIcon iconRef={itemIconRef} sectionId={itemId} />
-                      <span className="min-w-0 truncate text-sm font-medium">
-                        {t(`sections.${toCamelCase(section.id)}.label`)}
-                      </span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroup>
-        ))}
+                  return (
+                    <SidebarMenuItem key={itemId}>
+                      <SidebarMenuButton
+                        type="button"
+                        isActive={isActive}
+                        onClick={() => onSelectSection(section.id)}
+                        className="h-8 gap-2.5 rounded-md px-2.5 text-left"
+                        onMouseEnter={() => itemIconRef.current?.startAnimation?.()}
+                        onMouseLeave={() => itemIconRef.current?.stopAnimation?.()}
+                      >
+                        <SettingsSectionIcon iconRef={itemIconRef} sectionId={itemId} />
+                        <span className="min-w-0 truncate text-sm font-medium">
+                          {t(`sections.${toCamelCase(section.id)}.label`)}
+                        </span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroup>
+          ))}
+        </ScrollArea>
       </SidebarContent>
     </Sidebar>
   );

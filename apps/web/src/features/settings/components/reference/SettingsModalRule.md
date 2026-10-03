@@ -10,12 +10,13 @@ Applies only when editing `../SettingsModal.tsx` and settings-specific subviews 
 ## Page layout
 
 - Do not render a page-level title or subtitle. The sidebar already names the item.
-- When a sidebar item contains multiple large groups, split them with `SettingsPageTabs` (same pill tabs as Tasks) at the top-left. That header is tabs only. Do not stack those groups on one page.
+- When a sidebar item contains multiple large groups, split them with `SettingsPageTabs` (same pill tabs as Tasks) at the top-left. That header is tabs only. Do not stack those groups on one page. General is the exception: Appearance, About, and Experiments stay on one page as non-collapsible groups. Canvas is its own sidebar item directly under Editor, not an Editor tab. Integrations, Browser, and Desktop Use are separate sidebar items. There is no Apps item.
 - Tab labels reuse `settings.modal.sections.<group>.label`. Deep links keep using `#<group-id>` (`settings-section-<group-id>`).
-- In-page section titles sit **outside** the muted group: `text-sm font-medium`, optional `text-xs` help, optional ghost action on the right.
+- In-page section titles sit **outside** the muted group: `text-sm font-medium text-foreground`, optional ghost action on the right. Do not render a description under the title.
 - Related rows belong in `SettingsGroup` (`rounded-2xl bg-muted/40`). Do not put a second title+icon chrome inside the group.
 - Stack remaining cards with `SettingsPageStack` (`space-y-8`).
 - Do not nest cards inside cards.
+- The sidebar list and the settings body each scroll in `@workspace/ui` `ScrollArea` with `scrollFade`. Keep the back button, search field, and group tabs outside those scroll areas.
 
 ## Rows
 
@@ -27,8 +28,10 @@ Applies only when editing `../SettingsModal.tsx` and settings-specific subviews 
 ## Collapse
 
 - Short groups (a handful of rows) stay open. Long lists (agents, providers, labels, launchpad) may collapse.
-- Collapse chrome is a quiet chevron on the section heading, not an icon that swaps on hover.
-- Use `SettingsGroupCard` with `open` / `onOpenChange` for collapsible groups.
+- Collapsible headings show the title only. Do not render the description under that title.
+- A collapsed title stays `text-muted-foreground` and turns foreground on hover. An expanded title uses the same `text-foreground` as a static group title.
+- The collapse chevron sits on the far left, immediately before the title. It stays visible; it does not swap on hover.
+- Use `SettingsGroupCard` with `open` / `onOpenChange` for collapsible groups. Nested collapsible rows use the same chevron-then-title order and omit the subtitle.
 
 ## Anchors and search
 

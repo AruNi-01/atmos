@@ -54,10 +54,6 @@ function placementTitleKey(placement: AgentIndicatorPlacement): string {
   return `placements.${placement}.title`;
 }
 
-function placementDescriptionKey(placement: AgentIndicatorPlacement): string {
-  return `placements.${placement}.description`;
-}
-
 /** 1:1 mock of left-sidebar project/workspace row trailing indicator. */
 function LeftSidebarMockPreview({ styleId }: { styleId: AgentActivityIndicatorId }) {
   return (
@@ -261,29 +257,28 @@ function PlacementRow({
       className="border-b border-border/60 px-2 py-3 last:border-b-0"
     >
       <div className="flex items-center gap-3">
-        <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
+        <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left">
+          <ChevronDown
+            className={cn(
+              settingsCollapsibleChevronTriggerClassName,
+              "size-4 shrink-0 transition-transform duration-150 group-hover:text-foreground",
+              !open && "-rotate-90",
+            )}
+          />
           <PlacementIcon className="size-5 shrink-0 text-muted-foreground" />
-          <div className="min-w-0 flex-1">
-            <p className={settingsCollapsibleTitleClassName}>
-              {t(placementTitleKey(placement) as never)}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {t(placementDescriptionKey(placement) as never)}
-            </p>
-          </div>
+          <p
+            className={cn(
+              "min-w-0 flex-1 truncate",
+              open
+                ? "text-sm font-medium text-foreground"
+                : settingsCollapsibleTitleClassName,
+            )}
+          >
+            {t(placementTitleKey(placement) as never)}
+          </p>
         </CollapsibleTrigger>
 
-        <div className="flex shrink-0 items-center gap-2">
-          <PlacementMockPreview placement={placement} styleId={styleId} />
-          <CollapsibleTrigger className={settingsCollapsibleChevronTriggerClassName}>
-            <ChevronDown
-              className={cn(
-                "size-4 transition-transform duration-150",
-                !open && "-rotate-90",
-              )}
-            />
-          </CollapsibleTrigger>
-        </div>
+        <PlacementMockPreview placement={placement} styleId={styleId} />
       </div>
 
       <CollapsibleContent
