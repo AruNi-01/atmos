@@ -13,7 +13,9 @@ import { useMobileTheme } from "@/theme/theme-store";
 import { AtmosLogo } from "@/ui/AtmosLogo";
 import { EmptyState } from "@/ui/layout/app-screen";
 import { ChevronRightIcon } from "@/ui/icons/lucide-native";
-import { AgentChatDetailSheet, type DetailPage } from "./AgentChatDetailSheet";
+import { classifyTranscriptPart, waitForSection } from "@atmos/agent-transcript";
+import { AgentChatDetailSheet } from "./AgentChatDetailSheet";
+import { AgentChatEventBody } from "./AgentChatEventBody";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
 import { AgentChatToolCard } from "./AgentChatToolCard";
 import {
@@ -25,8 +27,18 @@ import {
 } from "./assistant-process";
 import { ChatBubble } from "./template-message";
 import { copy } from "./copy";
-import { pathDisplay } from "./path-display";
-import { isHiddenTranscriptChromePart } from "./tool-kind";
+import {
+  activateWaitForBar,
+  dismissSheet,
+  initialExpandState,
+  isWaitForOpen,
+  openGroupSheet,
+  openLeafSheet,
+  transcriptEventModel,
+  waitForLabel,
+  type EventViewModel,
+  type ExpandState,
+} from "./event-model";
 
 const BOTTOM_SLOP = 64;
 
@@ -53,24 +65,61 @@ function partKey(messageId: string, part: AgentPart, index: number): string {
   return `${messageId}:${part.type}:${index}`;
 }
 
-function MessagePart({ part }: { part: AgentPart }) {
-  const theme = useMobileTheme();
+function attachmentName(part: Extract<AgentPart, { type: "attachment" }>): string {
+  const name = part.name?.trim();
+  if (name) return name;
+  return part.path.split(/[\\/]/).filter(Boolean).pop() || part.path;
+}
 
-  if (part.type === "text" || part.type === "thinking") {
-    return <AgentChatMarkdown text={part.text} tone={part.type === "thinking" ? "thinking" : "body"} />;
-  }
-  if (part.type === "tool_call") {
-    if (isHiddenTranscriptChromePart(part)) return null;
-    return <AgentChatToolCard part={part} />;
-  }
-  if (part.type === "attachment") {
-    const text = pathDisplay(part.path).text;
-    if (!text) return null;
+function MessagePart({
+  messages,
+  onOpen,
+  openId,
+  part,
+  siblings,
+  surface = "timeline",
+}: {
+  messages: Array<Pick<AgentMessage, "role" | "parts">>;
+  onOpen: (id: string, model: EventViewModel) => void;
+  openId: string;
+  part: AgentPart;
+  siblings: AgentPart[];
+  surface?: "timeline" | "tour";
+}) {
+  const theme = useMobileTheme();
+  const classified = classifyTranscriptPart(part);
+  if (surface === "timeline" && classified.visibility !== "visible") return null;
+  if (classified.visibility === "hidden_chrome") return null;
+  if (classified.detail.kind === "permission" && !classified.detail.shownInTranscript) return null;
+
+  const model = transcriptEventModel(part, siblings, messages);
+  const sheetId = part.type === "tool_call" ? part.tool_call_id : openId;
+  if (surface === "tour") {
+    if (part.type === "tool_call") {
+      return (
+        <AgentChatToolCard
+          onPress={() => onOpen(sheetId, model)}
+          part={part}
+          title={model.title}
+        />
+      );
+    }
     return (
-      <Text selectable style={{ color: theme.colors.secondaryLabel, fontSize: 13, lineHeight: 18 }}>
-        {text}
-      </Text>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => onOpen(sheetId, model)}
+        style={{ alignItems: "center", flexDirection: "row", gap: 6, paddingVertical: 2 }}
+      >
+        <Text numberOfLines={2} style={{ color: theme.colors.secondaryLabel, flexShrink: 1, fontSize: 15, lineHeight: 20 }}>
+          {model.title}
+        </Text>
+        <DisclosureChevron />
+      </Pressable>
     );
+  }
+
+  if (part.type === "text") {
+    return <AgentChatMarkdown text={part.text} />;
   }
   if (part.type === "error") {
     const message = part.message.trim();
@@ -81,15 +130,55 @@ function MessagePart({ part }: { part: AgentPart }) {
       </Text>
     );
   }
-  return null;
+  if (!model.sheet) {
+    if (model.kind === "permission") return <AgentChatEventBody model={{ ...model, sheet: null }} />;
+    const tone = classified.detail.kind === "session_hint" ? classified.detail.tone : null;
+    const color = model.kind === "session_lifecycle" && classified.detail.kind === "session_lifecycle" && classified.detail.status === "failed"
+      ? theme.colors.red
+      : tone === "error"
+        ? theme.colors.red
+        : tone === "warning"
+          ? theme.colors.yellow
+          : theme.colors.secondaryLabel;
+    return (
+      <Text selectable style={{ color, fontSize: 15, lineHeight: 20 }}>
+        {model.title}
+      </Text>
+    );
+  }
+  if (part.type === "tool_call") {
+    return (
+      <AgentChatToolCard
+        onPress={() => onOpen(sheetId, model)}
+        part={part}
+        title={model.title}
+      />
+    );
+  }
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => onOpen(sheetId, model)}
+      style={{ alignItems: "center", flexDirection: "row", gap: 6, paddingVertical: 2 }}
+    >
+      <Text numberOfLines={2} style={{ color: theme.colors.secondaryLabel, flexShrink: 1, fontSize: 15, lineHeight: 20 }}>
+        {model.title}
+      </Text>
+      <DisclosureChevron />
+    </Pressable>
+  );
 }
 
 function visiblePart(part: AgentPart): boolean {
-  if (part.type === "text" || part.type === "thinking") return part.text.length > 0;
-  if (part.type === "tool_call") return !isHiddenTranscriptChromePart(part);
-  if (part.type === "attachment") return pathDisplay(part.path).text.length > 0;
-  if (part.type === "error") return part.message.trim().length > 0;
-  return false;
+  const classified = classifyTranscriptPart(part);
+  if (classified.visibility === "hidden_chrome" || classified.visibility === "nested_child") return false;
+  if (classified.visibility === "subagent_wait") return true;
+  if (classified.detail.kind === "permission") return classified.detail.shownInTranscript;
+  if (classified.detail.kind === "text_part") return classified.detail.text.length > 0;
+  if (classified.detail.kind === "thinking") return classified.detail.text.length > 0;
+  if (classified.detail.kind === "error_part") return classified.detail.message.trim().length > 0;
+  if (classified.detail.kind === "hidden") return false;
+  return true;
 }
 
 function workDuration(workedMs: number): string {
@@ -107,36 +196,9 @@ function workedForLabel(workedMs: number | null | undefined): string | null {
   return `Worked for ${workDuration(workedMs)}`;
 }
 
-function thoughtForLabel(durationMs: number | null | undefined): string {
-  if (durationMs == null || durationMs <= 0) return "Thought for a few seconds";
-  return `Thought for ${workDuration(durationMs)}`;
-}
-
 function DisclosureChevron() {
   const theme = useMobileTheme();
   return <ChevronRightIcon color={theme.colors.secondaryLabel} size={12} strokeWidth={2.2} />;
-}
-
-function ThinkingRow({
-  durationMs,
-  onPress,
-}: {
-  durationMs?: number | null;
-  onPress: () => void;
-}) {
-  const theme = useMobileTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={{ alignItems: "center", flexDirection: "row", gap: 6, paddingVertical: 2 }}
-    >
-      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13, lineHeight: 18 }}>
-        {thoughtForLabel(durationMs)}
-      </Text>
-      <DisclosureChevron />
-    </Pressable>
-  );
 }
 
 function ToolGroupRow({
@@ -161,37 +223,42 @@ function ToolGroupRow({
   );
 }
 
+function modelsForParts(
+  parts: AgentPart[],
+  siblings: AgentPart[],
+  messages: Array<Pick<AgentMessage, "role" | "parts">>,
+): EventViewModel[] {
+  return parts.map((part) => transcriptEventModel(part, siblings, messages));
+}
+
 function ProcessPart({
+  messages,
   onOpen,
+  openId,
   part,
+  siblings,
 }: {
-  onOpen: (page: DetailPage) => void;
+  messages: Array<Pick<AgentMessage, "role" | "parts">>;
+  onOpen: (id: string, model: EventViewModel) => void;
+  openId: string;
   part: AgentPart;
+  siblings: AgentPart[];
 }) {
-  if (part.type === "thinking") {
-    return (
-      <ThinkingRow
-        durationMs={part.duration_ms}
-        onPress={() => onOpen({
-          kind: "thinking",
-          title: thoughtForLabel(part.duration_ms),
-          text: part.text,
-        })}
-      />
-    );
-  }
-  if (part.type === "tool_call") {
-    return <AgentChatToolCard onPress={() => onOpen({ kind: "tool", part })} part={part} />;
-  }
-  return <MessagePart part={part} />;
+  return <MessagePart messages={messages} onOpen={onOpen} openId={openId} part={part} siblings={siblings} />;
 }
 
 function AssistantSegments({
+  messages,
+  onOpenGroup,
   onOpen,
   segments,
+  siblings,
 }: {
-  onOpen: (page: DetailPage) => void;
+  messages: Array<Pick<AgentMessage, "role" | "parts">>;
+  onOpen: (id: string, model: EventViewModel) => void;
+  onOpenGroup: (id: string, title: string, models: EventViewModel[]) => void;
   segments: AssistantSegment[];
+  siblings: AgentPart[];
 }) {
   return (
     <>
@@ -201,7 +268,11 @@ function AssistantSegments({
           return (
             <ToolGroupRow
               key={segment.indexes.join("-") || `group-${index}`}
-              onPress={() => onOpen({ kind: "group", title, parts: segment.parts })}
+              onPress={() => onOpenGroup(
+                segment.indexes.join("-") || `group-${index}`,
+                title,
+                modelsForParts(segment.parts, siblings, messages),
+              )}
               parts={segment.parts}
             />
           );
@@ -209,8 +280,11 @@ function AssistantSegments({
         return (
           <ProcessPart
             key={partKey("segment", segment.part, segment.index)}
+            messages={messages}
             onOpen={onOpen}
+            openId={partKey("segment", segment.part, segment.index)}
             part={segment.part}
+            siblings={siblings}
           />
         );
       })}
@@ -218,16 +292,49 @@ function AssistantSegments({
   );
 }
 
-function ChatMessage({
-  message,
-  onOpen,
+function WaitForBar({
+  expanded,
+  label,
+  onPress,
 }: {
+  expanded: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  const theme = useMobileTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ expanded }}
+      onPress={onPress}
+      style={{ alignItems: "center", flexDirection: "row", gap: 6, paddingVertical: 4 }}
+    >
+      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 15, lineHeight: 20 }}>
+        {label}
+      </Text>
+      <View style={{ transform: [{ rotate: expanded ? "90deg" : "0deg" }] }}>
+        <DisclosureChevron />
+      </View>
+    </Pressable>
+  );
+}
+
+function ChatMessage({
+  expand,
+  message,
+  messages,
+  onExpand,
+}: {
+  expand: ExpandState;
   message: AgentMessage;
-  onOpen: (page: DetailPage) => void;
+  messages: AgentMessage[];
+  onExpand: (update: (state: ExpandState) => ExpandState) => void;
 }) {
   const theme = useMobileTheme();
   const isUser = message.role === "user";
-  const hasBody = message.parts.some(visiblePart);
+  const hasBody = message.parts.some((part) =>
+    (isUser && part.type === "attachment") || visiblePart(part),
+  );
   const canCollapse = !isUser && shouldCollapseAssistantProcess(message, message.parts);
   if (!hasBody && !message.streaming) return null;
 
@@ -241,6 +348,13 @@ function ChatMessage({
       }
     }
   }
+
+  const openEvent = (id: string, model: EventViewModel) => {
+    onExpand((state) => openLeafSheet(state, id, model));
+  };
+  const openGroup = (id: string, title: string, models: EventViewModel[]) => {
+    onExpand((state) => openGroupSheet(state, id, title, models));
+  };
 
   if (isUser) {
     return (
@@ -259,7 +373,26 @@ function ChatMessage({
                   </Text>
                 );
               }
-              return <MessagePart key={partKey(message.id, part, index)} part={part} />;
+              if (part.type === "attachment") {
+                return (
+                  <Text
+                    key={partKey(message.id, part, index)}
+                    style={{ color: theme.colors.secondaryLabel, fontSize: 15, lineHeight: 20 }}
+                  >
+                    {attachmentName(part)}
+                  </Text>
+                );
+              }
+              return (
+                <MessagePart
+                  key={partKey(message.id, part, index)}
+                  messages={messages}
+                  onOpen={openEvent}
+                  openId={partKey(message.id, part, index)}
+                  part={part}
+                  siblings={message.parts}
+                />
+              );
             })}
           </View>
         </ChatBubble>
@@ -270,17 +403,41 @@ function ChatMessage({
   const segments = segmentAssistantParts(message.parts);
   const { process, tail } = splitAssistantSegments(segments);
   const worked = workedForLabel(message.worked_ms);
+  const waiting = waitForSection(message.parts);
+  const waitingOpen = isWaitForOpen(expand, message.id);
 
   return (
     <View style={{ gap: 8, width: "100%" }}>
+      {waiting ? (
+        <View style={{ gap: 4 }}>
+          <WaitForBar
+            expanded={waitingOpen}
+            label={waitForLabel(waiting.anchors.length)}
+            onPress={() => onExpand((state) => activateWaitForBar(state, message.id))}
+          />
+          {waitingOpen ? waiting.rows.map((row) => (
+            <MessagePart
+              key={partKey(message.id, row.part, row.index)}
+              messages={messages}
+              onOpen={openEvent}
+              openId={partKey(message.id, row.part, row.index)}
+              part={row.part}
+              siblings={message.parts}
+              surface="tour"
+            />
+          )) : null}
+        </View>
+      ) : null}
       {canCollapse && process.length > 0 ? (
         <Pressable
           accessibilityRole="button"
-          onPress={() => onOpen({
-            kind: "process",
-            title: worked ?? "Process",
-            segments: process,
-          })}
+          onPress={() => openGroup(
+            `${message.id}:process`,
+            worked ?? "Process",
+            process.flatMap((segment) => (
+              segment.type === "tool_group" ? segment.parts : [segment.part]
+            )).map((part) => transcriptEventModel(part, message.parts, messages)),
+          )}
           style={{ alignItems: "center", alignSelf: "flex-start", flexDirection: "row", gap: 4, paddingVertical: 2 }}
         >
           <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13, lineHeight: 18 }}>
@@ -290,14 +447,14 @@ function ChatMessage({
         </Pressable>
       ) : process.length > 0 ? (
         <View style={{ gap: 6 }}>
-          <AssistantSegments onOpen={onOpen} segments={process} />
+          <AssistantSegments messages={messages} onOpen={openEvent} onOpenGroup={openGroup} segments={process} siblings={message.parts} />
         </View>
       ) : null}
       {tail.length > 0 || message.streaming ? (
         <ChatBubble from="assistant">
           <View style={{ gap: 8 }}>
             {message.streaming && cursorIndex < 0 ? <AgentChatMarkdown text="..." /> : null}
-            <AssistantSegments onOpen={onOpen} segments={tail} />
+            <AssistantSegments messages={messages} onOpen={openEvent} onOpenGroup={openGroup} segments={tail} siblings={message.parts} />
           </View>
         </ChatBubble>
       ) : null}
@@ -349,10 +506,7 @@ export function AgentChatTranscript({
     stickToBottom();
   }, [stickToBottom]);
 
-  const [pages, setPages] = useState<DetailPage[]>([]);
-  const openPage = useCallback((page: DetailPage) => {
-    setPages([page]);
-  }, []);
+  const [expand, setExpand] = useState<ExpandState>(initialExpandState);
   const rows = streaming && !messages.some((message) => message.streaming)
     ? [...messages, {
         id: "stream-wait",
@@ -400,14 +554,20 @@ export function AgentChatTranscript({
       onScrollToIndexFailed={({ index }) => {
         listRef.current?.scrollToOffset({ animated: false, offset: Math.max(0, index) * 80 });
       }}
-      renderItem={({ item }) => <ChatMessage message={item} onOpen={openPage} />}
+      renderItem={({ item }) => (
+        <ChatMessage
+          expand={expand}
+          message={item}
+          messages={rows}
+          onExpand={setExpand}
+        />
+      )}
       scrollEventThrottle={16}
       style={{ backgroundColor: theme.colors.background, flex: 1 }}
     />
     <AgentChatDetailSheet
-      onDismissAt={(index) => setPages((current) => current.slice(0, index))}
-      onPush={(page) => setPages((current) => [...current, page])}
-      pages={pages}
+      onDismiss={() => setExpand((state) => dismissSheet(state))}
+      sheets={expand.sheets}
     />
     </View>
   );

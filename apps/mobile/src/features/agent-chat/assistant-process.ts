@@ -1,5 +1,6 @@
 import type { AgentMessage, AgentPart, AgentToolKind } from "@atmos/api-types/ws/dto/agent-chat";
-import { isHiddenTranscriptChromePart, isSubagentWaitTool, wireToolKind } from "./tool-kind";
+import { classifyTranscriptPart } from "@atmos/agent-transcript";
+import { transcriptVisibility, wireToolKind } from "./tool-kind";
 
 export function isAssistantAnswerTextPart(part: AgentPart): boolean {
   return part.type === "text" && Boolean(part.text) && !part.parent_tool_call_id;
@@ -71,17 +72,13 @@ export function layoutAssistantAnswer<T>(
   };
 }
 
-function parentToolCallId(part: AgentPart): string | null {
-  if (!("parent_tool_call_id" in part)) return null;
-  const parent = part.parent_tool_call_id?.trim();
-  return parent || null;
-}
-
 export function visibleTranscriptParts(parts: AgentPart[]): { part: AgentPart; index: number }[] {
   return parts.flatMap((part, index) => {
-    if (!part || isHiddenTranscriptChromePart(part)) return [];
-    if (parentToolCallId(part)) return [];
-    if (part.type === "tool_call" && isSubagentWaitTool(part)) return [];
+    if (!part) return [];
+    const visibility = transcriptVisibility(part);
+    if (visibility !== "visible") return [];
+    const detail = classifyTranscriptPart(part).detail;
+    if (detail.kind === "permission" && !detail.shownInTranscript) return [];
     return [{ part, index }];
   });
 }
@@ -239,6 +236,16 @@ export function segmentAssistantParts(parts: AgentPart[]): AssistantSegment[] {
       continue;
     }
     if (item.part.type === "text" && item.part.text) {
+      flush();
+      segments.push({ type: "part", part: item.part, index: item.index });
+      continue;
+    }
+    if (
+      item.part.type === "session_lifecycle"
+      || item.part.type === "session_config_change"
+      || item.part.type === "session_hint"
+      || item.part.type === "permission"
+    ) {
       flush();
       segments.push({ type: "part", part: item.part, index: item.index });
     }
