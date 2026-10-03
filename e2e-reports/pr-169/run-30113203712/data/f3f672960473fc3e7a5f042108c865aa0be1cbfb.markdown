@@ -1,0 +1,479 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: specs/APP-043_workspace-surface-cache.e2e.ts >> APP-043 workspace surface cache >> @stateful keeps prior workspace frame warm/hidden when switching contexts
+- Location: tests/specs/APP-043_workspace-surface-cache.e2e.ts:39:3
+
+# Error details
+
+```
+Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: "true:warm|false:active"
+Received: "false:warm|false:active"
+
+Call Log:
+- Timeout 45000ms exceeded while waiting on the predicate
+```
+
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Collapse left sidebar" [ref=e7]:
+          - img [ref=e8]
+        - generic [ref=e11]:
+          - button "Go back" [ref=e12]:
+            - img [ref=e13]
+          - button "Go forward" [ref=e15]:
+            - img [ref=e16]
+          - button "Refresh page" [ref=e18]:
+            - img [ref=e19]
+        - generic:
+          - generic [ref=e22]: /
+          - generic [ref=e23]: Atmos E2E
+        - generic [ref=e25]:
+          - button "Open" [ref=e26]:
+            - generic: Open
+          - button [ref=e28]:
+            - img [ref=e29]
+      - generic [ref=e31]:
+        - generic [ref=e32]:
+          - status "Unable to compare the remote branch with origin/main" [ref=e33]:
+            - img [ref=e35]
+          - button "atmos/tangela +1" [ref=e38] [cursor=pointer]:
+            - generic [ref=e39]: atmos/tangela
+            - generic [ref=e40]: "+1"
+            - img [ref=e41]
+        - img [ref=e43]
+        - button "origin/ main" [ref=e46] [cursor=pointer]:
+          - generic [ref=e47]: origin/
+          - generic [ref=e48]: main
+          - img [ref=e49]
+      - generic [ref=e51]:
+        - button "Search" [ref=e52] [cursor=pointer]:
+          - img [ref=e53]
+          - generic [ref=e56]: Search...
+          - generic:
+            - img
+            - generic: K
+        - button "Open workspace summary" [ref=e57]:
+          - img [ref=e58]
+        - generic [ref=e60]:
+          - button "Usage" [ref=e61]:
+            - img [ref=e62]
+          - button "Open actions menu" [ref=e65]:
+            - generic [ref=e66]: ···
+          - button "Collapse right sidebar" [ref=e68]:
+            - img [ref=e69]
+    - generic [ref=e73]:
+      - complementary [ref=e76]:
+        - generic [ref=e77]:
+          - generic [ref=e78] [cursor=pointer]:
+            - generic [ref=e79]:
+              - img [ref=e80]
+              - generic [ref=e84]: Management Center
+            - img [ref=e86]
+          - generic [ref=e88]:
+            - generic [ref=e90] [cursor=pointer]:
+              - img [ref=e92]
+              - generic [ref=e95]: Workspaces
+            - generic [ref=e97] [cursor=pointer]:
+              - img [ref=e99]
+              - generic [ref=e102]: Skills
+            - generic [ref=e104] [cursor=pointer]:
+              - img [ref=e106]
+              - generic [ref=e109]: Disk Analyzer
+            - generic [ref=e111] [cursor=pointer]:
+              - img [ref=e113]
+              - generic [ref=e117]: Canvas
+            - generic [ref=e119] [cursor=pointer]:
+              - img [ref=e121]
+              - generic [ref=e124]: Kanban
+            - generic [ref=e126] [cursor=pointer]:
+              - img [ref=e128]
+              - generic [ref=e130]: New Workspace
+        - tabpanel "Projects" [ref=e133]:
+          - generic [ref=e136]:
+            - generic [ref=e138]:
+              - generic [ref=e139]:
+                - button "A Atmos E2E" [ref=e140] [cursor=pointer]:
+                  - generic [ref=e141]:
+                    - generic [ref=e143]: A
+                    - generic [ref=e144]: Atmos E2E
+                - generic [ref=e146]:
+                  - button [ref=e147]:
+                    - img [ref=e148]
+                  - button [ref=e150]:
+                    - img [ref=e151]
+              - generic [ref=e158]:
+                - button "APP-043 Warm B mrz7zwwp just now" [ref=e160] [cursor=pointer]:
+                  - generic [ref=e161]:
+                    - img [ref=e163]
+                    - generic [ref=e168]: APP-043 Warm B mrz7zwwp
+                    - generic:
+                      - generic: just now
+                      - button "Archive":
+                        - img
+                - button "tangela just now" [ref=e170] [cursor=pointer]:
+                  - generic [ref=e171]:
+                    - img [ref=e173]
+                    - generic [ref=e178]: tangela
+                    - generic:
+                      - generic: just now
+                      - button "Archive":
+                        - img
+            - generic [ref=e180]:
+              - generic [ref=e181]:
+                - button "A Atmos E2E" [ref=e182] [cursor=pointer]:
+                  - generic [ref=e183]:
+                    - generic [ref=e185]: A
+                    - generic [ref=e186]: Atmos E2E
+                - generic [ref=e188]:
+                  - button [ref=e189]:
+                    - img [ref=e190]
+                  - button [ref=e192]:
+                    - img [ref=e193]
+              - button "hitmonchan 1m" [ref=e202] [cursor=pointer]:
+                - generic [ref=e203]:
+                  - img [ref=e205]
+                  - generic [ref=e210]: hitmonchan
+                  - generic:
+                    - generic: 1m
+                    - button "Archive":
+                      - img
+            - status [ref=e211]
+        - generic [ref=e213]:
+          - button "Add Project" [ref=e215]:
+            - img [ref=e217]
+          - generic [ref=e219]:
+            - button [ref=e220]:
+              - img [ref=e222]
+            - button "Open Kanban" [ref=e223]:
+              - img [ref=e225]
+      - separator [ref=e227]
+      - main [ref=e229]:
+        - generic [ref=e230]:
+          - tablist [ref=e231]:
+            - tab [selected] [ref=e232] [cursor=pointer]:
+              - img [ref=e233]
+            - generic [ref=e239]:
+              - button "New tab" [ref=e240]:
+                - img [ref=e241]
+              - button "Open tab groups" [ref=e242] [cursor=pointer]:
+                - img
+          - generic [ref=e246]:
+            - generic [ref=e247]:
+              - generic [ref=e248]:
+                - img [ref=e250]
+                - generic [ref=e255]:
+                  - generic [ref=e257]:
+                    - generic [ref=e258]:
+                      - img [ref=e259]
+                      - generic [ref=e263]: atmos/tangela
+                    - button ".../workspaces/atmos-e2e/tangela" [ref=e264]:
+                      - img [ref=e265]
+                      - generic [ref=e267]: .../workspaces/atmos-e2e/tangela
+                  - heading "atmos-e2e/tangela" [level=1] [ref=e268]
+              - button "Refresh" [ref=e269] [cursor=pointer]:
+                - img
+                - generic [ref=e270]: Refresh
+            - generic [ref=e271]:
+              - generic [ref=e272]:
+                - generic [ref=e273]:
+                  - generic [ref=e274]:
+                    - img [ref=e275]
+                    - text: Tasks
+                  - generic [ref=e280]: 0/0
+                - generic [ref=e281]:
+                  - generic [ref=e282]:
+                    - textbox "What needs to be done? (Double-click task to edit)" [ref=e283]
+                    - button [disabled]:
+                      - img
+                  - generic [ref=e285]:
+                    - img [ref=e286]
+                    - generic [ref=e289]: No tasks added yet.
+                  - status [ref=e290]
+              - generic [ref=e291]:
+                - generic [ref=e293]:
+                  - img [ref=e294]
+                  - text: Details
+                - generic [ref=e296]:
+                  - generic [ref=e297]:
+                    - generic [ref=e298]:
+                      - generic [ref=e299]: Status
+                      - button "In Progress" [ref=e300] [cursor=pointer]:
+                        - img [ref=e301]
+                        - generic [ref=e304]: In Progress
+                    - generic [ref=e305]:
+                      - generic [ref=e306]: Priority
+                      - button "No priority" [ref=e307] [cursor=pointer]:
+                        - generic [ref=e312]: No priority
+                    - generic [ref=e313]:
+                      - generic [ref=e314]: Labels
+                      - button "Add labels" [ref=e315]:
+                        - img [ref=e316]
+                        - generic [ref=e320]: Add labels
+                  - generic [ref=e321]:
+                    - generic [ref=e322]:
+                      - img [ref=e323]
+                      - generic [ref=e326]: Created
+                    - generic [ref=e327]: Jul 24, 2026 • 17:34:24
+                  - generic [ref=e328]:
+                    - heading "Code reviews" [level=3] [ref=e329]
+                    - generic [ref=e331]:
+                      - img [ref=e332]
+                      - heading "No code reviews yet" [level=3] [ref=e336]
+                      - paragraph [ref=e337]: Reports will appear here after reviews.
+                  - generic [ref=e338]:
+                    - heading "Pull requests" [level=3] [ref=e339]
+                    - generic [ref=e341]:
+                      - img [ref=e342]
+                      - generic [ref=e346]: No open PRs found
+                  - generic [ref=e347]:
+                    - heading "Actions" [level=3] [ref=e349]
+                    - generic [ref=e352]: No workflow runs detected
+            - generic [ref=e353]:
+              - generic [ref=e354]:
+                - generic [ref=e355]:
+                  - generic [ref=e356]:
+                    - img [ref=e357]
+                    - text: Requirement specification
+                  - button "Edit" [ref=e360] [cursor=pointer]
+                - generic [ref=e362]:
+                  - img [ref=e363]
+                  - heading "No requirement yet" [level=3] [ref=e366]
+                  - paragraph [ref=e367]: Add a requirement document for this workspace.
+                  - button "Add Requirement" [ref=e368] [cursor=pointer]:
+                    - img
+                    - text: Add Requirement
+              - generic [ref=e370]:
+                - generic [ref=e371]:
+                  - generic [ref=e372]:
+                    - img [ref=e373]
+                    - text: Note
+                  - button "Edit" [ref=e376] [cursor=pointer]
+                - generic [ref=e378]:
+                  - img [ref=e379]
+                  - heading "No note yet" [level=3] [ref=e382]
+                  - paragraph [ref=e383]: Add notes for this workspace.
+                  - button "Add Note" [ref=e384] [cursor=pointer]:
+                    - img
+                    - text: Add Note
+      - separator [ref=e385]
+      - complementary [ref=e388]:
+        - generic [ref=e390]:
+          - tablist [ref=e391]:
+            - tab "Changes" [selected] [ref=e392] [cursor=pointer]:
+              - img [ref=e393]
+            - tab "Review" [ref=e397] [cursor=pointer]:
+              - img [ref=e398]
+            - tab "Browser" [ref=e400] [cursor=pointer]:
+              - img [ref=e401]
+            - tab "Run" [ref=e404] [cursor=pointer]:
+              - img [ref=e405]
+            - tab "Files" [ref=e407] [cursor=pointer]:
+              - img [ref=e408]
+            - tab "Pull Requests" [ref=e413] [cursor=pointer]:
+              - img [ref=e414]
+            - tab "Actions" [ref=e418] [cursor=pointer]:
+              - img [ref=e419]
+          - generic [ref=e423]:
+            - tablist [ref=e426]:
+              - tab "Files Diff Refresh changes Select changes scope Show changed files as tree" [selected] [ref=e427] [cursor=pointer]:
+                - generic [ref=e428]:
+                  - img [ref=e429]
+                  - generic [ref=e432]: Files Diff
+                - generic:
+                  - button "Refresh changes":
+                    - img
+                    - generic: Refresh
+                  - button "Select changes scope":
+                    - generic: Branch
+                    - img
+                  - button "Show changed files as tree":
+                    - img
+              - tab "Commits Refresh commits" [ref=e433] [cursor=pointer]:
+                - generic [ref=e434]:
+                  - img [ref=e435]
+                  - generic [ref=e437]: Commits
+                - generic:
+                  - button "Refresh commits":
+                    - img
+                    - generic: Refresh
+            - generic [ref=e442] [cursor=pointer]:
+              - generic [ref=e443]:
+                - 'img "File: bun.lock" [ref=e444]'
+                - generic: bun.lock
+              - generic [ref=e447]: M
+            - generic [ref=e450]:
+              - generic [ref=e451]:
+                - textbox "Message (Cmd/Ctrl+Enter to commit)" [ref=e452]
+                - button [ref=e453] [cursor=pointer]:
+                  - img [ref=e454]
+              - generic [ref=e457]:
+                - button "Publish Branch" [ref=e458]:
+                  - generic [ref=e459]: Publish Branch
+                - button [ref=e460]:
+                  - img [ref=e461]
+    - contentinfo [ref=e463]:
+      - generic [ref=e464]:
+        - generic [ref=e467] [cursor=pointer]: NORMAL
+        - button "LOCAL 0" [ref=e469]:
+          - img [ref=e470]
+          - generic [ref=e473]: LOCAL 0
+      - button "Napping ~" [ref=e475] [cursor=pointer]:
+        - generic [ref=e476]:
+          - generic [ref=e477]:
+            - img [ref=e478]
+            - generic [ref=e481]: z
+            - generic [ref=e482]: z
+            - generic [ref=e483]: z
+          - generic [ref=e484]: Napping ~
+  - alert [ref=e485]: atmos/tangela · Atmos E2E – ATMOS
+  - generic:
+    - region "Notifications"
+  - generic:
+    - region "Notifications"
+  - generic:
+    - region "Notifications"
+```
+
+# Test source
+
+```ts
+  90  |               return;
+  91  |             }
+  92  |             finish(
+  93  |               (v) => reject(v as Error),
+  94  |               new Error(message.payload?.message ?? `failed ${action}`),
+  95  |             );
+  96  |           });
+  97  |           socket.addEventListener("error", () => {
+  98  |             finish((v) => reject(v as Error), new Error(`ws error ${action}`));
+  99  |           });
+  100 |         });
+  101 |       }
+  102 | 
+  103 |       const projects = await wsRequest<Array<{ guid: string }>>("project_list", {});
+  104 |       const project = projects[0];
+  105 |       if (!project) throw new Error("no project for APP-043 e2e");
+  106 | 
+  107 |       let workspaces = await wsRequest<
+  108 |         Array<{ guid: string; is_archived?: boolean | null; display_name?: string | null }>
+  109 |       >("workspace_list", {
+  110 |         project_guid: project.guid,
+  111 |         include_issue_only: false,
+  112 |       });
+  113 | 
+  114 |       let first = workspaces.find((w) => !w.is_archived) ?? workspaces[0] ?? null;
+  115 |       if (!first) throw new Error("no workspace A");
+  116 | 
+  117 |       let second =
+  118 |         workspaces.find((w) => w.guid !== first!.guid && !w.is_archived) ?? null;
+  119 |       if (!second) {
+  120 |         const stamp = Date.now().toString(36);
+  121 |         const branch = `e2e/app043-warm-b-${stamp}`;
+  122 |         await wsRequest("workspace_create", {
+  123 |           project_guid: project.guid,
+  124 |           name: branch,
+  125 |           display_name: `APP-043 Warm B ${stamp}`,
+  126 |           branch,
+  127 |           base_branch: null,
+  128 |           sidebar_order: 1,
+  129 |           initial_requirement: null,
+  130 |           github_issue: null,
+  131 |           github_pr: null,
+  132 |           auto_extract_todos: false,
+  133 |           priority: "no_priority",
+  134 |           workflow_status: "in_progress",
+  135 |           label_guids: null,
+  136 |           attachments: [],
+  137 |         });
+  138 |         workspaces = await wsRequest("workspace_list", {
+  139 |           project_guid: project.guid,
+  140 |           include_issue_only: false,
+  141 |         });
+  142 |         second =
+  143 |           workspaces.find((w) => w.guid !== first!.guid && !w.is_archived) ?? null;
+  144 |       }
+  145 |       if (!second) throw new Error("no workspace B");
+  146 |       return { a: first.guid, b: second.guid };
+  147 |     }, apiPort);
+  148 | 
+  149 |     expect(pair.a).not.toBe(pair.b);
+  150 | 
+  151 |     const origin = new URL(page.url()).origin;
+  152 |     // Initial load of A may use full navigation (cold start).
+  153 |     await gotoContextRoute(
+  154 |       page,
+  155 |       withSearchParams(`${origin}/workspace?id=${pair.a}`, { tab: "terminal" }),
+  156 |       { locale: "en" },
+  157 |     );
+  158 | 
+  159 |     await expect
+  160 |       .poll(
+  161 |         async () =>
+  162 |           page.evaluate(() =>
+  163 |             document.querySelectorAll("[data-workspace-frame]").length > 0
+  164 |               ? "ok"
+  165 |               : "none",
+  166 |           ),
+  167 |         { timeout: 45_000 },
+  168 |       )
+  169 |       .toBe("ok");
+  170 | 
+  171 |     // Soft switch A → B (preserves Zustand warm cache)
+  172 |     await softOpenWorkspace(page, pair.b);
+  173 | 
+  174 |     await expect
+  175 |       .poll(
+  176 |         async () =>
+  177 |           page.evaluate(
+  178 |             ({ aId, bId }) => {
+  179 |               const read = (id: string) => {
+  180 |                 const el = document.querySelector(`[data-workspace-frame="${id}"]`);
+  181 |                 if (!el) return "missing";
+  182 |                 return `${el.hasAttribute("hidden")}:${el.getAttribute("data-tier") ?? "?"}`;
+  183 |               };
+  184 |               return `${read(aId)}|${read(bId)}`;
+  185 |             },
+  186 |             { aId: pair.a, bId: pair.b },
+  187 |           ),
+  188 |         { timeout: 45_000 },
+  189 |       )
+> 190 |       .toBe("true:warm|false:active");
+      |        ^ Error: expect(received).toBe(expected) // Object.is equality
+  191 | 
+  192 |     // Soft switch B → A
+  193 |     await softOpenWorkspace(page, pair.a);
+  194 | 
+  195 |     await expect
+  196 |       .poll(
+  197 |         async () =>
+  198 |           page.evaluate(
+  199 |             ({ aId, bId }) => {
+  200 |               const read = (id: string) => {
+  201 |                 const el = document.querySelector(`[data-workspace-frame="${id}"]`);
+  202 |                 if (!el) return "missing";
+  203 |                 return `${el.hasAttribute("hidden")}:${el.getAttribute("data-tier") ?? "?"}`;
+  204 |               };
+  205 |               return `${read(aId)}|${read(bId)}`;
+  206 |             },
+  207 |             { aId: pair.a, bId: pair.b },
+  208 |           ),
+  209 |         { timeout: 45_000 },
+  210 |       )
+  211 |       .toBe("false:active|true:warm");
+  212 |   });
+  213 | });
+  214 | 
+```

@@ -1,0 +1,755 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: smoke/project/project-context-route.e2e.ts >> smoke project >> @smoke @stateful boots project context route with stable params
+- Location: tests/smoke/project/project-context-route.e2e.ts:12:3
+
+# Error details
+
+```
+Error: Unexpected browser error output:
+- [response.404] http://localhost:30303/api/canvas/documents/Default.atmos.tldr
+```
+
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Collapse left sidebar" [ref=e7]:
+          - img [ref=e8]
+        - generic [ref=e11]:
+          - button "Go back" [ref=e12]:
+            - img [ref=e13]
+          - button "Go forward" [ref=e15]:
+            - img [ref=e16]
+          - button "Refresh page" [ref=e18]:
+            - img [ref=e19]
+        - generic:
+          - generic [ref=e22]: /
+          - generic [ref=e23]: Atmos E2E
+        - generic [ref=e25]:
+          - button "Open O" [ref=e26]:
+            - generic: Open
+            - generic:
+              - generic: O
+          - button [ref=e28]:
+            - img [ref=e29]
+      - generic [ref=e31]:
+        - generic [ref=e32]:
+          - status "Unable to compare the remote branch with origin/main" [ref=e33]:
+            - img [ref=e35]
+          - generic [ref=e39]: HEAD
+        - img [ref=e40]
+        - button "origin/ main" [ref=e43] [cursor=pointer]:
+          - generic [ref=e44]: origin/
+          - generic [ref=e45]: main
+          - img [ref=e46]
+      - generic [ref=e48]:
+        - button "Search" [ref=e49] [cursor=pointer]:
+          - img [ref=e50]
+          - generic [ref=e53]: Search...
+          - generic:
+            - img
+            - generic: K
+        - button "Open workspace summary" [ref=e54]:
+          - img [ref=e55]
+        - generic [ref=e57]:
+          - button "Usage" [ref=e58]:
+            - img [ref=e59]
+          - button "Open actions menu" [ref=e62]:
+            - generic [ref=e63]: ···
+          - button "Collapse right sidebar" [ref=e65]:
+            - img [ref=e66]
+    - generic [ref=e70]:
+      - complementary [ref=e73]:
+        - generic [ref=e74]:
+          - generic [ref=e75] [cursor=pointer]:
+            - generic [ref=e76]:
+              - img [ref=e77]
+              - generic [ref=e81]: Management Center
+            - img [ref=e83]
+          - generic [ref=e85]:
+            - generic [ref=e87] [cursor=pointer]:
+              - img [ref=e89]
+              - generic [ref=e92]: Workspaces
+            - generic [ref=e94] [cursor=pointer]:
+              - img [ref=e96]
+              - generic [ref=e99]: Skills
+            - generic [ref=e101] [cursor=pointer]:
+              - img [ref=e103]
+              - generic [ref=e106]: Disk Analyzer
+            - generic [ref=e108] [cursor=pointer]:
+              - img [ref=e110]
+              - generic [ref=e114]: Canvas
+            - generic [ref=e116] [cursor=pointer]:
+              - img [ref=e118]
+              - generic [ref=e121]: Kanban
+            - generic [ref=e123] [cursor=pointer]:
+              - img [ref=e125]
+              - generic [ref=e127]: New Workspace
+        - tabpanel "Projects" [ref=e130]:
+          - generic [ref=e133]:
+            - generic [ref=e135]:
+              - generic [ref=e136]:
+                - button "A Atmos E2E" [ref=e137] [cursor=pointer]:
+                  - generic [ref=e138]:
+                    - generic [ref=e140]: A
+                    - generic [ref=e141]: Atmos E2E
+                - generic [ref=e143]:
+                  - button [ref=e144]:
+                    - img [ref=e145]
+                  - button [ref=e147]:
+                    - img [ref=e148]
+              - button "weepinbell 12s" [ref=e157] [cursor=pointer]:
+                - generic [ref=e158]:
+                  - img [ref=e160]
+                  - generic [ref=e165]: weepinbell
+                  - generic:
+                    - generic: 12s
+                    - button "Archive":
+                      - img
+            - status [ref=e166]
+        - generic [ref=e168]:
+          - button "Add Project" [ref=e170]:
+            - img [ref=e172]
+          - generic [ref=e174]:
+            - button [ref=e175]:
+              - img [ref=e177]
+            - button "Open Kanban" [ref=e178]:
+              - img [ref=e180]
+      - separator [ref=e182]
+      - main [ref=e184]:
+        - generic [ref=e185]:
+          - tablist [ref=e186]:
+            - tab [selected] [ref=e187] [cursor=pointer]:
+              - img [ref=e188]
+            - generic [ref=e194]:
+              - button "New tab" [ref=e195]:
+                - img [ref=e196]
+              - button "Open tab groups" [ref=e197] [cursor=pointer]:
+                - img
+          - generic [ref=e201]:
+            - generic [ref=e202]:
+              - generic [ref=e203]:
+                - img [ref=e205]
+                - generic [ref=e210]:
+                  - generic [ref=e212]:
+                    - generic [ref=e213]:
+                      - img [ref=e214]
+                      - generic [ref=e218]: HEAD
+                    - button ".../work/atmos/atmos" [ref=e219]:
+                      - img [ref=e220]
+                      - generic [ref=e222]: .../work/atmos/atmos
+                  - heading "Atmos E2E" [level=1] [ref=e223]
+              - button "Refresh" [ref=e224] [cursor=pointer]:
+                - img
+                - generic [ref=e225]: Refresh
+            - generic [ref=e226]:
+              - generic [ref=e227]:
+                - generic [ref=e228]:
+                  - generic [ref=e229]:
+                    - img [ref=e230]
+                    - text: Tasks
+                  - generic [ref=e235]: 0/0
+                - generic [ref=e236]:
+                  - generic [ref=e237]:
+                    - textbox "What needs to be done? (Double-click task to edit)" [ref=e238]
+                    - button [disabled]:
+                      - img
+                  - generic [ref=e240]:
+                    - img [ref=e241]
+                    - generic [ref=e244]: No tasks added yet.
+                  - status [ref=e245]
+              - generic [ref=e246]:
+                - generic [ref=e248]:
+                  - img [ref=e249]
+                  - text: Details
+                - generic [ref=e251]:
+                  - generic [ref=e252]:
+                    - heading "Code reviews" [level=3] [ref=e253]
+                    - generic [ref=e255]:
+                      - img [ref=e256]
+                      - heading "No code reviews yet" [level=3] [ref=e260]
+                      - paragraph [ref=e261]: Reports will appear here after reviews.
+                  - heading "Pull requests" [level=3] [ref=e263]
+                  - generic [ref=e268]:
+                    - heading "Actions" [level=3] [ref=e270]
+                    - generic [ref=e272]:
+                      - img [ref=e273]
+                      - generic [ref=e275]: Loading workflows...
+            - generic [ref=e276]:
+              - generic [ref=e277]:
+                - generic [ref=e278]:
+                  - generic [ref=e279]:
+                    - img [ref=e280]
+                    - text: Requirement specification
+                  - button "Edit" [ref=e283] [cursor=pointer]
+                - generic [ref=e285]:
+                  - img [ref=e286]
+                  - heading "No requirement yet" [level=3] [ref=e289]
+                  - paragraph [ref=e290]: Add a requirement document for this workspace.
+                  - button "Add Requirement" [ref=e291] [cursor=pointer]:
+                    - img
+                    - text: Add Requirement
+              - generic [ref=e293]:
+                - generic [ref=e294]:
+                  - generic [ref=e295]:
+                    - img [ref=e296]
+                    - text: Note
+                  - button "Edit" [ref=e299] [cursor=pointer]
+                - generic [ref=e301]:
+                  - img [ref=e302]
+                  - heading "No note yet" [level=3] [ref=e305]
+                  - paragraph [ref=e306]: Add notes for this workspace.
+                  - button "Add Note" [ref=e307] [cursor=pointer]:
+                    - img
+                    - text: Add Note
+      - separator [ref=e308]
+      - complementary [ref=e311]:
+        - generic [ref=e313]:
+          - tablist [ref=e314]:
+            - tab "Changes" [selected] [ref=e315] [cursor=pointer]:
+              - img [ref=e316]
+            - tab "Review" [ref=e320] [cursor=pointer]:
+              - img [ref=e321]
+            - tab "Browser" [ref=e323] [cursor=pointer]:
+              - img [ref=e324]
+            - tab "Run" [ref=e327] [cursor=pointer]:
+              - img [ref=e328]
+            - tab "Files" [ref=e330] [cursor=pointer]:
+              - img [ref=e331]
+            - tab "Pull Requests" [ref=e336] [cursor=pointer]:
+              - img [ref=e337]
+            - tab "Actions" [ref=e341] [cursor=pointer]:
+              - img [ref=e342]
+          - generic [ref=e346]:
+            - tablist [ref=e349]:
+              - tab "Files Diff Refresh changes (refreshing) Select changes scope Show changed files as tree" [selected] [ref=e350] [cursor=pointer]:
+                - generic [ref=e351]:
+                  - img [ref=e352]
+                  - generic [ref=e355]: Files Diff
+                - generic [ref=e356]:
+                  - button "Refresh changes (refreshing)" [ref=e357]:
+                    - img [ref=e358]
+                    - generic [ref=e360]: Refresh
+                  - button "Select changes scope" [ref=e361]:
+                    - generic [ref=e362]: Branch
+                    - img [ref=e363]
+                  - button "Show changed files as tree" [ref=e365]:
+                    - img [ref=e366]
+              - tab "Commits Refresh commits" [ref=e369] [cursor=pointer]:
+                - generic [ref=e370]:
+                  - img [ref=e371]
+                  - generic [ref=e373]: Commits
+                - generic:
+                  - button "Refresh commits":
+                    - img
+                    - generic: Refresh
+            - generic [ref=e377]:
+              - generic [ref=e378] [cursor=pointer]:
+                - generic [ref=e379]:
+                  - 'img "File: action.yml" [ref=e380]'
+                  - generic [ref=e381]: action.yml
+                  - generic [ref=e382]: .github/actions/setup-bun/
+                - generic [ref=e384]:
+                  - generic [ref=e385]:
+                    - generic [ref=e386]: "+3"
+                    - generic [ref=e387]: "-1"
+                  - generic [ref=e388]: M
+              - generic [ref=e389] [cursor=pointer]:
+                - generic [ref=e390]:
+                  - 'img "File: en.json" [ref=e391]'
+                  - generic [ref=e392]: en.json
+                  - generic [ref=e393]: apps/web/messages/
+                - generic [ref=e395]:
+                  - generic [ref=e396]:
+                    - generic [ref=e397]: "+11"
+                    - generic [ref=e398]: "-6"
+                  - generic [ref=e399]: M
+              - generic [ref=e400] [cursor=pointer]:
+                - generic [ref=e401]:
+                  - 'img "File: zh.json" [ref=e402]'
+                  - generic [ref=e403]: zh.json
+                  - generic [ref=e404]: apps/web/messages/
+                - generic [ref=e406]:
+                  - generic [ref=e407]:
+                    - generic [ref=e408]: "+10"
+                    - generic [ref=e409]: "-5"
+                  - generic [ref=e410]: M
+              - generic [ref=e411] [cursor=pointer]:
+                - generic [ref=e412]:
+                  - 'img "File: api-operation-inventory.ts" [ref=e413]'
+                  - generic [ref=e414]: api-operation-inventory.ts
+                  - generic [ref=e415]: apps/web/src/api/query/
+                - generic [ref=e418]: M
+              - generic [ref=e419] [cursor=pointer]:
+                - generic [ref=e420]:
+                  - 'img "File: settings-api.ts" [ref=e421]'
+                  - generic [ref=e422]: settings-api.ts
+                  - generic [ref=e423]: apps/web/src/api/ws/
+                - generic [ref=e425]:
+                  - generic [ref=e426]:
+                    - generic [ref=e427]: "+8"
+                    - generic [ref=e428]: "-2"
+                  - generic [ref=e429]: M
+              - generic [ref=e430] [cursor=pointer]:
+                - generic [ref=e431]:
+                  - 'img "File: layout.tsx" [ref=e432]'
+                  - generic [ref=e433]: layout.tsx
+                  - generic [ref=e434]: apps/web/src/app/(app)/
+                - generic [ref=e436]:
+                  - generic [ref=e438]: "+2"
+                  - generic [ref=e439]: M
+              - generic [ref=e440] [cursor=pointer]:
+                - generic [ref=e441]:
+                  - 'img "File: workspace-surface-policies.test.ts" [ref=e442]'
+                  - generic [ref=e443]: workspace-surface-policies.test.ts
+                  - generic: apps/web/src/app-shell/__tests__/
+                - generic [ref=e446]: A
+              - generic [ref=e447] [cursor=pointer]:
+                - generic [ref=e448]:
+                  - 'img "File: workspace-surface-restore-prefetch.test.ts" [ref=e449]'
+                  - generic [ref=e450]: workspace-surface-restore-prefetch.test.ts
+                  - generic: apps/web/src/app-shell/__tests__/
+                - generic [ref=e453]: A
+              - generic [ref=e454] [cursor=pointer]:
+                - generic [ref=e455]:
+                  - 'img "File: workspace-surface-switch.test.ts" [ref=e456]'
+                  - generic [ref=e457]: workspace-surface-switch.test.ts
+                  - generic: apps/web/src/app-shell/__tests__/
+                - generic [ref=e460]: A
+              - generic [ref=e461] [cursor=pointer]:
+                - generic [ref=e462]:
+                  - 'img "File: clear-workspace-surface-cache.ts" [ref=e463]'
+                  - generic [ref=e464]: clear-workspace-surface-cache.ts
+                  - generic: apps/web/src/app-shell/bootstrap/
+                - generic [ref=e467]: A
+              - generic [ref=e468] [cursor=pointer]:
+                - generic [ref=e469]:
+                  - 'img "File: connection-target-lifecycle.ts" [ref=e470]'
+                  - generic [ref=e471]: connection-target-lifecycle.ts
+                  - generic: apps/web/src/app-shell/bootstrap/
+                - generic [ref=e474]: M
+              - generic [ref=e475] [cursor=pointer]:
+                - generic [ref=e476]:
+                  - 'img "File: center-stage-dialogs.tsx" [ref=e477]'
+                  - generic [ref=e478]: center-stage-dialogs.tsx
+                  - generic [ref=e479]: apps/web/src/app-shell/
+                - generic [ref=e482]: M
+              - generic [ref=e483] [cursor=pointer]:
+                - generic [ref=e484]:
+                  - 'img "File: center-stage-support.tsx" [ref=e485]'
+                  - generic [ref=e486]: center-stage-support.tsx
+                  - generic [ref=e487]: apps/web/src/app-shell/
+                - generic [ref=e490]: M
+              - generic [ref=e491] [cursor=pointer]:
+                - generic [ref=e492]:
+                  - 'img "File: CenterStage.tsx" [ref=e493]'
+                  - generic [ref=e494]: CenterStage.tsx
+                  - generic [ref=e495]: apps/web/src/app-shell/
+                - generic [ref=e497]:
+                  - generic [ref=e498]:
+                    - generic [ref=e499]: "+96"
+                    - generic [ref=e500]: "-14"
+                  - generic [ref=e501]: M
+              - generic [ref=e502] [cursor=pointer]:
+                - generic [ref=e503]:
+                  - 'img "File: CenterStagePanels.tsx" [ref=e504]'
+                  - generic [ref=e505]: CenterStagePanels.tsx
+                  - generic [ref=e506]: apps/web/src/app-shell/
+                - generic [ref=e509]: M
+              - generic [ref=e510] [cursor=pointer]:
+                - generic [ref=e511]:
+                  - 'img "File: E2eNavigateBridge.tsx" [ref=e512]'
+                  - generic [ref=e513]: E2eNavigateBridge.tsx
+                  - generic [ref=e514]: apps/web/src/app-shell/
+                - generic [ref=e517]: A
+              - generic [ref=e518] [cursor=pointer]:
+                - generic [ref=e519]:
+                  - 'img "File: RightSidebar.tsx" [ref=e520]'
+                  - generic [ref=e521]: RightSidebar.tsx
+                  - generic [ref=e522]: apps/web/src/app-shell/
+                - generic [ref=e524]:
+                  - generic [ref=e525]:
+                    - generic [ref=e526]: "+14"
+                    - generic [ref=e527]: "-6"
+                  - generic [ref=e528]: M
+              - generic [ref=e529] [cursor=pointer]:
+                - generic [ref=e530]:
+                  - 'img "File: WorkspaceItem.tsx" [ref=e531]'
+                  - generic [ref=e532]: WorkspaceItem.tsx
+                  - generic [ref=e533]: apps/web/src/app-shell/sidebar/
+                - generic [ref=e535]:
+                  - generic [ref=e537]: "+8"
+                  - generic [ref=e538]: M
+              - generic [ref=e539] [cursor=pointer]:
+                - generic [ref=e540]:
+                  - 'img "File: workspace-surface-policies.ts" [ref=e541]'
+                  - generic [ref=e542]: workspace-surface-policies.ts
+                  - generic: apps/web/src/app-shell/
+                - generic [ref=e545]: A
+              - generic [ref=e546] [cursor=pointer]:
+                - generic [ref=e547]:
+                  - 'img "File: workspace-surface-prefetch.ts" [ref=e548]'
+                  - generic [ref=e549]: workspace-surface-prefetch.ts
+                  - generic: apps/web/src/app-shell/
+                - generic [ref=e552]: A
+              - generic [ref=e553] [cursor=pointer]:
+                - generic [ref=e554]:
+                  - 'img "File: workspace-surface-restore.ts" [ref=e555]'
+                  - generic [ref=e556]: workspace-surface-restore.ts
+                  - generic: apps/web/src/app-shell/
+                - generic [ref=e559]: A
+              - generic [ref=e560] [cursor=pointer]:
+                - generic [ref=e561]:
+                  - 'img "File: workspace-surface-switch.ts" [ref=e562]'
+                  - generic [ref=e563]: workspace-surface-switch.ts
+                  - generic: apps/web/src/app-shell/
+                - generic [ref=e566]: A
+              - generic [ref=e567] [cursor=pointer]:
+                - generic [ref=e568]:
+                  - 'img "File: SettingsModal.tsx" [ref=e569]'
+                  - generic [ref=e570]: SettingsModal.tsx
+                  - generic [ref=e571]: apps/web/src/features/settings/components/
+                - generic [ref=e573]:
+                  - generic [ref=e574]:
+                    - generic [ref=e575]: "+17"
+                    - generic [ref=e576]: "-9"
+                  - generic [ref=e577]: M
+              - generic [ref=e578] [cursor=pointer]:
+                - generic [ref=e579]:
+                  - 'img "File: SettingsModalSections.tsx" [ref=e580]'
+                  - generic [ref=e581]: SettingsModalSections.tsx
+                  - generic [ref=e582]: apps/web/src/features/settings/components/
+                - generic [ref=e585]: M
+              - generic [ref=e586] [cursor=pointer]:
+                - generic [ref=e587]:
+                  - 'img "File: TerminalSettingsSection.tsx" [ref=e588]'
+                  - generic [ref=e589]: TerminalSettingsSection.tsx
+                  - generic: apps/web/src/features/settings/components/
+                - generic [ref=e592]: M
+              - generic [ref=e593] [cursor=pointer]:
+                - generic [ref=e594]:
+                  - 'img "File: Terminal.tsx" [ref=e595]'
+                  - generic [ref=e596]: Terminal.tsx
+                  - generic [ref=e597]: apps/web/src/features/terminal/components/
+                - generic [ref=e599]:
+                  - generic [ref=e600]:
+                    - generic [ref=e601]: "+24"
+                    - generic [ref=e602]: "-4"
+                  - generic [ref=e603]: M
+              - generic [ref=e604] [cursor=pointer]:
+                - generic [ref=e605]:
+                  - 'img "File: TerminalChrome.tsx" [ref=e606]'
+                  - generic [ref=e607]: TerminalChrome.tsx
+                  - generic [ref=e608]: apps/web/src/features/terminal/components/
+                - generic [ref=e610]:
+                  - generic [ref=e612]: "+2"
+                  - generic [ref=e613]: M
+              - generic [ref=e614] [cursor=pointer]:
+                - generic [ref=e615]:
+                  - 'img "File: TerminalGrid.tsx" [ref=e616]'
+                  - generic [ref=e617]: TerminalGrid.tsx
+                  - generic [ref=e618]: apps/web/src/features/terminal/components/
+                - generic [ref=e620]:
+                  - generic [ref=e621]:
+                    - generic [ref=e622]: "+24"
+                    - generic [ref=e623]: "-27"
+                  - generic [ref=e624]: M
+              - generic [ref=e625] [cursor=pointer]:
+                - generic [ref=e626]:
+                  - 'img "File: terminal-close-confirm-name.test.ts" [ref=e627]'
+                  - generic [ref=e628]: terminal-close-confirm-name.test.ts
+                  - generic: apps/web/src/features/terminal/lib/__tests__/
+                - generic [ref=e631]: A
+              - generic [ref=e632] [cursor=pointer]:
+                - generic [ref=e633]:
+                  - 'img "File: terminal-pane-busy.test.ts" [ref=e634]'
+                  - generic [ref=e635]: terminal-pane-busy.test.ts
+                  - generic [ref=e636]: apps/web/src/features/terminal/lib/__tests__/
+                - generic [ref=e639]: A
+              - generic [ref=e640] [cursor=pointer]:
+                - generic [ref=e641]:
+                  - 'img "File: terminal-session-live.test.ts" [ref=e642]'
+                  - generic [ref=e643]: terminal-session-live.test.ts
+                  - generic: apps/web/src/features/terminal/lib/__tests__/
+                - generic [ref=e646]: A
+              - generic [ref=e647] [cursor=pointer]:
+                - generic [ref=e648]:
+                  - 'img "File: terminal-close-confirm-name.ts" [ref=e649]'
+                  - generic [ref=e650]: terminal-close-confirm-name.ts
+                  - generic: apps/web/src/features/terminal/lib/
+                - generic [ref=e653]: A
+              - generic [ref=e654] [cursor=pointer]:
+                - generic [ref=e655]:
+                  - 'img "File: terminal-grid-utils.ts" [ref=e656]'
+                  - generic [ref=e657]: terminal-grid-utils.ts
+                  - generic [ref=e658]: apps/web/src/features/terminal/lib/
+                - generic [ref=e660]:
+                  - generic [ref=e662]: "+57"
+                  - generic [ref=e663]: M
+              - generic [ref=e664] [cursor=pointer]:
+                - generic [ref=e665]:
+                  - 'img "File: terminal-runtime-utils.ts" [ref=e666]'
+                  - generic [ref=e667]: terminal-runtime-utils.ts
+                  - generic [ref=e668]: apps/web/src/features/terminal/lib/
+                - generic [ref=e671]: M
+              - generic [ref=e672] [cursor=pointer]:
+                - generic [ref=e673]:
+                  - 'img "File: detach-workspace-frontend.test.ts" [ref=e674]'
+                  - generic [ref=e675]: detach-workspace-frontend.test.ts
+                  - generic: apps/web/src/features/terminal/store/__tests__/
+                - generic [ref=e678]: A
+              - generic [ref=e679] [cursor=pointer]:
+                - generic [ref=e680]:
+                  - 'img "File: terminal-store-helpers.ts" [ref=e681]'
+                  - generic [ref=e682]: terminal-store-helpers.ts
+                  - generic [ref=e683]: apps/web/src/features/terminal/store/
+                - generic [ref=e686]: M
+              - generic [ref=e687] [cursor=pointer]:
+                - generic [ref=e688]:
+                  - 'img "File: terminal-store-types.ts" [ref=e689]'
+                  - generic [ref=e690]: terminal-store-types.ts
+                  - generic [ref=e691]: apps/web/src/features/terminal/store/
+                - generic [ref=e693]:
+                  - generic [ref=e695]: "+3"
+                  - generic [ref=e696]: M
+              - generic [ref=e697] [cursor=pointer]:
+                - generic [ref=e698]:
+                  - 'img "File: use-terminal-cache-store.ts" [ref=e699]'
+                  - generic [ref=e700]: use-terminal-cache-store.ts
+                  - generic: apps/web/src/features/terminal/store/
+                - generic [ref=e703]: D
+              - generic [ref=e704] [cursor=pointer]:
+                - generic [ref=e705]:
+                  - 'img "File: use-terminal-store.ts" [ref=e706]'
+                  - generic [ref=e707]: use-terminal-store.ts
+                  - generic [ref=e708]: apps/web/src/features/terminal/store/
+                - generic [ref=e710]:
+                  - generic [ref=e712]: "+9"
+                  - generic [ref=e713]: M
+              - generic [ref=e714] [cursor=pointer]:
+                - generic [ref=e715]:
+                  - 'img "File: workspace-surface-cache-store.test.ts" [ref=e716]'
+                  - generic [ref=e717]: workspace-surface-cache-store.test.ts
+                  - generic: apps/web/src/features/workspace/store/__tests__/
+                - generic [ref=e720]: A
+              - generic [ref=e721] [cursor=pointer]:
+                - generic [ref=e722]:
+                  - 'img "File: use-workspace-surface-cache-store.ts" [ref=e723]'
+                  - generic [ref=e724]: use-workspace-surface-cache-store.ts
+                  - generic: apps/web/src/features/workspace/store/
+                - generic [ref=e727]: A
+              - generic [ref=e728] [cursor=pointer]:
+                - generic [ref=e729]:
+                  - 'img "File: use-app-router.ts" [ref=e730]'
+                  - generic [ref=e731]: use-app-router.ts
+                  - generic [ref=e732]: apps/web/src/shared/hooks/
+                - generic [ref=e734]:
+                  - generic [ref=e735]:
+                    - generic [ref=e736]: "+6"
+                    - generic [ref=e737]: "-2"
+                  - generic [ref=e738]: M
+              - generic [ref=e739] [cursor=pointer]:
+                - generic [ref=e740]:
+                  - 'img "File: bun.lock" [ref=e741]'
+                  - generic [ref=e742]: bun.lock
+                - generic [ref=e744]:
+                  - generic [ref=e745]:
+                    - generic [ref=e746]: "+297"
+                    - generic [ref=e747]: "-243"
+                  - generic [ref=e748]: M
+              - generic [ref=e749] [cursor=pointer]:
+                - generic [ref=e750]:
+                  - 'img "File: APP-043_workspace-surface-cache.e2e.ts" [ref=e751]'
+                  - generic [ref=e752]: APP-043_workspace-surface-cache.e2e.ts
+                  - generic: e2e/tests/specs/
+                - generic [ref=e755]: A
+              - generic [ref=e756] [cursor=pointer]:
+                - generic [ref=e757]:
+                  - 'img "File: PRD.md" [ref=e758]'
+                  - generic [ref=e759]: PRD.md
+                  - generic [ref=e760]: specs/APP/APP-001_atmos-core/
+                - generic [ref=e762]:
+                  - generic [ref=e764]: "-1"
+                  - generic [ref=e765]: M
+              - generic [ref=e766] [cursor=pointer]:
+                - generic [ref=e767]:
+                  - 'img "File: PRD.md" [ref=e768]'
+                  - generic [ref=e769]: PRD.md
+                  - generic [ref=e770]: specs/APP/APP-034_terminal_caching/
+                - generic [ref=e772]:
+                  - generic [ref=e774]: "+3"
+                  - generic [ref=e775]: M
+              - generic [ref=e776] [cursor=pointer]:
+                - generic [ref=e777]:
+                  - 'img "File: TECH.md" [ref=e778]'
+                  - generic [ref=e779]: TECH.md
+                  - generic [ref=e780]: specs/APP/APP-034_terminal_caching/
+                - generic [ref=e782]:
+                  - generic [ref=e784]: "+3"
+                  - generic [ref=e785]: M
+              - generic [ref=e786] [cursor=pointer]:
+                - generic [ref=e787]:
+                  - 'img "File: BRAINSTORM.md" [ref=e788]'
+                  - generic [ref=e789]: BRAINSTORM.md
+                  - generic [ref=e790]: specs/APP/APP-043_workspace-surface-cache/
+                - generic [ref=e792]:
+                  - generic [ref=e794]: "+81"
+                  - generic [ref=e795]: A
+              - generic [ref=e796] [cursor=pointer]:
+                - generic [ref=e797]:
+                  - 'img "File: PRD.md" [ref=e798]'
+                  - generic [ref=e799]: PRD.md
+                  - generic [ref=e800]: specs/APP/APP-043_workspace-surface-cache/
+                - generic [ref=e802]:
+                  - generic [ref=e804]: "+108"
+                  - generic [ref=e805]: A
+              - generic [ref=e806] [cursor=pointer]:
+                - generic [ref=e807]:
+                  - 'img "File: TECH.md" [ref=e808]'
+                  - generic [ref=e809]: TECH.md
+                  - generic [ref=e810]: specs/APP/APP-043_workspace-surface-cache/
+                - generic [ref=e812]:
+                  - generic [ref=e814]: "+517"
+                  - generic [ref=e815]: A
+              - generic [ref=e816] [cursor=pointer]:
+                - generic [ref=e817]:
+                  - 'img "File: TEST.md" [ref=e818]'
+                  - generic [ref=e819]: TEST.md
+                  - generic [ref=e820]: specs/APP/APP-043_workspace-surface-cache/
+                - generic [ref=e822]:
+                  - generic [ref=e824]: "+339"
+                  - generic [ref=e825]: A
+              - generic [ref=e826] [cursor=pointer]:
+                - generic [ref=e827]:
+                  - 'img "File: README.md" [ref=e828]'
+                  - generic [ref=e829]: README.md
+                  - generic [ref=e830]: specs/
+                - generic [ref=e832]:
+                  - generic [ref=e834]: "+1"
+                  - generic [ref=e835]: M
+            - generic [ref=e838]:
+              - generic [ref=e839]:
+                - textbox "Message (Cmd/Ctrl+Enter to commit)" [ref=e840]
+                - button [disabled] [ref=e841]:
+                  - img [ref=e842]
+              - generic [ref=e845]:
+                - button "Publish Branch" [ref=e846]:
+                  - generic [ref=e847]: Publish Branch
+                - button [ref=e848]:
+                  - img [ref=e849]
+    - contentinfo [ref=e851]:
+      - generic [ref=e852]:
+        - generic [ref=e855] [cursor=pointer]: NORMAL
+        - button "LOCAL 0" [ref=e857]:
+          - img [ref=e858]
+          - generic [ref=e861]: LOCAL 0
+      - button "Napping ~" [ref=e863] [cursor=pointer]:
+        - generic [ref=e864]:
+          - generic [ref=e865]:
+            - img [ref=e866]
+            - generic [ref=e869]: z
+            - generic [ref=e870]: z
+            - generic [ref=e871]: z
+          - generic [ref=e872]: Napping ~
+  - alert [ref=e873]
+  - generic:
+    - region "Notifications"
+  - generic:
+    - region "Notifications"
+  - generic:
+    - region "Notifications"
+```
+
+# Test source
+
+```ts
+  1  | import type { ConsoleMessage, Page, TestInfo } from "@playwright/test";
+  2  | 
+  3  | const allowedConsoleErrorPatterns = [
+  4  |   /favicon\.ico/i,
+  5  |   /\[response\.404\] .*\/api\/system\/client-session\b/i,
+  6  |   // Setup / remote onboarding probes the relay proxy before credentials exist.
+  7  |   /\[response\.400\] .*\/api\/system\/computer\/relay\b/i,
+  8  |   // registerAccessTokenOnRelay treats 409 as success (token already registered).
+  9  |   /\[response\.409\] .*\/v1\/tenants\b/i,
+  10 |   /Encountered a script tag while rendering React component/i,
+  11 |   /(Failed to load (local models|skills)|Error fetching projects): Error: WebSocket disconnected/i,
+  12 |   /\[console\.error\] Error: WebSocket not connected\b/i,
+  13 |   /\[WebSocket\] Error: Event/i,
+  14 |   // TanStack Query cancels in-flight settings bootstrap on computer/scope change.
+  15 |   /CancelledError\b/,
+  16 | ];
+  17 | 
+  18 | function formatConsoleMessage(message: ConsoleMessage): string {
+  19 |   return `[console.${message.type()}] ${message.text()}`;
+  20 | }
+  21 | 
+  22 | function isAllowedConsoleError(message: string): boolean {
+  23 |   return allowedConsoleErrorPatterns.some((pattern) => pattern.test(message));
+  24 | }
+  25 | 
+  26 | export async function attachBrowserErrorCollector(
+  27 |   page: Page,
+  28 |   testInfo: TestInfo,
+  29 | ): Promise<() => Promise<void>> {
+  30 |   const errors: string[] = [];
+  31 |   const failedResponseUrls = new Set<string>();
+  32 | 
+  33 |   page.on("pageerror", (error) => {
+  34 |     errors.push(`[pageerror] ${error.stack || error.message}`);
+  35 |   });
+  36 | 
+  37 |   page.on("console", (message) => {
+  38 |     if (message.type() === "error") {
+  39 |       errors.push(formatConsoleMessage(message));
+  40 |     }
+  41 |   });
+  42 | 
+  43 |   page.on("response", (response) => {
+  44 |     const status = response.status();
+  45 |     if (status < 400) return;
+  46 |     const url = response.url();
+  47 |     failedResponseUrls.add(url);
+  48 |     errors.push(`[response.${status}] ${url}`);
+  49 |   });
+  50 | 
+  51 |   return async () => {
+  52 |     const unexpected = errors.filter((message) => {
+  53 |       if (isAllowedConsoleError(message)) return false;
+  54 |       if (
+  55 |         failedResponseUrls.size > 0 &&
+  56 |         /\[console\.error\] Failed to load resource: the server responded with a status of \d+/.test(message)
+  57 |       ) {
+  58 |         return false;
+  59 |       }
+  60 |       return true;
+  61 |     });
+  62 |     if (unexpected.length === 0) {
+  63 |       return;
+  64 |     }
+  65 | 
+  66 |     await testInfo.attach("browser-errors", {
+  67 |       body: unexpected.join("\n\n"),
+  68 |       contentType: "text/plain",
+  69 |     });
+  70 | 
+> 71 |     throw new Error(
+     |           ^ Error: Unexpected browser error output:
+  72 |       `Unexpected browser error output:\n${unexpected
+  73 |         .map((message) => `- ${message}`)
+  74 |         .join("\n")}`,
+  75 |     );
+  76 |   };
+  77 | }
+  78 | 
+```

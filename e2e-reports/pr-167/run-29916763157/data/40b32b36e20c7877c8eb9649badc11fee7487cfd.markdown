@@ -1,0 +1,299 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: smoke/workspace/workspace-sidebar-routes.e2e.ts >> smoke workspace >> @smoke @stateful exercises workspace right sidebar tab routes and read-only subtabs
+- Location: tests/smoke/workspace/workspace-sidebar-routes.e2e.ts:14:3
+
+# Error details
+
+```
+Error: Unexpected browser error output:
+- [response.404] http://localhost:30303/api/canvas/documents/Default.atmos.tldr
+```
+
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - alert [ref=e2]: Atmos E2E – ATMOS
+  - generic:
+    - region "Notifications"
+  - generic:
+    - region "Notifications"
+  - generic:
+    - region "Notifications"
+  - generic [ref=e5]:
+    - banner [ref=e6]:
+      - generic [ref=e7]:
+        - button "收起左侧边栏" [ref=e8]:
+          - img [ref=e9]
+        - generic [ref=e12]:
+          - button "返回上一步" [ref=e13]:
+            - img [ref=e14]
+          - button "前进" [ref=e16]:
+            - img [ref=e17]
+          - button "刷新页面" [ref=e19]:
+            - img [ref=e20]
+        - generic:
+          - generic [ref=e23]: /
+          - generic [ref=e24]: Atmos E2E
+        - generic [ref=e26]:
+          - button "打开 O" [ref=e27]:
+            - generic: 打开
+            - generic:
+              - generic: O
+          - button [ref=e29]:
+            - img [ref=e30]
+      - generic [ref=e32]:
+        - generic [ref=e33]:
+          - status "无法将远程分支与 origin/main 进行比较" [ref=e34]:
+            - img [ref=e36]
+          - generic [ref=e40]: HEAD
+        - img [ref=e41]
+        - button "origin/ main" [ref=e44] [cursor=pointer]:
+          - generic [ref=e45]: origin/
+          - generic [ref=e46]: main
+          - img [ref=e47]
+      - generic [ref=e49]:
+        - button "搜索" [ref=e50] [cursor=pointer]:
+          - img [ref=e51]
+          - generic [ref=e54]: 搜索...
+          - generic:
+            - img
+            - generic: K
+        - button "打开工作区摘要" [ref=e55]:
+          - img [ref=e56]
+        - generic [ref=e58]:
+          - button "用量" [ref=e59]:
+            - img [ref=e60]
+          - button "打开操作菜单" [ref=e63]:
+            - generic [ref=e64]: ···
+          - button "收起右侧边栏" [ref=e66]:
+            - img [ref=e67]
+    - generic [ref=e71]:
+      - complementary [ref=e74]:
+        - generic [ref=e75]:
+          - generic [ref=e76] [cursor=pointer]:
+            - generic [ref=e77]:
+              - img [ref=e78]
+              - generic [ref=e82]: 管理中心
+            - img [ref=e84]
+          - generic [ref=e86]:
+            - generic [ref=e88] [cursor=pointer]:
+              - img [ref=e90]
+              - generic [ref=e93]: 工作区
+            - generic [ref=e95] [cursor=pointer]:
+              - img [ref=e97]
+              - generic [ref=e100]: 技能
+            - generic [ref=e102] [cursor=pointer]:
+              - img [ref=e104]
+              - generic [ref=e108]: 画布
+            - generic [ref=e110] [cursor=pointer]:
+              - img [ref=e112]
+              - generic [ref=e115]: 看板
+            - generic [ref=e117] [cursor=pointer]:
+              - img [ref=e119]
+              - generic [ref=e121]: 新建工作区
+        - tabpanel "项目" [ref=e124]:
+          - generic [ref=e127]:
+            - generic [ref=e129]:
+              - generic [ref=e130]:
+                - button "A Atmos E2E" [ref=e131] [cursor=pointer]:
+                  - generic [ref=e132]:
+                    - generic [ref=e134]: A
+                    - generic [ref=e135]: Atmos E2E
+                - generic [ref=e137]:
+                  - button [ref=e138]:
+                    - img [ref=e139]
+                  - button [ref=e141]:
+                    - img [ref=e142]
+              - button "omanyte 7秒" [ref=e151] [cursor=pointer]:
+                - generic [ref=e152]:
+                  - img [ref=e154]
+                  - generic [ref=e159]: omanyte
+                  - generic:
+                    - generic: 7秒
+                    - button "归档":
+                      - img
+            - status [ref=e160]
+        - generic [ref=e162]:
+          - button "添加项目" [ref=e164]:
+            - img [ref=e166]
+          - generic [ref=e168]:
+            - button [ref=e169]:
+              - img [ref=e171]
+            - button "打开看板" [ref=e172]:
+              - img [ref=e174]
+      - separator [ref=e176]
+      - main [ref=e178]:
+        - generic [ref=e179]:
+          - tablist [ref=e180]:
+            - tab [ref=e181] [cursor=pointer]:
+              - img [ref=e182]
+            - tab "终端 Term 关闭 Term" [selected] [ref=e188] [cursor=pointer]:
+              - generic [ref=e189]:
+                - img [ref=e190]
+                - button "终端":
+                  - img
+              - generic [ref=e193]: Term
+              - button "关闭 Term" [ref=e195]:
+                - img [ref=e196]
+            - generic [ref=e199]:
+              - button "新建标签页" [ref=e200]:
+                - img [ref=e201]
+              - button "打开标签组" [ref=e202] [cursor=pointer]:
+                - img
+          - generic [ref=e209]:
+            - generic [ref=e211]:
+              - generic [ref=e213]:
+                - img [ref=e214]
+                - generic [ref=e216]: atmos/atmos
+              - generic [ref=e217]:
+                - button "固定到 Canvas（⌘⇧P）" [ref=e218] [cursor=pointer]:
+                  - img [ref=e219]
+                - generic [ref=e222]:
+                  - generic [ref=e223]:
+                    - button "水平分屏（⌘D）" [ref=e224] [cursor=pointer]:
+                      - img [ref=e225]
+                    - button "垂直分屏（⌘⇧D）" [ref=e227] [cursor=pointer]:
+                      - img [ref=e228]
+                  - generic [ref=e230]:
+                    - button "最大化" [ref=e231] [cursor=pointer]:
+                      - img [ref=e232]
+                    - button "关闭（⌘W）" [ref=e237] [cursor=pointer]:
+                      - img [ref=e238]
+            - generic [ref=e242]:
+              - textbox "Terminal input" [active] [ref=e248]
+              - generic [ref=e251]:
+                - generic [ref=e253]:
+                  - generic [ref=e255]:
+                    - generic: "[⌘ + (⇧ 固定) + G] 输入任何内容到终端（@ 标注、/ 命令，或粘贴图片）"
+                  - button "Send to terminal" [disabled] [ref=e257]:
+                    - img [ref=e258]
+                - button "Open agent input" [ref=e261]
+            - heading "atmos/atmos" [level=4] [ref=e265]
+      - separator [ref=e266]
+      - complementary [ref=e269]:
+        - generic [ref=e271]:
+          - tablist [ref=e272]:
+            - tab "变更" [ref=e273] [cursor=pointer]:
+              - img [ref=e274]
+            - tab "评审" [ref=e278] [cursor=pointer]:
+              - img [ref=e279]
+            - tab "浏览器" [ref=e281] [cursor=pointer]:
+              - img [ref=e282]
+            - tab "运行" [ref=e285] [cursor=pointer]:
+              - img [ref=e286]
+            - tab "文件" [ref=e288] [cursor=pointer]:
+              - img [ref=e289]
+            - tab "拉取请求" [ref=e294] [cursor=pointer]:
+              - img [ref=e295]
+            - tab "操作" [selected] [ref=e299] [cursor=pointer]:
+              - img [ref=e300]
+          - generic [ref=e307]:
+            - img [ref=e308]
+            - generic [ref=e312]: 没有工作流运行记录。
+    - contentinfo [ref=e313]:
+      - generic [ref=e314]:
+        - generic [ref=e317] [cursor=pointer]: 正常
+        - button "本地 0" [ref=e319]:
+          - img [ref=e320]
+          - generic [ref=e323]: 本地 0
+      - button "休眠中 ~" [ref=e325] [cursor=pointer]:
+        - generic [ref=e326]:
+          - generic [ref=e327]:
+            - img [ref=e328]
+            - generic [ref=e331]: z
+            - generic [ref=e332]: z
+            - generic [ref=e333]: z
+          - generic [ref=e334]: 休眠中 ~
+```
+
+# Test source
+
+```ts
+  1  | import type { ConsoleMessage, Page, TestInfo } from "@playwright/test";
+  2  | 
+  3  | const allowedConsoleErrorPatterns = [
+  4  |   /favicon\.ico/i,
+  5  |   /\[response\.404\] .*\/api\/system\/client-session\b/i,
+  6  |   // Setup / remote onboarding probes the relay proxy before credentials exist.
+  7  |   /\[response\.400\] .*\/api\/system\/computer\/relay\b/i,
+  8  |   // registerAccessTokenOnRelay treats 409 as success (token already registered).
+  9  |   /\[response\.409\] .*\/v1\/tenants\b/i,
+  10 |   /Encountered a script tag while rendering React component/i,
+  11 |   /(Failed to load (local models|skills)|Error fetching projects): Error: WebSocket disconnected/i,
+  12 |   /\[console\.error\] Error: WebSocket not connected\b/i,
+  13 |   /\[WebSocket\] Error: Event/i,
+  14 |   // TanStack Query cancels in-flight settings bootstrap on computer/scope change.
+  15 |   /CancelledError\b/,
+  16 | ];
+  17 | 
+  18 | function formatConsoleMessage(message: ConsoleMessage): string {
+  19 |   return `[console.${message.type()}] ${message.text()}`;
+  20 | }
+  21 | 
+  22 | function isAllowedConsoleError(message: string): boolean {
+  23 |   return allowedConsoleErrorPatterns.some((pattern) => pattern.test(message));
+  24 | }
+  25 | 
+  26 | export async function attachBrowserErrorCollector(
+  27 |   page: Page,
+  28 |   testInfo: TestInfo,
+  29 | ): Promise<() => Promise<void>> {
+  30 |   const errors: string[] = [];
+  31 |   const failedResponseUrls = new Set<string>();
+  32 | 
+  33 |   page.on("pageerror", (error) => {
+  34 |     errors.push(`[pageerror] ${error.stack || error.message}`);
+  35 |   });
+  36 | 
+  37 |   page.on("console", (message) => {
+  38 |     if (message.type() === "error") {
+  39 |       errors.push(formatConsoleMessage(message));
+  40 |     }
+  41 |   });
+  42 | 
+  43 |   page.on("response", (response) => {
+  44 |     const status = response.status();
+  45 |     if (status < 400) return;
+  46 |     const url = response.url();
+  47 |     failedResponseUrls.add(url);
+  48 |     errors.push(`[response.${status}] ${url}`);
+  49 |   });
+  50 | 
+  51 |   return async () => {
+  52 |     const unexpected = errors.filter((message) => {
+  53 |       if (isAllowedConsoleError(message)) return false;
+  54 |       if (
+  55 |         failedResponseUrls.size > 0 &&
+  56 |         /\[console\.error\] Failed to load resource: the server responded with a status of \d+/.test(message)
+  57 |       ) {
+  58 |         return false;
+  59 |       }
+  60 |       return true;
+  61 |     });
+  62 |     if (unexpected.length === 0) {
+  63 |       return;
+  64 |     }
+  65 | 
+  66 |     await testInfo.attach("browser-errors", {
+  67 |       body: unexpected.join("\n\n"),
+  68 |       contentType: "text/plain",
+  69 |     });
+  70 | 
+> 71 |     throw new Error(
+     |           ^ Error: Unexpected browser error output:
+  72 |       `Unexpected browser error output:\n${unexpected
+  73 |         .map((message) => `- ${message}`)
+  74 |         .join("\n")}`,
+  75 |     );
+  76 |   };
+  77 | }
+  78 | 
+```
