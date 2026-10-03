@@ -103,7 +103,7 @@ export function HostSessionResultBody({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="flex min-w-0 items-center gap-1">
-                      <Folder className="size-3 shrink-0" />
+                      <Folder className="!size-3 shrink-0" />
                       <span className="block max-w-[220px] truncate">
                         {projectLabel || t("unknownProject")}
                       </span>
@@ -117,7 +117,7 @@ export function HostSessionResultBody({
                   <>
                     <span className="text-border">·</span>
                     <span className="flex shrink-0 items-center gap-1">
-                      <MessageSquare className="size-3 shrink-0" />
+                      <MessageSquare className="!size-3 shrink-0" />
                       <span className="whitespace-nowrap">
                         {t("messageCount", { count: session.message_count })}
                       </span>
@@ -147,7 +147,7 @@ export function HostSessionResultBody({
                 className="inline-flex text-muted-foreground"
                 data-testid="host-session-archived-icon"
               >
-                <Archive className="size-3.5" aria-hidden />
+                <Archive className="!size-3.5" aria-hidden />
               </span>
             </TooltipTrigger>
             <TooltipContent>{t("archived")}</TooltipContent>

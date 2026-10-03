@@ -215,6 +215,9 @@ describe("global search focus", () => {
     expect(panel).toContain("syncOnMount");
     expect(panel).toContain("refresh()");
     expect(panel).toContain("HostSessionResultBody");
+    const card = read("../../features/agent-sessions/components/HostSessionResultCard.tsx");
+    expect(card).toContain('<Folder className="!size-3 shrink-0" />');
+    expect(card).toContain('<MessageSquare className="!size-3 shrink-0" />');
     expect(panel).not.toContain("HostSessionFilterSortMenu");
     expect(panel).not.toContain('t("loadMore")');
     expect(panel).toContain("sessionListScrollParent");
