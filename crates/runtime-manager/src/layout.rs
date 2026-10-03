@@ -127,6 +127,13 @@ pub fn center_layout_data_dir() -> Result<PathBuf, String> {
     Ok(layout_data_dir()?.join("center"))
 }
 
+/// Agent Observer turn history: `~/.atmos/data/agent-observer/`.
+///
+/// Product data, never under `data/desktop/`.
+pub fn agent_observer_data_dir() -> Result<PathBuf, String> {
+    Ok(data_dir()?.join("agent-observer"))
+}
+
 /// Saved Prototype Design documents: `~/.atmos/data/pt-design/`.
 pub fn pt_design_data_dir() -> Result<PathBuf, String> {
     if let Ok(raw) = std::env::var("ATMOS_PT_DESIGN_DIR") {
@@ -224,6 +231,10 @@ mod tests {
         assert!(quota_usage_data_dir()
             .unwrap()
             .starts_with(home.join("data")));
+        assert_eq!(
+            agent_observer_data_dir().unwrap(),
+            home.join("data").join("agent-observer")
+        );
         assert!(center_layout_data_dir()
             .unwrap()
             .starts_with(home.join("data").join("layout").join("center")));

@@ -5,6 +5,7 @@
 //! notify intents (permission / task-complete) consumed by NotificationService.
 
 mod activity;
+mod activity_store;
 mod attention;
 mod attention_summary;
 mod attention_summary_generate;
@@ -25,6 +26,7 @@ use tracing::{debug, info, warn};
 
 use super::notification::NotificationService;
 
+pub(crate) use activity::CHILD_STOP_TITLE;
 pub use activity::{
     AgentActivity, AgentChildActivity, AgentLiveKind, AgentPendingPermission, AgentTodoItem,
     AgentToolLine, AgentTurn,
@@ -399,6 +401,8 @@ pub struct AgentStatusService {
     hook_permission_stash: Mutex<HashMap<String, StashedHookPermission>>,
     /// In-flight hook replies. The HTTP handler holds the receiver.
     hook_permission_tx: Mutex<HashMap<String, ArmedHookPermission>>,
+    /// Disk snapshot of Observer turns. Off until the API enables it.
+    persist: std::sync::Arc<activity_store::PersistState>,
 }
 
 struct StashedHookPermission {
@@ -574,6 +578,68 @@ impl AgentStatusService {
             inbox_buckets: RwLock::new(HashMap::new()),
             hook_permission_stash: Mutex::new(HashMap::new()),
             hook_permission_tx: Mutex::new(HashMap::new()),
+            persist: std::sync::Arc::new(activity_store::PersistState::new()),
+        }
+    }
+
+    /// Load `~/.atmos/data/agent-observer/activity.json` and keep writing it.
+    /// Tests leave this off so they do not touch the real home directory.
+    pub fn enable_activity_persistence(self: &std::sync::Arc<Self>) {
+        let Some(path) = activity_store::observer_activity_file() else {
+            warn!("agent observer persistence skipped; no data directory");
+            return;
+        };
+        self.enable_activity_persistence_at(path, false);
+    }
+
+    pub(crate) fn enable_activity_persistence_at(
+        self: &std::sync::Arc<Self>,
+        path: std::path::PathBuf,
+        sync: bool,
+    ) {
+        if self
+            .persist
+            .enabled
+            .swap(true, std::sync::atomic::Ordering::SeqCst)
+        {
+            return;
+        }
+        self.persist
+            .sync
+            .store(sync, std::sync::atomic::Ordering::Relaxed);
+        *self.persist.path.lock() = Some(path.clone());
+        match activity_store::load_activity_file(&path) {
+            Ok(records) => {
+                let count = {
+                    let mut map = self.activity.write();
+                    if map.is_empty() {
+                        for mut record in records {
+                            activity_store::settle_restored(&mut record);
+                            map.insert(record.session_id.clone(), record);
+                        }
+                        map.len()
+                    } else {
+                        0
+                    }
+                };
+                if count > 0 {
+                    info!(count, "restored agent observer activity");
+                    activity_store::write_activity_snapshot(
+                        &self.persist,
+                        &self.activity_snapshot(),
+                    );
+                }
+            }
+            Err(error) => {
+                warn!(
+                    error = %error,
+                    path = %path.display(),
+                    "agent observer activity file ignored"
+                );
+            }
+        }
+        if !sync {
+            activity_store::spawn_writer(std::sync::Arc::clone(&self.persist));
         }
     }
 
@@ -613,6 +679,7 @@ impl AgentStatusService {
         let _ = self
             .event_tx
             .send(AgentStatusEvent::ActivityUpdated(Box::new(snapshot)));
+        self.queue_activity_save();
     }
 
     pub(crate) fn open_permission_wait(&self, request_id: &str) -> Option<HookPermissionWait> {
@@ -693,6 +760,7 @@ impl AgentStatusService {
         let _ = self
             .event_tx
             .send(AgentStatusEvent::ActivityUpdated(Box::new(snapshot)));
+        self.queue_activity_save();
     }
 
     pub fn set_notification_service(&self, service: Arc<NotificationService>) {

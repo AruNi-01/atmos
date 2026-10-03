@@ -1,11 +1,12 @@
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
-use agent::{AgentPrompt, AgentRuntimeControl, UserMessageKind};
+use agent::{AgentEvent, AgentPrompt, AgentRuntimeControl, UserMessageKind};
 use chrono::Utc;
 use tokio::sync::{broadcast, Mutex};
 
 use crate::error::{Result, ServiceError};
+use crate::service::agent_status::{self, AgentStatusService};
 
 use super::apply_event::{apply_pending_session_config, emit_live, RuntimeState};
 use super::store::AgentChatStore;
@@ -23,6 +24,7 @@ pub(super) async fn maybe_dispatch_queue(
     control: &AgentRuntimeControl,
     recent_events: &std::sync::Mutex<HashMap<String, VecDeque<AgentChatEvent>>>,
     turn_gates: &Mutex<HashMap<String, Arc<Mutex<()>>>>,
+    status: Option<&AgentStatusService>,
 ) -> Result<()> {
     let gate = {
         let mut gates = turn_gates.lock().await;
@@ -99,6 +101,28 @@ pub(super) async fn maybe_dispatch_queue(
         events,
         recent_events,
     )?;
+    if let Some(status) = status {
+        if let Ok(meta) = store.get_meta(chat_id) {
+            agent_status::apply_host_event(
+                status,
+                &meta,
+                &AgentEvent::TurnStarted {
+                    turn_id: turn_id.clone(),
+                },
+            );
+            agent_status::apply_host_event(
+                status,
+                &meta,
+                &AgentEvent::UserMessage {
+                    turn_id: turn_id.clone(),
+                    message_id: message_id.clone(),
+                    kind: UserMessageKind::Normal,
+                    text: item.prompt.clone(),
+                    attachments: item.attachments.clone(),
+                },
+            );
+        }
+    }
     apply_pending_session_config(chat_id, &turn_id, store, control, events, recent_events).await?;
     if let Err(error) = control
         .send(AgentPrompt {

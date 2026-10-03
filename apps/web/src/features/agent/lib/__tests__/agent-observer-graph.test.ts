@@ -17,8 +17,10 @@ import {
   observerCardCanFold,
   observerCardCanRemove,
   observerLayoutShiftToAnchor,
+  observerLeadPrompt,
   observerLiveHeadline,
   preserveMeasuredNodes,
+  observerNodeHeight,
   observerNodeTitle,
   sessionFromActivity,
   toolLineText,
@@ -310,6 +312,22 @@ describe("buildObserverGraph", () => {
     );
   });
 
+  it("keeps the Atmos card when the computer is folded", () => {
+    const graph = buildObserverGraph({
+      projects,
+      sessions: [session({ session_id: "a", context_id: "w1" })],
+      activity: [],
+      collapsedIds: new Set(["atmos"]),
+      expandedAgentIds: new Set(),
+    });
+    expect(graph.nodes.map((node) => node.id)).toEqual(["atmos"]);
+    expect(graph.knownIds).toEqual(
+      expect.arrayContaining(["atmos", "project:p1", "workspace:w1", "agent:a"]),
+    );
+    expect(graph.nodes[0]?.descendantCount).toBe(3);
+    expect(graph.edges).toEqual([]);
+  });
+
   it("omits agents when a workspace is collapsed", () => {
     const graph = buildObserverGraph({
       projects,
@@ -370,6 +388,124 @@ describe("buildObserverGraph", () => {
     expect(folded.knownIds).toContain("child:lead:c1");
     expect(folded.nodes.find((n) => n.id === "agent:lead")?.descendantCount).toBe(1);
     expect(folded.edges.some((e) => e.target === "child:lead:c1")).toBe(false);
+  });
+
+  it("keeps same-type children distinct, nests a child under its parent, and keeps the lead running", () => {
+    const record = activity({
+      session_id: "lead",
+      context_id: "w1",
+      last_state: "idle",
+      children: [
+        {
+          child_id: "sa-a",
+          name: "Explore · scan specs",
+          agent_type: "Explore",
+          description: "scan specs",
+          state: "running",
+          recent_tools: [],
+          started_at: "t",
+          last_event_at: "t",
+        },
+        {
+          child_id: "sa-b",
+          name: "Explore · scan rust",
+          agent_type: "Explore",
+          description: "scan rust",
+          state: "running",
+          recent_tools: [],
+          started_at: "t",
+          last_event_at: "t",
+        },
+        {
+          child_id: "kid",
+          name: "Explore · nested",
+          agent_type: "Explore",
+          description: "nested",
+          parent_child_id: "sa-a",
+          state: "running",
+          recent_tools: [],
+          started_at: "t",
+          last_event_at: "t",
+        },
+      ],
+    });
+    const graph = buildObserverGraph({
+      projects,
+      sessions: [session({ session_id: "lead", context_id: "w1", state: "idle" })],
+      activity: [record],
+      collapsedIds: new Set(),
+      expandedAgentIds: new Set(),
+    });
+    expect(
+      graph.nodes.filter((node) => node.kind === "subagent").map((node) => node.child?.child_id).sort(),
+    ).toEqual(["kid", "sa-a", "sa-b"]);
+    const specs = graph.nodes.find((node) => node.id === "child:lead:sa-a");
+    const rust = graph.nodes.find((node) => node.id === "child:lead:sa-b");
+    const kid = graph.nodes.find((node) => node.id === "child:lead:kid");
+    expect(specs?.agentType).toBe("Explore");
+    expect(specs?.description).toBe("scan specs");
+    expect(rust?.agentType).toBe("Explore");
+    expect(rust?.description).toBe("scan rust");
+    expect(specs?.parentId).toBe("agent:lead");
+    expect(rust?.parentId).toBe("agent:lead");
+    expect(kid?.parentId).toBe("child:lead:sa-a");
+    expect(kid?.description).toBe("nested");
+    expect(specs?.activity?.session_id).toBe("lead");
+    const lead = graph.nodes.find((node) => node.id === "agent:lead");
+    expect(lead?.occupancy).toBe("running");
+    expect(lead?.liveKind).toBe("working");
+    expect(lead?.childCount).toBe(2);
+    expect(lead?.descendantCount).toBe(3);
+
+    const folded = buildObserverGraph({
+      projects,
+      sessions: [session({ session_id: "lead", context_id: "w1", state: "idle" })],
+      activity: [record],
+      collapsedIds: new Set(["child:lead:sa-a"]),
+      expandedAgentIds: new Set(),
+    });
+    expect(folded.nodes.some((node) => node.id === "child:lead:kid")).toBe(false);
+    expect(folded.knownIds).toContain("child:lead:kid");
+
+    const waiting = buildObserverGraph({
+      projects,
+      sessions: [session({ session_id: "lead", context_id: "w1", state: "permission_request" })],
+      activity: [record],
+      collapsedIds: new Set(),
+      expandedAgentIds: new Set(),
+    });
+    expect(waiting.nodes.find((node) => node.id === "agent:lead")?.occupancy).toBe(
+      "permission_request",
+    );
+  });
+
+  it("shows a description on its own when the subagent has no type", () => {
+    const graph = buildObserverGraph({
+      projects,
+      sessions: [session({ session_id: "lead", context_id: "w1" })],
+      activity: [
+        activity({
+          session_id: "lead",
+          context_id: "w1",
+          children: [
+            {
+              child_id: "sa-a",
+              name: "scan specs",
+              description: "scan specs",
+              state: "running",
+              recent_tools: [],
+              started_at: "t",
+              last_event_at: "t",
+            },
+          ],
+        }),
+      ],
+      collapsedIds: new Set(),
+      expandedAgentIds: new Set(),
+    });
+    const card = graph.nodes.find((node) => node.id === "child:lead:sa-a");
+    expect(card?.description).toBe("scan specs");
+    expect(card?.agentType).toBeUndefined();
   });
 
   it("keeps a measured node box when the flow replaces the node object", () => {
@@ -465,6 +601,48 @@ describe("buildObserverGraph", () => {
     expect(observerNodeTitle(agent, "启动多个 subagent")).toBe("启动多个 subagent");
     expect(observerNodeTitle(agent, "  ")).toBe(agent.label);
     expect(observerNodeTitle(child)).toBe("Explore · scan the tree");
+  });
+
+  it("titles a subagent from type and description when the stored name is a tool", () => {
+    const graph = buildObserverGraph({
+      projects,
+      sessions: [session({ session_id: "lead", context_id: "w1" })],
+      activity: [
+        activity({
+          session_id: "lead",
+          context_id: "w1",
+          children: [
+            {
+              child_id: "sa-read",
+              name: "Read /Users/aarynlu/OpenSource/atmos/agents/references/runtime/atmos-home-layout.md",
+              agent_type: "tldraw-offline",
+              description: "Explore Atmos monorepo",
+              state: "idle",
+              prompt: "You are exploring the Atmos monorepo",
+              recent_tools: [
+                {
+                  name: "Read",
+                  detail: "agents/references/runtime/atmos-home-layout.md",
+                  state: "ok",
+                  started_at: "t",
+                  repeat: 1,
+                },
+              ],
+              started_at: "t",
+              last_event_at: "t",
+            },
+          ],
+        }),
+      ],
+      collapsedIds: new Set(),
+      expandedAgentIds: new Set(),
+    });
+    const card = graph.nodes.find((node) => node.id === "child:lead:sa-read");
+    expect(card).toBeDefined();
+    if (!card) return;
+    expect(observerNodeTitle(card)).toBe("tldraw-offline · Explore Atmos monorepo");
+    expect(card.currentToolLine).toBe("Read agents/references/runtime/atmos-home-layout.md");
+    expect(observerNodeHeight(card)).toBe(128);
   });
 });
 
@@ -570,6 +748,8 @@ describe("Observer pane jump", () => {
     expect(source).not.toContain("dragHandle");
     expect(source).not.toContain("positionOverrides");
     expect(source).not.toContain("onNodeDragStop");
+    expect(source).toContain("graph.knownIds.length <= 1");
+    expect(source).not.toContain("graph.nodes.length <= 1");
     expect(source).toContain("ProjectEmpty");
     expect(source).toContain('variant="Minimal"');
     expect(source).toContain("IconActivity");
@@ -632,6 +812,9 @@ describe("Observer pane jump", () => {
     expect(source).toContain("Position.Left");
     expect(source).toContain("Position.Right");
     expect(source).toContain("ChevronRight");
+    expect(source).not.toContain("data-observer-agent-type");
+    expect(source).not.toContain("data-observer-description");
+    expect(source).toContain("subagentEvent");
     expect(source).toContain("observer-edge-spawn");
     expect(source).not.toContain("EdgeLabelRenderer");
     const header = source.slice(
@@ -663,7 +846,7 @@ describe("Observer pane jump", () => {
 });
 
 describe("dedupeNamedChildren", () => {
-  it("drops the idle twin that shares a descriptive label", () => {
+  it("keeps every child id when labels match", () => {
     const child = (
       id: string,
       name: string,
@@ -683,10 +866,15 @@ describe("dedupeNamedChildren", () => {
       child("sa-rust", "Explore Rust backend"),
       child("tc-rust", "Explore Rust backend"),
     ]);
-    expect(next.map((item) => item.child_id).sort()).toEqual(["sa-rust", "sa-specs"]);
+    expect(next.map((item) => item.child_id).sort()).toEqual([
+      "sa-rust",
+      "sa-specs",
+      "tc-rust",
+      "tc-specs",
+    ]);
   });
 
-  it("drops the generating twin when both sides already have the task prompt", () => {
+  it("keeps both ids when both sides already have the task prompt", () => {
     const child = (
       id: string,
       name: string,
@@ -707,7 +895,29 @@ describe("dedupeNamedChildren", () => {
       child("tc-rust", "Explore Rust backend", prompt),
       child("sa-rust", "Explore Rust backend", prompt),
     ]);
-    expect(next.map((item) => item.child_id).sort()).toEqual(["sa-rust", "sa-specs"]);
+    expect(next.map((item) => item.child_id).sort()).toEqual([
+      "sa-rust",
+      "sa-specs",
+      "tc-rust",
+      "tc-specs",
+    ]);
+  });
+});
+
+describe("observerLeadPrompt", () => {
+  it("uses the chat title when the turn never stored the prompt", () => {
+    expect(observerLeadPrompt(undefined, "Launch Subagent to Explore", "Grok Build")).toBe(
+      "Launch Subagent to Explore",
+    );
+    expect(observerLeadPrompt("  ", "fix the card", "Grok Build")).toBe("fix the card");
+  });
+
+  it("keeps a stored prompt and rejects the agent name", () => {
+    expect(observerLeadPrompt("fix the card body", "Launch Subagent", "Grok Build")).toBe(
+      "fix the card body",
+    );
+    expect(observerLeadPrompt(undefined, "Grok Build", "Grok Build")).toBeUndefined();
+    expect(observerLeadPrompt(undefined, "  ", "Grok Build")).toBeUndefined();
   });
 });
 
@@ -769,6 +979,7 @@ describe("observer card menu", () => {
     expect(observerCardCanFold({ kind: "agent", descendantCount: 1 })).toBe(true);
     expect(observerCardCanFold({ kind: "agent", descendantCount: 0 })).toBe(false);
     expect(observerCardCanFold({ kind: "subagent", descendantCount: 0 })).toBe(false);
+    expect(observerCardCanFold({ kind: "subagent", descendantCount: 1 })).toBe(true);
 
     expect(observerCardCanRemove({ kind: "agent", occupancy: "idle", liveKind: "idle" })).toBe(true);
     expect(observerCardCanRemove({ kind: "agent", occupancy: "idle" })).toBe(true);
@@ -786,6 +997,22 @@ describe("observer card menu", () => {
     expect(isLeakedTrackpadClick({ button: 0 }, 800, 1_000)).toBe(true);
     expect(isLeakedTrackpadClick({ button: 0 }, 800, 1_600)).toBe(false);
     expect(isLeakedTrackpadClick({ button: 0 }, 0, 1_000)).toBe(false);
+  });
+
+  it("uses the footer agent status icon and copy on a card", () => {
+    const card = readFileSync(
+      join(import.meta.dir, "../../components/observer/observer-flow.tsx"),
+      "utf8",
+    );
+    const drawer = readFileSync(
+      join(import.meta.dir, "../../components/observer/ObserverDrawer.tsx"),
+      "utf8",
+    );
+    expect(card).toContain("FooterAgentStatusMark");
+    expect(card).toContain("footerBucketForAgentState");
+    expect(card).not.toContain("stateIdle");
+    expect(card).not.toContain("statePermission");
+    expect(drawer).toContain("FooterAgentStatusMark");
   });
 
   it("opens the card menu from the observer canvas", () => {

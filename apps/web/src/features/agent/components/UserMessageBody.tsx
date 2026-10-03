@@ -18,6 +18,11 @@ import {
 } from "@/shared/lib/composer-paste";
 import { displayTextWithUrlTokens } from "@/shared/lib/link-preview";
 import { UrlAwareText } from "@/shared/components/url-aware-text";
+import {
+  useFindSearchQuery,
+  useRequestFindRelayout,
+} from "@/features/editor/components/find-highlight";
+import { markdownFindMatches } from "@/features/editor/lib/markdown-find";
 
 export function UserMessageBody({
   text,
@@ -37,6 +42,18 @@ export function UserMessageBody({
   const rootRef = useRef<HTMLDivElement>(null);
   const clipRef = useRef<HTMLDivElement>(null);
   const canToggle = hasPasteChip || needsLineCollapse || overflowsVisually || forceCollapsible;
+  const findQuery = useFindSearchQuery();
+  const findMatch = markdownFindMatches(userMessageFindText(text), findQuery);
+  const requestFindRelayout = useRequestFindRelayout();
+  const collapsed = canToggle && !expanded && !findMatch;
+  const collapsedRef = useRef(collapsed);
+
+  useLayoutEffect(() => {
+    const wasCollapsed = collapsedRef.current;
+    collapsedRef.current = collapsed;
+    // Clipped user text keeps its layout box, so find rects land on the next row until it opens.
+    if (wasCollapsed !== collapsed) requestFindRelayout();
+  }, [collapsed, requestFindRelayout]);
 
   useEffect(() => {
     if (!expanded || !canToggle) return;
@@ -48,9 +65,8 @@ export function UserMessageBody({
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [canToggle, expanded]);
 
-  const collapsed = canToggle && !expanded;
   const showChips = hasPasteChip && collapsed;
-  const clipText = (needsLineCollapse || overflowsVisually) && !showChips && !expanded;
+  const clipText = (needsLineCollapse || overflowsVisually) && !showChips && collapsed;
   const withUrlTokens = displayTextWithUrlTokens(text);
 
   useLayoutEffect(() => {
@@ -83,7 +99,7 @@ export function UserMessageBody({
         leading ? "flex min-w-0 flex-col gap-2" : "",
       ].filter(Boolean).join(" ") || undefined}
       role={collapsed && !leading ? "button" : undefined}
-      aria-expanded={canToggle ? expanded : undefined}
+      aria-expanded={canToggle ? !collapsed : undefined}
       tabIndex={collapsed ? 0 : undefined}
       onClick={() => {
         if (!collapsed) return;
@@ -124,6 +140,17 @@ export function UserMessageBody({
       ) : null}
     </div>
   );
+}
+
+function userMessageFindText(text: string): string {
+  const display = displayTextForSentMessage(text);
+  const segments = splitComposerDisplaySegments(display);
+  if (segments.some((segment) => segment.type === "paste")) {
+    return segments
+      .map((segment) => (segment.type === "paste" ? segment.text : segment.value))
+      .join("");
+  }
+  return displayTextWithUrlTokens(text);
 }
 
 function userMessageCollapseMaskStyle(): React.CSSProperties {

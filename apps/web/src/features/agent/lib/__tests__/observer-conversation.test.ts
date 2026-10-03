@@ -6,6 +6,7 @@ import type { AgentActivity, AgentChildActivity } from "@atmos/api-types/ws/dto/
 import {
   activityToSteps,
   childToSteps,
+  isLeakedChildTurn,
   isObserverChromeToolName,
 } from "../observer-conversation";
 
@@ -99,6 +100,55 @@ describe("observer conversation", () => {
     expect(steps[0]?.label).toBe("启动多个 subagent 探索一下这个项目");
     expect(steps[1]?.label).toBe("read_file");
     expect(steps[1]?.detail).toBe("lib.rs");
+  });
+
+  it("keeps a long user prompt whose only tool is spawn", () => {
+    const prompt = "Launch Subagent to Explore Project Codebase and report the layout";
+    const child: AgentChildActivity = {
+      child_id: "c1",
+      name: "general-purpose",
+      state: "idle",
+      recent_tools: [],
+      prompt: "You are exploring the Atmos monorepo at /tmp for architecture notes.",
+      started_at: "t",
+      last_event_at: "t",
+    };
+    const turn = {
+      turn_id: 1,
+      prompt,
+      started_at: "t",
+      tools: [
+        {
+          name: "spawn_subagent",
+          detail: "",
+          state: "ok",
+          started_at: "t",
+          repeat: 1,
+        },
+      ],
+      todos: [],
+      spawned_child_ids: ["c1"],
+    };
+    expect(prompt.length).toBeGreaterThanOrEqual(40);
+    expect(isLeakedChildTurn(turn, [child])).toBe(false);
+    const steps = activityToSteps(
+      activity({
+        session_id: "s1",
+        children: [child],
+        turns: [
+          turn,
+          {
+            turn_id: 2,
+            prompt: child.prompt ?? "",
+            started_at: "t",
+            tools: [],
+            todos: [],
+            spawned_child_ids: [],
+          },
+        ],
+      }),
+    );
+    expect(steps.map((step) => step.label)).toEqual([prompt]);
   });
 
   it("lists a subagent prompt plus its tools", () => {

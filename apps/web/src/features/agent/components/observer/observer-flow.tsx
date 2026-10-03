@@ -27,6 +27,8 @@ import { observerStaggerMs } from "@/features/agent/lib/observer-graph-motion";
 import { observerWirePath } from "@/features/agent/lib/observer-wire-motion";
 import "./observer-flow.css";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { FooterAgentStatusMark } from "@/features/agent/components/FooterAgentStatusIcon";
+import { footerBucketForAgentState } from "@/features/agent/lib/footer-agent-overview";
 import { AgentPermissionCard } from "@/features/agent/components/AgentPermissionCard";
 import type { PendingPermission } from "@/features/agent/lib/chat-helpers";
 import { agentChatApi } from "@/api/ws/agent-chat-api";
@@ -39,6 +41,7 @@ import {
 import type { AttentionReason } from "@/features/agent/store/agent-attention-store";
 import {
   observerCardCanFold,
+  observerLeadPrompt,
   observerLiveHeadline,
   observerNodeTitle,
   type ObserverGraphNode,
@@ -73,14 +76,15 @@ function occupancyOf(node: ObserverGraphNode): string | undefined {
   return node.occupancy ?? node.session?.state ?? node.activity?.last_state;
 }
 
-function occupancyLabel(
-  t: (key: "stateIdle" | "stateRunning" | "statePermission") => string,
-  state?: string,
-): string {
-  if (state === "permission_request") return t("statePermission");
-  if (state === "running") return t("stateRunning");
-  if (state === "idle") return t("stateIdle");
-  return state ?? "";
+function agentStatusBucket(
+  node: ObserverGraphNode,
+  attentionReason?: AttentionReason | null,
+) {
+  if (node.kind !== "agent" && node.kind !== "subagent") return null;
+  return footerBucketForAgentState({
+    agentState: occupancyOf(node),
+    attentionReason,
+  });
 }
 
 function agentTitle(node: ObserverGraphNode): string {
@@ -220,11 +224,15 @@ function ObserverNodeCard({
           : data.kind === "agent" && resolvedTitle === data.label
             ? name
             : resolvedTitle;
+  const leadPrompt =
+    data.kind === "agent"
+      ? observerLeadPrompt(data.latestPrompt, sessionTitle, name)
+      : data.latestPrompt;
   const wellTitle = observerLiveHeadline({
     occupancy: state,
     liveKind: data.liveKind,
     currentToolLine: data.currentToolLine,
-    latestPrompt: data.latestPrompt,
+    latestPrompt: leadPrompt,
     fallback: name,
     pendingPermission: data.pendingPermission,
     labels: {
@@ -233,6 +241,20 @@ function ObserverNodeCard({
       working: t("stateWorking"),
     },
   });
+  // Subagent title is type · description. The well is the live event, including
+  // the last tool after the child goes idle. With no tool yet, keep Generating
+  // or the prompt. Lead cards stay on the headline.
+  const subagentEvent =
+    data.kind === "subagent" &&
+    state !== "permission_request" &&
+    data.liveKind !== "permission" &&
+    data.liveKind !== "thinking" &&
+    data.liveKind !== "streaming" &&
+    data.currentToolLine &&
+    data.currentToolLine !== data.latestPrompt
+      ? data.currentToolLine
+      : null;
+  const shownWell = subagentEvent ?? wellTitle;
   const permission = data.pendingPermission;
   const needsPermission =
     state === "permission_request" || data.liveKind === "permission";
@@ -265,11 +287,9 @@ function ObserverNodeCard({
     observer.observe(body);
     return () => observer.disconnect();
   }, [data, onHeight]);
+  const statusBucket = agentStatusBucket(data, attentionReason);
   const caption = [
-    occupancyLabel(t, state) || null,
-    (data.kind === "agent" || data.kind === "subagent") && headline !== name
-      ? name
-      : null,
+    data.kind === "agent" && headline !== name ? name : null,
     data.chat ? t("chat") : data.sideChat ? t("sideChat") : null,
     data.kind === "agent" && data.turnCount > 0
       ? t("turns", { count: data.turnCount })
@@ -389,17 +409,20 @@ function ObserverNodeCard({
           ) : (
             <div
               className="truncate text-[13px] font-medium leading-5"
-              title={wellTitle}
+              title={shownWell}
             >
-              {wellTitle}
+              {shownWell}
             </div>
           )}
-          {caption.length > 0 ? (
-            <div
-              className="mt-0.5 truncate text-[11px] leading-4 text-muted-foreground"
-              title={caption.join(" · ")}
-            >
-              {caption.join(" · ")}
+          {statusBucket || caption.length > 0 ? (
+            <div className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] leading-4 text-muted-foreground">
+              {statusBucket ? <FooterAgentStatusMark bucket={statusBucket} /> : null}
+              {caption.length > 0 ? (
+                <span className="min-w-0 truncate" title={caption.join(" · ")}>
+                  {statusBucket ? "· " : ""}
+                  {caption.join(" · ")}
+                </span>
+              ) : null}
             </div>
           ) : null}
           {data.todos.length > 0 ? <ObserverTodos todos={data.todos} /> : null}
@@ -738,4 +761,4 @@ function ObserverFlowEdge({
 
 export const OBSERVER_NODE_TYPES = { observer: ObserverFlowNode };
 export const OBSERVER_EDGE_TYPES = { observer: ObserverFlowEdge };
-export { occupancyLabel, occupancyOf, agentTitle };
+export { agentStatusBucket, occupancyOf, agentTitle };

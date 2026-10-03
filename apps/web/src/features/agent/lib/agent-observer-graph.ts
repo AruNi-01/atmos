@@ -40,6 +40,10 @@ export type ObserverGraphNode = {
   chat: boolean;
   occupancy?: string;
   child?: AgentChildActivity;
+  /** Subagent type, when the snapshot has one. Separate from `description`. */
+  agentType?: string;
+  /** Subagent description, when the snapshot has one. */
+  description?: string;
 };
 
 export type ObserverGraphEdge = {
@@ -57,11 +61,11 @@ export type ObserverGraph = {
   knownIds: string[];
 };
 
-/** Any card with children can fold, except a subagent, which has no children of its own. */
+/** Any card with children can fold, including a subagent that spawned another. */
 export function observerCardCanFold(
   node: Pick<ObserverGraphNode, "kind" | "descendantCount">,
 ): boolean {
-  return node.kind !== "subagent" && node.descendantCount > 0;
+  return node.descendantCount > 0;
 }
 
 /** A two-finger trackpad tap is a secondary click, then WebKit often emits a primary click. */
@@ -319,6 +323,11 @@ export function buildObserverGraph({
     const agentId = `agent:${member.sessionId}`;
     const record = member.activity;
     const children = dedupeNamedChildren(record?.children ?? []);
+    const reported = sessionState(member.session, record);
+    const childLive = children.some(
+      (child) => child.state === "running" || child.state === "permission_request",
+    );
+    const leadRunning = childLive && reported !== "permission_request";
     const turns = (record?.turns ?? []).filter((turn) => !isLeakedChildTurn(turn, children));
     const visibleTurns = [...turns].reverse().slice(0, VISIBLE_TURNS);
     const extraTurns = Math.max(0, turns.length - VISIBLE_TURNS) + (record?.turns_omitted ?? 0);
@@ -334,9 +343,11 @@ export function buildObserverGraph({
       activity: record,
       latestPrompt: turns.at(-1)?.prompt.trim() || undefined,
       currentToolLine: toolLineText(record),
-      liveKind: record?.live_kind,
+      liveKind: leadRunning && (record?.live_kind == null || record.live_kind === "idle")
+        ? "working"
+        : record?.live_kind,
       pendingPermission:
-        (session?.state ?? record?.last_state) === "permission_request"
+        reported === "permission_request"
           ? record?.pending_permission ?? undefined
           : undefined,
       todos: record?.todos ?? [],
@@ -349,7 +360,7 @@ export function buildObserverGraph({
       todoSummary: todoSummary(record),
       sideChat,
       chat,
-      occupancy: session?.state ?? record?.last_state,
+      occupancy: leadRunning ? "running" : reported,
     });
     edges.push({
       id: `e-${parentId}-${agentId}`,
@@ -359,14 +370,18 @@ export function buildObserverGraph({
       animated: false,
     });
 
+    const childrenByChildId = new Map(children.map((child) => [child.child_id, child]));
+    const baseChildDepth = parentId.startsWith("workspace:") ? 4 : 3;
     for (const child of children) {
       const childId = `child:${member.sessionId}:${child.child_id}`;
+      const spawnParentId = subagentParentId(member.sessionId, agentId, child, childrenByChildId);
       nodes.push({
         id: childId,
-        parentId: agentId,
+        parentId: spawnParentId,
         kind: "subagent",
         label: child.name || child.child_id,
         session,
+        activity: record,
         currentToolLine: childToolLine(child),
         latestPrompt: child.prompt?.trim() || undefined,
         liveKind: child.live_kind,
@@ -380,15 +395,17 @@ export function buildObserverGraph({
         extraTurns: 0,
         childCount: 0,
         descendantCount: 0,
-        depth: parentId.startsWith("workspace:") ? 4 : 3,
+        depth: baseChildDepth + subagentNestDepth(child, childrenByChildId),
         sideChat: false,
         chat: false,
         occupancy: child.state,
         child,
+        agentType: child.agent_type?.trim() || undefined,
+        description: child.description?.trim() || undefined,
       });
       edges.push({
-        id: `e-${agentId}-${childId}`,
-        source: agentId,
+        id: `e-${spawnParentId}-${childId}`,
+        source: spawnParentId,
         target: childId,
         kind: "spawn",
         animated: false,
@@ -443,7 +460,7 @@ export function buildObserverGraph({
 export function observerNodeHeight(
   node: Pick<
     ObserverGraphNode,
-    "id" | "kind" | "visibleTurns" | "extraTurns" | "todos"
+    "id" | "kind" | "visibleTurns" | "extraTurns" | "todos" | "agentType" | "description"
   >,
   expandedAgentIds?: ReadonlySet<string>,
 ): number {
@@ -557,47 +574,43 @@ export function applyObserverLayoutShift(
   return next;
 }
 
-function childHasTools(child: AgentChildActivity): boolean {
-  return Boolean(child.current_tool) || child.recent_tools.length > 0;
+function sessionState(
+  session: { state?: string } | undefined,
+  record: AgentActivity | undefined,
+): string | undefined {
+  return session?.state ?? record?.last_state;
 }
 
-function childHasPrompt(child: AgentChildActivity): boolean {
-  return Boolean(child.prompt?.trim());
+function subagentParentId(
+  sessionId: string,
+  agentId: string,
+  child: AgentChildActivity,
+  byId: ReadonlyMap<string, AgentChildActivity>,
+): string {
+  const parent = child.parent_child_id?.trim();
+  if (!parent || parent === child.child_id || !byId.has(parent)) return agentId;
+  return `child:${sessionId}:${parent}`;
 }
 
-function nameIsSpecific(name: string): boolean {
-  return name.includes(" ") || name.includes("·");
+function subagentNestDepth(
+  child: AgentChildActivity,
+  byId: ReadonlyMap<string, AgentChildActivity>,
+): number {
+  let depth = 0;
+  let parent = child.parent_child_id?.trim();
+  const seen = new Set<string>([child.child_id]);
+  while (parent && byId.has(parent) && !seen.has(parent)) {
+    seen.add(parent);
+    depth += 1;
+    if (depth > 8) break;
+    parent = byId.get(parent)?.parent_child_id?.trim();
+  }
+  return depth;
 }
 
-/** Drop the idle twin when a spawn notice and the live child share one label. */
+/** Identity is the child id. A shared type or description does not merge cards. */
 export function dedupeNamedChildren(children: AgentChildActivity[]): AgentChildActivity[] {
-  const groups = new Map<string, AgentChildActivity[]>();
-  for (const child of children) {
-    const name = child.name?.trim();
-    if (!name || !nameIsSpecific(name)) continue;
-    const key = name.toLowerCase();
-    const list = groups.get(key) ?? [];
-    list.push(child);
-    groups.set(key, list);
-  }
-  const drop = new Set<string>();
-  for (const group of groups.values()) {
-    if (group.length < 2) continue;
-    const withTools = group.filter(childHasTools);
-    // Two children that both already ran tools are separate agents.
-    if (withTools.length > 1) continue;
-    const prompted = group.filter(childHasPrompt);
-    const keep =
-      withTools[0] ??
-      (prompted.length === 1 ? prompted[0] : prompted.at(-1)) ??
-      group.find((child) => !child.child_id.startsWith("spawn:")) ??
-      group[0];
-    for (const child of group) {
-      if (child.child_id !== keep.child_id) drop.add(child.child_id);
-    }
-  }
-  if (drop.size === 0) return children;
-  return children.filter((child) => !drop.has(child.child_id));
+  return children;
 }
 
 export function permissionActionLine(
@@ -610,6 +623,23 @@ export function permissionActionLine(
   if (description && description !== permission.tool) return description;
   const tool = permission.tool.trim();
   return tool || undefined;
+}
+
+/**
+ * Idle lead card body. The turn prompt wins. A chat whose turn never stored
+ * the text still has that message as its session title. The agent name is not
+ * a prompt.
+ */
+export function observerLeadPrompt(
+  latestPrompt: string | undefined,
+  sessionTitle: string | undefined,
+  agentName: string,
+): string | undefined {
+  const prompt = latestPrompt?.trim();
+  if (prompt) return prompt;
+  const title = sessionTitle?.trim();
+  if (!title || title === agentName.trim()) return undefined;
+  return title;
 }
 
 export function observerLiveHeadline(input: {
@@ -635,6 +665,20 @@ export function observerLiveHeadline(input: {
   return input.latestPrompt || input.fallback;
 }
 
+/** Card title is type · description. A live tool name must not replace it. */
+export function subagentCardTitle(
+  node: Pick<ObserverGraphNode, "label" | "agentType" | "description" | "child">,
+): string {
+  const type = node.agentType?.trim() || "";
+  const description = node.description?.trim() || "";
+  if (type && description && type.toLowerCase() !== description.toLowerCase()) {
+    return `${type} · ${description}`;
+  }
+  if (type) return type;
+  if (description) return description;
+  return node.child?.name?.trim() || node.label;
+}
+
 export function observerNodeTitle(
   node: ObserverGraphNode,
   sessionTitle?: string | null,
@@ -644,9 +688,6 @@ export function observerNodeTitle(
     if (titled) return titled;
     return node.label;
   }
-  if (node.kind === "subagent") {
-    const named = node.child?.name?.trim() || node.label.trim();
-    if (named) return named;
-  }
+  if (node.kind === "subagent") return subagentCardTitle(node);
   return node.label;
 }

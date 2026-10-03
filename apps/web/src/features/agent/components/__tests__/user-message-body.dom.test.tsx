@@ -1,7 +1,7 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { Window } from "happy-dom";
-import React, { act } from "react";
+import React, { act, useLayoutEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import {
@@ -50,6 +50,21 @@ mock.module("@/shared/lib/link-preview-query", () => ({
 }));
 
 const { UserMessageBody } = await import("../UserMessageBody");
+const { FindHighlightProvider, useSetFindSearchQuery } = await import(
+  "@/features/editor/components/find-highlight"
+);
+
+function PublishFindQuery({
+  query,
+}: {
+  query: { search: string; caseSensitive: boolean; wholeWord: boolean; regexp: boolean } | null;
+}) {
+  const setQuery = useSetFindSearchQuery();
+  useLayoutEffect(() => {
+    setQuery(query);
+  }, [query, setQuery]);
+  return null;
+}
 
 let root: Root | null = null;
 
@@ -172,6 +187,102 @@ describe("UserMessageBody", () => {
     expect(container.querySelector("[data-leading-collapsed]")).toBeNull();
     expect(seen).toContain(true);
     expect(seen).toContain(false);
+  });
+
+  it("opens a collapsed user message while find matches inside it", async () => {
+    const body = lines(8);
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    const query = {
+      search: "msg 8",
+      caseSensitive: false,
+      wholeWord: false,
+      regexp: false,
+    };
+
+    await act(async () => {
+      root?.render(
+        <FindHighlightProvider>
+          <PublishFindQuery query={query} />
+          <UserMessageBody text={body} />
+        </FindHighlightProvider>,
+      );
+    });
+
+    expect(container.querySelector("[data-user-message-collapsed]")).toBeNull();
+    expect(container.querySelector("[data-user-message-fade]")).toBeNull();
+    expect(container.querySelector(".overflow-hidden")).toBeNull();
+    expect(container.textContent).toContain("msg 8");
+
+    await act(async () => {
+      document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    });
+    expect(container.querySelector("[data-user-message-collapsed]")).toBeNull();
+
+    await act(async () => {
+      root?.render(
+        <FindHighlightProvider>
+          <PublishFindQuery query={null} />
+          <UserMessageBody text={body} />
+        </FindHighlightProvider>,
+      );
+    });
+    expect(container.querySelector("[data-user-message-collapsed]")).not.toBeNull();
+  });
+
+  it("opens a paste chip when find matches the pasted body", async () => {
+    const body = lines(16);
+    const token = registerComposerPaste(body);
+    const expanded = expandPasteTokens(`please review\n${token}`);
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <FindHighlightProvider>
+          <PublishFindQuery
+            query={{
+              search: "msg 8",
+              caseSensitive: false,
+              wholeWord: false,
+              regexp: false,
+            }}
+          />
+          <UserMessageBody text={expanded} />
+        </FindHighlightProvider>,
+      );
+    });
+
+    expect(container.querySelector("[data-paste-chip]")).toBeNull();
+    expect(container.querySelector("[data-user-message-collapsed]")).toBeNull();
+    expect(container.textContent).toContain("msg 8");
+  });
+
+  it("keeps a collapsed user message folded when find misses it", async () => {
+    const body = lines(8);
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <FindHighlightProvider>
+          <PublishFindQuery
+            query={{
+              search: "missing",
+              caseSensitive: false,
+              wholeWord: false,
+              regexp: false,
+            }}
+          />
+          <UserMessageBody text={body} />
+        </FindHighlightProvider>,
+      );
+    });
+
+    expect(container.querySelector("[data-user-message-collapsed]")).not.toBeNull();
   });
 
   it("does not collapse messages that already fit in three lines", async () => {

@@ -40,9 +40,9 @@ pub use identity::{
     RELAY_IDENTITY_FILE_NAME,
 };
 pub use layout::{
-    agent_config_dir, atmos_home_dir, automations_data_dir, browser_use_bindings_dir,
-    browser_use_data_dir, browser_use_state_dir, center_layout_data_dir, config_dir,
-    credentials_dir, data_dir, db_data_dir, desktop_data_dir, desktop_use_data_dir,
+    agent_config_dir, agent_observer_data_dir, atmos_home_dir, automations_data_dir,
+    browser_use_bindings_dir, browser_use_data_dir, browser_use_state_dir, center_layout_data_dir,
+    config_dir, credentials_dir, data_dir, db_data_dir, desktop_data_dir, desktop_use_data_dir,
     ensure_layout_dirs, function_settings_path, layout_data_dir, llm_config_dir,
     llm_providers_path, local_model_runtime_data_dir, pt_design_data_dir, quota_usage_data_dir,
     review_data_dir, serve_emu_cache_dir, serve_emu_runtime_dir, serve_sim_cache_dir,

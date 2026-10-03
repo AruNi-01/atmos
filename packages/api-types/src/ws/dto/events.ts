@@ -76,6 +76,15 @@ export type AgentToolLine = {
   ended_at?: string | null;
   duration_ms?: number | null;
   repeat: number;
+  /** Agent Chat tool kind (`edit`, `execute`, …). Missing on older snapshots. */
+  kind?: string | null;
+  /** Tool output text. Short bodies stay intact; very long bodies are clipped. */
+  output?: string | null;
+  /** Edit diff or patch. Present only when the payload carried one. */
+  diff?: string | null;
+  path?: string | null;
+  old_content?: string | null;
+  new_content?: string | null;
 };
 
 export type AgentTodoItem = {
@@ -86,11 +95,19 @@ export type AgentTodoItem = {
 export type AgentChildActivity = {
   child_id: string;
   name?: string | null;
+  /** Subagent type from Agent Chat params or the hook payload. Not a merge key. */
+  agent_type?: string | null;
+  /** Subagent description. Separate from `agent_type`. Not a merge key. */
+  description?: string | null;
+  /** Child that spawned this one. Absent on a direct child of the lead. */
+  parent_child_id?: string | null;
   state: AgentOccupancy;
   live_kind?: AgentLiveKind;
   current_tool?: AgentToolLine | null;
   recent_tools: AgentToolLine[];
   prompt?: string | null;
+  /** Final answer text. Absent when the source never sent one. */
+  reply?: string | null;
   started_at: string;
   last_event_at: string;
 };
@@ -103,6 +120,8 @@ export type AgentTurn = {
   tools: AgentToolLine[];
   todos: AgentTodoItem[];
   spawned_child_ids: string[];
+  /** Final answer text for this turn. Absent when the source never sent one. */
+  reply?: string | null;
 };
 
 export type AgentActivity = {

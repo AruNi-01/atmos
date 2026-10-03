@@ -667,11 +667,14 @@ export function AgentObserverView() {
   );
 
   const selected = graph.nodes.find((node) => node.id === selectedId) ?? null;
+  // Folding Atmos hides every descendant, so the visible list is only the root.
+  // The empty board is the graph with no members, not a folded tree.
+  const boardIsEmpty = graph.knownIds.length <= 1;
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
       <div className="min-h-0 flex-1">
-        {graph.nodes.length <= 1 ? (
+        {boardIsEmpty ? (
           <div className="flex h-full items-center justify-center bg-background p-8">
             <ProjectEmpty
               variant="Minimal"
@@ -773,8 +776,19 @@ export function AgentObserverView() {
             ? sessionTitles[selected.session.session_id]
             : undefined
         }
+        attentionReason={
+          selected?.kind === "subagent"
+            ? null
+            : attentionForSession(attentionPanes, selected?.session)
+        }
         onClose={() => setSelectedId(null)}
         onOpenSession={openSession}
+        onOpenChild={(childId) => {
+          const sessionId =
+            selected?.session?.session_id ?? selected?.activity?.session_id;
+          if (!sessionId || !childId) return;
+          setSelectedId(`child:${sessionId}:${childId}`);
+        }}
       />
     </div>
   );

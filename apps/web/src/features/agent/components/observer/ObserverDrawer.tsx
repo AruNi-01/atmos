@@ -26,12 +26,10 @@ import {
   observerNodeTitle,
   type ObserverGraphNode,
 } from "@/features/agent/lib/agent-observer-graph";
-import {
-  activityToSteps,
-  childToSteps,
-} from "@/features/agent/lib/observer-conversation";
-import { agentTitle, occupancyLabel, occupancyOf } from "./observer-flow";
-import { ObserverConversation } from "./ObserverConversation";
+import { FooterAgentStatusMark } from "@/features/agent/components/FooterAgentStatusIcon";
+import type { AttentionReason } from "@/features/agent/store/agent-attention-store";
+import { agentStatusBucket, agentTitle, occupancyOf } from "./observer-flow";
+import { ObserverEventPreview } from "./ObserverEventPreview";
 
 function kindLabel(
   t: ReturnType<typeof useTranslations<"AgentObserver">>,
@@ -68,13 +66,17 @@ function DrawerGlyph({ node }: { node: ObserverGraphNode }) {
 export function ObserverDrawer({
   node,
   sessionTitle,
+  attentionReason,
   onClose,
   onOpenSession,
+  onOpenChild,
 }: {
   node: ObserverGraphNode | null;
   sessionTitle?: string;
+  attentionReason?: AttentionReason | null;
   onClose: () => void;
   onOpenSession: (node: ObserverGraphNode) => void;
+  onOpenChild?: (childId: string) => void;
 }) {
   const t = useTranslations("AgentObserver");
   const insets = useTaskDrawerInsets();
@@ -85,16 +87,20 @@ export function ObserverDrawer({
     if (node) setHeld(node);
   }, [node]);
 
-  const sheetWidth = `calc(100vw - ${insets.left}px - ${insets.right}px - 48px)`;
+  const frame = 16;
+  const top = insets.top + frame;
+  const right = insets.right + frame;
+  const bottom = insets.bottom + frame;
+  const sheetWidth = `calc(100vw - ${insets.left}px - ${right}px - 48px)`;
   const contentStyle = {
-    top: insets.top,
-    right: insets.right,
-    bottom: insets.bottom,
+    top,
+    right,
+    bottom,
     width: sheetWidth,
     maxWidth: "min(720px, 100%)",
     height: "auto",
     zIndex: 50,
-    ["--initial-transform" as string]: `calc(100% + ${insets.right}px)`,
+    ["--initial-transform" as string]: `calc(100% + ${right}px)`,
   } as React.CSSProperties;
 
   const title = held
@@ -108,17 +114,12 @@ export function ObserverDrawer({
     : t("title");
   const canOpen = Boolean(held && (held.kind === "agent" || held.kind === "subagent"));
   const todos = held?.kind === "agent" ? (held.activity?.todos ?? []) : [];
-  const occupancy = held ? occupancyLabel((key) => t(key), occupancyOf(held)) : "";
-  const steps = React.useMemo(() => {
-    if (!held) return [];
-    if (held.kind === "subagent") {
-      return held.child ? childToSteps(held.child) : [];
-    }
-    if (held.kind === "agent" && held.activity) {
-      return activityToSteps(held.activity);
-    }
-    return [];
-  }, [held]);
+  const statusBucket = held
+    ? agentStatusBucket(
+        held,
+        held.kind === "subagent" ? null : attentionReason,
+      )
+    : null;
   const showConversation = held?.kind === "agent" || held?.kind === "subagent";
 
   return (
@@ -159,7 +160,9 @@ export function ObserverDrawer({
                           {title}
                         </h2>
                         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-                          {occupancy ? <span>{occupancy}</span> : null}
+                          {statusBucket ? (
+                            <FooterAgentStatusMark bucket={statusBucket} />
+                          ) : null}
                           {held.chat ? <span>{t("chat")}</span> : null}
                           {held.sideChat ? <span>{t("sideChat")}</span> : null}
                           {held.kind !== "agent" && held.kind !== "subagent" ? (
@@ -197,8 +200,16 @@ export function ObserverDrawer({
                   </div>
                   {showConversation ? (
                     <div className="min-h-0 flex-1 px-4 pb-4">
-                      {steps.length > 0 ? (
-                        <ObserverConversation steps={steps} />
+                      {held.activity ? (
+                        <ObserverEventPreview
+                          activity={held.activity}
+                          childId={held.kind === "subagent" ? held.child?.child_id : undefined}
+                          filesLabel={(count) => t("filesChanged", { count })}
+                          showDiffLabel={t("showDiff")}
+                          hideDiffLabel={t("hideDiff")}
+                          emptyLabel={t("noTurns")}
+                          onOpenChild={onOpenChild}
+                        />
                       ) : (
                         <p className="px-1 text-sm text-muted-foreground">{t("noTurns")}</p>
                       )}

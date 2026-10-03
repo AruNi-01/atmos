@@ -5,8 +5,6 @@ import type {
   AgentTurn,
 } from "@atmos/api-types/ws/dto/events";
 
-const CHILD_PROMPT_CHARS = 40;
-
 export type ObserverStep = {
   id: string;
   kind: "prompt" | "tool";
@@ -36,14 +34,11 @@ export function isObserverChromeToolName(name: string): boolean {
   );
 }
 
-export function looksLikeChildPrompt(text: string | undefined | null): boolean {
-  return (text ?? "").trim().length >= CHILD_PROMPT_CHARS;
-}
-
+/** A turn is the child's task text leaking onto the lead, not the user's own message. */
 export function isLeakedChildTurn(turn: AgentTurn, children: AgentChildActivity[]): boolean {
   const prompt = turn.prompt.trim();
   if (!prompt) return false;
-  if (children.some((child) => {
+  return children.some((child) => {
     const childPrompt = child.prompt?.trim();
     if (!childPrompt) return false;
     return (
@@ -51,11 +46,7 @@ export function isLeakedChildTurn(turn: AgentTurn, children: AgentChildActivity[
       || childPrompt.startsWith(prompt)
       || prompt.startsWith(childPrompt)
     );
-  })) {
-    return true;
-  }
-  const onlyChrome = turn.tools.every((tool) => isObserverChromeToolName(tool.name));
-  return looksLikeChildPrompt(prompt) && (turn.tools.length === 0 || onlyChrome);
+  });
 }
 
 function visibleTurnTools(turn: AgentTurn): AgentToolLine[] {

@@ -5,6 +5,8 @@ import {
   buildFooterAgentOverview,
   countFooterAgentOverview,
   footerAgentOverviewTotal,
+  footerAgentStatusMessageKey,
+  footerBucketForAgentState,
   footerSessionIdentityKeys,
   groupFooterOverviewRowsByContext,
 } from "../footer-agent-overview";
@@ -73,6 +75,34 @@ describe("buildFooterAgentOverview", () => {
     expect([...grouped.keys()]).toEqual(["ws-1", "ws-2"]);
     expect(grouped.get("ws-1")?.map((row) => row.bucket)).toEqual(["running", "attention"]);
     expect(footerSessionIdentityKeys(overview.rows[0].session)).toEqual(["ws-1:run"]);
+  });
+
+  it("maps a card to the same footer status bucket and copy key", () => {
+    expect(footerBucketForAgentState({ agentState: "running" })).toBe("running");
+    expect(
+      footerBucketForAgentState({
+        agentState: "running",
+        attentionReason: "task_complete",
+      }),
+    ).toBe("running");
+    expect(
+      footerBucketForAgentState({
+        agentState: "idle",
+        attentionReason: "task_complete",
+      }),
+    ).toBe("attention");
+    expect(
+      footerBucketForAgentState({
+        agentState: "idle",
+        attentionReason: "permission_request",
+      }),
+    ).toBe("permission");
+    expect(footerBucketForAgentState({ agentState: "idle" })).toBe("idle");
+    expect(footerBucketForAgentState({ agentState: undefined })).toBeNull();
+    expect(footerAgentStatusMessageKey("permission")).toBe("footer.overviewNeedPermission");
+    expect(footerAgentStatusMessageKey("attention")).toBe("footer.overviewNeedAttention");
+    expect(footerAgentStatusMessageKey("running")).toBe("footer.overviewRunning");
+    expect(footerAgentStatusMessageKey("idle")).toBe("footer.overviewIdle");
   });
 
   it("keeps a live running session in running even if a complete latch is still present", () => {

@@ -23,6 +23,8 @@ const CHILD_ID_KEYS: &[&str] = &[
 ///
 /// Lead-session events never carry this field; child tool / lifecycle events do.
 /// Grok uses `subagent_id` / `child_session_id` instead of Claude's `agent_id`.
+/// Inside a Grok subagent the tool hooks often omit that id and only set
+/// `subagentType` plus the child `sessionId`.
 pub(crate) fn extract_child_agent_id(payload: &Value) -> Option<&str> {
     extract_id_from(payload)
         .or_else(|| payload.get("tool_input").and_then(extract_id_from))
@@ -30,6 +32,26 @@ pub(crate) fn extract_child_agent_id(payload: &Value) -> Option<&str> {
         .or_else(|| payload.get("toolCall").and_then(extract_id_from))
         .or_else(|| payload.get("tool_call").and_then(extract_id_from))
         .or_else(|| payload.get("properties").and_then(extract_id_from))
+        .or_else(|| nested_subagent_session_id(payload))
+}
+
+/// Grok runs a subagent's hooks in that child's own session. Those payloads
+/// carry `subagentType` and `sessionId` (the child session) and often no
+/// `subagentId`. Lead events also have `sessionId`, but not `subagentType`.
+pub(crate) fn nested_subagent_session_id(payload: &Value) -> Option<&str> {
+    let kind = payload
+        .get("subagentType")
+        .or_else(|| payload.get("subagent_type"))
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())?;
+    let _ = kind;
+    payload
+        .get("sessionId")
+        .or_else(|| payload.get("session_id"))
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
 }
 
 fn extract_id_from(value: &Value) -> Option<&str> {
@@ -102,6 +124,28 @@ mod tests {
                 "tool_input": { "subagent_id": "nested-1" }
             })),
             Some("nested-1")
+        );
+        assert_eq!(
+            extract_child_agent_id(&serde_json::json!({
+                "sessionId": "sa-plan",
+                "subagentType": "general-purpose",
+                "toolName": "read_file"
+            })),
+            Some("sa-plan")
+        );
+        assert_eq!(
+            extract_child_agent_id(&serde_json::json!({
+                "sessionId": "parent-session",
+                "toolName": "read_file"
+            })),
+            None
+        );
+        assert_eq!(
+            nested_subagent_session_id(&serde_json::json!({
+                "sessionId": "sa-plan",
+                "subagentType": "general-purpose"
+            })),
+            Some("sa-plan")
         );
     }
 }

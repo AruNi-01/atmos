@@ -10,6 +10,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::service::agent_chat::types::apply_text_offset;
 use agent::{
     is_grok_chrome_subagent_name, AgentEvent, AgentPermissionRequest, AgentTool, AgentToolKind,
     AgentToolParams, AgentToolStatus, GrokGoal, GrokWorkflow, TextKind, UserMessageKind,
@@ -24,10 +25,21 @@ const TURNS_MAX: usize = 50;
 const TOOLS_PER_TURN: usize = 32;
 const RECENT_TOOLS_CHILD: usize = 8;
 const DETAIL_CHARS: usize = 120;
-const PROMPT_CHARS: usize = 240;
+const OUTPUT_CHARS: usize = 8_000;
+/// User and child prompts kept for the drawer. The card clips in CSS, and the
+/// bubble expands on click. This only bounds the snapshot.
+const PROMPT_CHARS: usize = 32_000;
+/// Final assistant text kept on a turn or child. The snapshot is not a transcript.
+const REPLY_CHARS: usize = 16_000;
+/// Title marker on a terminal child-stop hook. Spawn-tool completion is not a stop.
+pub(crate) const CHILD_STOP_TITLE: &str = "atmos.child_stop";
 const TODO_WIRE: usize = 40;
 const CHILD_PROMPT_STEAL_CHARS: usize = 40;
 const RUN_GAP: Duration = Duration::from_secs(8);
+
+fn is_false(value: &bool) -> bool {
+    !*value
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AgentToolLine {
@@ -40,6 +52,21 @@ pub struct AgentToolLine {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub duration_ms: Option<i64>,
     pub repeat: u32,
+    /// Agent Chat tool kind (`edit`, `execute`, …). Missing on older snapshots.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    /// Tool output text. Short bodies stay intact; very long bodies are clipped.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
+    /// Edit diff or patch. Present only when the payload carried one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diff: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub old_content: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub new_content: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -101,11 +128,36 @@ pub struct AgentPendingPermission {
     pub plan_todos: Vec<AgentPendingPlanTodo>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+struct ReplyPart {
+    part_id: String,
+    ordinal: u32,
+    text: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct PendingReply {
+    parent_id: String,
+    part_id: String,
+    ordinal: u32,
+    offset: u64,
+    text: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AgentChildActivity {
     pub child_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    /// Subagent type from Agent Chat params or the hook payload. Not a merge key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_type: Option<String>,
+    /// Subagent description. Separate from `agent_type`. Not a merge key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Child that spawned this one. Absent on a direct child of the lead.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_child_id: Option<String>,
     pub state: AgentOccupancy,
     #[serde(default)]
     pub live_kind: AgentLiveKind,
@@ -114,10 +166,16 @@ pub struct AgentChildActivity {
     pub recent_tools: Vec<AgentToolLine>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prompt: Option<String>,
+    /// Final answer text. Absent when the source never sent one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reply: Option<String>,
     pub started_at: String,
     pub last_event_at: String,
-    #[serde(default, skip)]
+    /// Grok chrome rows stay hidden after a restart. Absent on ordinary children.
+    #[serde(default, skip_serializing_if = "is_false")]
     chrome: bool,
+    #[serde(default, skip)]
+    reply_parts: Vec<ReplyPart>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -130,6 +188,11 @@ pub struct AgentTurn {
     pub tools: Vec<AgentToolLine>,
     pub todos: Vec<AgentTodoItem>,
     pub spawned_child_ids: Vec<String>,
+    /// Final answer text for this turn. Absent when the source never sent one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reply: Option<String>,
+    #[serde(default, skip)]
+    reply_parts: Vec<ReplyPart>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -173,12 +236,15 @@ pub struct AgentActivity {
     pub last_file: Option<String>,
     pub started_at: String,
     pub last_event_at: String,
-    #[serde(skip)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     grok_goal_child_ids: Vec<String>,
-    #[serde(skip)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     grok_workflow_child_ids: Vec<String>,
-    #[serde(default, skip)]
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     child_aliases: HashMap<String, String>,
+    /// Answer chunks whose parent tool call is not a child yet.
+    #[serde(default, skip)]
+    pending_replies: Vec<PendingReply>,
 }
 
 impl AgentActivity {
@@ -194,7 +260,28 @@ impl AgentActivity {
 
 impl AgentStatusService {
     pub fn get_all_activity(&self) -> Vec<AgentActivity> {
+        self.activity_snapshot()
+    }
+
+    pub(super) fn activity_snapshot(&self) -> Vec<AgentActivity> {
         self.activity.read().values().cloned().collect()
+    }
+
+    pub(super) fn queue_activity_save(&self) {
+        if !self
+            .persist
+            .enabled
+            .load(std::sync::atomic::Ordering::Relaxed)
+        {
+            return;
+        }
+        let snapshot = self.activity_snapshot();
+        if self.persist.sync.load(std::sync::atomic::Ordering::Relaxed) {
+            super::activity_store::write_activity_snapshot(&self.persist, &snapshot);
+            return;
+        }
+        *self.persist.pending.lock() = Some(snapshot);
+        self.persist.cv.notify_one();
     }
 
     pub(crate) fn observe_host(
@@ -257,6 +344,7 @@ impl AgentStatusService {
             {
                 tracing::warn!("Failed to publish agent activity update: {}", error);
             }
+            self.queue_activity_save();
         }
     }
 
@@ -271,15 +359,21 @@ impl AgentStatusService {
         activity.current_tool = None;
         activity.current_turn_id = None;
         activity.pending_permission = None;
-        activity.live_kind = AgentLiveKind::Idle;
-        activity.last_state = AgentOccupancy::Idle;
         activity.last_event_at = now;
+        if children_still_running(activity) {
+            activity.live_kind = AgentLiveKind::Working;
+            activity.last_state = AgentOccupancy::Running;
+        } else {
+            activity.live_kind = AgentLiveKind::Idle;
+            activity.last_state = AgentOccupancy::Idle;
+        }
         if activity.visible_clone() != before {
             let snapshot = activity.clone();
             drop(map);
             let _ = self
                 .event_tx
                 .send(AgentStatusEvent::ActivityUpdated(Box::new(snapshot)));
+            self.queue_activity_save();
         }
     }
 
@@ -302,6 +396,7 @@ impl AgentStatusService {
         let _ = self.event_tx.send(AgentStatusEvent::ActivityCleared {
             session_ids: session_ids.to_vec(),
         });
+        self.queue_activity_save();
     }
 
     pub(super) fn drop_activity_matching_pane(&self, stable_pane_id: &str) {
@@ -321,6 +416,19 @@ impl AgentStatusService {
             .map(|(id, _)| id.clone())
             .collect();
         self.drop_activity(&ids);
+    }
+}
+
+impl Drop for AgentStatusService {
+    fn drop(&mut self) {
+        if !self
+            .persist
+            .enabled
+            .load(std::sync::atomic::Ordering::Relaxed)
+        {
+            return;
+        }
+        super::activity_store::write_activity_final(&self.persist, &self.activity_snapshot());
     }
 }
 
@@ -386,6 +494,7 @@ fn new_activity(session: &AgentStatusRecord, ctx: &AgentStatusContext, now: &str
         grok_goal_child_ids: Vec::new(),
         grok_workflow_child_ids: Vec::new(),
         child_aliases: HashMap::new(),
+        pending_replies: Vec::new(),
     }
 }
 
@@ -449,6 +558,8 @@ fn open_turn(activity: &mut AgentActivity, prompt: String, now: &str) {
         tools: Vec::new(),
         todos: activity.todos.clone(),
         spawned_child_ids: Vec::new(),
+        reply: None,
+        reply_parts: Vec::new(),
     });
     while activity.turns.len() > TURNS_MAX {
         activity.turns.remove(0);
@@ -486,7 +597,15 @@ fn push_aggregated_tool(
     cap: usize,
 ) {
     if let Some(last) = tools.last_mut() {
-        if last.name == line.name && last.state != "pending" {
+        let distinct_body = last.output.is_some()
+            || line.output.is_some()
+            || last.diff.is_some()
+            || line.diff.is_some()
+            || last.old_content.is_some()
+            || line.old_content.is_some()
+            || last.new_content.is_some()
+            || line.new_content.is_some();
+        if !distinct_body && last.name == line.name && last.state != "pending" {
             let prev = last.ended_at.as_deref().unwrap_or(&last.started_at);
             if let (Ok(prev_end), Ok(now_ts)) = (
                 DateTime::parse_from_rfc3339(prev),
@@ -512,18 +631,43 @@ fn push_aggregated_tool(
 
 enum HostFold {
     OpenTurn,
-    Prompt { text: String },
-    ToolPending { tool: AgentTool },
-    ToolOk { tool: AgentTool },
-    ToolError { tool: AgentTool },
-    Todos { todos: Vec<AgentTodoItem> },
-    Permission { request: AgentPermissionRequest },
+    Prompt {
+        text: String,
+    },
+    ToolPending {
+        tool: AgentTool,
+    },
+    ToolOk {
+        tool: AgentTool,
+    },
+    ToolError {
+        tool: AgentTool,
+    },
+    Todos {
+        todos: Vec<AgentTodoItem>,
+    },
+    Permission {
+        request: AgentPermissionRequest,
+    },
     PermissionResolved,
-    Live { kind: AgentLiveKind },
+    Live {
+        kind: AgentLiveKind,
+    },
+    Answer {
+        part_id: String,
+        parent_part_id: Option<String>,
+        ordinal: u32,
+        offset: u64,
+        text: String,
+    },
     CloseTurn,
     Bind,
-    GrokGoal { goal: Option<GrokGoal> },
-    GrokWorkflow { workflow: Option<GrokWorkflow> },
+    GrokGoal {
+        goal: Option<GrokGoal>,
+    },
+    GrokWorkflow {
+        workflow: Option<GrokWorkflow>,
+    },
 }
 
 fn host_fold(event: &AgentEvent) -> Option<HostFold> {
@@ -558,7 +702,7 @@ fn host_fold(event: &AgentEvent) -> Option<HostFold> {
             extract_plan_todos(plan).map(|todos| HostFold::Todos { todos })
         }
         AgentEvent::TextChunk {
-            kind,
+            kind: TextKind::Thinking,
             parent_part_id,
             ..
         } => {
@@ -566,13 +710,25 @@ fn host_fold(event: &AgentEvent) -> Option<HostFold> {
                 None
             } else {
                 Some(HostFold::Live {
-                    kind: match kind {
-                        TextKind::Thinking => AgentLiveKind::Thinking,
-                        TextKind::Answer => AgentLiveKind::Streaming,
-                    },
+                    kind: AgentLiveKind::Thinking,
                 })
             }
         }
+        AgentEvent::TextChunk {
+            part_id,
+            parent_part_id,
+            ordinal,
+            offset,
+            text,
+            kind: TextKind::Answer,
+            ..
+        } => Some(HostFold::Answer {
+            part_id: part_id.clone(),
+            parent_part_id: parent_part_id.clone(),
+            ordinal: *ordinal,
+            offset: *offset,
+            text: text.clone(),
+        }),
         AgentEvent::PermissionRequested { request } => Some(HostFold::Permission {
             request: request.clone(),
         }),
@@ -669,13 +825,36 @@ fn apply_host_fold(
                 activity.live_kind = kind;
             }
         }
+        HostFold::Answer {
+            part_id,
+            parent_part_id,
+            ordinal,
+            offset,
+            text,
+        } => apply_answer_chunk(
+            activity,
+            &part_id,
+            parent_part_id.as_deref(),
+            ordinal,
+            offset,
+            &text,
+            now,
+        ),
         HostFold::CloseTurn => {
             close_open_turn(activity, now);
             activity.current_tool = None;
             activity.current_turn_id = None;
             activity.pending_permission = None;
-            activity.live_kind = AgentLiveKind::Idle;
+            let child_running = children_still_running(activity);
+            activity.live_kind = if child_running {
+                AgentLiveKind::Working
+            } else {
+                AgentLiveKind::Idle
+            };
             for child in &mut activity.children {
+                if child_is_live(child) {
+                    continue;
+                }
                 if child.live_kind != AgentLiveKind::Idle {
                     child.live_kind = AgentLiveKind::Idle;
                 }
@@ -698,6 +877,32 @@ fn apply_host_fold(
                 now,
             );
         }
+    }
+    flush_pending_replies(activity, now);
+    keep_lead_running_while_children(activity);
+}
+
+fn child_is_live(child: &AgentChildActivity) -> bool {
+    matches!(
+        child.state,
+        AgentOccupancy::Running | AgentOccupancy::PermissionRequest
+    )
+}
+
+fn children_still_running(activity: &AgentActivity) -> bool {
+    activity.children.iter().any(child_is_live)
+}
+
+/// A live child keeps the lead running. Spawn-tool completion does not settle it.
+fn keep_lead_running_while_children(activity: &mut AgentActivity) {
+    if !children_still_running(activity) {
+        return;
+    }
+    if activity.last_state == AgentOccupancy::Idle {
+        activity.last_state = AgentOccupancy::Running;
+    }
+    if activity.live_kind == AgentLiveKind::Idle {
+        activity.live_kind = AgentLiveKind::Working;
     }
 }
 
@@ -754,6 +959,7 @@ fn reset_activity_for_new_prompt(activity: &mut AgentActivity) {
     activity.live_kind = AgentLiveKind::Working;
     activity.children.clear();
     activity.child_aliases.clear();
+    activity.pending_replies.clear();
     activity.todos.clear();
     activity.last_file = None;
     activity.grok_goal_child_ids.clear();
@@ -831,7 +1037,12 @@ fn apply_host_subagent(activity: &mut AgentActivity, tool: &AgentTool, now: &str
         .find(|id| !is_ephemeral_spawn_id(id))
         .cloned()
         .unwrap_or_else(|| pick_canonical_child(activity, &ids));
-    let canonical = adopt_child_id(activity, &preferred);
+    let parent_hint = tool
+        .parent_tool_call_id
+        .as_deref()
+        .map(|id| canonical_child_id(activity, id))
+        .filter(|id| !id.is_empty());
+    let canonical = adopt_child_id(activity, &preferred, parent_hint.as_deref());
     for id in &ids {
         register_child_alias(activity, id, &canonical);
         if id != &canonical {
@@ -850,7 +1061,24 @@ fn apply_host_subagent(activity: &mut AgentActivity, tool: &AgentTool, now: &str
         }
     }
     let chrome = is_grok_chrome_subagent_name(&tool.name);
-    upsert_host_child(activity, &canonical, host_child_name(tool), now, chrome);
+    let parent_child_id = spawning_parent_id(activity, tool);
+    let (agent_type, description) = host_child_labels(tool);
+    upsert_host_child(
+        activity,
+        &canonical,
+        host_child_name(tool),
+        agent_type,
+        description,
+        parent_child_id,
+        now,
+        chrome,
+    );
+    let child_stop = is_child_stop_tool(tool);
+    // Chat: the subagent tool completing or failing is that child's stop.
+    // Terminal: completing the parent's spawn or task tool is only an ack.
+    // A child-stop hook is the terminal stop. Dispatch acks never settle a child.
+    let settle = child_stop
+        || (activity.surface == AgentSurface::Chat && !chrome && !is_dispatch_ack_name(&tool.name));
     if let Some(child) = activity
         .children
         .iter_mut()
@@ -861,10 +1089,10 @@ fn apply_host_subagent(activity: &mut AgentActivity, tool: &AgentTool, now: &str
                 child.prompt = Some(truncate(&prompt, PROMPT_CHARS));
             }
         }
-        if pending {
+        if pending || !settle {
             child.state = AgentOccupancy::Running;
             child.live_kind = AgentLiveKind::Working;
-        } else if !chrome && !is_dispatch_ack_name(&tool.name) {
+        } else {
             child.state = AgentOccupancy::Idle;
             child.live_kind = AgentLiveKind::Idle;
             if let Some(line) = child.current_tool.take() {
@@ -872,7 +1100,7 @@ fn apply_host_subagent(activity: &mut AgentActivity, tool: &AgentTool, now: &str
             }
         }
     }
-    if pending {
+    if pending || !settle {
         if let Some(turn) = current_turn_mut(activity) {
             if !turn.spawned_child_ids.iter().any(|id| id == &canonical) {
                 turn.spawned_child_ids.push(canonical.clone());
@@ -880,8 +1108,24 @@ fn apply_host_subagent(activity: &mut AgentActivity, tool: &AgentTool, now: &str
         }
     }
     strip_chrome_tools_from_turns(activity);
-    collapse_duplicate_named_children(activity);
     rehome_child_prompt_turns(activity);
+}
+
+fn is_child_stop_tool(tool: &AgentTool) -> bool {
+    tool.title.as_deref() == Some(CHILD_STOP_TITLE)
+}
+
+fn spawning_parent_id(activity: &AgentActivity, tool: &AgentTool) -> Option<String> {
+    let raw = tool.parent_tool_call_id.as_deref()?.trim();
+    if raw.is_empty() {
+        return None;
+    }
+    let canonical = canonical_child_id(activity, raw);
+    if canonical.is_empty() {
+        None
+    } else {
+        Some(canonical)
+    }
 }
 
 fn child_id_for_call(activity: &AgentActivity, call_id: &str) -> Option<String> {
@@ -896,92 +1140,6 @@ fn child_id_for_call(activity: &AgentActivity, call_id: &str) -> Option<String> 
         .then_some(resolved)
 }
 
-fn child_has_tools(child: &AgentChildActivity) -> bool {
-    child.current_tool.is_some() || !child.recent_tools.is_empty()
-}
-
-fn child_has_prompt(child: &AgentChildActivity) -> bool {
-    child
-        .prompt
-        .as_deref()
-        .is_some_and(|prompt| !prompt.trim().is_empty())
-}
-
-/// Parallel spawns and the later session notice often share a label but not an id.
-/// A prompt on both sides is still one agent: the shell stays on "Generating"
-/// while the notice carries the same task text. Only a tool call proves a
-/// second agent is actually working.
-fn collapse_duplicate_named_children(activity: &mut AgentActivity) {
-    let mut groups: HashMap<String, Vec<String>> = HashMap::new();
-    for child in &activity.children {
-        let Some(name) = child
-            .name
-            .as_deref()
-            .map(str::trim)
-            .filter(|name| !name.is_empty())
-        else {
-            continue;
-        };
-        groups
-            .entry(name.to_ascii_lowercase())
-            .or_default()
-            .push(child.child_id.clone());
-    }
-    let groups: Vec<(String, Vec<String>)> = groups
-        .into_iter()
-        .filter(|(_, ids)| ids.len() > 1)
-        .collect();
-    for (name, ids) in groups {
-        // Bare type labels ("Explore") can be shared by distinct children.
-        // Descriptive labels are the duplicated spawn/notice pair.
-        let specific = name.contains(' ') || name.contains('·');
-        let with_tools: Vec<String> = ids
-            .iter()
-            .filter(|id| {
-                activity
-                    .children
-                    .iter()
-                    .any(|child| &child.child_id == *id && child_has_tools(child))
-            })
-            .cloned()
-            .collect();
-        if with_tools.len() > 1 {
-            continue;
-        }
-        let keep = prefer_named_twin(activity, &ids, &with_tools);
-        for id in ids {
-            if id != keep && (specific || is_ephemeral_spawn_id(&id)) {
-                merge_child(activity, &id, &keep);
-            }
-        }
-    }
-}
-
-fn prefer_named_twin(activity: &AgentActivity, ids: &[String], with_tools: &[String]) -> String {
-    if with_tools.len() == 1 {
-        return with_tools[0].clone();
-    }
-    let prompted: Vec<&String> = ids
-        .iter()
-        .filter(|id| {
-            activity
-                .children
-                .iter()
-                .any(|child| child.child_id == **id && child_has_prompt(child))
-        })
-        .collect();
-    if prompted.len() == 1 {
-        return prompted[0].clone();
-    }
-    if let Some(latest) = prompted.last() {
-        return (*latest).clone();
-    }
-    ids.iter()
-        .find(|id| !is_ephemeral_spawn_id(id))
-        .cloned()
-        .unwrap_or_else(|| ids[0].clone())
-}
-
 fn apply_child_tool(
     activity: &mut AgentActivity,
     child_id: &str,
@@ -991,8 +1149,24 @@ fn apply_child_tool(
     pending: bool,
     error: bool,
 ) {
-    let child_id = adopt_child_id(activity, child_id);
-    upsert_host_child(activity, &child_id, host_child_name(tool), now, false);
+    let child_id = adopt_child_id(activity, child_id, None);
+    let (agent_type, description) = host_child_labels(tool);
+    // A child tool's title is the live event ("Read path"), not the card name.
+    // Only a subagent payload may name the child (type · description).
+    let name = match &tool.params {
+        AgentToolParams::Subagent { .. } => host_child_name(tool),
+        _ => None,
+    };
+    upsert_host_child(
+        activity,
+        &child_id,
+        name,
+        agent_type,
+        description,
+        None,
+        now,
+        false,
+    );
     let mark_parent_working = {
         let Some(child) = activity
             .children
@@ -1013,6 +1187,7 @@ fn apply_child_tool(
                 .current_tool
                 .take()
                 .unwrap_or_else(|| host_tool_line(tool, project_path, now, state));
+            absorb_tool_line(&mut line, tool, project_path);
             finish_tool_line(&mut line, now, state, host_tool_detail(tool, project_path));
             push_aggregated_tool(&mut child.recent_tools, line, now, RECENT_TOOLS_CHILD);
             child.live_kind = AgentLiveKind::Working;
@@ -1038,6 +1213,7 @@ fn complete_lead_host_tool(
         .current_tool
         .take()
         .unwrap_or_else(|| host_tool_line(tool, project_path, now, state));
+    absorb_tool_line(&mut line, tool, project_path);
     finish_tool_line(&mut line, now, state, host_tool_detail(tool, project_path));
     if let Some(path) = host_tool_path(tool, project_path) {
         activity.last_file = Some(path);
@@ -1066,6 +1242,7 @@ fn complete_late_host_tool(
     {
         existing.state = state.to_string();
         existing.ended_at = Some(now.to_string());
+        absorb_tool_line(existing, tool, project_path);
         return;
     }
     let line = host_tool_line(tool, project_path, now, state);
@@ -1089,9 +1266,13 @@ fn upsert_host_child(
     activity: &mut AgentActivity,
     child_id: &str,
     name: Option<String>,
+    agent_type: Option<String>,
+    description: Option<String>,
+    parent_child_id: Option<String>,
     now: &str,
     chrome: bool,
 ) {
+    let parent_child_id = parent_child_id.filter(|id| id != child_id);
     if let Some(child) = activity
         .children
         .iter_mut()
@@ -1100,6 +1281,15 @@ fn upsert_host_child(
         child.state = AgentOccupancy::Running;
         child.last_event_at = now.to_string();
         child.chrome = child.chrome || chrome;
+        if child.agent_type.is_none() {
+            child.agent_type = agent_type;
+        }
+        if child.description.is_none() {
+            child.description = description;
+        }
+        if child.parent_child_id.is_none() {
+            child.parent_child_id = parent_child_id;
+        }
         if let Some(incoming) = name {
             match child.name.as_ref() {
                 None => child.name = Some(incoming),
@@ -1114,14 +1304,19 @@ fn upsert_host_child(
     activity.children.push(AgentChildActivity {
         child_id: child_id.to_string(),
         name,
+        agent_type,
+        description,
+        parent_child_id,
         state: AgentOccupancy::Running,
         live_kind: AgentLiveKind::Working,
         current_tool: None,
         recent_tools: Vec::new(),
         prompt: None,
+        reply: None,
         started_at: now.to_string(),
         last_event_at: now.to_string(),
         chrome,
+        reply_parts: Vec::new(),
     });
 }
 
@@ -1236,7 +1431,7 @@ fn next_ephemeral_spawn_id(activity: &AgentActivity) -> String {
     format!("spawn:{turn}:{n}")
 }
 
-fn adopt_child_id(activity: &mut AgentActivity, incoming: &str) -> String {
+fn adopt_child_id(activity: &mut AgentActivity, incoming: &str, parent: Option<&str>) -> String {
     let incoming = incoming.trim();
     if incoming.is_empty() {
         return latest_ephemeral_spawn_id(activity)
@@ -1253,19 +1448,28 @@ fn adopt_child_id(activity: &mut AgentActivity, incoming: &str) -> String {
     if is_ephemeral_spawn_id(&resolved) {
         return resolved;
     }
-    // Pair the next real id with the oldest shell, so parallel spawns stay in order.
-    if let Some(ephemeral) = oldest_ephemeral_spawn_id(activity) {
+    // Pair this id with the spawn shell that belongs to the same parent.
+    // A different child id is never merged just because the labels match.
+    if let Some(ephemeral) = ephemeral_shell_for(activity, parent) {
         merge_child(activity, &ephemeral, &resolved);
         return resolved;
     }
     resolved
 }
 
-fn oldest_ephemeral_spawn_id(activity: &AgentActivity) -> Option<String> {
+fn ephemeral_shell_for(activity: &AgentActivity, parent: Option<&str>) -> Option<String> {
     activity
         .children
         .iter()
-        .find(|child| is_ephemeral_spawn_id(&child.child_id))
+        .find(|child| {
+            if !is_ephemeral_spawn_id(&child.child_id) {
+                return false;
+            }
+            match parent {
+                Some(parent) => child.parent_child_id.as_deref() == Some(parent),
+                None => child.parent_child_id.is_none(),
+            }
+        })
         .map(|child| child.child_id.clone())
 }
 
@@ -1365,9 +1569,22 @@ fn merge_child(activity: &mut AgentActivity, from_id: &str, into_id: &str) {
         if into.name.is_none() {
             into.name = from.name;
         }
+        if into.agent_type.is_none() {
+            into.agent_type = from.agent_type;
+        }
+        if into.description.is_none() {
+            into.description = from.description;
+        }
+        if into.parent_child_id.is_none() {
+            into.parent_child_id = from.parent_child_id;
+        }
         if into.prompt.as_deref().unwrap_or("").is_empty() {
             into.prompt = from.prompt;
         }
+        merge_reply_parts(&mut into.reply_parts, from.reply_parts);
+        let published = publish_reply(&into.reply_parts);
+        let previous = into.reply.clone();
+        into.reply = published.or(from.reply).or(previous);
         match (&into.current_tool, from.current_tool) {
             (None, Some(tool)) => into.current_tool = Some(tool),
             (Some(existing), Some(tool))
@@ -1408,67 +1625,38 @@ fn merge_child(activity: &mut AgentActivity, from_id: &str, into_id: &str) {
     activity.children.push(renamed);
 }
 
+/// A tool belongs to a child only when the event names that child.
+/// A lead tool with no child id stays on the lead, even while children run.
 fn resolve_nested_child_id(activity: &AgentActivity, tool: &AgentTool) -> Option<String> {
-    if let Some(parent) = tool
+    let parent = tool
         .parent_tool_call_id
         .as_deref()
         .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
-        return Some(canonical_child_id(activity, parent));
-    }
-    guess_child_for_orphan_tool(activity)
+        .filter(|value| !value.is_empty())?;
+    Some(canonical_child_id(activity, parent))
 }
 
-fn guess_child_for_orphan_tool(activity: &AgentActivity) -> Option<String> {
-    let running: Vec<&AgentChildActivity> = activity
-        .children
-        .iter()
-        .filter(|child| child.state == AgentOccupancy::Running)
-        .collect();
-    if running.is_empty() {
-        return None;
-    }
-    if running.len() == 1 {
-        return Some(running[0].child_id.clone());
-    }
-    if let Some(idle) = running.iter().find(|child| child.current_tool.is_none()) {
-        return Some(idle.child_id.clone());
-    }
-    running
-        .iter()
-        .max_by_key(|child| child.last_event_at.as_str())
-        .map(|child| child.child_id.clone())
-}
-
-fn steal_prompt_for_child(activity: &mut AgentActivity, text: &str, now: &str) -> bool {
+fn steal_prompt_for_child(activity: &AgentActivity, text: &str, _now: &str) -> bool {
     let trimmed = text.trim();
     if trimmed.is_empty() || activity.children.is_empty() {
         return false;
     }
-    let truncated = truncate(trimmed, PROMPT_CHARS);
-    let already = activity.children.iter().any(|child| {
-        child.prompt.as_deref().is_some_and(|prompt| {
-            prompt == truncated || prompt.starts_with(trimmed) || trimmed.starts_with(prompt)
-        })
-    });
     let has_user_prompt = activity.turns.iter().any(|turn| !turn.prompt.is_empty());
     if !has_user_prompt {
         return false;
     }
-    if already {
-        return true;
-    }
-    if !looks_like_child_prompt(trimmed) {
-        return false;
-    }
-    if let Some(child) = activity.children.iter_mut().find(|child| {
-        child.state == AgentOccupancy::Running && child.prompt.as_deref().unwrap_or("").is_empty()
-    }) {
-        child.prompt = Some(truncated);
-        child.last_event_at = now.to_string();
-    }
-    true
+    // A duplicate of a prompt already stored on a child is a leak of that
+    // child's task. Any other text is the lead's next user message, even when
+    // a child is still running or its prompt is still empty.
+    let truncated = truncate(trimmed, PROMPT_CHARS);
+    activity.children.iter().any(|child| {
+        child.prompt.as_deref().is_some_and(|prompt| {
+            !prompt.is_empty()
+                && (prompt == truncated
+                    || prompt.starts_with(trimmed)
+                    || trimmed.starts_with(prompt))
+        })
+    })
 }
 
 fn strip_chrome_tools_from_turns(activity: &mut AgentActivity) {
@@ -1595,8 +1783,38 @@ fn host_child_name(tool: &AgentTool) -> Option<String> {
             .title
             .as_deref()
             .map(str::trim)
-            .filter(|s| !s.is_empty())
+            .filter(|s| !s.is_empty() && *s != CHILD_STOP_TITLE)
             .map(str::to_string),
+    }
+}
+
+fn host_child_labels(tool: &AgentTool) -> (Option<String>, Option<String>) {
+    match &tool.params {
+        AgentToolParams::Subagent {
+            description,
+            agent_type,
+            ..
+        } => {
+            let kind = agent_type
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string);
+            let desc = {
+                let text = description.trim();
+                if text.is_empty() {
+                    None
+                } else {
+                    Some(truncate(text, DETAIL_CHARS))
+                }
+            };
+            let desc = match (&kind, &desc) {
+                (Some(kind), Some(desc)) if kind.eq_ignore_ascii_case(desc) => None,
+                _ => desc,
+            };
+            (kind, desc)
+        }
+        _ => (None, None),
     }
 }
 
@@ -1608,7 +1826,7 @@ fn host_tool_name(tool: &AgentTool) -> String {
     tool.title
         .as_deref()
         .map(str::trim)
-        .filter(|s| !s.is_empty())
+        .filter(|s| !s.is_empty() && *s != CHILD_STOP_TITLE)
         .unwrap_or("tool")
         .to_string()
 }
@@ -1619,7 +1837,7 @@ fn host_tool_line(
     now: &str,
     state: &str,
 ) -> AgentToolLine {
-    AgentToolLine {
+    let mut line = AgentToolLine {
         name: host_tool_name(tool),
         detail: host_tool_detail(tool, project_path),
         state: state.to_string(),
@@ -1631,7 +1849,82 @@ fn host_tool_line(
         },
         duration_ms: None,
         repeat: 1,
+        kind: None,
+        output: None,
+        diff: None,
+        path: None,
+        old_content: None,
+        new_content: None,
+    };
+    absorb_tool_line(&mut line, tool, project_path);
+    line
+}
+
+fn tool_kind_name(kind: AgentToolKind) -> String {
+    serde_json::to_value(kind)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_string))
+        .unwrap_or_else(|| "other".to_string())
+}
+
+fn absorb_tool_line(line: &mut AgentToolLine, tool: &AgentTool, project_path: Option<&str>) {
+    line.kind = Some(tool_kind_name(tool.kind));
+    let (output, diff, old_content, new_content) = tool_bodies(tool);
+    if let Some(output) = output {
+        line.output = Some(truncate(&output, OUTPUT_CHARS));
     }
+    if let Some(diff) = diff {
+        line.diff = Some(truncate(&diff, OUTPUT_CHARS));
+    }
+    if let Some(old_content) = old_content {
+        line.old_content = Some(truncate(&old_content, OUTPUT_CHARS));
+    }
+    if let Some(new_content) = new_content {
+        line.new_content = Some(truncate(&new_content, OUTPUT_CHARS));
+    }
+    if let Some(path) = host_tool_path(tool, project_path) {
+        line.path = Some(path);
+    }
+}
+
+fn tool_bodies(
+    tool: &AgentTool,
+) -> (
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+) {
+    match &tool.result {
+        Some(agent::AgentToolResult::Text { text }) => {
+            let diff =
+                (tool.kind == AgentToolKind::Edit && looks_like_patch(text)).then(|| text.clone());
+            (Some(text.clone()), diff, None, None)
+        }
+        Some(agent::AgentToolResult::Execute { output, .. }) => {
+            (Some(output.clone()), None, None, None)
+        }
+        Some(agent::AgentToolResult::Error { message }) => {
+            (Some(message.clone()), None, None, None)
+        }
+        Some(agent::AgentToolResult::FileContent { text, .. }) => {
+            (Some(text.clone()), None, None, None)
+        }
+        Some(agent::AgentToolResult::Diff {
+            old_content,
+            new_content,
+            ..
+        }) => (None, None, old_content.clone(), Some(new_content.clone())),
+        _ => (None, None, None, None),
+    }
+}
+
+fn looks_like_patch(text: &str) -> bool {
+    let trimmed = text.trim_start();
+    trimmed.starts_with("--- ")
+        || trimmed.starts_with("diff --git ")
+        || trimmed.starts_with("*** ")
+        || trimmed.starts_with("@@ ")
 }
 
 fn host_tool_detail(tool: &AgentTool, project_path: Option<&str>) -> String {
@@ -1818,7 +2111,7 @@ fn apply_grok_roster(
         GrokRosterKind::Workflow => activity.grok_workflow_child_ids = ids,
     }
     for (id, name) in &incoming {
-        upsert_host_child(activity, id, name.clone(), now, true);
+        upsert_host_child(activity, id, name.clone(), None, None, None, now, true);
         if let Some(turn) = current_turn_mut(activity) {
             if !turn.spawned_child_ids.iter().any(|existing| existing == id) {
                 turn.spawned_child_ids.push(id.clone());
@@ -1826,7 +2119,6 @@ fn apply_grok_roster(
         }
     }
     merge_spawn_children_into_roster(activity, &incoming);
-    collapse_duplicate_named_children(activity);
     let keep: HashSet<String> = activity
         .grok_goal_child_ids
         .iter()
@@ -1887,6 +2179,150 @@ fn relativize(path: &str, project_path: Option<&str>) -> String {
         rest.trim_start_matches('/').to_string()
     } else {
         path.to_string()
+    }
+}
+
+fn apply_answer_chunk(
+    activity: &mut AgentActivity,
+    part_id: &str,
+    parent_part_id: Option<&str>,
+    ordinal: u32,
+    offset: u64,
+    text: &str,
+    now: &str,
+) {
+    let parent = parent_part_id.map(str::trim).filter(|id| !id.is_empty());
+    if let Some(parent) = parent {
+        if let Some(child_id) = child_id_for_call(activity, parent) {
+            write_child_reply(activity, &child_id, part_id, ordinal, offset, text, now);
+            return;
+        }
+        activity.pending_replies.push(PendingReply {
+            parent_id: parent.to_string(),
+            part_id: part_id.to_string(),
+            ordinal,
+            offset,
+            text: text.to_string(),
+        });
+        return;
+    }
+    // A Stop hook marks the session idle, which closes the turn, before this
+    // text is folded. The reply still belongs on that turn.
+    let turn_was_open = activity.current_turn_id.is_some();
+    if activity.turns.is_empty() {
+        ensure_open_turn(activity, now);
+    }
+    if let Some(turn) = if activity.current_turn_id.is_some() {
+        current_turn_mut(activity)
+    } else {
+        activity.turns.last_mut()
+    } {
+        turn.reply = absorb_reply_part(&mut turn.reply_parts, part_id, ordinal, offset, text);
+    }
+    if turn_was_open && activity.pending_permission.is_none() && activity.current_tool.is_none() {
+        activity.live_kind = AgentLiveKind::Streaming;
+    }
+}
+
+fn write_child_reply(
+    activity: &mut AgentActivity,
+    child_id: &str,
+    part_id: &str,
+    ordinal: u32,
+    offset: u64,
+    text: &str,
+    now: &str,
+) {
+    let Some(child) = activity
+        .children
+        .iter_mut()
+        .find(|child| child.child_id == child_id)
+    else {
+        return;
+    };
+    child.reply = absorb_reply_part(&mut child.reply_parts, part_id, ordinal, offset, text);
+    child.last_event_at = now.to_string();
+    if child.live_kind != AgentLiveKind::Permission && child.current_tool.is_none() {
+        child.live_kind = AgentLiveKind::Streaming;
+    }
+}
+
+fn flush_pending_replies(activity: &mut AgentActivity, now: &str) {
+    if activity.pending_replies.is_empty() {
+        return;
+    }
+    let pending = std::mem::take(&mut activity.pending_replies);
+    for item in pending {
+        if let Some(child_id) = child_id_for_call(activity, &item.parent_id) {
+            write_child_reply(
+                activity,
+                &child_id,
+                &item.part_id,
+                item.ordinal,
+                item.offset,
+                &item.text,
+                now,
+            );
+        } else {
+            activity.pending_replies.push(item);
+        }
+    }
+}
+
+fn merge_reply_parts(into: &mut Vec<ReplyPart>, from: Vec<ReplyPart>) {
+    for part in from {
+        if let Some(existing) = into.iter_mut().find(|item| item.part_id == part.part_id) {
+            if part.text.len() > existing.text.len() {
+                *existing = part;
+            }
+        } else {
+            into.push(part);
+        }
+    }
+}
+
+fn absorb_reply_part(
+    parts: &mut Vec<ReplyPart>,
+    part_id: &str,
+    ordinal: u32,
+    offset: u64,
+    text: &str,
+) -> Option<String> {
+    if let Some(part) = parts.iter_mut().find(|part| part.part_id == part_id) {
+        if part.text.chars().count() < REPLY_CHARS {
+            apply_text_offset(&mut part.text, offset, text);
+        }
+        part.ordinal = ordinal;
+    } else {
+        let mut body = String::new();
+        apply_text_offset(&mut body, offset, text);
+        parts.push(ReplyPart {
+            part_id: part_id.to_string(),
+            ordinal,
+            text: body,
+        });
+    }
+    publish_reply(parts)
+}
+
+fn publish_reply(parts: &[ReplyPart]) -> Option<String> {
+    let mut ordered: Vec<&ReplyPart> = parts.iter().collect();
+    ordered.sort_by_key(|part| part.ordinal);
+    let mut out = String::new();
+    for part in ordered {
+        if part.text.is_empty() {
+            continue;
+        }
+        if !out.is_empty() {
+            out.push('\n');
+        }
+        out.push_str(&part.text);
+    }
+    let trimmed = out.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(truncate(trimmed, REPLY_CHARS))
     }
 }
 
@@ -3006,6 +3442,212 @@ mod tests {
     }
 
     #[test]
+    fn chat_answer_text_is_the_turn_reply_and_thinking_is_not() {
+        use crate::service::agent_status::apply_host_event;
+
+        let status = AgentStatusService::new();
+        let meta = chat_meta("reply");
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::UserMessage {
+                turn_id: "t1".into(),
+                message_id: "m1".into(),
+                kind: UserMessageKind::Normal,
+                text: "scan the repo".into(),
+                attachments: Vec::new(),
+            },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::TextChunk {
+                part_id: "think".into(),
+                message_id: "m2".into(),
+                parent_part_id: None,
+                ordinal: 0,
+                kind: TextKind::Thinking,
+                offset: 0,
+                text: "planning".into(),
+            },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::TextChunk {
+                part_id: "answer".into(),
+                message_id: "m2".into(),
+                parent_part_id: None,
+                ordinal: 1,
+                kind: TextKind::Answer,
+                offset: 0,
+                text: "Hel".into(),
+            },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::TextChunk {
+                part_id: "answer".into(),
+                message_id: "m2".into(),
+                parent_part_id: None,
+                ordinal: 1,
+                kind: TextKind::Answer,
+                offset: 3,
+                text: "lo".into(),
+            },
+        );
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(activity.turns[0].reply.as_deref(), Some("Hello"));
+        assert!(!activity.turns[0]
+            .reply
+            .as_deref()
+            .unwrap()
+            .contains("planning"));
+    }
+
+    #[test]
+    fn child_answer_follows_the_tool_call_alias() {
+        use crate::service::agent_status::apply_host_event;
+
+        let status = AgentStatusService::new();
+        let meta = chat_meta("child-reply");
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::UserMessage {
+                turn_id: "t1".into(),
+                message_id: "m1".into(),
+                kind: UserMessageKind::Normal,
+                text: "explore the repo".into(),
+                attachments: Vec::new(),
+            },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::ToolCallStarted {
+                tool_call: AgentTool {
+                    tool_call_id: "tc_sub".into(),
+                    parent_tool_call_id: None,
+                    name: "Task".into(),
+                    title: Some("Explore".into()),
+                    kind: AgentToolKind::Subagent,
+                    status: agent::AgentToolStatus::Running,
+                    params: AgentToolParams::Subagent {
+                        description: "scan the tree".into(),
+                        agent_type: Some("Explore".into()),
+                        task_id: Some("child-1".into()),
+                        prompt: None,
+                    },
+                    result: None,
+                },
+            },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::TextChunk {
+                part_id: "child-answer".into(),
+                message_id: "m-child".into(),
+                parent_part_id: Some("tc_sub".into()),
+                ordinal: 0,
+                kind: TextKind::Answer,
+                offset: 0,
+                text: "hello from child".into(),
+            },
+        );
+        let activity = &status.get_all_activity()[0];
+        assert!(activity.turns[0].reply.is_none());
+        let child = activity
+            .children
+            .iter()
+            .find(|child| child.child_id == "child-1")
+            .expect("child");
+        assert_eq!(child.reply.as_deref(), Some("hello from child"));
+    }
+
+    #[test]
+    fn cursor_after_agent_response_shows_on_the_turn() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("cursor-pane");
+        service.handle_cursor_event(
+            &serde_json::json!({
+                "hook_event_name": "beforeSubmitPrompt",
+                "prompt": "rename the card",
+                "conversation_id": "c1",
+            }),
+            &ctx,
+        );
+        service.handle_cursor_event(
+            &serde_json::json!({
+                "hook_event_name": "afterAgentResponse",
+                "conversation_id": "c1",
+                "text": "Renamed the card.",
+            }),
+            &ctx,
+        );
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(activity.turns[0].prompt, "rename the card");
+        assert_eq!(
+            activity.turns[0].reply.as_deref(),
+            Some("Renamed the card.")
+        );
+    }
+
+    #[test]
+    fn claude_stop_without_assistant_text_leaves_the_reply_empty() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("claude-pane");
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": "fix the footer",
+            }),
+            &ctx,
+        );
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "Stop",
+                "session_id": "s1",
+                "transcript_path": "/tmp/transcript.jsonl",
+            }),
+            &ctx,
+        );
+        let activity = &status.get_all_activity()[0];
+        assert!(activity.turns[0].reply.is_none());
+        assert!(activity.turns[0].ended_at.is_some());
+    }
+
+    #[test]
+    fn claude_stop_keeps_last_assistant_message_on_the_turn() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("claude-pane-2");
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": "fix the footer",
+            }),
+            &ctx,
+        );
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "Stop",
+                "last_assistant_message": "The footer now matches.",
+            }),
+            &ctx,
+        );
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(
+            activity.turns[0].reply.as_deref(),
+            Some("The footer now matches.")
+        );
+    }
+
+    #[test]
     fn chat_subagent_update_creates_live_child() {
         use crate::service::agent_status::apply_host_event;
 
@@ -3160,6 +3802,81 @@ mod tests {
     }
 
     #[test]
+    fn child_read_title_does_not_replace_subagent_name() {
+        use crate::service::agent_status::apply_host_event;
+
+        let status = AgentStatusService::new();
+        let meta = chat_meta("title-stable");
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::UserMessage {
+                turn_id: "t1".into(),
+                message_id: "m1".into(),
+                kind: UserMessageKind::Normal,
+                text: "explore the repo".into(),
+                attachments: Vec::new(),
+            },
+        );
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::ToolCallStarted {
+                tool_call: AgentTool {
+                    tool_call_id: "tc-1".into(),
+                    parent_tool_call_id: None,
+                    name: "spawn_subagent".into(),
+                    title: None,
+                    kind: AgentToolKind::Subagent,
+                    status: agent::AgentToolStatus::Running,
+                    params: AgentToolParams::Subagent {
+                        description: "Explore Atmos monorepo".into(),
+                        agent_type: Some("general-purpose".into()),
+                        task_id: Some("sa-plan".into()),
+                        prompt: Some("You are exploring the Atmos monorepo".into()),
+                    },
+                    result: None,
+                },
+            },
+        );
+        let read_title =
+            "Read /Users/aarynlu/OpenSource/atmos/agents/references/runtime/atmos-home-layout.md";
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::ToolCallStarted {
+                tool_call: AgentTool {
+                    tool_call_id: "read-1".into(),
+                    parent_tool_call_id: Some("sa-plan".into()),
+                    name: "Read".into(),
+                    title: Some(read_title.into()),
+                    kind: AgentToolKind::Read,
+                    status: agent::AgentToolStatus::Running,
+                    params: AgentToolParams::Read {
+                        path: "/Users/aarynlu/OpenSource/atmos/agents/references/runtime/atmos-home-layout.md"
+                            .into(),
+                        offset: None,
+                        limit: None,
+                    },
+                    result: None,
+                },
+            },
+        );
+        let child = &status.get_all_activity()[0].children[0];
+        assert_eq!(
+            child.name.as_deref(),
+            Some("general-purpose · Explore Atmos monorepo")
+        );
+        assert_eq!(child.agent_type.as_deref(), Some("general-purpose"));
+        assert_eq!(child.description.as_deref(), Some("Explore Atmos monorepo"));
+        assert_ne!(child.name.as_deref(), Some(read_title));
+        assert_eq!(
+            child.current_tool.as_ref().map(|tool| tool.name.as_str()),
+            Some("Read")
+        );
+    }
+
+    #[test]
     fn spawn_aliases_onto_goal_roster_child() {
         use crate::service::agent_status::apply_host_event;
 
@@ -3259,7 +3976,7 @@ mod tests {
                 turn_id: "t2".into(),
                 message_id: "m2".into(),
                 kind: UserMessageKind::Normal,
-                text: "You are exploring the Atmos monorepo at /tmp for architecture notes and report back.".into(),
+                text: "You are exploring the Atmos monorepo at /tmp for architecture notes.".into(),
                 attachments: Vec::new(),
             },
         );
@@ -3324,6 +4041,106 @@ mod tests {
             child.current_tool.as_ref().map(|t| t.name.as_str()),
             Some("read_file")
         );
+    }
+
+    #[test]
+    fn grok_child_tools_follow_session_id_when_subagent_type_is_set() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("ws-1:grok-child-session");
+        let child_id = "01a10069-972b-77a0-b2dd-451ebcb390d2";
+        let parent_session = "01a10069-282b-7ae0-95f7-8ee0b55e9d2a";
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hookEventName": "UserPromptSubmit",
+                "sessionId": parent_session,
+                "prompt": "explore the repo",
+            }),
+            &ctx,
+        );
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hookEventName": "PreToolUse",
+                "sessionId": parent_session,
+                "toolUseId": "11111111-1111-4111-8111-111111111111",
+                "toolName": "spawn_subagent",
+                "toolInput": {
+                    "subagent_type": "general-purpose",
+                    "description": "Explore Atmos monorepo",
+                    "prompt": "You are exploring the Atmos monorepo at /tmp for architecture notes."
+                },
+            }),
+            &ctx,
+        );
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hookEventName": "SubagentStart",
+                "sessionId": parent_session,
+                "subagentId": child_id,
+                "subagentType": "general-purpose",
+                "description": "Explore Atmos monorepo",
+            }),
+            &ctx,
+        );
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hookEventName": "PreToolUse",
+                "sessionId": child_id,
+                "subagentType": "general-purpose",
+                "toolName": "read_file",
+                "toolUseId": "tool-read-1",
+                "toolInput": { "path": "agents/references/runtime/atmos-home-layout.md" },
+            }),
+            &ctx,
+        );
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hookEventName": "PostToolUse",
+                "sessionId": child_id,
+                "subagentType": "general-purpose",
+                "toolName": "read_file",
+                "toolUseId": "tool-read-1",
+                "toolInput": { "path": "agents/references/runtime/atmos-home-layout.md" },
+                "toolResult": "layout notes",
+            }),
+            &ctx,
+        );
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hookEventName": "SubagentStop",
+                "subagentId": child_id,
+                "subagentType": "general-purpose",
+                "sessionId": parent_session,
+            }),
+            &ctx,
+        );
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(activity.children.len(), 1);
+        let child = &activity.children[0];
+        assert_eq!(child.child_id, child_id);
+        assert_eq!(
+            child.name.as_deref(),
+            Some("general-purpose · Explore Atmos monorepo")
+        );
+        assert!(
+            child
+                .recent_tools
+                .iter()
+                .any(|tool| tool.name == "read_file"),
+            "read stays on the child after stop: {:?}",
+            child.recent_tools
+        );
+        assert!(
+            activity
+                .current_tool
+                .as_ref()
+                .map(|tool| tool.name.as_str())
+                != Some("read_file")
+        );
+        assert!(activity
+            .turns
+            .iter()
+            .all(|turn| { turn.tools.iter().all(|tool| tool.name != "read_file") }));
     }
 
     #[test]
@@ -3536,7 +4353,7 @@ mod tests {
     }
 
     #[test]
-    fn parallel_chat_subagents_with_the_same_label_collapse_to_one_each() {
+    fn parallel_chat_subagents_with_the_same_label_stay_distinct() {
         use crate::service::agent_status::apply_host_event;
 
         let status = AgentStatusService::new();
@@ -3614,7 +4431,17 @@ mod tests {
         );
 
         let activity = &status.get_all_activity()[0];
-        assert_eq!(activity.children.len(), 2);
+        let mut ids: Vec<_> = activity
+            .children
+            .iter()
+            .map(|child| child.child_id.as_str())
+            .collect();
+        ids.sort_unstable();
+        assert_eq!(
+            ids,
+            vec!["sa-rust", "sa-specs", "tc-rust", "tc-specs"],
+            "shared descriptions must not merge distinct child ids"
+        );
         let specs = activity
             .children
             .iter()
@@ -3624,14 +4451,11 @@ mod tests {
             specs.current_tool.as_ref().map(|tool| tool.name.as_str()),
             Some("read_file")
         );
-        assert!(activity
-            .children
-            .iter()
-            .any(|child| child.child_id == "sa-rust"));
+        assert_eq!(specs.description.as_deref(), Some("Explore monorepo specs"));
     }
 
     #[test]
-    fn same_label_with_prompts_on_both_sides_stays_one_child() {
+    fn same_label_with_prompts_on_both_sides_keeps_distinct_ids() {
         use crate::service::agent_status::apply_host_event;
 
         let status = AgentStatusService::new();
@@ -3673,12 +4497,587 @@ mod tests {
             );
         }
         let activity = &status.get_all_activity()[0];
-        assert_eq!(activity.children.len(), 1);
-        assert_eq!(
-            activity.children[0].name.as_deref(),
-            Some("Explore monorepo specs")
+        let mut ids: Vec<_> = activity
+            .children
+            .iter()
+            .map(|child| child.child_id.as_str())
+            .collect();
+        ids.sort_unstable();
+        assert_eq!(ids, vec!["sa-specs", "tc-specs"]);
+        assert!(activity.children.iter().all(|child| {
+            child.name.as_deref() == Some("Explore monorepo specs")
+                && child.prompt.as_deref() == Some(prompt)
+                && child.description.as_deref() == Some("Explore monorepo specs")
+        }));
+    }
+
+    #[test]
+    fn same_type_children_stay_running_until_their_own_stop_then_clear_on_prompt() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("ws-1:roster-same-type");
+        let spawn = |id: &str| {
+            serde_json::json!({
+                "tool_name": "Task",
+                "tool_use_id": id,
+                "tool_input": { "subagent_type": "Explore", "description": "scan" },
+            })
+        };
+        service.handle_claude_code_event(
+            &serde_json::json!({ "hook_event_name": "UserPromptSubmit", "prompt": "delegate" }),
+            &ctx,
         );
-        assert_eq!(activity.children[0].prompt.as_deref(), Some(prompt));
+        for id in ["t1", "t2"] {
+            let mut pre = spawn(id);
+            pre["hook_event_name"] = serde_json::json!("PreToolUse");
+            service.handle_claude_code_event(&pre, &ctx);
+            let mut post = spawn(id);
+            post["hook_event_name"] = serde_json::json!("PostToolUse");
+            service.handle_claude_code_event(&post, &ctx);
+        }
+        {
+            let activity = &status.get_all_activity()[0];
+            assert_eq!(activity.children.len(), 2);
+            assert!(activity
+                .children
+                .iter()
+                .all(|child| child.state == AgentOccupancy::Running));
+        }
+        for id in ["sa-a", "sa-b"] {
+            service.handle_claude_code_event(
+                &serde_json::json!({
+                    "hook_event_name": "SubagentStart",
+                    "agent_id": id,
+                    "subagent_type": "Explore",
+                    "description": "scan",
+                }),
+                &ctx,
+            );
+        }
+        {
+            let activity = &status.get_all_activity()[0];
+            let mut ids: Vec<_> = activity
+                .children
+                .iter()
+                .map(|child| child.child_id.as_str())
+                .collect();
+            ids.sort_unstable();
+            assert_eq!(ids, vec!["sa-a", "sa-b"]);
+            assert!(activity.children.iter().all(|child| {
+                child.state == AgentOccupancy::Running
+                    && child.agent_type.as_deref() == Some("Explore")
+                    && child.description.as_deref() == Some("scan")
+            }));
+            assert_eq!(activity.last_state, AgentOccupancy::Running);
+        }
+        service.handle_claude_code_event(&serde_json::json!({ "hook_event_name": "Stop" }), &ctx);
+        service.handle_claude_code_event(
+            &serde_json::json!({ "hook_event_name": "SubagentStop", "agent_id": "sa-a" }),
+            &ctx,
+        );
+        {
+            let activity = &status.get_all_activity()[0];
+            let stopped = activity
+                .children
+                .iter()
+                .find(|child| child.child_id == "sa-a")
+                .expect("stopped child stays visible");
+            let running = activity
+                .children
+                .iter()
+                .find(|child| child.child_id == "sa-b")
+                .expect("sibling stays");
+            assert_eq!(stopped.state, AgentOccupancy::Idle);
+            assert_eq!(running.state, AgentOccupancy::Running);
+            assert_eq!(activity.last_state, AgentOccupancy::Running);
+            assert_eq!(activity.children.len(), 2);
+        }
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": "next question",
+            }),
+            &ctx,
+        );
+        let activity = &status.get_all_activity()[0];
+        assert!(activity.children.is_empty());
+        assert_eq!(activity.turns.len(), 1);
+        assert_eq!(activity.turns[0].prompt, "next question");
+    }
+
+    #[test]
+    fn nested_child_stays_on_its_parent_not_the_lead() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("ws-1:roster-nested");
+        service.handle_claude_code_event(
+            &serde_json::json!({ "hook_event_name": "UserPromptSubmit", "prompt": "delegate" }),
+            &ctx,
+        );
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "SubagentStart",
+                "agent_id": "parent",
+                "subagent_type": "Explore",
+                "description": "scan the tree",
+            }),
+            &ctx,
+        );
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "PreToolUse",
+                "agent_id": "parent",
+                "tool_name": "Task",
+                "tool_use_id": "nest-1",
+                "tool_input": { "subagent_type": "Explore", "description": "read the crate" },
+            }),
+            &ctx,
+        );
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "SubagentStart",
+                "agent_id": "kid",
+                "parent_agent_id": "parent",
+                "subagent_type": "Explore",
+                "description": "read the crate",
+            }),
+            &ctx,
+        );
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "PreToolUse",
+                "agent_id": "kid",
+                "tool_name": "read_file",
+                "tool_input": { "path": "a.rs" },
+            }),
+            &ctx,
+        );
+        let activity = &status.get_all_activity()[0];
+        let kid = activity
+            .children
+            .iter()
+            .find(|child| child.child_id == "kid")
+            .expect("nested child");
+        assert_eq!(kid.parent_child_id.as_deref(), Some("parent"));
+        assert_eq!(kid.agent_type.as_deref(), Some("Explore"));
+        assert_eq!(kid.description.as_deref(), Some("read the crate"));
+        assert_eq!(
+            kid.current_tool.as_ref().map(|tool| tool.name.as_str()),
+            Some("read_file")
+        );
+        assert_eq!(kid.state, AgentOccupancy::Running);
+        assert!(activity.turns.iter().all(|turn| turn
+            .tools
+            .iter()
+            .all(|tool| tool.name != "read_file" && tool.name != "Task")));
+        assert!(
+            activity
+                .current_tool
+                .as_ref()
+                .map(|tool| tool.name.as_str())
+                != Some("read_file")
+        );
+        assert_eq!(activity.last_state, AgentOccupancy::Running);
+    }
+
+    #[test]
+    fn chat_task_completion_idles_only_that_child() {
+        use crate::service::agent_status::apply_host_event;
+
+        let status = AgentStatusService::new();
+        let meta = chat_meta("chat-roster");
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::UserMessage {
+                turn_id: "t1".into(),
+                message_id: "m1".into(),
+                kind: UserMessageKind::Normal,
+                text: "delegate".into(),
+                attachments: Vec::new(),
+            },
+        );
+        for (call_id, task_id) in [("tc-a", "sa-a"), ("tc-b", "sa-b")] {
+            apply_host_event(
+                &status,
+                &meta,
+                &AgentEvent::ToolCallStarted {
+                    tool_call: AgentTool {
+                        tool_call_id: call_id.into(),
+                        parent_tool_call_id: None,
+                        name: "Task".into(),
+                        title: None,
+                        kind: AgentToolKind::Subagent,
+                        status: agent::AgentToolStatus::Running,
+                        params: AgentToolParams::Subagent {
+                            description: "scan".into(),
+                            agent_type: Some("Explore".into()),
+                            task_id: Some(task_id.into()),
+                            prompt: None,
+                        },
+                        result: None,
+                    },
+                },
+            );
+        }
+        apply_host_event(
+            &status,
+            &meta,
+            &AgentEvent::ToolCallCompleted {
+                tool_call: AgentTool {
+                    tool_call_id: "tc-a".into(),
+                    parent_tool_call_id: None,
+                    name: "Task".into(),
+                    title: None,
+                    kind: AgentToolKind::Subagent,
+                    status: agent::AgentToolStatus::Completed,
+                    params: AgentToolParams::Subagent {
+                        description: "scan".into(),
+                        agent_type: Some("Explore".into()),
+                        task_id: Some("sa-a".into()),
+                        prompt: None,
+                    },
+                    result: None,
+                },
+            },
+        );
+        let activity = &status.get_all_activity()[0];
+        let idle = activity
+            .children
+            .iter()
+            .find(|child| child.child_id == "sa-a")
+            .expect("completed chat child stays");
+        let running = activity
+            .children
+            .iter()
+            .find(|child| child.child_id == "sa-b")
+            .expect("other child");
+        assert_eq!(activity.children.len(), 2);
+        assert_eq!(idle.state, AgentOccupancy::Idle);
+        assert_eq!(running.state, AgentOccupancy::Running);
+        assert_eq!(idle.agent_type.as_deref(), Some("Explore"));
+        assert_eq!(idle.description.as_deref(), Some("scan"));
+        assert_eq!(activity.last_state, AgentOccupancy::Running);
+    }
+
+    #[test]
+    fn hook_tool_output_and_edit_diff_land_on_the_line() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("ws-1:snapshot-bodies");
+        let patch = "--- a/src/b.ts\n+++ b/src/b.ts\n@@ -1,1 +1,1 @@\n-old\n+new\n";
+        service.handle_claude_code_event(
+            &serde_json::json!({ "hook_event_name": "UserPromptSubmit", "prompt": "edit" }),
+            &ctx,
+        );
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "PostToolUse",
+                "tool_name": "Bash",
+                "tool_use_id": "bash-1",
+                "tool_input": { "command": "ls" },
+                "tool_response": "observer-out",
+            }),
+            &ctx,
+        );
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "PostToolUse",
+                "tool_name": "Edit",
+                "tool_use_id": "edit-1",
+                "tool_input": { "file_path": "src/b.ts" },
+                "diff": patch,
+            }),
+            &ctx,
+        );
+        let tools = &status.get_all_activity()[0].turns[0].tools;
+        let bash = tools.iter().find(|tool| tool.name == "Bash").expect("bash");
+        let edit = tools.iter().find(|tool| tool.name == "Edit").expect("edit");
+        assert_eq!(bash.kind.as_deref(), Some("execute"));
+        assert_eq!(bash.output.as_deref(), Some("observer-out"));
+        assert_ne!(bash.kind.as_deref(), Some("other"));
+        assert_eq!(edit.kind.as_deref(), Some("edit"));
+        assert_eq!(edit.diff.as_deref(), Some(patch));
+        assert_eq!(edit.path.as_deref(), Some("src/b.ts"));
+    }
+
+    #[test]
+    fn long_prompt_is_stored_whole_so_the_drawer_can_expand_it() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("ws-1:long-prompt");
+        let prompt = format!(
+            "Explore the Atmos monorepo and return a concise orientation.\n\nThe user asked in Chinese: 启动 subagent，探索一下项目 — they want a project exploration, not coding.\n\n{}",
+            "Keep the rest of the task. ".repeat(20)
+        )
+        .trim()
+        .to_string();
+        assert!(prompt.chars().count() > 240);
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": "delegate",
+            }),
+            &ctx,
+        );
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "PreToolUse",
+                "tool_name": "spawn_subagent",
+                "tool_input": {
+                    "subagent_type": "general-purpose",
+                    "prompt": prompt,
+                },
+            }),
+            &ctx,
+        );
+        let child_prompt = status.get_all_activity()[0]
+            .children
+            .iter()
+            .find_map(|child| child.prompt.clone())
+            .expect("child prompt");
+        assert_eq!(child_prompt, prompt);
+        assert!(!child_prompt.contains('…'));
+
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": prompt,
+            }),
+            &ctx,
+        );
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(activity.turns[0].prompt, "delegate");
+        assert_eq!(
+            activity.children[0].prompt.as_deref(),
+            Some(prompt.as_str())
+        );
+
+        let follow = "please refactor the observer drawer and keep the cards";
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": follow,
+            }),
+            &ctx,
+        );
+        let activity = &status.get_all_activity()[0];
+        assert!(activity.children.is_empty());
+        assert_eq!(activity.turns[0].prompt, follow);
+    }
+
+    #[test]
+    fn long_follow_up_after_child_stop_clears_children_and_opens_the_turn() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("ws-1:long-follow-up");
+        let prompt = "please refactor the observer drawer and keep the cards";
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": "delegate",
+            }),
+            &ctx,
+        );
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "SubagentStart",
+                "agent_id": "child-1",
+                "subagent_type": "Explore",
+            }),
+            &ctx,
+        );
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "SubagentStop",
+                "agent_id": "child-1",
+            }),
+            &ctx,
+        );
+        assert_eq!(status.get_all_activity()[0].children.len(), 1);
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": prompt,
+            }),
+            &ctx,
+        );
+        let activity = &status.get_all_activity()[0];
+        assert!(activity.children.is_empty());
+        assert_eq!(activity.turns.len(), 1);
+        assert_eq!(activity.turns[0].prompt, prompt);
+    }
+
+    #[test]
+    fn unmatched_follow_up_while_child_runs_clears_children_and_opens_the_turn() {
+        let prompt = "please refactor the observer drawer and keep the cards";
+        for (label, start) in [
+            (
+                "with-prompt",
+                serde_json::json!({
+                    "hook_event_name": "SubagentStart",
+                    "agent_id": "child-1",
+                    "prompt": "scan the tree",
+                }),
+            ),
+            (
+                "empty-prompt",
+                serde_json::json!({
+                    "hook_event_name": "SubagentStart",
+                    "agent_id": "child-1",
+                }),
+            ),
+        ] {
+            let status = Arc::new(AgentStatusService::new());
+            let service = AgentHooksService::new(status.clone());
+            let ctx = pane_ctx(&format!("ws-1:unmatched-{label}"));
+            service.handle_claude_code_event(
+                &serde_json::json!({
+                    "hook_event_name": "UserPromptSubmit",
+                    "prompt": "delegate",
+                }),
+                &ctx,
+            );
+            service.handle_claude_code_event(&start, &ctx);
+            {
+                let activity = &status.get_all_activity()[0];
+                let child = activity
+                    .children
+                    .iter()
+                    .find(|child| child.child_id == "child-1")
+                    .expect("child stays running");
+                assert_eq!(child.state, AgentOccupancy::Running);
+                if label == "with-prompt" {
+                    assert_eq!(child.prompt.as_deref(), Some("scan the tree"));
+                } else {
+                    assert!(child.prompt.as_deref().unwrap_or("").is_empty());
+                }
+            }
+            service.handle_claude_code_event(
+                &serde_json::json!({
+                    "hook_event_name": "UserPromptSubmit",
+                    "prompt": prompt,
+                }),
+                &ctx,
+            );
+            let activity = &status.get_all_activity()[0];
+            assert!(activity.children.is_empty(), "{label} children cleared");
+            assert_eq!(activity.turns.len(), 1, "{label} turn");
+            assert_eq!(activity.turns[0].prompt, prompt, "{label} prompt");
+        }
+    }
+
+    #[test]
+    fn lead_bash_without_child_id_stays_on_the_lead() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("ws-1:lead-bash");
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": "delegate",
+            }),
+            &ctx,
+        );
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "SubagentStart",
+                "agent_id": "child-1",
+            }),
+            &ctx,
+        );
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Bash",
+                "tool_input": { "command": "ls" },
+            }),
+            &ctx,
+        );
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(
+            activity
+                .current_tool
+                .as_ref()
+                .map(|tool| tool.name.as_str()),
+            Some("Bash")
+        );
+        let child = activity
+            .children
+            .iter()
+            .find(|child| child.child_id == "child-1")
+            .expect("child stays");
+        assert!(child.current_tool.is_none());
+        assert!(child.recent_tools.iter().all(|tool| tool.name != "Bash"));
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "PostToolUse",
+                "tool_name": "Bash",
+                "tool_input": { "command": "ls" },
+                "tool_response": "ok",
+            }),
+            &ctx,
+        );
+        let activity = &status.get_all_activity()[0];
+        assert!(activity.turns[0]
+            .tools
+            .iter()
+            .any(|tool| tool.name == "Bash"));
+        let child = activity
+            .children
+            .iter()
+            .find(|child| child.child_id == "child-1")
+            .expect("child stays");
+        assert!(child.recent_tools.iter().all(|tool| tool.name != "Bash"));
+        assert!(child.current_tool.as_ref().map(|tool| tool.name.as_str()) != Some("Bash"));
+    }
+
+    #[test]
+    fn lead_bash_with_only_session_id_stays_on_the_lead() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("ws-1:lead-session");
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hookEventName": "UserPromptSubmit",
+                "sessionId": "01a10069-282b-7ae0-95f7-8ee0b55e9d2a",
+                "prompt": "delegate",
+            }),
+            &ctx,
+        );
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hookEventName": "SubagentStart",
+                "subagentId": "child-1",
+                "subagentType": "general-purpose",
+                "sessionId": "01a10069-282b-7ae0-95f7-8ee0b55e9d2a",
+            }),
+            &ctx,
+        );
+        service.handle_grok_build_event(
+            &serde_json::json!({
+                "hookEventName": "PreToolUse",
+                "sessionId": "01a10069-282b-7ae0-95f7-8ee0b55e9d2a",
+                "toolName": "Bash",
+                "toolInput": { "command": "ls" },
+            }),
+            &ctx,
+        );
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(
+            activity
+                .current_tool
+                .as_ref()
+                .map(|tool| tool.name.as_str()),
+            Some("Bash")
+        );
+        let child = activity
+            .children
+            .iter()
+            .find(|child| child.child_id == "child-1")
+            .expect("child stays");
+        assert!(child.current_tool.is_none());
+        assert!(child.recent_tools.iter().all(|tool| tool.name != "Bash"));
     }
 
     #[test]

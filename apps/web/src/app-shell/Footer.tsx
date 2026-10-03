@@ -27,7 +27,7 @@ import { useAgentAttentionStore } from '@/features/agent/store/agent-attention-s
 import { useAgentAttentionSummaryStore } from '@/features/agent/store/agent-attention-summary-store';
 import { useWorkspaceAgentGroupingHoldStore } from '@/features/agent/store/workspace-agent-grouping-hold';
 import { useShallow } from 'zustand/react/shallow';
-import { AgentStatusIndicator } from '@/features/agent/components/AgentStatusIndicator';
+import { FooterAgentStatusIcon } from '@/features/agent/components/FooterAgentStatusIcon';
 import { AgentIcon } from '@/features/agent/components/AgentIcon';
 import { AnimatePresence, motion } from 'motion/react';
 import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
@@ -54,13 +54,14 @@ import {
   buildFooterAgentOverview,
   FOOTER_AGENT_OVERVIEW_ORDER,
   footerAgentOverviewTotal,
+  footerAgentStatusBadgeClass,
+  footerAgentStatusLabel,
   footerSessionIdentityKeys,
   groupFooterOverviewRowsByContext,
   type FooterAgentOverviewBucket,
   type FooterAgentOverviewRow,
 } from '@/features/agent/lib/footer-agent-overview';
 import { sessionsOccupancyFingerprint } from "@/features/agent/lib/agent-status-fingerprint";
-import { getWorkspaceAgentGroupMeta } from '@/app-shell/sidebar/workspace-status';
 import { useTranslations } from 'next-intl';
 import { APP_FOOTER_HEIGHT_CLASS } from '@/app-shell/sidebar-layout-constants';
 
@@ -71,20 +72,14 @@ function groupSessionsByContext(
 }
 
 function footerOverviewBadgeClass(bucket: FooterAgentOverviewBucket): string {
-  if (bucket === "running") return "text-blue-400 bg-blue-500/10";
-  if (bucket === "attention") return "text-emerald-500 bg-emerald-500/10";
-  if (bucket === "permission") return "text-amber-500 bg-amber-500/10";
-  return "text-emerald-500";
+  return footerAgentStatusBadgeClass(bucket);
 }
 
 function footerOverviewBucketLabel(
   t: (key: "footer.overviewRunning" | "footer.overviewIdle" | "footer.overviewNeedAttention" | "footer.overviewNeedPermission") => string,
   bucket: FooterAgentOverviewBucket,
 ): string {
-  if (bucket === "running") return t("footer.overviewRunning");
-  if (bucket === "idle") return t("footer.overviewIdle");
-  if (bucket === "attention") return t("footer.overviewNeedAttention");
-  return t("footer.overviewNeedPermission");
+  return footerAgentStatusLabel(t, bucket);
 }
 
 function FooterOverviewBucketIcon({
@@ -92,24 +87,7 @@ function FooterOverviewBucketIcon({
 }: {
   bucket: FooterAgentOverviewBucket;
 }) {
-  if (bucket === "running") {
-    return (
-      <span className="inline-flex size-5 shrink-0 items-center justify-center">
-        <AgentStatusIndicator
-          state={AGENT_STATE.RUNNING}
-          variant="compact"
-          placement="footer"
-        />
-      </span>
-    );
-  }
-  const meta = getWorkspaceAgentGroupMeta(bucket === "idle" ? "done" : bucket);
-  const Icon = meta.icon;
-  return (
-    <span className="inline-flex size-5 shrink-0 items-center justify-center">
-      <Icon className={cn("size-3.5", meta.className)} />
-    </span>
-  );
+  return <FooterAgentStatusIcon bucket={bucket} />;
 }
 
 function markFooterSessionIdle(session: AgentStatusRecord) {

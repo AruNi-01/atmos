@@ -736,11 +736,24 @@ impl AgentChatService {
         )?;
         if let Some(status) = self.status.get() {
             if let Ok(meta) = self.store.get_meta(chat_id) {
+                // TurnStarted alone opens an empty turn. The provider stream does
+                // not echo the user text, so the card would fall back to the agent name.
                 agent_status::apply_host_event(
                     status,
                     &meta,
                     &AgentEvent::TurnStarted {
                         turn_id: turn_id.clone(),
+                    },
+                );
+                agent_status::apply_host_event(
+                    status,
+                    &meta,
+                    &AgentEvent::UserMessage {
+                        turn_id: turn_id.clone(),
+                        message_id: message_id.clone(),
+                        kind: UserMessageKind::Normal,
+                        text: text.to_string(),
+                        attachments: attachments.clone(),
                     },
                 );
             }
@@ -2151,6 +2164,7 @@ async fn pump_dispatch_envelope(
             control,
             recent_events,
             turn_gates,
+            status,
         )
         .await
         {

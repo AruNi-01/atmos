@@ -64,7 +64,7 @@ describe("drawer close chrome", () => {
     );
     expect(observer).toContain("drawerCloseReserveClass");
     expect(observer).toContain("useTaskDrawerInsets");
-    expect(observer).toContain("ObserverConversation");
+    expect(observer).toContain("ObserverEventPreview");
     expect(observer).not.toContain("turnsHeading");
 
     const session = read(

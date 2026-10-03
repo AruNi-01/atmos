@@ -31,6 +31,12 @@ pub use manager::{
     native_chat_launch_spec, native_chat_sibling_id, registry_agent_env_overrides,
     DEEPSEEK_API_KEY_ENV, DEEPSEEK_HARNESS_ID,
 };
+pub use map::ask::is_ask_user_tool;
+pub use map::classify::{classify_tool, ClassifiedTool};
+pub use map::extract::{
+    extract_background, extract_command, extract_cwd, extract_path, extract_query, extract_skill,
+    extract_subagent, extract_subagent_prompt, extract_task_id, extract_url,
+};
 pub use models::{
     AgentConfigState, AgentId, AgentInstallResult, AgentLaunchSpec, AgentStatus, CustomAgent,
     KnownAgent, NativeChatAgent, RegistryAgent, RegistryInstallResult,

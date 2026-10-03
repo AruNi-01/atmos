@@ -1,8 +1,12 @@
 import type {
+  AgentOccupancy,
   AgentStatusRecord,
   AgentToolType,
 } from "@/features/agent/store/agent-status-store";
-import type { PaneAttention } from "@/features/agent/store/agent-attention-store";
+import type {
+  AttentionReason,
+  PaneAttention,
+} from "@/features/agent/store/agent-attention-store";
 import {
   resolveWorkspaceAgentGroupKey,
   type WorkspaceAgentGroupKey,
@@ -17,6 +21,68 @@ export const FOOTER_AGENT_OVERVIEW_ORDER: FooterAgentOverviewBucket[] = [
   "attention",
   "permission",
 ];
+
+const FOOTER_AGENT_STATUS_MESSAGE_KEY = {
+  running: "footer.overviewRunning",
+  idle: "footer.overviewIdle",
+  attention: "footer.overviewNeedAttention",
+  permission: "footer.overviewNeedPermission",
+} as const;
+
+export type FooterAgentStatusMessageKey =
+  (typeof FOOTER_AGENT_STATUS_MESSAGE_KEY)[FooterAgentOverviewBucket];
+
+/** Same words as the footer Agent status badge. */
+export function footerAgentStatusMessageKey(
+  bucket: FooterAgentOverviewBucket,
+): FooterAgentStatusMessageKey {
+  return FOOTER_AGENT_STATUS_MESSAGE_KEY[bucket];
+}
+
+export function footerAgentStatusLabel(
+  t: (key: FooterAgentStatusMessageKey) => string,
+  bucket: FooterAgentOverviewBucket,
+): string {
+  return t(footerAgentStatusMessageKey(bucket));
+}
+
+/** Badge text color shared with the footer session row. */
+export function footerAgentStatusTextClass(bucket: FooterAgentOverviewBucket): string {
+  if (bucket === "running") return "text-blue-400";
+  if (bucket === "attention") return "text-emerald-500";
+  if (bucket === "permission") return "text-amber-500";
+  return "text-emerald-500";
+}
+
+export function footerAgentStatusBadgeClass(bucket: FooterAgentOverviewBucket): string {
+  if (bucket === "running") return "text-blue-400 bg-blue-500/10";
+  if (bucket === "attention") return "text-emerald-500 bg-emerald-500/10";
+  if (bucket === "permission") return "text-amber-500 bg-amber-500/10";
+  return "text-emerald-500";
+}
+
+/**
+ * Footer bucket for one agent card. Permission beats running, which beats
+ * task-complete attention. Missing occupancy is not a status.
+ */
+export function footerBucketForAgentState(input: {
+  agentState: AgentOccupancy | string | null | undefined;
+  attentionReason?: AttentionReason | null;
+}): FooterAgentOverviewBucket | null {
+  const agentState = input.agentState;
+  if (
+    agentState !== "idle" &&
+    agentState !== "running" &&
+    agentState !== "permission_request"
+  ) {
+    return null;
+  }
+  const key = resolveWorkspaceAgentGroupKey({
+    agentState,
+    attentionReason: input.attentionReason ?? null,
+  });
+  return key === "done" ? "idle" : key;
+}
 
 export type FooterAgentOverviewCounts = Record<FooterAgentOverviewBucket, number>;
 

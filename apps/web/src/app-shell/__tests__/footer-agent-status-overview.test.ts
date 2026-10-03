@@ -8,14 +8,20 @@ describe("footer agent status overview", () => {
   test("shows icon+count buckets instead of a session ticker", () => {
     expect(footerSrc).toContain("AgentStatusOverviewTrigger");
     expect(footerSrc).toContain("FOOTER_AGENT_OVERVIEW_ORDER");
+    expect(footerSrc).toContain("footerAgentStatusLabel");
     expect(footerSrc).toContain("overviewNeedAttention");
     expect(footerSrc).not.toContain("useSessionTicker");
     expect(footerSrc).not.toContain("tickerSession");
   });
 
   test("reuses sidebar grouping icons and the footer running indicator", () => {
-    expect(footerSrc).toContain("getWorkspaceAgentGroupMeta");
-    expect(footerSrc).toContain('placement="footer"');
+    const iconSrc = readFileSync(
+      join(import.meta.dir, "../../features/agent/components/FooterAgentStatusIcon.tsx"),
+      "utf8",
+    );
+    expect(iconSrc).toContain("getWorkspaceAgentGroupMeta");
+    expect(iconSrc).toContain('placement="footer"');
+    expect(footerSrc).toContain("FooterAgentStatusIcon");
     expect(footerSrc).toContain("FooterOverviewBucketIcon");
   });
 
@@ -37,6 +43,7 @@ describe("footer agent status overview", () => {
   test("session rows show every overview bucket icon and badge, and can mark non-idle as idle", () => {
     expect(footerSrc).toContain("FooterOverviewBucketIcon bucket={bucket}");
     expect(footerSrc).toContain("footerOverviewBadgeClass");
+    expect(footerSrc).toContain("footerAgentStatusLabel");
     expect(footerSrc).toContain("overviewNeedAttention");
     expect(footerSrc).toContain("overviewNeedPermission");
     expect(footerSrc).toContain("markFooterSessionIdle");
