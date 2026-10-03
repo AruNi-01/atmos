@@ -28,6 +28,8 @@ interface BrowserPanelProps {
   workspaceId: string | null;
   projectId?: string;
   isActive?: boolean;
+  /** Paint the guest while this panel is only a space-gallery preview. */
+  keepGuestPainted?: boolean;
   browserContextId?: string;
   allowStandaloneWindow?: boolean;
   allowMaximize?: boolean;
@@ -43,6 +45,7 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
   workspaceId,
   projectId,
   isActive = false,
+  keepGuestPainted = false,
   browserContextId,
   allowStandaloneWindow = true,
   allowMaximize = true,
@@ -199,6 +202,7 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
             setBrowserTabActivePreviewUrl(tab.id, nextUrl)
           }
           isActive={isActive && isActiveTab}
+          keepGuestPainted={keepGuestPainted && isActiveTab}
           isMaximized={isPreviewMaximized}
           isMaximizedLayoutManaged
           setIsMaximized={setIsPreviewMaximized}

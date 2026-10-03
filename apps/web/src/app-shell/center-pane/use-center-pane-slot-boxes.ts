@@ -64,6 +64,42 @@ export function mergePaneSlotBoxes(
   return next;
 }
 
+/**
+ * Space overview scales the live mosaic with a CSS transform. `getBoundingClientRect`
+ * then reports the card-sized visual box. Writing that into slot state leaves every
+ * keep-alive panel (editor, chat, terminal, explorer height) at preview size after
+ * the transform is cleared — ResizeObserver does not fire for transform alone.
+ */
+export function slotMeasureBlockedBySpaceOverview(host: HTMLElement): boolean {
+  const stage = host.closest("[data-center-space-stage]");
+  if (!(stage instanceof HTMLElement)) return false;
+  if (stage.getAttribute("data-overview") === "open") return true;
+  return stage.querySelector("[data-center-space-posed]") != null;
+}
+
+/**
+ * While the gallery pose is up, keep the last layout-sized boxes. Retag them onto
+ * the space being zoomed into so a context switch does not collapse panels to 0
+ * for the length of the zoom. Do not cache this borrow — the real measure on
+ * close replaces it.
+ */
+export function retainSlotBoxesDuringSpaceOverview(input: {
+  contextId: string;
+  previous: { contextId: string; boxes: Record<string, PaneSlotBox> };
+  cached?: Record<string, PaneSlotBox>;
+}): { contextId: string; boxes: Record<string, PaneSlotBox> } | null {
+  const cached = input.cached;
+  const boxes =
+    cached && Object.keys(cached).length > 0 ? cached : input.previous.boxes;
+  if (
+    input.previous.contextId === input.contextId &&
+    (boxes === input.previous.boxes || paneSlotBoxesEqual(input.previous.boxes, boxes))
+  ) {
+    return null;
+  }
+  return { contextId: input.contextId, boxes };
+}
+
 function paneSlotBoxesEqual(
   a: Record<string, PaneSlotBox>,
   b: Record<string, PaneSlotBox>,
@@ -213,6 +249,17 @@ export function useCenterPaneSlotBoxes(
     const id = contextId ?? "";
 
     const measure = () => {
+      if (slotMeasureBlockedBySpaceOverview(host)) {
+        setSnapshot((prev) => {
+          const retained = retainSlotBoxesDuringSpaceOverview({
+            contextId: id,
+            previous: prev,
+            cached: id ? cacheRef.current[id] : undefined,
+          });
+          return retained ?? prev;
+        });
+        return;
+      }
       const hostRect = host.getBoundingClientRect();
       if (hostRect.width <= 0 || hostRect.height <= 0) return;
       const measured: Record<string, PaneSlotBox> = {};
@@ -248,6 +295,16 @@ export function useCenterPaneSlotBoxes(
     measure();
     const ro = new ResizeObserver(() => measure());
     ro.observe(host);
+    // Transform removal does not resize the layout box, so closing the gallery
+    // must ask for a fresh measure or a borrowed preview box would stick.
+    const stage = host.closest("[data-center-space-stage]");
+    const overviewObserver = new MutationObserver(() => measure());
+    if (stage instanceof HTMLElement) {
+      overviewObserver.observe(stage, {
+        attributes: true,
+        attributeFilter: ["data-overview"],
+      });
+    }
     for (const paneId of order) {
       const slot = document.querySelector<HTMLElement>(
         `[data-center-pane-content-slot="${paneId}"]`,
@@ -261,6 +318,7 @@ export function useCenterPaneSlotBoxes(
     window.addEventListener("resize", measure);
     return () => {
       ro.disconnect();
+      overviewObserver.disconnect();
       window.removeEventListener("resize", measure);
     };
     // Depend on stable string keys only — never the layout object identity.

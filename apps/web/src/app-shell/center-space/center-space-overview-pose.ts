@@ -2,11 +2,13 @@ import {
   CENTER_SPACE_OVERVIEW_EASE,
   CENTER_SPACE_OVERVIEW_MS,
   centerSpaceOverviewTransform,
+  centerSpacePoseRingWidth,
   type CenterSpaceBox,
 } from "@/app-shell/center-space/center-space-overview-motion";
 
 const IDENTITY_TRANSFORM = "translate3d(0px, 0px, 0px) scale(1)";
 const POSE_TRANSITION = `transform ${CENTER_SPACE_OVERVIEW_MS}ms ${CENTER_SPACE_OVERVIEW_EASE}, border-radius ${CENTER_SPACE_OVERVIEW_MS}ms ${CENTER_SPACE_OVERVIEW_EASE}, opacity ${CENTER_SPACE_OVERVIEW_MS}ms ${CENTER_SPACE_OVERVIEW_EASE}`;
+const RING_TRANSITION = `opacity ${CENTER_SPACE_OVERVIEW_MS}ms ${CENTER_SPACE_OVERVIEW_EASE}`;
 
 type SavedStyle = {
   transform: string;
@@ -19,6 +21,36 @@ type SavedStyle = {
   transformOrigin: string;
   backgroundColor: string;
 };
+
+function poseRing(el: HTMLElement): HTMLElement | null {
+  const node = el.querySelector(":scope > [data-center-space-pose-ring]");
+  return node instanceof HTMLElement ? node : null;
+}
+
+function paintPoseRing(ring: HTMLElement, scale: number, opacity: string) {
+  // A child border sits above the editor, chat, and terminal. An outline or
+  // inset shadow on the frame itself is clipped or covered by those panes.
+  ring.style.borderStyle = "solid";
+  ring.style.borderColor = "var(--foreground)";
+  ring.style.borderWidth = centerSpacePoseRingWidth(scale);
+  ring.style.opacity = opacity;
+}
+
+function resetPoseRing(el: HTMLElement) {
+  const ring = poseRing(el);
+  if (!ring) return;
+  ring.style.transition = "none";
+  ring.style.opacity = "";
+  ring.style.borderStyle = "";
+  ring.style.borderColor = "";
+  ring.style.borderWidth = "";
+}
+
+function scaleFromTransform(transform: string): number {
+  const match = /scale\(([^)]+)\)/.exec(transform);
+  const value = match ? Number(match[1]) : 1;
+  return Number.isFinite(value) && value > 0 ? value : 1;
+}
 
 function elementLayoutBox(el: HTMLElement, allowHostFallback = true): CenterSpaceBox | null {
   const width = el.offsetWidth;
@@ -58,7 +90,10 @@ function slotInnerRadius(slot: HTMLElement): number {
   return Math.max(0, radius - border);
 }
 
-function slotPose(el: HTMLElement, slot: HTMLElement): { transform: string; radius: string } | null {
+function slotPose(
+  el: HTMLElement,
+  slot: HTMLElement,
+): { transform: string; radius: string; scale: number } | null {
   const from = elementLayoutBox(el);
   if (!from) return null;
   const to = slot.getBoundingClientRect();
@@ -68,6 +103,7 @@ function slotPose(el: HTMLElement, slot: HTMLElement): { transform: string; radi
   return {
     transform: `translate3d(${pose.x}px, ${pose.y}px, 0) scale(${pose.scale})`,
     radius: `${(slotInnerRadius(slot) / pose.scale).toFixed(2)}px`,
+    scale: pose.scale,
   };
 }
 
@@ -97,6 +133,7 @@ export function createCenterSpaceOverviewPose() {
     for (const [el, prev] of saved) {
       // `scale(1)` does not interpolate to `none`. Clearing the pose while
       // the zoom transition is still set snaps the settled page in.
+      resetPoseRing(el);
       el.style.transition = "none";
       el.style.transform = prev.transform;
       el.style.opacity = prev.opacity;
@@ -117,6 +154,7 @@ export function createCenterSpaceOverviewPose() {
     slot: HTMLElement,
     animate: boolean,
     fadeIn: boolean,
+    showRing = false,
   ) => {
     const pose = slotPose(el, slot);
     if (!pose) return;
@@ -135,6 +173,8 @@ export function createCenterSpaceOverviewPose() {
       el.style.borderRadius = pose.radius;
       el.style.opacity = "0";
       void el.offsetWidth;
+      // Other spaces are already card-sized. Fade them in on the pose clock
+      // so they arrive with the active surface instead of popping in late.
       el.style.transition = `opacity ${CENTER_SPACE_OVERVIEW_MS}ms ${CENTER_SPACE_OVERVIEW_EASE}`;
       el.style.opacity = "1";
       return;
@@ -144,16 +184,31 @@ export function createCenterSpaceOverviewPose() {
       el.style.transform = pose.transform;
       el.style.borderRadius = pose.radius;
       el.style.opacity = "1";
+      const settled = poseRing(el);
+      if (settled) {
+        settled.style.transition = "none";
+        if (showRing) paintPoseRing(settled, pose.scale, "1");
+        else resetPoseRing(el);
+      }
       return;
     }
     // Commit the current box, then transition. Setting both in one frame
     // skips the interpolation and the shrink / zoom looks like a cut.
     el.style.transition = "none";
+    const ring = showRing ? poseRing(el) : null;
+    if (ring) {
+      ring.style.transition = "none";
+      paintPoseRing(ring, pose.scale, "0");
+    }
     void el.offsetWidth;
     el.style.opacity = "1";
     el.style.transition = POSE_TRANSITION;
     el.style.transform = pose.transform;
     el.style.borderRadius = pose.radius;
+    if (ring) {
+      ring.style.transition = RING_TRANSITION;
+      ring.style.opacity = "1";
+    }
   };
 
   const applySlots = (
@@ -192,7 +247,9 @@ export function createCenterSpaceOverviewPose() {
     const active = stage.querySelector<HTMLElement>(
       `[data-workspace-frame="${CSS.escape(activePaintId)}"]`,
     );
-    if (active) place(active, activeSlot, animateActive, false);
+    // The ring lives on the scaling frame, so it shrinks and grows with the
+    // surface instead of sitting on the static card.
+    if (active) place(active, activeSlot, animateActive, false, true);
   };
 
   const animateToIdentity = (el: HTMLElement) => {
@@ -200,11 +257,23 @@ export function createCenterSpaceOverviewPose() {
     // and targeting `none` does not interpolate, so the zoom back cuts.
     const inline = el.style.transform;
     if (inline && inline !== "none") el.style.transform = inline;
+    const ring = el.hasAttribute("data-workspace-frame") ? poseRing(el) : null;
     el.style.transition = "none";
+    // A destination that was not the selected card has no ring yet. Commit
+    // one before the zoom so it fades out across the scale instead of
+    // flashing on the static card and vanishing.
+    if (ring && !ring.style.borderWidth) {
+      ring.style.transition = "none";
+      paintPoseRing(ring, scaleFromTransform(inline), "1");
+    }
     void el.offsetWidth;
     el.style.transition = POSE_TRANSITION;
     el.style.transform = IDENTITY_TRANSFORM;
     el.style.borderRadius = "0px";
+    if (ring) {
+      ring.style.transition = RING_TRANSITION;
+      ring.style.opacity = "0";
+    }
   };
 
   const isActivePiece = (el: HTMLElement, activePaintId: string) =>
@@ -219,6 +288,9 @@ export function createCenterSpaceOverviewPose() {
     }
     for (const el of saved.keys()) {
       if (!stage.contains(el)) continue;
+      // The panel host is only lifted for stacking. Fading it hides the live
+      // surface (it wraps the frame) and the zoom reads as a black frame.
+      if (!el.hasAttribute("data-center-space-posed")) continue;
       if (isActivePiece(el, activePaintId)) {
         animateToIdentity(el);
         continue;

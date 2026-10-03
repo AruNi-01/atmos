@@ -276,6 +276,7 @@ function WorkspaceCenterFrameImpl({
   contextId,
   isActiveContext,
   isUrlSyncedActive,
+  galleryPreview = false,
   mountPlan,
   mountedTabIds,
   fallbackTerminalTitle,
@@ -567,6 +568,12 @@ function WorkspaceCenterFrameImpl({
         multiActiveTabIds && "pointer-events-none",
       )}
     >
+      {/* Pose code shows this while the space gallery scales the frame. */}
+      <div
+        data-center-space-pose-ring=""
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-[80] box-border rounded-[inherit]"
+      />
       {tabs
         .filter((tab) => {
           const isMultiActive = Boolean(multiActiveTabIds?.includes(tab.id));
@@ -584,7 +591,9 @@ function WorkspaceCenterFrameImpl({
           ) {
             return false;
           }
-          if (isActiveContext && (tab.id === frameActiveTab || isMultiActive)) return true;
+          // Gallery cards are warm, so the mount plan would drop the page that
+          // was on screen and the card paints as a black frame.
+          if ((isActiveContext || galleryPreview) && (tab.id === frameActiveTab || isMultiActive)) return true;
           if (!planReady) {
             return isActiveContext || tab.id === frameActiveTab || isMultiActive;
           }
@@ -740,7 +749,7 @@ function WorkspaceCenterFrameImpl({
           if (!(isUrlSyncedActive && activeValue === file.path)) {
             if (
               !(
-                isActiveContext &&
+                (isActiveContext || galleryPreview) &&
                 (frameActiveTab === file.path || multiActiveTabIds?.includes(file.path))
               )
             ) {
@@ -838,7 +847,7 @@ function WorkspaceCenterFrameImpl({
             className={cn(githubKeepAlivePanelClass(paneVisible), interactivePaneClass(paneVisible))}
           style={panelStyle(tab.value, paneVisible, paneId)}
           >
-            <DiscardableHeavySurface active={isActiveContext && paneVisible}>
+            <DiscardableHeavySurface active={(isActiveContext || galleryPreview) && paneVisible}>
             <GitCommitKeptSurface
               tab={tab}
               active={isActiveContext}
@@ -868,7 +877,7 @@ function WorkspaceCenterFrameImpl({
             className={cn(githubKeepAlivePanelClass(paneVisible), interactivePaneClass(paneVisible))}
           style={panelStyle(tab.value, paneVisible, paneId)}
           >
-            <DiscardableHeavySurface active={isActiveContext && paneVisible}>
+            <DiscardableHeavySurface active={(isActiveContext || galleryPreview) && paneVisible}>
             <GithubKeptSurface
               tab={tab}
               active={isActiveContext}
@@ -887,7 +896,7 @@ function WorkspaceCenterFrameImpl({
         if (
           planReady &&
           !isKeyMounted(mountPlan, browserMountKey(contextId, tab.value)) &&
-          !(isActiveContext && (frameActiveTab === tab.value || multiActiveTabIds?.includes(tab.value)))
+          !((isActiveContext || galleryPreview) && (frameActiveTab === tab.value || multiActiveTabIds?.includes(tab.value)))
         ) {
           return null;
         }
@@ -909,6 +918,7 @@ function WorkspaceCenterFrameImpl({
               }
               projectId={isUrlSyncedActive ? currentProject?.id : undefined}
               isActive={isActiveContext && browserVisible}
+              keepGuestPainted={galleryPreview && browserVisible}
               browserContextId={tab.browserContextId}
               allowStandaloneWindow
               allowMaximize
@@ -991,7 +1001,7 @@ function WorkspaceCenterFrameImpl({
           className={cn(lightSurfacePanelClass(visible), interactivePaneClass(visible))}
           style={panelStyle("simulator", visible, paneId)}
         >
-          <DiscardableHeavySurface active={isActiveContext && visible}>
+          <DiscardableHeavySurface active={(isActiveContext || galleryPreview) && visible}>
           <KeptSimulatorPanel
             workspaceId={contextId}
             active={isActiveContext}
@@ -1013,7 +1023,7 @@ function WorkspaceCenterFrameImpl({
           className={cn(lightSurfacePanelClass(visible), interactivePaneClass(visible))}
           style={panelStyle("git-history", visible, paneId)}
         >
-          <DiscardableHeavySurface active={isActiveContext && visible}>
+          <DiscardableHeavySurface active={(isActiveContext || galleryPreview) && visible}>
           <KeptGitHistoryPanel
             contextId={contextId}
             repoPath={isUrlSyncedActive ? (currentRepoPath ?? null) : null}
@@ -1035,7 +1045,7 @@ function WorkspaceCenterFrameImpl({
           className={cn(lightSurfacePanelClass(visible), interactivePaneClass(visible))}
           style={panelStyleWithExplorer("changes", visible, paneId, "changes")}
         >
-          <DiscardableHeavySurface active={isActiveContext && visible}>
+          <DiscardableHeavySurface active={(isActiveContext || galleryPreview) && visible}>
           <CenterExplorerLanding
             kind="changes"
             contextId={contextId}
@@ -1058,7 +1068,7 @@ function WorkspaceCenterFrameImpl({
           className={cn(lightSurfacePanelClass(visible), interactivePaneClass(visible))}
           style={panelStyle("review", visible, paneId)}
         >
-          <DiscardableHeavySurface active={isActiveContext && visible}>
+          <DiscardableHeavySurface active={(isActiveContext || galleryPreview) && visible}>
           <KeptReviewCenterPanel
             filePath=""
             contextId={contextId}
@@ -1081,7 +1091,7 @@ function WorkspaceCenterFrameImpl({
           className={cn(lightSurfacePanelClass(visible), interactivePaneClass(visible))}
           style={panelStyle("run", visible, paneId)}
         >
-          <DiscardableHeavySurface active={isActiveContext && visible}>
+          <DiscardableHeavySurface active={(isActiveContext || galleryPreview) && visible}>
           <KeptRunScript
             workspaceId={isUrlSyncedActive ? contextId : null}
             projectId={isUrlSyncedActive ? currentProject?.id : undefined}
@@ -1106,7 +1116,7 @@ function WorkspaceCenterFrameImpl({
           className={cn(lightSurfacePanelClass(visible), interactivePaneClass(visible))}
           style={panelStyle("github", visible, paneId)}
         >
-          <DiscardableHeavySurface active={isActiveContext && visible}>
+          <DiscardableHeavySurface active={(isActiveContext || galleryPreview) && visible}>
           <KeptGithubHubPanel
             currentProjectPath={isUrlSyncedActive ? (currentRepoPath ?? null) : null}
           />
@@ -1127,7 +1137,7 @@ function WorkspaceCenterFrameImpl({
           className={cn(lightSurfacePanelClass(visible), interactivePaneClass(visible))}
           style={panelStyleWithExplorer("files", visible, paneId, "files")}
         >
-          <DiscardableHeavySurface active={isActiveContext && visible}>
+          <DiscardableHeavySurface active={(isActiveContext || galleryPreview) && visible}>
           <CenterExplorerLanding
             kind="files"
             contextId={contextId}
@@ -1150,7 +1160,7 @@ function WorkspaceCenterFrameImpl({
           className={cn(lightSurfacePanelClass(visible), interactivePaneClass(visible))}
           style={panelStyle("pt-design", visible, paneId)}
         >
-          <DiscardableHeavySurface active={isActiveContext && visible}>
+          <DiscardableHeavySurface active={(isActiveContext || galleryPreview) && visible}>
           <KeptPtDesignHostStage
             contextId={contextId}
             isProject={isProject}
@@ -1199,7 +1209,7 @@ function WorkspaceCenterFrameImpl({
               radius: CENTER_STAGE_RADIUS_CSS,
             })}
           >
-            <DiscardableHeavySurface active={isActiveContext && showing}>
+            <DiscardableHeavySurface active={(isActiveContext || galleryPreview) && showing}>
               <KeptFileTreePanel
                 projectName={isUrlSyncedActive ? currentProject?.name : undefined}
                 rootPath={
@@ -1266,7 +1276,7 @@ function WorkspaceCenterFrameImpl({
               radius: CENTER_STAGE_RADIUS_CSS,
             })}
           >
-            <DiscardableHeavySurface active={isActiveContext && showing}>
+            <DiscardableHeavySurface active={(isActiveContext || galleryPreview) && showing}>
               <KeptChangesPanel
                 contextId={contextId}
                 currentProject={isUrlSyncedActive ? currentProject : undefined}

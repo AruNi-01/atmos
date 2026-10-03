@@ -26,6 +26,7 @@ import { hostSpaceAttentionReasons } from "@/app-shell/center-space/center-space
 import {
   CENTER_SPACE_OVERVIEW_EASE,
   CENTER_SPACE_OVERVIEW_MS,
+  centerSpaceOverviewChromeTransition,
   centerSpaceOverviewTransform,
   clampCenterSpacePreviewAspect,
 } from "@/app-shell/center-space/center-space-overview-motion";
@@ -233,7 +234,9 @@ function CenterSpaceOverview({
       className="absolute inset-0 z-[45]"
       style={{
         opacity: posed && !dimmed ? 1 : 0,
-        transition: `opacity ${CENTER_SPACE_OVERVIEW_MS}ms ${CENTER_SPACE_OVERVIEW_EASE}`,
+        // Same clock as the pose, both directions. A short leave left the
+        // card border fully lit, then gone, while the surface was still zooming.
+        transition: centerSpaceOverviewChromeTransition(),
       }}
     >
       <div className={cn("flex h-full min-h-0 flex-col", CENTER_STAGE_GUTTER_CLASS)}>
@@ -284,10 +287,9 @@ function CenterSpaceOverview({
                     aria-label={label}
                     onClick={() => {
                       if (!hostId || useCenterSpaceOverviewStore.getState().busy) return;
-                      if (selected) {
-                        onClose();
-                        return;
-                      }
+                      // The active card uses the same zoom as any other card.
+                      // Closing through setOpen fades the panel host and the
+                      // page flashes black before it grows.
                       onZoom(space.id);
                     }}
                     className={cn(
@@ -299,9 +301,7 @@ function CenterSpaceOverview({
                               ? "agent-attention-ring-permission"
                               : "agent-attention-ring-complete",
                           )
-                        : selected
-                          ? "border-foreground"
-                          : "border-transparent",
+                        : "border-transparent",
                     )}
                     style={{ aspectRatio: aspect }}
                   >
@@ -320,7 +320,8 @@ function CenterSpaceOverview({
                     className={cn(
                       CARD_ICON_BUTTON_CLASS,
                       "pointer-events-none absolute top-2 left-2 z-50 text-foreground/80 opacity-0 drop-shadow-[0_1px_1.5px_rgb(0_0_0/0.85)]",
-                      "hover:bg-transparent hover:text-foreground",
+                      "hover:bg-background/90 hover:text-foreground",
+                      "focus-visible:bg-background/90",
                       "group-hover/space:pointer-events-auto group-hover/space:opacity-100",
                       "focus-visible:pointer-events-auto focus-visible:opacity-100",
                       pinned && "text-foreground",
@@ -709,16 +710,18 @@ export function CenterSpaceOverviewLayer({ children }: { children: React.ReactNo
     };
   }, [pose]);
 
-  const onZoom = React.useCallback((spaceId: string) => {
-    if (!hostId || busyRef.current) return;
+  const beginZoomHome = React.useCallback((spaceId: string) => {
+    if (!hostId || busyRef.current) return false;
     const stage = stageRef.current;
-    if (!stage) return;
+    if (!stage) return false;
     busyRef.current = true;
     useCenterSpaceOverviewStore.getState().setBusy(true);
     setDimmed(true);
     const paintId = makeCenterSpaceKey(hostId, spaceId);
     // Swap into this space while it is still parked in the card, then scale
     // that same page home. Switching after the zoom replaces it with a cut.
+    // Mark busy first so the paint-id layout effect does not re-snap slots
+    // over the zoom.
     if (spaceId !== activeSpaceId) {
       flushSync(() => {
         void switchCenterSpace(hostId, spaceId, { animate: false });
@@ -736,7 +739,12 @@ export function CenterSpaceOverviewLayer({ children }: { children: React.ReactNo
         finishHandoff();
       }
     })();
+    return true;
   }, [activeSpaceId, finishHandoff, hostId, pose]);
+
+  const onZoom = React.useCallback((spaceId: string) => {
+    beginZoomHome(spaceId);
+  }, [beginZoomHome]);
 
   const onCreate = React.useCallback((source: HTMLElement) => {
     if (!hostId || busyRef.current) return;
@@ -764,9 +772,12 @@ export function CenterSpaceOverviewLayer({ children }: { children: React.ReactNo
   }, [finishHandoff, hostId, pose]);
 
   const onClose = React.useCallback(() => {
+    // Escape and the scrim zoom the active page home. setOpen(false) runs
+    // poseHome, which used to fade the host and flash the center black.
+    if (beginZoomHome(activeSpaceId)) return;
     if (busyRef.current) return;
     useCenterSpaceOverviewStore.getState().setOpen(false);
-  }, []);
+  }, [activeSpaceId, beginZoomHome]);
 
   return (
     <>

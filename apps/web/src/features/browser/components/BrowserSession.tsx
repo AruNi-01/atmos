@@ -60,6 +60,8 @@ interface BrowserSessionProps {
   activeUrl: string;
   setActiveUrl: (url: string) => void;
   isActive?: boolean;
+  /** Keep the desktop guest on screen when this tab is not the interactive one. */
+  keepGuestPainted?: boolean;
   isMaximized?: boolean;
   workspaceId?: string | null;
   projectId?: string;
@@ -102,6 +104,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   activeUrl,
   setActiveUrl,
   isActive = true,
+  keepGuestPainted = false,
   isMaximized: controlledIsMaximized,
   workspaceId,
   projectId,
@@ -289,7 +292,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   const shouldSuspendDesktopPreview =
       preferredTransportMode === 'desktop' && (
         (!isStandaloneBrowserWindow && isPreviewStandaloneOpen) ||
-        !isActive
+        (!isActive && !keepGuestPainted)
       );
   // Pass viewport root so canvas (role=dialog) hosting this browser does not
   // trip the overlay policy and freeze the guest with pointer-events: none.
@@ -982,6 +985,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     iframeSrc,
     iframeUrlWatcherCleanupRef,
     isActive,
+    keepGuestPainted,
     isElementPickerEnabled,
     isMaximized,
     isPreviewLoading,

@@ -17,6 +17,12 @@ import {
   centerSpaceFanPose,
   centerSpaceFanStageWidth,
 } from "@/app-shell/center-space/center-space-fan";
+import {
+  CENTER_SPACE_OVERVIEW_EASE,
+  CENTER_SPACE_OVERVIEW_MS,
+  centerSpaceOverviewChromeTransition,
+  centerSpacePoseRingWidth,
+} from "@/app-shell/center-space/center-space-overview-motion";
 
 const dir = join(import.meta.dir, "..");
 
@@ -96,11 +102,26 @@ describe("center space switcher open path", () => {
     expect(overview).not.toContain("thumbnailDataUrl");
     expect(overview).toContain("data-center-space-slot");
     expect(overview).toContain("createCenterSpaceOverviewPose");
+    expect(overview).toContain("centerSpaceOverviewChromeTransition");
+    expect(overview).toContain("beginZoomHome(activeSpaceId)");
     expect(overview).not.toContain("live={open && selected}");
+    expect(overview).not.toContain('? "border-foreground"');
+    const chrome = centerSpaceOverviewChromeTransition();
+    expect(chrome).toBe(
+      `opacity ${CENTER_SPACE_OVERVIEW_MS}ms ${CENTER_SPACE_OVERVIEW_EASE}`,
+    );
+    expect(centerSpacePoseRingWidth(0.25)).toBe("8.00px");
     const pose = readFileSync(
       join(dir, "center-space/center-space-overview-pose.ts"),
       "utf8",
     );
+    expect(pose).toContain('if (!el.hasAttribute("data-center-space-posed")) continue');
+    expect(pose).toContain("data-center-space-pose-ring");
+    expect(pose).toContain("centerSpacePoseRing");
+    const frame = readFileSync(join(dir, "workspace-center-frame.tsx"), "utf8");
+    expect(frame).toContain("data-center-space-pose-ring");
+    expect(frame).toContain("galleryPreview");
+    expect(frame).toContain("keepGuestPainted={galleryPreview && browserVisible}");
     expect(pose).toContain('? "hidden" : "visible"');
     expect(pose).toContain('el.closest("[data-center-panel-host]")');
     expect(pose).toContain('host.style.zIndex = "3"');
@@ -121,6 +142,7 @@ describe("center space switcher open path", () => {
     const shell = panels.slice(Math.max(0, shellAt - 700), shellAt);
     expect(shell).toContain("pointer-events-none absolute inset-0");
     expect(shell).not.toContain("relative flex-1");
+    expect(panels).toContain("overviewPaintIds.includes(contextId) && contextId !== displayContextId");
     const css = readFileSync(join(dir, "../app/globals.css"), "utf8");
     const activeRule = css.slice(
       css.indexOf('[data-workspace-frame][data-tier="active"]'),

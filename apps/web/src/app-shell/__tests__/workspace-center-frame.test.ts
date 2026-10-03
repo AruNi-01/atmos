@@ -73,6 +73,12 @@ describe("workspaceCenterFramePropsAreEqual", () => {
     expect(workspaceCenterFramePropsAreEqual(prev, next)).toBe(true);
   });
 
+  it("repaints a warm frame when the space gallery starts previewing it", () => {
+    const prev = baseWarm({ galleryPreview: false });
+    const next = baseWarm({ galleryPreview: true });
+    expect(workspaceCenterFramePropsAreEqual(prev, next)).toBe(false);
+  });
+
   it("treats hop-frame retained tab ids as paint identity, not ignored host chrome", () => {
     const hop = baseWarm({
       isActiveContext: true,

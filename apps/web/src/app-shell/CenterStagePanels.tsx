@@ -597,6 +597,9 @@ export function CenterStagePanels({
             contextId={contextId}
             isActiveContext={isActiveContext}
             isUrlSyncedActive={isUrlSyncedActive}
+            galleryPreview={
+              overviewPaintIds.includes(contextId) && contextId !== displayContextId
+            }
             mountPlan={mountPlan}
             mountPlanKeys={mountPlanKeys}
             mountedTabIds={mountedTabIds}

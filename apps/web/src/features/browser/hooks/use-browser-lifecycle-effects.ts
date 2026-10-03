@@ -39,6 +39,8 @@ type UsePreviewLifecycleEffectsParams = {
   iframeSrc: string;
   iframeUrlWatcherCleanupRef: MutableRefObject<(() => void) | null>;
   isActive: boolean;
+  /** Space-gallery preview: load and show the guest without taking input. */
+  keepGuestPainted?: boolean;
   isElementPickerEnabled: boolean;
   isMaximized: boolean;
   isPreviewLoading: boolean;
@@ -74,6 +76,7 @@ export function useBrowserLifecycleEffects({
   iframeSrc,
   iframeUrlWatcherCleanupRef,
   isActive,
+  keepGuestPainted = false,
   isElementPickerEnabled,
   isMaximized,
   isPreviewLoading,
@@ -97,6 +100,7 @@ export function useBrowserLifecycleEffects({
   viewMode,
 }: UsePreviewLifecycleEffectsParams) {
   const handledNavigationRequestRef = useRef<string | null>(null);
+  const paintGuest = isActive || keepGuestPainted;
 
   useEffect(() => {
     if (!requestedIframeUrl) return;
@@ -111,7 +115,7 @@ export function useBrowserLifecycleEffects({
       nextIframeUrl &&
       currentIframeUrl === nextIframeUrl;
 
-    if (!isActive) {
+    if (!paintGuest) {
       if (canReuseLoadedIframe) {
         handledNavigationRequestRef.current = requestKey;
       }
@@ -142,11 +146,11 @@ export function useBrowserLifecycleEffects({
     _setIframeKey,
     desktopCommittedUrlRef,
     iframeSrc,
-    isActive,
     navigationToken,
     preferredTransportMode,
     requestedIframeUrl,
     setDesktopCommittedUrl,
+    paintGuest,
     setIframeSrc,
     setIsPreviewLoading,
     setPreviewLoadError,
@@ -220,7 +224,7 @@ export function useBrowserLifecycleEffects({
               message: previous.message,
             },
       );
-      if (isActive) {
+      if (paintGuest) {
         void syncDesktopPreview();
       } else {
         void hideDesktopPreview();
@@ -273,7 +277,7 @@ export function useBrowserLifecycleEffects({
     hideDesktopPreview,
     iframeKey,
     iframeSrc,
-    isActive,
+    paintGuest,
     preferredTransportMode,
     setTransportState,
     syncDesktopPreview,
@@ -362,13 +366,13 @@ export function useBrowserLifecycleEffects({
 
   useEffect(() => {
     if (!isDesktopRuntime()) return;
-    if (preferredTransportMode !== "desktop" || !isActive || !desktopCommittedUrl) {
+    if (preferredTransportMode !== "desktop" || !paintGuest || !desktopCommittedUrl) {
       return;
     }
     void syncDesktopPreview();
   }, [
     desktopCommittedUrl,
-    isActive,
+    paintGuest,
     preferredTransportMode,
     syncDesktopPreview,
   ]);

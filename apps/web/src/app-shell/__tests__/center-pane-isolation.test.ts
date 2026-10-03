@@ -14,6 +14,7 @@ import {
   isUsablePaneSlotBox,
   mergePaneSlotBoxes,
   paneSlotBoxesForContextSwitch,
+  retainSlotBoxesDuringSpaceOverview,
   shouldWithholdUnmeasuredPaneTerminal,
 } from "@/app-shell/center-pane/use-center-pane-slot-boxes";
 
@@ -169,6 +170,8 @@ describe("center pane tab isolation", () => {
     // hitches every left-sidebar hop while keep-alive trees stay mounted.
     expect(slots).not.toContain("setBoxes(switched");
     expect(slots).toContain("setSnapshot");
+    expect(slots).toContain("slotMeasureBlockedBySpaceOverview");
+    expect(slots).toContain('attributeFilter: ["data-overview"]');
     expect(frame).toContain("shouldWithholdUnmeasuredPaneTerminal");
     expect(frame).toContain("applySlotGeometry: isUrlSyncedActive");
   });
@@ -242,6 +245,34 @@ describe("center pane tab isolation", () => {
         splitPercentage: 60,
       }),
     );
+  });
+
+  it("keeps layout slot boxes while the space gallery transform is up", () => {
+    const slots = readSibling("center-pane/use-center-pane-slot-boxes.ts");
+    expect(slots).toContain("slotMeasureBlockedBySpaceOverview(host)");
+    expect(slots).toContain("retainSlotBoxesDuringSpaceOverview");
+    const full = { top: 32, left: 0, width: 1400, height: 800 };
+    const previous = { contextId: "ws-a", boxes: { "pane-main": full } };
+    expect(
+      retainSlotBoxesDuringSpaceOverview({
+        contextId: "ws-a",
+        previous,
+      }),
+    ).toBeNull();
+    const borrowed = retainSlotBoxesDuringSpaceOverview({
+      contextId: "ws-a::space::space-2",
+      previous,
+    });
+    expect(borrowed?.contextId).toBe("ws-a::space::space-2");
+    expect(borrowed?.boxes["pane-main"]).toEqual(full);
+    const cached = { "pane-main": { top: 0, left: 0, width: 900, height: 600 } };
+    expect(
+      retainSlotBoxesDuringSpaceOverview({
+        contextId: "ws-a::space::space-2",
+        previous,
+        cached,
+      })?.boxes["pane-main"],
+    ).toEqual(cached["pane-main"]);
   });
 
   it("rejects an unmeasured slot so a new terminal does not fit at full-stage size", () => {

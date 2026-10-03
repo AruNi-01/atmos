@@ -799,8 +799,10 @@ html[data-center-stage-plus-menu-open] iframe {
 
   [data-center-space-overview],
   [data-center-space-stage],
-  [data-center-space-posed] {
+  [data-center-space-posed],
+  [data-center-space-pose-ring] {
     transition-duration: 0s !important;
+    transition-delay: 0s !important;
   }
 }
 

@@ -32,6 +32,12 @@ export type WorkspaceCenterFrameProps = {
   contextId: string;
   isActiveContext: boolean;
   isUrlSyncedActive: boolean;
+  /**
+   * Space gallery is open and this frame is not the live space. Keep its last
+   * surface mounted and painted. Warm opacity and the mount plan would
+   * otherwise leave the card black.
+   */
+  galleryPreview?: boolean;
   /** Mount keys for this context only (stable string for memo). */
   mountPlanKeys: string;
   mountedTabIds: readonly string[];
@@ -119,6 +125,7 @@ export function workspaceCenterFramePropsAreEqual(
 ): boolean {
   if (prev.contextId !== next.contextId) return false;
   if (prev.isUrlSyncedActive !== next.isUrlSyncedActive) return false;
+  if (Boolean(prev.galleryPreview) !== Boolean(next.galleryPreview)) return false;
   if (prev.mountPlanKeys !== next.mountPlanKeys) return false;
   if (prev.fallbackTerminalTitle !== next.fallbackTerminalTitle) return false;
   if (!sameStringList(prev.mountedTabIds, next.mountedTabIds)) return false;

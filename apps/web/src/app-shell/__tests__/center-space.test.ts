@@ -18,6 +18,9 @@ import {
   centerSpaceFanPose,
 } from "@/app-shell/center-space/center-space-fan";
 import {
+  CENTER_SPACE_OVERVIEW_EASE,
+  CENTER_SPACE_OVERVIEW_MS,
+  centerSpaceOverviewChromeTransition,
   centerSpaceOverviewTransform,
   clampCenterSpacePreviewAspect,
 } from "@/app-shell/center-space/center-space-overview-motion";
@@ -192,6 +195,9 @@ describe("center space keys", () => {
     expect(fitted.y).toBeCloseTo(80 + (200 - 180) / 2);
     expect(clampCenterSpacePreviewAspect(1900, 500)).toBe(1.9);
     expect(clampCenterSpacePreviewAspect(400, 800)).toBe(1.25);
+    expect(centerSpaceOverviewChromeTransition()).toBe(
+      `opacity ${CENTER_SPACE_OVERVIEW_MS}ms ${CENTER_SPACE_OVERVIEW_EASE}`,
+    );
     const vars = centerSpaceFanCssVars(left);
     expect(vars["--fan-x"]).toBe(`${left.x}px`);
     expect(vars["--fan-rotate"]).toBe(`${left.rotate}deg`);
