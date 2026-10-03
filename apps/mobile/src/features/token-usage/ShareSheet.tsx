@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Image, Linking, Pressable, StyleSheet, Text, View } from "react-native";
-import WebView, { type WebViewMessageEvent } from "react-native-webview";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Host } from "@expo/ui";
 import { Button, HStack, Spacer } from "@expo/ui/swift-ui";
@@ -12,9 +11,10 @@ import {
   type UsageVisibility,
 } from "@atmos/hub-client";
 import type { TokenUsageOverviewResponse } from "@atmos/api-types/ws/dto/token-usage";
+import { releaseUsageImage, type UsageShot } from "@/features/token-usage/capture-usage-image";
+import { UsageShareGenerating } from "@/features/token-usage/share-generating";
 import { formatCompactNumber, formatCurrencyCompact } from "@/features/token-usage/format";
 import { saveUsageCardImage } from "@/features/token-usage/save-usage-card";
-import { shareCardHtml } from "@/features/token-usage/share-card-html";
 import { mapOverviewToSharePayload } from "@/features/token-usage/share-payload";
 import { useMobileTheme } from "@/theme/theme-store";
 import { FacebookMark, RedditMark, ThreadsMark, XMark } from "@/features/token-usage/social-icons";
@@ -27,16 +27,14 @@ import { NativeTextInput } from "@/ui/primitives/native-text-input";
 const SITE = "https://atmos.land";
 
 export function ShareSheet({
-  isDark,
-  messages,
+  capture,
   onDismiss,
   open,
   overview,
   totalCost,
   totalTokens,
 }: {
-  isDark: boolean;
-  messages: number;
+  capture: () => Promise<UsageShot>;
   onDismiss: () => void;
   open: boolean;
   overview: TokenUsageOverviewResponse | null;
@@ -44,52 +42,70 @@ export function ShareSheet({
   totalTokens: number;
 }) {
   const theme = useMobileTheme();
-  const webRef = useRef<WebView>(null);
   const [tab, setTab] = useState<"share" | "publish">("share");
-  const [preview, setPreview] = useState<string | null>(null);
+  const [preview, setPreview] = useState<UsageShot | null>(null);
+  const [captureError, setCaptureError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const saveRequest = useRef(0);
   const activeSave = useRef<number | null>(null);
-  const saveStarted = useRef<number | null>(null);
+  const shotUri = useRef<string | null>(null);
   const tokens = formatCompactNumber(totalTokens);
   const cost = formatCurrencyCompact(totalCost);
   const shareText = `My AI agent usage on Atmos: ${tokens} tokens · ${cost}\nAtmosphere for Agentic Builders\n${SITE}`;
-  const html = useMemo(
-    () =>
-      shareCardHtml({
-        cost,
-        days: String(overview?.summary.active_days ?? 0),
-        isDark,
-        messages: formatCompactNumber(messages),
-        tokens,
-      }),
-    [cost, isDark, messages, overview?.summary.active_days, tokens],
-  );
 
   useEffect(() => {
     if (!open) {
       saveRequest.current += 1;
+      const saving = activeSave.current !== null;
       activeSave.current = null;
-      saveStarted.current = null;
+      const uri = shotUri.current;
+      shotUri.current = null;
+      if (uri && !saving) releaseUsageImage(uri);
       setPreview(null);
+      setCaptureError(null);
       setSaveError(null);
       setSaveState("idle");
+      return;
     }
-  }, [open]);
+    let alive = true;
+    setPreview(null);
+    setCaptureError(null);
+    setSaveError(null);
+    setSaveState("idle");
+    const start = setTimeout(() => {
+      if (!alive) return;
+      void capture()
+        .then((shot) => {
+          if (!alive) {
+            releaseUsageImage(shot.uri);
+            return;
+          }
+          const previous = shotUri.current;
+          shotUri.current = shot.uri;
+          if (previous && previous !== shot.uri) releaseUsageImage(previous);
+          setPreview(shot);
+        })
+        .catch((reason: unknown) => {
+          if (!alive) return;
+          setCaptureError(reason instanceof Error ? reason.message : "Could not capture this page.");
+        });
+    }, 180);
+    return () => {
+      alive = false;
+      clearTimeout(start);
+    };
+  }, [capture, open]);
 
   const requestSave = () => {
-    if (activeSave.current !== null) return;
+    const uri = shotUri.current;
+    if (!uri || activeSave.current !== null) return;
     const request = saveRequest.current + 1;
     saveRequest.current = request;
     activeSave.current = request;
     setSaveError(null);
     setSaveState("saving");
-    webRef.current?.injectJavaScript("window.shareCard && window.shareCard(); true;");
-  };
-
-  const saveImage = (dataUrl: string, request: number) => {
-    void saveUsageCardImage(dataUrl)
+    void saveUsageCardImage(uri)
       .then(() => {
         if (saveRequest.current !== request) return;
         activeSave.current = null;
@@ -103,32 +119,11 @@ export function ShareSheet({
       });
   };
 
-  const onMessage = (event: WebViewMessageEvent) => {
-    const payload = JSON.parse(event.nativeEvent.data) as { type?: string; url?: string };
-    if (payload.type === "preview" && payload.url) setPreview(payload.url);
-    if (payload.type === "save-image" && payload.url) {
-      const request = activeSave.current;
-      if (request == null || request !== saveRequest.current || saveStarted.current === request) return;
-      saveStarted.current = request;
-      saveImage(payload.url, request);
-    }
-  };
-
   const openSocial = (url: string) => {
     void Linking.openURL(url);
   };
 
   return (
-    <>
-    <View pointerEvents="none" style={styles.hiddenWeb}>
-      <WebView
-        onMessage={onMessage}
-        originWhitelist={["*"]}
-        ref={webRef}
-        source={{ html }}
-        style={styles.web}
-      />
-    </View>
     <ExpoDrawer isPresented={open} matchContents={false} onDismiss={onDismiss} snapPoints={[{ fraction: 0.78 }]}>
       <View style={styles.sheet}>
       <NativeSegmentedControl
@@ -142,11 +137,17 @@ export function ShareSheet({
       />
       {tab === "share" ? (
         <View style={styles.pane}>
-          <View style={[styles.preview, { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.separator }]}>
+          <View style={[styles.preview, preview ? null : styles.previewSlot, { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.separator }]}>
             {preview ? (
-              <Image resizeMode="cover" source={{ uri: preview }} style={styles.previewImage} />
+              <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false} style={styles.previewScroll}>
+                <Image resizeMode="contain" source={{ uri: preview.uri }} style={{ aspectRatio: preview.aspect, width: "100%" }} />
+              </ScrollView>
+            ) : captureError ? (
+              <View style={styles.previewMessage}>
+                <Text style={{ color: theme.colors.red, fontSize: 13 }}>{captureError}</Text>
+              </View>
             ) : (
-              <Text style={{ color: theme.colors.secondaryLabel }}>Capturing…</Text>
+              <UsageShareGenerating dark={theme.isDark} />
             )}
           </View>
           <View style={styles.actions}>
@@ -157,8 +158,8 @@ export function ShareSheet({
             <GlassPanel interactive shadow={false} style={styles.socialGlass}>
               <Pressable
                 accessibilityLabel={saveState === "saved" ? "Saved to photos" : "Save image"}
-                accessibilityState={{ busy: saveState === "saving", disabled: saveState === "saving" }}
-                disabled={saveState === "saving"}
+                accessibilityState={{ busy: saveState === "saving", disabled: saveState === "saving" || !preview }}
+                disabled={saveState === "saving" || !preview}
                 onPress={requestSave}
                 style={styles.socialButton}
               >
@@ -176,7 +177,6 @@ export function ShareSheet({
       )}
       </View>
     </ExpoDrawer>
-    </>
   );
 }
 
@@ -290,22 +290,21 @@ function PublishPane({
 }
 
 const styles = StyleSheet.create({
-  actions: { alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  pane: { alignSelf: "stretch", gap: 12, marginTop: 12, width: "100%" },
-  sheet: { alignSelf: "stretch", width: "100%" },
-  tabs: { alignSelf: "stretch", width: "100%" },
-  hiddenWeb: { height: 1, opacity: 0, overflow: "hidden", width: 1 },
-  web: { height: 480, width: 320 },
+  actions: { alignItems: "center", flexDirection: "row", flexShrink: 0, flexWrap: "wrap", gap: 8 },
+  pane: { alignSelf: "stretch", flexShrink: 0, gap: 12, marginTop: 12, width: "100%" },
+  sheet: { alignSelf: "stretch", flexShrink: 0, width: "100%" },
+  tabs: { alignSelf: "stretch", flexShrink: 0, width: "100%" },
   preview: {
-    alignItems: "center",
     borderCurve: "continuous",
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    height: 168,
-    justifyContent: "center",
+    flexShrink: 0,
     overflow: "hidden",
+    width: "100%",
   },
-  previewImage: { height: "100%", width: "100%" },
-  socialButton: { alignItems: "center", flexDirection: "row", gap: 6, paddingHorizontal: 10, paddingVertical: 8 },
-  socialGlass: { borderRadius: 999 },
+  previewMessage: { alignItems: "center", height: 168, justifyContent: "center" },
+  previewScroll: { flexShrink: 0, maxHeight: 360, width: "100%" },
+  previewSlot: { height: 168 },
+  socialButton: { alignItems: "center", flexDirection: "row", flexShrink: 0, gap: 6, minHeight: 36, paddingHorizontal: 10, paddingVertical: 8 },
+  socialGlass: { borderRadius: 999, flexShrink: 0 },
 });

@@ -18,7 +18,20 @@
       "bundleIdentifier": "land.atmos.mobile",
       "deploymentTarget": "16.4",
       "infoPlist": {
-        "NSCameraUsageDescription": "Atmos uses the camera to scan a temporary pair QR from Desktop or Web."
+        "NSCameraUsageDescription": "Atmos uses the camera to scan a temporary pair QR from Desktop or Web.",
+        "NSPhotoLibraryUsageDescription": "Atmos shows your recent photos so you can attach them to a chat.",
+        "NSPhotoLibraryAddUsageDescription": "Atmos saves the token usage card to your photos.",
+        "UIApplicationSceneManifest": {
+          "UIApplicationSupportsMultipleScenes": false,
+          "UISceneConfigurations": {
+            "UIWindowSceneSessionRoleApplication": [
+              {
+                "UISceneConfigurationName": "Default Configuration",
+                "UISceneDelegateClassName": "Atmos.SceneDelegate"
+              }
+            ]
+          }
+        }
       }
     },
     "android": {
@@ -79,7 +92,8 @@
           }
         }
       ],
-      "./plugins/with-ios-pod-deployment-target.js"
+      "./plugins/with-ios-pod-deployment-target.js",
+      "./plugins/with-ios-clear-tab-bar.js"
     ],
     "experiments": {
       "typedRoutes": true

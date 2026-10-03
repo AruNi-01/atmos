@@ -222,8 +222,7 @@ export function stacked(
       return Object.entries(bucket).reduce((sum, [name, value]) => (top.includes(name) ? sum : sum + value), 0);
     }),
   }));
-  const maxColumns = resolution === "day" ? 10 : 8;
-  return { keys, bars: rows.slice(-maxColumns), labels: keys.map(humanize) };
+  return { keys, bars: rows, labels: keys.map(humanize) };
 }
 
 export function tokenMix(days: DailyTokenUsageResponse[]) {
@@ -245,6 +244,10 @@ export function tokenMix(days: DailyTokenUsageResponse[]) {
 
 export function formatDay(value: string) {
   return new Intl.DateTimeFormat("en", { weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(parseISO(value));
+}
+
+export function formatDayTitle(value: string) {
+  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(parseISO(value));
 }
 
 export function formatUpdated(value: number) {
