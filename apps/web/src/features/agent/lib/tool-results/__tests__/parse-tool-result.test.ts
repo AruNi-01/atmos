@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
+import type { AgentToolCallPart } from "@atmos/agent-transcript";
 import {
   displayToolPath,
   displayToolTitle,
@@ -16,7 +16,7 @@ import {
   resolveTreeEntryPaths,
   stripReadLineNumbers,
   toolTitleLooksLikePath,
-} from "../parse-tool-result";
+} from "@atmos/agent-transcript";
 
 function tool(
   overrides: Partial<AgentToolCallPart> & Pick<AgentToolCallPart, "kind" | "params">,

@@ -13,6 +13,7 @@
 | **hub-client** | `@atmos/hub-client` | Hub HTTPS client (auth, devices, integrations), pluggable device credential store | Main `/ws`, UI, Query | Hub control plane |
 | **relay-client** | `@atmos/relay-client` | Relay HTTPS client (computers, register tokens, client sessions), pluggable transport | Worker impl, main `/ws`, UI | Relay control plane |
 | **shared** | `@atmos/shared` | Pure utils, hooks, debug, **terminal stream protocol** | Main `/ws` types, WS session kernel | Terminal stream (exception) |
+| **agent-transcript** | `@atmos/agent-transcript` | UI-free Agent Chat part classification (visibility, tool kind, presentation) shared by Web and Mobile | React, React Native, `@workspace/ui` | Neither — apps import it |
 | **ui** | `@workspace/ui` | Design system | API clients, wire types | UI only |
 | **i18n** | `@atmos/i18n` | next-intl routing helpers | Mobile-only copy as sole home | Next apps |
 | **config** | `@atmos/config` | tsconfig bases | Runtime product code | Tooling |
@@ -33,7 +34,8 @@ Apps (`apps/web`, `apps/mobile`, `apps/desktop-electron`, …) own UI, feature s
 2b. **Hub HTTPS (session, devices, Linear OAuth finish, etc.)?** → `@atmos/hub-client` ([hub-client/AGENTS.md](hub-client/AGENTS.md), APP-056)  
 2c. **Relay REST (computers, register tokens, client sessions)?** → `@atmos/relay-client` ([relay-client/AGENTS.md](relay-client/AGENTS.md), APP-016/056)  
 3. **Terminal stream protocol / title helpers?** → `@atmos/shared/terminal`  
-4. **Pure helper / generic hook / debug logger?** → `@atmos/shared`  
+4. **Pure helper / generic hook / debug logger?** → `@atmos/shared`
+4b. **Agent Chat transcript classification shared by Web and Mobile (takes `@atmos/api-types` parts)?** → `@atmos/agent-transcript`. Do not put this in `@atmos/shared`.  
 5. **Design-system chrome?** → `@workspace/ui` (not mobile)  
 6. **next-intl routing?** → `@atmos/i18n`  
 7. **tsconfig base?** → `@atmos/config`  
@@ -55,6 +57,7 @@ apps/* ──► @atmos/hub-client
 apps/* ──► @atmos/relay-client
 apps/web ──► @atmos/pt-design (public embed only)
 apps/* ──► @atmos/shared
+apps/web, apps/mobile ──► @atmos/agent-transcript ──► @atmos/api-types
 apps/web ──► @workspace/ui
 Next apps ──► @atmos/i18n
 ```

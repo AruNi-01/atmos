@@ -60,6 +60,7 @@ const workspaces: Workspace[] = [
   { name: "shared", cwd: "packages/shared", args: ["--noEmit"] },
   { name: "i18n", cwd: "packages/i18n", args: ["--noEmit"] },
   { name: "api-types", cwd: "packages/api-types", args: ["--noEmit"], script: "typecheck" },
+  { name: "agent-transcript", cwd: "packages/agent-transcript", args: ["--noEmit"], script: "typecheck" },
   { name: "api-client", cwd: "packages/api-client", args: ["--noEmit"], script: "typecheck" },
   { name: "hub-client", cwd: "packages/hub-client", args: ["--noEmit"], script: "typecheck" },
   { name: "relay-client", cwd: "packages/relay-client", args: ["--noEmit"], script: "typecheck" },

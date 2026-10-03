@@ -1,6 +1,7 @@
 import type { AgentPart, AgentToolKind } from "@atmos/api-types/ws/dto/agent-chat";
 import {
   isHiddenTranscriptChromePart,
+  isNestedSubagentChild,
   isSubagentWaitTool,
   type AgentToolCallPart,
 } from "@/features/agent/lib/agent-tool-kind";
@@ -112,16 +113,7 @@ function isFoldableProcessPart(part: AgentPart): boolean {
   return isRenderedNonToolPart(part);
 }
 
-function partParentToolCallId(part: AgentPart): string | null {
-  if (!("parent_tool_call_id" in part)) return null;
-  const parent = part.parent_tool_call_id?.trim();
-  return parent || null;
-}
-
-/** Any nested subagent child (tool, text, thinking), even if the parent row is later. */
-export function isNestedSubagentChild(part: AgentPart, _parts: AgentPart[] = []): boolean {
-  return Boolean(partParentToolCallId(part));
-}
+export { isNestedSubagentChild } from "@/features/agent/lib/agent-tool-kind";
 
 export function toolCallPartsFromGroup(parts: AgentPart[]): AgentToolCallPart[] {
   return parts.filter((part): part is AgentToolCallPart => part.type === "tool_call");

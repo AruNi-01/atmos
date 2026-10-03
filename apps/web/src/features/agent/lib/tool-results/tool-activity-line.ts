@@ -61,8 +61,9 @@ export function formatAgentToolActivityLine(
   const rawTitle = (part.title || "").trim();
   const stats = sumToolGroupDiffStats([part]);
 
+  const genericTitle = rawTitle.toLowerCase() === kindLabel.trim().toLowerCase();
   let head = rawTitle;
-  if (!head || (path && toolTitleLooksLikePath(head, path))) {
+  if (!head || genericTitle || (path && toolTitleLooksLikePath(head, path))) {
     head = kindLabel;
   } else if (path) {
     const stripped = stripPathEchoFromToolHeading(head, path, file ? [file] : []);
@@ -76,7 +77,7 @@ export function formatAgentToolActivityLine(
     const host = hostFromUrl(url) ?? url;
     if (host && !head.includes(host)) extras.push(host);
   } else if (skill && !head.includes(skill)) extras.push(skill);
-  else if (command && !head.includes(command) && !rawTitle) {
+  else if (command && !head.includes(command) && (!rawTitle || genericTitle)) {
     extras.push(truncateCommand(command));
   }
 

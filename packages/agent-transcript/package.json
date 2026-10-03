@@ -1,0 +1,21 @@
+{
+  "name": "@atmos/agent-transcript",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "UI-free Agent Chat transcript classification shared by Web and Mobile. Depends on @atmos/api-types. Not @atmos/shared.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "bun ../../scripts/run-tsc7.ts --noEmit",
+    "test": "bun test src"
+  },
+  "dependencies": {
+    "@atmos/api-types": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "6.0.3"
+  }
+}

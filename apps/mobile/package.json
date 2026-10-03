@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "main": "expo-router/entry",
   "dependencies": {
+    "@atmos/agent-transcript": "workspace:*",
     "@atmos/api-client": "workspace:*",
     "@atmos/api-types": "workspace:*",
     "@atmos/hub-client": "workspace:*",
