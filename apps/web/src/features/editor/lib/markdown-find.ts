@@ -81,6 +81,17 @@ export function compileMarkdownFindPattern(
   }
 }
 
+export function markdownFindMatches(
+  text: string,
+  query: MarkdownFindQuery | null,
+): boolean {
+  if (!query?.search || !text) return false;
+  const { pattern, invalid } = compileMarkdownFindPattern(query);
+  if (!pattern || invalid) return false;
+  pattern.lastIndex = 0;
+  return pattern.test(text);
+}
+
 export type MarkdownFindOptions = {
   scopeSelector?: string;
 };

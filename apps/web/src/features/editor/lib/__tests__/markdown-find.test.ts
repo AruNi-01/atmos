@@ -6,6 +6,7 @@ import {
   contentFindHighlightRect,
   findMarkdownHits,
   markdownFindCounter,
+  markdownFindMatches,
   resolveFindHighlightHost,
   TRANSCRIPT_FIND_SCOPE,
 } from "../markdown-find";
@@ -36,6 +37,20 @@ describe("markdown find", () => {
       wholeWord: false,
       regexp: true,
     }).invalid).toBe(true);
+  });
+
+  test("matches the same literal, case, and invalid regexp rules as find", () => {
+    const query = {
+      search: "Export",
+      caseSensitive: false,
+      wholeWord: false,
+      regexp: false,
+    };
+    expect(markdownFindMatches("please export this", query)).toBe(true);
+    expect(markdownFindMatches("please export this", { ...query, caseSensitive: true })).toBe(false);
+    expect(markdownFindMatches("please export this", { ...query, search: "(" , regexp: true })).toBe(false);
+    expect(markdownFindMatches("please export this", { ...query, search: "" })).toBe(false);
+    expect(markdownFindMatches("", query)).toBe(false);
   });
 
   test("finds matches across text nodes and formats the counter like CodeMirror", () => {

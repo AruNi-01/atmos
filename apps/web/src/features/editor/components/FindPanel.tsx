@@ -1,9 +1,7 @@
 "use client";
 
 import React, {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -31,7 +29,16 @@ import {
   type MarkdownFindHit,
   type MarkdownFindQuery,
 } from "@/features/editor/lib/markdown-find";
+import {
+  FindHighlightLayer,
+  FindHighlightProvider,
+  useFindLayoutNonce,
+  useSetFindHighlightBoxes,
+  useSetFindSearchQuery,
+} from "@/features/editor/components/find-highlight";
 import "./find-panel.css";
+
+export { FindHighlightLayer, FindHighlightProvider };
 
 function selectedSearchSeed(): string {
   const text = window.getSelection()?.toString() ?? "";
@@ -40,48 +47,8 @@ function selectedSearchSeed(): string {
   return trimmed;
 }
 
-type FindHighlightSetter = (boxes: FindHighlightBox[]) => void;
-
-const FindHighlightBoxesContext = createContext<FindHighlightBox[]>([]);
-const FindHighlightSetContext = createContext<FindHighlightSetter | null>(null);
-
-export function FindHighlightProvider({ children }: { children: React.ReactNode }) {
-  const [boxes, setBoxes] = useState<FindHighlightBox[]>([]);
-  return (
-    <FindHighlightSetContext.Provider value={setBoxes}>
-      <FindHighlightBoxesContext.Provider value={boxes}>
-        {children}
-      </FindHighlightBoxesContext.Provider>
-    </FindHighlightSetContext.Provider>
-  );
-}
-
-export function FindHighlightLayer() {
-  const boxes = useContext(FindHighlightBoxesContext);
-  if (boxes.length === 0) return null;
-  return (
-    <div
-      data-markdown-find-highlight=""
-      className="pointer-events-none absolute inset-0 z-10 overflow-visible"
-    >
-      {boxes.map((box, index) => (
-        <span
-          key={`${box.top}-${box.left}-${index}`}
-          className={
-            box.current
-              ? "absolute rounded-sm bg-[#fde047aa] dark:bg-[#ca8a0444]"
-              : "absolute rounded-sm bg-[#fef08a99] dark:bg-[#854d0e55]"
-          }
-          style={{
-            top: box.top,
-            left: box.left,
-            width: box.width,
-            height: box.height,
-          }}
-        />
-      ))}
-    </div>
-  );
+function isCollapsedFindHit(hit: MarkdownFindHit): boolean {
+  return Boolean(hit.startNode.parentElement?.closest("[data-user-message-collapsed]"));
 }
 
 function hitBoxes(
@@ -92,6 +59,7 @@ function hitBoxes(
   const origin = resolveFindHighlightHost(root).getBoundingClientRect();
   const boxes: FindHighlightBox[] = [];
   hits.forEach((hit, index) => {
+    if (isCollapsedFindHit(hit)) return;
     const range = root.ownerDocument.createRange();
     try {
       range.setStart(hit.startNode, hit.startOffset);
@@ -188,7 +156,9 @@ export function FindPanel({
 }) {
   const t = useTranslations("editor.codeMirrorSearchPanel");
   const inputRef = useRef<HTMLInputElement>(null);
-  const setBoxes = useContext(FindHighlightSetContext);
+  const setBoxes = useSetFindHighlightBoxes();
+  const setFindQuery = useSetFindSearchQuery();
+  const findLayoutNonce = useFindLayoutNonce();
   const activeIndexRef = useRef(0);
   const [search, setSearch] = useState(seed ?? "");
   const [caseSensitive, setCaseSensitive] = useState(false);
@@ -250,7 +220,9 @@ export function FindPanel({
       paintHits(hits, index);
       if (opts?.scroll === false && !grewFromEmpty) return;
       const current = hits[index];
-      if (current) scrollMarkdownFindHitIntoView(root, current);
+      if (current && !isCollapsedFindHit(current)) {
+        scrollMarkdownFindHitIntoView(root, current);
+      }
     },
     [open, paintHits, query, root, scopeSelector, setBoxes],
   );
@@ -268,10 +240,18 @@ export function FindPanel({
   }, [open, seedFromSelection]);
 
   useLayoutEffect(() => {
+    setFindQuery(open && query.search ? query : null);
     scan({ index: 0 });
     // Query changes should restart at the first hit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, query, root, scopeSelector]);
+
+  useLayoutEffect(() => {
+    if (findLayoutNonce === 0) return;
+    // A collapsed user message just opened for this query. Measure after that layout.
+    scan({ index: activeIndexRef.current });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [findLayoutNonce]);
 
   useLayoutEffect(() => {
     if (!open || !root) return;
@@ -341,7 +321,9 @@ export function FindPanel({
       setActiveIndex(next);
       paintHits(hits, next);
       const current = hits[next];
-      if (current) scrollMarkdownFindHitIntoView(root, current);
+      if (current && !isCollapsedFindHit(current)) {
+        scrollMarkdownFindHitIntoView(root, current);
+      }
     },
     [paintHits, root],
   );
