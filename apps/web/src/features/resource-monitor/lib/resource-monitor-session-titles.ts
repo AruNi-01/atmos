@@ -1,8 +1,6 @@
-import {
-  getTerminalDisplayMeta,
-  isTmuxIndexTitle,
-  type TerminalTitleAgent,
-} from "@atmos/shared/terminal";
+import { isTmuxIndexTitle, type TerminalTitleAgent } from "@atmos/shared/terminal";
+import { resolvePaneTitleForCenterTab } from "@/features/terminal/lib/terminal-center-tab-presentation";
+import type { TerminalPaneAgent, TerminalPaneProps } from "@/features/terminal/types";
 
 /** Pane fields Resource Monitor reads for live titles. Store-shaped, display-only. */
 export type ResourceMonitorPaneTitleSource = {
@@ -26,8 +24,14 @@ export type ResourceMonitorSessionDisplay = {
 
 /**
  * Live display title for one pane.
- * Non-empty `customLabel` wins; otherwise canonical `getTerminalDisplayMeta`
- * (label / dynamicTitle / oscTitle / agent). Tmux window indexes are not titles.
+ *
+ * Same stable session topic as the center terminal tab
+ * (`resolvePaneTitleForCenterTab`): builtin agents so a typed `grok-1.0.46`
+ * brands Grok Build, and the row shows the session topic instead of
+ * `grok-1.0.46 | topic`.
+ *
+ * Non-empty `customLabel` still wins as the row text (the icon stays separate).
+ * Tmux window indexes are not titles.
  */
 export function resolveLivePaneDisplay(
   pane: ResourceMonitorPaneTitleSource,
@@ -40,33 +44,59 @@ export function resolveLivePaneDisplay(
     };
   }
 
-  // Tmux window indexes (`1`) are attach identities. Do not feed them to
-  // `getTerminalDisplayMeta` as `baseTitle` — that helper can prefer the base
-  // over a runtime-wrapper dynamic such as `npm run dev`.
-  const baseTitle = isTmuxIndexTitle(pane.label) ? undefined : pane.label;
-  const meta = getTerminalDisplayMeta({
-    baseTitle,
-    dynamicTitle: pane.dynamicTitle,
-    configuredAgents: pane.agent ? [pane.agent] : [],
-    agent: pane.agent,
-    oscTitle: pane.oscTitle,
-  });
-  const displayTitle = meta.displayTitle.trim();
-  if (displayTitle && !isTmuxIndexTitle(displayTitle)) {
-    return {
-      displayTitle,
-      toolbarAgent: meta.toolbarAgent,
-    };
+  const resolved = resolvePaneTitleForCenterTab(centerTabPane(pane));
+  const toolbarAgent = preferStoredAgent(pane.agent, resolved.toolbarAgent);
+  const displayTitle = resolved.displayTitle.trim();
+  if (displayTitle && displayTitle !== "Terminal" && !isTmuxIndexTitle(displayTitle)) {
+    return { displayTitle, toolbarAgent };
   }
 
+  // Center-tab compose returns "Terminal" when a tmux index would have hidden
+  // a runtime-wrapper command (`npm run dev`). Keep that command.
   const dynamic = pane.dynamicTitle?.trim();
   if (dynamic && !isTmuxIndexTitle(dynamic)) {
-    return {
-      displayTitle: dynamic,
-      toolbarAgent: meta.toolbarAgent,
-    };
+    return { displayTitle: dynamic, toolbarAgent };
   }
   return undefined;
+}
+
+/**
+ * Pane shape for the shared center-tab resolver.
+ * A tmux window index is an attach id. Feeding it as `baseTitle` makes
+ * `getTerminalDisplayMeta` prefer `1` over a runtime-wrapper command.
+ */
+function centerTabPane(pane: ResourceMonitorPaneTitleSource): TerminalPaneProps {
+  const label = pane.label?.trim() && !isTmuxIndexTitle(pane.label) ? pane.label : "";
+  return {
+    id: pane.sessionId?.trim() || "resource-monitor-pane",
+    label,
+    sessionId: pane.sessionId ?? "",
+    workspaceId: "",
+    dynamicTitle: pane.dynamicTitle,
+    oscTitle: pane.oscTitle,
+    agent: toPaneAgent(pane.agent),
+  };
+}
+
+function toPaneAgent(agent: TerminalTitleAgent | undefined): TerminalPaneAgent | undefined {
+  if (!agent) return undefined;
+  return {
+    id: agent.id,
+    label: agent.label,
+    command: agent.command,
+    iconType: agent.iconType === "custom" ? "custom" : "built-in",
+    pipeCommand: agent.pipeCommand,
+  };
+}
+
+/** Keep the store's agent object when it is the same match the tab resolved. */
+function preferStoredAgent(
+  stored: TerminalTitleAgent | undefined,
+  resolved: TerminalPaneAgent | undefined,
+): TerminalTitleAgent | undefined {
+  if (!resolved) return undefined;
+  if (stored && stored.id === resolved.id) return stored;
+  return resolved;
 }
 
 export function resolveLivePaneDisplayTitle(

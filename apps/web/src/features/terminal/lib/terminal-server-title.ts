@@ -1,16 +1,11 @@
 import type { TerminalTitleUpdatedNotification } from "@atmos/api-types/ws/dto/events";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import {
-  normalizeStoredDynamicTitle,
   writeCachedDynamicTitle,
   writeCachedOscTitle,
 } from "@/features/terminal/lib/terminal-dynamic-title-cache";
+import { titlesFromServerSnapshot } from "@/features/terminal/store/terminal-store-helpers";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
-
-function presentTitle(value: string | null | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
-}
 
 function windowMatches(paneWindow: string, serverWindow: string): boolean {
   return paneWindow === serverWindow || paneWindow.endsWith(`__${serverWindow}`);
@@ -22,10 +17,12 @@ export function applyServerTerminalTitle(update: TerminalTitleUpdatedNotificatio
   const windowName = update.tmux_window_name?.trim() ?? "";
   if (!workspaceId || !windowName) return;
 
-  const dynamicTitle = normalizeStoredDynamicTitle(presentTitle(update.dynamic_title));
-  const oscTitle = presentTitle(update.session_title);
-  writeCachedDynamicTitle(workspaceId, windowName, dynamicTitle);
-  writeCachedOscTitle(workspaceId, windowName, oscTitle);
+  const { dynamicTitle, oscTitle } = titlesFromServerSnapshot(update);
+  // Empty fields stay omitted. Writing them used to clear the cached topic
+  // and the live pane, so Observer showed "Terminal" until this workspace
+  // was opened and the PTY reported the OSC again.
+  if (dynamicTitle) writeCachedDynamicTitle(workspaceId, windowName, dynamicTitle);
+  if (oscTitle) writeCachedOscTitle(workspaceId, windowName, oscTitle);
 
   useTerminalStore.setState((state) => {
     let changed = false;
@@ -38,8 +35,10 @@ export function applyServerTerminalTitle(update: TerminalTitleUpdatedNotificatio
         if (pane.workspaceId !== workspaceId) continue;
         const paneWindow = pane.tmuxWindowName || pane.label || "";
         if (!windowMatches(paneWindow, windowName)) continue;
-        if (pane.dynamicTitle === dynamicTitle && pane.oscTitle === oscTitle) continue;
-        nextPanes[paneId] = { ...pane, dynamicTitle, oscTitle };
+        const nextDynamic = dynamicTitle ?? pane.dynamicTitle;
+        const nextOsc = oscTitle ?? pane.oscTitle;
+        if (pane.dynamicTitle === nextDynamic && pane.oscTitle === nextOsc) continue;
+        nextPanes[paneId] = { ...pane, dynamicTitle: nextDynamic, oscTitle: nextOsc };
         scopeChanged = true;
       }
       if (!scopeChanged) continue;

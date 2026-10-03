@@ -1,9 +1,18 @@
 import { isTmuxIndexTitle } from "@atmos/shared/terminal";
 import type { ContestedOwnersMap } from "@atmos/shared/terminal";
 import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
-import { TERMINAL_TAB_VALUE_PREFIX } from "@/features/terminal/store/terminal-store-helpers";
+import {
+  readCachedOscTitle,
+} from "@/features/terminal/lib/terminal-dynamic-title-cache";
 import { resolvePaneToolbarTitle } from "@/features/terminal/lib/terminal-center-tab-presentation";
+import {
+  extraCenterSpaceTmuxWindowPrefix,
+  TERMINAL_TAB_VALUE_PREFIX,
+} from "@/features/terminal/store/terminal-store-helpers";
 import type { TerminalPaneProps } from "@/features/terminal/types/index";
+
+/** Placeholder from `composePaneDisplayTitle` when a pane has no topic yet. */
+const GENERIC_TERMINAL_TITLE = "Terminal";
 
 export type AgentHookPaneLookupState = {
   workspacePanes: Record<string, Record<string, TerminalPaneProps>>;
@@ -33,14 +42,69 @@ function matchPaneInMaps(
   maps: Array<Record<string, Record<string, TerminalPaneProps>> | undefined>,
   hostId: string,
   tmuxWindowName: string,
-): TerminalPaneProps | null {
+): { pane: TerminalPaneProps; scopeKey: string } | null {
   for (const panesByScope of maps) {
     if (!panesByScope) continue;
     for (const [scopeKey, panes] of Object.entries(panesByScope)) {
       if (hostIdFromCenterKey(paintIdFromScopeKey(scopeKey)) !== hostId) continue;
       for (const pane of Object.values(panes ?? {})) {
-        if (pane.tmuxWindowName === tmuxWindowName) return pane;
+        if (pane.tmuxWindowName === tmuxWindowName) return { pane, scopeKey };
       }
+    }
+  }
+  return null;
+}
+
+function isGenericTerminalTitle(title: string | null | undefined): boolean {
+  const value = title?.trim() ?? "";
+  return !value || value === GENERIC_TERMINAL_TITLE || isTmuxIndexTitle(value);
+}
+
+/**
+ * Stable OSC topic cached for a window that is not hydrated yet.
+ * Titles are intentionally absent from the center layout document; opening
+ * the workspace is what copies this cache back onto the live pane.
+ */
+function cachedOscTopic(
+  workspaceId: string,
+  tmuxWindowName: string,
+  agentLabel: string,
+): string | null {
+  const topic = uniquePaneTitleForAgentStatus(
+    readCachedOscTitle(workspaceId, tmuxWindowName),
+    agentLabel,
+  );
+  if (!topic || isGenericTerminalTitle(topic)) return null;
+  return topic;
+}
+
+function cachedTopicForSession(
+  stablePaneId: string,
+  located: { pane: TerminalPaneProps; scopeKey: string } | null,
+  agentLabel: string,
+): string | null {
+  const parts = splitStablePaneId(stablePaneId);
+  const paintId = located ? paintIdFromScopeKey(located.scopeKey) : null;
+  const workspaceIds = new Set<string>();
+  if (parts?.hostId) workspaceIds.add(parts.hostId);
+  if (located?.pane.workspaceId) workspaceIds.add(located.pane.workspaceId);
+  if (paintId) workspaceIds.add(paintId);
+
+  const windowNames = new Set<string>();
+  if (parts?.tmuxWindowName) windowNames.add(parts.tmuxWindowName);
+  const paneWindow = located?.pane.tmuxWindowName || located?.pane.label;
+  if (paneWindow) windowNames.add(paneWindow);
+  if (paintId && located?.pane.tmuxWindowName) {
+    const prefix = extraCenterSpaceTmuxWindowPrefix(paintId);
+    if (prefix && located.pane.tmuxWindowName.startsWith(prefix)) {
+      windowNames.add(located.pane.tmuxWindowName.slice(prefix.length));
+    }
+  }
+
+  for (const workspaceId of workspaceIds) {
+    for (const windowName of windowNames) {
+      const topic = cachedOscTopic(workspaceId, windowName, agentLabel);
+      if (topic) return topic;
     }
   }
   return null;
@@ -51,6 +115,14 @@ export function findTerminalPaneByStableAgentPaneId(
   state: AgentHookPaneLookupState,
   stablePaneId: string,
 ): TerminalPaneProps | null {
+  const located = locateTerminalPane(state, stablePaneId);
+  return located?.pane ?? null;
+}
+
+function locateTerminalPane(
+  state: AgentHookPaneLookupState,
+  stablePaneId: string,
+): { pane: TerminalPaneProps; scopeKey: string } | null {
   const parts = splitStablePaneId(stablePaneId);
   if (!parts) return null;
   return matchPaneInMaps(
@@ -172,14 +244,22 @@ export function collectAgentStatusSessionTitles(
       continue;
     }
     const paneId = session.pane_id?.trim() || session.session_id;
-    const pane = findTerminalPaneByStableAgentPaneId(input.panes, paneId);
-    if (!pane) continue;
-    const resolved = resolvePaneToolbarTitle(pane, { contestedOwners: input.contestedOwners });
-    const suffix = uniquePaneTitleForAgentStatus(
-      resolved.displayTitle,
-      input.agentLabel(session.tool),
-    );
-    if (suffix) out[session.session_id] = suffix;
+    const agentLabel = input.agentLabel(session.tool);
+    const located = locateTerminalPane(input.panes, paneId);
+    let suffix: string | null = null;
+    if (located) {
+      const resolved = resolvePaneToolbarTitle(located.pane, {
+        contestedOwners: input.contestedOwners,
+      });
+      suffix = uniquePaneTitleForAgentStatus(resolved.displayTitle, agentLabel);
+    }
+    // A numeric tmux window with no OSC yet resolves to the placeholder
+    // "Terminal". The real topic is already in the title cache; switching
+    // to that workspace only copies the cache onto the pane.
+    if (isGenericTerminalTitle(suffix)) {
+      suffix = cachedTopicForSession(paneId, located, agentLabel);
+    }
+    if (suffix && !isGenericTerminalTitle(suffix)) out[session.session_id] = suffix;
   }
   return out;
 }

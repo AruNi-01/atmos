@@ -101,7 +101,7 @@ describe("Resource Monitor live session titles", () => {
     expect(hierarchySrc).toContain('t("sessionProcessesAria"');
     expect(hierarchySrc).toContain('t("includedCaption")');
     expect(hierarchySrc).toContain('t("ungroupedProcesses")');
-    expect(titlesSrc).toContain("getTerminalDisplayMeta");
+    expect(titlesSrc).toContain("resolvePaneTitleForCenterTab");
     expect(titlesSrc).toContain("isTmuxIndexTitle");
     expect(titlesSrc).toContain("never write this back onto the WS snapshot DTO");
     expect(titlesSrc).not.toContain("from \"@/features/terminal/components");

@@ -12,6 +12,7 @@ import {
 import {
   buildPersistedTerminalWorkspaceLayout,
   normalizeStoredDynamicTitle,
+  titlesFromServerSnapshot,
 } from "../terminal-store-helpers";
 import { useTerminalStore } from "../use-terminal-store";
 import { globalKey, removeKey } from "@/shared/lib/browser-store";
@@ -210,5 +211,20 @@ describe("setDynamicTitle", () => {
     );
     expect(readCachedOscTitle("ws-1", "1")).toBe("Optimize Terminal Tab");
     expect(saveCalls).toEqual([]);
+  });
+
+  it("treats an empty server title snapshot as no change", () => {
+    expect(
+      titlesFromServerSnapshot({ session_title: null, dynamic_title: null }),
+    ).toEqual({});
+    expect(
+      titlesFromServerSnapshot({
+        session_title: "Start subagent to explore the project",
+        dynamic_title: "grok",
+      }),
+    ).toEqual({
+      oscTitle: "Start subagent to explore the project",
+      dynamicTitle: "grok",
+    });
   });
 });

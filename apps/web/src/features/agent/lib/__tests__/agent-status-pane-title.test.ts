@@ -1,5 +1,9 @@
-import { describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 import type { TerminalPaneProps } from "@/features/terminal/types/index";
+import {
+  resetCachedDynamicTitlesForTests,
+  writeCachedOscTitle,
+} from "@/features/terminal/lib/terminal-dynamic-title-cache";
 import {
   collectAgentStatusSessionTitles,
   findTerminalPaneByStableAgentPaneId,
@@ -64,6 +68,41 @@ describe("paneTitleIndicatesAgentExited", () => {
           label: "Claude Code",
           agent: claudeAgent,
           dynamicTitle: "/Users/me/own_space/OpenSource/atmos",
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps a typed grok binary that has no stored pane agent", () => {
+    expect(
+      paneTitleIndicatesAgentExited(
+        pane({
+          id: "a",
+          label: "1",
+          tmuxWindowName: "1",
+          dynamicTitle: "grok-1.0.46",
+          oscTitle: "Launch Subagent to Explore Project",
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      paneTitleIndicatesAgentExited(
+        pane({
+          id: "a",
+          label: "1",
+          dynamicTitle: "grok",
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it("still treats a cwd title as exited when the pane agent was never stored", () => {
+    expect(
+      paneTitleIndicatesAgentExited(
+        pane({
+          id: "a",
+          label: "1",
+          dynamicTitle: ".../atmos/koffing",
         }),
       ),
     ).toBe(true);
@@ -152,6 +191,10 @@ describe("findTerminalPaneByStableAgentPaneId", () => {
 });
 
 describe("collectAgentStatusSessionTitles", () => {
+  afterEach(() => {
+    resetCachedDynamicTitlesForTests();
+  });
+
   it("uses the Agent Chat tab title for chat occupancy rows", () => {
     const titles = collectAgentStatusSessionTitles(
       [
@@ -172,5 +215,123 @@ describe("collectAgentStatusSessionTitles", () => {
       },
     );
     expect(titles["chat:abc"]).toBe("Fix footer");
+  });
+
+  it("does not publish the generic Terminal placeholder", () => {
+    const titles = collectAgentStatusSessionTitles(
+      [
+        {
+          session_id: "ws-1:1",
+          tool: "grok",
+          surface: "terminal",
+          pane_id: "ws-1:1",
+        },
+      ],
+      {
+        contestedOwners: {},
+        panes: {
+          workspacePanes: {
+            "ws-1": {
+              "pane-a": pane({
+                id: "pane-a",
+                label: "1",
+                tmuxWindowName: "1",
+                workspaceId: "ws-1",
+              }),
+            },
+          },
+        },
+        chatTabs: [],
+        agentLabel: () => "Grok Build",
+      },
+    );
+    expect(titles["ws-1:1"]).toBeUndefined();
+  });
+
+  it("uses the cached session topic when the live pane has not been hydrated", () => {
+    writeCachedOscTitle("ws-1", "1", "Start subagent to explore the project");
+    const titles = collectAgentStatusSessionTitles(
+      [
+        {
+          session_id: "ws-1:1",
+          tool: "grok",
+          surface: "terminal",
+          pane_id: "ws-1:1",
+        },
+      ],
+      {
+        contestedOwners: {},
+        panes: {
+          workspacePanes: {
+            "ws-1": {
+              "pane-a": pane({
+                id: "pane-a",
+                label: "1",
+                tmuxWindowName: "1",
+                workspaceId: "ws-1",
+              }),
+            },
+          },
+        },
+        chatTabs: [],
+        agentLabel: () => "Grok Build",
+      },
+    );
+    expect(titles["ws-1:1"]).toBe("Start subagent to explore the project");
+  });
+
+  it("reads the cached topic even when that workspace has no live pane", () => {
+    writeCachedOscTitle("ws-1", "1", "Launch subagent to explore project structure");
+    const titles = collectAgentStatusSessionTitles(
+      [
+        {
+          session_id: "ws-1:1",
+          tool: "grok",
+          surface: "terminal",
+          pane_id: "ws-1:1",
+        },
+      ],
+      {
+        contestedOwners: {},
+        panes: { workspacePanes: {} },
+        chatTabs: [],
+        agentLabel: () => "Grok Build",
+      },
+    );
+    expect(titles["ws-1:1"]).toBe("Launch subagent to explore project structure");
+  });
+
+  it("keeps a live pane topic ahead of a different cached topic", () => {
+    writeCachedOscTitle("ws-1", "1", "cached topic");
+    const titles = collectAgentStatusSessionTitles(
+      [
+        {
+          session_id: "ws-1:1",
+          tool: "grok",
+          surface: "terminal",
+          pane_id: "ws-1:1",
+        },
+      ],
+      {
+        contestedOwners: {},
+        panes: {
+          workspacePanes: {
+            "ws-1": {
+              "pane-a": pane({
+                id: "pane-a",
+                label: "1",
+                tmuxWindowName: "1",
+                workspaceId: "ws-1",
+                oscTitle: "live topic",
+                dynamicTitle: "grok",
+              }),
+            },
+          },
+        },
+        chatTabs: [],
+        agentLabel: () => "Grok Build",
+      },
+    );
+    expect(titles["ws-1:1"]).toBe("live topic");
   });
 });

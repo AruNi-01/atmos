@@ -1,6 +1,7 @@
 import {
   getTerminalDisplayMeta,
   isPathLikeTitle,
+  isTmuxIndexTitle,
   nextCenterTabSessionOscTitle,
   shortenPath,
   type ContestedOwnersMap,
@@ -8,6 +9,7 @@ import {
 } from "@atmos/shared/terminal";
 import type { TerminalLayoutNode } from "@/features/terminal/types/index";
 import type { TerminalPaneAgent, TerminalPaneProps } from "@/features/terminal/types/index";
+import { mergeBuiltinTerminalTitleAgents } from "@/features/terminal/lib/builtin-terminal-title-agents";
 import { flattenTerminalLayout } from "@/features/terminal/lib/terminal-grid-utils";
 
 export type TerminalCenterTabPresentation = {
@@ -79,7 +81,7 @@ export function resolvePaneTitleForCenterTab(
   toolbarAgent: TerminalPaneAgent | undefined;
   sessionOscTitle: string | undefined;
 } {
-  const configuredAgents = options?.configuredAgents ?? [];
+  const configuredAgents = mergeBuiltinTerminalTitleAgents(options?.configuredAgents);
   const customLabel = pane.customLabel?.trim();
   const hasCustom = Boolean(customLabel);
 
@@ -133,7 +135,7 @@ export function resolvePaneToolbarTitle(
   displayTitle: string;
   toolbarAgent: TerminalPaneAgent | undefined;
 } {
-  const configuredAgents = options?.configuredAgents ?? [];
+  const configuredAgents = mergeBuiltinTerminalTitleAgents(options?.configuredAgents);
   const customLabel = pane.customLabel?.trim();
   const hasCustom = Boolean(customLabel);
   const shapeAgent =
@@ -162,13 +164,22 @@ function composePaneDisplayTitle(
 ): string {
   const customLabel = pane.customLabel?.trim();
   if (!customLabel) {
-    const displayTitle = (auto.displayTitle || auto.primaryTitle || "").trim();
-    if (displayTitle) return displayTitle;
+    const primary = (auto.primaryTitle || "").trim();
+    const osc = (auto.oscSuffix || "").trim();
+    // A tmux window index is an attach id. The window title is the OSC topic.
+    if (isTmuxIndexTitle(primary)) {
+      if (osc) return osc;
+    } else {
+      const displayTitle = (auto.displayTitle || primary).trim();
+      if (displayTitle && !isTmuxIndexTitle(displayTitle)) return displayTitle;
+    }
     // No session/cwd/command title yet — keep the agent name so the tab is
     // not icon-only (hover would otherwise replace the icon with close).
     const agentLabel = auto.toolbarAgent?.label?.trim();
     if (agentLabel) return agentLabel;
-    return pane.label?.trim() || "Terminal";
+    const label = pane.label?.trim();
+    if (label && !isTmuxIndexTitle(label)) return label;
+    return "Terminal";
   }
 
   const wantAgent = pane.keepAgentName !== false;
@@ -245,7 +256,7 @@ export function resolveTerminalCenterTabPresentation(options: {
 
   if (!sourcePaneId) {
     return {
-      displayTitle: options.fallbackTitle || "Terminal",
+      displayTitle: firstVisibleTabTitle(options.fallbackTitle),
       toolbarAgent: undefined,
       sourcePaneId: null,
       sessionOscTitle: undefined,
@@ -264,11 +275,11 @@ export function resolveTerminalCenterTabPresentation(options: {
     previousSessionOsc,
   });
 
-  const displayTitle =
-    resolved.displayTitle ||
-    resolved.toolbarAgent?.label ||
-    options.fallbackTitle ||
-    "Terminal";
+  const displayTitle = firstVisibleTabTitle(
+    resolved.displayTitle,
+    resolved.toolbarAgent?.label,
+    options.fallbackTitle,
+  );
 
   return {
     displayTitle,
@@ -276,6 +287,15 @@ export function resolveTerminalCenterTabPresentation(options: {
     sourcePaneId,
     sessionOscTitle: resolved.sessionOscTitle,
   };
+}
+
+/** Skip a bare tmux window index (`1`). Keep every other non-empty title. */
+function firstVisibleTabTitle(...candidates: Array<string | null | undefined>): string {
+  for (const candidate of candidates) {
+    const title = candidate?.trim() ?? "";
+    if (title && !isTmuxIndexTitle(title)) return title;
+  }
+  return "Terminal";
 }
 
 function isSessionOscMap(

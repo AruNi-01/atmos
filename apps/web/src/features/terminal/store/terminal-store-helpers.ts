@@ -59,6 +59,25 @@ export function nextOscTitleFromIncoming(
   return nextOscTitleAfterIncoming(previous, raw);
 }
 
+/**
+ * Fields a computer title snapshot should write.
+ * Missing/empty values are omitted so callers keep the previous topic.
+ * An empty `session_title` is not a clear — the PTY still has the OSC, and
+ * wiping the pane is what made Agent Observer show "Terminal" until the
+ * workspace was opened again.
+ */
+export function titlesFromServerSnapshot(update: {
+  dynamic_title?: string | null;
+  session_title?: string | null;
+}): { dynamicTitle?: string; oscTitle?: string } {
+  const dynamicTitle = normalizeStoredDynamicTitle(update.dynamic_title?.trim() || undefined);
+  const oscTitle = update.session_title?.trim() || undefined;
+  return {
+    ...(dynamicTitle ? { dynamicTitle } : {}),
+    ...(oscTitle ? { oscTitle } : {}),
+  };
+}
+
 export { normalizeStoredDynamicTitle } from "@/features/terminal/lib/terminal-dynamic-title-cache";
 
 type TerminalMessagesLocale = "en" | "zh";
@@ -690,6 +709,24 @@ export function createInitialLayout(
   };
 }
 
+function cachedTitlesForTmuxWindow(
+  workspaceId: string,
+  windowName: string,
+): { oscTitle?: string; dynamicTitle?: string } {
+  const hostId = hostIdFromCenterKey(workspaceId);
+  const workspaceIds = hostId === workspaceId ? [workspaceId] : [workspaceId, hostId];
+  let oscTitle: string | undefined;
+  let dynamicTitle: string | undefined;
+  for (const id of workspaceIds) {
+    oscTitle ??= readCachedOscTitle(id, windowName);
+    dynamicTitle ??= readCachedDynamicTitle(id, windowName);
+  }
+  return {
+    ...(oscTitle ? { oscTitle } : {}),
+    ...(dynamicTitle ? { dynamicTitle } : {}),
+  };
+}
+
 export function createLayoutFromTmuxWindows(
   workspaceId: string,
   windows: TmuxWindow[],
@@ -707,11 +744,16 @@ export function createLayoutFromTmuxWindows(
     if (isAutomationTmuxWindowName(win.name)) continue;
     const id = uuidv4();
     paneIds.push(id);
-    panes[id] = createTerminalPane(workspaceId, win.name, {
-      id,
-      tmuxWindowName: win.name,
-      isNewPane: false,
-    });
+    panes[id] = {
+      ...createTerminalPane(workspaceId, win.name, {
+        id,
+        tmuxWindowName: win.name,
+        isNewPane: false,
+      }),
+      // Layout rebuilds omit osc/dynamic. The title cache is what hydrate
+      // would apply once this workspace is opened.
+      ...cachedTitlesForTmuxWindow(workspaceId, win.name),
+    };
   }
 
   const firstPaneId = paneIds[0];

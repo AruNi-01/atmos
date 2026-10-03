@@ -419,4 +419,74 @@ describe("resolveTerminalCenterTabPresentation", () => {
       sessionOscTitle: undefined,
     });
   });
+
+  it("does not use a tmux window index when there are no panes", () => {
+    expect(
+      resolveTerminalCenterTabPresentation({
+        fallbackTitle: "1",
+        panes: {},
+        layout: null,
+      }).displayTitle,
+    ).toBe("Terminal");
+  });
+
+  it("follows the window title for a typed grok binary without a stored agent", () => {
+    const panes = {
+      a: pane({
+        id: "a",
+        label: "1",
+        tmuxWindowName: "1",
+        dynamicTitle: "grok-1.0.46",
+        oscTitle: "Atmos monorepo architecture exploration - grok",
+      }),
+    };
+    const result = resolveTerminalCenterTabPresentation({
+      fallbackTitle: "1",
+      panes,
+      layout: "a",
+    });
+    expect(result.displayTitle).toBe("Atmos monorepo architecture exploration");
+    expect(result.displayTitle).not.toContain("grok-1.0.46");
+    expect(result.displayTitle).not.toBe("1");
+    expect(result.toolbarAgent?.id).toBe("grok-build");
+    expect(result.sessionOscTitle).toBe("Atmos monorepo architecture exploration");
+  });
+
+  it("shows the agent name instead of the tmux index when the window title clears", () => {
+    const panes = {
+      a: pane({
+        id: "a",
+        label: "1",
+        tmuxWindowName: "1",
+        dynamicTitle: "grok",
+        oscTitle: undefined,
+      }),
+    };
+    const result = resolveTerminalCenterTabPresentation({
+      fallbackTitle: "1",
+      panes,
+      layout: "a",
+    });
+    expect(result.displayTitle).toBe("Grok Build");
+    expect(result.sessionOscTitle).toBeUndefined();
+    expect(result.toolbarAgent?.id).toBe("grok-build");
+  });
+
+  it("prefers a configured agent label over the builtin with the same id", () => {
+    const panes = {
+      a: pane({
+        id: "a",
+        label: "1",
+        dynamicTitle: "grok",
+      }),
+    };
+    const result = resolveTerminalCenterTabPresentation({
+      fallbackTitle: "1",
+      panes,
+      layout: "a",
+      configuredAgents: [{ ...grokAgent, label: "My Grok" }],
+    });
+    expect(result.displayTitle).toBe("My Grok");
+    expect(result.toolbarAgent?.label).toBe("My Grok");
+  });
 });

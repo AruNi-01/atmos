@@ -4,6 +4,10 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/lib/terminal-layout-document";
 import {
+  resetCachedDynamicTitlesForTests,
+  writeCachedOscTitle,
+} from "@/features/terminal/lib/terminal-dynamic-title-cache";
+import {
   EMPTY_TERMINAL_TAB_PANES,
   automationTerminalTabIdFromWindowName,
   automationWindowNameFromTerminalTabId,
@@ -76,6 +80,15 @@ describe("terminalTabsAfterUnpersistedHydrate", () => {
     expect(
       createLayoutFromTmuxWindows("automation:job-1", [{ index: 0, name: "auto-abcdefgh" }]),
     ).toBeNull();
+  });
+
+  it("copies the cached session topic onto panes rebuilt from tmux", () => {
+    resetCachedDynamicTitlesForTests();
+    writeCachedOscTitle("ws-1", "1", "Start subagent to explore the project");
+    const layout = createLayoutFromTmuxWindows("ws-1", [{ index: 0, name: "1" }]);
+    const pane = Object.values(layout!.panes)[0];
+    expect(pane?.oscTitle).toBe("Start subagent to explore the project");
+    resetCachedDynamicTitlesForTests();
   });
 
   it("reuses one empty panes record for missing scopes", () => {

@@ -191,6 +191,46 @@ describe("buildResourceMonitorSessionTitleMap", () => {
     expect(titles.get("kept")).toBe("vim");
   });
 
+  test("typed grok binary uses the center-tab session topic, not the version", () => {
+    const displays = buildResourceMonitorSessionDisplayMap({
+      "ws-a": {
+        pane1: pane({
+          sessionId: "sess-grok",
+          label: "1",
+          dynamicTitle: "grok-1.0.46",
+          oscTitle: "Responding - Launch Subagent for Project Exploration - grok",
+        }),
+      },
+    });
+    const display = displays.get("sess-grok");
+    expect(display?.displayTitle).toBe("Launch Subagent for Project Exploration");
+    expect(display?.displayTitle).not.toContain("grok-1.0.46");
+    expect(display?.displayTitle).not.toContain("|");
+    expect(display?.toolbarAgent?.id).toBe("grok-build");
+    expect(display?.toolbarAgent?.iconType).toBe("built-in");
+  });
+
+  test("typed grok binary with a plain session topic does not prefix the version", () => {
+    expect(
+      resolveLivePaneDisplayTitle({
+        sessionId: "sess-grok",
+        label: "1",
+        dynamicTitle: "grok-1.0.46",
+        oscTitle: "Launch Subagent for Project Exploration",
+      }),
+    ).toBe("Launch Subagent for Project Exploration");
+  });
+
+  test("typed grok binary with no session topic shows the agent name", () => {
+    const display = resolveLivePaneDisplay({
+      sessionId: "sess-grok",
+      label: "1",
+      dynamicTitle: "grok-1.0.46",
+    });
+    expect(display?.displayTitle).toBe("Grok Build");
+    expect(display?.toolbarAgent?.id).toBe("grok-build");
+  });
+
   test("keeps the configured agent icon for custom labels", () => {
     expect(
       resolveLivePaneDisplay({
