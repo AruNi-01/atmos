@@ -10,8 +10,8 @@ type TimerCall = {
 class FakeMobileWebSocket {
   static instances: FakeMobileWebSocket[] = [];
 
-  onclose: (() => void) | null = null;
-  onerror: (() => void) | null = null;
+  onclose: ((event?: { code?: number; reason?: string; wasClean?: boolean }) => void) | null = null;
+  onerror: ((event?: { message?: string }) => void) | null = null;
   onmessage: ((event: { data: unknown }) => void) | null = null;
   onopen: (() => void) | null = null;
   readyState = 0;
@@ -110,6 +110,19 @@ describe("MobileWsClient", () => {
 
     expect(client.state).toBe("closed");
     expect(states.at(-1)).toBe("closed");
+  });
+
+  test("retries a failed first handshake and keeps the socket error", () => {
+    const timers: TimerCall[] = [];
+    FakeMobileWebSocket.instances = [];
+    const client = createClient({ timers });
+
+    client.connect();
+    FakeMobileWebSocket.instances[0]!.onerror?.({ message: "timed out" });
+
+    expect(client.lastFailure).toBe("timed out");
+    expect(client.state).toBe("reconnecting");
+    expect(timers.map((timer) => timer.delayMs)).toEqual([100]);
   });
 
   test("does not reconnect after an intentional close", () => {

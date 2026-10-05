@@ -58,7 +58,11 @@ export function SessionRowList({
           <SessionRow
             colors={palette}
             omitPlace={omitPlace}
-            onPress={onPress && (row.workspaceId || row.terminalCandidateId) ? () => onPress(row) : undefined}
+            onPress={
+              onPress && (row.workspaceId || row.projectId || row.terminalCandidateId)
+                ? () => onPress(row)
+                : undefined
+            }
             pinned={pinned.has(sessionId)}
             row={row}
           />

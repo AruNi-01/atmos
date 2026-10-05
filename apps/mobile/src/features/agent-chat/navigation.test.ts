@@ -66,6 +66,20 @@ describe("openSessionDestination", () => {
     });
   });
 
+  test("a project chat opens through the project scope id", () => {
+    expect(openSessionDestination({
+      kind: "chat",
+      workspaceId: null,
+      projectId: "project-1",
+      terminalCandidateId: null,
+      chatId: "chat-1",
+      title: "Explore the repo",
+    })).toEqual({
+      pathname: "/workspace/[workspaceId]/chat/[chatId]",
+      params: { workspaceId: "project-1", chatId: "chat-1", title: "Explore the repo" },
+    });
+  });
+
   test("a chat row without an id opens the workspace list", () => {
     expect(openSessionDestination({
       kind: "chat",

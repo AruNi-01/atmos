@@ -11,7 +11,7 @@ import { useMobileWs } from "@/providers/MobileWsProvider";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 import { PlusIcon } from "@/ui/icons/lucide-native";
-import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
+import { AppScreen, EmptyState, InlineError, ListLoadMoreFooter, Section } from "@/ui/layout/app-screen";
 import { Row, Separator } from "@/ui/layout/row";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
 import { GlassActionButtons } from "@/ui/primitives/glass-action-buttons";
@@ -56,10 +56,10 @@ export function AgentChatSessionListScreen({ workspaceId }: { workspaceId: strin
               }),
         }}
       />
-      <AppScreen>
+      <AppScreen onEndReached={list.retryNextPage}>
         {list.loading || list.rows.length > 0 || !list.error ? (
           <Section>
-            {list.loading ? (
+            {list.loading && list.rows.length === 0 ? (
               <ListSkeleton />
             ) : list.rows.length === 0 ? (
               <EmptyState layout="section" message={copy.emptyDescription} title={copy.emptyTitle} />
@@ -97,6 +97,7 @@ export function AgentChatSessionListScreen({ workspaceId }: { workspaceId: strin
             )}
           </Section>
         ) : null}
+        <ListLoadMoreFooter loading={list.isFetchingNextPage} />
         <InlineError message={list.error} />
         {renaming ? (
           <View style={{ gap: 12, padding: 18 }}>

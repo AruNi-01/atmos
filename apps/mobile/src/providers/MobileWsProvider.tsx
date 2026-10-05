@@ -51,7 +51,12 @@ export function MobileWsProvider({ children }: PropsWithChildren) {
     const unsubscribe = client.subscribeState((nextState) => {
       setWsState(nextState);
       if (nextState === "closed" || nextState === "error") {
-        setDisconnectedReason("Connection to Atmos Computer is unavailable.");
+        const detail = client.lastFailure.trim();
+        setDisconnectedReason(
+          detail
+            ? `Connection to Atmos Computer is unavailable. ${detail}`
+            : "Connection to Atmos Computer is unavailable.",
+        );
       } else if (nextState === "reconnecting") {
         setDisconnectedReason("Reconnecting to Atmos Computer.");
       } else if (nextState === "open") {

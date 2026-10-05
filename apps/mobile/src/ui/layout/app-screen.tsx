@@ -1,7 +1,10 @@
 import type { PropsWithChildren, ReactNode } from "react";
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
+  ActivityIndicator,
   type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -13,13 +16,24 @@ import { useUiStore } from "@/stores/ui-store";
 import { spacing } from "@/theme/spacing";
 import { useMobileTheme } from "@/theme/theme-store";
 import { useHomeTabBarInset } from "@/ui/layout/home-tab-bar-inset";
+import {
+  sessionListDistanceFromEnd,
+  sessionListShouldRequestNextPage,
+  type SessionListScrollMetrics,
+} from "@/ui/layout/scroll-end";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 
 type AppScreenProps = PropsWithChildren<{
   /** Grow content to the viewport so children can vertically center (e.g. disconnected home). */
   contentFlex?: boolean;
   footer?: ReactNode;
-  /** Pull down and release to refresh. Omit to leave the scroll view as-is. */
+  /**
+   * When the list is shorter than the screen and this is true, keep loading
+   * pages. A filtered state can have a large total and only a few rows in the
+   * first global page, so the user cannot scroll to the end yet.
+   */
+  fillWhenShort?: boolean;
+  /** Called once each time the user scrolls to the bottom. */
   onEndReached?: () => void;
   onRefresh?: () => void | Promise<void>;
   refreshing?: boolean;
@@ -32,6 +46,7 @@ const FOOTER_HEIGHT_FALLBACK = 180;
 export function AppScreen({
   children,
   contentFlex = false,
+  fillWhenShort = false,
   footer,
   onEndReached,
   onRefresh,
@@ -59,17 +74,52 @@ export function AppScreen({
   // NativeWind className merge cannot drop the bottom inset under the dock.
   const footerClearance = Math.max(footerHeight, FOOTER_HEIGHT_FALLBACK) + spacing.sectionGap;
 
-  const endReached = useRef(false);
-  const handleScroll = (event: { nativeEvent: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } } }) => {
-    if (!onEndReached) return;
-    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    const nearEnd = layoutMeasurement.height + contentOffset.y >= contentSize.height - 280;
-    if (nearEnd && !endReached.current) {
-      endReached.current = true;
-      onEndReached();
-    } else if (!nearEnd) {
-      endReached.current = false;
-    }
+  const metricsRef = useRef<SessionListScrollMetrics>({
+    contentHeight: 0,
+    insetBottom: 0,
+    offsetY: 0,
+    viewportHeight: 0,
+  });
+  const armed = useRef(true);
+  const fillWhenShortRef = useRef(fillWhenShort);
+  fillWhenShortRef.current = fillWhenShort;
+  const onEndReachedRef = useRef(onEndReached);
+  onEndReachedRef.current = onEndReached;
+
+  const requestNextPage = () => {
+    if (!onEndReachedRef.current) return;
+    const metrics = metricsRef.current;
+    const decision = sessionListShouldRequestNextPage({
+      armed: armed.current,
+      contentHeight: metrics.contentHeight,
+      distanceFromEnd: sessionListDistanceFromEnd(metrics),
+      fillWhenShort: fillWhenShortRef.current,
+      viewportHeight: metrics.viewportHeight,
+    });
+    armed.current = decision.armed;
+    if (decision.request) onEndReachedRef.current();
+  };
+  const requestNextPageRef = useRef(requestNextPage);
+  requestNextPageRef.current = requestNextPage;
+
+  useEffect(() => {
+    if (!fillWhenShort) return;
+    const metrics = metricsRef.current;
+    if (metrics.viewportHeight <= 0 || metrics.contentHeight <= 0) return;
+    if (metrics.contentHeight > metrics.viewportHeight) return;
+    armed.current = true;
+    requestNextPageRef.current();
+  }, [fillWhenShort]);
+
+  const rememberScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentInset, contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    metricsRef.current = {
+      contentHeight: contentSize.height,
+      insetBottom: contentInset?.bottom ?? 0,
+      offsetY: contentOffset.y,
+      viewportHeight: layoutMeasurement.height,
+    };
+    requestNextPageRef.current();
   };
 
   const scroll = (
@@ -84,9 +134,34 @@ export function AppScreen({
         paddingBottom: footer ? undefined : Math.max(spacing.screenBottom, tabBarInset),
         paddingHorizontal: spacing.screenX,
       }}
+      alwaysBounceVertical
       contentInsetAdjustmentBehavior="automatic"
       keyboardShouldPersistTaps="handled"
-      onScroll={onEndReached ? handleScroll : undefined}
+      onContentSizeChange={(_width, height) => {
+        const previous = metricsRef.current.contentHeight;
+        const viewport = metricsRef.current.viewportHeight;
+        metricsRef.current = { ...metricsRef.current, contentHeight: height };
+        if (
+          fillWhenShortRef.current &&
+          viewport > 0 &&
+          height > 0 &&
+          height <= viewport &&
+          height !== previous
+        ) {
+          armed.current = true;
+        }
+        requestNextPageRef.current();
+      }}
+      onLayout={(event) => {
+        metricsRef.current = {
+          ...metricsRef.current,
+          viewportHeight: event.nativeEvent.layout.height,
+        };
+        requestNextPageRef.current();
+      }}
+      onMomentumScrollEnd={onEndReached ? rememberScroll : undefined}
+      onScroll={onEndReached ? rememberScroll : undefined}
+      onScrollEndDrag={onEndReached ? rememberScroll : undefined}
       scrollEventThrottle={200}
       refreshControl={
         onRefresh ? (
@@ -303,6 +378,22 @@ export function EmptyState({
       >
         {message}
       </Text>
+    </View>
+  );
+}
+
+/** Same spinner as pull-to-refresh, shown under the list while the next page loads. */
+export function ListLoadMoreFooter({ loading = false }: { loading?: boolean }) {
+  const theme = useMobileTheme();
+  if (!loading) return null;
+
+  return (
+    <View
+      accessibilityLabel="Loading more sessions"
+      accessibilityState={{ busy: true }}
+      style={{ alignItems: "center", justifyContent: "center", paddingVertical: 18 }}
+    >
+      <ActivityIndicator color={theme.colors.secondaryLabel} />
     </View>
   );
 }

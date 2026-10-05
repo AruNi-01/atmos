@@ -1,5 +1,6 @@
 export type { TerminalClientMessage, TerminalServerMessage, TerminalSnapshot } from "@atmos/shared/terminal";
 import type { TerminalClientMessage, TerminalServerMessage } from "@atmos/shared/terminal";
+import { preferredComputerWebSocket } from "@/api/url-session-websocket";
 
 type TerminalWebSocketLike = {
   readyState: number;
@@ -53,7 +54,10 @@ export class TerminalWsClient {
     private readonly terminalWsUrl: string,
     options: TerminalWsClientOptions = {},
   ) {
-    this.WebSocketCtor = options.WebSocketCtor ?? (WebSocket as unknown as TerminalWebSocketCtor);
+    // `new` on this function returns its socket. Tests pass a real constructor.
+    this.WebSocketCtor =
+      options.WebSocketCtor ??
+      (preferredComputerWebSocket as unknown as TerminalWebSocketCtor);
     this.clearTimer = options.clearTimeout ?? clearTimeout;
     this.reconnect = options.reconnect ?? true;
     this.reconnectInitialDelayMs = options.reconnectInitialDelayMs ?? DEFAULT_RECONNECT_INITIAL_DELAY_MS;

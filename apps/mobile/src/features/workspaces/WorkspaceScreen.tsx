@@ -29,7 +29,7 @@ import { useSessionStore } from "@/stores/session-store";
 import { wsActions } from "@/api/ws-actions";
 import { colors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
-import { LayoutGridIcon, PlusIcon } from "@/ui/icons/lucide-native";
+import { PlusIcon } from "@/ui/icons/lucide-native";
 import { terminalHeaderRightItems } from "@/ui/navigation/terminal-header-items";
 
 export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
@@ -159,7 +159,6 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
                 unstable_headerRightItems: () =>
                   terminalHeaderRightItems(
                     () => headerActionsRef.current?.createTerminal(),
-                    () => headerActionsRef.current?.openTerminalList(),
                     theme.colors.terminalFg,
                   ),
               }
@@ -173,14 +172,6 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
                       onPress={() => headerActionsRef.current?.createTerminal()}
                     >
                       <PlusIcon color={theme.colors.terminalFg} size={22} strokeWidth={2.2} />
-                    </Pressable>
-                    <Pressable
-                      accessibilityLabel="Terminal list"
-                      accessibilityRole="button"
-                      hitSlop={12}
-                      onPress={() => headerActionsRef.current?.openTerminalList()}
-                    >
-                      <LayoutGridIcon color={theme.colors.terminalFg} size={22} strokeWidth={2.2} />
                     </Pressable>
                   </View>
                 ),

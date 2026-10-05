@@ -2,9 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Keyboard, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
-import { rowsForTerminalEntries } from "@/features/sessions/scoped-session-rows";
-import { useSessionInbox } from "@/features/sessions/use-session-inbox";
-import { TerminalGroupDrawer } from "@/features/terminal/TerminalGroupDrawer";
 import { TerminalWebView, type TerminalWebViewHandle } from "@/features/terminal/TerminalWebView";
 import { useContestedCliOwners } from "@/features/terminal/use-contested-cli-owners";
 import {
@@ -37,7 +34,6 @@ export type { TerminalInsertHandler, TerminalKeyboardHandler } from "@/features/
 export type TerminalShortcutHandler = (shortcut: TerminalShortcut) => void;
 export type TerminalHeaderActions = {
   createTerminal: () => void;
-  openTerminalList: () => void;
 };
 
 export type TerminalHeading = {
@@ -70,7 +66,6 @@ export function TerminalScreen({
   const entries = useTerminalStore((state) => state.entriesByWorkspaceId[workspaceId] ?? EMPTY_TERMINAL_ENTRIES);
   const activeEntryId = useTerminalStore((state) => state.activeEntryIdByWorkspaceId[workspaceId]);
   const setEntries = useTerminalStore((state) => state.setEntries);
-  const setActiveEntry = useTerminalStore((state) => state.setActiveEntry);
   const addEntry = useTerminalStore((state) => state.addEntry);
   const updateEntry = useTerminalStore((state) => state.updateEntry);
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
@@ -78,7 +73,6 @@ export function TerminalScreen({
   const contestedOwners = useContestedCliOwners();
   const webViewRef = useRef<TerminalWebViewHandle>(null);
   const [rendererReadyFor, setRendererReadyFor] = useState<string | null>(null);
-  const [groupOpen, setGroupOpen] = useState(false);
 
   const candidates = useTerminalCandidates({
     appWsClient,
@@ -95,21 +89,6 @@ export function TerminalScreen({
     if (entries.length > 0) return entries;
     return EMPTY_TERMINAL_ENTRIES;
   }, [entries]);
-
-  const inbox = useSessionInbox();
-  const sheetRows = useMemo(
-    () =>
-      rowsForTerminalEntries(ensuredEntries, inbox.rows, (entry) =>
-        resolveMobileTerminalHeading({
-          baseTitle: entry.label,
-          contestedOwners,
-          dynamicTitle: entry.dynamicTitle,
-          oscTitle: entry.oscTitle,
-          sessionOscTitle: entry.sessionOscTitle,
-        }).title,
-      ),
-    [contestedOwners, ensuredEntries, inbox.rows],
-  );
 
   const activeEntry = resolveActiveTerminalEntry(ensuredEntries, activeEntryId);
   const activeEntryIdForTitle = activeEntry?.id;
@@ -157,18 +136,6 @@ export function TerminalScreen({
     });
   }, [addEntry, ensuredEntries.length, workspaceId]);
 
-  const selectEntry = useCallback(
-    (entryId: string) => {
-      setActiveEntry(workspaceId, entryId);
-      setGroupOpen(false);
-    },
-    [setActiveEntry, workspaceId],
-  );
-
-  const openTerminalList = useCallback(() => {
-    setGroupOpen(true);
-  }, []);
-
   useEffect(() => {
     onDisplayTitleChange?.(navigationHeading);
   }, [navigationHeading.agentId, navigationHeading.title, onDisplayTitleChange]);
@@ -176,10 +143,9 @@ export function TerminalScreen({
   useEffect(() => {
     onHeaderActionsChange?.({
       createTerminal: createTerminalEntry,
-      openTerminalList,
     });
     return () => onHeaderActionsChange?.(null);
-  }, [createTerminalEntry, onHeaderActionsChange, openTerminalList]);
+  }, [createTerminalEntry, onHeaderActionsChange]);
 
   const controlSystemKeyboard = useCallback((action: "blur-terminal" | "dismiss" | "focus-terminal") => {
     if (action === "focus-terminal") {
@@ -265,11 +231,10 @@ export function TerminalScreen({
           return;
         }
         if (shortcut.action === "workspace-list") router.push("/");
-        if (shortcut.action === "switch-terminal") openTerminalList();
         if (shortcut.action === "new-terminal") createTerminalEntry();
       }
     },
-    [createTerminalEntry, openTerminalList, router, sendTerminalInput, setTerminalError],
+    [createTerminalEntry, router, sendTerminalInput, setTerminalError],
   );
 
   useEffect(() => {
@@ -300,7 +265,7 @@ export function TerminalScreen({
           ]}
         >
           <Text selectable style={[styles.noticeText, { color: theme.colors.secondaryLabel }]}>
-            {candidates.error instanceof Error ? candidates.error.message : "Could not load terminal list."}
+            {candidates.error instanceof Error ? candidates.error.message : "Could not load this terminal."}
           </Text>
         </View>
       ) : null}
@@ -348,19 +313,13 @@ export function TerminalScreen({
       ) : (
         <View style={[styles.choiceState, { backgroundColor: theme.colors.cardElevated }]}>
           <Text selectable style={[styles.choiceTitle, { color: theme.colors.label }]}>
-            Choose a terminal
+            Terminal is not open
           </Text>
           <Text selectable style={[styles.choiceText, { color: theme.colors.secondaryLabel }]}>
-            Open the terminal list to choose one.
+            Open a Terminal Agent session from Workspace or Session.
           </Text>
         </View>
       )}
-      <TerminalGroupDrawer
-        isPresented={groupOpen}
-        onDismiss={() => setGroupOpen(false)}
-        onSelect={selectEntry}
-        rows={sheetRows}
-      />
     </View>
   );
 }

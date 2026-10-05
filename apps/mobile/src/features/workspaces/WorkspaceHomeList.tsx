@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Animated, Easing, Pressable, Text, View } from "react-native";
+import { Animated, Easing as RnEasing, Pressable, Text, View } from "react-native";
+import Reanimated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import type { GroupModel, ProjectModel, ProjectWorkspaceBootstrapResponse, WorkspaceModel } from "@/api/types";
@@ -191,10 +199,76 @@ export function WorkspaceHomeList({
 }
 
 function CollapsibleRows({ children, open }: { children: ReactNode; open: boolean }) {
-  // Keep an open section in normal layout. A clipped, absolutely positioned
-  // wrapper swallows the row swipe gesture.
-  if (!open) return null;
-  return <View>{children}</View>;
+  const reducedMotion = useReducedMotion() === true;
+  const progress = useSharedValue(open ? 1 : 0);
+  const target = useSharedValue(open ? 1 : 0);
+  const contentHeight = useSharedValue(0);
+  // Clip only while the height is moving or the section is closed. An open
+  // section stays in normal flow: a clipped, absolutely positioned wrapper
+  // swallows the row swipe gesture.
+  const [clipping, setClipping] = useState(false);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      progress.set(open ? 1 : 0);
+      setClipping(false);
+      return;
+    }
+    if (!open) {
+      setClipping(true);
+      return;
+    }
+    if (contentHeight.get() <= 0) {
+      progress.set(1);
+      setClipping(false);
+      return;
+    }
+    setClipping(true);
+  }, [contentHeight, open, progress, reducedMotion]);
+
+  useEffect(() => {
+    if (reducedMotion || !clipping) return;
+    const next = open ? 1 : 0;
+    target.set(next);
+    progress.set(
+      withTiming(next, { duration: SECTION_MOTION_MS, easing: Easing.out(Easing.cubic) }, (finished) => {
+        if (finished && target.get() === 1) scheduleOnRN(setClipping, false);
+      }),
+    );
+  }, [clipping, open, progress, reducedMotion, target]);
+
+  const clipStyle = useAnimatedStyle(() => ({
+    height: contentHeight.get() * progress.get(),
+    overflow: "hidden" as const,
+  }));
+
+  if (reducedMotion) {
+    if (!open) return null;
+    return <View>{children}</View>;
+  }
+
+  return (
+    <Reanimated.View
+      accessibilityElementsHidden={!open}
+      collapsable={false}
+      importantForAccessibility={open ? "auto" : "no-hide-descendants"}
+      pointerEvents={open ? "auto" : "none"}
+      style={clipping ? clipStyle : undefined}
+    >
+      <View
+        collapsable={false}
+        onLayout={(event) => {
+          if (clipping) return;
+          const next = event.nativeEvent.layout.height;
+          if (next < 1 || Math.abs(contentHeight.get() - next) < 1) return;
+          contentHeight.set(next);
+        }}
+        style={clipping ? { left: 0, position: "absolute", right: 0, top: 0 } : undefined}
+      >
+        {children}
+      </View>
+    </Reanimated.View>
+  );
 }
 
 function WorkspaceGroup({
@@ -221,16 +295,21 @@ function WorkspaceGroup({
   title: string;
 }) {
   const theme = useMobileTheme();
+  const reducedMotion = useReducedMotion() === true;
   const rotation = useRef(new Animated.Value(open ? 1 : 0)).current;
 
   useEffect(() => {
+    if (reducedMotion) {
+      rotation.setValue(open ? 1 : 0);
+      return;
+    }
     Animated.timing(rotation, {
       duration: SECTION_MOTION_MS,
-      easing: Easing.out(Easing.cubic),
+      easing: RnEasing.out(RnEasing.cubic),
       toValue: open ? 1 : 0,
       useNativeDriver: true,
     }).start();
-  }, [open, rotation]);
+  }, [open, reducedMotion, rotation]);
 
   const chevronRotate = rotation.interpolate({
     inputRange: [0, 1],

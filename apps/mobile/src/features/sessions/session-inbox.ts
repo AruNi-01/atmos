@@ -40,6 +40,7 @@ export type SessionInboxSnapshot = {
   context_id?: string | null;
   surface_id?: string | null;
   tool?: string | null;
+  /** Chat title from the status snapshot. Terminal rows leave this empty. */
   title?: string | null;
 };
 
@@ -86,8 +87,6 @@ export type SessionInboxInput = {
   workspaces?: SessionInboxWorkspace[];
   projects?: SessionInboxProject[];
   archivedWorkspaceIds?: string[];
-  /** Workspaces whose terminal candidates have not loaded yet. Their snapshots stay hidden. */
-  pendingWorkspaceIds?: string[];
   /** Saved chat titles keyed by chat id. */
   chatTitles?: Readonly<Record<string, string>>;
   /** True until the chat-title request has settled. Missing titles stay blank, not "Chat". */
@@ -176,8 +175,8 @@ export function sessionWorkspaceSources(bootstrap: SessionBootstrapLike | null |
 
 export function joinSessionRows(input: SessionInboxInput): SessionInboxRow[] {
   const archived = new Set(input.archivedWorkspaceIds ?? []);
-  const pending = new Set(input.pendingWorkspaceIds ?? []);
   const workspaceById = new Map((input.workspaces ?? []).map((workspace) => [workspace.id, workspace]));
+  const projectById = new Map((input.projects ?? []).map((project) => [project.id, project]));
   const candidateByPane = new Map<string, SessionInboxCandidate>();
   const candidateBySession = new Map<string, SessionInboxCandidate>();
 
@@ -206,20 +205,23 @@ export function joinSessionRows(input: SessionInboxInput): SessionInboxRow[] {
         clean(snapshot.surface_id) ??
         (sessionId.startsWith("chat:") ? clean(sessionId.slice("chat:".length)) : null);
       const workspace = contextId ? workspaceById.get(contextId) : undefined;
-      if (!chatId || !workspace) continue;
-      const knownTitle = input.chatTitles?.[chatId]?.trim() ?? "";
+      // context_id is the workspace guid, or the project guid for a main-checkout chat.
+      const project = !workspace && contextId ? projectById.get(contextId) : undefined;
+      if (!chatId || (!workspace && !project)) continue;
+      const knownTitle = input.chatTitles?.[chatId]?.trim() || clean(snapshot.title) || "";
       rows.push({
         id: sessionId,
         bucket: asBucket(snapshot.group_key),
         title: knownTitle,
         titlePending: knownTitle.length === 0 && input.chatTitlesPending === true,
         updatedAt: snapshot.updated_at,
-        projectName: clean(workspace.projectName),
-        workspaceName: clean(workspace.workspaceName),
-        branch: clean(workspace.branch),
+        projectName: clean(workspace?.projectName) ?? clean(project?.name),
+        projectId: project?.id ?? null,
+        workspaceName: clean(workspace?.workspaceName),
+        branch: clean(workspace?.branch),
         prState: null,
-        projectScoped: false,
-        workspaceId: workspace.id,
+        projectScoped: !workspace,
+        workspaceId: workspace?.id ?? null,
         terminalCandidateId: null,
         kind: "chat",
         agentId: clean(snapshot.tool),
@@ -229,24 +231,31 @@ export function joinSessionRows(input: SessionInboxInput): SessionInboxRow[] {
       continue;
     }
 
-    const candidate = candidateBySession.get(sessionId) ?? candidateByPane.get(sessionId);
-    if (!candidate && !(contextId && pending.has(contextId))) continue;
-    const workspaceId = candidate?.workspaceId ?? contextId;
-    if (!workspaceId || archived.has(workspaceId)) continue;
-    const workspace = workspaceById.get(workspaceId);
-    if (!candidate && !workspace) continue;
+    const surfaceId = clean(snapshot.surface_id);
+    const candidate =
+      candidateBySession.get(sessionId) ??
+      candidateByPane.get(sessionId) ??
+      (surfaceId ? candidateBySession.get(surfaceId) ?? candidateByPane.get(surfaceId) : undefined);
+    const workspaceFromContext = contextId ? workspaceById.get(contextId) : undefined;
+    const project = !workspaceFromContext && contextId ? projectById.get(contextId) : undefined;
+    const workspaceId = candidate?.workspaceId ?? workspaceFromContext?.id ?? null;
+    if (workspaceId && archived.has(workspaceId)) continue;
+    const workspace = workspaceId ? workspaceById.get(workspaceId) : undefined;
+    if (!candidate && !workspace && !project) continue;
+    const openId = candidate?.id ?? sessionId;
     rows.push({
-      id: candidate?.id ?? sessionId,
+      id: openId,
       bucket: asBucket(snapshot.group_key),
-      title: candidate ? candidateTitle(candidate) : sessionId,
+      title: terminalRowTitle(sessionId, candidate),
       updatedAt: snapshot.updated_at,
-      projectName: clean(candidate?.projectName) ?? clean(workspace?.projectName),
+      projectName: clean(candidate?.projectName) ?? clean(workspace?.projectName) ?? clean(project?.name),
+      projectId: project?.id ?? null,
       workspaceName: clean(candidate?.workspaceName) ?? clean(workspace?.workspaceName),
       branch: clean(candidate?.branch) ?? clean(workspace?.branch),
       prState: null,
-      projectScoped: false,
+      projectScoped: Boolean(project) && !workspace,
       workspaceId,
-      terminalCandidateId: candidate?.id ?? null,
+      terminalCandidateId: openId,
       kind: "terminal",
       agentId: clean(snapshot.tool),
       chatId: null,
@@ -278,6 +287,15 @@ export function recentSessionRows(rows: SessionInboxRow[], limit = RECENT_LIMIT)
 
 export function filterSessionRows(rows: SessionInboxRow[], bucket: SessionBucket): SessionInboxRow[] {
   return rows.filter((row) => row.bucket === bucket);
+}
+
+/** Newest activity first. Ties break on id so a page stays in one order. */
+export function sortSessionRowsByRecency(rows: readonly SessionInboxRow[]): SessionInboxRow[] {
+  return [...rows].sort((left, right) => {
+    const delta = updatedAtMillis(right.updatedAt ?? "") - updatedAtMillis(left.updatedAt ?? "");
+    if (delta !== 0) return delta;
+    return right.id.localeCompare(left.id);
+  });
 }
 
 /** Catalog id used for pin, archive, and delete. */
@@ -321,6 +339,22 @@ export function buildSessionInbox(input: SessionInboxInput) {
 
 function asBucket(value: string): SessionBucket {
   return isSessionBucket(value) ? value : "done";
+}
+
+function terminalRowTitle(sessionId: string, candidate: SessionInboxCandidate | undefined): string {
+  if (candidate) {
+    const titled = candidateTitle(candidate);
+    if (titled !== "Terminal") return titled;
+  }
+  const windowName = windowNameFromSessionId(sessionId);
+  if (windowName && !/^\d+$/.test(windowName)) return windowName;
+  return "Terminal";
+}
+
+function windowNameFromSessionId(sessionId: string): string {
+  const colon = sessionId.indexOf(":");
+  if (colon < 0) return sessionId.trim();
+  return sessionId.slice(colon + 1).trim();
 }
 
 function candidateTitle(candidate: SessionInboxCandidate): string {

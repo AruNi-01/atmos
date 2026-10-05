@@ -7,6 +7,7 @@ import { Stack, useRouter } from "expo-router";
 import type { ProjectWorkspaceBootstrapResponse } from "@/api/types";
 import { wsActions } from "@/api/ws-actions";
 import { getAutoConnectComputerId } from "@/features/computers/computer-selection";
+import { workspaceHomePhase } from "@/features/workspaces/home-connection";
 import { WorkspaceHomeList } from "@/features/workspaces/WorkspaceHomeList";
 
 import { useRelayClient } from "@/hooks/use-relay-client";
@@ -14,6 +15,7 @@ import { requireDeviceCredential } from "@/lib/device-credential";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useComputerStore } from "@/stores/computer-store";
 import { useSessionStore } from "@/stores/session-store";
+import { useUiStore } from "@/stores/ui-store";
 import { spacing } from "@/theme/spacing";
 import { useMobileTheme } from "@/theme/theme-store";
 import { ListFilterIcon, SettingsIcon } from "@/ui/icons/lucide-native";
@@ -53,6 +55,7 @@ export function WorkspaceListScreen() {
   const theme = useMobileTheme();
   const relayClient = useRelayClient();
   const { client: wsClient, state: wsState } = useMobileWs();
+  const disconnectedReason = useUiStore((state) => state.disconnectedReason);
   const deviceCredentialLoaded = useSessionStore(
     (state) => state.deviceCredentialLoaded,
   );
@@ -138,17 +141,22 @@ export function WorkspaceListScreen() {
           selectedServerId,
         })
       : null;
-  const isConnectingCachedComputer =
-    hasDeviceCredential &&
-    !createSession.isError &&
-    (createSession.isPending ||
-      (Boolean(cachedComputerId || activeClientSession) && wsState !== "open"));
-  const isLoadingHome =
-    !deviceCredentialLoaded ||
-    !sessionHydrated ||
-    (hasDeviceCredential && computersQuery.isPending) ||
-    isConnectingCachedComputer ||
-    (isHomeConnected && bootstrapQuery.isPending);
+  const availableComputers = activeComputers(computers);
+  const phase = workspaceHomePhase({
+    bootstrapPending: bootstrapQuery.isPending,
+    computerCount: availableComputers.length,
+    computersFetched: computersQuery.isFetched,
+    computersPending: computersQuery.isPending,
+    createError: createSession.isError,
+    createPending: createSession.isPending,
+    deviceCredentialLoaded,
+    hasActiveSession: Boolean(activeClientSession),
+    hasCachedComputer: Boolean(cachedComputerId),
+    hasDeviceCredential,
+    sessionHydrated,
+    wsState,
+  });
+  const isLoadingHome = phase === "loading";
 
   const header = (
     <Stack.Screen
@@ -194,34 +202,32 @@ export function WorkspaceListScreen() {
     />
   );
 
-  const availableComputers = activeComputers(computers);
-  const needsComputerChoice =
-    hasDeviceCredential &&
-    sessionHydrated &&
-    computersQuery.isFetched &&
-    !isConnectingCachedComputer &&
-    wsState !== "open" &&
-    availableComputers.length > 1;
-  const singleComputerFailed =
-    hasDeviceCredential &&
-    sessionHydrated &&
-    computersQuery.isFetched &&
-    availableComputers.length === 1 &&
-    !isConnectingCachedComputer &&
-    wsState !== "open";
+  const retryConnection = () => {
+    const serverId = selectedServerId ?? cachedComputerId;
+    if (!serverId) {
+      router.push("/settings/computers");
+      return;
+    }
+    const reconnecting = Boolean(activeClientSession && wsState === "closed");
+    lastAutoSessionAttemptRef.current = `${serverId}:${reconnecting ? "reconnect" : "initial"}`;
+    createSession.mutate(serverId);
+  };
 
   return (
     <>
       {header}
-      {isLoadingHome ? (
+      {phase === "loading" ? (
         <HomeLoading />
-      ) : needsComputerChoice ? (
+      ) : phase === "choose-computer" ? (
         <ChooseComputerPrompt
           message={sessionError ?? computersError}
           onPress={() => router.push("/settings/computers")}
         />
-      ) : singleComputerFailed ? (
-        <SingleComputerFailure message={sessionError ?? computersError} />
+      ) : phase === "connection-failed" ? (
+        <SingleComputerFailure
+          message={sessionError ?? computersError ?? disconnectedReason}
+          onRetry={retryConnection}
+        />
       ) : (
         <AppScreen onRefresh={refreshWorkspaces} refreshing={refreshing}>
           <WorkspaceHomeList
@@ -255,8 +261,15 @@ function HomeLoading() {
   );
 }
 
-function SingleComputerFailure({ message }: { message?: string | null }) {
+function SingleComputerFailure({
+  message,
+  onRetry,
+}: {
+  message?: string | null;
+  onRetry: () => void;
+}) {
   const theme = useMobileTheme();
+  const button = expoUiPrimaryStyle(theme.colors);
 
   return (
     <View
@@ -268,10 +281,26 @@ function SingleComputerFailure({ message }: { message?: string | null }) {
         paddingHorizontal: spacing.screenX,
       }}
     >
-      <EmptyState
-        message={message || "Check that the Computer is online."}
-        title="Could not connect"
-      />
+      <View style={{ alignSelf: "stretch", gap: 20, paddingHorizontal: 8 }}>
+        <EmptyState
+          message={message || "Check that the Computer is online."}
+          title="Could not connect"
+        />
+        <Host
+          colorScheme={theme.colorScheme}
+          matchContents={{ vertical: true }}
+          seedColor={button.seedColor}
+          style={expoUiButtonHostStyle}
+        >
+          <Button
+            label="Try again"
+            modifiers={expoUiButtonStretchModifiers}
+            onPress={onRetry}
+            style={button.style}
+            variant={button.variant}
+          />
+        </Host>
+      </View>
     </View>
   );
 }

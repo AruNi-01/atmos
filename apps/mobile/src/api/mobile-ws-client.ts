@@ -11,14 +11,24 @@ import {
 } from "@atmos/api-client/ws";
 import type { WebSocketLike } from "@atmos/api-client/platform";
 import { redactUrl } from "@/lib/relay-url";
+import { preferredComputerWebSocket } from "@/api/url-session-websocket";
+
+const MOBILE_HANDSHAKE_TIMEOUT_MS = 15_000;
+
+type MobileSocketEvent = {
+  code?: number;
+  message?: string;
+  reason?: string;
+  wasClean?: boolean;
+};
 
 type MobileWebSocketLike = {
   readyState: number;
-  onclose: (() => void) | null;
-  onerror: (() => void) | null;
+  onclose: ((event?: MobileSocketEvent) => void) | null;
+  onerror: ((event?: MobileSocketEvent) => void) | null;
   onmessage: ((event: { data: unknown }) => void) | null;
   onopen: (() => void) | null;
-  close: () => void;
+  close: (code?: number, reason?: string) => void;
   send: (data: string) => void;
 };
 
@@ -64,17 +74,29 @@ function mapState(state: KernelState): MobileWsState {
   }
 }
 
-function adaptSocket(raw: MobileWebSocketLike): WebSocketLike {
+function socketFailureText(event: unknown): string {
+  if (!event || typeof event !== "object") return "";
+  const record = event as MobileSocketEvent;
+  const raw =
+    typeof record.message === "string" && record.message.length > 0
+      ? record.message
+      : typeof record.reason === "string"
+        ? record.reason
+        : "";
+  return redactUrl(raw).replace(/\s+/g, " ").trim().slice(0, 180);
+}
+
+function adaptSocket(
+  raw: MobileWebSocketLike,
+  onFailure: (message: string) => void,
+): WebSocketLike {
   return {
     get readyState() {
       return raw.readyState;
     },
     send: (data) => raw.send(data),
     close: (code, reason) => {
-      // Mobile fakes often ignore args
-      void code;
-      void reason;
-      raw.close();
+      raw.close(code, reason);
     },
     get onopen() {
       return raw.onopen as WebSocketLike["onopen"];
@@ -92,7 +114,15 @@ function adaptSocket(raw: MobileWebSocketLike): WebSocketLike {
       return raw.onerror as WebSocketLike["onerror"];
     },
     set onerror(fn) {
-      raw.onerror = fn as MobileWebSocketLike["onerror"];
+      if (!fn) {
+        raw.onerror = null;
+        return;
+      }
+      raw.onerror = (event) => {
+        const detail = socketFailureText(event);
+        if (detail) onFailure(detail);
+        fn(event);
+      };
     },
     get onclose() {
       return raw.onclose as unknown as WebSocketLike["onclose"];
@@ -102,9 +132,14 @@ function adaptSocket(raw: MobileWebSocketLike): WebSocketLike {
         raw.onclose = null;
         return;
       }
-      // Mobile CloseEvent often lacks wasClean; treat as unclean for reconnect
-      raw.onclose = () => {
-        fn({ code: 1006, reason: "", wasClean: false });
+      raw.onclose = (event) => {
+        const detail = socketFailureText(event);
+        if (detail) onFailure(detail);
+        fn({
+          code: typeof event?.code === "number" ? event.code : 1006,
+          reason: detail,
+          wasClean: Boolean(event?.wasClean),
+        });
       };
     },
   };
@@ -120,13 +155,13 @@ export class MobileWsClient {
   private messageUnsub: (() => void) | null = null;
   private stateUnsub: (() => void) | null = null;
   private currentState: MobileWsState = "idle";
+  private lastFailureMessage = "";
 
   constructor(
     private readonly wsUrl: string,
     options: MobileWsClientOptions = {},
   ) {
-    const WebSocketCtor =
-      options.WebSocketCtor ?? (WebSocket as unknown as MobileWebSocketCtor);
+    const WebSocketCtor = options.WebSocketCtor;
     const setTimer = options.setTimeout ?? setTimeout;
     const clearTimer = options.clearTimeout ?? clearTimeout;
     const maxAttempts =
@@ -135,9 +170,17 @@ export class MobileWsClient {
 
     this.session = createWsSession({
       url: wsUrl,
+      handshakeTimeoutMs: MOBILE_HANDSHAKE_TIMEOUT_MS,
       platform: {
         createWebSocket: (url) =>
-          adaptSocket(new WebSocketCtor(url) as MobileWebSocketLike),
+          adaptSocket(
+            WebSocketCtor
+              ? new WebSocketCtor(url)
+              : preferredComputerWebSocket(url),
+            (message) => {
+              this.lastFailureMessage = message;
+            },
+          ),
         timers: {
           setTimeout: (fn, ms) => setTimer(fn, ms),
           clearTimeout: (id) => clearTimer(id as MobileTimer),
@@ -164,6 +207,7 @@ export class MobileWsClient {
     });
 
     this.stateUnsub = this.session.onState((s) => {
+      if (s === "connected") this.lastFailureMessage = "";
       this.currentState = mapState(s);
       this.stateListeners.forEach((l) => l(this.currentState));
     });
@@ -176,6 +220,10 @@ export class MobileWsClient {
 
   get state() {
     return this.currentState;
+  }
+
+  get lastFailure() {
+    return this.lastFailureMessage;
   }
 
   connect() {

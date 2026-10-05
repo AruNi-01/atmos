@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
+import { AppScreen, EmptyState, InlineError, ListLoadMoreFooter, Section } from "@/ui/layout/app-screen";
 import { ListSkeleton } from "@/ui/primitives/list-skeleton";
 import { radii } from "@/theme/radii";
 import { spacing } from "@/theme/spacing";
@@ -19,6 +19,7 @@ import {
   isSessionBucket,
   orderPinnedRows,
   sessionPinId,
+  sortSessionRowsByRecency,
   type SessionBucket,
   type SessionInboxCard,
   type SessionInboxRow,
@@ -44,11 +45,7 @@ export function SessionHomeScreen() {
   }
 
   return (
-      <AppScreen
-        onEndReached={inbox.fetchNextPage}
-        onRefresh={onRefresh}
-        refreshing={refreshing}
-      >
+      <AppScreen onRefresh={onRefresh} refreshing={refreshing}>
       <SessionCardGrid
         cards={inbox.cards}
         onPress={(bucket) =>
@@ -84,12 +81,15 @@ export function SessionHomeScreen() {
 
 export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) {
   const router = useRouter();
-  const theme = useMobileTheme();
   const inbox = useSessionInbox();
   const { onRefresh, refreshing } = usePullRefresh(inbox.refresh);
   const parsed = bucket && isSessionBucket(bucket) ? bucket : null;
   const rows = parsed
-    ? orderPinnedRows(filterSessionRows(inbox.rows, parsed), inbox.pinnedIds, sessionPinId)
+    ? orderPinnedRows(
+        sortSessionRowsByRecency(filterSessionRows(inbox.rows, parsed)),
+        inbox.pinnedIds,
+        sessionPinId,
+      )
     : [];
 
   if (!inbox.connected) {
@@ -100,22 +100,20 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
     );
   }
 
+  const bucketCount = parsed ? (inbox.cards.find((card) => card.bucket === parsed)?.count ?? 0) : 0;
+  const fillWhenShort = rows.length < bucketCount && inbox.hasNextPage && !inbox.fetchNextPageFailed;
+
   return (
     <AppScreen
-      onEndReached={inbox.fetchNextPage}
+      fillWhenShort={fillWhenShort}
+      onEndReached={inbox.retryNextPage}
       onRefresh={onRefresh}
       refreshing={refreshing}
     >
       {parsed ? (
         <Section>
-          {inbox.isLoading || (rows.length === 0 && inbox.isFetchingNextPage) ? (
+          {inbox.isLoading || (rows.length === 0 && fillWhenShort) ? (
             <ListSkeleton />
-          ) : rows.length === 0 && inbox.hasNextPage ? (
-            <EmptyState
-              layout="section"
-              message="Nothing in the loaded pages. Load more to check later pages."
-              title="No sessions yet"
-            />
           ) : rows.length === 0 ? (
             <EmptyState layout="section" message="This list is empty." title="No sessions" />
           ) : (
@@ -134,23 +132,11 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
               rows={rows}
             />
           )}
-          {inbox.hasNextPage ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ busy: inbox.isFetchingNextPage }}
-              disabled={inbox.isFetchingNextPage}
-              onPress={inbox.fetchNextPage}
-              style={{ alignItems: "center", paddingVertical: 12 }}
-            >
-              <Text style={{ color: theme.colors.secondaryLabel, fontSize: 15 }}>
-                {inbox.isFetchingNextPage ? "Loading..." : "Load more"}
-              </Text>
-            </Pressable>
-          ) : null}
         </Section>
       ) : (
         <EmptyState message="This session list is not available." title="Unknown list" />
       )}
+      <ListLoadMoreFooter loading={inbox.isFetchingNextPage} />
       <InlineError message={inbox.error} />
     </AppScreen>
   );

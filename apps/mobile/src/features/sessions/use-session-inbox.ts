@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo } from "react";
-import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFocusEffect, useIsFocused } from "expo-router";
 import type { MobileWsClient } from "@/api/mobile-ws-client";
 import type { TerminalWorkspaceCandidate } from "@/api/types";
@@ -31,6 +31,7 @@ import {
   type SessionWorkspaceRecord,
 } from "./session-inbox";
 import type { AgentSessionStatusCounts } from "@atmos/api-types/ws/dto/agent-status";
+import { useAgentSessionStatusList } from "./use-agent-session-status-list";
 import { useSessionRowActions } from "./use-session-row-actions";
 
 const SESSION_STATUS_EVENTS = new Set([
@@ -112,13 +113,7 @@ export function useSessionInbox() {
     queryFn: () => loadSessionBranchPrs(client!, prPlan.targets),
   });
 
-  const statusQuery = useInfiniteQuery({
-    queryKey: ["agent-session-status-list", selectedServerId],
-    enabled: Boolean(client && connected),
-    initialPageParam: null as string | null,
-    queryFn: ({ pageParam }) => wsActions.agentSessionStatusList(client!, pageParam),
-    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
-  });
+  const statusQuery = useAgentSessionStatusList();
 
   const chatTitleQuery = useQuery({
     queryKey: ["session-chat-titles", selectedServerId],
@@ -164,13 +159,8 @@ export function useSessionInbox() {
     }
 
     const failed = new Set(candidatesQuery.data?.failedWorkspaceIds ?? []);
-    const candidatesReady = candidatesQuery.isSuccess;
-    const pendingWorkspaceIds = sources.active
-      .filter((workspace) => !candidatesReady || failed.has(workspace.id))
-      .map((workspace) => workspace.id);
-
     const candidates: SessionInboxCandidate[] = [];
-    if (candidatesReady && candidatesQuery.data) {
+    if (candidatesQuery.isSuccess && candidatesQuery.data) {
       for (const workspace of sources.active) {
         if (failed.has(workspace.id)) continue;
         for (const candidate of candidatesQuery.data.byWorkspaceId[workspace.id] ?? []) {
@@ -190,14 +180,12 @@ export function useSessionInbox() {
       }
     }
 
-    const pages = statusQuery.data?.pages ?? [];
     const joined = joinSessionRows({
       candidates,
-      snapshots: pages.flatMap((page) => page.sessions),
+      snapshots: statusQuery.sessions,
       workspaces: sources.active,
       projects: sources.projects,
       archivedWorkspaceIds: sources.archivedIds,
-      pendingWorkspaceIds,
       chatTitles: chatTitleQuery.data,
       chatTitlesPending: !chatTitleQuery.isSuccess,
     });
@@ -209,7 +197,7 @@ export function useSessionInbox() {
 
     return {
       rows,
-      cards: pages[0]?.counts ? cardsFromCounts(pages[0].counts) : sessionInboxCards(rows),
+      cards: statusQuery.counts ? cardsFromCounts(statusQuery.counts) : sessionInboxCards(rows),
       recent: recentSessionRows(rows),
     };
   }, [
@@ -222,12 +210,14 @@ export function useSessionInbox() {
     sources,
     chatTitleQuery.data,
     chatTitleQuery.isSuccess,
-    statusQuery.data,
+    statusQuery.counts,
     statusQuery.isLoading,
+    statusQuery.sessions,
   ]);
 
+  const statusError = statusQuery.isFetchNextPageError ? null : statusQuery.error;
   const error =
-    (statusQuery.error instanceof Error ? statusQuery.error.message : null) ??
+    (statusError instanceof Error ? statusError.message : null) ??
     (bootstrapQuery.error instanceof Error ? bootstrapQuery.error.message : null) ??
     (candidatesQuery.data && candidatesQuery.data.failedWorkspaceIds.length > 0
       ? "Some terminals could not be loaded."
@@ -247,23 +237,20 @@ export function useSessionInbox() {
     ]);
   }, [client, connected, queryClient, selectedServerId]);
 
-  const fetchNextPage = useCallback(() => {
-    if (!statusQuery.hasNextPage || statusQuery.isFetchingNextPage) return;
-    void statusQuery.fetchNextPage();
-  }, [statusQuery]);
-
   return {
     archiveChat,
     connected,
     deleteChat,
     error,
-    fetchNextPage,
+    fetchNextPage: statusQuery.fetchNextPage,
     fetchNextPageFailed: statusQuery.isFetchNextPageError,
-    hasNextPage: Boolean(statusQuery.hasNextPage),
+    hasNextPage: statusQuery.hasNextPage,
     isFetchingNextPage: statusQuery.isFetchingNextPage,
     isLoading: connected && (statusQuery.isLoading || bootstrapQuery.isLoading),
+    pageCount: statusQuery.pageCount,
     pinnedIds,
     refresh,
+    retryNextPage: statusQuery.retryNextPage,
     togglePin,
     ...model,
   };

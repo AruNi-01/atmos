@@ -83,13 +83,24 @@ export function mergeTerminalCandidateEntries(
   return sortTerminalEntries([...serverEntries, ...localEntries]);
 }
 
-/** Select a flattened terminal entry once, and only when that candidate id is loaded. */
+/**
+ * Select the pane for a session row.
+ * The row may pass the candidate id, or the status id `{workspaceId}:{window}`.
+ */
 export function matchingTerminalEntryId(
-  entries: ReadonlyArray<{ id: string }>,
+  entries: ReadonlyArray<{ id: string; tmuxWindowName?: string | null; workspaceId?: string }>,
   requestedId: string | null | undefined,
 ): string | null {
-  if (!requestedId) return null;
-  return entries.some((entry) => entry.id === requestedId) ? requestedId : null;
+  const requested = requestedId?.trim() ?? "";
+  if (!requested) return null;
+  const direct = entries.find((entry) => entry.id === requested);
+  if (direct) return direct.id;
+  const byWindow = entries.find((entry) => {
+    const windowName = entry.tmuxWindowName?.trim() ?? "";
+    const workspaceId = entry.workspaceId?.trim() ?? "";
+    return windowName.length > 0 && workspaceId.length > 0 && requested === `${workspaceId}:${windowName}`;
+  });
+  return byWindow?.id ?? null;
 }
 
 export function nextActiveTerminalEntryId(

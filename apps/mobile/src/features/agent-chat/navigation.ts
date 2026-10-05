@@ -21,6 +21,8 @@ export type WorkspaceChatThreadHref = {
 export type SessionDestination = {
   kind: "terminal" | "chat";
   workspaceId: string | null;
+  /** Project guid for a main-checkout chat. The chat route treats this as its scope id. */
+  projectId?: string | null;
   terminalCandidateId: string | null;
   chatId: string | null;
   title?: string | null;
@@ -57,12 +59,13 @@ export function openSessionDestination(
     return openWorkspaceTerminal(row.workspaceId, row.terminalCandidateId);
   }
   const workspaceId = row.workspaceId?.trim() ?? "";
+  const scopeId = workspaceId || row.projectId?.trim() || "";
   const chatId = row.chatId?.trim() ?? "";
-  if (workspaceId && chatId) {
+  if (scopeId && chatId) {
     const title = row.titlePending ? "" : row.title?.trim() ?? "";
     return {
       pathname: "/workspace/[workspaceId]/chat/[chatId]",
-      params: title ? { workspaceId, chatId, title } : { workspaceId, chatId },
+      params: title ? { workspaceId: scopeId, chatId, title } : { workspaceId: scopeId, chatId },
     };
   }
   if (!workspaceId) return null;

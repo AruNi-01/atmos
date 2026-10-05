@@ -4,6 +4,7 @@ import {
   buildSessionInbox,
   filterSessionRows,
   orderPinnedRows,
+  sortSessionRowsByRecency,
   type SessionInboxCandidate,
   type SessionInboxSnapshot,
 } from "./session-inbox";
@@ -261,46 +262,124 @@ describe("session inbox", () => {
     });
   });
 
-  test("drops a terminal whose window is already gone", () => {
+  test("keeps a terminal agent session without a matching window", () => {
     const inbox = buildSessionInbox({
       candidates: [],
       snapshots: [
         snapshot({
-          session_id: "ws:gone",
+          session_id: "ws:claude",
           group_key: "done",
+          tool: "claude-code",
           updated_at: "2026-09-22T03:00:00Z",
           context_id: "ws",
         }),
       ],
       workspaces: [{ id: "ws", projectName: "Atmos", workspaceName: "api", branch: "main" }],
-      chatTitles: { abc: "Fix login" },
-    });
-
-    expect(inbox.rows).toEqual([]);
-    expect(inbox.recent).toEqual([]);
-  });
-
-  test("keeps a terminal while its workspace candidates are still loading", () => {
-    const inbox = buildSessionInbox({
-      candidates: [],
-      snapshots: [
-        snapshot({
-          session_id: "ws:open",
-          group_key: "running",
-          context_id: "ws",
-        }),
-      ],
-      workspaces: [{ id: "ws", projectName: "Atmos", workspaceName: "api", branch: "main" }],
-      pendingWorkspaceIds: ["ws"],
     });
 
     expect(inbox.rows).toEqual([
       expect.objectContaining({
-        id: "ws:open",
-        bucket: "running",
+        agentId: "claude-code",
+        archiveSessionId: "ws:claude",
+        id: "ws:claude",
+        kind: "terminal",
+        terminalCandidateId: "ws:claude",
+        title: "claude",
         workspaceId: "ws",
-        terminalCandidateId: null,
       }),
+    ]);
+    expect(inbox.recent).toHaveLength(1);
+  });
+
+  test("a numeric tmux index is not the terminal title", () => {
+    const inbox = buildSessionInbox({
+      candidates: [],
+      snapshots: [snapshot({ session_id: "ws:3", group_key: "running", context_id: "ws" })],
+      workspaces: [{ id: "ws", projectName: "Atmos", workspaceName: "api", branch: "main" }],
+    });
+
+    expect(inbox.rows.map((row) => row.title)).toEqual(["Terminal"]);
+  });
+
+  test("keeps a project-scoped chat and uses the snapshot title", () => {
+    const inbox = buildSessionInbox({
+      candidates: [],
+      snapshots: [
+        snapshot({
+          session_id: "chat:proj-1",
+          surface: "chat",
+          group_key: "done",
+          context_id: "proj",
+          title: "Explore the repo",
+          tool: "grok-build",
+        }),
+      ],
+      projects: [{ id: "proj", name: "Atmos" }],
+    });
+
+    expect(inbox.rows).toEqual([
+      expect.objectContaining({
+        agentId: "grok-build",
+        chatId: "proj-1",
+        id: "chat:proj-1",
+        kind: "chat",
+        projectId: "proj",
+        projectName: "Atmos",
+        projectScoped: true,
+        title: "Explore the repo",
+        titlePending: false,
+        workspaceId: null,
+        workspaceName: null,
+      }),
+    ]);
+    expect(inbox.recent).toHaveLength(1);
+  });
+
+  test("drops a chat whose context is neither a workspace nor a project", () => {
+    const inbox = buildSessionInbox({
+      candidates: [],
+      snapshots: [
+        snapshot({
+          session_id: "chat:orphan",
+          surface: "chat",
+          group_key: "done",
+          context_id: "missing",
+        }),
+      ],
+      projects: [{ id: "proj", name: "Atmos" }],
+      workspaces: [{ id: "ws", projectName: "Atmos", workspaceName: "api", branch: "main" }],
+    });
+
+    expect(inbox.rows).toEqual([]);
+  });
+
+  test("bucket order is newest first", () => {
+    const inbox = buildSessionInbox({
+      candidates: [],
+      snapshots: [
+        snapshot({
+          session_id: "chat:old",
+          surface: "chat",
+          group_key: "done",
+          context_id: "proj",
+          title: "Old",
+          updated_at: "2026-09-20T00:00:00Z",
+        }),
+        snapshot({
+          session_id: "chat:new",
+          surface: "chat",
+          group_key: "done",
+          context_id: "proj",
+          title: "New",
+          updated_at: "2026-10-04T00:00:00Z",
+        }),
+      ],
+      projects: [{ id: "proj", name: "Atmos" }],
+    });
+
+    expect(sortSessionRowsByRecency(filterSessionRows(inbox.rows, "done")).map((row) => row.title)).toEqual([
+      "New",
+      "Old",
     ]);
   });
 

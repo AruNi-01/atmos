@@ -16,7 +16,7 @@ import { useTerminalStore } from "@/stores/terminal-store";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 import { ChevronLeftIcon, PlusIcon } from "@/ui/icons/lucide-native";
-import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
+import { AppScreen, EmptyState, InlineError, ListLoadMoreFooter, Section } from "@/ui/layout/app-screen";
 import { Row, Separator } from "@/ui/layout/row";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
 import { ListSkeleton } from "@/ui/primitives/list-skeleton";
@@ -24,7 +24,8 @@ import { SessionSwipeRow } from "@/ui/primitives/session-swipe-row";
 import { SessionDeletePicker } from "@/features/sessions/session-delete-picker";
 import { useSessionRowActions } from "@/features/sessions/use-session-row-actions";
 import type { SessionDeleteChoice } from "@/features/sessions/session-row-actions";
-import { terminalActivityTitle, terminalAgentId, workspaceActivityRows, type WorkspaceActivityRow } from "./workspace-activity";
+import { useAgentSessionStatusList } from "@/features/sessions/use-agent-session-status-list";
+import { terminalActivityFromStatus, workspaceActivityRows, type WorkspaceActivityRow } from "./workspace-activity";
 
 export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
   const router = useRouter();
@@ -40,34 +41,32 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
       return wsActions.terminalWorkspaceCandidates(client, { workspace_id: workspaceId });
     },
   });
-  const sessions = useQuery({
-    queryKey: ["workspace-activity-sessions", selectedServerId, workspaceId],
-    enabled: Boolean(client && wsState === "open"),
-    queryFn: () => {
-      if (!client) return Promise.reject(new Error("Atmos mobile WebSocket is not connected"));
-      return wsActions.agentSessionStatusList(client);
-    },
-  });
+  const sessions = useAgentSessionStatusList();
   const rowActions = useSessionRowActions();
   const [deleteRow, setDeleteRow] = useState<WorkspaceActivityRow | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const sessionSnapshots = sessions.data?.sessions ?? [];
+  const sessionSnapshots = sessions.sessions;
   const archivedIds = new Set(rowActions.archivedIds);
   const rows = workspaceActivityRows({
     chats: chats.rows,
-    terminals: (terminals.data?.candidates ?? []).map((candidate) => ({
-      id: candidate.id,
-      title: terminalActivityTitle(candidate),
-      subtitle: historyPlaceLabel(candidate.cwd) === "Thread" ? "Terminal" : historyPlaceLabel(candidate.cwd),
-      agentId: terminalAgentId(workspaceId, candidate, sessions.data?.sessions ?? []),
-    })),
+    terminals: terminalActivityFromStatus({
+      candidates: terminals.data?.candidates ?? [],
+      placeLabel: historyPlaceLabel,
+      snapshots: sessionSnapshots,
+      workspaceId,
+    }),
   }).filter((row) => !archivedIds.has(row.id) && !archivedIds.has(activityPinId(row, sessionSnapshots)));
   const orderedRows = [
     ...rows.filter((row) => rowActions.pinnedIds.includes(activityPinId(row, sessionSnapshots))),
     ...rows.filter((row) => !rowActions.pinnedIds.includes(activityPinId(row, sessionSnapshots))),
   ];
-  const loading = chats.loading || terminals.isLoading;
+  const loading = chats.loading || sessions.isLoading;
+  const loadingMore = chats.isFetchingNextPage || sessions.isFetchingNextPage;
+  const loadMoreSessions = () => {
+    chats.retryNextPage();
+    sessions.retryNextPage();
+  };
   const addTerminal = useTerminalStore((state) => state.addEntry);
   const launchAgents = useTerminalLaunchAgents(Boolean(workspaceId));
   const openNewChat = () => {
@@ -152,7 +151,7 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
               }),
         }}
       />
-      <AppScreen>
+      <AppScreen onEndReached={loadMoreSessions}>
         <Section>
           {loading && orderedRows.length === 0 ? (
             <ListSkeleton />
@@ -207,6 +206,7 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
             })
           )}
         </Section>
+        <ListLoadMoreFooter loading={loadingMore} />
         {actionError ? (
           <Text style={{ color: theme.colors.red, fontSize: 13 }}>{actionError}</Text>
         ) : null}
@@ -234,7 +234,12 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
               .finally(() => setDeleting(false));
           }}
         />
-        <InlineError message={chats.error} />
+        <InlineError
+          message={
+            chats.error ??
+            (!sessions.isFetchNextPageError && sessions.error instanceof Error ? sessions.error.message : null)
+          }
+        />
       </AppScreen>
     </>
   );
@@ -244,6 +249,7 @@ function activityPinId(
   row: WorkspaceActivityRow,
   sessions: ReadonlyArray<{ session_id: string; surface?: string; surface_id?: string | null }>,
 ): string {
+  if (row.catalogId) return row.catalogId;
   if (row.kind === "chat") {
     const match = sessions.find((session) => {
       if (session.surface && session.surface !== "chat") return false;

@@ -166,10 +166,13 @@ export function MobileAgentIcon({
   agentId,
   iconUrl,
   size = 18,
+  tintColor,
 }: {
   agentId: string;
   iconUrl?: string | null;
   size?: number;
+  /** Series color for chart legends. Omit it to keep the theme glyph tint. */
+  tintColor?: string;
 }) {
   const theme = useMobileTheme();
   const iconName = resolveAgentIconName(agentId);
@@ -195,7 +198,7 @@ export function MobileAgentIcon({
   }
 
   const resolvedIconName = iconName ?? agentId;
-  const tint = glyphTint(agentId, resolvedIconName, theme.isDark, theme.colors.label);
+  const tint = tintColor ?? glyphTint(agentId, resolvedIconName, theme.isDark, theme.colors.label);
 
   return (
     <Image
