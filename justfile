@@ -172,7 +172,8 @@ mobile-ios-release *args:
         CODE_SIGN_STYLE=Automatic \
         build
 
-    app="$(find "$HOME/Library/Developer/Xcode/DerivedData" -path '*/Build/Products/Release-iphoneos/Atmos.app/Info.plist' ! -path '*/Index.noindex/*' -print -quit)"
+    # find -quit can return a stale DerivedData tree first. Install the newest Release app.
+    app="$(find "$HOME/Library/Developer/Xcode/DerivedData" -path '*/Build/Products/Release-iphoneos/Atmos.app/Info.plist' ! -path '*/Index.noindex/*' -print0 | xargs -0 stat -f '%m %N' | sort -nr | head -1 | cut -d' ' -f2-)"
     app="${app%/Info.plist}"
     if [[ -z "$app" || ! -d "$app" ]]; then
         echo "Built Atmos.app was not found." >&2
@@ -235,7 +236,7 @@ mobile-ios-dev *args:
         CODE_SIGN_STYLE=Automatic \
         build
 
-    app="$(find "$HOME/Library/Developer/Xcode/DerivedData" -path '*/Build/Products/Debug-iphoneos/Atmos.app/Info.plist' ! -path '*/Index.noindex/*' -print -quit)"
+    app="$(find "$HOME/Library/Developer/Xcode/DerivedData" -path '*/Build/Products/Debug-iphoneos/Atmos.app/Info.plist' ! -path '*/Index.noindex/*' -print0 | xargs -0 stat -f '%m %N' | sort -nr | head -1 | cut -d' ' -f2-)"
     app="${app%/Info.plist}"
     if [[ -z "$app" || ! -d "$app" ]]; then
         echo "Built Atmos Dev app was not found." >&2
