@@ -55,6 +55,23 @@ export default function RootLayout() {
         >
           <Stack.Screen name="(home)" options={{ headerShown: false }} />
           <Stack.Screen
+            name="quota-settings"
+            options={{
+              contentStyle: sheetContentStyle,
+              presentation: sheetPresentation,
+              sheetCornerRadius: 32,
+              sheetGrabberVisible: isIos,
+              sheetLargestUndimmedDetentIndex: "none",
+              ...(isIos
+                ? {
+                    sheetAllowedDetents: [1],
+                    sheetInitialDetentIndex: 0,
+                    sheetExpandsWhenScrolledToEdge: false,
+                  }
+                : null),
+            }}
+          />
+          <Stack.Screen
             name="settings"
             options={{
               contentStyle: sheetContentStyle,
