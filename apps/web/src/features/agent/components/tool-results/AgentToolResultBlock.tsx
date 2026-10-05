@@ -397,7 +397,6 @@ export function AgentToolResultBlock({
         <AgentToolWebSearchBody
           links={links}
           sourcesLabel={t("sources")}
-          layoutKey={part.tool_call_id || part.name}
         />
       </AgentToolCard>
     );
@@ -409,6 +408,9 @@ export function AgentToolResultBlock({
       : (part.params?.type === "fetch" ? part.params.url : "");
     const markdown = presentation.kind === "web_fetch" ? presentation.markdown : undefined;
     const text = presentation.kind === "web_fetch" ? presentation.text : undefined;
+    const errorText = presentation.kind === "error" || presentation.kind === "text"
+      ? presentation.text
+      : text;
     const host = hostFromUrl(url) ?? url;
     return (
       <AgentToolCard
@@ -422,15 +424,14 @@ export function AgentToolResultBlock({
         status={status}
         defaultOpen={defaultOpen}
       >
-        {failed && text ? <AgentToolErrorBody text={text} /> : null}
-        {!failed ? (
+        {failed ? (
+          <AgentToolErrorBody text={errorText ?? ""} />
+        ) : (
           <AgentToolWebFetchBody
-            url={url}
             markdown={markdown}
             text={text}
           />
-        ) : null}
-        {failed && !text ? <AgentToolEmptyBody status={status} /> : null}
+        )}
       </AgentToolCard>
     );
   }

@@ -301,6 +301,26 @@ pub fn provider_to_tool(provider_id: &str) -> AgentToolType {
     }
 }
 
+/// Provider id used by Agent Sessions (`{provider}:{native_id}`).
+/// Agents without a session source return `None`.
+pub fn host_session_provider(tool: AgentToolType) -> Option<&'static str> {
+    match tool {
+        AgentToolType::ClaudeCode => Some("claude"),
+        AgentToolType::Codex => Some("codex"),
+        AgentToolType::Cursor => Some("cursor"),
+        AgentToolType::Opencode => Some("opencode"),
+        AgentToolType::Pi => Some("pi"),
+        AgentToolType::GrokBuild => Some("grok"),
+        AgentToolType::Gemini
+        | AgentToolType::Antigravity
+        | AgentToolType::FactoryDroid
+        | AgentToolType::Kiro
+        | AgentToolType::Ampcode
+        | AgentToolType::Hermes
+        | AgentToolType::Agent => None,
+    }
+}
+
 fn host_event_to_status(event: &AgentEvent) -> Option<(AgentOccupancy, OccupancyUpdateKind)> {
     match event {
         AgentEvent::TurnStarted { .. } | AgentEvent::UserMessage { .. } => {
@@ -854,6 +874,13 @@ impl AgentStatusService {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn test_backdate_activity(&self, session_id: &str, timestamp: &str) {
+        if let Some(activity) = self.activity.write().get_mut(session_id) {
+            activity.last_event_at = timestamp.to_string();
+        }
+    }
+
     /// Drop every session keyed by, or attributed to, a stable pane id
     /// (`{context}:{tmux_window_name}`). Used when a terminal pane is destroyed.
     pub fn clear_sessions_for_stable_pane(&self, stable_pane_id: &str) -> Vec<String> {
@@ -1074,6 +1101,53 @@ impl AgentStatusService {
         );
 
         self.broadcast_sessions_cleared(removed);
+    }
+
+    /// Drop observer activity whose last event is older than `timeout_mins`.
+    /// Children live on the lead row, so they leave with it. Occupancy sessions
+    /// stay; Agent State cleanup owns those. A still-fresh session keeps its
+    /// activity so a later hook can bring the card back with its history.
+    /// `timeout_mins == 0` is a no-op.
+    pub fn clear_observer_activity_older_than(&self, timeout_mins: u64) {
+        if timeout_mins == 0 {
+            return;
+        }
+        let cutoff = Utc::now() - chrono::Duration::minutes(timeout_mins as i64);
+        let session_stamps: HashMap<String, String> = self
+            .sessions
+            .read()
+            .iter()
+            .map(|(id, session)| (id.clone(), session.timestamp.clone()))
+            .collect();
+        let stale: Vec<String> = self
+            .activity
+            .read()
+            .iter()
+            .filter(|(id, record)| {
+                let activity_old = chrono::DateTime::parse_from_rfc3339(&record.last_event_at)
+                    .map(|stamp| stamp < cutoff)
+                    .unwrap_or(true);
+                if !activity_old {
+                    return false;
+                }
+                match session_stamps.get(*id) {
+                    None => true,
+                    Some(timestamp) => chrono::DateTime::parse_from_rfc3339(timestamp)
+                        .map(|stamp| stamp < cutoff)
+                        .unwrap_or(true),
+                }
+            })
+            .map(|(id, _)| id.clone())
+            .collect();
+        if stale.is_empty() {
+            return;
+        }
+        info!(
+            "Cleared {} observer activity record(s) idle longer than {} min",
+            stale.len(),
+            timeout_mins
+        );
+        self.drop_activity(&stale);
     }
 
     /// Force non-idle sessions that have not updated within `timeout_mins` back to Idle.

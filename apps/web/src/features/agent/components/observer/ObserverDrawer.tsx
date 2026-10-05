@@ -30,6 +30,7 @@ import { FooterAgentStatusMark } from "@/features/agent/components/FooterAgentSt
 import type { AttentionReason } from "@/features/agent/store/agent-attention-store";
 import { agentStatusBucket, agentTitle, occupancyOf } from "./observer-flow";
 import { ObserverEventPreview } from "./ObserverEventPreview";
+import { ObserverHistory } from "./ObserverHistory";
 
 function kindLabel(
   t: ReturnType<typeof useTranslations<"AgentObserver">>,
@@ -201,15 +202,25 @@ export function ObserverDrawer({
                   {showConversation ? (
                     <div className="min-h-0 flex-1 px-4 pb-4">
                       {held.activity ? (
-                        <ObserverEventPreview
-                          activity={held.activity}
-                          childId={held.kind === "subagent" ? held.child?.child_id : undefined}
-                          filesLabel={(count) => t("filesChanged", { count })}
-                          showDiffLabel={t("showDiff")}
-                          hideDiffLabel={t("hideDiff")}
-                          emptyLabel={t("noTurns")}
-                          onOpenChild={onOpenChild}
-                        />
+                        held.kind === "subagent" ? (
+                          <ObserverEventPreview
+                            activity={held.activity}
+                            childId={held.child?.child_id}
+                            filesLabel={(count) => t("filesChanged", { count })}
+                            showDiffLabel={t("showDiff")}
+                            hideDiffLabel={t("hideDiff")}
+                            emptyLabel={t("noTurns")}
+                            onOpenChild={onOpenChild}
+                          />
+                        ) : (
+                          <ObserverHistory
+                            activity={held.activity}
+                            filesLabel={(count) => t("filesChanged", { count })}
+                            emptyLabel={t("noTurns")}
+                            loadingLabel={t("loadingHistory")}
+                            onOpenChild={onOpenChild}
+                          />
+                        )
                       ) : (
                         <p className="px-1 text-sm text-muted-foreground">{t("noTurns")}</p>
                       )}

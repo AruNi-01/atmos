@@ -127,10 +127,23 @@ function withCurrent(lines: AgentToolLine[], current: AgentToolLine | null | und
   return [...lines, current];
 }
 
-function leadTurn(activity: AgentActivity): AgentTurn | undefined {
+function visibleTurns(activity: AgentActivity): AgentTurn[] {
   const children = activity.children ?? [];
-  const turns = (activity.turns ?? []).filter((turn) => !isLeakedChildTurn(turn, children));
-  return turns.at(-1);
+  return (activity.turns ?? []).filter((turn) => !isLeakedChildTurn(turn, children));
+}
+
+function childrenForTurn(
+  turn: AgentTurn,
+  children: AgentChildActivity[],
+  turns: AgentTurn[],
+  isLatest: boolean,
+): AgentChildActivity[] {
+  const spawned = new Set(turn.spawned_child_ids ?? []);
+  const claimed = new Set(turns.flatMap((item) => item.spawned_child_ids ?? []));
+  return rootChildren(children).filter((child) => {
+    if (spawned.has(child.child_id)) return true;
+    return isLatest && !claimed.has(child.child_id);
+  });
 }
 
 function childLines(child: AgentChildActivity): AgentToolLine[] {
@@ -266,16 +279,64 @@ function NestedSubagentRow({ child }: { child: AgentChildActivity }) {
   );
 }
 
+function bodyVisible(
+  prompt: string | null | undefined,
+  reply: string | null | undefined,
+  lines: AgentToolLine[],
+  nested: AgentChildActivity[],
+): boolean {
+  return lines.length > 0 || nested.length > 0 || Boolean(prompt?.trim()) || Boolean(reply?.trim());
+}
+
+function TurnBody({
+  scope,
+  prompt,
+  reply,
+  lines,
+  nested,
+  ended,
+  filesLabel,
+}: {
+  scope: string;
+  prompt?: string | null;
+  reply?: string | null;
+  lines: AgentToolLine[];
+  nested: AgentChildActivity[];
+  ended: boolean;
+  filesLabel: (count: number) => string;
+}) {
+  const text = prompt?.trim();
+  const answer = reply?.trim();
+  const parts = lines.map((line, index) => lineToPart(line, `${scope}:${index}`));
+  if (lines.length === 0 && nested.length === 0 && !text && !answer) return null;
+  return (
+    <>
+      {text ? <PromptBubble text={text} /> : null}
+      {lines.map((line, index) => (
+        <ObserverTool key={`${scope}:${index}`} line={line} id={`${scope}:${index}`} />
+      ))}
+      {nested.map((child) => (
+        <NestedSubagentRow key={child.child_id} child={child} />
+      ))}
+      {answer ? <ReplyText text={answer} /> : null}
+      {ended ? <FilesCard parts={parts} filesLabel={filesLabel} /> : null}
+    </>
+  );
+}
+
 export function ObserverEventPreview({
   activity,
   childId,
+  turnIds,
   filesLabel = defaultFilesLabel,
   emptyLabel,
   onOpenChild,
 }: {
   activity: AgentActivity;
-  /** When set, preview this child instead of the lead turn. */
+  /** When set, preview this child instead of the lead turns. */
   childId?: string;
+  /** Lead turns to draw. Omit to draw every kept turn. */
+  turnIds?: number[];
   filesLabel?: (count: number) => string;
   showDiffLabel?: string;
   hideDiffLabel?: string;
@@ -289,18 +350,26 @@ export function ObserverEventPreview({
     return emptyLabel ? <p className="px-1 text-sm text-muted-foreground">{emptyLabel}</p> : null;
   }
 
-  const turn = focus ? undefined : leadTurn(activity);
-  const lines = visibleLines(
-    focus ? childLines(focus) : withCurrent(turn?.tools ?? [], activity.current_tool),
-  );
-  const ended = focus ? childSettled(focus) : Boolean(turn?.ended_at);
-  const prompt = (focus ? focus.prompt : turn?.prompt)?.trim();
-  const reply = (focus ? focus.reply : turn?.reply)?.trim();
-  const nested = focus ? kidsOf(children, focus.child_id) : rootChildren(children);
-  const parts = lines.map((line, index) => lineToPart(line, `lead:${index}`));
-  const scope = focus ? focus.child_id : "lead";
-
-  if (lines.length === 0 && nested.length === 0 && !prompt && !reply) {
+  const turns = visibleTurns(activity);
+  const shown = turnIds ? turns.filter((turn) => turnIds.includes(turn.turn_id)) : turns;
+  const latestId = turns.at(-1)?.turn_id;
+  const focusLines = focus ? visibleLines(childLines(focus)) : [];
+  const focusNested = focus ? kidsOf(children, focus.child_id) : [];
+  const shownBodies = focus
+    ? []
+    : shown.flatMap((turn) => {
+      const lines = visibleLines(withCurrent(
+        turn.tools ?? [],
+        activity.current_turn_id === turn.turn_id ? activity.current_tool : undefined,
+      ));
+      const nested = childrenForTurn(turn, children, turns, turn.turn_id === latestId);
+      if (!bodyVisible(turn.prompt, turn.reply, lines, nested)) return [];
+      return [{ turn, lines, nested }];
+    });
+  const hasBody = focus
+    ? bodyVisible(focus.prompt, focus.reply, focusLines, focusNested)
+    : shownBodies.length > 0;
+  if (!hasBody) {
     return emptyLabel ? <p className="px-1 text-sm text-muted-foreground">{emptyLabel}</p> : null;
   }
 
@@ -311,16 +380,35 @@ export function ObserverEventPreview({
         if (id) onOpenChild?.(id);
       }}
     >
-      <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-1 overflow-y-auto px-1">
-        {prompt ? <PromptBubble text={prompt} /> : null}
-        {lines.map((line, index) => (
-          <ObserverTool key={`${scope}:${index}`} line={line} id={`${scope}:${index}`} />
-        ))}
-        {nested.map((child) => (
-          <NestedSubagentRow key={child.child_id} child={child} />
-        ))}
-        {reply ? <ReplyText text={reply} /> : null}
-        {ended ? <FilesCard parts={parts} filesLabel={filesLabel} /> : null}
+      <div
+        data-observer-scroll=""
+        className="flex h-full min-h-0 w-full min-w-0 flex-col gap-4 overflow-y-auto px-1"
+      >
+        {focus ? (
+          <TurnBody
+            scope={focus.child_id}
+            prompt={focus.prompt}
+            reply={focus.reply}
+            lines={focusLines}
+            nested={focusNested}
+            ended={childSettled(focus)}
+            filesLabel={filesLabel}
+          />
+        ) : (
+          shownBodies.map((body) => (
+            <div key={body.turn.turn_id} data-observer-turn={body.turn.turn_id} className="flex flex-col gap-1">
+              <TurnBody
+                scope={`turn:${body.turn.turn_id}`}
+                prompt={body.turn.prompt}
+                reply={body.turn.reply}
+                lines={body.lines}
+                nested={body.nested}
+                ended={Boolean(body.turn.ended_at)}
+                filesLabel={filesLabel}
+              />
+            </div>
+          ))
+        )}
       </div>
     </SubagentOverlayProvider>
   );

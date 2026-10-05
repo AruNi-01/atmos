@@ -219,6 +219,13 @@ pub struct AgentActivity {
     pub space_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provider_id: Option<String>,
+    /// Vendor session id from a hook payload (`session_id` / `sessionId`).
+    /// Agent Sessions are keyed by this GUID, not the Atmos pane id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_session_id: Option<String>,
+    /// Host-session provider (`claude`, `grok`, …) for `native_session_id`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host_provider_id: Option<String>,
     pub last_state: AgentOccupancy,
     #[serde(default)]
     pub live_kind: AgentLiveKind,
@@ -265,6 +272,42 @@ impl AgentStatusService {
 
     pub(super) fn activity_snapshot(&self) -> Vec<AgentActivity> {
         self.activity.read().values().cloned().collect()
+    }
+
+    /// Remember the vendor session GUID so the drawer can load that Agent Session.
+    /// A later lead id replaces the previous one (the pane resumed a new CLI session).
+    pub(crate) fn note_native_session(
+        &self,
+        session_id: &str,
+        native_session_id: &str,
+        host_provider_id: Option<&str>,
+    ) {
+        let native_session_id = native_session_id.trim();
+        if native_session_id.is_empty() {
+            return;
+        }
+        let host_provider_id = host_provider_id.map(str::trim).filter(|id| !id.is_empty());
+        let changed = {
+            let mut map = self.activity.write();
+            let Some(activity) = map.get_mut(session_id) else {
+                return;
+            };
+            let mut changed = false;
+            if activity.native_session_id.as_deref() != Some(native_session_id) {
+                activity.native_session_id = Some(native_session_id.to_string());
+                changed = true;
+            }
+            if let Some(provider) = host_provider_id {
+                if activity.host_provider_id.as_deref() != Some(provider) {
+                    activity.host_provider_id = Some(provider.to_string());
+                    changed = true;
+                }
+            }
+            changed
+        };
+        if changed {
+            self.queue_activity_save();
+        }
     }
 
     pub(super) fn queue_activity_save(&self) {
@@ -479,6 +522,8 @@ fn new_activity(session: &AgentStatusRecord, ctx: &AgentStatusContext, now: &str
             .provider_id
             .clone()
             .or_else(|| ctx.provider_id.clone()),
+        native_session_id: None,
+        host_provider_id: None,
         last_state: session.state,
         live_kind: AgentLiveKind::Idle,
         pending_permission: None,
@@ -927,9 +972,6 @@ fn apply_prompt(activity: &mut AgentActivity, text: &str, now: &str) {
         activity.live_kind = AgentLiveKind::Working;
         return;
     }
-    if should_reset_for_new_prompt(activity) {
-        reset_activity_for_new_prompt(activity);
-    }
     if let Some(turn) = current_turn_mut(activity) {
         if turn.ended_at.is_none() && turn.prompt.is_empty() {
             turn.prompt = truncate(trimmed, PROMPT_CHARS);
@@ -944,26 +986,6 @@ fn apply_prompt(activity: &mut AgentActivity, text: &str, now: &str) {
     activity.current_tool = None;
     activity.pending_permission = None;
     activity.live_kind = AgentLiveKind::Working;
-}
-
-fn should_reset_for_new_prompt(activity: &AgentActivity) -> bool {
-    activity.turns.iter().any(|turn| !turn.prompt.is_empty()) || !activity.children.is_empty()
-}
-
-fn reset_activity_for_new_prompt(activity: &mut AgentActivity) {
-    activity.turns.clear();
-    activity.turns_omitted = 0;
-    activity.current_turn_id = None;
-    activity.current_tool = None;
-    activity.pending_permission = None;
-    activity.live_kind = AgentLiveKind::Working;
-    activity.children.clear();
-    activity.child_aliases.clear();
-    activity.pending_replies.clear();
-    activity.todos.clear();
-    activity.last_file = None;
-    activity.grok_goal_child_ids.clear();
-    activity.grok_workflow_child_ids.clear();
 }
 
 fn apply_host_tool(
@@ -1636,6 +1658,28 @@ fn resolve_nested_child_id(activity: &AgentActivity, tool: &AgentTool) -> Option
     Some(canonical_child_id(activity, parent))
 }
 
+fn stored_prompt_matches<'a>(mut prompts: impl Iterator<Item = &'a str>, text: &str) -> bool {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    let truncated = truncate(trimmed, PROMPT_CHARS);
+    prompts.any(|prompt| {
+        !prompt.is_empty()
+            && (prompt == truncated || prompt.starts_with(trimmed) || trimmed.starts_with(prompt))
+    })
+}
+
+fn stored_child_prompt_matches(activity: &AgentActivity, text: &str) -> bool {
+    stored_prompt_matches(
+        activity
+            .children
+            .iter()
+            .filter_map(|child| child.prompt.as_deref()),
+        text,
+    )
+}
+
 fn steal_prompt_for_child(activity: &AgentActivity, text: &str, _now: &str) -> bool {
     let trimmed = text.trim();
     if trimmed.is_empty() || activity.children.is_empty() {
@@ -1648,15 +1692,7 @@ fn steal_prompt_for_child(activity: &AgentActivity, text: &str, _now: &str) -> b
     // A duplicate of a prompt already stored on a child is a leak of that
     // child's task. Any other text is the lead's next user message, even when
     // a child is still running or its prompt is still empty.
-    let truncated = truncate(trimmed, PROMPT_CHARS);
-    activity.children.iter().any(|child| {
-        child.prompt.as_deref().is_some_and(|prompt| {
-            !prompt.is_empty()
-                && (prompt == truncated
-                    || prompt.starts_with(trimmed)
-                    || trimmed.starts_with(prompt))
-        })
-    })
+    stored_child_prompt_matches(activity, text)
 }
 
 fn strip_chrome_tools_from_turns(activity: &mut AgentActivity) {
@@ -1716,8 +1752,12 @@ fn rehome_child_prompt_turns(activity: &mut AgentActivity) {
     if activity.children.is_empty() || activity.turns.len() < 2 {
         return;
     }
+    let stored_prompts: Vec<String> = activity
+        .children
+        .iter()
+        .filter_map(|child| child.prompt.clone())
+        .collect();
     let mut kept = Vec::new();
-    let mut extras = Vec::new();
     let mut seen_user = false;
     for mut turn in activity.turns.drain(..) {
         turn.tools
@@ -1728,8 +1768,11 @@ fn rehome_child_prompt_turns(activity: &mut AgentActivity) {
             kept.push(turn);
             continue;
         }
-        if looks_like_child_prompt(&turn.prompt) && turn.tools.is_empty() {
-            extras.push(turn.prompt);
+        // Only a duplicate of a prompt already stored on a child is a leak.
+        // A later user message stays, even when it is long and a child is still running.
+        if turn.tools.is_empty()
+            && stored_prompt_matches(stored_prompts.iter().map(String::as_str), &turn.prompt)
+        {
             continue;
         }
         kept.push(turn);
@@ -1741,14 +1784,6 @@ fn rehome_child_prompt_turns(activity: &mut AgentActivity) {
         .rev()
         .find(|turn| turn.ended_at.is_none())
         .map(|turn| turn.turn_id);
-    let mut extras = extras.into_iter();
-    for child in &mut activity.children {
-        if child.prompt.as_deref().unwrap_or("").is_empty() {
-            if let Some(prompt) = extras.next() {
-                child.prompt = Some(prompt);
-            }
-        }
-    }
 }
 
 fn host_child_name(tool: &AgentTool) -> Option<String> {
@@ -2393,7 +2428,7 @@ mod tests {
     }
 
     #[test]
-    fn prompt_opens_turn_tools_attach_idle_keeps_record_second_prompt_resets() {
+    fn prompt_opens_turn_tools_attach_idle_keeps_record_second_prompt_appends() {
         let status = Arc::new(AgentStatusService::new());
         let service = AgentHooksService::new(status.clone());
         let ctx = pane_ctx("ws-1:agent");
@@ -2454,16 +2489,18 @@ mod tests {
             &ctx,
         );
         let activity = &status.get_all_activity()[0];
-        assert_eq!(activity.turns.len(), 1);
-        assert_eq!(activity.turns[0].prompt, "also add tests");
-        assert_eq!(activity.current_turn_id, Some(1));
+        assert_eq!(activity.turns.len(), 2);
+        assert_eq!(activity.turns[0].prompt, "fix the footer");
+        assert!(activity.turns[0].ended_at.is_some());
+        assert_eq!(activity.turns[1].prompt, "also add tests");
+        assert_eq!(activity.current_turn_id, Some(2));
         assert!(activity.children.is_empty());
         assert!(activity.todos.is_empty());
         assert!(activity.current_tool.is_none());
     }
 
     #[test]
-    fn second_prompt_drops_previous_children() {
+    fn second_prompt_keeps_previous_children_and_turns() {
         let status = Arc::new(AgentStatusService::new());
         let service = AgentHooksService::new(status.clone());
         let ctx = pane_ctx("ws-1:reset-children");
@@ -2492,9 +2529,15 @@ mod tests {
             &ctx,
         );
         let activity = &status.get_all_activity()[0];
-        assert_eq!(activity.turns.len(), 1);
-        assert_eq!(activity.turns[0].prompt, "next question");
-        assert!(activity.children.is_empty());
+        assert_eq!(activity.turns.len(), 2);
+        assert_eq!(activity.turns[0].prompt, "delegate");
+        assert_eq!(activity.turns[1].prompt, "next question");
+        assert_eq!(activity.children.len(), 1);
+        assert_eq!(activity.children[0].child_id, "c1");
+        assert_ne!(
+            activity.children[0].prompt.as_deref(),
+            Some("next question")
+        );
     }
 
     #[test]
@@ -2547,6 +2590,114 @@ mod tests {
         let cleared = status.clear_idle_sessions();
         assert!(cleared.is_empty(), "session row already swept");
         status.drop_activity(&["ws-1:keep".to_string()]);
+        assert!(status.get_all_activity().is_empty());
+    }
+
+    #[test]
+    fn observer_sweep_drops_stale_lead_with_children_and_keeps_a_fresh_session() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let old = pane_ctx("ws-1:old");
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": "old work",
+            }),
+            &old,
+        );
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "SubagentStart",
+                "agent_id": "c1",
+                "subagent_type": "Explore",
+            }),
+            &old,
+        );
+        service.handle_claude_code_event(&serde_json::json!({ "hook_event_name": "Stop" }), &old);
+        assert_eq!(status.get_all_activity()[0].children.len(), 1);
+        status.test_backdate_activity("ws-1:old", "2000-01-01T00:00:00+00:00");
+        status.test_backdate_session("ws-1:old", "2000-01-01T00:00:00+00:00");
+
+        let fresh = pane_ctx("ws-1:fresh");
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": "still here",
+            }),
+            &fresh,
+        );
+        service.handle_claude_code_event(&serde_json::json!({ "hook_event_name": "Stop" }), &fresh);
+        status.test_backdate_activity("ws-1:fresh", "2000-01-01T00:00:00+00:00");
+
+        status.clear_observer_activity_older_than(30);
+
+        let ids: Vec<String> = status
+            .get_all_activity()
+            .into_iter()
+            .map(|activity| activity.session_id)
+            .collect();
+        assert!(ids.contains(&"ws-1:fresh".to_string()));
+        assert!(!ids.contains(&"ws-1:old".to_string()));
+        assert!(status
+            .get_all_sessions()
+            .iter()
+            .any(|session| session.session_id == "ws-1:old"));
+    }
+
+    #[test]
+    fn observer_sweep_keeps_activity_while_the_session_is_fresh() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("ws-1:kept");
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": "history",
+            }),
+            &ctx,
+        );
+        service.handle_claude_code_event(&serde_json::json!({ "hook_event_name": "Stop" }), &ctx);
+        status.test_backdate_activity("ws-1:kept", "2000-01-01T00:00:00+00:00");
+        status.clear_observer_activity_older_than(30);
+        assert_eq!(status.get_all_activity().len(), 1);
+        assert_eq!(status.get_all_activity()[0].turns[0].prompt, "history");
+    }
+
+    #[test]
+    fn observer_sweep_zero_timeout_drops_nothing() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("ws-1:zero");
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": "stay",
+            }),
+            &ctx,
+        );
+        service.handle_claude_code_event(&serde_json::json!({ "hook_event_name": "Stop" }), &ctx);
+        status.test_backdate_activity("ws-1:zero", "2000-01-01T00:00:00+00:00");
+        status.test_backdate_session("ws-1:zero", "2000-01-01T00:00:00+00:00");
+        status.clear_observer_activity_older_than(0);
+        assert_eq!(status.get_all_activity().len(), 1);
+    }
+
+    #[test]
+    fn observer_sweep_drops_orphaned_stale_activity() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("ws-1:orphan");
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": "gone",
+            }),
+            &ctx,
+        );
+        service.handle_claude_code_event(&serde_json::json!({ "hook_event_name": "Stop" }), &ctx);
+        assert!(status.remove_session_keep_activity("ws-1:orphan"));
+        status.test_backdate_activity("ws-1:orphan", "2000-01-01T00:00:00+00:00");
+        status.clear_observer_activity_older_than(30);
         assert!(status.get_all_activity().is_empty());
     }
 
@@ -3251,8 +3402,10 @@ mod tests {
             },
         );
         let activity = &status.get_all_activity()[0];
-        assert_eq!(activity.turns.len(), 1);
-        assert_eq!(activity.turns[0].prompt, "and tests");
+        assert_eq!(activity.turns.len(), 2);
+        assert_eq!(activity.turns[0].prompt, "fix the footer");
+        assert_eq!(activity.turns[0].tools.len(), 1);
+        assert_eq!(activity.turns[1].prompt, "and tests");
         assert!(activity.children.is_empty());
     }
 
@@ -4512,7 +4665,7 @@ mod tests {
     }
 
     #[test]
-    fn same_type_children_stay_running_until_their_own_stop_then_clear_on_prompt() {
+    fn same_type_children_stay_running_until_their_own_stop_and_a_new_prompt_keeps_them() {
         let status = Arc::new(AgentStatusService::new());
         let service = AgentHooksService::new(status.clone());
         let ctx = pane_ctx("ws-1:roster-same-type");
@@ -4600,9 +4753,14 @@ mod tests {
             &ctx,
         );
         let activity = &status.get_all_activity()[0];
-        assert!(activity.children.is_empty());
-        assert_eq!(activity.turns.len(), 1);
-        assert_eq!(activity.turns[0].prompt, "next question");
+        assert_eq!(activity.children.len(), 2);
+        assert_eq!(activity.turns.len(), 2);
+        assert_eq!(activity.turns[0].prompt, "delegate");
+        assert_eq!(activity.turns[1].prompt, "next question");
+        assert!(activity.turns[0]
+            .spawned_child_ids
+            .iter()
+            .any(|id| id == "sa-a" || id == "sa-b"));
     }
 
     #[test]
@@ -4862,12 +5020,17 @@ mod tests {
             &ctx,
         );
         let activity = &status.get_all_activity()[0];
-        assert!(activity.children.is_empty());
-        assert_eq!(activity.turns[0].prompt, follow);
+        assert_eq!(activity.turns.len(), 2);
+        assert_eq!(activity.turns[0].prompt, "delegate");
+        assert_eq!(activity.turns[1].prompt, follow);
+        assert_eq!(
+            activity.children[0].prompt.as_deref(),
+            Some(prompt.as_str())
+        );
     }
 
     #[test]
-    fn long_follow_up_after_child_stop_clears_children_and_opens_the_turn() {
+    fn long_follow_up_after_child_stop_keeps_history_and_opens_the_turn() {
         let status = Arc::new(AgentStatusService::new());
         let service = AgentHooksService::new(status.clone());
         let ctx = pane_ctx("ws-1:long-follow-up");
@@ -4903,13 +5066,16 @@ mod tests {
             &ctx,
         );
         let activity = &status.get_all_activity()[0];
-        assert!(activity.children.is_empty());
-        assert_eq!(activity.turns.len(), 1);
-        assert_eq!(activity.turns[0].prompt, prompt);
+        assert_eq!(activity.children.len(), 1);
+        assert_eq!(activity.children[0].child_id, "child-1");
+        assert_ne!(activity.children[0].prompt.as_deref(), Some(prompt));
+        assert_eq!(activity.turns.len(), 2);
+        assert_eq!(activity.turns[0].prompt, "delegate");
+        assert_eq!(activity.turns[1].prompt, prompt);
     }
 
     #[test]
-    fn unmatched_follow_up_while_child_runs_clears_children_and_opens_the_turn() {
+    fn unmatched_follow_up_while_child_runs_keeps_the_child_and_opens_the_turn() {
         let prompt = "please refactor the observer drawer and keep the cards";
         for (label, start) in [
             (
@@ -4961,10 +5127,72 @@ mod tests {
                 &ctx,
             );
             let activity = &status.get_all_activity()[0];
-            assert!(activity.children.is_empty(), "{label} children cleared");
-            assert_eq!(activity.turns.len(), 1, "{label} turn");
-            assert_eq!(activity.turns[0].prompt, prompt, "{label} prompt");
+            let child = activity
+                .children
+                .iter()
+                .find(|child| child.child_id == "child-1")
+                .expect("child stays in history");
+            assert_eq!(
+                child.state,
+                AgentOccupancy::Running,
+                "{label} still running"
+            );
+            if label == "with-prompt" {
+                assert_eq!(child.prompt.as_deref(), Some("scan the tree"));
+            } else {
+                assert!(child.prompt.as_deref().unwrap_or("").is_empty());
+            }
+            assert_ne!(child.prompt.as_deref(), Some(prompt), "{label} not stolen");
+            assert_eq!(activity.turns.len(), 2, "{label} turns");
+            assert_eq!(activity.turns[0].prompt, "delegate", "{label} first");
+            assert_eq!(activity.turns[1].prompt, prompt, "{label} follow-up");
         }
+    }
+
+    #[test]
+    fn lead_session_guid_is_remembered_and_a_child_session_does_not_replace_it() {
+        let status = Arc::new(AgentStatusService::new());
+        let service = AgentHooksService::new(status.clone());
+        let ctx = pane_ctx("ws-1:guid");
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "session_id": "lead-guid",
+                "prompt": "hello",
+            }),
+            &ctx,
+        );
+        {
+            let activity = &status.get_all_activity()[0];
+            assert_eq!(activity.native_session_id.as_deref(), Some("lead-guid"));
+            assert_eq!(activity.host_provider_id.as_deref(), Some("claude"));
+        }
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "SubagentStart",
+                "session_id": "child-guid",
+                "agent_id": "child-guid",
+                "subagent_type": "Explore",
+            }),
+            &ctx,
+        );
+        assert_eq!(
+            status.get_all_activity()[0].native_session_id.as_deref(),
+            Some("lead-guid")
+        );
+        service.handle_claude_code_event(
+            &serde_json::json!({
+                "hook_event_name": "PreToolUse",
+                "session_id": "child-session",
+                "subagent_type": "Explore",
+                "tool_name": "Bash",
+                "tool_input": { "command": "ls" },
+            }),
+            &ctx,
+        );
+        let activity = &status.get_all_activity()[0];
+        assert_eq!(activity.native_session_id.as_deref(), Some("lead-guid"));
+        assert_eq!(activity.host_provider_id.as_deref(), Some("claude"));
     }
 
     #[test]

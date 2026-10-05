@@ -115,6 +115,13 @@ impl AgentHooksService {
                 hook_tool_input(payload),
             );
         }
+        if let Some(native) = lead_native_session_id(payload) {
+            self.status.note_native_session(
+                &session_id,
+                native,
+                super::agent_status::host_session_provider(tool),
+            );
+        }
     }
 
     /// Arm a blocking reply for a permission hook. Call after `handle_*_event`.
@@ -232,6 +239,23 @@ pub(crate) fn extract_cwd(payload: &Value) -> Option<&str> {
                 .and_then(|arr| arr.first())
                 .and_then(|v| v.as_str())
         })
+}
+
+/// Lead-session GUID. A Grok child event puts the child session on `sessionId`
+/// together with `subagentType`, and an explicit child id that equals the
+/// session id is that child, not the lead.
+fn lead_native_session_id(payload: &Value) -> Option<&str> {
+    let sid = extract_session_id(payload)?.trim();
+    if sid.is_empty() {
+        return None;
+    }
+    if nested_subagent_session_id(payload).is_some() {
+        return None;
+    }
+    if extract_child_agent_id(payload).is_some_and(|child| child == sid) {
+        return None;
+    }
+    Some(sid)
 }
 
 fn extract_session_id(payload: &Value) -> Option<&str> {

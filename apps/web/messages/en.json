@@ -2973,6 +2973,7 @@
     "recentTools": "Recent tools",
     "turnsHeading": "Turns",
     "noTurns": "No steps yet",
+    "loadingHistory": "Loading history…",
     "stepsHint": "Hooks only see tool steps. Open the pane for the full turn.",
     "toolPending": "Pending",
     "toolOk": "Done",
@@ -2992,6 +2993,10 @@
     "terminalMissing": "That terminal is not open in the workspace.",
     "turns": "{count, plural, one {# turn} other {# turns}}",
     "children": "{count, plural, one {# child} other {# children}}",
+    "lastActiveJustNow": "Just now",
+    "lastActiveMinutes": "{count, plural, one {# minute ago} other {# minutes ago}}",
+    "lastActiveHours": "{count, plural, one {# hour ago} other {# hours ago}}",
+    "lastActiveDays": "{count, plural, one {# day ago} other {# days ago}}",
     "members": "{count} live",
     "emptyPrompt": "(no prompt text)",
     "moreTurns": "+{count} earlier",
@@ -5842,6 +5847,9 @@
             },
             "idleSessionCleanup": {
               "label": "Idle session cleanup"
+            },
+            "observerSessionCleanup": {
+              "label": "Observer session cleanup"
             }
           },
           "terminal": {
@@ -6671,9 +6679,11 @@
       },
       "behavior": {
         "title": "Behaviour",
-        "description": "Configure idle session cleanup and unattended need-attention auto-summary.",
+        "description": "Configure idle session cleanup, Agent Observer card cleanup, and unattended need-attention auto-summary.",
         "idleCleanupTitle": "Idle session cleanup",
         "idleCleanupDescription": "Idle agent sessions older than this duration are automatically removed every 5 minutes.",
+        "observerCleanupTitle": "Observer session cleanup",
+        "observerCleanupDescription": "Agent Observer cards with no activity for longer than this duration are removed. Subagents leave with the main agent.",
         "minutes": "min",
         "summaryTitle": "Need-attention auto-summary",
         "summaryDescription": "When a finished agent turn stays unacknowledged, spawn a headless summarizer and show next steps above the AI input.",

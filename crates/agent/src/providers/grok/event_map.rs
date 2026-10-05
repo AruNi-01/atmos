@@ -16,7 +16,7 @@ use crate::options::{
     is_mode_config_id, is_permission_mode_config_id, probe_result_from_config_options,
 };
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
-use crate::providers::text_parts::{close_open_parts, TextParts};
+use crate::providers::text_parts::{close_nested_subagent_text, close_open_parts, TextParts};
 
 use super::chrome::{append_grok_child_prompt, map_xai_ext_events};
 use crate::contract::{GrokGoal, GrokWorkflow};
@@ -134,6 +134,12 @@ pub(crate) fn map_event(
                     parent_tool_call_for_session(state, update.session_id.as_deref());
             }
             let close_answer = !seen && update.parent_tool_call_id.is_none();
+            // A new child tool ends the nested reply that was already streaming.
+            // Otherwise that one part stays above the tools, and the final text
+            // keeps painting there until the turn folds it out of the process.
+            let nested_parent = (!seen)
+                .then(|| update.parent_tool_call_id.clone())
+                .flatten();
             match map_tool_call(&update, &mut state.grok_tasks) {
                 ToolMapOut::FoldThinking { text, done } => {
                     let event = fold_thinking(state, turn_id.clone(), text, done);
@@ -164,12 +170,22 @@ pub(crate) fn map_event(
                 }
                 ToolMapOut::Tool(tool) => {
                     let kind = tool_status_kind(tool.status);
-                    Some(seal_around_new_tool(
+                    let mapped = seal_around_new_tool(
                         state,
-                        turn_id,
+                        turn_id.clone(),
                         tool_event(tool, kind),
                         close_answer,
-                    ))
+                    );
+                    Some(match nested_parent {
+                        Some(parent) => close_nested_subagent_text(
+                            &mut state.parts,
+                            &mut state.pending,
+                            turn_id,
+                            &parent,
+                            mapped,
+                        ),
+                        None => mapped,
+                    })
                 }
                 ToolMapOut::Replace { tool_call_id, tool } => {
                     debug_assert_eq!(tool_call_id, tool.tool_call_id);
@@ -836,6 +852,147 @@ mod tests {
     }
 
     #[test]
+    fn child_tool_closes_nested_answer_so_the_final_text_is_a_new_part() {
+        let mut state = state();
+        state.persistence = Some(crate::contract::AgentPersistenceHandle::new("sess_parent"));
+        let notice = include_str!("testdata/subagent_started_background.txt");
+        payloads(
+            &mut state,
+            AcpSessionEvent::ToolCall(ToolCallUpdate {
+                tool_call_id: "tc_sub".into(),
+                parent_tool_call_id: None,
+                session_id: Some("sess_parent".into()),
+                tool: "Tool".into(),
+                description: "spawn_subagent".into(),
+                acp_kind: None,
+                status: ToolCallStatus::Completed,
+                raw_input: Some(serde_json::json!({
+                    "description": "Read hello2.txt",
+                    "prompt": "Read hello2.txt and return its contents.",
+                    "subagent_type": "explore"
+                })),
+                content: vec![crate::acp_client::types::AgentToolCallContentItem::Text {
+                    text: notice.to_string(),
+                }],
+                locations: Vec::new(),
+                raw_output: Some(serde_json::json!(notice)),
+                detail: None,
+            }),
+        );
+        let spawned: serde_json::Value =
+            serde_json::from_str(include_str!("testdata/subagent_spawned.json")).unwrap();
+        map_xai_subagent(
+            &mut state,
+            Some("turn-1".into()),
+            "_x.ai/session_notification",
+            spawned,
+        )
+        .expect("spawned notice");
+        state.pending.clear();
+        assert!(state.grok_tasks.contains_key("sa-1"));
+
+        let before = payloads(
+            &mut state,
+            AcpSessionEvent::Stream(StreamDelta {
+                role: "assistant".into(),
+                kind: "message".into(),
+                delta: "我先核对一下。".into(),
+                done: false,
+                usage: None,
+                session_id: Some("sa-1".into()),
+            }),
+        );
+        let tool = payloads(
+            &mut state,
+            AcpSessionEvent::ToolCall(ToolCallUpdate {
+                tool_call_id: "child_read".into(),
+                parent_tool_call_id: None,
+                session_id: Some("sa-1".into()),
+                tool: "Read".into(),
+                description: "hello2.txt".into(),
+                acp_kind: Some("read".into()),
+                status: ToolCallStatus::Running,
+                raw_input: Some(serde_json::json!({ "path": "hello2.txt" })),
+                content: Vec::new(),
+                locations: Vec::new(),
+                raw_output: None,
+                detail: None,
+            }),
+        );
+        let after = payloads(
+            &mut state,
+            AcpSessionEvent::Stream(StreamDelta {
+                role: "assistant".into(),
+                kind: "message".into(),
+                delta: "结论在读取之后。".into(),
+                done: false,
+                usage: None,
+                session_id: Some("sa-1".into()),
+            }),
+        );
+        let again = payloads(
+            &mut state,
+            AcpSessionEvent::ToolCall(ToolCallUpdate {
+                tool_call_id: "child_read".into(),
+                parent_tool_call_id: None,
+                session_id: Some("sa-1".into()),
+                tool: "Read".into(),
+                description: "hello2.txt".into(),
+                acp_kind: Some("read".into()),
+                status: ToolCallStatus::Completed,
+                raw_input: Some(serde_json::json!({ "path": "hello2.txt" })),
+                content: Vec::new(),
+                locations: Vec::new(),
+                raw_output: None,
+                detail: None,
+            }),
+        );
+        let tail = payloads(
+            &mut state,
+            AcpSessionEvent::Stream(StreamDelta {
+                role: "assistant".into(),
+                kind: "message".into(),
+                delta: "还是同一段。".into(),
+                done: false,
+                usage: None,
+                session_id: Some("sa-1".into()),
+            }),
+        );
+
+        let answer_id = |events: &[AgentEvent]| -> Option<String> {
+            events.iter().find_map(|event| match event {
+                AgentEvent::TextChunk {
+                    part_id,
+                    kind: TextKind::Answer,
+                    ..
+                } => Some(part_id.clone()),
+                _ => None,
+            })
+        };
+        let before_id = answer_id(&before).expect("preamble");
+        let after_id = answer_id(&after).expect("answer after child tool");
+        assert_ne!(before_id, after_id);
+        let close_at = tool.iter().position(|event| {
+            matches!(event, AgentEvent::PartClosed { part_id, .. } if part_id == &before_id)
+        });
+        let tool_at = tool.iter().position(|event| {
+            matches!(
+                event,
+                AgentEvent::ToolCallStarted { tool_call }
+                    | AgentEvent::ToolCallUpdated { tool_call }
+                    | AgentEvent::ToolCallCompleted { tool_call }
+                    if tool_call.tool_call_id == "child_read"
+            )
+        });
+        assert!(close_at.is_some() && tool_at.is_some() && close_at < tool_at);
+        assert_eq!(answer_id(&tail).as_deref(), Some(after_id.as_str()));
+        assert!(again.iter().all(|event| !matches!(
+            event,
+            AgentEvent::PartClosed { part_id, .. } if part_id == &after_id
+        )));
+    }
+
+    #[test]
     fn envelope_has_turn_id_and_no_sequence() {
         let mut state = state();
         let envelope = map_event(
@@ -1483,9 +1640,8 @@ mod tests {
         assert_eq!(text, "hello from child");
         assert_eq!(parent_part_id.as_deref(), Some("tc_sub"));
 
-        let child_tool = map_event(
+        let child_tool_events = payloads(
             &mut state,
-            Some("turn-1".into()),
             AcpSessionEvent::ToolCall(ToolCallUpdate {
                 tool_call_id: "child_read".into(),
                 parent_tool_call_id: None,
@@ -1500,14 +1656,16 @@ mod tests {
                 raw_output: None,
                 detail: None,
             }),
-        )
-        .expect("child tool after TurnEnd");
-        let child_call = match child_tool.payload {
-            AgentEvent::ToolCallCompleted { tool_call }
-            | AgentEvent::ToolCallStarted { tool_call }
-            | AgentEvent::ToolCallUpdated { tool_call } => tool_call,
-            other => panic!("expected child tool event, got {other:?}"),
-        };
+        );
+        let child_call = child_tool_events
+            .iter()
+            .find_map(|event| match event {
+                AgentEvent::ToolCallCompleted { tool_call }
+                | AgentEvent::ToolCallStarted { tool_call }
+                | AgentEvent::ToolCallUpdated { tool_call } => Some(tool_call),
+                _ => None,
+            })
+            .expect("child tool after TurnEnd");
         assert_eq!(child_call.parent_tool_call_id.as_deref(), Some("tc_sub"));
 
         let done = map_xai_subagent(

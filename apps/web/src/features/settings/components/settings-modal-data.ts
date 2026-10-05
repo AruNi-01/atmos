@@ -759,6 +759,9 @@ const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition
     settingsModalSearchItem("codeAgent.idleSessionCleanup", {
       keywords: ["remove idle agent sessions", "every 5 minutes", "timeout"],
     }),
+    settingsModalSearchItem("codeAgent.observerSessionCleanup", {
+      keywords: ["agent observer", "idle cards", "last active", "subagent"],
+    }),
   ],
   browser: [
     settingsModalSearchItem("browser.agentChrome", {

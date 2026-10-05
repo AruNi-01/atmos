@@ -156,6 +156,21 @@ describe("segmentAssistantParts", () => {
       : null).toBe("read");
   });
 
+  it("puts a leading answer under the tool group", () => {
+    const parts: AgentPart[] = [
+      { type: "text", text: "final answer" },
+      tool({ tool_call_id: "t1", kind: "read" }),
+      tool({ tool_call_id: "t2", kind: "search" }),
+    ];
+    const { processSegments, tailSegments } = splitSegmentedAssistantParts(
+      segmentAssistantParts(parts, "compact"),
+    );
+    expect(processSegments.map((segment) => segment.type)).toEqual(["tool_group"]);
+    expect(tailSegments).toEqual([
+      { type: "part", part: parts[0], origIndex: 0 },
+    ]);
+  });
+
   it("keeps every process row after extracting answer text", () => {
     const parts: AgentPart[] = [
       { type: "thinking", text: "hmm" },

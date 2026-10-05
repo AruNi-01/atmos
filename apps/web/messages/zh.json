@@ -2973,6 +2973,7 @@
     "recentTools": "最近工具",
     "turnsHeading": "轮次",
     "noTurns": "还没有步骤",
+    "loadingHistory": "正在加载历史…",
     "stepsHint": "Hook 只能看到工具步骤。打开面板查看完整回合。",
     "toolPending": "进行中",
     "toolOk": "完成",
@@ -2992,6 +2993,10 @@
     "terminalMissing": "工作区里没有打开这个终端。",
     "turns": "{count} 轮",
     "children": "{count} 个子 Agent",
+    "lastActiveJustNow": "刚刚",
+    "lastActiveMinutes": "{count} 分钟之前",
+    "lastActiveHours": "{count} 小时之前",
+    "lastActiveDays": "{count} 天之前",
     "members": "{count} 个",
     "emptyPrompt": "（没有 prompt 文本）",
     "moreTurns": "更早还有 {count} 轮",
@@ -5842,6 +5847,9 @@
             },
             "idleSessionCleanup": {
               "label": "空闲会话清理"
+            },
+            "observerSessionCleanup": {
+              "label": "Observer 会话清理"
             }
           },
           "terminal": {
@@ -6671,9 +6679,11 @@
       },
       "behavior": {
         "title": "行为",
-        "description": "配置空闲会话清理，以及未处理 need-attention 时的自动总结。",
+        "description": "配置空闲会话清理、Agent Observer 卡片清理，以及未处理 need-attention 时的自动总结。",
         "idleCleanupTitle": "空闲会话清理",
         "idleCleanupDescription": "超过该时长的空闲 Agent 会话会每 5 分钟自动清理一次。",
+        "observerCleanupTitle": "Observer 会话清理",
+        "observerCleanupDescription": "超过该时长没有活跃的 Agent Observer 卡片会被清掉。子 Agent 会跟着主 Agent 一起清掉。",
         "minutes": "分钟",
         "summaryTitle": "Need-attention 自动总结",
         "summaryDescription": "当 Agent 任务完成且长时间未被确认时，启动后台总结会话，并在 AI 输入框上方展示下一步建议。",

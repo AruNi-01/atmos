@@ -16,6 +16,7 @@ import {
   isLeakedTrackpadClick,
   observerCardCanFold,
   observerCardCanRemove,
+  observerLastActiveBucket,
   observerLayoutShiftToAnchor,
   observerLeadPrompt,
   observerLiveHeadline,
@@ -79,6 +80,28 @@ const projects = [
     { id: "w2", name: "main" },
   ]),
 ];
+
+describe("observerLastActiveBucket", () => {
+  const now = Date.parse("2026-10-04T12:00:00.000Z");
+
+  it("uses a long relative clock", () => {
+    expect(observerLastActiveBucket("2026-10-04T11:59:10.000Z", now)).toEqual({ kind: "justNow" });
+    expect(observerLastActiveBucket("2026-10-04T11:59:00.000Z", now)).toEqual({
+      kind: "minutes",
+      count: 1,
+    });
+    expect(observerLastActiveBucket("2026-10-04T09:00:00.000Z", now)).toEqual({
+      kind: "hours",
+      count: 3,
+    });
+    expect(observerLastActiveBucket("2026-10-02T12:00:00.000Z", now)).toEqual({
+      kind: "days",
+      count: 2,
+    });
+    expect(observerLastActiveBucket("not-a-date", now)).toBeNull();
+    expect(observerLastActiveBucket(undefined, now)).toBeNull();
+  });
+});
 
 describe("buildObserverGraph", () => {
   it("places two agents under one workspace as siblings", () => {
@@ -168,6 +191,133 @@ describe("buildObserverGraph", () => {
     expect(agent?.session?.state).toBe("idle");
     expect(agent?.latestPrompt).toBe("fix footer");
     expect(agent?.parentId).toBe("workspace:w1");
+  });
+
+  it("hides a stale lead and its subagent, and keeps a recent lead", () => {
+    const now = Date.parse("2026-10-04T12:00:00.000Z");
+    const turn = (prompt: string, childId?: string) => ({
+      turn_id: 1,
+      prompt,
+      started_at: "2026-10-04T11:00:00.000Z",
+      tools: [],
+      todos: [],
+      spawned_child_ids: childId ? [childId] : [],
+    });
+    const graph = buildObserverGraph({
+      projects,
+      sessions: [
+        session({
+          session_id: "old",
+          context_id: "w1",
+          state: "idle",
+          timestamp: "2026-10-04T11:00:00.000Z",
+        }),
+        session({
+          session_id: "recent",
+          context_id: "w1",
+          state: "idle",
+          timestamp: "2026-10-04T11:40:00.000Z",
+        }),
+      ],
+      activity: [
+        activity({
+          session_id: "old",
+          context_id: "w1",
+          last_event_at: "2026-10-04T11:00:00.000Z",
+          turns: [turn("old work", "c1")],
+          children: [
+            {
+              child_id: "c1",
+              name: "Explore",
+              state: "idle",
+              recent_tools: [],
+              started_at: "2026-10-04T11:10:00.000Z",
+              last_event_at: "2026-10-04T11:20:00.000Z",
+            },
+          ],
+        }),
+        activity({
+          session_id: "recent",
+          context_id: "w1",
+          last_event_at: "2026-10-04T11:40:00.000Z",
+          turns: [turn("still going")],
+        }),
+      ],
+      collapsedIds: new Set(),
+      expandedAgentIds: new Set(),
+      sessionTimeoutMins: 30,
+      now,
+    });
+    const ids = graph.nodes.map((node) => node.id);
+    expect(ids).not.toContain("agent:old");
+    expect(ids).not.toContain("child:old:c1");
+    expect(ids).toContain("agent:recent");
+    expect(graph.knownIds).not.toContain("child:old:c1");
+  });
+
+  it("hides a card from the activity clock even when the session stamp is newer", () => {
+    const now = Date.parse("2026-10-04T12:00:00.000Z");
+    const graph = buildObserverGraph({
+      projects,
+      sessions: [
+        session({
+          session_id: "lead",
+          context_id: "w1",
+          timestamp: "2026-10-04T11:55:00.000Z",
+        }),
+      ],
+      activity: [
+        activity({
+          session_id: "lead",
+          context_id: "w1",
+          last_event_at: "2026-10-04T10:00:00.000Z",
+          turns: [
+            {
+              turn_id: 1,
+              prompt: "stale",
+              started_at: "2026-10-04T10:00:00.000Z",
+              tools: [],
+              todos: [],
+              spawned_child_ids: [],
+            },
+          ],
+        }),
+      ],
+      collapsedIds: new Set(),
+      expandedAgentIds: new Set(),
+      sessionTimeoutMins: 30,
+      now,
+    });
+    expect(graph.nodes.some((node) => node.id === "agent:lead")).toBe(false);
+  });
+
+  it("keeps a card that has no parseable activity clock", () => {
+    const graph = buildObserverGraph({
+      projects,
+      sessions: [session({ session_id: "weird", context_id: "w1", timestamp: "not-a-date" })],
+      activity: [
+        activity({
+          session_id: "weird",
+          context_id: "w1",
+          last_event_at: "not-a-date",
+          turns: [
+            {
+              turn_id: 1,
+              prompt: "kept",
+              started_at: "not-a-date",
+              tools: [],
+              todos: [],
+              spawned_child_ids: [],
+            },
+          ],
+        }),
+      ],
+      collapsedIds: new Set(),
+      expandedAgentIds: new Set(),
+      sessionTimeoutMins: 30,
+      now: Date.parse("2026-10-04T12:00:00.000Z"),
+    });
+    expect(graph.nodes.some((node) => node.id === "agent:weird")).toBe(true);
   });
 
   it("keeps live subagents visible while turn rows stay folded until expand", () => {

@@ -21,7 +21,7 @@ use crate::policy::{
     option_support_for_provider,
 };
 use crate::providers::grok::{append_grok_child_prompt, map_xai_ext_events};
-use crate::providers::text_parts::{close_open_parts, TextParts};
+use crate::providers::text_parts::{close_nested_subagent_text, close_open_parts, TextParts};
 
 use super::overlays::OverlayState;
 use super::tool_map::{map_tool_call, merge_tool_call_patch, ToolEventKind, ToolMapOut};
@@ -164,11 +164,15 @@ pub(crate) fn map_event(
         }
         AcpSessionEvent::Stream(delta) => map_stream(state, turn_id, delta),
         AcpSessionEvent::ToolCall(update) => {
+            let seen = state.tools.contains_key(&update.tool_call_id);
             let mut update = merge_stored_tool(state, update);
             if update.parent_tool_call_id.is_none() {
                 update.parent_tool_call_id =
                     parent_tool_call_for_session(state, update.session_id.as_deref());
             }
+            let nested_parent = (!seen)
+                .then(|| update.parent_tool_call_id.clone())
+                .flatten();
             match map_tool_call(&state.provider_id, &update, &mut state.overlay) {
                 ToolMapOut::FoldThinking { text, done } => {
                     let event = fold_thinking(state, turn_id.clone(), text, done);
@@ -198,6 +202,16 @@ pub(crate) fn map_event(
                     }
                     let kind = tool_status_kind(tool.status);
                     let mapped = wrap(turn_id.clone(), tool_event(tool, kind));
+                    let mapped = match nested_parent.clone() {
+                        Some(parent) => close_nested_subagent_text(
+                            &mut state.parts,
+                            &mut state.pending,
+                            turn_id.clone(),
+                            &parent,
+                            mapped,
+                        ),
+                        None => mapped,
+                    };
                     if clear_execution_plan {
                         // Drop any companion session-plan that already polluted the dock.
                         state.pending.push_back(wrap(
@@ -1480,9 +1494,8 @@ mod tests {
         };
         assert_eq!(parent_part_id.as_deref(), Some("tc_sub"));
 
-        let child_tool = map_event(
+        let child_tool_events = payloads(
             &mut state,
-            Some("turn-1".into()),
             AcpSessionEvent::ToolCall(ToolCallUpdate {
                 tool_call_id: "child_read".into(),
                 parent_tool_call_id: None,
@@ -1497,14 +1510,16 @@ mod tests {
                 raw_output: None,
                 detail: None,
             }),
-        )
-        .expect("child tool after TurnEnd");
-        let child_call = match child_tool.payload {
-            AgentEvent::ToolCallCompleted { tool_call }
-            | AgentEvent::ToolCallStarted { tool_call }
-            | AgentEvent::ToolCallUpdated { tool_call } => tool_call,
-            other => panic!("expected child tool event, got {other:?}"),
-        };
+        );
+        let child_call = child_tool_events
+            .iter()
+            .find_map(|event| match event {
+                AgentEvent::ToolCallCompleted { tool_call }
+                | AgentEvent::ToolCallStarted { tool_call }
+                | AgentEvent::ToolCallUpdated { tool_call } => Some(tool_call),
+                _ => None,
+            })
+            .expect("child tool after TurnEnd");
         assert_eq!(child_call.parent_tool_call_id.as_deref(), Some("tc_sub"));
 
         let finished: serde_json::Value =

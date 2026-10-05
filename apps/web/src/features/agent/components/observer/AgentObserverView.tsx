@@ -36,6 +36,7 @@ import {
 import { agentHooksApi, type AgentHookInstallReport } from "@/api/rest-api";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
+import { useAgentBehaviourSettingsQuery } from "@/features/settings/hooks/use-settings-bootstrap-query";
 import { useAgentStatusStore } from "@/features/agent/store/agent-status-store";
 import { useAgentActivityStore } from "@/features/agent/store/agent-activity-store";
 import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
@@ -47,6 +48,7 @@ import { ObserverInstallHooksButton } from "./ObserverInstallHooksButton";
 import {
   applyObserverLayoutShift,
   buildObserverGraph,
+  OBSERVER_SESSION_TIMEOUT_MINS_DEFAULT,
   layoutObserverGraph,
   TRACKPAD_SECONDARY_CLICK_WINDOW_MS,
   isLeakedTrackpadClick,
@@ -66,6 +68,7 @@ import type { AttentionReason } from "@/features/agent/store/agent-attention-sto
 import {
   OBSERVER_NODE_TYPES,
   OBSERVER_EDGE_TYPES,
+  ObserverNowProvider,
   type ObserverEdgeData,
   type ObserverFlowData,
 } from "./observer-flow";
@@ -331,6 +334,16 @@ export function AgentObserverView() {
   );
   const placedRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
+  const behaviourSettings = useAgentBehaviourSettingsQuery();
+  const sessionTimeoutMins =
+    behaviourSettings.data?.observer_session_timeout_mins ??
+    OBSERVER_SESSION_TIMEOUT_MINS_DEFAULT;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const graph = useMemo(
     () =>
       buildObserverGraph({
@@ -340,8 +353,10 @@ export function AgentObserverView() {
         collapsedIds,
         expandedAgentIds: new Set(),
         computerName: computerName || undefined,
+        sessionTimeoutMins,
+        now,
       }),
-    [projects, sessionsMap, activityMap, collapsedIds, computerName],
+    [projects, sessionsMap, activityMap, collapsedIds, computerName, sessionTimeoutMins, now],
   );
 
   const reportHeight = useCallback((id: string, height: number) => {
@@ -672,6 +687,7 @@ export function AgentObserverView() {
   const boardIsEmpty = graph.knownIds.length <= 1;
 
   return (
+    <ObserverNowProvider now={now}>
     <div className="flex h-full min-h-0 flex-col bg-background">
       <div className="min-h-0 flex-1">
         {boardIsEmpty ? (
@@ -791,5 +807,6 @@ export function AgentObserverView() {
         }}
       />
     </div>
+    </ObserverNowProvider>
   );
 }

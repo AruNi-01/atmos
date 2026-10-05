@@ -15,6 +15,7 @@ import { SettingsGroupCard } from "@/features/settings/components/settings/Setti
 
 export type BehaviourSettingsValues = {
   idleSessionTimeoutMins: number;
+  observerSessionTimeoutMins: number;
   attentionSummaryEnabled: boolean;
   attentionSummaryDelayMins: number;
   attentionSummaryAgentId: string;
@@ -24,12 +25,14 @@ export type BehaviourSettingsValues = {
 
 export type CodeAgentBehaviourSettingsSectionProps = {
   idleSessionTimeoutMins: number;
+  observerSessionTimeoutMins: number;
   attentionSummaryEnabled: boolean;
   attentionSummaryDelayMins: number;
   attentionSummaryAgentId: string;
   attentionSummaryModel: string;
   followupPolicy: "queue" | "steer";
   savedIdleSessionTimeoutMins: number;
+  savedObserverSessionTimeoutMins: number;
   savedAttentionSummaryEnabled: boolean;
   savedAttentionSummaryDelayMins: number;
   savedAttentionSummaryAgentId: string;
@@ -38,6 +41,7 @@ export type CodeAgentBehaviourSettingsSectionProps = {
   savingIdleTimeout: boolean;
   onCommitBehaviourSettings: (values: BehaviourSettingsValues) => void | Promise<void>;
   setIdleSessionTimeoutMins: React.Dispatch<React.SetStateAction<number>>;
+  setObserverSessionTimeoutMins: React.Dispatch<React.SetStateAction<number>>;
   setAttentionSummaryEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   setAttentionSummaryDelayMins: React.Dispatch<React.SetStateAction<number>>;
   setAttentionSummaryAgentId: React.Dispatch<React.SetStateAction<string>>;
@@ -52,12 +56,14 @@ export type CodeAgentBehaviourSettingsSectionProps = {
  */
 export function CodeAgentBehaviourSettingsSection({
   idleSessionTimeoutMins,
+  observerSessionTimeoutMins,
   attentionSummaryEnabled,
   attentionSummaryDelayMins,
   attentionSummaryAgentId,
   attentionSummaryModel,
   followupPolicy,
   savedIdleSessionTimeoutMins,
+  savedObserverSessionTimeoutMins,
   savedAttentionSummaryEnabled,
   savedAttentionSummaryDelayMins,
   savedAttentionSummaryAgentId,
@@ -66,6 +72,7 @@ export function CodeAgentBehaviourSettingsSection({
   savingIdleTimeout,
   onCommitBehaviourSettings,
   setIdleSessionTimeoutMins,
+  setObserverSessionTimeoutMins,
   setAttentionSummaryEnabled,
   setAttentionSummaryDelayMins,
   setAttentionSummaryAgentId,
@@ -80,6 +87,7 @@ export function CodeAgentBehaviourSettingsSection({
   const behaviourValues = React.useCallback(
     (patch: Partial<BehaviourSettingsValues> = {}): BehaviourSettingsValues => ({
       idleSessionTimeoutMins,
+      observerSessionTimeoutMins,
       attentionSummaryEnabled,
       attentionSummaryDelayMins,
       attentionSummaryAgentId,
@@ -89,6 +97,7 @@ export function CodeAgentBehaviourSettingsSection({
     }),
     [
       idleSessionTimeoutMins,
+      observerSessionTimeoutMins,
       attentionSummaryEnabled,
       attentionSummaryDelayMins,
       attentionSummaryAgentId,
@@ -100,6 +109,7 @@ export function CodeAgentBehaviourSettingsSection({
   const isBehaviourDirty = React.useCallback(
     (values: BehaviourSettingsValues) =>
       values.idleSessionTimeoutMins !== savedIdleSessionTimeoutMins ||
+      values.observerSessionTimeoutMins !== savedObserverSessionTimeoutMins ||
       values.attentionSummaryEnabled !== savedAttentionSummaryEnabled ||
       values.attentionSummaryDelayMins !== savedAttentionSummaryDelayMins ||
       values.attentionSummaryAgentId !== savedAttentionSummaryAgentId ||
@@ -107,6 +117,7 @@ export function CodeAgentBehaviourSettingsSection({
       values.followupPolicy !== savedFollowupPolicy,
     [
       savedIdleSessionTimeoutMins,
+      savedObserverSessionTimeoutMins,
       savedAttentionSummaryEnabled,
       savedAttentionSummaryDelayMins,
       savedAttentionSummaryAgentId,
@@ -209,6 +220,14 @@ export function CodeAgentBehaviourSettingsSection({
     commitBehaviour({ idleSessionTimeoutMins: clamped });
   }, [commitBehaviour, idleSessionTimeoutMins, setIdleSessionTimeoutMins]);
 
+  const commitObserverTimeout = React.useCallback(() => {
+    const clamped = Math.min(1440, Math.max(1, observerSessionTimeoutMins || 1));
+    if (clamped !== observerSessionTimeoutMins) {
+      setObserverSessionTimeoutMins(clamped);
+    }
+    commitBehaviour({ observerSessionTimeoutMins: clamped });
+  }, [commitBehaviour, observerSessionTimeoutMins, setObserverSessionTimeoutMins]);
+
   const commitSummaryDelay = React.useCallback(() => {
     const clamped = Math.min(1440, Math.max(1, attentionSummaryDelayMins || 1));
     if (clamped !== attentionSummaryDelayMins) {
@@ -246,6 +265,40 @@ export function CodeAgentBehaviourSettingsSection({
                     setIdleSessionTimeoutMins(Math.max(1, Number(event.target.value) || 1))
                   }
                   onBlur={() => commitIdleTimeout()}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
+                    }
+                  }}
+                  className="h-8 w-20 text-center text-sm"
+                />
+                <span className="text-sm text-muted-foreground whitespace-nowrap">
+                  {t("behavior.minutes")}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="border-b border-border px-2 py-4">
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-foreground">
+                  {t("behavior.observerCleanupTitle")}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t("behavior.observerCleanupDescription")}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Input
+                  type="number"
+                  min={1}
+                  max={1440}
+                  value={observerSessionTimeoutMins}
+                  disabled={savingIdleTimeout}
+                  onChange={(event) =>
+                    setObserverSessionTimeoutMins(Math.max(1, Number(event.target.value) || 1))
+                  }
+                  onBlur={() => commitObserverTimeout()}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
                       event.currentTarget.blur();

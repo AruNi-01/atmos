@@ -276,9 +276,11 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
   const [syncingCustomEnabledIds, setSyncingCustomEnabledIds] = useState<Record<string, boolean>>({});
   const [removingCustomAgentIds, setRemovingCustomAgentIds] = useState<Record<string, boolean>>({});
   const [idleSessionTimeoutMins, setIdleSessionTimeoutMins] = useState<number>(30);
+  const [observerSessionTimeoutMins, setObserverSessionTimeoutMins] = useState<number>(30);
   const [followupPolicy, setFollowupPolicy] = useState<"queue" | "steer">("queue");
   const [savedFollowupPolicy, setSavedFollowupPolicy] = useState<"queue" | "steer">("queue");
   const [savedIdleSessionTimeoutMins, setSavedIdleSessionTimeoutMins] = useState<number>(30);
+  const [savedObserverSessionTimeoutMins, setSavedObserverSessionTimeoutMins] = useState<number>(30);
   const [attentionSummaryEnabled, setAttentionSummaryEnabled] = useState(true);
   const [savedAttentionSummaryEnabled, setSavedAttentionSummaryEnabled] = useState(true);
   const [attentionSummaryDelayMins, setAttentionSummaryDelayMins] = useState(5);
@@ -367,6 +369,9 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
       const timeout = behaviourData?.idle_session_timeout_mins ?? 30;
       setIdleSessionTimeoutMins(timeout);
       setSavedIdleSessionTimeoutMins(timeout);
+      const observerTimeout = behaviourData?.observer_session_timeout_mins ?? 30;
+      setObserverSessionTimeoutMins(observerTimeout);
+      setSavedObserverSessionTimeoutMins(observerTimeout);
       const followup = behaviourData?.followup_policy === "steer" ? "steer" : "queue";
       setFollowupPolicy(followup);
       setSavedFollowupPolicy(followup);
@@ -725,6 +730,7 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
   const handleCommitBehaviourSettings = React.useCallback(
     async (values: {
       idleSessionTimeoutMins: number;
+      observerSessionTimeoutMins: number;
       attentionSummaryEnabled: boolean;
       attentionSummaryDelayMins: number;
       attentionSummaryAgentId: string;
@@ -734,6 +740,7 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
       setSavingIdleTimeout(true);
       // Keep controlled inputs in sync when the commit carries clamped/normalized values.
       setIdleSessionTimeoutMins(values.idleSessionTimeoutMins);
+      setObserverSessionTimeoutMins(values.observerSessionTimeoutMins);
       setAttentionSummaryEnabled(values.attentionSummaryEnabled);
       setAttentionSummaryDelayMins(values.attentionSummaryDelayMins);
       setAttentionSummaryAgentId(values.attentionSummaryAgentId);
@@ -742,6 +749,7 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
       try {
         await agentBehaviourSettingsApi.update({
           idle_session_timeout_mins: values.idleSessionTimeoutMins,
+          observer_session_timeout_mins: values.observerSessionTimeoutMins,
           attention_summary_enabled: values.attentionSummaryEnabled,
           attention_summary_delay_mins: values.attentionSummaryDelayMins,
           attention_summary_agent_id: values.attentionSummaryAgentId,
@@ -749,6 +757,7 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
           followup_policy: values.followupPolicy,
         });
         setSavedIdleSessionTimeoutMins(values.idleSessionTimeoutMins);
+        setSavedObserverSessionTimeoutMins(values.observerSessionTimeoutMins);
         setSavedAttentionSummaryEnabled(values.attentionSummaryEnabled);
         setSavedAttentionSummaryDelayMins(values.attentionSummaryDelayMins);
         setSavedAttentionSummaryAgentId(values.attentionSummaryAgentId);
@@ -1128,6 +1137,7 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
                     customAgents={customAgents}
                     customAgentsExpanded={customAgentsExpanded}
                     idleSessionTimeoutMins={idleSessionTimeoutMins}
+                    observerSessionTimeoutMins={observerSessionTimeoutMins}
                     attentionSummaryEnabled={attentionSummaryEnabled}
                     attentionSummaryDelayMins={attentionSummaryDelayMins}
                     attentionSummaryAgentId={attentionSummaryAgentId}
@@ -1140,6 +1150,7 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
                     savedAgentCustomSettings={savedAgentCustomSettings}
                     savedCustomAgents={savedCustomAgents}
                     savedIdleSessionTimeoutMins={savedIdleSessionTimeoutMins}
+                    savedObserverSessionTimeoutMins={savedObserverSessionTimeoutMins}
                     savedAttentionSummaryEnabled={savedAttentionSummaryEnabled}
                     savedAttentionSummaryDelayMins={savedAttentionSummaryDelayMins}
                     savedAttentionSummaryAgentId={savedAttentionSummaryAgentId}
@@ -1185,6 +1196,7 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
                     setCustomAgentOpen={setCustomAgentOpen}
                     setCustomAgentsExpanded={setCustomAgentsExpanded}
                     setIdleSessionTimeoutMins={setIdleSessionTimeoutMins}
+                    setObserverSessionTimeoutMins={setObserverSessionTimeoutMins}
                     setAttentionSummaryEnabled={setAttentionSummaryEnabled}
                     setAttentionSummaryDelayMins={setAttentionSummaryDelayMins}
                     setAttentionSummaryAgentId={setAttentionSummaryAgentId}

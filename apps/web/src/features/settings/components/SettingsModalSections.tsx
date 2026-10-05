@@ -74,6 +74,7 @@ interface SettingsModalSectionsProps {
   customAgents: CodeAgentCustomEntry[];
   customAgentsExpanded: boolean;
   idleSessionTimeoutMins: number;
+  observerSessionTimeoutMins: number;
   attentionSummaryEnabled: boolean;
   attentionSummaryDelayMins: number;
   attentionSummaryAgentId: string;
@@ -86,6 +87,7 @@ interface SettingsModalSectionsProps {
   savedAgentCustomSettings: BuiltInAgentSettings;
   savedCustomAgents: CodeAgentCustomEntry[];
   savedIdleSessionTimeoutMins: number;
+  savedObserverSessionTimeoutMins: number;
   savedAttentionSummaryEnabled: boolean;
   savedAttentionSummaryDelayMins: number;
   savedAttentionSummaryAgentId: string;
@@ -112,6 +114,7 @@ interface SettingsModalSectionsProps {
   onSaveCustomAgent: (id: string) => void;
   onCommitBehaviourSettings: (values: {
     idleSessionTimeoutMins: number;
+    observerSessionTimeoutMins: number;
     attentionSummaryEnabled: boolean;
     attentionSummaryDelayMins: number;
     attentionSummaryAgentId: string;
@@ -124,6 +127,7 @@ interface SettingsModalSectionsProps {
   setCustomAgentOpen: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   setCustomAgentsExpanded: React.Dispatch<React.SetStateAction<boolean>>;
   setIdleSessionTimeoutMins: React.Dispatch<React.SetStateAction<number>>;
+  setObserverSessionTimeoutMins: React.Dispatch<React.SetStateAction<number>>;
   setAttentionSummaryEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   setAttentionSummaryDelayMins: React.Dispatch<React.SetStateAction<number>>;
   setAttentionSummaryAgentId: React.Dispatch<React.SetStateAction<string>>;
@@ -232,6 +236,7 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           customAgents={props.customAgents}
           customAgentsExpanded={props.customAgentsExpanded}
           idleSessionTimeoutMins={props.idleSessionTimeoutMins}
+          observerSessionTimeoutMins={props.observerSessionTimeoutMins}
           attentionSummaryEnabled={props.attentionSummaryEnabled}
           attentionSummaryDelayMins={props.attentionSummaryDelayMins}
           attentionSummaryAgentId={props.attentionSummaryAgentId}
@@ -244,6 +249,7 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           savedAgentCustomSettings={props.savedAgentCustomSettings}
           savedCustomAgents={props.savedCustomAgents}
           savedIdleSessionTimeoutMins={props.savedIdleSessionTimeoutMins}
+          savedObserverSessionTimeoutMins={props.savedObserverSessionTimeoutMins}
           savedAttentionSummaryEnabled={props.savedAttentionSummaryEnabled}
           savedAttentionSummaryDelayMins={props.savedAttentionSummaryDelayMins}
           savedAttentionSummaryAgentId={props.savedAttentionSummaryAgentId}
@@ -275,6 +281,7 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           setCustomAgentOpen={props.setCustomAgentOpen}
           setCustomAgentsExpanded={props.setCustomAgentsExpanded}
           setIdleSessionTimeoutMins={props.setIdleSessionTimeoutMins}
+          setObserverSessionTimeoutMins={props.setObserverSessionTimeoutMins}
           setAttentionSummaryEnabled={props.setAttentionSummaryEnabled}
           setAttentionSummaryDelayMins={props.setAttentionSummaryDelayMins}
           setAttentionSummaryAgentId={props.setAttentionSummaryAgentId}

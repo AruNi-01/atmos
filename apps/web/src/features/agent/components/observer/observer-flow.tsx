@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import {
   Handle,
   Position,
@@ -10,7 +10,7 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import { ChevronRight, FolderGit2, GitBranch, Monitor } from "lucide-react";
-import { useLayoutEffect, useRef, useState } from "react";
+import { createContext, useContext, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   MatrixOrb,
@@ -41,11 +41,30 @@ import {
 import type { AttentionReason } from "@/features/agent/store/agent-attention-store";
 import {
   observerCardCanFold,
+  observerCardLastActiveAt,
+  observerLastActiveBucket,
   observerLeadPrompt,
   observerLiveHeadline,
   observerNodeTitle,
   type ObserverGraphNode,
 } from "@/features/agent/lib/agent-observer-graph";
+
+const ObserverNowContext = createContext<number | null>(null);
+
+/** Shared clock so card labels and the idle filter tick together. */
+export function ObserverNowProvider({
+  now,
+  children,
+}: {
+  now: number;
+  children: ReactNode;
+}) {
+  return <ObserverNowContext.Provider value={now}>{children}</ObserverNowContext.Provider>;
+}
+
+function useObserverNow(): number {
+  return useContext(ObserverNowContext) ?? Date.now();
+}
 
 export type ObserverPresence = "live" | "exit";
 
@@ -289,7 +308,6 @@ function ObserverNodeCard({
   }, [data, onHeight]);
   const statusBucket = agentStatusBucket(data, attentionReason);
   const caption = [
-    data.kind === "agent" && headline !== name ? name : null,
     data.chat ? t("chat") : data.sideChat ? t("sideChat") : null,
     data.kind === "agent" && data.turnCount > 0
       ? t("turns", { count: data.turnCount })
@@ -302,6 +320,18 @@ function ObserverNodeCard({
       ? t("members", { count: data.childCount })
       : null,
   ].filter(Boolean);
+  const now = useObserverNow();
+  const lastActiveAt = observerCardLastActiveAt(data);
+  const lastActiveBucket = observerLastActiveBucket(lastActiveAt, now);
+  const lastActiveLabel = !lastActiveBucket
+    ? null
+    : lastActiveBucket.kind === "justNow"
+      ? t("lastActiveJustNow")
+      : lastActiveBucket.kind === "minutes"
+        ? t("lastActiveMinutes", { count: lastActiveBucket.count })
+        : lastActiveBucket.kind === "hours"
+          ? t("lastActiveHours", { count: lastActiveBucket.count })
+          : t("lastActiveDays", { count: lastActiveBucket.count });
 
   const handleStyle = {
     width: 8,
@@ -414,7 +444,7 @@ function ObserverNodeCard({
               {shownWell}
             </div>
           )}
-          {statusBucket || caption.length > 0 ? (
+          {statusBucket || caption.length > 0 || lastActiveLabel ? (
             <div className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] leading-4 text-muted-foreground">
               {statusBucket ? <FooterAgentStatusMark bucket={statusBucket} /> : null}
               {caption.length > 0 ? (
@@ -422,6 +452,15 @@ function ObserverNodeCard({
                   {statusBucket ? "· " : ""}
                   {caption.join(" · ")}
                 </span>
+              ) : null}
+              {lastActiveLabel ? (
+                <time
+                  className="ml-auto shrink-0 tabular-nums"
+                  dateTime={lastActiveAt}
+                  title={lastActiveAt ? new Date(lastActiveAt).toLocaleString() : undefined}
+                >
+                  {lastActiveLabel}
+                </time>
               ) : null}
             </div>
           ) : null}

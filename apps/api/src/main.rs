@@ -323,6 +323,7 @@ async fn register_idle_session_cleanup_job(
                     // Force stuck running / permission sessions idle when hooks never
                     // reported a terminal event after interrupt or process death.
                     agent_status_service.clear_stale_active_older_than(timeouts.active_stale_mins);
+                    agent_status_service.clear_observer_activity_older_than(timeouts.observer_mins);
                     Ok(())
                 }
             },
@@ -425,6 +426,7 @@ async fn tick_attention_auto_summary(
 struct AgentStatusSessionTimeouts {
     idle_mins: u64,
     active_stale_mins: u64,
+    observer_mins: u64,
 }
 
 fn terminal_code_agent_settings_path() -> std::path::PathBuf {
@@ -439,17 +441,20 @@ fn terminal_code_agent_settings_path() -> std::path::PathBuf {
 fn read_agent_hook_session_timeouts() -> AgentStatusSessionTimeouts {
     const DEFAULT_IDLE: u64 = 30;
     const DEFAULT_ACTIVE_STALE: u64 = 30;
+    const DEFAULT_OBSERVER: u64 = 30;
     let path = terminal_code_agent_settings_path();
     let Ok(content) = std::fs::read_to_string(&path) else {
         return AgentStatusSessionTimeouts {
             idle_mins: DEFAULT_IDLE,
             active_stale_mins: DEFAULT_ACTIVE_STALE,
+            observer_mins: DEFAULT_OBSERVER,
         };
     };
     let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) else {
         return AgentStatusSessionTimeouts {
             idle_mins: DEFAULT_IDLE,
             active_stale_mins: DEFAULT_ACTIVE_STALE,
+            observer_mins: DEFAULT_OBSERVER,
         };
     };
     AgentStatusSessionTimeouts {
@@ -461,6 +466,10 @@ fn read_agent_hook_session_timeouts() -> AgentStatusSessionTimeouts {
             .get("active_session_stale_mins")
             .and_then(|v| v.as_u64())
             .unwrap_or(DEFAULT_ACTIVE_STALE),
+        observer_mins: val
+            .get("observer_session_timeout_mins")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(DEFAULT_OBSERVER),
     }
 }
 

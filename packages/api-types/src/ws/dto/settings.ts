@@ -105,6 +105,8 @@ export type CodeAgentCustomUpdateRequest = {
 
 export type AgentBehaviourSettings = {
   idle_session_timeout_mins: number;
+  /** Minutes of inactivity before an Agent Observer card is removed. Default 30. */
+  observer_session_timeout_mins?: number;
   attention_summary_enabled?: boolean;
   attention_summary_delay_mins?: number;
   attention_summary_agent_id?: string | null;
@@ -114,6 +116,7 @@ export type AgentBehaviourSettings = {
 
 export type AgentBehaviourSettingsUpdateRequest = {
   idle_session_timeout_mins: number;
+  observer_session_timeout_mins?: number | null;
   attention_summary_enabled?: boolean | null;
   attention_summary_delay_mins?: number | null;
   attention_summary_agent_id?: string | null;

@@ -252,6 +252,9 @@ export const settingsBootstrapCache = {
         next.code_agent_custom = {
           ...current.code_agent_custom,
           idle_session_timeout_mins: settings.idle_session_timeout_mins,
+          ...(settings.observer_session_timeout_mins != null
+            ? { observer_session_timeout_mins: settings.observer_session_timeout_mins }
+            : {}),
         };
       }
       return next;

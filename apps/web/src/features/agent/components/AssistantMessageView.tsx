@@ -172,9 +172,11 @@ export function AssistantMessageView({
     [segments],
   );
 
-  const canCollapse = hasCollapsibleAssistantProcess(message);
+  // Same visible rows as the fold body. Nested children count as process on the
+  // raw part list, then segmenting drops them, which used to leave "Worked for"
+  // opening onto an empty panel.
+  const canCollapse = processSegments.length > 0 && hasCollapsibleAssistantProcess(message);
   const [stepsExpanded, setStepsExpanded] = useState(false);
-  const [processMounted, setProcessMounted] = useState(false);
   const [userInspecting, setUserInspecting] = useState(false);
   const [userOpenedGroups, setUserOpenedGroups] = useState<Record<string, boolean>>({});
   const wasCollapsibleRef = useRef(false);
@@ -190,10 +192,6 @@ export function AssistantMessageView({
     );
   }
   wasCollapsibleRef.current = canCollapse;
-
-  if (stepsExpanded && !processMounted) {
-    setProcessMounted(true);
-  }
 
   const renderPart = (part: AgentPart, _origIndex: number) => (
     <AgentPartView
@@ -270,10 +268,8 @@ export function AssistantMessageView({
               )}
             />
           </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-2 pt-1">
-            {stepsExpanded
-              ? processSegments.map((segment) => renderSegment(segment, false))
-              : null}
+          <CollapsibleContent className="space-y-2 pt-1 data-[state=open]:overflow-visible">
+            {processSegments.map((segment) => renderSegment(segment, false))}
           </CollapsibleContent>
           <ProcessCollapseRail
             expanded={stepsExpanded}
@@ -286,11 +282,12 @@ export function AssistantMessageView({
     );
   }
 
+  // Streaming keeps the settled split, so a reply that began before the tools
+  // still paints under them instead of growing in the part that started first.
   return (
     <AssistantProcessInspectProvider onInspect={markInspecting}>
-      {segments.map((segment) =>
-        renderSegment(segment, tailSegments.includes(segment)),
-      )}
+      {processSegments.map((segment) => renderSegment(segment, false))}
+      {tailSegments.map((segment) => renderSegment(segment, true))}
     </AssistantProcessInspectProvider>
   );
 }

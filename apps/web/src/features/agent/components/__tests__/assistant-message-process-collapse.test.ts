@@ -36,7 +36,10 @@ describe("assistant process collapse chrome", () => {
     const railAt = view.indexOf("<ProcessCollapseRail");
     expect(contentAt).toBeGreaterThan(-1);
     expect(railAt).toBeGreaterThan(contentAt);
-    expect(view).toContain("processMounted");
+    expect(view).toContain("processSegments.length > 0");
+    expect(view).toContain('className="space-y-2 pt-1 data-[state=open]:overflow-visible"');
+    expect(view).not.toContain("processMounted");
+    expect(view).not.toContain("stepsExpanded\n              ? processSegments");
     expect(view).toContain("collapseLabel");
     expect(view).not.toContain("ProcessDivider");
     expect(view).not.toContain("assistantTurn.process.show");
@@ -70,7 +73,9 @@ describe("assistant process collapse chrome", () => {
   it("reveals answer text with the same stream entrance as process rows", () => {
     expect(view).toContain("AgentStreamReveal");
     expect(view).toContain("foldedPartKey(segment.part, segment.origIndex)");
-    expect(view).toContain("segments.map((segment) =>");
+    expect(view).toContain("processSegments.map((segment) => renderSegment(segment, false))");
+    expect(view).toContain("tailSegments.map((segment) => renderSegment(segment, true))");
+    expect(view).not.toContain("segments.map((segment) =>");
     expect(view).not.toContain("return <React.Fragment key={segment.origIndex}>{content}</React.Fragment>");
     expect(view).not.toContain('parts.find((part) => part.type === "text")');
     expect(view).not.toContain("assistant_message_delta");

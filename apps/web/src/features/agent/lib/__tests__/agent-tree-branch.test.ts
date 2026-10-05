@@ -129,10 +129,12 @@ describe("agent tree wiring", () => {
     expect(group).toContain("AgentToolDiffStats");
     expect(group).toContain("sumToolGroupDiffStats");
     expect(group).toContain("renderPart");
-    // Rows own their own strokes so layout, not a measured overlay, places them.
-    expect(group).toContain("AgentTreeBranch");
-    expect(group).toContain("animate={index >= watermark}");
-    expect(group).toContain("treeEnterDelayMs");
+    // BoardUI log rows own the guide and the blur-in. Already-seen rows stay put.
+    expect(group).toContain("LogRow");
+    expect(group).toContain("instant={index < watermark}");
+    // Trunk sits under the centre of the size-4 group icon.
+    expect(group).toContain("ms-2 flex list-none flex-col p-0");
+    expect(group).not.toContain("AgentTreeBranch");
     expect(group).not.toContain("AgentTreeNetwork");
     expect(group).not.toContain("ResizeObserver");
     expect(group).not.toContain('data-tree-row=""');
@@ -162,17 +164,51 @@ describe("agent tree wiring", () => {
       join(import.meta.dir, "../../components/tool-results/AgentToolBodies.tsx"),
       "utf8",
     );
-    expect(body).toContain("WEBSEARCH_EXPAND_MS");
-    expect(body).toContain("data-websearch-list");
-    expect(body).toContain("data-websearch-stack");
-    expect(body).toContain("grid-template-rows");
-    expect(body).toContain("grid-template-columns");
-    expect(body).toContain("layoutId");
-    expect(body).toContain("inert={!open ? true : undefined}");
-    expect(body).toContain("animate={open}");
-    expect(body).not.toContain("useCountedReveal");
-    expect(body).not.toContain("stackedRemaining");
+    const search = readFileSync(
+      join(import.meta.dir, "../../components/boardui/web-search.tsx"),
+      "utf8",
+    );
+    expect(body).toContain("WebSearch");
+    expect(body).toContain("AgentToolWebSearchBody");
+    const searchFn = body.slice(
+      body.indexOf("export function AgentToolWebSearchBody"),
+      body.indexOf("export function AgentToolWebFetchBody"),
+    );
+    expect(searchFn).toContain('label: ""');
+    expect(searchFn).not.toContain("label: query");
+    const stackAt = search.indexOf('data-websearch-stack=""');
+    const stackEnd = search.indexOf("</motion.span>", stackAt);
+    const overflowAt = search.indexOf("+{overflow}");
+    const chevronAt = search.indexOf("<ChevronDown");
+    expect(stackAt).toBeGreaterThan(-1);
+    expect(stackEnd).toBeGreaterThan(stackAt);
+    expect(overflowAt).toBeGreaterThan(stackEnd);
+    expect(chevronAt).toBeGreaterThan(overflowAt);
+    expect(body).toContain("AgentToolWebFetchBody");
+    const fetchBody = body.slice(body.indexOf("export function AgentToolWebFetchBody"));
+    const fetchFn = fetchBody.slice(0, fetchBody.indexOf("\nfunction AgentToolClickablePath"));
+    expect(fetchFn).not.toContain("WebSearch");
+    expect(fetchFn).not.toContain("sourcesLabel");
+    expect(search).toContain("data-websearch-list");
+    expect(search).toContain("data-websearch-stack");
+    expect(search).toContain("layoutId");
+    expect(search).toContain("animate={{ height: visible ? \"auto\" : 0 }}");
+    expect(search).not.toContain("useCountedReveal");
+    expect(search).not.toContain("stackedRemaining");
     expect(body).not.toContain("WEBSEARCH_LINE_MS");
+    expect(body).not.toContain("AgentTreeBranch");
+    const log = readFileSync(
+      join(import.meta.dir, "../../components/boardui/agent-log.tsx"),
+      "utf8",
+    );
+    // Joints share pixels. Opaque ink stays one tone; alpha composites darker.
+    expect(log).toContain("color-mix(in srgb, var(--muted-foreground) 45%, var(--background))");
+    expect(log).not.toContain("text-muted-foreground/45");
+    const block = readFileSync(
+      join(import.meta.dir, "../../components/tool-results/AgentToolResultBlock.tsx"),
+      "utf8",
+    );
+    expect(block).not.toContain("failed && !text ? <AgentToolEmptyBody");
   });
 
   it("keeps tool titles static when idle; shimmer only while running", () => {

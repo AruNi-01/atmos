@@ -137,6 +137,10 @@ export type AgentActivity = {
   surface_id?: string | null;
   space_id?: string | null;
   provider_id?: string | null;
+  /** Vendor session id (`session_id` / `sessionId`). Agent Sessions are keyed by this GUID. */
+  native_session_id?: string | null;
+  /** Host-session provider (`claude`, `grok`, …) for `native_session_id`. */
+  host_provider_id?: string | null;
   last_state: AgentOccupancy;
   live_kind?: AgentLiveKind;
   pending_permission?: AgentPendingPermission | null;

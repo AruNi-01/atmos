@@ -23,11 +23,10 @@ import {
 } from "@/features/agent/lib/tool-group";
 import { sumToolGroupDiffStats } from "@/features/agent/lib/tool-results/diff-stats";
 import { useTreeRowReveal } from "@/features/agent/hooks/use-sequential-reveal";
-import { treeEnterDelayMs } from "@/features/agent/lib/agent-tree-branch";
 import { AgentTreeRevealProvider } from "./agent-tree-reveal-context";
 import { useMarkAssistantProcessInspecting } from "./assistant-process-inspect-context";
+import { LogRow } from "./boardui/agent-log";
 import { AgentToolDiffStats } from "./tool-results/AgentToolCard";
-import { AgentTreeBranch } from "./AgentTreeBranch";
 import { foldedPartKey } from "./folded-agent-part";
 
 export function AgentToolGroupView({
@@ -125,24 +124,22 @@ export function AgentToolGroupView({
       </CollapsibleTrigger>
       <CollapsibleContent className="data-[state=open]:overflow-visible">
         <AgentTreeRevealProvider reveal={arriving > 0}>
-          {rows.map((row, index) => {
-            const itemKey = foldedPartKey(row.part, row.origIndex);
-            return (
-              <AgentTreeBranch
-                key={itemKey}
-                isFirst={index === 0}
-                isLast={index === rows.length - 1}
-                animate={index >= watermark}
-                delayMs={
-                  index >= watermark
-                    ? treeEnterDelayMs(index - watermark, 0, arriving)
-                    : 0
-                }
-              >
-                {row.rendered}
-              </AgentTreeBranch>
-            );
-          })}
+          {/* ms-2 sits the 1px trunk under the centre of the size-4 header icon. */}
+          <ul className="mt-0.5 ms-2 flex list-none flex-col p-0">
+            {rows.map((row, index) => {
+              const itemKey = foldedPartKey(row.part, row.origIndex);
+              return (
+                <LogRow
+                  key={itemKey}
+                  first={index === 0}
+                  last={index === rows.length - 1}
+                  instant={index < watermark}
+                >
+                  {row.rendered}
+                </LogRow>
+              );
+            })}
+          </ul>
         </AgentTreeRevealProvider>
       </CollapsibleContent>
     </Collapsible>

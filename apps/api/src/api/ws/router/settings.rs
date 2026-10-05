@@ -105,6 +105,10 @@ impl WsMessageService {
             .get("idle_session_timeout_mins")
             .and_then(|v| v.as_u64())
             .unwrap_or(30);
+        let observer_timeout = val
+            .get("observer_session_timeout_mins")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(30);
         let summary_settings = core_service::AttentionSummarySettings::from_json(&val);
         let followup_policy = val
             .get("followup_policy")
@@ -112,6 +116,7 @@ impl WsMessageService {
             .unwrap_or("queue");
         Ok(json!({
             "idle_session_timeout_mins": timeout,
+            "observer_session_timeout_mins": observer_timeout,
             "attention_summary_enabled": summary_settings.enabled,
             "attention_summary_delay_mins": summary_settings.delay_mins,
             "attention_summary_agent_id": summary_settings.agent_id,
@@ -255,6 +260,10 @@ impl WsMessageService {
             json!({ "agents": [] })
         };
         val["idle_session_timeout_mins"] = json!(req.idle_session_timeout_mins);
+        if let Some(timeout) = req.observer_session_timeout_mins {
+            let timeout = timeout.clamp(1, 24 * 60);
+            val["observer_session_timeout_mins"] = json!(timeout);
+        }
         if let Some(enabled) = req.attention_summary_enabled {
             val["attention_summary_enabled"] = json!(enabled);
         }

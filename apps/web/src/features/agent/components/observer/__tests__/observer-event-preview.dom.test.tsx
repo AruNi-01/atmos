@@ -318,6 +318,74 @@ describe("ObserverEventPreview", () => {
     expect(container.querySelectorAll("[data-observer-files]").length).toBeGreaterThan(0);
   });
 
+  it("keeps earlier turns and puts each child on the turn that spawned it", () => {
+    const container = renderPreview(activity({
+      current_turn_id: 2,
+      current_tool: line({ name: "Bash", kind: "execute", detail: "ls" }),
+      turns: [
+        {
+          turn_id: 1,
+          prompt: "delegate",
+          reply: "Sent the scan.",
+          started_at: "t",
+          ended_at: "t2",
+          tools: [line({ name: "Edit", kind: "edit", path: "src/b.ts", diff: PATCH, output: PATCH })],
+          todos: [],
+          spawned_child_ids: ["sa-a"],
+        },
+        {
+          turn_id: 2,
+          prompt: "please refactor the observer drawer and keep the cards",
+          started_at: "t3",
+          tools: [],
+          todos: [],
+          spawned_child_ids: [],
+        },
+      ],
+      children: [
+        {
+          child_id: "sa-a",
+          name: "Explore · scan specs",
+          agent_type: "Explore",
+          description: "scan specs",
+          prompt: "You are exploring the Atmos monorepo at /tmp",
+          reply: "Found the specs index.",
+          state: "idle",
+          recent_tools: [],
+          started_at: "t",
+          last_event_at: "t",
+        },
+        {
+          child_id: "orphan",
+          name: "General",
+          agent_type: "general",
+          description: "still loose",
+          state: "running",
+          recent_tools: [],
+          started_at: "t",
+          last_event_at: "t",
+        },
+      ],
+    }));
+
+    const first = container.querySelector("[data-observer-turn='1']");
+    const second = container.querySelector("[data-observer-turn='2']");
+    expect(first?.textContent).toContain("delegate");
+    expect(first?.textContent).toContain("Sent the scan.");
+    expect(first?.querySelector("[data-observer-nested-subagent='sa-a']")).toBeTruthy();
+    expect(first?.querySelector("[data-observer-nested-subagent='orphan']")).toBeNull();
+    expect(first?.querySelector("[data-observer-tool='Bash']")).toBeNull();
+    expect(first?.querySelector("[data-observer-files]")).toBeTruthy();
+
+    expect(second?.textContent).toContain("please refactor the observer drawer and keep the cards");
+    expect(second?.textContent).not.toContain("delegate");
+    expect(second?.querySelector("[data-observer-nested-subagent='sa-a']")).toBeNull();
+    expect(second?.querySelector("[data-observer-nested-subagent='orphan']")).toBeTruthy();
+    expect(second?.textContent).not.toContain("Found the specs index.");
+    expect(second?.querySelector("[data-observer-tool='Bash']")).toBeTruthy();
+    expect(second?.querySelector("[data-observer-files]")).toBeNull();
+  });
+
   it("hides the files card while the lead turn is still open", () => {
     const container = renderPreview(activity({
       turns: [

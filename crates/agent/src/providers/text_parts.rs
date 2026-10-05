@@ -121,6 +121,26 @@ impl TextParts {
         }
     }
 
+    /// Close the synthesized part for `(message_id, kind)`, if one is open.
+    /// The next `nested_chunk` for that key starts a new part. Nested subagent
+    /// streams stay out of `open`, so a child tool has to close them explicitly —
+    /// otherwise the final reply keeps growing in the part that started before
+    /// the tools and paints above them.
+    pub(crate) fn close_synthesized(
+        &mut self,
+        message_id: &str,
+        kind: TextKind,
+    ) -> Option<AgentEvent> {
+        let part_id = self
+            .synthesized
+            .get(&(message_id.to_string(), kind))?
+            .clone();
+        if !self.parts.contains_key(&part_id) {
+            return None;
+        }
+        Some(self.close(part_id, None))
+    }
+
     /// Close `part_id`. A later chunk for the same vendor key opens a new part.
     pub(crate) fn close(&mut self, part_id: String, duration_ms: Option<u64>) -> AgentEvent {
         self.open.retain(|(id, _)| id != &part_id);
@@ -234,6 +254,42 @@ impl TextParts {
         *next += 1;
         ordinal
     }
+}
+
+/// Close the nested answer and thinking parts hanging off `parent_tool_call_id`
+/// before `next` (a newly seen child tool). Host tools do not call this: those
+/// parts are outside the open set on purpose, so a host tool cannot seal them.
+pub(crate) fn close_nested_subagent_text(
+    parts: &mut TextParts,
+    pending: &mut VecDeque<AgentEventEnvelope>,
+    turn_id: Option<String>,
+    parent_tool_call_id: &str,
+    next: AgentEventEnvelope,
+) -> AgentEventEnvelope {
+    let specs = [
+        (
+            format!("subagent-text:{parent_tool_call_id}"),
+            TextKind::Answer,
+        ),
+        (
+            format!("subagent-think:{parent_tool_call_id}"),
+            TextKind::Thinking,
+        ),
+    ];
+    let mut closed = Vec::new();
+    for (message_id, kind) in specs {
+        if let Some(event) = parts.close_synthesized(&message_id, kind) {
+            closed.push(AgentEventEnvelope::new(turn_id.clone(), event));
+        }
+    }
+    let Some(head) = closed.first().cloned() else {
+        return next;
+    };
+    for event in closed.into_iter().skip(1) {
+        pending.push_back(event);
+    }
+    pending.push_back(next);
+    head
 }
 
 /// Close every open part of `kind` ahead of `next`, keeping the existing

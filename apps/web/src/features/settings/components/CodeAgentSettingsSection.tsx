@@ -56,6 +56,7 @@ interface CodeAgentSettingsSectionProps {
   customAgents: CodeAgentCustomEntry[];
   customAgentsExpanded: boolean;
   idleSessionTimeoutMins: number;
+  observerSessionTimeoutMins: number;
   attentionSummaryEnabled: boolean;
   attentionSummaryDelayMins: number;
   attentionSummaryAgentId: string;
@@ -68,6 +69,7 @@ interface CodeAgentSettingsSectionProps {
   savedAgentCustomSettings: BuiltInAgentSettings;
   savedCustomAgents: CodeAgentCustomEntry[];
   savedIdleSessionTimeoutMins: number;
+  savedObserverSessionTimeoutMins: number;
   savedAttentionSummaryEnabled: boolean;
   savedAttentionSummaryDelayMins: number;
   savedAttentionSummaryAgentId: string;
@@ -99,6 +101,7 @@ interface CodeAgentSettingsSectionProps {
   setCustomAgentOpen: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   setCustomAgentsExpanded: React.Dispatch<React.SetStateAction<boolean>>;
   setIdleSessionTimeoutMins: React.Dispatch<React.SetStateAction<number>>;
+  setObserverSessionTimeoutMins: React.Dispatch<React.SetStateAction<number>>;
   setAttentionSummaryEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   setAttentionSummaryDelayMins: React.Dispatch<React.SetStateAction<number>>;
   setAttentionSummaryAgentId: React.Dispatch<React.SetStateAction<string>>;
@@ -115,6 +118,7 @@ export function CodeAgentSettingsSection({
   customAgents,
   customAgentsExpanded,
   idleSessionTimeoutMins,
+  observerSessionTimeoutMins,
   attentionSummaryEnabled,
   attentionSummaryDelayMins,
   attentionSummaryAgentId,
@@ -127,6 +131,7 @@ export function CodeAgentSettingsSection({
   savedAgentCustomSettings,
   savedCustomAgents,
   savedIdleSessionTimeoutMins,
+  savedObserverSessionTimeoutMins,
   savedAttentionSummaryEnabled,
   savedAttentionSummaryDelayMins,
   savedAttentionSummaryAgentId,
@@ -158,6 +163,7 @@ export function CodeAgentSettingsSection({
   setCustomAgentOpen,
   setCustomAgentsExpanded,
   setIdleSessionTimeoutMins,
+  setObserverSessionTimeoutMins,
   setAttentionSummaryEnabled,
   setAttentionSummaryDelayMins,
   setAttentionSummaryAgentId,
@@ -444,12 +450,14 @@ export function CodeAgentSettingsSection({
 
       <CodeAgentBehaviourSettingsSection
         idleSessionTimeoutMins={idleSessionTimeoutMins}
+        observerSessionTimeoutMins={observerSessionTimeoutMins}
         attentionSummaryEnabled={attentionSummaryEnabled}
         attentionSummaryDelayMins={attentionSummaryDelayMins}
         attentionSummaryAgentId={attentionSummaryAgentId}
         attentionSummaryModel={attentionSummaryModel}
         followupPolicy={followupPolicy}
         savedIdleSessionTimeoutMins={savedIdleSessionTimeoutMins}
+        savedObserverSessionTimeoutMins={savedObserverSessionTimeoutMins}
         savedAttentionSummaryEnabled={savedAttentionSummaryEnabled}
         savedAttentionSummaryDelayMins={savedAttentionSummaryDelayMins}
         savedAttentionSummaryAgentId={savedAttentionSummaryAgentId}
@@ -458,6 +466,7 @@ export function CodeAgentSettingsSection({
         savingIdleTimeout={savingIdleTimeout}
         onCommitBehaviourSettings={onCommitBehaviourSettings}
         setIdleSessionTimeoutMins={setIdleSessionTimeoutMins}
+        setObserverSessionTimeoutMins={setObserverSessionTimeoutMins}
         setAttentionSummaryEnabled={setAttentionSummaryEnabled}
         setAttentionSummaryDelayMins={setAttentionSummaryDelayMins}
         setAttentionSummaryAgentId={setAttentionSummaryAgentId}

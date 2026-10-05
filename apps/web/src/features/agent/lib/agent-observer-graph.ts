@@ -91,6 +91,71 @@ export function observerCardCanRemove(
   return true;
 }
 
+/** Default Agent Observer card idle timeout. Matches Agent State idle cleanup. */
+export const OBSERVER_SESSION_TIMEOUT_MINS_DEFAULT = 30;
+
+const MINUTE_MS = 60_000;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
+
+export type ObserverLastActiveBucket =
+  | { kind: "justNow" }
+  | { kind: "minutes"; count: number }
+  | { kind: "hours"; count: number }
+  | { kind: "days"; count: number };
+
+function stampMs(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+/**
+ * A lead leaves the observer once its own clock is older than `timeoutMins`.
+ * Activity `last_event_at` wins when it parses. Otherwise the occupancy
+ * timestamp is the clock. No parseable stamp keeps the card. Timeout <= 0
+ * never expires. Subagents are not checked on their own.
+ */
+export function observerMemberExpired(
+  session: { timestamp?: string | null } | undefined,
+  activity: { last_event_at?: string | null } | undefined,
+  timeoutMins: number,
+  now: number,
+): boolean {
+  if (!Number.isFinite(timeoutMins) || timeoutMins <= 0 || !Number.isFinite(now)) return false;
+  const activityStamp = stampMs(activity?.last_event_at);
+  const sessionStamp = stampMs(session?.timestamp);
+  const last = activityStamp ?? sessionStamp;
+  if (last == null) return false;
+  return now - last > timeoutMins * MINUTE_MS;
+}
+
+/** Clock shown on an agent or subagent card. Group cards have none. */
+export function observerCardLastActiveAt(
+  node: Pick<ObserverGraphNode, "kind" | "activity" | "session" | "child">,
+): string | undefined {
+  if (node.kind === "subagent") {
+    return node.child?.last_event_at || node.activity?.last_event_at || node.session?.timestamp || undefined;
+  }
+  if (node.kind === "agent") {
+    return node.activity?.last_event_at || node.session?.timestamp || undefined;
+  }
+  return undefined;
+}
+
+export function observerLastActiveBucket(
+  iso: string | undefined,
+  now: number,
+): ObserverLastActiveBucket | null {
+  const ms = stampMs(iso);
+  if (ms == null || !Number.isFinite(now)) return null;
+  const delta = Math.max(0, now - ms);
+  if (delta < MINUTE_MS) return { kind: "justNow" };
+  if (delta < HOUR_MS) return { kind: "minutes", count: Math.floor(delta / MINUTE_MS) };
+  if (delta < DAY_MS) return { kind: "hours", count: Math.floor(delta / HOUR_MS) };
+  return { kind: "days", count: Math.floor(delta / DAY_MS) };
+}
+
 const VISIBLE_TURNS = 8;
 
 function formatToolLine(tool: { name: string; detail?: string | null }): string {
@@ -183,6 +248,8 @@ export function buildObserverGraph({
   collapsedIds,
   expandedAgentIds,
   computerName,
+  sessionTimeoutMins,
+  now = Date.now(),
 }: {
   projects: Project[];
   sessions: Iterable<AgentStatusRecord>;
@@ -190,6 +257,10 @@ export function buildObserverGraph({
   collapsedIds: Set<string>;
   expandedAgentIds: Set<string>;
   computerName?: string;
+  /** Minutes without activity before a lead card leaves. Omit to keep every member. */
+  sessionTimeoutMins?: number;
+  /** Epoch milliseconds for the inactivity check. */
+  now?: number;
 }): ObserverGraph {
   const sessionMap = new Map<string, AgentStatusRecord>();
   for (const session of sessions) {
@@ -238,6 +309,12 @@ export function buildObserverGraph({
   for (const sessionId of memberIds) {
     const session = sessionMap.get(sessionId);
     const record = activityMap.get(sessionId);
+    if (
+      sessionTimeoutMins != null &&
+      observerMemberExpired(session, record, sessionTimeoutMins, now)
+    ) {
+      continue;
+    }
     const bind = session ?? (record ? sessionFromActivity(record) : null);
     if (!bind) continue;
     const parent = resolveParentIds(bind, projects);

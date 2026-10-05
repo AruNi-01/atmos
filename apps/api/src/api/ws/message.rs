@@ -1377,6 +1377,9 @@ pub struct CodeAgentCustomUpdateRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentBehaviourSettingsUpdateRequest {
     pub idle_session_timeout_mins: u64,
+    /// Absent on older clients. Leave the stored observer timeout untouched.
+    #[serde(default)]
+    pub observer_session_timeout_mins: Option<u64>,
     #[serde(default)]
     pub attention_summary_enabled: Option<bool>,
     #[serde(default)]

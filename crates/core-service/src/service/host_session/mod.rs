@@ -366,20 +366,70 @@ impl HostSessionService {
     }
 
     pub async fn get(&self, key: &str) -> Result<HostSessionGetResult> {
-        let (source, row, archived) = self.resolve_row(key).await?;
-        let envelopes = source
-            .parse_at(&row.native_id, row.source_path_buf().as_deref())
-            .map_err(map_agent_err)?;
+        match self.resolve_row(key).await {
+            Ok((source, row, archived)) => {
+                let envelopes = source
+                    .parse_at(&row.native_id, row.source_path_buf().as_deref())
+                    .map_err(map_agent_err)?;
+                Ok(self.preview_from_envelopes(row, archived, envelopes))
+            }
+            // The index can lag a session that just started. The GUID is enough
+            // to read that provider's transcript directly.
+            Err(ServiceError::NotFound(_)) => self.preview_unindexed(key).await,
+            Err(error) => Err(error),
+        }
+    }
+
+    fn preview_from_envelopes(
+        &self,
+        row: HostSessionRef,
+        archived: bool,
+        envelopes: Vec<agent::AgentEventEnvelope>,
+    ) -> HostSessionGetResult {
         let messages = flatten_host_preview(&envelopes, row.updated_at);
         let (grok_goal, grok_workflow) = fold_host_grok_chrome(&envelopes);
         let grok_goal = fill_goal_elapsed(grok_goal, &messages);
         let chats = self.chat_handle_index();
-        Ok(HostSessionGetResult {
+        HostSessionGetResult {
             session: self.item_from_row(row, archived, &chats),
             messages,
             grok_goal,
             grok_workflow,
-        })
+        }
+    }
+
+    async fn preview_unindexed(&self, key: &str) -> Result<HostSessionGetResult> {
+        let (provider_id, native_id) = parse_session_key(key)?;
+        let source = self
+            .roster
+            .iter()
+            .find(|source| source.provider_id() == provider_id)
+            .ok_or_else(|| ServiceError::NotFound(format!("host session {key}")))?;
+        let envelopes = source.parse(native_id).map_err(map_agent_err)?;
+        if envelopes.is_empty() {
+            return Err(ServiceError::NotFound(format!("host session {key}")));
+        }
+        let now = Utc::now();
+        let row = HostSessionRef {
+            key: key.to_string(),
+            provider_id: provider_id.to_string(),
+            native_id: native_id.to_string(),
+            title: native_id.to_string(),
+            project_name: String::new(),
+            cwd: String::new(),
+            started_at: now,
+            updated_at: now,
+            message_count: None,
+            byte_size: None,
+            model: None,
+            source_path: String::new(),
+            parent_native_id: None,
+        };
+        let preview = self.preview_from_envelopes(row, false, envelopes);
+        if preview.messages.is_empty() {
+            return Err(ServiceError::NotFound(format!("host session {key}")));
+        }
+        Ok(preview)
     }
 
     pub async fn resume_chat(&self, key: &str) -> Result<HostSessionResumeChatResult> {
@@ -1974,6 +2024,28 @@ mod tests {
             .expect("assistant");
         assert!(!assistant.streaming);
         assert!(assistant.completed_at.is_some());
+    }
+
+    #[tokio::test]
+    async fn get_reads_a_session_missing_from_the_index() {
+        let (_dir, store) = store();
+        let mut parsed = HashMap::new();
+        parsed.insert("lead-guid".into(), preview_events());
+        let service = test_service(
+            vec![Box::new(FakeSource {
+                provider_id: "claude",
+                rows: Vec::new(),
+                parsed,
+                tui_bin: None,
+            })],
+            store,
+        )
+        .await;
+        let preview = service.get("claude:lead-guid").await.unwrap();
+        assert_eq!(preview.session.native_id, "lead-guid");
+        assert!(message_text(&preview.messages, "user").contains("hello from host"));
+        let missing = service.get("claude:missing").await;
+        assert!(matches!(missing, Err(ServiceError::NotFound(_))));
     }
 
     #[test]

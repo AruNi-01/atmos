@@ -1,13 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { useTranslations } from "next-intl";
-import { ArrowRight, CheckCircle2, ChevronRight, Circle, CircleDashed } from "lucide-react";
-import { LayoutGroup, motion, useReducedMotion } from "motion/react";
-import {
-  Collapsible,
-  CollapsibleTrigger,
-} from "@workspace/ui";
+import { ArrowRight, CheckCircle2, Circle, CircleDashed } from "lucide-react";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 import { CopyButton } from "@/shared/components/code-block/copy-button";
 import { cn } from "@/shared/lib/utils";
@@ -22,11 +17,6 @@ import {
   type TreeEntry,
   type WebResultLink,
 } from "@/features/agent/lib/tool-results/parse-tool-result";
-import {
-  TREE_EASE,
-  WEBSEARCH_EXPAND_EASE,
-  WEBSEARCH_EXPAND_MS,
-} from "@/features/agent/lib/agent-tree-branch";
 import { AgentCommandLine } from "../AgentCommandLine";
 import { useAgentChatCwd, useAgentChatPathRoots, useDisplayToolPath } from "../agent-chat-cwd-context";
 import {
@@ -38,7 +28,7 @@ import {
   agentChatPathLooksLikeDirectory,
   resolveAgentChatOpenableFile,
 } from "@/features/agent/lib/agent-chat-file-links";
-import { AgentTreeBranch } from "../AgentTreeBranch";
+import { WebSearch } from "../boardui/web-search";
 import { AgentToolFileGlyph, SiteFavicon } from "./AgentToolCard";
 import { AgentToolCodePreview } from "./AgentToolCodePreview";
 
@@ -68,214 +58,53 @@ export function AgentToolInputRows({ rows }: { rows: ToolInputRow[] }) {
   );
 }
 
-const WEBSEARCH_STACK_MAX = 5;
-
-function webSearchMarkId(layoutKey: string, url: string): string {
-  return `${layoutKey}:${url}`;
-}
-
-function WebSearchSourceMark({
-  url,
-  layoutId,
-  durationSec,
-}: {
-  url: string;
-  layoutId?: string;
-  durationSec: number;
-}) {
-  return (
-    <motion.div
-      initial={false}
-      layout
-      layoutId={layoutId}
-      className="relative flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-background"
-      transition={{ duration: durationSec, ease: WEBSEARCH_EXPAND_EASE }}
-    >
-      <SiteFavicon url={url} className="size-4" />
-    </motion.div>
-  );
+function webSearchSources(links: WebResultLink[]) {
+  return links.map((link) => {
+    const domain = hostFromUrl(link.url) ?? link.url;
+    const title = link.title.trim() || domain;
+    return {
+      title,
+      domain,
+      href: link.url,
+      icon: <SiteFavicon url={link.url} className="size-3" />,
+    };
+  });
 }
 
 export function AgentToolWebSearchBody({
   links,
   sourcesLabel,
-  layoutKey,
 }: {
   links: WebResultLink[];
   sourcesLabel: string;
-  layoutKey: string;
 }) {
-  const [open, setOpen] = useState(false);
-  const reduced = useReducedMotion();
   if (links.length === 0) return null;
-
-  const stacked = links.slice(0, WEBSEARCH_STACK_MAX);
-  const extra = links.length - stacked.length;
-  const durationMs = reduced ? 0 : WEBSEARCH_EXPAND_MS;
-  const durationSec = durationMs / 1000;
-  const expandTransition = durationMs > 0 ? `${durationMs}ms ${TREE_EASE}` : undefined;
-  const shareLayout = !reduced;
-
   return (
-    <LayoutGroup id={layoutKey}>
-      <Collapsible open={open} onOpenChange={setOpen} className="min-w-0">
-        <AgentTreeBranch isFirst isLast>
-          <div className="flex min-w-0 items-center gap-2" data-tree-header>
-            <CollapsibleTrigger className="group inline-flex min-w-0 max-w-full items-center gap-1.5 py-0.5 text-left text-[13px] leading-5 text-muted-foreground hover:text-foreground">
-              <span className="min-w-0 truncate">{sourcesLabel}</span>
-              <span
-                data-websearch-stack=""
-                className={cn(
-                  "grid overflow-hidden",
-                  open ? "min-w-0" : "shrink-0",
-                )}
-                style={{
-                  gridTemplateColumns: open ? "0fr" : "1fr",
-                  transition: expandTransition
-                    ? `grid-template-columns ${expandTransition}`
-                    : undefined,
-                }}
-              >
-                <span className="flex min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap">
-                  <span className="flex items-center">
-                    {stacked.map((link, index) => (
-                      <span
-                        key={link.url}
-                        className={cn("relative", index > 0 && "-ml-1.5")}
-                        style={{ zIndex: stacked.length - index }}
-                      >
-                        {open ? (
-                          <span className="block size-4" aria-hidden />
-                        ) : (
-                          <WebSearchSourceMark
-                            url={link.url}
-                            layoutId={shareLayout ? webSearchMarkId(layoutKey, link.url) : undefined}
-                            durationSec={durationSec}
-                          />
-                        )}
-                      </span>
-                    ))}
-                  </span>
-                  {extra > 0 ? (
-                    <span className="text-[11px] text-muted-foreground">+{extra}</span>
-                  ) : null}
-                </span>
-              </span>
-              <ChevronRight
-                className={cn("size-3.5 shrink-0", open && "rotate-90")}
-                style={{
-                  transition: expandTransition ? `transform ${expandTransition}` : undefined,
-                }}
-              />
-            </CollapsibleTrigger>
-          </div>
-          <div data-websearch-list="" className="pt-0.5" inert={!open ? true : undefined}>
-            {links.map((link, index) => {
-              const host = hostFromUrl(link.url) ?? link.url;
-              const title = link.title.trim();
-              const label = title || host;
-              const stackedIcon = index < stacked.length;
-              return (
-                <div
-                  key={link.url}
-                  className="grid overflow-hidden"
-                  style={{
-                    gridTemplateRows: open ? "1fr" : "0fr",
-                    transition: expandTransition
-                      ? `grid-template-rows ${expandTransition}`
-                      : undefined,
-                  }}
-                >
-                  <div className="min-h-0 overflow-hidden">
-                    <AgentTreeBranch
-                      isFirst={index === 0}
-                      isLast={index === links.length - 1}
-                      animate={open}
-                    >
-                      <a
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        data-tree-header
-                        className="flex min-w-0 items-center gap-2 rounded-md py-1 pr-1.5 text-left leading-5 hover:bg-muted/50"
-                        title={link.url}
-                      >
-                        {open ? (
-                          <WebSearchSourceMark
-                            url={link.url}
-                            layoutId={
-                              shareLayout && stackedIcon
-                                ? webSearchMarkId(layoutKey, link.url)
-                                : undefined
-                            }
-                            durationSec={durationSec}
-                          />
-                        ) : (
-                          <span className="size-4 shrink-0" aria-hidden />
-                        )}
-                        <span
-                          className="min-w-0 flex-1 truncate text-[13px] text-foreground"
-                          style={{
-                            opacity: open ? 1 : 0,
-                            transition: expandTransition
-                              ? `opacity ${Math.round(durationMs * 0.7)}ms ${TREE_EASE}`
-                              : undefined,
-                          }}
-                        >
-                          {label}
-                        </span>
-                        {title && title !== host ? (
-                          <span
-                            className="max-w-[40%] shrink-0 truncate text-[12px] text-muted-foreground"
-                            style={{
-                              opacity: open ? 1 : 0,
-                              transition: expandTransition
-                                ? `opacity ${Math.round(durationMs * 0.7)}ms ${TREE_EASE}`
-                                : undefined,
-                            }}
-                          >
-                            {host}
-                          </span>
-                        ) : null}
-                      </a>
-                    </AgentTreeBranch>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </AgentTreeBranch>
-      </Collapsible>
-    </LayoutGroup>
+    <WebSearch
+      sourcesLabel={sourcesLabel}
+      steps={[{ label: "", sources: webSearchSources(links) }]}
+    />
   );
 }
 
 export function AgentToolWebFetchBody({
-  url,
   markdown,
   text,
 }: {
-  url: string;
   markdown?: string;
   text?: string;
 }) {
-  if (!markdown && !text) return null;
-  return (
-    <div>
-      {markdown ? (
-        <div className="max-h-96 overflow-auto px-3 py-2">
-          <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2 [&_pre]:max-w-full [&_.not-prose]:my-2">
-            {markdown}
-          </MarkdownRenderer>
-        </div>
-      ) : (
-        <AgentToolTextBody text={text ?? ""} />
-      )}
-      <p className="truncate px-3 pb-2 text-[11px] text-muted-foreground" title={url}>
-        {url}
-      </p>
-    </div>
-  );
+  if (markdown) {
+    return (
+      <div className="max-h-96 overflow-auto px-3 py-2">
+        <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2 [&_pre]:max-w-full [&_.not-prose]:my-2">
+          {markdown}
+        </MarkdownRenderer>
+      </div>
+    );
+  }
+  if (text) return <AgentToolTextBody text={text} />;
+  return null;
 }
 
 function AgentToolClickablePath({
