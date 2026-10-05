@@ -287,6 +287,7 @@ describe("@atmos/api-client WsSession", () => {
           maxAttempts: 10,
           exhausted: { type: "stop" },
           reconnectOnCleanClose: false,
+          reconnectBeforeOpen: false,
         },
         10,
       ),
@@ -313,6 +314,70 @@ describe("@atmos/api-client WsSession", () => {
     session.disconnect();
     expect(session.state).toBe("closed");
     expect(ft.pending()).toBe(0);
+  });
+
+  test("mobile retries a handshake that never opens", () => {
+    const ft = fakeTimers();
+    let sock: MockSocket | null = null;
+    const session = createWsSession({
+      url: "wss://relay.example/ws/client?token=secret",
+      platform: {
+        createWebSocket: () => {
+          sock = new MockSocket();
+          return sock;
+        },
+        timers: ft,
+      },
+      reconnect: DEFAULT_MOBILE_RECONNECT,
+    });
+    void session.connect();
+    sock!.uncleanClose();
+    expect(session.state).toBe("reconnecting");
+    expect(ft.pending()).toBe(1);
+  });
+
+  test("web does not retry a handshake that never opens", () => {
+    const ft = fakeTimers();
+    let sock: MockSocket | null = null;
+    const session = createWsSession({
+      url: "ws://localhost/ws",
+      platform: {
+        createWebSocket: () => {
+          sock = new MockSocket();
+          return sock;
+        },
+        timers: ft,
+      },
+      reconnect: DEFAULT_WEB_RECONNECT,
+    });
+    void session.connect();
+    sock!.uncleanClose();
+    expect(session.state).toBe("disconnected");
+    expect(ft.pending()).toBe(0);
+  });
+
+  test("handshakeTimeoutMs overrides the short default cap", () => {
+    const ft = fakeTimers();
+    let created = 0;
+    const session = createWsSession({
+      url: "wss://relay.example/ws/client",
+      handshakeTimeoutMs: 8_000,
+      platform: {
+        createWebSocket: () => {
+          created += 1;
+          return new MockSocket();
+        },
+        timers: ft,
+      },
+      reconnect: { enabled: false },
+    });
+    void session.connect();
+    ft.flush(3_000);
+    expect(created).toBe(1);
+    expect(session.state).toBe("connecting");
+    ft.flush(5_000);
+    expect(session.state).toBe("closed");
+    expect(created).toBe(1);
   });
 
   test("concurrent connect shares one handshake", async () => {

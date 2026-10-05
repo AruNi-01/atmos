@@ -31,6 +31,18 @@ type Pending = {
   timeout: unknown | null;
 };
 
+function websocketFailureDetail(event: unknown): string {
+  if (!event || typeof event !== "object") return "";
+  const record = event as { message?: unknown; reason?: unknown };
+  const raw =
+    typeof record.message === "string" && record.message.length > 0
+      ? record.message
+      : typeof record.reason === "string"
+        ? record.reason
+        : "";
+  return redactUrl(raw).replace(/\s+/g, " ").trim().slice(0, 180);
+}
+
 function createRequestId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -51,7 +63,7 @@ export class WsSession {
   private reconnectAttempt = 0;
   private reconnectTimer: unknown = null;
   private shouldReconnect = false;
-  /** Only schedule auto-reconnect after a successful open (not failed first handshake). */
+  /** Successful open. Mobile may still retry before this flips; web does not. */
   private everConnected = false;
   private connectInFlight: Promise<void> | null = null;
   /** Settles the active connect()/openSocket generation (incl. disconnect). */
@@ -64,6 +76,7 @@ export class WsSession {
   private readonly policy: ReconnectPolicy;
   private readonly requestTimeoutMs: number;
   private readonly connectWaitMs: number;
+  private readonly handshakeTimeoutMs: number;
   private readonly urlOption: string | (() => string);
   private readonly timers: {
     setTimeout: (fn: () => void, ms: number) => unknown;
@@ -75,6 +88,8 @@ export class WsSession {
     this.policy = mergeReconnectPolicy(options.reconnect);
     this.requestTimeoutMs = options.requestTimeoutMs ?? 0;
     this.connectWaitMs = options.connectWaitMs ?? 15_000;
+    this.handshakeTimeoutMs =
+      options.handshakeTimeoutMs ?? Math.min(this.connectWaitMs, 3_000);
     this.urlOption = options.url;
     this.timers = options.platform.timers ?? {
       setTimeout: (fn, ms) => setTimeout(fn, ms),
@@ -341,8 +356,8 @@ export class WsSession {
     }
     this.socket = socket;
 
-    // Fail handshake if the peer never opens (avoids hanging offline unit tests / offline settings).
-    const handshakeTimeoutMs = Math.min(this.connectWaitMs, 3_000);
+    // Fail handshake if the peer never opens. The default cap stays short so
+    // offline unit tests finish; callers on a remote relay pass a longer one.
     const handshakeTimer = this.timers.setTimeout(() => {
       if (this.socket !== socket) return;
       if (this.currentState === "connected") return;
@@ -356,7 +371,7 @@ export class WsSession {
       this.failConnect(new Error("WebSocket connection timeout"));
       this.setState("error");
       this.scheduleReconnect();
-    }, handshakeTimeoutMs);
+    }, this.handshakeTimeoutMs);
 
     socket.onopen = () => {
       this.timers.clearTimeout(handshakeTimer);
@@ -370,8 +385,13 @@ export class WsSession {
       this.handleMessage(event.data);
     };
 
-    socket.onerror = () => {
-      this.log("error", "ws error", { url: redactUrl(url) });
+    socket.onerror = (event) => {
+      const detail = websocketFailureDetail(event);
+      this.log(
+        "error",
+        detail ? `ws error: ${detail}` : "ws error",
+        { url: redactUrl(url) },
+      );
       this.rejectAll(new Error(`WebSocket error: ${redactUrl(url)}`));
       this.setState("error");
       try {
@@ -390,7 +410,7 @@ export class WsSession {
       this.rejectAll(new Error("WebSocket closed"));
       const wasClean = Boolean(event?.wasClean);
       const shouldSchedule =
-        this.everConnected &&
+        (this.everConnected || this.policy.reconnectBeforeOpen) &&
         this.shouldReconnect &&
         this.policy.enabled &&
         (this.policy.reconnectOnCleanClose || !wasClean);

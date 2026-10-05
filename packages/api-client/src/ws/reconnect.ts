@@ -11,6 +11,7 @@ export function mergeReconnectPolicy(
     maxAttempts: 10,
     exhausted: { type: "stop" } satisfies ExhaustedBehavior,
     reconnectOnCleanClose: false,
+    reconnectBeforeOpen: false,
   };
   return {
     enabled: partial?.enabled ?? b.enabled,
@@ -20,6 +21,8 @@ export function mergeReconnectPolicy(
     exhausted: partial?.exhausted ?? b.exhausted,
     reconnectOnCleanClose:
       partial?.reconnectOnCleanClose ?? b.reconnectOnCleanClose,
+    reconnectBeforeOpen:
+      partial?.reconnectBeforeOpen ?? b.reconnectBeforeOpen,
   };
 }
 

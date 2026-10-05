@@ -26,6 +26,12 @@ export type ReconnectPolicy = {
   maxAttempts: number;
   exhausted: ExhaustedBehavior;
   reconnectOnCleanClose: boolean;
+  /**
+   * Retry when the socket never reaches open. Web keeps this off so a bad
+   * local URL does not spin; mobile turns it on because the first relay
+   * upgrade is the one that fails on a phone.
+   */
+  reconnectBeforeOpen: boolean;
 };
 
 export type WsSessionOptions = {
@@ -35,6 +41,12 @@ export type WsSessionOptions = {
   /** 0 or undefined = no per-request timeout */
   requestTimeoutMs?: number;
   connectWaitMs?: number;
+  /**
+   * How long to wait for `onopen`. Omitted means `min(connectWaitMs, 3000)`,
+   * which keeps offline unit tests short. Mobile sets this higher: the shared
+   * cap was aborting a phone's relay upgrade before it could finish.
+   */
+  handshakeTimeoutMs?: number;
 };
 
 export type WsRequestCallOpts = {

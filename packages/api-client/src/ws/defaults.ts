@@ -7,6 +7,7 @@ export const DEFAULT_WEB_RECONNECT: ReconnectPolicy = {
   maxAttempts: 10,
   exhausted: { type: "slow_retry", delayMs: 60_000 },
   reconnectOnCleanClose: false,
+  reconnectBeforeOpen: false,
 };
 
 export const DEFAULT_MOBILE_RECONNECT: ReconnectPolicy = {
@@ -16,6 +17,7 @@ export const DEFAULT_MOBILE_RECONNECT: ReconnectPolicy = {
   maxAttempts: 5,
   exhausted: { type: "stop" },
   reconnectOnCleanClose: false,
+  reconnectBeforeOpen: true,
 };
 
 export const DEFAULT_WEB_REQUEST_TIMEOUT_MS = 30_000;
