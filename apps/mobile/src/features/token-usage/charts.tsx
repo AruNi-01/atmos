@@ -3,17 +3,18 @@ import { PixelRatio, Pressable, ScrollView, StyleSheet, Text, View } from "react
 import { matchFont, type SkFont } from "@shopify/react-native-skia";
 import { Gesture, GestureDetector, ScrollView as GestureScrollView, type GestureType } from "react-native-gesture-handler";
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withSequence, withTiming } from "react-native-reanimated";
+import { METRIC_TWEEN_MS } from "@/features/token-usage/tween-series";
+import { useMorphedSeries } from "@/features/token-usage/use-morphed-series";
 import { scheduleOnRN } from "react-native-worklets";
 import { Area, CartesianChart, Line, StackedBar } from "victory-native";
 import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
 import type { HeatmapWeek, UsageDimension } from "@/features/token-usage/model";
+import { UsageModelIcon } from "@/features/token-usage/UsageModelIcon";
 import { BotIcon } from "@/ui/icons/lucide-native";
-import { ProviderGlyph } from "@/ui/icons/provider-glyph";
 
 const SERIES = ["s0", "s1", "s2", "s3", "s4", "s5"] as const;
 type SeriesKey = (typeof SERIES)[number];
 type StackRow = { x: number } & Record<SeriesKey, number>;
-const SPRING = { type: "spring" as const, duration: 450 };
 const AXIS_LINE = "rgba(113,113,122,0.35)";
 const CHART_PADDING = { bottom: 28, left: 0, right: 8, top: 12 };
 const DOMAIN_PADDING = { bottom: 0, left: 8, right: 12, top: 16 };
@@ -289,7 +290,7 @@ export function ScrollableChart({
 type TipRow = { icon?: ReactNode; key: string; label: string; value?: string };
 
 function seriesMark(dimension: UsageDimension, id: string, color: string, providerId?: string) {
-  if (dimension === "model") return <ProviderGlyph color={color} providerId={providerId ?? "unknown"} size={14} />;
+  if (dimension === "model") return <UsageModelIcon color={color} modelId={id} providerId={providerId} size={14} />;
   if (id === "other") return <BotIcon color={color} size={14} />;
   return <MobileAgentIcon agentId={id} size={14} />;
 }
@@ -610,6 +611,8 @@ export function UsageGrowthChart({
   values: number[];
   width: number;
 }) {
+  const reducedMotion = useReducedMotion();
+  const drawn = useMorphedSeries(values.map((value) => [value]), Boolean(reducedMotion));
   const font = matchFont({ fontSize: 11 });
   if (values.length === 0 || labels.length === 0) return null;
   const peak = Math.max(1, ...values);
@@ -624,7 +627,7 @@ export function UsageGrowthChart({
       mode="line"
       plot={(chunk) => {
         const from = chunk.overlap ? chunk.start - 1 : chunk.start;
-        const slice = values.slice(from, chunk.end).map((y, x) => ({ x, y }));
+        const slice = drawn.slice(from, chunk.end).map((row, x) => ({ x, y: row[0] ?? 0 }));
         return (
           <CartesianChart
             data={slice}
@@ -656,8 +659,8 @@ export function UsageGrowthChart({
           >
             {({ chartBounds, points }) => (
               <>
-                <Area animate={SPRING} color={color} curveType="monotoneX" opacity={0.22} points={points.y} y0={chartBounds.bottom} />
-                <Line animate={SPRING} color={color} curveType="monotoneX" points={points.y} strokeWidth={2} />
+                <Area color={color} curveType="monotoneX" opacity={0.22} points={points.y} y0={chartBounds.bottom} />
+                <Line color={color} curveType="monotoneX" points={points.y} strokeWidth={2} />
               </>
             )}
           </CartesianChart>
@@ -697,18 +700,29 @@ export function UsageStackedChart({
   series: number[][];
   width: number;
 }) {
+  const reducedMotion = useReducedMotion();
+  const drawn = useMorphedSeries(series, Boolean(reducedMotion));
+  const rememberedColors = useRef(colors);
   const font = matchFont({ fontSize: 11 });
-  const segmentCount = Math.min(SERIES.length, series[0]?.length ?? 0);
+  const segmentCount = Math.min(
+    SERIES.length,
+    Math.max(series[0]?.length ?? 0, drawn[0]?.length ?? 0),
+  );
   const keys = SERIES.slice(0, segmentCount);
   if (segmentCount === 0 || labels.length === 0) return null;
-  const data: StackRow[] = series.map((segments, x) => {
+  const paint = colors.slice(0, segmentCount);
+  for (let index = paint.length; index < segmentCount; index += 1) {
+    paint.push(rememberedColors.current[index] ?? paint[paint.length - 1] ?? "#94A3B8");
+  }
+  rememberedColors.current = paint;
+  const data: StackRow[] = drawn.map((segments, x) => {
     const row: StackRow = { x, s0: 0, s1: 0, s2: 0, s3: 0, s4: 0, s5: 0 };
     keys.forEach((key, segment) => {
       row[key] = segments[segment] ?? 0;
     });
     return row;
   });
-  const peak = Math.max(1, ...data.map((row) => keys.reduce((sum, key) => sum + row[key], 0)));
+  const peak = Math.max(1, ...series.map((row) => row.reduce((sum, value) => sum + value, 0)));
   const domainY: [number, number] = [0, peak * 1.08];
   return (
     <AxisScroll
@@ -751,10 +765,9 @@ export function UsageStackedChart({
           >
             {({ chartBounds, points }) => (
               <StackedBar
-                animate={SPRING}
                 barOptions={({ isTop }) => ({ roundedCorners: isTop ? { topLeft: 4, topRight: 4 } : undefined })}
                 chartBounds={chartBounds}
-                colors={colors.slice(0, segmentCount)}
+                colors={paint}
                 innerPadding={0.35}
                 points={keys.map((key) => points[key])}
               />
@@ -824,6 +837,7 @@ export function UsageHeatmap({
   weekdayColor: string;
   weeks: HeatmapWeek[];
 }) {
+  const reducedMotion = useReducedMotion();
   const column = CELL + GAP;
   const scrollRef = useRef<ScrollView>(null);
   const userScrolled = useRef(false);
@@ -896,19 +910,21 @@ export function UsageHeatmap({
                     {week.cells.map((cell) => {
                       const blank = cell.count === null;
                       return (
-                        <Pressable
-                          disabled={blank}
-                          key={cell.date}
-                          onPress={() => onSelect(cell.date)}
-                          style={{
-                            backgroundColor: blank ? "transparent" : palette[cell.level],
-                            borderColor: cell.date === selectedDate ? weekdayColor : "transparent",
-                            borderRadius: 2,
-                            borderWidth: cell.date === selectedDate ? 1 : 0,
-                            height: CELL,
-                            width: CELL,
-                          }}
-                        />
+                        <Pressable disabled={blank} key={cell.date} onPress={() => onSelect(cell.date)}>
+                          <Animated.View
+                            style={{
+                              backgroundColor: blank ? "transparent" : palette[cell.level],
+                              borderColor: cell.date === selectedDate ? weekdayColor : "transparent",
+                              borderRadius: 2,
+                              borderWidth: cell.date === selectedDate ? 1 : 0,
+                              height: CELL,
+                              transitionDuration: reducedMotion ? 0 : METRIC_TWEEN_MS,
+                              transitionProperty: "backgroundColor",
+                              transitionTimingFunction: "ease-out",
+                              width: CELL,
+                            }}
+                          />
+                        </Pressable>
                       );
                     })}
                   </View>

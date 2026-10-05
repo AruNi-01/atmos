@@ -1,9 +1,29 @@
 import { useEffect, useRef, useState } from "react";
-import { type StyleProp, type TextStyle, Text } from "react-native";
+import { StyleSheet, type StyleProp, type TextStyle } from "react-native";
+import { Easing, useReducedMotion } from "react-native-reanimated";
+import { NumberFlow } from "number-flow-react-native";
+import { flowParts } from "@/features/token-usage/format";
+import { METRIC_TWEEN_MS } from "@/features/token-usage/tween-series";
 
-const DURATION_MS = 480;
+/** Same curve as the charts. `bezierFn` is a worklet; `withTiming` rejects a plain function. */
+const ROLL = {
+  duration: METRIC_TWEEN_MS,
+  easing: Easing.bezierFn(0.23, 1, 0.32, 1),
+};
 
-/** Tweens a metric on the JS thread. Formatting must not run inside a worklet. */
+/** Frames to wait so NumberFlow's digit slots exist before the first value change. */
+const INTRO_FRAMES = 8;
+
+type Parts = ReturnType<typeof flowParts>;
+
+function sameParts(left: Parts, right: Parts) {
+  return left.value === right.value
+    && left.prefix === right.prefix
+    && left.suffix === right.suffix
+    && left.fraction === right.fraction;
+}
+
+/** Rolls a formatted metric with NumberFlow. Compact units stay prefix and suffix, because Hermes drops Intl compact notation. */
 export function AnimatedMetric({
   format,
   style,
@@ -13,37 +33,53 @@ export function AnimatedMetric({
   style?: StyleProp<TextStyle>;
   value: number;
 }) {
-  const formatRef = useRef(format);
-  formatRef.current = format;
-  const shownRef = useRef(value);
-  const [label, setLabel] = useState(() => format(value));
+  const reduced = useReducedMotion();
+  const target = flowParts(format(value));
+  const targetRef = useRef(target);
+  targetRef.current = target;
+  // NumberFlow paints its first value in place. Hold 0 until the slots mount, then roll to the real figure.
+  const rolled = useRef(Boolean(reduced));
+  const [parts, setParts] = useState<Parts>(() => (reduced ? target : { ...target, value: 0 }));
 
   useEffect(() => {
-    const from = shownRef.current;
-    const to = value;
-    if (!Number.isFinite(from) || !Number.isFinite(to) || from === to) {
-      shownRef.current = to;
-      setLabel(formatRef.current(to));
-      return;
-    }
+    if (!rolled.current) return;
+    const next = targetRef.current;
+    setParts((current) => (sameParts(current, next) ? current : next));
+  }, [reduced, target.fraction, target.prefix, target.suffix, target.value]);
 
-    const started = Date.now();
+  useEffect(() => {
+    if (rolled.current) return;
     let frame = 0;
-    const tick = () => {
-      const t = Math.min(1, (Date.now() - started) / DURATION_MS);
-      const eased = 1 - (1 - t) ** 3;
-      const next = t === 1 ? to : from + (to - from) * eased;
-      shownRef.current = next;
-      setLabel(formatRef.current(next));
-      if (t < 1) frame = requestAnimationFrame(tick);
+    let raf = 0;
+    const step = () => {
+      frame += 1;
+      if (frame < INTRO_FRAMES) {
+        raf = requestAnimationFrame(step);
+        return;
+      }
+      if (rolled.current) return;
+      rolled.current = true;
+      setParts(targetRef.current);
     };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [value]);
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
-  useEffect(() => {
-    setLabel(formatRef.current(shownRef.current));
-  });
-
-  return <Text style={style}>{label}</Text>;
+  return (
+    <NumberFlow
+      format={{
+        maximumFractionDigits: parts.fraction,
+        minimumFractionDigits: parts.fraction,
+        useGrouping: false,
+      }}
+      locales="en-US"
+      opacityTiming={ROLL}
+      prefix={parts.prefix}
+      spinTiming={ROLL}
+      style={StyleSheet.flatten(style)}
+      suffix={parts.suffix}
+      transformTiming={ROLL}
+      value={parts.value}
+    />
+  );
 }

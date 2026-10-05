@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { Host, Picker } from "@expo/ui";
-import { Button, HStack, Image, Label, Menu, Spacer } from "@expo/ui/swift-ui";
-import { font, frame, imageScale } from "@expo/ui/swift-ui/modifiers";
+import { Host } from "@expo/ui";
+import { Button, HStack, Image, Label, Menu, Picker as SwiftPicker, Spacer, Text as SwiftText } from "@expo/ui/swift-ui";
+import { fixedSize, font, frame, imageScale, labelsHidden, pickerStyle, tag } from "@expo/ui/swift-ui/modifiers";
 import { Text, View } from "react-native";
 import type { SFSymbol } from "sf-symbols-typescript";
 import { typography } from "@/theme/typography";
@@ -33,7 +33,12 @@ export function MenuPicker({
   const selected = options.find((option) => option.value === value) ?? options[0];
 
   return (
-    <Host colorScheme={theme.colorScheme} matchContents seedColor={theme.colors.label}>
+    <Host
+      colorScheme={theme.colorScheme}
+      ignoreSafeArea="all"
+      matchContents
+      seedColor={theme.colors.label}
+    >
       {hasIcons && selected ? (
         <Menu
           label={selected.label}
@@ -51,15 +56,25 @@ export function MenuPicker({
           ))}
         </Menu>
       ) : (
-        <Picker
-          appearance="menu"
-          onValueChange={onValueChange}
-          selectedValue={value}
+        <SwiftPicker
+          label=" "
+          modifiers={[
+            pickerStyle("menu"),
+            labelsHidden(),
+            fixedSize({ horizontal: true, vertical: true }),
+            font({ size: 17 }),
+          ]}
+          onSelectionChange={(selection) => {
+            if (typeof selection === "string") onValueChange(selection);
+          }}
+          selection={value}
         >
           {options.map((option) => (
-            <Picker.Item key={option.value} label={option.label} value={option.value} />
+            <SwiftText key={option.value} modifiers={[tag(option.value)]}>
+              {option.label}
+            </SwiftText>
           ))}
-        </Picker>
+        </SwiftPicker>
       )}
     </Host>
   );
@@ -94,7 +109,7 @@ export function MenuPickerRow({
       <Text numberOfLines={1} style={[typography.rowTitle, { color: theme.colors.label, flex: 1 }]}>
         {label}
       </Text>
-      <View style={{ alignItems: "flex-end", alignSelf: "center", justifyContent: "center" }}>
+      <View style={{ alignItems: "center", alignSelf: "center", justifyContent: "center" }}>
         <MenuPicker onValueChange={onValueChange} options={options} selectedValue={selectedValue} />
       </View>
     </View>

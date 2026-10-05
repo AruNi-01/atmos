@@ -46,3 +46,14 @@ export function formatPercent(value: number) {
   if (value > 0 && value < 0.1) return "<0.1%";
   return `${value.toFixed(value >= 10 ? 0 : 1)}%`;
 }
+
+/** Split a formatted metric into the digits NumberFlow rolls and the symbols beside them. */
+export function flowParts(label: string) {
+  const match = label.replace(/,/g, "").match(/^(.*?)(-?\d+(?:\.\d+)?)(.*)$/);
+  if (!match) return { fraction: 0, prefix: "", suffix: label, value: 0 };
+  const prefix = match[1] ?? "";
+  const raw = match[2] ?? "0";
+  const suffix = match[3] ?? "";
+  const fraction = raw.includes(".") ? (raw.split(".")[1]?.length ?? 0) : 0;
+  return { fraction, prefix, suffix, value: Number(raw) };
+}

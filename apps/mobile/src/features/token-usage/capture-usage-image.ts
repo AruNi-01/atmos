@@ -2,6 +2,8 @@ import type { RefObject } from "react";
 import { Platform, type ScrollView, type View } from "react-native";
 import { File, Paths } from "expo-file-system";
 import { ImageFormat, Skia, makeImageFromView, type SkImage } from "@shopify/react-native-skia";
+import type { SharedValue } from "react-native-reanimated";
+import { captureSliceWindow } from "@/features/token-usage/capture-window";
 
 export type UsageShot = {
   aspect: number;
@@ -11,7 +13,6 @@ export type UsageShot = {
 type Measurable = {
   measure: (callback: (x: number, y: number, width: number, height: number) => void) => void;
   measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) => void;
-  scrollTo?: (options: { animated?: boolean; y: number }) => void;
 };
 
 function asMeasurable(node: object): Measurable {
@@ -20,55 +21,61 @@ function asMeasurable(node: object): Measurable {
 
 export async function captureUsageImage(input: {
   contentRef: RefObject<View | null>;
-  offsetSeen: () => boolean;
-  readOffset: () => number;
   scrollRef: RefObject<ScrollView | null>;
-  /** Hide the navigation-bar scroll-edge fade so it is not baked into the image. */
-  setEdgeHidden: (hidden: boolean) => void;
   setFreeze: (uri: string | null) => void;
+  /** Distance from the top of the screen to where content can sit clear of the status bar. */
+  safeTop: number;
+  /** Visual slide only. Layout, scroll offset, and the navigation bar stay put. */
+  shift: SharedValue<number>;
 }): Promise<UsageShot> {
   if (Platform.OS === "web") throw new Error("Could not capture this page.");
   const scroll = input.scrollRef.current;
   const content = input.contentRef.current;
   if (!scroll || !content) throw new Error("Could not capture this page.");
 
-  const [contentSize, viewport, scrollWindow, contentWindow] = await Promise.all([
-    measureLayout(asMeasurable(content)),
-    measureLayout(asMeasurable(scroll)),
-    measureWindow(asMeasurable(scroll)),
-    measureWindow(asMeasurable(content)),
-  ]);
-  const saved = input.offsetSeen() ? input.readOffset() : scrollWindow.y - contentWindow.y;
-  if (contentSize.height < 1 || viewport.height < 1 || viewport.width < 1) {
-    throw new Error("Could not capture this page.");
-  }
-
   let freezeUri: string | null = null;
   try {
-    input.setEdgeHidden(true);
-    await waitFrames(4);
     const current = await captureView(input.scrollRef);
     freezeUri = writePng(current);
     input.setFreeze(freezeUri);
     await waitFrames(2);
 
-    const maxOffset = Math.max(0, contentSize.height - viewport.height);
-    const slices: { image: SkImage; offset: number }[] = [];
-    for (let guard = 0; guard < 12; guard += 1) {
-      const offset = Math.min(guard * viewport.height, maxOffset);
-      await scrollToSettled(scroll, offset, input.readOffset);
-      slices.push({ image: await captureView(input.scrollRef), offset });
-      if (offset >= maxOffset - 0.5) break;
+    const [contentSize, viewport, placement] = await Promise.all([
+      measureLayout(asMeasurable(content)),
+      measureLayout(asMeasurable(scroll)),
+      measurePlacement(asMeasurable(scroll), asMeasurable(content)),
+    ]);
+    if (contentSize.height < 1 || viewport.height < 1 || viewport.width < 1) {
+      throw new Error("Could not capture this page.");
     }
-    await waitFrames(1);
-    const image = stitchSlices(slices, contentSize.height, viewport.height);
-    await scrollToSettled(scroll, saved, input.readOffset);
-    await waitFrames(1);
+    // Crop the large-title band, and the soft top fade once that title has collapsed.
+    // Content is only translated, so the open share sheet keeps its height.
+    const lead = placement.lead;
+    const { baseShift, topCrop, windowHeight } = captureSliceWindow(
+      lead,
+      placement.scrollY,
+      input.safeTop,
+      viewport.height,
+    );
+    const maxTravel = Math.max(0, contentSize.height - windowHeight);
+    const travels = [0];
+    while (travels.length < 12 && (travels[travels.length - 1] ?? 0) < maxTravel - 0.5) {
+      travels.push(Math.min((travels[travels.length - 1] ?? 0) + windowHeight, maxTravel));
+    }
+    const slices: { contentAtTop: number; image: SkImage }[] = [];
+    for (const travel of travels) {
+      const translateY = baseShift - travel;
+      input.shift.set(translateY);
+      await waitForShift(asMeasurable(scroll), asMeasurable(content), lead + translateY);
+      slices.push({ contentAtTop: travel, image: await captureView(input.scrollRef) });
+    }
+    const image = stitchSlices(slices, contentSize.height, viewport.height, topCrop, windowHeight);
     return { aspect: image.width() / image.height(), uri: writePng(image) };
   } finally {
-    input.setEdgeHidden(false);
-    input.setFreeze(null);
-    if (freezeUri) releaseUsageImage(freezeUri);
+    input.shift.set(0);
+    await waitFrames(1);
+    // The still frame stays up until the sheet closes. Clearing it here lays out
+    // the page under the open sheet, and the sheet drops and springs back.
   }
 }
 
@@ -81,13 +88,19 @@ export function releaseUsageImage(uri: string): void {
   }
 }
 
-async function captureView(ref: RefObject<ScrollView | null>): Promise<SkImage> {
+async function captureView(ref: RefObject<ScrollView | View | null>): Promise<SkImage> {
   const image = await makeImageFromView(ref as unknown as RefObject<View>);
   if (!image || image.width() < 1 || image.height() < 1) throw new Error("Could not capture this page.");
   return image;
 }
 
-function stitchSlices(slices: { image: SkImage; offset: number }[], contentHeight: number, viewportHeight: number): SkImage {
+function stitchSlices(
+  slices: { contentAtTop: number; image: SkImage }[],
+  contentHeight: number,
+  viewportHeight: number,
+  topCrop: number,
+  windowHeight: number,
+): SkImage {
   const first = slices[0];
   if (!first) throw new Error("Could not capture this page.");
   const scale = first.image.height() / viewportHeight;
@@ -100,10 +113,12 @@ function stitchSlices(slices: { image: SkImage; offset: number }[], contentHeigh
   let drawn = 0;
   for (const slice of slices) {
     const sliceScale = slice.image.height() / viewportHeight;
-    const start = Math.round(slice.offset * sliceScale);
-    const skip = Math.max(0, drawn - start);
-    const end = Math.min(totalHeight, Math.round((slice.offset + viewportHeight) * sliceScale));
-    const take = end - (start + skip);
+    const crop = Math.round(topCrop * sliceScale);
+    const start = Math.round(slice.contentAtTop * sliceScale);
+    const overlap = Math.max(0, drawn - start);
+    const skip = crop + overlap;
+    const end = Math.min(totalHeight, Math.round((slice.contentAtTop + windowHeight) * sliceScale));
+    const take = Math.min(end - (start + overlap), slice.image.height() - skip);
     if (take < 1) continue;
     canvas.drawImageRect(
       slice.image,
@@ -149,9 +164,20 @@ function waitFrames(count: number): Promise<void> {
   });
 }
 
-async function scrollToSettled(scroll: ScrollView, y: number, read: () => number): Promise<void> {
-  scroll.scrollTo({ animated: false, y });
-  const start = Date.now();
-  while (Math.abs(read() - y) > 1 && Date.now() - start < 280) await waitFrames(1);
+async function measurePlacement(anchor: Measurable, child: Measurable): Promise<{ lead: number; scrollY: number }> {
+  const [anchorWindow, childWindow] = await Promise.all([measureWindow(anchor), measureWindow(child)]);
+  return { lead: childWindow.y - anchorWindow.y, scrollY: anchorWindow.y };
+}
+
+async function measureLead(anchor: Measurable, child: Measurable): Promise<number> {
+  return (await measurePlacement(anchor, child)).lead;
+}
+
+async function waitForShift(scroll: Measurable, content: Measurable, expected: number): Promise<void> {
   await waitFrames(2);
+  for (let i = 0; i < 8; i++) {
+    const delta = await measureLead(scroll, content);
+    if (Math.abs(delta - expected) < 3) return;
+    await waitFrames(1);
+  }
 }

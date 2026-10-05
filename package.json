@@ -82,6 +82,7 @@
     "@shopify/react-native-skia"
   ],
   "patchedDependencies": {
-    "@shopify/react-native-skia@2.6.2": "patches/@shopify%2Freact-native-skia@2.6.2.patch"
+    "@shopify/react-native-skia@2.6.2": "patches/@shopify%2Freact-native-skia@2.6.2.patch",
+    "number-flow-react-native@0.5.1": "patches/number-flow-react-native@0.5.1.patch"
   }
 }

@@ -1,13 +1,20 @@
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Platform, View } from "react-native";
 import { BottomSheet, RNHostView } from "@expo/ui";
-import { environment, frame, presentationBackground } from "@expo/ui/swift-ui/modifiers";
+import { environment, frame, presentationBackground, type PresentationDetent } from "@expo/ui/swift-ui/modifiers";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { MobileThemeColorScheme } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
 import { drawerPalette } from "@/ui/primitives/expo-drawer-theme";
 
 type SnapPoint = "half" | "full" | { fraction: number } | { height: number };
+
+/** The universal sheet turns these into detents. `large` is the system full sheet. */
+function detentToSnapPoint(detent: PresentationDetent): SnapPoint {
+  if (detent === "large") return "full";
+  if (detent === "medium") return "half";
+  return detent;
+}
 
 /**
  * Expo `@expo/ui` BottomSheet drawer. Use for group lists and similar drawers.
@@ -22,6 +29,7 @@ export function ExpoDrawer({
   contentPaddingBottom,
   contentPaddingHorizontal = 16,
   fillBackground = true,
+  detents,
   isPresented,
   matchContents = true,
   onDismiss,
@@ -35,6 +43,12 @@ export function ExpoDrawer({
   contentPaddingHorizontal?: number;
   /** Paint a rect behind the content. Leave the sheet's own rounded background visible instead. */
   fillBackground?: boolean;
+  /**
+   * iOS sheet heights. The first entry is where it opens. This replaces `snapPoints`:
+   * the universal sheet already turns `snapPoints` into detents, and its first entry wins.
+   * Pass a stable array.
+   */
+  detents?: readonly PresentationDetent[];
   isPresented: boolean;
   /** Size the sheet to its content. Turn off to fill the detent and top-align short lists. */
   matchContents?: boolean;
@@ -45,23 +59,22 @@ export function ExpoDrawer({
   const theme = useMobileTheme();
   const insets = useSafeAreaInsets();
   const palette = drawerPalette(theme.colors, theme.colorScheme, colorScheme);
-  const iosModifiers =
-    Platform.OS === "ios"
-      ? [
-          environment("colorScheme", palette.scheme),
-          presentationBackground(palette.colors.sheetBackground),
-          ...(matchContents ? [] : [frame({ alignment: "top", maxHeight: Number.POSITIVE_INFINITY, maxWidth: Number.POSITIVE_INFINITY })]),
-        ]
-      : undefined;
-
-  return (
-    <BottomSheet
-      isPresented={isPresented}
-      modifiers={iosModifiers}
-      onDismiss={onDismiss}
-      snapPoints={snapPoints}
-      testID={testID}
-    >
+  const iosModifiers = useMemo(
+    () =>
+      Platform.OS === "ios"
+        ? [
+            environment("colorScheme", palette.scheme),
+            presentationBackground(palette.colors.sheetBackground),
+            ...(matchContents ? [] : [frame({ alignment: "top", maxHeight: Number.POSITIVE_INFINITY, maxWidth: Number.POSITIVE_INFINITY })]),
+          ]
+        : undefined,
+    [matchContents, palette.colors.sheetBackground, palette.scheme],
+  );
+  const sheetSnapPoints = useMemo(
+    () => (detents && detents.length > 0 ? detents.map(detentToSnapPoint) : snapPoints),
+    [detents, snapPoints],
+  );
+  const host = (
       <RNHostView matchContents={matchContents}>
         <View
           style={{
@@ -80,6 +93,17 @@ export function ExpoDrawer({
           {children}
         </View>
       </RNHostView>
+  );
+
+  return (
+    <BottomSheet
+      isPresented={isPresented}
+      modifiers={iosModifiers}
+      onDismiss={onDismiss}
+      snapPoints={sheetSnapPoints}
+      testID={testID}
+    >
+      {host}
     </BottomSheet>
   );
 }

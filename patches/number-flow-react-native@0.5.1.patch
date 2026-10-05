@@ -1,0 +1,36 @@
+diff --git a/src/native/MaskedView.tsx b/src/native/MaskedView.tsx
+index b4a2a2bfb5104f7f6150266e44307b2336032dc9..2c0ab0cd4923a7542b498630f061cd3ca62a2077 100644
+--- a/src/native/MaskedView.tsx
++++ b/src/native/MaskedView.tsx
+@@ -13,9 +13,11 @@ interface MaskedViewProps extends ViewProps {
+  * Resolution order:
+  * 1. `@rednegniw/masked-view` - Fabric-compatible fork with a lightweight
+  *    platform mask (CALayer maskView / Android hardware layer).
+- * 2. `@expo/ui/community/masked-view` - SwiftUI/Jetpack Compose based,
+- *    drop-in API, ships with `@expo/ui` 56.0.3+ (Expo SDK 56). Only resolves
+- *    in Expo projects; the require throws elsewhere and is caught below.
++ *
++ * `@expo/ui/community/masked-view` resolves in Expo SDK 56, but its SwiftUI
++ * mask does not clip a digit wheel translated with Reanimated. Neighbor
++ * digits then paint above the line. Leave it unresolved so NumberFlow uses
++ * per-digit opacity, which hides those digits.
+  *
+  * The community `@react-native-masked-view/masked-view` is intentionally
+  * excluded because it crashes on Fabric (New Architecture).
+@@ -24,15 +26,7 @@ let Resolved: React.ComponentType<MaskedViewProps> | null = null;
+ try {
+   Resolved = require("@rednegniw/masked-view").default;
+ } catch {
+-  // Not installed: try @expo/ui below
+-}
+-
+-if (!Resolved) {
+-  try {
+-    Resolved = require("@expo/ui/community/masked-view").default;
+-  } catch {
+-    // Not installed either: masking falls back to per-digit opacity
+-  }
++  // Not installed: per-digit opacity hides the wheel's neighbor digits.
+ }
+ 
+ export default Resolved ?? null;

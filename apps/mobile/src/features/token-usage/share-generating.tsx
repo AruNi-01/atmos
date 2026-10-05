@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { StyleSheet, View } from "react-native";
 import { Canvas, Circle, Group, Mask, Points, RadialGradient, Rect } from "@shopify/react-native-skia";
 import { useDerivedValue, useFrameCallback, useReducedMotion, useSharedValue, type DerivedValue } from "react-native-reanimated";
@@ -141,9 +142,20 @@ export function UsageShareGenerating({ dark }: { dark: boolean }) {
   const reduced = useReducedMotion() === true;
   const size = useSharedValue({ height: 0, width: 0 });
   const time = useSharedValue(0);
-  useFrameCallback((frame) => {
-    time.set(frame.timeSinceFirstFrame);
-  }, !reduced);
+  // timeSinceFirstFrame starts over whenever this callback is re-registered.
+  // Parent renders during capture were restarting the glow from the first frame.
+  const origin = useSharedValue(-1);
+  const onFrame = useCallback((frame: { timestamp: number }) => {
+    "worklet";
+    const started = origin.get();
+    if (started < 0) {
+      origin.set(frame.timestamp);
+      time.set(0);
+      return;
+    }
+    time.set(frame.timestamp - started);
+  }, [origin, time]);
+  useFrameCallback(onFrame, !reduced);
   const points = useDerivedValue(() => {
     const next = size.get();
     return dotPoints(next.width, next.height);

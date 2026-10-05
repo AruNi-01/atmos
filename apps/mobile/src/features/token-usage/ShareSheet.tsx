@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Host } from "@expo/ui";
@@ -25,8 +25,12 @@ import { NativeSegmentedControl } from "@/ui/primitives/native-segmented-control
 import { NativeTextInput } from "@/ui/primitives/native-text-input";
 
 const SITE = "https://atmos.land";
+/** Opens at the system full sheet. A drag can rest at half. Keep this identity stable. */
+const SHARE_SHEET_DETENTS = ["large", "medium"] as const;
+/** The system sheet spring has to finish before a screenshot. A layout pass during that spring drops the sheet and it bounces back. */
+const SHEET_SETTLE_MS = 640;
 
-export function ShareSheet({
+export const ShareSheet = memo(function ShareSheet({
   capture,
   onDismiss,
   open,
@@ -50,6 +54,8 @@ export function ShareSheet({
   const saveRequest = useRef(0);
   const activeSave = useRef<number | null>(null);
   const shotUri = useRef<string | null>(null);
+  const captureRef = useRef(capture);
+  captureRef.current = capture;
   const tokens = formatCompactNumber(totalTokens);
   const cost = formatCurrencyCompact(totalCost);
   const shareText = `My AI agent usage on Atmos: ${tokens} tokens · ${cost}\nAtmosphere for Agentic Builders\n${SITE}`;
@@ -75,7 +81,7 @@ export function ShareSheet({
     setSaveState("idle");
     const start = setTimeout(() => {
       if (!alive) return;
-      void capture()
+      void captureRef.current()
         .then((shot) => {
           if (!alive) {
             releaseUsageImage(shot.uri);
@@ -90,12 +96,12 @@ export function ShareSheet({
           if (!alive) return;
           setCaptureError(reason instanceof Error ? reason.message : "Could not capture this page.");
         });
-    }, 180);
+    }, SHEET_SETTLE_MS);
     return () => {
       alive = false;
       clearTimeout(start);
     };
-  }, [capture, open]);
+  }, [open]);
 
   const requestSave = () => {
     const uri = shotUri.current;
@@ -124,7 +130,7 @@ export function ShareSheet({
   };
 
   return (
-    <ExpoDrawer isPresented={open} matchContents={false} onDismiss={onDismiss} snapPoints={[{ fraction: 0.78 }]}>
+    <ExpoDrawer detents={SHARE_SHEET_DETENTS} isPresented={open} matchContents={false} onDismiss={onDismiss}>
       <View style={styles.sheet}>
       <NativeSegmentedControl
         onValueChange={setTab}
@@ -178,7 +184,7 @@ export function ShareSheet({
       </View>
     </ExpoDrawer>
   );
-}
+});
 
 function Social({ icon, label, onPress }: { icon: ReactNode; label: string; onPress: () => void }) {
   const theme = useMobileTheme();

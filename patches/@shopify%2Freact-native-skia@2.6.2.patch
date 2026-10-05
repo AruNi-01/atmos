@@ -12,3 +12,32 @@ index 649d2c20b3a588cb574e1de7455bb5cd53f2cbe4..468e6f84e78b7a9049acdf3d19e0b359
        }
      }
    },
+diff --git a/apple/ViewScreenshotService.mm b/apple/ViewScreenshotService.mm
+--- a/apple/ViewScreenshotService.mm
++++ b/apple/ViewScreenshotService.mm
+@@ -1,5 +1,6 @@
+ #import "ViewScreenshotService.h"
+ #import <QuartzCore/QuartzCore.h>
++#import <UIKit/UIKit.h>
+ 
+ #pragma clang diagnostic push
+ #pragma clang diagnostic ignored "-Wdocumentation"
+@@ -40,13 +41,16 @@
+   UIGraphicsImageRenderer *renderer =
+       [[UIGraphicsImageRenderer alloc] initWithSize:size format:format];
+ 
+-  // Render to context - this is now the only part of this function that shows
+-  // up in the profiler!
++  // Keep the screen update so transformed content is in the bitmap, but do not let that
++  // layout pass spring a presented sheet.
++  BOOL animationsEnabled = [UIView areAnimationsEnabled];
++  [UIView setAnimationsEnabled:NO];
+   UIImage *image = [renderer
+       imageWithActions:^(UIGraphicsImageRendererContext *_Nonnull context) {
+         [view drawViewHierarchyInRect:(CGRect){CGPointZero, size}
+                    afterScreenUpdates:YES];
+       }];
++  [UIView setAnimationsEnabled:animationsEnabled];
+ 
+   // Convert from UIImage -> CGImage -> SkImage
+   CGImageRef cgImage = image.CGImage;

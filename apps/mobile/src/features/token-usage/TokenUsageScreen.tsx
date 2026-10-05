@@ -1,17 +1,19 @@
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image as RNImage, Pressable, StyleSheet, Text, View, type ScrollView } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Host } from "@expo/ui";
 import { MenuView } from "@expo/ui/community/menu";
 import { Image } from "@expo/ui/swift-ui";
 import { Stack, type NativeStackHeaderItem } from "expo-router";
-import Animated, { Easing, FadeIn, FadeInDown, FadeOut, FadeOutDown, LinearTransition, useReducedMotion } from "react-native-reanimated";
+import Animated, { Easing, FadeIn, FadeInDown, FadeOut, FadeOutDown, LinearTransition, useReducedMotion, useSharedValue } from "react-native-reanimated";
 import type { SFSymbol } from "sf-symbols-typescript";
 import type { DailyTokenUsageResponse } from "@atmos/api-types/ws/dto/token-usage";
 import { wsActions } from "@/api/ws-actions";
 import { AnimatedMetric } from "@/features/token-usage/animated-metric";
 import { ScrollableChart, UsageGrowthChart, UsageHeatmap, UsageStackedChart } from "@/features/token-usage/charts";
 import { formatCurrencyDetailed, formatMetric, formatPercent } from "@/features/token-usage/format";
+import { METRIC_TWEEN_MS } from "@/features/token-usage/tween-series";
 import {
   buildHeatmap,
   chartColors,
@@ -33,15 +35,17 @@ import {
   type UsageMetric,
 } from "@/features/token-usage/model";
 import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
-import { captureUsageImage, type UsageShot } from "@/features/token-usage/capture-usage-image";
+import { captureUsageImage, releaseUsageImage, type UsageShot } from "@/features/token-usage/capture-usage-image";
 import { ShareSheet } from "@/features/token-usage/ShareSheet";
 import { StatArt, type StatArtKind } from "@/features/token-usage/stat-art";
+import { UsageModelIcon } from "@/features/token-usage/UsageModelIcon";
+import { useMeterWidth } from "@/features/usage/use-meter-width";
 import { UsageScroll } from "@/features/usage/usage-scroll";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import { useMobileTheme } from "@/theme/theme-store";
+import { AtmosLogo } from "@/ui/AtmosLogo";
 import { BotIcon, BrainCircuitIcon, CoinsIcon, DollarSignIcon, ShareIcon } from "@/ui/icons/lucide-native";
-import { ProviderGlyph } from "@/ui/icons/provider-glyph";
 import { InlineError } from "@/ui/layout/app-screen";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
 import { MenuPicker } from "@/ui/primitives/menu-picker";
@@ -56,6 +60,9 @@ const DIMENSION_SYMBOL = { agent: "cpu", model: "brain" } as const satisfies Rec
 
 export function TokenUsageScreen() {
   const theme = useMobileTheme();
+  const safeTop = useSafeAreaInsets().top;
+  const safeTopRef = useRef(safeTop);
+  safeTopRef.current = safeTop;
   const queryClient = useQueryClient();
   const { client, state } = useMobileWs();
   const wsUrl = useSessionStore((store) => store.activeClientSession?.ws_url ?? null);
@@ -67,31 +74,34 @@ export function TokenUsageScreen() {
   const [year, setYear] = useState("");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
-  const [freezeUri, setFreezeUri] = useState<string | null>(null);
-  const [captureEdgeHidden, setCaptureEdgeHidden] = useState(false);
   const usageContentRef = useRef<View>(null);
   const usageScrollRef = useRef<ScrollView>(null);
-  const offsetRef = useRef(0);
-  const offsetSeen = useRef(false);
+  const captureShift = useSharedValue(0);
+  const setFreezeRef = useRef<(uri: string | null) => void>(() => {});
+  const freezeUriRef = useRef<string | null>(null);
   const openingShare = useRef(false);
   const shotRequest = useRef<Promise<UsageShot> | null>(null);
-  const noteOffset = useCallback((y: number) => {
-    offsetSeen.current = true;
-    offsetRef.current = y;
-  }, []);
   const captureUsage = useCallback(() => {
     if (!shotRequest.current) {
       shotRequest.current = captureUsageImage({
         contentRef: usageContentRef,
-        offsetSeen: () => offsetSeen.current,
-        readOffset: () => offsetRef.current,
+        safeTop: safeTopRef.current,
         scrollRef: usageScrollRef,
-        setEdgeHidden: setCaptureEdgeHidden,
-        setFreeze: setFreezeUri,
+        setFreeze: (uri) => {
+          if (!openingShare.current) {
+            if (uri) releaseUsageImage(uri);
+            return;
+          }
+          const previous = freezeUriRef.current;
+          freezeUriRef.current = uri;
+          setFreezeRef.current(uri);
+          if (previous && previous !== uri) releaseUsageImage(previous);
+        },
+        shift: captureShift,
       });
     }
     return shotRequest.current;
-  }, []);
+  }, [captureShift]);
   const openShare = useCallback(() => {
     if (openingShare.current) return;
     openingShare.current = true;
@@ -100,7 +110,11 @@ export function TokenUsageScreen() {
   const closeShare = useCallback(() => {
     openingShare.current = false;
     shotRequest.current = null;
+    const uri = freezeUriRef.current;
+    freezeUriRef.current = null;
+    setFreezeRef.current(null);
     setShareOpen(false);
+    if (uri) requestAnimationFrame(() => releaseUsageImage(uri));
   }, []);
   const reducedMotion = useReducedMotion();
   const heatmapLayout = useMemo(
@@ -162,24 +176,30 @@ export function TokenUsageScreen() {
     setSelectedDate((current) => (current === date ? null : date));
   };
   const hero = metric === "cost" ? (overview?.summary.total_cost_usd ?? 0) : (overview?.summary.total_tokens ?? 0);
-  const reload = () => {
+  const reload = useCallback(() => {
     if (connected) refresh.mutate();
-  };
+  }, [connected, refresh]);
+  const loadingPage =
+    overview == null &&
+    overviewQuery.isPending &&
+    (overviewQuery.isFetching ||
+      connected ||
+      state === "connecting" ||
+      state === "reconnecting" ||
+      (state === "idle" && wsUrl != null));
 
-  return (
-    <>
-      <Stack.Screen
-        options={{
-          ...nativeLargeTitleOptions("Token usage", theme.colors),
-          ...(captureEdgeHidden
-            ? { scrollEdgeEffects: { bottom: "hidden" as const, left: "hidden" as const, right: "hidden" as const, top: "hidden" as const } }
-            : null),
-          headerTintColor: theme.colors.label,
+  // Keep this identity stable while a share capture is open.
+  // A navigation-option change while the sheet is presented dismisses it and restarts the loader.
+  const screenOptions = useMemo(
+    () => ({
+      ...nativeLargeTitleOptions("Token usage", theme.colors),
+      headerShown: !loadingPage,
+      headerTintColor: theme.colors.label,
           ...(process.env.EXPO_OS === "ios"
             ? {
                 unstable_headerLeftItems: () => [
                   {
-                    type: "custom",
+                    type: "custom" as const,
                     element: (
                       <View style={styles.headerIcons}>
                         <HeaderChoice
@@ -241,15 +261,21 @@ export function TokenUsageScreen() {
                   </Pressable>
                 ),
               }),
-        }}
-      />
-      <View style={styles.page}>
+    }),
+    [dimension, loadingPage, metric, openShare, theme.colors],
+  );
+
+  return (
+    <>
+      <Stack.Screen options={screenOptions} />
+      {loadingPage ? <UsageLoading /> : (
+      <UsageCaptureFrame setFreezeRef={setFreezeRef}>
       <UsageScroll
         contentRef={usageContentRef}
-        onOffset={noteOffset}
         onRefresh={reload}
         refreshing={refresh.isPending || overviewQuery.isRefetching}
         scrollRef={usageScrollRef}
+        shift={captureShift}
       >
         {!connected ? <Text style={{ color: theme.colors.secondaryLabel }}>Connect to a Computer to see token usage.</Text> : null}
         <InlineError message={overviewQuery.error instanceof Error ? overviewQuery.error.message : null} />
@@ -260,32 +286,44 @@ export function TokenUsageScreen() {
           value={hero}
         />
         <View style={{ gap: 12 }}>
-          {shares.map((row) => {
+          {shares.map((row, index) => {
             const color = colors.get(row.id) ?? theme.colors.label;
             return (
-              <View key={row.id} style={{ gap: 6 }}>
+              <View key={`share-${index}`} style={{ gap: 6 }}>
                 <View style={styles.row}>
-                  {dimension === "agent" ? (
-                    row.id === "other" ? <BotIcon color={color} size={16} /> : <MobileAgentIcon agentId={row.id} size={16} />
-                  ) : (
-                    <ProviderGlyph color={color} providerId={row.providerId ?? "unknown"} size={16} />
-                  )}
-                  <Text numberOfLines={1} style={[styles.label, { color: theme.colors.label }]}>{row.label}</Text>
-                  <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12 }}>{formatPercent(row.sharePercent)}</Text>
-                  <AnimatedMetric format={(value) => formatMetric(value, metric)} style={{ color: theme.colors.label, fontVariant: ["tabular-nums"], fontWeight: "600" }} value={row.value} />
+                  <Animated.View
+                    entering={reducedMotion ? undefined : FadeIn.duration(180)}
+                    key={row.id}
+                    style={styles.identity}
+                  >
+                    {dimension === "agent" ? (
+                      row.id === "other" ? <BotIcon color={color} size={16} /> : <MobileAgentIcon agentId={row.id} size={16} />
+                    ) : (
+                      <UsageModelIcon modelId={row.id} providerId={row.providerId} size={16} />
+                    )}
+                    <Text numberOfLines={1} style={[styles.label, { color: theme.colors.label }]}>{row.label}</Text>
+                  </Animated.View>
+                  <AnimatedMetric
+                    format={formatPercent}
+                    style={{ color: theme.colors.secondaryLabel, fontSize: 12, fontVariant: ["tabular-nums"] }}
+                    value={row.sharePercent}
+                  />
+                  <AnimatedMetric
+                    format={(value) => formatMetric(value, metric)}
+                    style={{ color: theme.colors.label, fontVariant: ["tabular-nums"], fontWeight: "600" }}
+                    value={row.value}
+                  />
                 </View>
-                <View style={[styles.track, { backgroundColor: theme.colors.cardSubtle }]}>
-                  <View style={{ backgroundColor: color, borderRadius: 999, height: "100%", width: `${Math.min(100, row.sharePercent)}%` }} />
-                </View>
+                <ShareBar color={color} percent={row.sharePercent} trackColor={theme.colors.cardSubtle} />
               </View>
             );
           })}
         </View>
         <View style={styles.grid}>
-          <StatCard art="messages" label="Messages" note={`${overview?.by_client.length ?? 0} agents`} value={overview?.summary.total_messages ?? 0} />
-          <StatCard art="days" label="Active days" note="Days with recorded usage" value={overview?.summary.active_days ?? 0} />
-          <StatCard art="cost" label="Estimated cost" metric="cost" note="From local session history" value={overview?.summary.total_cost_usd ?? 0} />
-          <StatCard art="tokens" label="Total tokens" note={overview?.summary.range_start && overview.summary.range_end ? `${overview.summary.range_start} – ${overview.summary.range_end}` : "All time"} value={overview?.summary.total_tokens ?? 0} />
+          <StatCard art="messages" label="Messages" value={overview?.summary.total_messages ?? 0} />
+          <StatCard art="days" label="Active days" value={overview?.summary.active_days ?? 0} />
+          <StatCard art="cost" label="Estimated cost" metric="cost" value={overview?.summary.total_cost_usd ?? 0} />
+          <StatCard art="tokens" label="Total tokens" value={overview?.summary.total_tokens ?? 0} />
         </View>
         <View style={[styles.panel, { backgroundColor: theme.colors.card, borderColor: theme.colors.separator }]}>
           <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12 }}>Token mix</Text>
@@ -380,16 +418,20 @@ export function TokenUsageScreen() {
             const id = bars.keys[index] ?? "";
             const color = barColors.get(id) ?? theme.colors.secondaryLabel;
             return (
-              <View key={id || label} style={styles.legendItem}>
+              <Animated.View
+                entering={reducedMotion ? undefined : FadeIn.duration(180)}
+                key={id || label}
+                style={styles.legendItem}
+              >
                 {dimension === "model" ? (
-                  <ProviderGlyph color={color} providerId={modelProviders.get(id) ?? "unknown"} size={14} />
+                  <UsageModelIcon color={color} modelId={id} providerId={modelProviders.get(id)} size={14} />
                 ) : id === "other" ? (
                   <BotIcon color={color} size={14} />
                 ) : (
                   <MobileAgentIcon agentId={id} size={14} />
                 )}
                 <Text style={{ color, fontSize: 12 }}>{label}</Text>
-              </View>
+              </Animated.View>
             );
           })}
         </View>
@@ -399,12 +441,8 @@ export function TokenUsageScreen() {
           </Text>
         ) : null}
       </UsageScroll>
-      {freezeUri ? (
-        <View pointerEvents="auto" style={StyleSheet.absoluteFill}>
-          <RNImage source={{ uri: freezeUri }} style={StyleSheet.absoluteFill} />
-        </View>
-      ) : null}
-      </View>
+      </UsageCaptureFrame>
+      )}
       <ShareSheet
         capture={captureUsage}
         onDismiss={closeShare}
@@ -414,6 +452,45 @@ export function TokenUsageScreen() {
         totalTokens={overview?.summary.total_tokens ?? 0}
       />
     </>
+  );
+}
+
+function UsageCaptureFrame({
+  children,
+  setFreezeRef,
+}: {
+  children: ReactNode;
+  setFreezeRef: RefObject<(uri: string | null) => void>;
+}) {
+  const [uri, setUri] = useState<string | null>(null);
+  setFreezeRef.current = setUri;
+  return (
+    <View style={styles.page}>
+      {children}
+      {uri ? (
+        <View pointerEvents="auto" style={StyleSheet.absoluteFill}>
+          <RNImage source={{ uri }} style={StyleSheet.absoluteFill} />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function UsageLoading() {
+  const theme = useMobileTheme();
+
+  return (
+    <View
+      accessibilityRole="progressbar"
+      style={{
+        alignItems: "center",
+        backgroundColor: theme.colors.background,
+        flex: 1,
+        justifyContent: "center",
+      }}
+    >
+      <AtmosLogo breathe />
+    </View>
   );
 }
 
@@ -460,17 +537,40 @@ function HeaderChoice({
   );
 }
 
+function ShareBar({ color, percent, trackColor }: { color: string; percent: number; trackColor: string }) {
+  const reducedMotion = useReducedMotion();
+  const fill = useMeterWidth(percent);
+  return (
+    <View style={[styles.track, { backgroundColor: trackColor }]}>
+      <Animated.View
+        style={[
+          {
+            backgroundColor: color,
+            borderRadius: 999,
+            bottom: 0,
+            left: 0,
+            position: "absolute",
+            top: 0,
+            transitionDuration: reducedMotion ? 0 : METRIC_TWEEN_MS,
+            transitionProperty: "backgroundColor",
+            transitionTimingFunction: "ease-out",
+          },
+          fill,
+        ]}
+      />
+    </View>
+  );
+}
+
 function StatCard({
   art,
   label,
   metric = "tokens",
-  note,
   value,
 }: {
   art: StatArtKind;
   label: string;
   metric?: UsageMetric;
-  note: string;
   value: number;
 }) {
   const theme = useMobileTheme();
@@ -478,7 +578,6 @@ function StatCard({
     <View style={[styles.stat, { backgroundColor: theme.colors.card, borderColor: theme.colors.separator }]}>
       <Text style={{ color: theme.colors.tertiaryLabel, fontSize: 13 }}>{label}</Text>
       <AnimatedMetric format={(next) => formatMetric(next, metric)} style={[styles.statValue, { color: theme.colors.label }]} value={value} />
-      <Text numberOfLines={2} style={{ color: theme.colors.secondaryLabel, fontSize: 12, marginTop: 6, paddingRight: 52 }}>{note}</Text>
       <View pointerEvents="none" style={styles.art}>
         <StatArt color={theme.isDark ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.16)"} kind={art} />
       </View>
@@ -555,13 +654,14 @@ const styles = StyleSheet.create({
   heatmapClip: { borderRadius: 20, overflow: "hidden" },
   heatmapDetail: { borderRadius: 16, marginBottom: 10, marginHorizontal: 10, paddingHorizontal: 14, paddingVertical: 14 },
   hero: { fontSize: 40, fontVariant: ["tabular-nums"], fontWeight: "700" },
-  label: { flex: 1, fontSize: 14, fontWeight: "600" },
+  identity: { alignItems: "center", flex: 1, flexDirection: "row", gap: 8, minWidth: 0 },
+  label: { flex: 1, fontSize: 14, fontWeight: "600", minWidth: 0 },
   legend: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   legendItem: { alignItems: "center", flexDirection: "row", gap: 6 },
   panel: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, gap: 8, padding: 14 },
   row: { alignItems: "center", flexDirection: "row", gap: 8 },
   section: { flex: 1, fontSize: 16, fontWeight: "700" },
-  stat: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, minHeight: 132, overflow: "hidden", padding: 14, width: "48%" },
+  stat: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, minHeight: 108, overflow: "hidden", padding: 14, width: "48%" },
   statValue: { fontSize: 26, fontVariant: ["tabular-nums"], fontWeight: "700", marginTop: 10 },
   track: { borderRadius: 999, height: 8, overflow: "hidden" },
 });
