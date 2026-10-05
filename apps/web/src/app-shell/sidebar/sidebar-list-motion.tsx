@@ -32,7 +32,10 @@ export function SidebarMotionItem({
   className?: string;
 }) {
   const reduce = useReducedMotion();
-  const box = className ? `min-w-0 overflow-hidden ${className}` : "min-w-0 overflow-hidden";
+  // `overflow: clip` hides the height tween. `overflow: hidden` is a scroll
+  // container, so a sticky group title inside this row would stick to the
+  // row instead of the sidebar list.
+  const box = className ? `min-w-0 overflow-clip ${className}` : "min-w-0 overflow-clip";
   if (reduce) {
     return <div className={box}>{children}</div>;
   }

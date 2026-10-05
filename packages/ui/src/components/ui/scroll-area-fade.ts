@@ -38,14 +38,20 @@ export function measureStickyFadeInsets(
 ): StickyFadeInsets {
   const insets: StickyFadeInsets = { top: 0, bottom: 0, left: 0, right: 0 };
   for (const item of items) {
-    if (item.stickyTop != null && isStuck(item.top, view.top + item.stickyTop)) {
-      insets.top = Math.max(insets.top, item.bottom - view.top);
+    if (item.stickyTop != null) {
+      const stickLine = view.top + item.stickyTop;
+      // Keep the fade under a header that is stuck or still sliding out.
+      // Dropping the inset as soon as the top leaves the stick line parks
+      // the fade on the exiting title and leaves the rows below fully lit.
+      if (item.top <= stickLine + STUCK_EPS && item.bottom > stickLine + STUCK_EPS) {
+        insets.top = Math.max(insets.top, item.bottom - view.top);
+      }
     }
-    if (
-      item.stickyBottom != null &&
-      isStuck(item.bottom, view.bottom - item.stickyBottom)
-    ) {
-      insets.bottom = Math.max(insets.bottom, view.bottom - item.top);
+    if (item.stickyBottom != null) {
+      const stickLine = view.bottom - item.stickyBottom;
+      if (item.bottom >= stickLine - STUCK_EPS && item.top < stickLine - STUCK_EPS) {
+        insets.bottom = Math.max(insets.bottom, view.bottom - item.top);
+      }
     }
     if (item.stickyLeft != null && isStuck(item.left, view.left + item.stickyLeft)) {
       insets.left = Math.max(insets.left, item.right - view.left);

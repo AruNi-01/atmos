@@ -83,6 +83,23 @@ describe("measureStickyFadeInsets", () => {
     ).toEqual({ top: 0, bottom: 0, left: 0, right: 0 });
   });
 
+  test("keeps the top fade under a sticky header that is sliding out", () => {
+    expect(
+      measureStickyFadeInsets(view, [
+        {
+          top: 70,
+          bottom: 146,
+          left: 20,
+          right: 320,
+          stickyTop: 0,
+          stickyBottom: null,
+          stickyLeft: null,
+          stickyRight: null,
+        },
+      ]),
+    ).toEqual({ top: 46, bottom: 0, left: 0, right: 0 });
+  });
+
   test("starts the bottom fade above a stuck footer", () => {
     expect(
       measureStickyFadeInsets(view, [

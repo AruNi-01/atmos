@@ -312,131 +312,134 @@ function SessionSidebarRow({
     }
   };
 
+  const activate = () => activateSidebarSessionRow(row, router, projects);
+
   return (
     <div
+      role="button"
+      tabIndex={0}
+      onClick={activate}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          activate();
+        }
+      }}
       className={cn(
-        "group/session flex w-full min-w-0 flex-col gap-0.5 rounded-lg px-2 py-1.5 text-left hover:bg-sidebar-accent",
+        "group/session flex w-full min-w-0 cursor-pointer flex-col gap-0.5 rounded-lg px-2 py-1.5 text-left hover:bg-sidebar-accent",
         isActive && "bg-sidebar-accent",
       )}
     >
-      <span className="flex min-w-0 items-center gap-1.5">
-        <button
-          type="button"
-          onClick={() => activateSidebarSessionRow(row, router, projects)}
-          className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 text-left"
-        >
+      <span className="flex h-6 min-w-0 items-center gap-1.5">
+        <span className="relative flex size-3.5 shrink-0 items-center justify-center">
           <AgentIcon
             registryId={agent.registryId}
             name={agent.name}
             size={14}
-            className="shrink-0"
+            className="group-hover/session:invisible"
           />
-          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-sidebar-foreground">
-            {row.title}
-          </span>
-        </button>
-        {isPinned ? (
           <button
             type="button"
             disabled={busy}
-            title={chromeT("common.unpin")}
-            onClick={() => onTogglePin(row.sessionId)}
-            className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-border/50 hover:text-foreground"
+            title={chromeT(isPinned ? "common.unpin" : "common.pin")}
+            onClick={(event) => {
+              event.stopPropagation();
+              onTogglePin(row.sessionId);
+            }}
+            className="absolute left-1/2 top-1/2 z-10 hidden size-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground hover:cursor-pointer hover:bg-sidebar-border/50 hover:text-foreground group-hover/session:flex"
           >
-            <Pin className="size-3.5" />
+            <Pin className={cn("size-3.5", !isPinned && "rotate-45")} />
           </button>
-        ) : null}
-        <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground group-hover/session:hidden">
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-sidebar-foreground">
+          {row.title}
+        </span>
+        <span
+          className={cn(
+            "shrink-0 text-[11px] tabular-nums text-muted-foreground",
+            chatId && "group-hover/session:hidden",
+          )}
+        >
           {formatRelativeTime(row.updatedAt, locale)}
         </span>
-        <span className="hidden shrink-0 items-center gap-0.5 group-hover/session:flex">
-          {isPinned ? null : (
+        {chatId ? (
+          <span className="hidden shrink-0 items-center gap-0.5 group-hover/session:flex">
             <button
               type="button"
               disabled={busy}
-              title={chromeT("common.pin")}
-              onClick={() => onTogglePin(row.sessionId)}
+              title={viewT("view.archive")}
+              onClick={(event) => {
+                event.stopPropagation();
+                void run(async () => {
+                  await archiveLinkedHostSessions(chatId);
+                  await onArchive(row.sessionId);
+                });
+              }}
               className="flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-border/50 hover:text-foreground"
             >
-              <Pin className="size-3.5 rotate-45" />
+              <Archive className="size-3.5" />
             </button>
-          )}
-          {chatId ? (
-            <>
-              <button
-                type="button"
-                disabled={busy}
-                title={viewT("view.archive")}
-                onClick={() => {
-                  void run(async () => {
-                    await archiveLinkedHostSessions(chatId);
-                    await onArchive(row.sessionId);
-                  });
-                }}
-                className="flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-border/50 hover:text-foreground"
-              >
-                <Archive className="size-3.5" />
-              </button>
-              <Popover
-                open={deleteOpen}
-                onOpenChange={(open) => {
-                  setDeleteOpen(open);
-                  if (open) {
-                    setIncludeChat(true);
-                    setIncludeSource(true);
-                    setActionError(null);
-                  }
-                }}
-              >
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    title={chromeT("common.delete")}
-                    className="flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-border/50 hover:text-destructive"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent side="top" align="end" className="w-72">
-                  <div className="flex flex-col gap-3">
-                    <DeleteOption
-                      checked={includeChat}
-                      label={deleteT("includeChat")}
-                      onCheckedChange={setIncludeChat}
-                    />
-                    <DeleteOption
-                      checked={includeSource}
-                      label={deleteT("includeSource")}
-                      onCheckedChange={setIncludeSource}
-                    />
-                    {actionError ? (
-                      <p className="text-xs text-destructive">{actionError}</p>
-                    ) : null}
-                    <HoldToConfirmButton
-                      size="sm"
-                      className="mt-1 w-full"
-                      disabled={busy || (!includeChat && !includeSource)}
-                      label={deleteT("holdToDelete")}
-                      confirmedLabel={deleteT("held")}
-                      resetDelay={0}
-                      onConfirm={() => {
-                        setDeleteOpen(false);
-                        void run(async () => {
-                          await deleteLinkedHostSessions(chatId, {
-                            includeAtmosChat: includeChat,
-                            includeSource,
-                          });
-                          await onArchive(row.sessionId);
+            <Popover
+              open={deleteOpen}
+              onOpenChange={(open) => {
+                setDeleteOpen(open);
+                if (open) {
+                  setIncludeChat(true);
+                  setIncludeSource(true);
+                  setActionError(null);
+                }
+              }}
+            >
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  disabled={busy}
+                  title={chromeT("common.delete")}
+                  onClick={(event) => event.stopPropagation()}
+                  className="flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-border/50 hover:text-destructive"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="end" className="w-72">
+                <div className="flex flex-col gap-3">
+                  <DeleteOption
+                    checked={includeChat}
+                    label={deleteT("includeChat")}
+                    onCheckedChange={setIncludeChat}
+                  />
+                  <DeleteOption
+                    checked={includeSource}
+                    label={deleteT("includeSource")}
+                    onCheckedChange={setIncludeSource}
+                  />
+                  {actionError ? (
+                    <p className="text-xs text-destructive">{actionError}</p>
+                  ) : null}
+                  <HoldToConfirmButton
+                    size="sm"
+                    className="mt-1 w-full"
+                    disabled={busy || (!includeChat && !includeSource)}
+                    label={deleteT("holdToDelete")}
+                    confirmedLabel={deleteT("held")}
+                    resetDelay={0}
+                    onConfirm={() => {
+                      setDeleteOpen(false);
+                      void run(async () => {
+                        await deleteLinkedHostSessions(chatId, {
+                          includeAtmosChat: includeChat,
+                          includeSource,
                         });
-                      }}
-                    />
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </>
-          ) : null}
-        </span>
+                        await onArchive(row.sessionId);
+                      });
+                    }}
+                  />
+                </div>
+              </PopoverContent>
+            </Popover>
+          </span>
+        ) : null}
       </span>
       {subtitle ? (
         <span className="min-w-0 truncate pl-5 text-[11px] text-muted-foreground">{subtitle}</span>

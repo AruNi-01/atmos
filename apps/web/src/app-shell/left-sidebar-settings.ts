@@ -16,6 +16,8 @@ import {
   parseSidebarListView,
   type SidebarListView,
 } from "@/app-shell/sidebar/sidebar-list-view";
+
+export { sidebarListViewToApply } from "@/app-shell/sidebar/sidebar-list-view";
 import { WORKSPACE_WORKFLOW_STATUS_OPTIONS } from "@/app-shell/sidebar/workspace-status";
 
 type FunctionSettingsSnapshot = {

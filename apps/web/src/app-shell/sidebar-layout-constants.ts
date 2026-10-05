@@ -54,8 +54,10 @@ export const LEFT_SIDEBAR_DIVIDER_GUTTER_SCROLLBAR_CLASS =
  * group's rows scroll underneath, then release as the next group arrives.
  * ScrollArea `scrollFade` measures these `.sticky` nodes and starts the mask
  * on the rows below the stuck title.
+ * z-20 stays above row hover chrome (pin buttons are z-10) so that chrome
+ * cannot paint through the title while the list scrolls.
  */
-export const LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS = "sticky top-0 z-10 bg-sidebar";
+export const LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS = "sticky top-0 z-20 bg-sidebar";
 
 /** Shell behind the floating card — matches sidebar so gutters read as inset. */
 export const CENTER_STAGE_SHELL_CLASS =

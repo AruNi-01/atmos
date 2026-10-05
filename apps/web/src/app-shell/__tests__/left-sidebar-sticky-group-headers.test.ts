@@ -10,7 +10,7 @@ describe("left sidebar sticky group headers", () => {
   it("defines an opaque sticky class so titles cover scrolling workspace rows", () => {
     const constants = read("../sidebar-layout-constants.ts");
     expect(constants).toContain("LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS");
-    expect(constants).toContain("sticky top-0 z-10 bg-sidebar");
+    expect(constants).toContain("sticky top-0 z-20 bg-sidebar");
   });
 
   it("sticks agent/status/label group titles in the one-column list", () => {
@@ -31,5 +31,11 @@ describe("left sidebar sticky group headers", () => {
     const sortable = read("../sidebar/SortableProject.tsx");
     expect(projectItem).toContain("LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS");
     expect(sortable).toContain("stickyHeader={!props.hideWorkspaceList}");
+  });
+
+  it("clips list motion without trapping sticky group titles in a scroll container", () => {
+    const motion = read("../sidebar/sidebar-list-motion.tsx");
+    expect(motion).toContain("min-w-0 overflow-clip");
+    expect(motion).not.toContain("overflow-hidden");
   });
 });

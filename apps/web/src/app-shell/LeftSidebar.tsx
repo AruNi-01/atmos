@@ -76,6 +76,7 @@ import {
   parseWorkspaceSidebarFilters,
   parseWorkspaceSidebarView,
   serializeWorkspaceSidebarFilters,
+  sidebarListViewToApply,
   type SidebarListView,
 } from '@/app-shell/left-sidebar-settings';
 import { SessionSidebarList } from '@/app-shell/sidebar/SessionSidebarList';
@@ -299,6 +300,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const persistedGroupingModeRef = useRef<SidebarGroupingMode>('project');
     const persistedSidebarViewRef = useRef<SidebarListView>('workspace');
+    // Set when the user picks a view before this scope's settings load applies.
+    const sidebarListViewOverrideRef = useRef<SidebarListView | null>(null);
     const persistedPinnedSectionCollapsedRef = useRef(false);
     const persistedLabelGroupOrderRef = useRef<string[]>([]);
     const labelGroupOrderWriteRef = useRef<Promise<void>>(Promise.resolve());
@@ -323,6 +326,15 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             console.error(`Failed to persist workspace sidebar setting "${key}":`, error);
         });
     }, [activeInstanceId, connectionEpoch, relaySessionRevision]);
+
+    const handleSidebarListViewChange = useCallback((next: SidebarListView) => {
+        sidebarListViewOverrideRef.current = next;
+        persistedSidebarViewRef.current = next;
+        setSidebarListView(next);
+        // Write immediately. The ready gate below drops the choice when the
+        // settings read was cancelled and never marks this scope ready.
+        persistWorkspaceSidebarSetting('view', next);
+    }, [persistWorkspaceSidebarSetting]);
 
     const isInitialProjectsLoading = useInitialProjectsLoading();
 
@@ -380,6 +392,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         labelGroupOrderWriteRef.current = Promise.resolve();
         persistedGroupingModeRef.current = 'project';
         persistedSidebarViewRef.current = 'workspace';
+        sidebarListViewOverrideRef.current = null;
         persistedPinnedSectionCollapsedRef.current = false;
         persistedLabelGroupOrderRef.current = [];
         let retryTimer: number | null = null;
@@ -395,7 +408,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     const nextGroupingMode = parseSidebarGroupingMode(groupingModeSetting);
                     persistedGroupingModeRef.current = nextGroupingMode;
                     setGroupingMode(nextGroupingMode);
-                    const nextSidebarView = parseWorkspaceSidebarView(settings);
+                    const nextSidebarView = sidebarListViewToApply(
+                        parseWorkspaceSidebarView(settings),
+                        sidebarListViewOverrideRef.current,
+                    );
                     persistedSidebarViewRef.current = nextSidebarView;
                     setSidebarListView(nextSidebarView);
 
@@ -427,9 +443,14 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 })
                 .catch((error) => {
                     if (settingsScopeVersionRef.current !== scopeVersion) return;
-                    if (isCancelledError(error)) return;
-                    console.error('Failed to load workspace sidebar settings:', error);
-                    const delay = Math.min(1_000 * 2 ** retryAttempt, 15_000);
+                    // Reconnect invalidation cancels this read without changing
+                    // the scope. Leaving it cancelled kept the default workspace
+                    // view and dropped later view writes.
+                    const cancelled = isCancelledError(error);
+                    if (!cancelled) {
+                        console.error('Failed to load workspace sidebar settings:', error);
+                    }
+                    const delay = Math.min((cancelled ? 50 : 1_000) * 2 ** retryAttempt, 15_000);
                     retryAttempt += 1;
                     retryTimer = window.setTimeout(loadSettings, delay);
                 });
@@ -438,7 +459,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         queueMicrotask(() => {
             if (settingsScopeVersionRef.current !== scopeVersion) return;
             setGroupingMode('project');
-            setSidebarListView('workspace');
+            setSidebarListView(sidebarListViewToApply(
+                'workspace',
+                sidebarListViewOverrideRef.current,
+            ));
             setLabelGroupOrder([]);
             setIsPinnedSectionCollapsed(false);
             persistedSidebarFiltersRef.current = JSON.stringify(
@@ -1780,7 +1804,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     onFiltersChange={setSidebarWorkspaceFilters}
                     onGroupingModeChange={setGroupingMode}
                     listView={sidebarListView}
-                    onListViewChange={setSidebarListView}
+                    onListViewChange={handleSidebarListViewChange}
                 />
             </aside >
             <WorkspaceInfoHoverHost />
