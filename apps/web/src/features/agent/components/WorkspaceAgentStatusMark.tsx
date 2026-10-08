@@ -24,6 +24,20 @@ export type WorkspaceAgentStatusMarkProps = {
   className?: string;
 };
 
+export function AgentStatusMarkView({
+  view,
+  placement = "left_sidebar",
+  size = 12,
+  className,
+}: {
+  view: WorkspaceAgentStatusView;
+  placement?: AgentIndicatorPlacement;
+  size?: number;
+  className?: string;
+}) {
+  return <>{renderStatusView(view, placement, size, className)}</>;
+}
+
 function renderStatusView(
   view: WorkspaceAgentStatusView,
   placement: AgentIndicatorPlacement,
@@ -63,7 +77,14 @@ export function WorkspaceAgentStatusMark({
   className,
 }: WorkspaceAgentStatusMarkProps) {
   const { view } = useWorkspaceAgentStatus(contextId);
-  return <>{renderStatusView(view, placement, size, className)}</>;
+  return (
+    <AgentStatusMarkView
+      view={view}
+      placement={placement}
+      size={size}
+      className={className}
+    />
+  );
 }
 
 /**

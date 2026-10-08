@@ -22,5 +22,11 @@ describe("session sidebar pin", () => {
     expect(row).not.toContain("size-6 shrink-0 cursor-pointer");
     expect(row).toContain('title={viewT("view.archive")}');
     expect(row).toContain('title={chromeT("common.delete")}');
+    const title = row.indexOf("{row.title}");
+    const mark = row.indexOf("<SessionAgentStatusMark sessionId={row.sessionId} />");
+    const time = row.indexOf("formatRelativeTime");
+    expect(title).toBeGreaterThan(-1);
+    expect(title).toBeLessThan(mark);
+    expect(mark).toBeLessThan(time);
   });
 });

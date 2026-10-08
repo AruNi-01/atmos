@@ -86,7 +86,10 @@ import {
   filterSidebarSessions,
   groupSidebarSessions,
 } from '@/app-shell/sidebar/session-grouping';
-import { sessionLiveGroupKey } from '@/app-shell/sidebar/session-live-group';
+import {
+  sessionLiveGroupKey,
+  sessionMatchesAttentionFilter,
+} from '@/app-shell/sidebar/session-live-group';
 import { useSidebarAgentSessions } from '@/app-shell/sidebar/use-sidebar-agent-sessions';
 import { useAgentChatCenterTabsStore } from '@/features/agent/store/use-agent-chat-center-tabs';
 import { useAgentStatusStore } from '@/features/agent/store/agent-status-store';
@@ -1409,9 +1412,20 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             }),
         ];
         const filtered = filterSidebarSessions(built, sidebarWorkspaceFilters, groups);
+        const visible = attentionFilterMode
+            ? filtered.filter((row) =>
+                sessionMatchesAttentionFilter(
+                    row.sessionId,
+                    row.groupKey,
+                    liveAgentSessions,
+                    attentionPanes,
+                    agentStatusHydrated,
+                ),
+            )
+            : filtered;
         return {
             total: built.length,
-            groups: groupSidebarSessions(filtered, groupingMode, {
+            groups: groupSidebarSessions(visible, groupingMode, {
                 groups,
                 availableLabels: workspaceLabels,
                 labelGroupOrder: effectiveLabelGroupOrder,
@@ -1422,6 +1436,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     }, [
         agentChatTabsByContext,
         agentSessionChatTitles,
+        attentionFilterMode,
         agentSessionSnapshots,
         agentStatusHydrated,
         attentionRevision,

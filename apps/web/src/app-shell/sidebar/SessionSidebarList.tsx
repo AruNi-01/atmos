@@ -35,11 +35,13 @@ import {
   type SidebarSessionGroup,
   type SidebarSessionRow,
 } from "@/app-shell/sidebar/session-grouping";
+import { sessionAgentStatusView } from "@/app-shell/sidebar/session-live-group";
 import {
   resolveSessionPrLifecycle,
   sessionBranchPrTargets,
 } from "@/app-shell/sidebar/session-pr";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { AgentStatusMarkView } from "@/features/agent/components/WorkspaceAgentStatusMark";
 import {
   AGENT_TOOL,
   AGENT_TOOL_ICON_IDS,
@@ -48,6 +50,10 @@ import {
   type AgentStatusRecord,
   type AgentToolType,
 } from "@/features/agent/store/agent-status-store";
+import {
+  selectAttentionFilterMode,
+  useAgentAttentionStore,
+} from "@/features/agent/store/agent-attention-store";
 import {
   canNavigateToAgentStatusSession,
   navigateToAgentStatusSession,
@@ -255,6 +261,14 @@ function sessionAgentIcon(tool: SidebarSessionRow["tool"]): {
   };
 }
 
+function SessionAgentStatusMark({ sessionId }: { sessionId: string }) {
+  const sessions = useAgentStatusStore((state) => state.sessions);
+  const panes = useAgentAttentionStore((state) => state.panes);
+  const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
+  const view = sessionAgentStatusView(sessionId, sessions, panes, attentionFilterMode);
+  return <AgentStatusMarkView view={view} />;
+}
+
 function SessionSidebarRow({
   isActive,
   isPinned,
@@ -352,8 +366,11 @@ function SessionSidebarRow({
             <Pin className={cn("size-3.5", !isPinned && "rotate-45")} />
           </button>
         </span>
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-sidebar-foreground">
-          {row.title}
+        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+          <span className="min-w-0 truncate text-[13px] font-medium text-sidebar-foreground">
+            {row.title}
+          </span>
+          <SessionAgentStatusMark sessionId={row.sessionId} />
         </span>
         <span
           className={cn(

@@ -28,4 +28,11 @@ describe("attention filter sidebar", () => {
       "selectedProjectUnpinnedWorkspaces.length === 0 && !attentionFilterMode",
     );
   });
+
+  it("filters session rows with the same header attention latch", () => {
+    const source = read("../LeftSidebar.tsx");
+    expect(source).toContain("const visible = attentionFilterMode");
+    expect(source).toContain("sessionMatchesAttentionFilter(");
+    expect(source).toContain("groupSidebarSessions(visible, groupingMode,");
+  });
 });
