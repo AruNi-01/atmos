@@ -125,7 +125,16 @@ describe("center space switcher open path", () => {
     expect(pose).toContain('? "hidden" : "visible"');
     expect(pose).toContain('el.closest("[data-center-panel-host]")');
     expect(pose).toContain('host.style.zIndex = "3"');
+    expect(pose).toContain('? "4" : "2"');
+    expect(pose).toContain("--center-space-pose-scale");
+    expect(pose).toContain("var(--radius-xl)");
+    expect(pose).not.toContain('borderRadius = "0px"');
     expect(pose).toContain("translate3d(0px, 0px, 0px) scale(1)");
+    const css = readFileSync(join(dir, "../app/globals.css"), "utf8");
+    expect(css).toContain("@property --center-space-pose-scale");
+    expect(css).toContain(
+      "[data-center-stage-mosaic][data-center-space-posed] [data-center-split-leaf]",
+    );
     expect(pose).toContain('el.style.transition = "none"');
     expect(pose.indexOf('el.style.transition = "none"')).toBeLessThan(
       pose.indexOf("el.style.transform = prev.transform"),

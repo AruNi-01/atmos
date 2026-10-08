@@ -241,6 +241,34 @@ html:not([data-theme-ready="true"]) body {
   overflow: visible;
 }
 
+/* Registered so the pose can animate it. Radius is `home / scale`, which
+   keeps the visual corner equal to the resting stage while the surface
+   scales. Inherits into pane leaves under the mosaic. */
+@property --center-space-pose-scale {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
+
+/* The posed mosaic sits above the panel host so the tab strip stays visible
+   while the surface scales. Clear the leaf fill or that opaque card covers
+   the page and the preview is only the tab strip. The leaf's own rounded-xl
+   is not divided by the pose scale, so it would look square until the zoom
+   settled. Track the same scale as the mosaic. */
+[data-center-space-stage][data-overview="open"] [data-center-stage-mosaic][data-center-space-posed] [data-center-split-leaf] {
+  background-color: transparent;
+  box-shadow: none;
+  border-radius: calc(var(--radius-xl) / var(--center-space-pose-scale, 1));
+}
+
+[data-center-space-stage][data-overview="open"] [data-center-stage-mosaic][data-center-space-posed] [data-center-split-leaf] > div {
+  border-radius: calc(var(--radius-xl) / var(--center-space-pose-scale, 1));
+}
+
+[data-center-space-stage][data-overview="open"] [data-workspace-frame][data-center-space-posed] > :not([data-center-space-pose-ring]) {
+  border-radius: 0;
+}
+
 [data-center-space-stage][data-overview="open"] [data-center-space-posed],
 [data-center-space-stage][data-overview="open"] [data-center-space-posed] * {
   animation-play-state: running !important;

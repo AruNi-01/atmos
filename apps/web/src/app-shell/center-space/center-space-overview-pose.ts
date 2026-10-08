@@ -7,8 +7,39 @@ import {
 } from "@/app-shell/center-space/center-space-overview-motion";
 
 const IDENTITY_TRANSFORM = "translate3d(0px, 0px, 0px) scale(1)";
-const POSE_TRANSITION = `transform ${CENTER_SPACE_OVERVIEW_MS}ms ${CENTER_SPACE_OVERVIEW_EASE}, border-radius ${CENTER_SPACE_OVERVIEW_MS}ms ${CENTER_SPACE_OVERVIEW_EASE}, opacity ${CENTER_SPACE_OVERVIEW_MS}ms ${CENTER_SPACE_OVERVIEW_EASE}`;
+const POSE_SCALE_VAR = "--center-space-pose-scale";
+const POSE_TRANSITION = `transform ${CENTER_SPACE_OVERVIEW_MS}ms ${CENTER_SPACE_OVERVIEW_EASE}, ${POSE_SCALE_VAR} ${CENTER_SPACE_OVERVIEW_MS}ms ${CENTER_SPACE_OVERVIEW_EASE}, opacity ${CENTER_SPACE_OVERVIEW_MS}ms ${CENTER_SPACE_OVERVIEW_EASE}`;
 const RING_TRANSITION = `opacity ${CENTER_SPACE_OVERVIEW_MS}ms ${CENTER_SPACE_OVERVIEW_EASE}`;
+
+let cachedHomeRadiusPx: string | null = null;
+
+/** Used pixel length of the resting center-stage corner (`--radius-xl`). */
+function centerStageHomeRadiusPx(): string {
+  if (cachedHomeRadiusPx) return cachedHomeRadiusPx;
+  const probe = document.createElement("div");
+  probe.style.position = "absolute";
+  probe.style.visibility = "hidden";
+  probe.style.borderTopLeftRadius = "var(--radius-xl)";
+  document.body.appendChild(probe);
+  const px = getComputedStyle(probe).borderTopLeftRadius;
+  probe.remove();
+  cachedHomeRadiusPx = px && px !== "0px" ? px : "14px";
+  return cachedHomeRadiusPx;
+}
+
+/**
+ * Visual radius stays `--radius-xl` at every scale. A fixed pixel radius
+ * would shrink with the transform, then a transition to 0 would square the
+ * corners until the pose clears.
+ */
+function poseRadius(): string {
+  return `calc(${centerStageHomeRadiusPx()} / var(${POSE_SCALE_VAR}, 1))`;
+}
+
+function setPoseScale(el: HTMLElement, scale: number) {
+  el.style.setProperty(POSE_SCALE_VAR, String(scale));
+  el.style.borderRadius = poseRadius();
+}
 
 type SavedStyle = {
   transform: string;
@@ -81,19 +112,10 @@ function elementLayoutBox(el: HTMLElement, allowHostFallback = true): CenterSpac
   };
 }
 
-function slotInnerRadius(slot: HTMLElement): number {
-  const shell = slot.closest("button");
-  const node = shell instanceof HTMLElement ? shell : slot;
-  const style = getComputedStyle(node);
-  const radius = Number.parseFloat(style.borderTopLeftRadius) || 0;
-  const border = Number.parseFloat(style.borderTopWidth) || 0;
-  return Math.max(0, radius - border);
-}
-
 function slotPose(
   el: HTMLElement,
   slot: HTMLElement,
-): { transform: string; radius: string; scale: number } | null {
+): { transform: string; scale: number } | null {
   const from = elementLayoutBox(el);
   if (!from) return null;
   const to = slot.getBoundingClientRect();
@@ -102,7 +124,6 @@ function slotPose(
   if (!Number.isFinite(pose.scale) || pose.scale <= 0) return null;
   return {
     transform: `translate3d(${pose.x}px, ${pose.y}px, 0) scale(${pose.scale})`,
-    radius: `${(slotInnerRadius(slot) / pose.scale).toFixed(2)}px`,
     scale: pose.scale,
   };
 }
@@ -144,6 +165,7 @@ export function createCenterSpaceOverviewPose() {
       el.style.transformOrigin = prev.transformOrigin;
       el.style.backgroundColor = prev.backgroundColor;
       el.style.transition = prev.transition;
+      el.style.removeProperty(POSE_SCALE_VAR);
       el.removeAttribute("data-center-space-posed");
     }
     saved.clear();
@@ -165,12 +187,17 @@ export function createCenterSpaceOverviewPose() {
     // A 0-height frame clips its overflowing panels to nothing. Only clip
     // once the border box actually covers the surface.
     el.style.overflow = el.offsetWidth >= 2 && el.offsetHeight >= 2 ? "hidden" : "visible";
-    el.style.zIndex = el.hasAttribute("data-center-stage-mosaic") ? "1" : "2";
+    // The mosaic carries the tab strip. A transform traps that strip inside
+    // the mosaic, so the strip has to sit above the panel host or the
+    // full-bleed panel covers it until the pose clears. The leaf fill is
+    // cleared in CSS while the gallery is open, so this layer does not hide
+    // the surface under the tabs.
+    el.style.zIndex = el.hasAttribute("data-center-stage-mosaic") ? "4" : "2";
     if (fadeIn) {
       el.style.backgroundColor = "var(--background)";
       el.style.transition = "none";
       el.style.transform = pose.transform;
-      el.style.borderRadius = pose.radius;
+      setPoseScale(el, pose.scale);
       el.style.opacity = "0";
       void el.offsetWidth;
       // Other spaces are already card-sized. Fade them in on the pose clock
@@ -182,7 +209,7 @@ export function createCenterSpaceOverviewPose() {
     if (!animate) {
       el.style.transition = "none";
       el.style.transform = pose.transform;
-      el.style.borderRadius = pose.radius;
+      setPoseScale(el, pose.scale);
       el.style.opacity = "1";
       const settled = poseRing(el);
       if (settled) {
@@ -194,7 +221,10 @@ export function createCenterSpaceOverviewPose() {
     }
     // Commit the current box, then transition. Setting both in one frame
     // skips the interpolation and the shrink / zoom looks like a cut.
+    // Scale starts at 1 so the corner matches the resting stage, then tracks
+    // the pose. An empty radius is 0 and the shrink opens on a square.
     el.style.transition = "none";
+    if (!el.style.getPropertyValue(POSE_SCALE_VAR)) setPoseScale(el, 1);
     const ring = showRing ? poseRing(el) : null;
     if (ring) {
       ring.style.transition = "none";
@@ -204,7 +234,7 @@ export function createCenterSpaceOverviewPose() {
     el.style.opacity = "1";
     el.style.transition = POSE_TRANSITION;
     el.style.transform = pose.transform;
-    el.style.borderRadius = pose.radius;
+    setPoseScale(el, pose.scale);
     if (ring) {
       ring.style.transition = RING_TRANSITION;
       ring.style.opacity = "1";
@@ -233,10 +263,9 @@ export function createCenterSpaceOverviewPose() {
     if (!activeSlot) return;
     const mosaic = stage.querySelector<HTMLElement>("[data-center-stage-mosaic]");
     if (mosaic) place(mosaic, activeSlot, animateActive, false);
-    // The mosaic is a sibling of the panel host. Its pane leaf is an opaque
-    // bg-background, and z-index on a frame stays trapped inside the host.
-    // Lift the host above the mosaic or that leaf covers the scaled surface
-    // and the preview is only the tab strip again.
+    // The mosaic (z-index 4) stays above this host so the tab strip paints
+    // over the full-bleed panel for the whole scale. The leaf background is
+    // transparent while the gallery is open.
     const host = stage.querySelector<HTMLElement>("[data-center-panel-host]");
     if (host) {
       remember(host);
@@ -269,7 +298,9 @@ export function createCenterSpaceOverviewPose() {
     void el.offsetWidth;
     el.style.transition = POSE_TRANSITION;
     el.style.transform = IDENTITY_TRANSFORM;
-    el.style.borderRadius = "0px";
+    // Back to scale 1. Radius is `home / scale`, so the corner stays the
+    // stage's rounded-xl instead of flattening to a square.
+    setPoseScale(el, 1);
     if (ring) {
       ring.style.transition = RING_TRANSITION;
       ring.style.opacity = "0";
