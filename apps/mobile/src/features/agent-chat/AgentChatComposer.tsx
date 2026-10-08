@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type ReactElement } from "react";
-import { Animated, Easing, Image, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useState, type ReactElement } from "react";
+import { Image, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
 import { radii } from "@/theme/radii";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -13,17 +13,13 @@ import type { ComposerPhoto } from "./photo-attachment";
 
 const LINE_HEIGHT = 22;
 const BUTTON_SIZE = 36;
-const EDGE_INSET = 8;
-const COLLAPSED_HEIGHT = BUTTON_SIZE + EDGE_INSET * 2;
-const TOOLBAR_CLEARANCE = BUTTON_SIZE + EDGE_INSET + 6;
-const EXPANDED_HEIGHT = 12 + LINE_HEIGHT * 3 + TOOLBAR_CLEARANCE;
-const ComposerInput = Animated.createAnimatedComponent(TextInput);
+const MAX_LINES = 6;
 const glassButton = {
   alignItems: "center" as const,
   borderRadius: 18,
-  height: 36,
+  height: BUTTON_SIZE,
   justifyContent: "center" as const,
-  width: 36,
+  width: BUTTON_SIZE,
 };
 
 export function AgentChatComposer(props: {
@@ -31,6 +27,8 @@ export function AgentChatComposer(props: {
   onChangeText: (text: string) => void;
   placeholder: string;
   busy: boolean;
+  /** Queue and Steer while a turn is running. Hidden once the draft is sent. */
+  followUp?: boolean;
   sendLabel: string;
   stopLabel: string;
   queueLabel: string;
@@ -54,13 +52,17 @@ export function AgentChatComposer(props: {
   const [modelsOpen, setModelsOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const expanded = keyboardVisible || modelsOpen || addOpen;
+  const [contentHeight, setContentHeight] = useState(LINE_HEIGHT);
   const suggestions = props.suggestions ?? [];
-  const canSend = props.text.trim().length > 0 || props.photos.length > 0;
+  const draftText = props.text.trim();
+  const canSend = draftText.length > 0 || props.photos.length > 0;
+  // Follow-up actions only. An empty field after send stays a normal composer.
+  const showQueue = props.followUp === true && canSend;
+  const showSteer = props.followUp === true && draftText.length > 0;
+  const stacked = keyboardVisible || modelsOpen || addOpen || showQueue || contentHeight > LINE_HEIGHT * 1.7 || props.text.includes("\n");
   const sendReady = canSend && !props.busy;
   const sendIcon = sendReady ? theme.colors.labelInverse : props.busy ? theme.colors.label : theme.colors.secondaryLabel;
   const modelLabel = props.picker.triggerLabel || props.picker.modelLabel || copy.model;
-  const progress = useRef(new Animated.Value(expanded ? 1 : 0)).current;
 
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -74,45 +76,8 @@ export function AgentChatComposer(props: {
   }, []);
 
   useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const show = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
-    const hide = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
-
-  useEffect(() => {
-    Animated.timing(progress, {
-      toValue: expanded ? 1 : 0,
-      duration: 280,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-  }, [expanded, progress]);
-
-  const bodyHeight = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [COLLAPSED_HEIGHT, EXPANDED_HEIGHT],
-  });
-  const textPaddingTop = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [13, 12],
-  });
-  const textPaddingBottom = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [13, TOOLBAR_CLEARANCE],
-  });
-  const textPaddingLeft = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [52, 16],
-  });
-  const textPaddingRight = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [52, 16],
-  });
+    if (props.text.length === 0) setContentHeight(LINE_HEIGHT);
+  }, [props.text]);
 
   const renderPlus = () => (
     <GlassPanel interactive shadow={false} style={glassButton}>
@@ -164,6 +129,17 @@ export function AgentChatComposer(props: {
       </GlassPanel>
     );
   };
+
+  const renderFollowUp = (label: string, onPress: () => void) => (
+    <Pressable
+      accessibilityRole="button"
+      hitSlop={8}
+      onPress={onPress}
+      style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, paddingHorizontal: 2 })}
+    >
+      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 15, lineHeight: 20 }}>{label}</Text>
+    </Pressable>
+  );
 
   const renderModel = () => (
     <Pressable
@@ -244,55 +220,77 @@ export function AgentChatComposer(props: {
           </View>
         </ScrollView>
       ) : null}
-      {props.busy ? (
-        <View style={{ flexDirection: "row", gap: 16, paddingHorizontal: 8 }}>
-          <Pressable accessibilityRole="button" onPress={props.onQueue}>
-            <Text style={{ color: theme.colors.secondaryLabel, fontSize: 15, lineHeight: 20 }}>{props.queueLabel}</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" onPress={props.onSteer}>
-            <Text style={{ color: theme.colors.secondaryLabel, fontSize: 15, lineHeight: 20 }}>{props.steerLabel}</Text>
-          </Pressable>
-        </View>
-      ) : null}
-      <GlassPanel interactive shadow={false} style={{ borderRadius: 26, width: "100%" }}>
-        <Animated.View style={{ height: bodyHeight, overflow: "hidden" }}>
-          <ComposerInput
+      <View
+        style={{
+          backgroundColor: theme.colors.control,
+          borderColor: theme.colors.controlBorder,
+          borderCurve: "continuous",
+          borderRadius: 28,
+          borderWidth: StyleSheet.hairlineWidth,
+          overflow: "hidden",
+          width: "100%",
+        }}
+      >
+        <View
+          style={{
+            overflow: "hidden",
+            paddingBottom: stacked ? 8 : 18,
+            paddingLeft: stacked ? 16 : 60,
+            paddingRight: stacked ? 16 : 60,
+            paddingTop: stacked ? 16 : 18,
+          }}
+        >
+          <TextInput
             multiline
             onChangeText={props.onChangeText}
+            onContentSizeChange={(event) => {
+              const next = Math.ceil(event.nativeEvent.contentSize.height);
+              setContentHeight((current) => (Math.abs(current - next) < 2 ? current : next));
+            }}
             placeholder={props.placeholder}
             placeholderTextColor={theme.colors.secondaryLabel}
+            scrollEnabled={stacked}
             style={{
               color: theme.colors.label,
-              flex: 1,
               fontSize: 16,
               lineHeight: LINE_HEIGHT,
-              paddingBottom: textPaddingBottom,
-              paddingLeft: textPaddingLeft,
-              paddingRight: textPaddingRight,
-              paddingTop: textPaddingTop,
-              textAlignVertical: "top",
+              margin: 0,
+              maxHeight: stacked ? LINE_HEIGHT * MAX_LINES : LINE_HEIGHT,
+              minHeight: LINE_HEIGHT,
+              padding: 0,
+              textAlignVertical: stacked ? "top" : "center",
             }}
             value={props.text}
           />
-          <View
-            style={{
-              alignItems: "center",
-              bottom: EDGE_INSET,
-              flexDirection: "row",
-              gap: 8,
-              height: BUTTON_SIZE,
-              left: EDGE_INSET,
-              position: "absolute",
-              right: EDGE_INSET,
-            }}
-          >
-            {renderPlus()}
-            {expanded ? renderModel() : null}
-            <View style={{ flex: 1 }} />
-            {renderSend()}
-          </View>
-        </Animated.View>
-      </GlassPanel>
+        </View>
+        <View
+          style={stacked
+            ? {
+                alignItems: "center",
+                flexDirection: "row",
+                gap: 8,
+                minHeight: BUTTON_SIZE,
+                paddingBottom: 8,
+                paddingHorizontal: 8,
+              }
+            : {
+                alignItems: "center",
+                bottom: 0,
+                flexDirection: "row",
+                left: 8,
+                position: "absolute",
+                right: 8,
+                top: 0,
+              }}
+        >
+          {renderPlus()}
+          {stacked ? renderModel() : null}
+          <View style={{ flex: 1 }} />
+          {showQueue ? renderFollowUp(props.queueLabel, props.onQueue) : null}
+          {showSteer ? renderFollowUp(props.steerLabel, props.onSteer) : null}
+          {renderSend()}
+        </View>
+      </View>
       <AgentChatModelSheet
         favorites={props.favorites}
         onClose={() => setModelsOpen(false)}

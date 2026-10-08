@@ -252,40 +252,51 @@ export function AgentChatThreadScreen({
     });
   }, [chatCwd, chatId]);
 
+  const restoreDraft = useCallback((draft: string, pending: ComposerPhoto[]) => {
+    setText((current) => (current.length === 0 ? draft : current));
+    setPhotos((current) => (current.length === 0 ? pending : current));
+  }, []);
+
   const onSend = useCallback(() => {
     const draft = text;
     const pending = photos;
     if (draft.trim() === "" && pending.length === 0) return;
+    setText("");
+    setPhotos([]);
+    setUploadError(null);
     void (async () => {
       const paths = await uploadSelectedPhotos(pending);
       await send(draft, paths);
-      setText((current) => (current === draft ? "" : current));
-      setPhotos((current) => (current === pending ? [] : current));
-      setUploadError(null);
     })().catch((err: unknown) => {
+      restoreDraft(draft, pending);
       setUploadError(err instanceof Error ? err.message : "Could not upload that photo.");
     });
-  }, [photos, send, text, uploadSelectedPhotos]);
+  }, [photos, restoreDraft, send, text, uploadSelectedPhotos]);
 
   const onQueue = useCallback(() => {
     const draft = text;
     const pending = photos;
     if (draft.trim() === "" && pending.length === 0) return;
+    setText("");
+    setPhotos([]);
+    setUploadError(null);
     void (async () => {
       const paths = await uploadSelectedPhotos(pending);
       await queueAdd(draft, paths);
-      setText((current) => (current === draft ? "" : current));
-      setPhotos((current) => (current === pending ? [] : current));
-      setUploadError(null);
     })().catch((err: unknown) => {
+      restoreDraft(draft, pending);
       setUploadError(err instanceof Error ? err.message : "Could not upload that photo.");
     });
-  }, [photos, queueAdd, text, uploadSelectedPhotos]);
+  }, [photos, queueAdd, restoreDraft, text, uploadSelectedPhotos]);
 
   const onSteer = useCallback(() => {
     const draft = text;
     if (draft.trim() === "") return;
-    void steer(draft).catch(() => undefined);
+    setText("");
+    setUploadError(null);
+    void steer(draft).catch(() => {
+      setText((current) => (current.length === 0 ? draft : current));
+    });
   }, [steer, text]);
 
   const onStop = useCallback(() => {
@@ -385,6 +396,7 @@ export function AgentChatThreadScreen({
             ) : null}
             <AgentChatComposer
               busy={runningTurnId != null}
+              followUp={runningTurnId != null}
               favorites={favorites}
               onPhotosChange={setPhotos}
               onChangeText={setText}

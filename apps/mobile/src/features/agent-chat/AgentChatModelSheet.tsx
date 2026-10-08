@@ -9,27 +9,19 @@ import {
   type ReactNode,
 } from "react";
 import { Animated, Platform, Pressable, Text, TextInput, View } from "react-native";
-import { Host, RNHostView, ScrollView, Slider } from "@expo/ui";
-import { Button, Group, HStack, Image, TextField, VStack, useNativeState } from "@expo/ui/swift-ui";
+import { Host, RNHostView, ScrollView } from "@expo/ui";
+import { Group, HStack, Image, TextField, useNativeState } from "@expo/ui/swift-ui";
 import {
-  accessibilityLabel,
   autocorrectionDisabled,
-  buttonBorderShape,
-  buttonStyle,
-  controlSize,
   fixedSize,
   foregroundStyle,
   frame,
   glassEffect,
   ignoreSafeArea,
-  opacity,
-  labelStyle,
   padding,
   textFieldStyle,
   textInputAutocapitalization,
-  tint,
 } from "@expo/ui/swift-ui/modifiers";
-import type { SFSymbol } from "sf-symbols-typescript";
 import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
 import { radii } from "@/theme/radii";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -40,7 +32,7 @@ import { IosPopover } from "@/ui/primitives/ios-popover";
 import { MenuPicker } from "@/ui/primitives/menu-picker";
 import { NativeSwitch } from "@/ui/primitives/native-controls";
 import { copy } from "./copy";
-import { EffortExhaust } from "./effort-exhaust";
+import { EffortSlider } from "./effort-slider";
 import {
   favoritesTabId,
   groupedModelRows,
@@ -143,13 +135,14 @@ function MeasuredScroll({
   );
 }
 
+const RAIL_ICON = 22;
+
 type RailTab = {
   icon: ReactNode;
   id: string;
   label: string;
   onPress: () => void;
   selected: boolean;
-  systemImage?: SFSymbol;
 };
 
 export function AgentChatModelSheet(props: {
@@ -202,7 +195,7 @@ export function AgentChatModelSheet(props: {
           <StarIcon
             color={theme.colors.label}
             fill={favoritesSelected ? theme.colors.label : "transparent"}
-            size={18}
+            size={RAIL_ICON}
             strokeWidth={2.2}
           />
         ),
@@ -213,10 +206,9 @@ export function AgentChatModelSheet(props: {
           setSearch("");
         },
         selected: favoritesSelected,
-        systemImage: favoritesSelected ? "star.fill" : "star",
       },
       ...props.picker.agents.map((agent) => ({
-        icon: <MobileAgentIcon agentId={agent.id} iconUrl={agent.iconUrl} size={22} />,
+        icon: <MobileAgentIcon agentId={agent.id} iconUrl={agent.iconUrl} size={RAIL_ICON} />,
         id: agent.id,
         label: agent.label,
         onPress: () => {
@@ -311,11 +303,11 @@ export function AgentChatModelSheet(props: {
                       <StarIcon
                         color={theme.colors.secondaryLabel}
                         fill={favorited ? theme.colors.label : "transparent"}
-                        size={16}
+                        size={18}
                         strokeWidth={2.2}
                       />
                     </Pressable>
-                    {selected ? <CheckIcon color={theme.colors.label} size={16} /> : null}
+                    {selected ? <CheckIcon color={theme.colors.label} size={18} strokeWidth={2.4} /> : null}
                   </View>
                 </Measured>
               );
@@ -333,62 +325,6 @@ function modelRowKey(row: GroupedModelRow, index: number): string {
 }
 
 function AgentRail({ tabs }: { tabs: RailTab[] }) {
-  if (Platform.OS === "ios") return <IosAgentRail tabs={tabs} />;
-  return <AndroidAgentRail tabs={tabs} />;
-}
-
-function IosAgentRail({ tabs }: { tabs: RailTab[] }) {
-  const theme = useMobileTheme();
-  return (
-    <View style={{ alignSelf: "stretch", width: 60 }}>
-      <Host
-        colorScheme={theme.colorScheme}
-        ignoreSafeArea="all"
-        matchContents={false}
-        seedColor={theme.colors.label}
-        style={{ flex: 1 }}
-      >
-        <ScrollView modifiers={[ignoreSafeArea({ edges: "all" })]} showsIndicators={false}>
-          <VStack
-            alignment="center"
-            modifiers={[
-              padding({ bottom: SCROLL_END, top: 8 }),
-              fixedSize({ horizontal: false, vertical: true }),
-            ]}
-            spacing={8}
-          >
-            {tabs.map((tab) => (
-              <Button
-                key={tab.id}
-                label={tab.systemImage ? tab.label : undefined}
-                modifiers={[
-                  accessibilityLabel(tab.label),
-                  buttonBorderShape("circle"),
-                  buttonStyle(tab.selected ? "glassProminent" : "glass"),
-                  controlSize("large"),
-                  frame({ height: 44, width: 44 }),
-                  ...(tab.systemImage ? [labelStyle("iconOnly")] : []),
-                ]}
-                onPress={tab.onPress}
-                systemImage={tab.systemImage}
-              >
-                {tab.systemImage ? undefined : (
-                  <RNHostView matchContents>
-                    <View style={{ alignItems: "center", height: 22, justifyContent: "center", width: 22 }}>
-                      {tab.icon}
-                    </View>
-                  </RNHostView>
-                )}
-              </Button>
-            ))}
-          </VStack>
-        </ScrollView>
-      </Host>
-    </View>
-  );
-}
-
-function AndroidAgentRail({ tabs }: { tabs: RailTab[] }) {
   const theme = useMobileTheme();
   return (
     <View style={{ alignSelf: "stretch", width: 60 }}>
@@ -396,8 +332,15 @@ function AndroidAgentRail({ tabs }: { tabs: RailTab[] }) {
         <View style={{ alignItems: "center", paddingTop: 8 }}>
           {tabs.map((tab) => (
             <Measured id={tab.id} key={tab.id}>
-              <Pressable accessibilityLabel={tab.label} accessibilityRole="button" onPress={tab.onPress} style={{ marginBottom: 8 }}>
+              <Pressable
+                accessibilityLabel={tab.label}
+                accessibilityRole="button"
+                accessibilityState={{ selected: tab.selected }}
+                onPress={tab.onPress}
+                style={{ marginBottom: 10 }}
+              >
                 <GlassPanel
+                  glassEffectStyle={tab.selected ? "regular" : "clear"}
                   interactive
                   shadow={false}
                   style={{
@@ -409,7 +352,17 @@ function AndroidAgentRail({ tabs }: { tabs: RailTab[] }) {
                   }}
                   tintColor={tab.selected ? theme.colors.glassTint : undefined}
                 >
-                  {tab.icon}
+                  <View
+                    style={{
+                      alignItems: "center",
+                      height: RAIL_ICON,
+                      justifyContent: "center",
+                      overflow: "hidden",
+                      width: RAIL_ICON,
+                    }}
+                  >
+                    {tab.icon}
+                  </View>
                 </GlassPanel>
               </Pressable>
             </Measured>
@@ -513,17 +466,27 @@ function EffortPickerButton({
   return (
     <IosPopover background="glass" direction="any">
       <IosPopover.Trigger>
-        <GlassPanel shadow={false} style={{ borderRadius: 16, flexShrink: 0 }}>
-          <View style={{ alignItems: "center", flexDirection: "row", gap: 2, maxWidth: 132, paddingHorizontal: 10, paddingVertical: 6 }}>
-            <Text numberOfLines={1} style={{ color: theme.colors.secondaryLabel, flexShrink: 1, fontSize: 12 }}>
-              {label}
-            </Text>
-            <ChevronRightIcon color={theme.colors.secondaryLabel} size={12} />
-          </View>
-        </GlassPanel>
+        <View
+          style={{
+            alignItems: "center",
+            backgroundColor: theme.isDark ? "rgba(255,255,255,0.10)" : "rgba(17,17,18,0.08)",
+            borderRadius: 12,
+            flexDirection: "row",
+            flexShrink: 0,
+            gap: 2,
+            height: 28,
+            maxWidth: 148,
+            paddingHorizontal: 8,
+          }}
+        >
+          <Text numberOfLines={1} style={{ color: theme.colors.secondaryLabel, flexShrink: 1, fontSize: 13, lineHeight: 16 }}>
+            {label}
+          </Text>
+          <ChevronRightIcon color={theme.colors.secondaryLabel} size={14} strokeWidth={2.2} />
+        </View>
       </IosPopover.Trigger>
-      <IosPopover.Content style={{ width: 300 }}>
-        <View style={{ gap: 8, paddingHorizontal: 8, paddingVertical: 10 }}>
+      <IosPopover.Content style={{ width: 280 }}>
+        <View style={{ gap: 12, paddingHorizontal: 14, paddingVertical: 12 }}>
           <EffortControls onPatch={onPatch} picker={picker} />
         </View>
       </IosPopover.Content>
@@ -547,41 +510,31 @@ function EffortControls({
     setIndex(propIndex);
     committed.current = propIndex;
   }, [propIndex]);
-  const atMax = max > 0 && index >= max;
   const current = picker.thinking[index] ?? picker.thinking[0];
 
   return (
-    <View style={{ gap: 8 }}>
+    <View style={{ gap: 12 }}>
       {picker.thinking.length > 1 && current ? (
-        <View style={{ gap: 4 }}>
-          <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 4 }}>
+        <View style={{ gap: 8 }}>
+          <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}>
             <Text style={{ color: theme.colors.label, fontSize: 15, fontWeight: "500" }}>{copy.effort}</Text>
             <FadeLabel color={theme.colors.secondaryLabel} value={current.label} />
           </View>
-          <View style={{ height: 44, justifyContent: "center" }}>
-            {atMax ? <EffortExhaust /> : null}
-            <Host colorScheme={theme.colorScheme} matchContents={false} style={{ height: 44 }}>
-              <Slider
-                max={max}
-                min={0}
-                modifiers={atMax ? [opacity(0.15), tint("#f4fbff")] : undefined}
-                onValueChange={(value) => {
-                  const next = Math.max(0, Math.min(max, Math.round(value)));
-                  setIndex(next);
-                  if (committed.current === next) return;
-                  committed.current = next;
-                  const level = picker.thinking[next];
-                  if (level) onPatch({ thinkingId: level.id });
-                }}
-                step={1}
-                value={index}
-              />
-            </Host>
-          </View>
+          <EffortSlider
+            max={max}
+            onChange={(next) => {
+              setIndex(next);
+              if (committed.current === next) return;
+              committed.current = next;
+              const level = picker.thinking[next];
+              if (level) onPatch({ thinkingId: level.id });
+            }}
+            value={index}
+          />
         </View>
       ) : null}
       {picker.fastAvailable ? (
-        <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between", minHeight: 36, paddingHorizontal: 4 }}>
+        <View style={{ alignItems: "center", backgroundColor: "transparent", flexDirection: "row", justifyContent: "space-between", minHeight: 32 }}>
           <Text style={{ color: theme.colors.label, fontSize: 15, fontWeight: "500" }}>{copy.fast}</Text>
           <NativeSwitch
             onValueChange={(enabled) => onPatch({ fastEnabled: enabled })}
@@ -590,7 +543,7 @@ function EffortControls({
         </View>
       ) : null}
       {picker.context.length > 1 ? (
-        <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between", minHeight: 36, paddingLeft: 4 }}>
+        <View style={{ alignItems: "center", backgroundColor: "transparent", flexDirection: "row", justifyContent: "space-between", minHeight: 32 }}>
           <Text style={{ color: theme.colors.label, fontSize: 15, fontWeight: "500" }}>{copy.context}</Text>
           <MenuPicker
             onValueChange={(contextId) => onPatch({ contextId })}

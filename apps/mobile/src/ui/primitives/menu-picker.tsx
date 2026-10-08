@@ -38,6 +38,7 @@ export function MenuPicker({
       ignoreSafeArea="all"
       matchContents
       seedColor={theme.colors.label}
+      style={{ backgroundColor: "transparent" }}
     >
       {hasIcons && selected ? (
         <Menu

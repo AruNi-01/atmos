@@ -96,7 +96,12 @@ export function NativeSwitch({
   const theme = useMobileTheme();
 
   return (
-    <Host colorScheme={theme.colorScheme} matchContents seedColor={theme.colors.label}>
+    <Host
+      colorScheme={theme.colorScheme}
+      matchContents
+      seedColor={theme.colors.label}
+      style={{ backgroundColor: "transparent" }}
+    >
       <Switch disabled={disabled} label={label} onValueChange={onValueChange} value={value} />
     </Host>
   );
