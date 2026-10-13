@@ -65,6 +65,26 @@ test.describe("smoke workspace", () => {
     await expect(page.getByRole("tab", { name: /GitHub/ })).toHaveCount(0);
   });
 
+  // Restore when GITHUB_HUB_CENTER_TAB_VISIBLE is enabled.
+  test.skip("@smoke @stateful GitHub hub sub-tabs — restore when GITHUB_HUB_CENTER_TAB_VISIBLE is enabled", async ({
+    page,
+  }) => {
+    await stubComputerClientSettingsApi(page);
+    await connectLocalComputer(page, { locale: "zh" });
+    await expectHealthyRoute(page, "/", { locale: "zh" });
+    const contextUrl = withSearchParams(await buildProjectWorkspaceDeepLink(page), {
+      activeSettingTab: null,
+    });
+    await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "files" }), {
+      locale: "zh",
+    });
+    await activateWorkspaceToolTab(page, /GitHub/);
+    const githubStage = await getCenterStage(page);
+    await expect(githubStage.getByRole("tab", { name: "拉取请求" })).toBeVisible();
+    await expect(githubStage.getByRole("tab", { name: "议题" })).toBeVisible();
+    await expect(githubStage.getByRole("tab", { name: "操作" })).toBeVisible();
+  });
+
   test("@smoke @stateful boots direct workspace urls with read-only sidebar toggles and settings page", async ({
     page,
   }) => {
