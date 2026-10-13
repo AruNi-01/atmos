@@ -1,0 +1,150 @@
+/**
+ * Drive the Agent Chat Chromium bench.
+ * Run from repo root: bun scripts/agent-chat-stream-perf/run.ts
+ *
+ * This directory is outside apps/web, so Next typecheck / production build
+ * never see these files.
+ */
+import { chromium } from "../../e2e/node_modules/@playwright/test/index.mjs";
+import { mkdirSync, writeFileSync, copyFileSync, existsSync, symlinkSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { createServer } from "node:http";
+import { readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const dist = join(here, "dist");
+const outDir = "/opt/cursor/artifacts";
+
+function ensureWebNodeModules(): void {
+  const link = join(here, "node_modules");
+  const target = join(here, "../../apps/web/node_modules");
+  if (existsSync(link) || !existsSync(target)) return;
+  symlinkSync(target, link);
+}
+
+async function bunBuild(): Promise<void> {
+  mkdirSync(dist, { recursive: true });
+  ensureWebNodeModules();
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(
+      "bun",
+      [
+        "build",
+        join(here, "bench-app.tsx"),
+        "--outfile",
+        join(dist, "bench.js"),
+        "--target",
+        "browser",
+      ],
+      { stdio: "inherit", cwd: here },
+    );
+    child.on("exit", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`bun build exited ${code}`));
+    });
+  });
+  copyFileSync(join(here, "index.html"), join(dist, "index.html"));
+}
+
+function serveDist(): Promise<{ url: string; close: () => Promise<void> }> {
+  return new Promise((resolve, reject) => {
+    const server = createServer(async (req, res) => {
+      const path = req.url?.split("?")[0] === "/" ? "/index.html" : req.url?.split("?")[0];
+      const file = join(dist, path ?? "/index.html");
+      try {
+        const body = await readFile(file);
+        const type = file.endsWith(".js")
+          ? "text/javascript"
+          : file.endsWith(".html")
+            ? "text/html"
+            : "application/octet-stream";
+        res.writeHead(200, { "content-type": type });
+        res.end(body);
+      } catch {
+        res.writeHead(404);
+        res.end("not found");
+      }
+    });
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        reject(new Error("failed to bind bench server"));
+        return;
+      }
+      resolve({
+        url: `http://127.0.0.1:${address.port}`,
+        close: () =>
+          new Promise((done) => {
+            server.close(() => done());
+          }),
+      });
+    });
+  });
+}
+
+async function measure(url: string, mode: "main" | "branch") {
+  const browser = await chromium.launch({
+    executablePath: "/usr/bin/google-chrome",
+    headless: true,
+    args: ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+  });
+  const page = await browser.newPage({ viewport: { width: 1080, height: 800 } });
+  await page.goto(`${url}/?mode=${mode}`, { waitUntil: "networkidle" });
+  await page.waitForFunction(() => Boolean((window as unknown as { __ATMOS_STREAM_BENCH?: unknown }).__ATMOS_STREAM_BENCH));
+  await page.waitForTimeout(400);
+  const scroll = await page.evaluate(async () => {
+    const bench = (window as unknown as { __ATMOS_STREAM_BENCH: { runScroll: () => Promise<unknown> } }).__ATMOS_STREAM_BENCH;
+    return bench.runScroll();
+  });
+  const tokens = await page.evaluate(async () => {
+    const bench = (window as unknown as { __ATMOS_STREAM_BENCH: { runTokens: () => Promise<unknown> } }).__ATMOS_STREAM_BENCH;
+    return bench.runTokens();
+  });
+  const userAgent = await page.evaluate(() => navigator.userAgent);
+  await browser.close();
+  return { mode, userAgent, scroll, tokens };
+}
+
+async function main() {
+  mkdirSync(outDir, { recursive: true });
+  await bunBuild();
+  const server = await serveDist();
+  try {
+    const before = await measure(server.url, "main");
+    const after = await measure(server.url, "branch");
+    const payload = {
+      measured_at: new Date().toISOString(),
+      environment: {
+        browser: "Google Chrome headless via Playwright",
+        executable: "/usr/bin/google-chrome",
+        user_agent_after: after.userAgent,
+        os: process.platform,
+        notes:
+          "Standalone product-shaped virtual list (same overscan/estimates/measureElement/56ms cadence/display buffer). Not the full Next AgentChatMessageView (no next-intl, Streamdown, or tool chrome).",
+      },
+      fixture: {
+        turns: 500,
+        tools_per_turn: 8,
+        tokens_per_answer: 40,
+      },
+      method: {
+        scroll_fps:
+          "rAF timestamps while programmatically scrolling the virtual list from top to bottom over 2000ms",
+        per_token:
+          "React.Profiler onRender actualDuration while appending 40 tokens. main = one commit per token; branch = 56ms snapshot flush + useSmoothStreamText on the last open text",
+      },
+      before_main_protocol: before,
+      after_branch_protocol: after,
+    };
+    const jsonPath = join(outDir, "agent-chat-chromium-stream-perf.json");
+    writeFileSync(jsonPath, `${JSON.stringify(payload, null, 2)}\n`);
+    console.log(JSON.stringify(payload, null, 2));
+    console.log(`wrote ${jsonPath}`);
+  } finally {
+    await server.close();
+  }
+}
+
+await main();
