@@ -26,12 +26,26 @@ function installDom(): void {
     writable: true,
     value: true,
   });
+  // Hold the rAF clock: we want the pending tail to stay unflushed until stop/error.
+  let nextFrame = 1;
+  Object.defineProperty(globalThis, "requestAnimationFrame", {
+    configurable: true,
+    writable: true,
+    value: () => nextFrame++,
+  });
+  Object.defineProperty(globalThis, "cancelAnimationFrame", {
+    configurable: true,
+    writable: true,
+    value: () => {},
+  });
 }
 
 function cleanupDom(): void {
   delete (globalThis as { window?: unknown }).window;
   delete (globalThis as { document?: unknown }).document;
   delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: unknown }).IS_REACT_ACT_ENVIRONMENT;
+  delete (globalThis as { requestAnimationFrame?: unknown }).requestAnimationFrame;
+  delete (globalThis as { cancelAnimationFrame?: unknown }).cancelAnimationFrame;
 }
 
 describe("display buffer stop/error flush", () => {
@@ -61,6 +75,7 @@ describe("display buffer stop/error flush", () => {
     await act(async () => {
       root?.render(<Probe text="Hello world from the agent" enabled />);
     });
+    expect(container.textContent).toBe("Hel");
     await act(async () => {
       root?.render(<Probe text="Hello world from the agent" enabled={false} />);
     });
@@ -79,6 +94,7 @@ describe("display buffer stop/error flush", () => {
     await act(async () => {
       root?.render(<Probe text={target} enabled />);
     });
+    expect(container.textContent).toBe("failed");
     await act(async () => {
       root?.render(<Probe text={target} enabled={false} />);
     });
