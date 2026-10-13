@@ -44,13 +44,23 @@ describe("agent chat stream wiring", () => {
     expect(list).toContain("virtualizer.scrollToIndex(index, { align: \"start\", behavior: \"smooth\" })");
   });
 
-  it("clears the expand store when the chat session unsubscribes", () => {
+  it("clears the expand store when the bound chat changes or the session unmounts", () => {
     const session = read("hooks/use-agent-chat-session.ts");
     expect(session).toContain("useAgentChatExpandStore.getState().reset()");
-    expect(session).toContain("void agentChatApi.unsubscribe(id)");
-    expect(session.indexOf("useAgentChatExpandStore.getState().reset()")).toBeLessThan(
-      session.indexOf("void agentChatApi.unsubscribe(id)"),
+    expect(session).toMatch(
+      /useEffect\(\(\) => \{\s*return \(\) => \{\s*useAgentChatExpandStore\.getState\(\)\.reset\(\);\s*\};\s*\}, \[activeChatId\]\);/,
     );
+  });
+
+  it("keeps expand state when the websocket reconnects", () => {
+    const session = read("hooks/use-agent-chat-session.ts");
+    const subscribeCleanup = session.slice(
+      session.indexOf("hydratingRef.current = true;"),
+      session.indexOf("void agentChatApi.unsubscribe(id);"),
+    );
+    expect(subscribeCleanup).not.toContain("useAgentChatExpandStore.getState().reset()");
+    expect(session).toContain("}, [activeChatId, load, prefsRestored, wsConnected]");
+    expect(session).toContain("}, [activeChatId]);");
   });
 
   it("follows the end until the user scrolls away, then shows the below-count control", () => {

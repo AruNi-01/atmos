@@ -50,10 +50,16 @@ describe("agent chat expand store", () => {
     expect(ticks).toBe(1);
   });
 
-  it("clears every expand key when the session closes", () => {
+  it("clears every expand key when the bound chat closes", () => {
     useAgentChatExpandStore.getState().setExpand(agentChatToolExpandKey("call-9"), true);
     useAgentChatExpandStore.getState().setExpand(agentChatUserBodyExpandKey("entry-1"), true);
     useAgentChatExpandStore.getState().reset();
     expect(useAgentChatExpandStore.getState().values).toEqual({});
+  });
+
+  it("does not reset on a websocket reconnect of the same chat", () => {
+    const key = agentChatToolExpandKey("call-ws");
+    useAgentChatExpandStore.getState().setExpand(key, true);
+    expect(useAgentChatExpandStore.getState().values[key]).toBe(true);
   });
 });

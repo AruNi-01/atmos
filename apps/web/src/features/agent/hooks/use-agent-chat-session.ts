@@ -1253,10 +1253,15 @@ export function useAgentChatSession({
       window.clearInterval(flushTimer);
       off();
       hydratingRef.current = true;
-      useAgentChatExpandStore.getState().reset();
       void agentChatApi.unsubscribe(id);
     };
   }, [activeChatId, load, prefsRestored, wsConnected]);
+
+  useEffect(() => {
+    return () => {
+      useAgentChatExpandStore.getState().reset();
+    };
+  }, [activeChatId]);
 
   useEffect(() => {
     if (!providerId) return;
