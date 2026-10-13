@@ -177,6 +177,7 @@ async fn s13_get_new_jsonl_exposes_params_result_without_spawn() {
                         }),
                     }
                     .into(),
+                    ordinal: None,
                 },
             ),
         )

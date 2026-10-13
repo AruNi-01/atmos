@@ -29,11 +29,12 @@ use super::types::{
     merge_session_usage, order_assistant_parts, parse_session_usage, parse_turn_usage,
     pending_context_change, pending_fast_change, pending_permission_mode_change,
     pending_session_config_change, pending_thinking_change, resolve_session_config_select,
-    AgentChatEvent, AgentChatMeta, AgentChatPayload, AgentChatSessionOpOutcome, AgentChatSnapshot,
-    FoldedMessage, MessagePart, Part, PartBody, PendingPermission, PendingSessionOp,
-    ResolvedSessionConfig, RuntimeStatus, SessionAdvertisedOption, SessionAdvertisedOptionValue,
-    SessionConfigChange, SessionHintTone, ToolCallState, TranscriptEnvelope, TranscriptEvent,
-    TurnStatus, SESSION_HINT_MODEL_SWITCH_FAILED, SESSION_HINT_MODE_SWITCH_FAILED,
+    sort_parts_by_recorded_ordinals, AgentChatEvent, AgentChatMeta, AgentChatPayload,
+    AgentChatSessionOpOutcome, AgentChatSnapshot, FoldedMessage, MessagePart, Part, PartBody,
+    PendingPermission, PendingSessionOp, ResolvedSessionConfig, RuntimeStatus,
+    SessionAdvertisedOption, SessionAdvertisedOptionValue, SessionConfigChange, SessionHintTone,
+    ToolCallState, TranscriptEnvelope, TranscriptEvent, TurnStatus,
+    SESSION_HINT_MODEL_SWITCH_FAILED, SESSION_HINT_MODE_SWITCH_FAILED,
 };
 
 /// Cap for non-text recent events. Text is recovered by per-part backfill, not this ring.
@@ -1378,14 +1379,11 @@ async fn persist_tool(
 ) -> Result<()> {
     let turn_id = state.lock().await.persist_turn_id(adapter_turn_id);
     let incoming = ToolCallState::from(tool);
-    upsert_tool_part(state, turn_id.clone(), incoming.clone()).await;
+    let ordinal = upsert_tool_part(state, turn_id.clone(), incoming.clone()).await;
+    let event = TranscriptEvent::tool_call_with_ordinal(incoming, ordinal);
     let envelope = match persist_event_id {
-        Some(event_id) => TranscriptEnvelope::with_id(
-            event_id,
-            turn_id,
-            TranscriptEvent::ToolCall { tool: incoming },
-        ),
-        None => TranscriptEnvelope::new(turn_id, TranscriptEvent::ToolCall { tool: incoming }),
+        Some(event_id) => TranscriptEnvelope::with_id(event_id, turn_id, event),
+        None => TranscriptEnvelope::new(turn_id, event),
     };
     store.append_record(chat_id, &envelope)
 }
@@ -1607,7 +1605,11 @@ async fn ensure_turn_row(
     Ok(turn_id)
 }
 
-async fn upsert_tool_part(state: &Mutex<RuntimeState>, turn_id: String, tool: ToolCallState) {
+async fn upsert_tool_part(
+    state: &Mutex<RuntimeState>,
+    turn_id: String,
+    tool: ToolCallState,
+) -> u32 {
     let mut state = state.lock().await;
     let part_id = tool.tool_call_id.clone();
     if let Some(tracked) = state.parts.get_mut(&part_id) {
@@ -1617,7 +1619,7 @@ async fn upsert_tool_part(state: &Mutex<RuntimeState>, turn_id: String, tool: To
             }
             _ => PartBody::ToolCall(tool),
         };
-        return;
+        return tracked.part.ordinal;
     }
     let message_id = state
         .parts
@@ -1643,6 +1645,7 @@ async fn upsert_tool_part(state: &Mutex<RuntimeState>, turn_id: String, tool: To
             opened_at: Utc::now(),
         },
     );
+    ordinal
 }
 
 async fn upsert_plan_part(state: &Mutex<RuntimeState>, turn_id: String, plan: serde_json::Value) {
@@ -1861,6 +1864,18 @@ pub(super) fn overlay_live_state(snapshot: &mut AgentChatSnapshot, state: &Runti
     parts.sort_by_key(|part| (part.message_id.clone(), part.ordinal));
     for part in parts {
         overlay_tracked_part(&mut snapshot.messages, part);
+    }
+    let overlay_ordinals: HashMap<String, u32> = state
+        .parts
+        .iter()
+        .map(|(id, tracked)| (id.clone(), tracked.part.ordinal))
+        .collect();
+    for message in &mut snapshot.messages {
+        if message.role != "assistant" {
+            continue;
+        }
+        message.parts =
+            sort_parts_by_recorded_ordinals(std::mem::take(&mut message.parts), &overlay_ordinals);
     }
     overlay_live_timing(snapshot, state, Utc::now());
     if snapshot.pending_permission.is_none() {

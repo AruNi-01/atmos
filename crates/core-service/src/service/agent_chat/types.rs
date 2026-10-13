@@ -1,3 +1,6 @@
+use std::cmp::Ordering;
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -1384,6 +1387,62 @@ pub fn order_assistant_parts(parts: Vec<MessagePart>) -> Vec<MessagePart> {
     session
 }
 
+pub fn message_part_fold_id(part: &MessagePart) -> Option<&str> {
+    match part {
+        MessagePart::Text {
+            message_id: Some(id),
+            ..
+        } => Some(id.as_str()),
+        MessagePart::Thinking {
+            tool_call_id: Some(id),
+            ..
+        } => Some(id.as_str()),
+        MessagePart::ToolCall { tool_call_id, .. } => Some(tool_call_id.as_str()),
+        _ => None,
+    }
+}
+
+/// Rebuild thinking/tool interleaving from persisted host ordinals.
+///
+/// Tools go to `transcript.jsonl` immediately; thinking `PartFinished` is
+/// written later at close, so jsonl append order groups tools then thinking.
+/// When every thinking and tool part recorded an ordinal, sort by that.
+/// Older jsonl without tool ordinals keeps append order.
+pub fn sort_parts_by_recorded_ordinals(
+    parts: Vec<MessagePart>,
+    ordinals: &HashMap<String, u32>,
+) -> Vec<MessagePart> {
+    let thinking_or_tool = |part: &MessagePart| {
+        matches!(
+            part,
+            MessagePart::Thinking { .. } | MessagePart::ToolCall { .. }
+        )
+    };
+    let can_sort = parts.iter().any(thinking_or_tool)
+        && parts
+            .iter()
+            .filter(|part| thinking_or_tool(part))
+            .all(|part| message_part_fold_id(part).is_some_and(|id| ordinals.contains_key(id)));
+    let ordered = if !can_sort {
+        parts
+    } else {
+        let mut indexed: Vec<(usize, MessagePart)> = parts.into_iter().enumerate().collect();
+        indexed.sort_by(|(ia, a), (ib, b)| {
+            match (
+                message_part_fold_id(a).and_then(|id| ordinals.get(id).copied()),
+                message_part_fold_id(b).and_then(|id| ordinals.get(id).copied()),
+            ) {
+                (Some(oa), Some(ob)) => oa.cmp(&ob).then(ia.cmp(ib)),
+                (Some(_), None) => Ordering::Less,
+                (None, Some(_)) => Ordering::Greater,
+                (None, None) => ia.cmp(ib),
+            }
+        });
+        indexed.into_iter().map(|(_, part)| part).collect()
+    };
+    order_assistant_parts(ordered)
+}
+
 fn split_trailing_answer(mut parts: Vec<MessagePart>) -> (Vec<MessagePart>, Vec<MessagePart>) {
     let last_process = parts.iter().rposition(|part| !is_answer_text_part(part));
     let Some(index) = last_process else {
@@ -1698,6 +1757,10 @@ pub enum TranscriptEvent {
     },
     ToolCall {
         tool: ToolCallState,
+        /// Host arrival ordinal, same space as text parts. Missing on older
+        /// jsonl (fold then keeps transcript append order).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        ordinal: Option<u32>,
     },
     Plan {
         plan: serde_json::Value,
@@ -1740,6 +1803,22 @@ pub enum TranscriptEvent {
         tone: SessionHintTone,
         kind: String,
     },
+}
+
+impl TranscriptEvent {
+    pub fn tool_call(tool: ToolCallState) -> Self {
+        Self::ToolCall {
+            tool,
+            ordinal: None,
+        }
+    }
+
+    pub fn tool_call_with_ordinal(tool: ToolCallState, ordinal: u32) -> Self {
+        Self::ToolCall {
+            tool,
+            ordinal: Some(ordinal),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
