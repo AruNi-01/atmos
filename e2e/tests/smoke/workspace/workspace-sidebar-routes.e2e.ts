@@ -61,6 +61,23 @@ test.describe("smoke workspace", () => {
       runStage.getByRole("tablist").first().getByRole("tab", { name: /运行|Run/ }),
     ).toBeVisible({ timeout: 45_000 });
 
+    // GITHUB_HUB_CENTER_TAB_VISIBLE is off; GitHub is not a plus-menu / center tab.
+    await expect(page.getByRole("tab", { name: /GitHub/ })).toHaveCount(0);
+  });
+
+  // Restore when GITHUB_HUB_CENTER_TAB_VISIBLE is enabled.
+  test.skip("@smoke @stateful GitHub hub sub-tabs — restore when GITHUB_HUB_CENTER_TAB_VISIBLE is enabled", async ({
+    page,
+  }) => {
+    await stubComputerClientSettingsApi(page);
+    await connectLocalComputer(page, { locale: "zh" });
+    await expectHealthyRoute(page, "/", { locale: "zh" });
+    const contextUrl = withSearchParams(await buildProjectWorkspaceDeepLink(page), {
+      activeSettingTab: null,
+    });
+    await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "files" }), {
+      locale: "zh",
+    });
     await activateWorkspaceToolTab(page, /GitHub/);
     const githubStage = await getCenterStage(page);
     await expect(githubStage.getByRole("tab", { name: "拉取请求" })).toBeVisible();

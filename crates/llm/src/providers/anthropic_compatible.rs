@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use serde_json::{json, Value};
 use tokio::sync::mpsc;
 use tracing::{debug, warn};
@@ -15,7 +14,6 @@ enum StreamAttemptFailure {
     Fatal(LlmError),
 }
 
-#[async_trait]
 impl LlmClient for AnthropicCompatibleClient {
     async fn generate_text(
         &self,

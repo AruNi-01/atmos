@@ -376,10 +376,8 @@ fn persist_records(inner: &HubInner) {
         }
     }
     let tmp = inner.path.with_extension("json.tmp");
-    if fs::write(&tmp, bytes).is_ok() {
-        if fs::rename(&tmp, &inner.path).is_err() {
-            debug!("terminal title store rename failed");
-        }
+    if fs::write(&tmp, bytes).is_ok() && fs::rename(&tmp, &inner.path).is_err() {
+        debug!("terminal title store rename failed");
     }
 }
 
@@ -614,10 +612,10 @@ fn is_noisy_shell_title(value: &str) -> bool {
     if trimmed.is_empty() || is_tmux_index(trimmed) {
         return true;
     }
-    if trimmed.split_whitespace().count() == 1 {
-        if trimmed.starts_with('/') || trimmed.starts_with("~/") || trimmed == "~" {
-            return true;
-        }
+    if trimmed.split_whitespace().count() == 1
+        && (trimmed.starts_with('/') || trimmed.starts_with("~/") || trimmed == "~")
+    {
+        return true;
     }
     trimmed.contains('@') && trimmed.contains(':') && !trimmed.contains(' ')
 }

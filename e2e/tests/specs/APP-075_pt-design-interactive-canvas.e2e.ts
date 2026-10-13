@@ -426,6 +426,9 @@ test.describe("APP-075 PT Design interactive canvas", () => {
 
     const dlg = page.locator('[data-pt-overlay-id="dlg"]');
     await expect(dlg, "dialog overlay did not project").toBeVisible({ timeout: 30_000 });
+    const dlgTrigger = dlg.locator("[data-pt-overlay-trigger]");
+    await expect(dlgTrigger, "Interact dialog starts closed; Confirm trigger must be visible").toBeVisible();
+    await dlgTrigger.click();
     await expect(dlg.locator('[role="dialog"]')).toBeVisible();
 
     const dlgPlacement = await dlg.evaluate((el) => ({

@@ -1284,6 +1284,7 @@ fn finish_tool_line(line: &mut AgentToolLine, now: &str, state: &str, detail: St
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn upsert_host_child(
     activity: &mut AgentActivity,
     child_id: &str,

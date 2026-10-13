@@ -28,6 +28,11 @@ pub struct AcpOptionsProbeResult {
     pub closed: bool,
 }
 
+// Clippy `double_must_use` is a false positive of `async_trait`: it boxes
+// the method into `Pin<Box<dyn Future>>` (already `#[must_use]`) and also
+// emits a second `#[must_use]`. Keep `async_trait` because this trait is
+// used as `dyn` (RPITIT is not object-safe).
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait AcpOptionsProbe: Send + Sync {
     async fn probe(
@@ -93,6 +98,11 @@ pub struct AcpLaunchResolved {
     pub env_overrides: Option<std::collections::HashMap<String, String>>,
 }
 
+// Clippy `double_must_use` is a false positive of `async_trait`: it boxes
+// the method into `Pin<Box<dyn Future>>` (already `#[must_use]`) and also
+// emits a second `#[must_use]`. Keep `async_trait` because this trait is
+// used as `dyn` (RPITIT is not object-safe).
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait AcpLaunchResolver: Send + Sync {
     async fn resolve(&self, agent_id: &str) -> Result<AcpLaunchResolved, String>;

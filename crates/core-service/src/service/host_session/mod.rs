@@ -626,7 +626,9 @@ impl HostSessionService {
                     failures.push(format!("{key}: {error}"));
                     continue;
                 }
-                self.repo().delete_sessions(&[key.clone()]).await?;
+                self.repo()
+                    .delete_sessions(std::slice::from_ref(key))
+                    .await?;
             }
             if include_atmos_chat {
                 let join_id = join_provider_id(&row.provider_id);

@@ -89,7 +89,7 @@ impl OptionsPrefetchWorker {
 
     pub fn on_web_disconnect(&self) {
         self.web_clients
-            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |value| {
+            .try_update(Ordering::SeqCst, Ordering::SeqCst, |value| {
                 Some(value.saturating_sub(1))
             })
             .ok();

@@ -177,6 +177,7 @@ async fn s13_get_new_jsonl_exposes_params_result_without_spawn() {
                         }),
                     }
                     .into(),
+                    ordinal: None,
                 },
             ),
         )
@@ -2822,6 +2823,139 @@ async fn interleaved_thinking_and_tools_survive_disk_reload() {
         ["thinking", "tool", "thinking", "tool", "thinking"],
         "reload from transcript.jsonl should not collapse thinking into one part after tools"
     );
+}
+
+#[tokio::test]
+async fn interleaved_text_tool_text_thinking_tool_survives_disk_reload() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    provider.set_auto_complete(false);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+
+    timeout(Duration::from_secs(2), async {
+        loop {
+            if provider.events_ready().await {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("runtime event channel");
+
+    provider
+        .push_event(AgentEvent::TextChunk {
+            part_id: "txt-0".into(),
+            message_id: "a1".into(),
+            parent_part_id: None,
+            ordinal: 0,
+            kind: TextKind::Answer,
+            offset: 0,
+            text: "look".into(),
+        })
+        .await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    provider
+        .push_event(AgentEvent::ToolCallStarted {
+            tool_call: execute_tool("t1", agent::AgentToolStatus::Running),
+        })
+        .await;
+    provider
+        .push_event(AgentEvent::ToolCallCompleted {
+            tool_call: execute_tool("t1", agent::AgentToolStatus::Completed),
+        })
+        .await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    provider
+        .push_event(AgentEvent::TextChunk {
+            part_id: "txt-1".into(),
+            message_id: "a1".into(),
+            parent_part_id: None,
+            ordinal: 1,
+            kind: TextKind::Answer,
+            offset: 0,
+            text: "mid".into(),
+        })
+        .await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    provider
+        .push_event(AgentEvent::TextChunk {
+            part_id: "think-1".into(),
+            message_id: "a1".into(),
+            parent_part_id: None,
+            ordinal: 2,
+            kind: TextKind::Thinking,
+            offset: 0,
+            text: "hmm".into(),
+        })
+        .await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    provider
+        .push_event(AgentEvent::ToolCallStarted {
+            tool_call: execute_tool("t2", agent::AgentToolStatus::Running),
+        })
+        .await;
+    provider
+        .push_event(AgentEvent::ToolCallCompleted {
+            tool_call: execute_tool("t2", agent::AgentToolStatus::Completed),
+        })
+        .await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    provider.complete_current().await;
+
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let snapshot = service.get(&meta.id).await.unwrap();
+            if snapshot.running_turn_id.is_none() {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("turn ended");
+
+    let expected = ["text", "tool", "text", "thinking", "tool"];
+    let live = service.get(&meta.id).await.unwrap();
+    assert_eq!(
+        assistant_part_kinds(&live),
+        expected,
+        "live snapshot should keep text/tool/thinking interleaving"
+    );
+    let live_text: Vec<_> = live
+        .messages
+        .iter()
+        .find(|message| message.role == "assistant")
+        .expect("assistant")
+        .parts
+        .iter()
+        .filter_map(|part| match part {
+            MessagePart::Text { text, .. } => Some(text.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(live_text, ["look", "mid"]);
+
+    let disk = service.store().get_snapshot(&meta.id).unwrap();
+    assert_eq!(
+        assistant_part_kinds(&disk),
+        expected,
+        "reload from transcript.jsonl should not dump intermediate text after tools"
+    );
+    let disk_text: Vec<_> = disk
+        .messages
+        .iter()
+        .find(|message| message.role == "assistant")
+        .expect("assistant")
+        .parts
+        .iter()
+        .filter_map(|part| match part {
+            MessagePart::Text { text, .. } => Some(text.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(disk_text, ["look", "mid"]);
 }
 
 #[test]

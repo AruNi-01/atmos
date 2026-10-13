@@ -10,6 +10,11 @@ use sea_orm::DatabaseConnection;
 use tokio::sync::{mpsc, oneshot};
 use tracing::warn;
 
+// Clippy `double_must_use` is a false positive of `async_trait`: it boxes
+// the method into `Pin<Box<dyn Future>>` (already `#[must_use]`) and also
+// emits a second `#[must_use]`. Keep `async_trait` because this trait is
+// used as `dyn` (RPITIT is not object-safe).
+#[allow(clippy::double_must_use)]
 #[async_trait::async_trait]
 pub(super) trait AgentSessionCatalogStore: Send + Sync {
     async fn upsert(&self, row: AgentSessionCatalogRow) -> Result<(), String>;
