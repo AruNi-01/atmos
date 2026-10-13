@@ -29,11 +29,12 @@ use super::types::{
     merge_session_usage, order_assistant_parts, parse_session_usage, parse_turn_usage,
     pending_context_change, pending_fast_change, pending_permission_mode_change,
     pending_session_config_change, pending_thinking_change, resolve_session_config_select,
-    AgentChatEvent, AgentChatMeta, AgentChatPayload, AgentChatSessionOpOutcome, AgentChatSnapshot,
-    FoldedMessage, MessagePart, Part, PartBody, PendingPermission, PendingSessionOp,
-    ResolvedSessionConfig, RuntimeStatus, SessionAdvertisedOption, SessionAdvertisedOptionValue,
-    SessionConfigChange, SessionHintTone, ToolCallState, TranscriptEnvelope, TranscriptEvent,
-    TurnStatus, SESSION_HINT_MODEL_SWITCH_FAILED, SESSION_HINT_MODE_SWITCH_FAILED,
+    sort_parts_by_recorded_ordinals, AgentChatEvent, AgentChatMeta, AgentChatPayload,
+    AgentChatSessionOpOutcome, AgentChatSnapshot, FoldedMessage, MessagePart, Part, PartBody,
+    PendingPermission, PendingSessionOp, ResolvedSessionConfig, RuntimeStatus,
+    SessionAdvertisedOption, SessionAdvertisedOptionValue, SessionConfigChange, SessionHintTone,
+    ToolCallState, TranscriptEnvelope, TranscriptEvent, TurnStatus,
+    SESSION_HINT_MODEL_SWITCH_FAILED, SESSION_HINT_MODE_SWITCH_FAILED,
 };
 
 /// Cap for non-text recent events. Text is recovered by per-part backfill, not this ring.
@@ -1378,14 +1379,11 @@ async fn persist_tool(
 ) -> Result<()> {
     let turn_id = state.lock().await.persist_turn_id(adapter_turn_id);
     let incoming = ToolCallState::from(tool);
-    upsert_tool_part(state, turn_id.clone(), incoming.clone()).await;
+    let ordinal = upsert_tool_part(state, turn_id.clone(), incoming.clone()).await;
+    let event = TranscriptEvent::tool_call_with_ordinal(incoming, ordinal);
     let envelope = match persist_event_id {
-        Some(event_id) => TranscriptEnvelope::with_id(
-            event_id,
-            turn_id,
-            TranscriptEvent::ToolCall { tool: incoming },
-        ),
-        None => TranscriptEnvelope::new(turn_id, TranscriptEvent::ToolCall { tool: incoming }),
+        Some(event_id) => TranscriptEnvelope::with_id(event_id, turn_id, event),
+        None => TranscriptEnvelope::new(turn_id, event),
     };
     store.append_record(chat_id, &envelope)
 }
@@ -1607,7 +1605,11 @@ async fn ensure_turn_row(
     Ok(turn_id)
 }
 
-async fn upsert_tool_part(state: &Mutex<RuntimeState>, turn_id: String, tool: ToolCallState) {
+async fn upsert_tool_part(
+    state: &Mutex<RuntimeState>,
+    turn_id: String,
+    tool: ToolCallState,
+) -> u32 {
     let mut state = state.lock().await;
     let part_id = tool.tool_call_id.clone();
     if let Some(tracked) = state.parts.get_mut(&part_id) {
@@ -1617,7 +1619,7 @@ async fn upsert_tool_part(state: &Mutex<RuntimeState>, turn_id: String, tool: To
             }
             _ => PartBody::ToolCall(tool),
         };
-        return;
+        return tracked.part.ordinal;
     }
     let message_id = state
         .parts
@@ -1643,6 +1645,7 @@ async fn upsert_tool_part(state: &Mutex<RuntimeState>, turn_id: String, tool: To
             opened_at: Utc::now(),
         },
     );
+    ordinal
 }
 
 async fn upsert_plan_part(state: &Mutex<RuntimeState>, turn_id: String, plan: serde_json::Value) {
@@ -1861,6 +1864,18 @@ pub(super) fn overlay_live_state(snapshot: &mut AgentChatSnapshot, state: &Runti
     parts.sort_by_key(|part| (part.message_id.clone(), part.ordinal));
     for part in parts {
         overlay_tracked_part(&mut snapshot.messages, part);
+    }
+    let overlay_ordinals: HashMap<String, u32> = state
+        .parts
+        .iter()
+        .map(|(id, tracked)| (id.clone(), tracked.part.ordinal))
+        .collect();
+    for message in &mut snapshot.messages {
+        if message.role != "assistant" {
+            continue;
+        }
+        message.parts =
+            sort_parts_by_recorded_ordinals(std::mem::take(&mut message.parts), &overlay_ordinals);
     }
     overlay_live_timing(snapshot, state, Utc::now());
     if snapshot.pending_permission.is_none() {
@@ -2620,6 +2635,7 @@ fn resolve_pending_select(
     }
 }
 
+#[cfg(test)]
 fn droid_already_on_encoded_model(meta: &AgentChatMeta, wire: &str) -> bool {
     sibling_already_on_encoded_model(meta, wire, true)
 }
@@ -2905,6 +2921,89 @@ mod tests {
         }
     }
 
+    fn live_text(
+        part_id: &str,
+        kind: TextKind,
+        text: &str,
+        ordinal: u32,
+        closed: bool,
+    ) -> TrackedPart {
+        let mut part = live_part(part_id, "a1", kind, text, closed);
+        part.part.ordinal = ordinal;
+        part
+    }
+
+    fn live_tool(id: &str, ordinal: u32) -> TrackedPart {
+        TrackedPart {
+            turn_id: "t1".into(),
+            part: Part {
+                id: id.into(),
+                message_id: "a1".into(),
+                parent_part_id: None,
+                ordinal,
+                body: PartBody::ToolCall(
+                    AgentTool {
+                        tool_call_id: id.into(),
+                        parent_tool_call_id: None,
+                        name: "Execute".into(),
+                        title: Some("ls".into()),
+                        kind: AgentToolKind::Execute,
+                        status: AgentToolStatus::Completed,
+                        params: AgentToolParams::Execute {
+                            command: "ls".into(),
+                            cwd: None,
+                            background: false,
+                            task_id: None,
+                        },
+                        result: None,
+                    }
+                    .into(),
+                ),
+                closed_at: Some(Utc::now()),
+            },
+            opened_at: Utc::now(),
+        }
+    }
+
+    fn snapshot_tool(id: &str) -> MessagePart {
+        ToolCallState::from(AgentTool {
+            tool_call_id: id.into(),
+            parent_tool_call_id: None,
+            name: "Execute".into(),
+            title: Some("ls".into()),
+            kind: AgentToolKind::Execute,
+            status: AgentToolStatus::Completed,
+            params: AgentToolParams::Execute {
+                command: "ls".into(),
+                cwd: None,
+                background: false,
+                task_id: None,
+            },
+            result: None,
+        })
+        .to_message_part()
+    }
+
+    fn overlay_part_kinds(snapshot: &AgentChatSnapshot) -> Vec<&'static str> {
+        snapshot
+            .messages
+            .iter()
+            .find(|message| message.role == "assistant")
+            .map(|message| {
+                message
+                    .parts
+                    .iter()
+                    .filter_map(|part| match part {
+                        MessagePart::Text { .. } => Some("text"),
+                        MessagePart::Thinking { .. } => Some("thinking"),
+                        MessagePart::ToolCall { .. } => Some("tool"),
+                        _ => None,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     fn snapshot_with_assistant() -> AgentChatSnapshot {
         AgentChatSnapshot {
             meta: meta(),
@@ -3054,6 +3153,109 @@ mod tests {
             }
             other => panic!("unexpected parts: {other:?}"),
         }
+    }
+
+    #[test]
+    fn overlay_restores_text_tool_text_thinking_tool_from_live_ordinals() {
+        let mut snapshot = snapshot_with_assistant();
+        snapshot.messages[0].id = "a1".into();
+        snapshot.messages[0].parts = vec![
+            snapshot_tool("t1"),
+            snapshot_tool("t2"),
+            MessagePart::Text {
+                text: "look".into(),
+                parent_tool_call_id: None,
+                message_id: Some("txt-0".into()),
+            },
+            MessagePart::Text {
+                text: "mid".into(),
+                parent_tool_call_id: None,
+                message_id: Some("txt-1".into()),
+            },
+            MessagePart::Thinking {
+                text: "hmm".into(),
+                tool_call_id: Some("think-1".into()),
+                duration_ms: Some(1_000),
+                parent_tool_call_id: None,
+            },
+        ];
+        let mut state = runtime();
+        state.parts.insert(
+            "txt-0".into(),
+            live_text("txt-0", TextKind::Answer, "look", 0, true),
+        );
+        state.parts.insert("t1".into(), live_tool("t1", 1));
+        state.parts.insert(
+            "txt-1".into(),
+            live_text("txt-1", TextKind::Answer, "mid", 2, true),
+        );
+        state.parts.insert(
+            "think-1".into(),
+            live_text("think-1", TextKind::Thinking, "hmm", 3, true),
+        );
+        state.parts.insert("t2".into(), live_tool("t2", 4));
+        overlay_live_state(&mut snapshot, &state);
+        assert_eq!(
+            overlay_part_kinds(&snapshot),
+            ["text", "tool", "text", "thinking", "tool"]
+        );
+        let texts: Vec<_> = snapshot.messages[0]
+            .parts
+            .iter()
+            .filter_map(|part| match part {
+                MessagePart::Text { text, .. } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(texts, ["look", "mid"]);
+    }
+
+    #[test]
+    fn overlay_does_not_dump_disk_text_when_live_ordinals_omit_it() {
+        let mut snapshot = snapshot_with_assistant();
+        snapshot.messages[0].id = "a1".into();
+        snapshot.messages[0].parts = vec![
+            MessagePart::Text {
+                text: "look".into(),
+                parent_tool_call_id: None,
+                message_id: Some("txt-0".into()),
+            },
+            snapshot_tool("t1"),
+            MessagePart::Text {
+                text: "mid".into(),
+                parent_tool_call_id: None,
+                message_id: Some("txt-1".into()),
+            },
+            MessagePart::Thinking {
+                text: "hmm".into(),
+                tool_call_id: Some("think-1".into()),
+                duration_ms: Some(1_000),
+                parent_tool_call_id: None,
+            },
+            snapshot_tool("t2"),
+        ];
+        let mut state = runtime();
+        state.parts.insert("t1".into(), live_tool("t1", 1));
+        state.parts.insert(
+            "think-1".into(),
+            live_text("think-1", TextKind::Thinking, "hmm live", 3, false),
+        );
+        state.parts.insert("t2".into(), live_tool("t2", 4));
+        overlay_live_state(&mut snapshot, &state);
+        assert_eq!(
+            overlay_part_kinds(&snapshot),
+            ["text", "tool", "text", "thinking", "tool"],
+            "disk text missing from the live ordinal map must keep its slot, not move to the end"
+        );
+        let texts: Vec<_> = snapshot.messages[0]
+            .parts
+            .iter()
+            .filter_map(|part| match part {
+                MessagePart::Text { text, .. } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(texts, ["look", "mid"]);
     }
 
     #[test]

@@ -80,6 +80,11 @@ pub struct AgentOptionsContext {
     pub cwd: Option<PathBuf>,
 }
 
+// Clippy `double_must_use` is a false positive of `async_trait`: it boxes
+// the method into `Pin<Box<dyn Future>>` (already `#[must_use]`) and also
+// emits a second `#[must_use]`. Keep `async_trait` because this trait is
+// used as `dyn` (RPITIT is not object-safe).
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait AgentRuntimeCommands: Send + Sync {
     async fn send(&self, input: AgentPrompt) -> AgentResult<AgentTurnHandle>;
@@ -144,6 +149,11 @@ impl AgentRuntimeControl {
     }
 }
 
+// Clippy `double_must_use` is a false positive of `async_trait`: it boxes
+// the method into `Pin<Box<dyn Future>>` (already `#[must_use]`) and also
+// emits a second `#[must_use]`. Keep `async_trait` because this trait is
+// used as `dyn` (RPITIT is not object-safe).
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait AgentRuntime: Send {
     fn control(&self) -> AgentRuntimeControl;
@@ -156,6 +166,11 @@ pub trait AgentRuntime: Send {
     }
 }
 
+// Clippy `double_must_use` is a false positive of `async_trait`: it boxes
+// the method into `Pin<Box<dyn Future>>` (already `#[must_use]`) and also
+// emits a second `#[must_use]`. Keep `async_trait` because this trait is
+// used as `dyn` (RPITIT is not object-safe).
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait AgentProvider: Send + Sync {
     fn id(&self) -> &str;
@@ -168,6 +183,11 @@ pub trait AgentProvider: Send + Sync {
     ) -> AgentResult<Box<dyn AgentRuntime>>;
 }
 
+// Clippy `double_must_use` is a false positive of `async_trait`: it boxes
+// the method into `Pin<Box<dyn Future>>` (already `#[must_use]`) and also
+// emits a second `#[must_use]`. Keep `async_trait` because this trait is
+// used as `dyn` (RPITIT is not object-safe).
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait AgentProviderFactory: Send + Sync {
     async fn provider_for(&self, provider_id: &str) -> AgentResult<Arc<dyn AgentProvider>>;

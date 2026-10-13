@@ -1602,10 +1602,10 @@ fn winning_effort_options(
                 return Vec::new();
             }
         }
-    } else if agent.reasoning_support.mode == AutomationAgentReasoningMode::EncodedInModel {
-        if probed_effort.is_some_and(|list| list.is_empty()) {
-            return Vec::new();
-        }
+    } else if agent.reasoning_support.mode == AutomationAgentReasoningMode::EncodedInModel
+        && probed_effort.is_some_and(|list| list.is_empty())
+    {
+        return Vec::new();
     }
     if agent.id == "grok-build" {
         return model_id

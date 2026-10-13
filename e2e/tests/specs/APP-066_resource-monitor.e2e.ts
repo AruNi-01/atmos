@@ -1,6 +1,7 @@
 import { apiPort } from "../../fixtures/app-server";
 import { expect, test } from "../../fixtures/test";
 import {
+  activateWorkspaceToolTab,
   buildProjectWorkspaceDeepLink,
   connectLocalComputer,
   gotoContextRoute,
@@ -128,8 +129,10 @@ async function openWorkspaceTerminalTab(
   workspaceGuid: string,
 ): Promise<void> {
   const workspaceUrl = `${new URL(page.url()).origin}/workspace?id=${workspaceGuid}`;
+  // Cold-load `?tab=terminal` is leftover-URL isolation when last-tab differs.
+  // Open the workspace, then activate Terminal from the tool strip / plus menu.
   const dest = withSearchParams(workspaceUrl, {
-    tab: "terminal",
+    tab: null,
     activeSettingTab: null,
     settingsModal: null,
   });
@@ -145,6 +148,20 @@ async function openWorkspaceTerminalTab(
   await expect
     .poll(async () => new URL(page.url()).searchParams.get("id"), { timeout: 45_000 })
     .toBe(workspaceGuid);
+  await activateWorkspaceToolTab(page, /Terminal|终端/);
+  if (!(await page.locator(".terminal-pane").first().isVisible().catch(() => false))) {
+    const plusTrigger = page
+      .locator("main [data-center-stage-plus-trigger]")
+      .filter({ visible: true })
+      .first();
+    await expect(plusTrigger).toBeVisible({ timeout: 15_000 });
+    if ((await plusTrigger.getAttribute("aria-expanded")) !== "true") {
+      await plusTrigger.evaluate((el) => (el as HTMLButtonElement).click());
+    }
+    const plusMenu = page.locator("[data-center-stage-plus-menu]");
+    await expect(plusMenu).toBeVisible({ timeout: 15_000 });
+    await plusMenu.locator("#create-terminal").click();
+  }
   await expect(page.locator(".terminal-pane").first()).toBeVisible({ timeout: 45_000 });
 }
 
@@ -372,6 +389,8 @@ test.describe("APP-066 resource monitor", () => {
     const footerUsage = footerItem.locator("[data-resource-monitor-footer-usage]");
     await expect(footerItem).toBeVisible({ timeout: 45_000 });
     await expect(footerLabel).toHaveText("Monitor");
+    // Hover before the first snapshot paints "CPU —"; wait for a real percent.
+    await expect(footerItem).toHaveAttribute("aria-label", /CPU \d/, { timeout: 45_000 });
     const restingFooterWidth = (await footerItem.boundingBox())?.width ?? 0;
     // Touch-emulated mobile-chromium often skips mouseenter; focus uses the same preview path.
     await footerItem.hover({ force: true });
@@ -422,9 +441,13 @@ test.describe("APP-066 resource monitor", () => {
     const serverGauge = popover.locator("[data-server-gauge]");
     await expect(serverGauge).toBeVisible();
     await expect(serverGauge.locator("canvas")).toHaveCount(2);
+    await expect
+      .poll(async () => (await serverGauge.locator("canvas").first().boundingBox())?.height ?? 0, {
+        timeout: 15_000,
+      })
+      .toBeGreaterThanOrEqual(100);
     const gaugeBox = await serverGauge.locator("canvas").first().boundingBox();
     expect(gaugeBox).not.toBeNull();
-    expect(gaugeBox!.height).toBeGreaterThanOrEqual(100);
     // 390/412px popover inner width yields ~163×112 canvases (ratio ~1.46), still a wide semicircle.
     expect(gaugeBox!.width).toBeGreaterThan(gaugeBox!.height * 1.4);
     if (await chart.isVisible()) {

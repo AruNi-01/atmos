@@ -5,6 +5,14 @@ import { thumbnailViewBox } from "../host/preview";
 import { canvasOriginInBoard, findCanvasOriginNode } from "./overlay/canvas-origin";
 import { boardCropFromScene } from "./preview-crop";
 import type { ExcalidrawCompatElement, ExcalidrawHostApi } from "./scene-bridge";
+import {
+  blobFromDataUrl,
+  blobToDataUrl,
+  dataUrlParts,
+  encodeCanvas,
+} from "./screenshot-encode";
+
+export { encodeCanvas };
 
 export type LiveScreenshot = {
   mime: "image/png" | "image/jpeg" | "image/webp";
@@ -39,10 +47,6 @@ const PREVIEW_CHROME_EXCLUDE = [
   "[data-testid='pt-design-library']",
   "[data-testid='pt-design-place-reveal']",
 ];
-
-const MAX_PREVIEW_DATA_URL = 220_000;
-const PREVIEW_WEBP_QUALITY = 0.82;
-const PREVIEW_JPEG_QUALITY = 0.8;
 
 function toNum(value: unknown, fallback: number): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -101,57 +105,6 @@ function findLiveBoard(): HTMLElement | null {
   return boards[0] ?? null;
 }
 
-function dataUrlParts(dataUrl: string): { mime: "image/png" | "image/jpeg" | "image/webp"; base64: string } {
-  const mime = dataUrl.startsWith("data:image/webp")
-    ? "image/webp"
-    : dataUrl.startsWith("data:image/jpeg")
-      ? "image/jpeg"
-      : "image/png";
-  const comma = dataUrl.indexOf(",");
-  return { mime, base64: comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl };
-}
-
-function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob | null> {
-  return new Promise((resolve) => {
-    if (typeof canvas.toBlob !== "function") {
-      resolve(null);
-      return;
-    }
-    canvas.toBlob((blob) => resolve(blob), type, quality);
-  });
-}
-
-async function canvasToPreview(canvas: HTMLCanvasElement): Promise<{
-  dataUrl: string;
-  mime: "image/png" | "image/jpeg" | "image/webp";
-  blob: Blob;
-}> {
-  const webp = await canvasToBlob(canvas, "image/webp", PREVIEW_WEBP_QUALITY);
-  if (webp && webp.type === "image/webp" && webp.size > 32) {
-    const dataUrl = await blobToDataUrl(webp);
-    return { dataUrl, mime: "image/webp", blob: webp };
-  }
-  const jpeg = await canvasToBlob(canvas, "image/jpeg", PREVIEW_JPEG_QUALITY);
-  if (jpeg && jpeg.size > 32) {
-    const dataUrl = await blobToDataUrl(jpeg);
-    return { dataUrl, mime: "image/jpeg", blob: jpeg };
-  }
-  let dataUrl = canvas.toDataURL("image/png");
-  if (dataUrl.length > MAX_PREVIEW_DATA_URL) {
-    dataUrl = canvas.toDataURL("image/jpeg", PREVIEW_JPEG_QUALITY);
-  }
-  const parts = dataUrlParts(dataUrl);
-  return { dataUrl, mime: parts.mime, blob: await blobFromDataUrl(dataUrl) };
-}
-
-async function blobFromDataUrl(dataUrl: string): Promise<Blob> {
-  const parts = dataUrlParts(dataUrl);
-  const binary = atob(parts.base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return new Blob([bytes], { type: parts.mime });
-}
-
 async function cropDataUrlToLandscape(dataUrl: string, width: number, height: number): Promise<{
   dataUrl: string;
   width: number;
@@ -177,15 +130,6 @@ async function cropDataUrlToLandscape(dataUrl: string, width: number, height: nu
   if (!image) return { dataUrl, width, height };
   ctx.drawImage(image, 0, 0, width, cropH, 0, 0, width, cropH);
   return { dataUrl: canvas.toDataURL("image/png"), width, height: cropH };
-}
-
-async function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error("Failed to read screenshot"));
-    reader.readAsDataURL(blob);
-  });
 }
 
 async function dataUrlSize(dataUrl: string): Promise<{ width: number; height: number }> {
@@ -266,21 +210,11 @@ function rasterCanvasFromCrop(
   return out;
 }
 
-async function encodePreviewCanvas(canvas: HTMLCanvasElement): Promise<{
-  dataUrl: string;
-  mime: "image/png" | "image/jpeg" | "image/webp";
-  blob: Blob;
-  width: number;
-  height: number;
-}> {
-  const encoded = await canvasToPreview(canvas);
-  return { ...encoded, width: canvas.width, height: canvas.height };
-}
-
 async function captureBoardDom(
   api: ExcalidrawHostApi,
   cropScene: { x: number; y: number; w: number; h: number },
   maxEdge: number,
+  preview: boolean,
 ): Promise<{
   dataUrl: string;
   mime: "image/png" | "image/jpeg" | "image/webp";
@@ -302,7 +236,7 @@ async function captureBoardDom(
     const region = scaleCropToPixels(crop, snap.width, snap.height, boardRect.width, boardRect.height);
     if (region) {
       const painted = rasterCanvasFromCrop(snap, region, maxEdge, paper);
-      if (painted) return encodePreviewCanvas(painted);
+      if (painted) return encodeCanvas(painted, preview);
     }
   }
 
@@ -326,9 +260,9 @@ async function captureBoardDom(
   const painted = rasterCanvasFromCrop(staticCanvas, region, maxEdge, paper);
   if (!painted) return null;
   const overlay = board.querySelector("[data-pt-overlay]");
-  if (!(overlay instanceof HTMLElement)) return encodePreviewCanvas(painted);
+  if (!(overlay instanceof HTMLElement)) return encodeCanvas(painted, preview);
   const overlaySnap = await snapBoard(overlay, "transparent");
-  if (!overlaySnap || overlaySnap.width < 2) return encodePreviewCanvas(painted);
+  if (!overlaySnap || overlaySnap.width < 2) return encodeCanvas(painted, preview);
   const overlayRect = overlay.getBoundingClientRect();
   const overlayCrop = {
     x: boardRect.left + crop.x - overlayRect.left,
@@ -343,12 +277,12 @@ async function captureBoardDom(
     overlayRect.width,
     overlayRect.height,
   );
-  if (!overlayRegion) return encodePreviewCanvas(painted);
+  if (!overlayRegion) return encodeCanvas(painted, preview);
   const out = document.createElement("canvas");
   out.width = painted.width;
   out.height = painted.height;
   const ctx = out.getContext("2d");
-  if (!ctx) return encodePreviewCanvas(painted);
+  if (!ctx) return encodeCanvas(painted, preview);
   ctx.drawImage(painted, 0, 0, painted.width, painted.height);
   ctx.drawImage(
     overlaySnap,
@@ -361,7 +295,7 @@ async function captureBoardDom(
     painted.width,
     painted.height,
   );
-  return encodePreviewCanvas(out);
+  return encodeCanvas(out, preview);
 }
 
 export async function captureLiveScreenshot(
@@ -400,7 +334,7 @@ export async function captureLiveScreenshot(
 
   const bbox = unionBBox(scoped);
   const cropScene = args.preview === true ? thumbnailViewBox(bbox) : bbox;
-  const live = await captureBoardDom(api, cropScene, maxEdge);
+  const live = await captureBoardDom(api, cropScene, maxEdge, args.preview === true);
   if (live) {
     const parts = dataUrlParts(live.dataUrl);
     return {

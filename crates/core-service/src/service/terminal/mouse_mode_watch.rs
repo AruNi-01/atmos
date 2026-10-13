@@ -200,6 +200,7 @@ fn kill_client_session(socket_path: &str, client_session: &str) {
     let _ = kill_cmd.output();
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_mouse_mode_watch(
     key: String,
     tmux_session: String,

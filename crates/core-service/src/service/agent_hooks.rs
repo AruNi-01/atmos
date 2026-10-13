@@ -699,7 +699,8 @@ mod observer_align_tests {
 
     #[test]
     fn observer_gemini_and_antigravity_notification_message_is_permission() {
-        let cases: [(&str, fn(&AgentHooksService, &Value, &AgentStatusContext)); 2] = [
+        type HookCaseHandler = fn(&AgentHooksService, &Value, &AgentStatusContext);
+        let cases: [(&str, HookCaseHandler); 2] = [
             ("gemini", AgentHooksService::handle_gemini_event),
             ("antigravity", AgentHooksService::handle_antigravity_event),
         ];

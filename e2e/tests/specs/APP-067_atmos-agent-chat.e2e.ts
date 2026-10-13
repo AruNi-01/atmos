@@ -90,6 +90,18 @@ test.describe("APP-067 Atmos Agent Chat", () => {
       timeout: 30_000,
     });
 
+    await expect
+      .poll(
+        async () => {
+          const id = await page
+            .locator("[data-agent-chat-workspace]")
+            .first()
+            .getAttribute("data-agent-chat-workspace");
+          return Boolean(id && id !== "draft");
+        },
+        { timeout: 30_000 },
+      )
+      .toBe(true);
     const chatId = await page
       .locator("[data-agent-chat-workspace]")
       .first()

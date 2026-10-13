@@ -11,11 +11,12 @@ use crate::error::{Result, ServiceError};
 use crate::utils::path_boundary::{path_or_existing_parent_within_root, path_within_root};
 
 use super::types::{
-    apply_rewind_view, apply_text_offset, chat_descriptor, flatten_messages, AgentChatIndexEntry,
-    AgentChatMeta, AgentChatOrigin, AgentChatSnapshot, CreateAgentChatRequest, FoldedMessage,
-    FoldedTurn, MaterializedTextPart, MessagePart, PendingPermission, QueueItem, RuntimeStatus,
-    SessionHintTone, SessionLifecycleAction, SessionLifecycleStatus, ToolCallState,
-    TranscriptEnvelope, TranscriptEvent, TurnStatus,
+    apply_rewind_view, apply_text_offset, chat_descriptor, flatten_messages,
+    sort_parts_by_recorded_ordinals, AgentChatIndexEntry, AgentChatMeta, AgentChatOrigin,
+    AgentChatSnapshot, CreateAgentChatRequest, FoldedMessage, FoldedTurn, MaterializedTextPart,
+    MessagePart, PendingPermission, QueueItem, RuntimeStatus, SessionHintTone,
+    SessionLifecycleAction, SessionLifecycleStatus, ToolCallState, TranscriptEnvelope,
+    TranscriptEvent, TurnStatus,
 };
 use agent::{
     AgentCurrentConfig, AgentEvent, AgentEventEnvelope, AgentPermissionRequest, TextKind, TurnStop,
@@ -590,7 +591,15 @@ pub fn fold_transcript(path: &Path) -> Result<Vec<FoldedTurn>> {
     let mut turns = Vec::new();
     let mut open_text: HashMap<String, HashSet<String>> = HashMap::new();
     let mut closed_parts: HashSet<String> = HashSet::new();
-    apply_jsonl_file(path, &mut turns, &mut open_text, &mut closed_parts)?;
+    let mut ordinals: HashMap<String, u32> = HashMap::new();
+    apply_jsonl_file(
+        path,
+        &mut turns,
+        &mut open_text,
+        &mut closed_parts,
+        &mut ordinals,
+    )?;
+    finalize_folded_turns(&mut turns, &ordinals);
     Ok(turns)
 }
 
@@ -615,7 +624,7 @@ fn merge_live_into_transcript(
     transcript: Vec<TranscriptEnvelope>,
     mut live: Vec<TranscriptEnvelope>,
 ) -> Vec<TranscriptEnvelope> {
-    live.sort_by(|left, right| left.timestamp.cmp(&right.timestamp));
+    live.sort_by_key(|left| left.timestamp);
     let mut merged = Vec::with_capacity(transcript.len() + live.len());
     let mut live_index = 0;
     for record in transcript {
@@ -722,6 +731,7 @@ fn apply_jsonl_file(
     turns: &mut Vec<FoldedTurn>,
     open_text: &mut HashMap<String, HashSet<String>>,
     closed_parts: &mut HashSet<String>,
+    ordinals: &mut HashMap<String, u32>,
 ) -> Result<()> {
     if !path.exists() {
         return Ok(());
@@ -733,18 +743,38 @@ fn apply_jsonl_file(
         let Some(record) = parse_transcript_envelope_line(&line) else {
             continue;
         };
-        apply_record(turns, record, open_text, closed_parts);
+        apply_record(turns, record, open_text, closed_parts, ordinals);
     }
     Ok(())
+}
+
+fn finalize_folded_turns(turns: &mut [FoldedTurn], ordinals: &HashMap<String, u32>) {
+    for turn in turns {
+        for message in &mut turn.messages {
+            if message.role != "assistant" {
+                continue;
+            }
+            message.parts =
+                sort_parts_by_recorded_ordinals(std::mem::take(&mut message.parts), ordinals);
+        }
+    }
 }
 
 pub fn fold_envelopes(envelopes: impl IntoIterator<Item = TranscriptEnvelope>) -> Vec<FoldedTurn> {
     let mut turns = Vec::new();
     let mut open_text: HashMap<String, HashSet<String>> = HashMap::new();
     let mut closed_parts: HashSet<String> = HashSet::new();
+    let mut ordinals: HashMap<String, u32> = HashMap::new();
     for envelope in envelopes {
-        apply_record(&mut turns, envelope, &mut open_text, &mut closed_parts);
+        apply_record(
+            &mut turns,
+            envelope,
+            &mut open_text,
+            &mut closed_parts,
+            &mut ordinals,
+        );
     }
+    finalize_folded_turns(&mut turns, &ordinals);
     turns
 }
 
@@ -953,9 +983,7 @@ pub(crate) fn agent_events_to_transcript(
                 out.push(transcript_from_agent(
                     envelope,
                     turn_id,
-                    TranscriptEvent::ToolCall {
-                        tool: ToolCallState::from(tool_call.clone()),
-                    },
+                    TranscriptEvent::tool_call(ToolCallState::from(tool_call.clone())),
                 ));
             }
             AgentEvent::PlanUpdated { plan } => {
@@ -1048,6 +1076,7 @@ fn apply_record(
     envelope: TranscriptEnvelope,
     open_text: &mut HashMap<String, HashSet<String>>,
     closed_parts: &mut HashSet<String>,
+    ordinals: &mut HashMap<String, u32>,
 ) {
     let turn_id = envelope.turn_id.clone().unwrap_or_else(|| "unknown".into());
     let created_at = envelope.timestamp;
@@ -1106,11 +1135,12 @@ fn apply_record(
             part_id,
             message_id,
             parent_part_id,
+            ordinal,
             kind,
             offset,
             text,
-            ..
         } => {
+            ordinals.insert(part_id.clone(), ordinal);
             let closed = closed_parts.contains(&part_id);
             let turn = upsert_turn(turns, &turn_id, created_at);
             apply_folded_text_part(
@@ -1131,11 +1161,12 @@ fn apply_record(
             part_id,
             message_id,
             parent_part_id,
+            ordinal,
             kind,
             text,
             duration_ms,
-            ..
         } => {
+            ordinals.insert(part_id.clone(), ordinal);
             closed_parts.insert(part_id.clone());
             let turn = upsert_turn(turns, &turn_id, created_at);
             apply_folded_text_part(
@@ -1193,7 +1224,10 @@ fn apply_record(
                 open_text,
             );
         }
-        TranscriptEvent::ToolCall { tool } => {
+        TranscriptEvent::ToolCall { tool, ordinal } => {
+            if let Some(ordinal) = ordinal {
+                ordinals.insert(tool.tool_call_id.clone(), ordinal);
+            }
             let turn = upsert_turn(turns, &turn_id, created_at);
             apply_tool_call(turn, tool, created_at);
         }
@@ -2189,6 +2223,7 @@ mod tests {
                             },
                             None,
                         ),
+                        ordinal: None,
                     },
                 ),
             )
@@ -2277,6 +2312,7 @@ mod tests {
                             },
                             None,
                         ),
+                        ordinal: None,
                     },
                 ),
             )
@@ -2367,6 +2403,7 @@ mod tests {
                             },
                             None,
                         ),
+                        ordinal: None,
                     },
                 ),
             )
@@ -2692,6 +2729,7 @@ mod tests {
                             },
                             None,
                         ),
+                        ordinal: None,
                     },
                 ),
             )
@@ -2714,6 +2752,7 @@ mod tests {
                                 text: "# hi\n".into(),
                             }),
                         },
+                        ordinal: None,
                     },
                 ),
             )
@@ -2787,6 +2826,7 @@ mod tests {
                             },
                             None,
                         ),
+                        ordinal: None,
                     },
                 ),
             )
@@ -3023,6 +3063,7 @@ mod tests {
                             },
                             None,
                         ),
+                        ordinal: None,
                     },
                 ),
             )
@@ -3144,6 +3185,7 @@ mod tests {
                             },
                             None,
                         ),
+                        ordinal: None,
                     },
                 ),
             )
@@ -3247,6 +3289,7 @@ mod tests {
                             },
                             None,
                         ),
+                        ordinal: None,
                     },
                 ),
             )
@@ -3563,6 +3606,142 @@ mod tests {
         .into()
     }
 
+    fn part_kinds(turns: &[FoldedTurn]) -> Vec<&'static str> {
+        turns
+            .iter()
+            .flat_map(|turn| turn.messages.iter())
+            .filter(|message| message.role == "assistant")
+            .flat_map(|message| message.parts.iter())
+            .filter_map(|part| match part {
+                MessagePart::Thinking { .. } => Some("thinking"),
+                MessagePart::ToolCall { .. } => Some("tool"),
+                MessagePart::Text { .. } => Some("text"),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn fold_restores_thinking_tool_order_from_tool_ordinals() {
+        let turns = fold_envelopes([
+            rec("t1", TranscriptEvent::TurnStarted),
+            rec(
+                "t1",
+                TranscriptEvent::tool_call_with_ordinal(execute_tool("t1"), 1),
+            ),
+            rec(
+                "t1",
+                TranscriptEvent::tool_call_with_ordinal(execute_tool("t2"), 3),
+            ),
+            rec(
+                "t1",
+                TranscriptEvent::PartFinished {
+                    part_id: "think-1".into(),
+                    message_id: "a1".into(),
+                    parent_part_id: None,
+                    ordinal: 0,
+                    kind: TextKind::Thinking,
+                    text: "first".into(),
+                    duration_ms: None,
+                },
+            ),
+            rec(
+                "t1",
+                TranscriptEvent::PartFinished {
+                    part_id: "think-2".into(),
+                    message_id: "a1".into(),
+                    parent_part_id: None,
+                    ordinal: 2,
+                    kind: TextKind::Thinking,
+                    text: "second".into(),
+                    duration_ms: None,
+                },
+            ),
+            rec(
+                "t1",
+                TranscriptEvent::PartFinished {
+                    part_id: "think-3".into(),
+                    message_id: "a1".into(),
+                    parent_part_id: None,
+                    ordinal: 4,
+                    kind: TextKind::Thinking,
+                    text: "third".into(),
+                    duration_ms: None,
+                },
+            ),
+        ]);
+        assert_eq!(
+            part_kinds(&turns),
+            ["thinking", "tool", "thinking", "tool", "thinking"]
+        );
+    }
+
+    #[test]
+    fn fold_restores_text_tool_text_thinking_tool_from_recorded_ordinals() {
+        let turns = fold_envelopes([
+            rec("t1", TranscriptEvent::TurnStarted),
+            rec(
+                "t1",
+                TranscriptEvent::tool_call_with_ordinal(execute_tool("t1"), 1),
+            ),
+            rec(
+                "t1",
+                TranscriptEvent::tool_call_with_ordinal(execute_tool("t2"), 4),
+            ),
+            rec(
+                "t1",
+                TranscriptEvent::PartFinished {
+                    part_id: "txt-0".into(),
+                    message_id: "a1".into(),
+                    parent_part_id: None,
+                    ordinal: 0,
+                    kind: TextKind::Answer,
+                    text: "look".into(),
+                    duration_ms: None,
+                },
+            ),
+            rec(
+                "t1",
+                TranscriptEvent::PartFinished {
+                    part_id: "txt-1".into(),
+                    message_id: "a1".into(),
+                    parent_part_id: None,
+                    ordinal: 2,
+                    kind: TextKind::Answer,
+                    text: "mid".into(),
+                    duration_ms: None,
+                },
+            ),
+            rec(
+                "t1",
+                TranscriptEvent::PartFinished {
+                    part_id: "think-1".into(),
+                    message_id: "a1".into(),
+                    parent_part_id: None,
+                    ordinal: 3,
+                    kind: TextKind::Thinking,
+                    text: "hmm".into(),
+                    duration_ms: None,
+                },
+            ),
+        ]);
+        assert_eq!(
+            part_kinds(&turns),
+            ["text", "tool", "text", "thinking", "tool"]
+        );
+        let texts: Vec<_> = turns
+            .iter()
+            .flat_map(|turn| turn.messages.iter())
+            .filter(|message| message.role == "assistant")
+            .flat_map(|message| message.parts.iter())
+            .filter_map(|part| match part {
+                MessagePart::Text { text, .. } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(texts, ["look", "mid"]);
+    }
+
     #[test]
     fn later_plan_updates_do_not_drop_tools() {
         let (_dir, store) = store();
@@ -3583,6 +3762,7 @@ mod tests {
                     now,
                     TranscriptEvent::ToolCall {
                         tool: execute_tool("t1"),
+                        ordinal: None,
                     },
                 ),
             )
@@ -3607,6 +3787,7 @@ mod tests {
                     now,
                     TranscriptEvent::ToolCall {
                         tool: execute_tool("t2"),
+                        ordinal: None,
                     },
                 ),
             )
@@ -3631,6 +3812,7 @@ mod tests {
                     now,
                     TranscriptEvent::ToolCall {
                         tool: execute_tool("t3"),
+                        ordinal: None,
                     },
                 ),
             )

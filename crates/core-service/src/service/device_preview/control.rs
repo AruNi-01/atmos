@@ -164,6 +164,11 @@ pub struct ClaimOwner {
     pub project_name: String,
 }
 
+// Clippy `double_must_use` is a false positive of `async_trait`: it boxes
+// the method into `Pin<Box<dyn Future>>` (already `#[must_use]`) and also
+// emits a second `#[must_use]`. Keep `async_trait` because this trait is
+// used as `dyn` (RPITIT is not object-safe).
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait ClaimOwnerLookup: Send + Sync {
     async fn owner(&self, workspace_id: &str) -> ClaimOwner;
