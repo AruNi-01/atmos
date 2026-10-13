@@ -1,0 +1,20 @@
+{
+  "name": "@atmos/mobile-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "list": "e2e list",
+    "test:ios": "e2e run --target ios",
+    "test:android": "e2e run --target android",
+    "test:smoke:ios": "e2e run --target ios tests/smoke.e2e.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@e2e-dev/mobile": "^0.12.0",
+    "@types/node": "^24.0.0",
+    "ai": "^7.0.0",
+    "e2e": "^0.20.0",
+    "typescript": "^5.9.0",
+    "zod": "^4.1.8"
+  }
+}
