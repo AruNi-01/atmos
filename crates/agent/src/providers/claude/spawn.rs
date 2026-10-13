@@ -82,19 +82,52 @@ pub(crate) fn too_old_error() -> AgentProviderError {
     )
 }
 
+const TRANSIENT_SPAWN_ATTEMPTS: u32 = 8;
+
+fn is_transient_os_error(code: i32) -> bool {
+    // Named libc errnos, not Linux numbers. Darwin EAGAIN is 35 (Linux 11);
+    // Darwin EDEADLK is 11 (Linux 35) and must not retry.
+    [
+        libc::EINTR,
+        libc::EAGAIN,
+        libc::EWOULDBLOCK,
+        libc::ENFILE,
+        libc::EMFILE,
+        libc::ETXTBSY,
+    ]
+    .contains(&code)
+}
+
 fn is_transient_spawn(error: &std::io::Error) -> bool {
-    // EINTR, EAGAIN/EWOULDBLOCK, ENFILE, EMFILE, ETXTBSY — write-then-exec of a
-    // just-created fake binary races under `cargo test --workspace`.
-    matches!(error.raw_os_error(), Some(4 | 11 | 23 | 24 | 26))
+    error.raw_os_error().is_some_and(is_transient_os_error)
+}
+
+async fn retry_transient_spawn<T, F, Fut>(mut op: F) -> std::io::Result<T>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = std::io::Result<T>>,
+{
+    let mut last = None;
+    for attempt in 0..TRANSIENT_SPAWN_ATTEMPTS {
+        match op().await {
+            Ok(value) => return Ok(value),
+            Err(error) if is_transient_spawn(&error) && attempt + 1 < TRANSIENT_SPAWN_ATTEMPTS => {
+                last = Some(error);
+                tokio::time::sleep(Duration::from_millis(10 * u64::from(attempt + 1))).await;
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    Err(last.expect("transient retry keeps last error"))
 }
 
 pub(crate) async fn probe_input_format_support(
     program: &Path,
     env_overrides: Option<&HashMap<String, String>>,
 ) -> AgentResult<()> {
-    let output = timeout(Duration::from_secs(15), async {
-        let mut last = None;
-        for attempt in 0..8u32 {
+    let output = timeout(
+        Duration::from_secs(15),
+        retry_transient_spawn(|| {
             let mut cmd = Command::new(program);
             cmd.arg("--help")
                 .stdin(Stdio::null())
@@ -104,17 +137,9 @@ pub(crate) async fn probe_input_format_support(
             if let Some(env) = env_overrides {
                 apply_env(&mut cmd, env);
             }
-            match cmd.output().await {
-                Ok(output) => return Ok(output),
-                Err(error) if is_transient_spawn(&error) && attempt + 1 < 8 => {
-                    last = Some(error);
-                    tokio::time::sleep(Duration::from_millis(10 * u64::from(attempt + 1))).await;
-                }
-                Err(error) => return Err(error),
-            }
-        }
-        Err(last.expect("transient retry keeps last error"))
-    })
+            cmd.output()
+        }),
+    )
     .await
     .map_err(|_| AgentProviderError::message("Claude Code --help timed out"))?
     .map_err(|error| {
@@ -151,46 +176,24 @@ pub(crate) async fn spawn_claude(
         "Chat spawn must not copy Terminal yoloParams"
     );
 
-    let mut child = {
-        let mut last = None;
-        let mut spawned = None;
-        for attempt in 0..8u32 {
-            let mut cmd = Command::new(program);
-            cmd.args(&args)
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .kill_on_drop(true);
-            if cfg.cwd.exists() {
-                cmd.current_dir(&cfg.cwd);
-            }
-            if let Some(overrides) = &cfg.env_overrides {
-                apply_env(&mut cmd, overrides);
-            }
-            cmd.env("CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING", "1");
-            match cmd.spawn() {
-                Ok(child) => {
-                    spawned = Some(child);
-                    break;
-                }
-                Err(error) if is_transient_spawn(&error) && attempt + 1 < 8 => {
-                    last = Some(error);
-                    tokio::time::sleep(Duration::from_millis(10 * u64::from(attempt + 1))).await;
-                }
-                Err(error) => {
-                    return Err(AgentProviderError::message(format!(
-                        "failed to spawn claude: {error}"
-                    )));
-                }
-            }
+    let mut child = retry_transient_spawn(|| {
+        let mut cmd = Command::new(program);
+        cmd.args(&args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true);
+        if cfg.cwd.exists() {
+            cmd.current_dir(&cfg.cwd);
         }
-        spawned.ok_or_else(|| {
-            AgentProviderError::message(format!(
-                "failed to spawn claude: {}",
-                last.expect("transient retry keeps last error")
-            ))
-        })?
-    };
+        if let Some(overrides) = &cfg.env_overrides {
+            apply_env(&mut cmd, overrides);
+        }
+        cmd.env("CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING", "1");
+        async move { cmd.spawn() }
+    })
+    .await
+    .map_err(|error| AgentProviderError::message(format!("failed to spawn claude: {error}")))?;
     let stdin = child
         .stdin
         .take()
@@ -343,10 +346,72 @@ mod tests {
     }
 
     #[test]
-    fn text_file_busy_is_transient() {
-        assert!(is_transient_spawn(&std::io::Error::from_raw_os_error(26)));
-        assert!(is_transient_spawn(&std::io::Error::from_raw_os_error(11)));
-        assert!(!is_transient_spawn(&std::io::Error::from_raw_os_error(2)));
+    fn transient_spawn_uses_named_errnos_not_linux_numbers() {
+        assert!(is_transient_os_error(libc::EINTR));
+        assert!(is_transient_os_error(libc::EAGAIN));
+        assert!(is_transient_os_error(libc::EWOULDBLOCK));
+        assert!(is_transient_os_error(libc::ENFILE));
+        assert!(is_transient_os_error(libc::EMFILE));
+        assert!(is_transient_os_error(libc::ETXTBSY));
+        assert!(!is_transient_os_error(libc::EDEADLK));
+        assert!(!is_transient_os_error(libc::ENOENT));
+        assert_ne!(libc::EAGAIN, libc::EDEADLK);
+        assert!(is_transient_spawn(&std::io::Error::from_raw_os_error(
+            libc::EAGAIN
+        )));
+        assert!(!is_transient_spawn(&std::io::Error::from_raw_os_error(
+            libc::EDEADLK
+        )));
+        if cfg!(target_os = "macos") {
+            assert_eq!(libc::EAGAIN, 35);
+            assert_eq!(libc::EDEADLK, 11);
+            assert!(is_transient_os_error(35));
+            assert!(!is_transient_os_error(11));
+        }
+        if cfg!(target_os = "linux") {
+            assert_eq!(libc::EAGAIN, 11);
+            assert_eq!(libc::EDEADLK, 35);
+            assert!(is_transient_os_error(11));
+            assert!(!is_transient_os_error(35));
+        }
+    }
+
+    #[tokio::test]
+    async fn retry_transient_spawn_retries_eagain_then_succeeds() {
+        let attempts = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
+        let value = retry_transient_spawn({
+            let attempts = attempts.clone();
+            move || {
+                let n = attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                async move {
+                    if n == 0 {
+                        Err(std::io::Error::from_raw_os_error(libc::EAGAIN))
+                    } else {
+                        Ok("ok")
+                    }
+                }
+            }
+        })
+        .await
+        .expect("EAGAIN should retry");
+        assert_eq!(value, "ok");
+        assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn retry_transient_spawn_does_not_retry_edeadlk() {
+        let attempts = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
+        let error = retry_transient_spawn({
+            let attempts = attempts.clone();
+            move || {
+                attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                async { Err::<(), _>(std::io::Error::from_raw_os_error(libc::EDEADLK)) }
+            }
+        })
+        .await
+        .expect_err("EDEADLK must not retry");
+        assert_eq!(error.raw_os_error(), Some(libc::EDEADLK));
+        assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 1);
     }
 
     fn write_help_script(contents: &str) -> (tempfile::TempDir, PathBuf) {
