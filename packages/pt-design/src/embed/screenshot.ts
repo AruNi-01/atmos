@@ -290,7 +290,7 @@ async function canvasToPng(canvas: HTMLCanvasElement): Promise<{
   return { dataUrl, mime: "image/png", blob: await blobFromDataUrl(dataUrl) };
 }
 
-async function encodeCanvas(
+export async function encodeCanvas(
   canvas: HTMLCanvasElement,
   preview: boolean,
 ): Promise<{

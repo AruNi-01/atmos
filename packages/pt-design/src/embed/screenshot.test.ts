@@ -4,6 +4,7 @@ import { runSessionTool } from "../agent/session-tools";
 import { createHeadlessSession } from "../core/headless-session";
 import { PtDesignError } from "../protocol";
 import { boardCropFromScene } from "./preview-crop";
+import { encodeCanvas } from "./screenshot";
 
 describe("S33 screenshot", () => {
   test("headless pt_screenshot is path_denied (live tab only)", () => {
@@ -54,5 +55,30 @@ describe("S33 screenshot", () => {
 
   test.skip("S33 live capture returns png bytes — captureLiveScreenshot needs a real Excalidraw board + overlay", () => {
     // Live PNG bytes are a playground/E2E concern. See TEST.md S33.
+  });
+
+  test("agent encodeCanvas (preview=false) writes PNG magic bytes", async () => {
+    const png = new Uint8Array(40);
+    png.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xd9]);
+    const pngBlob = new Blob([png], { type: "image/png" });
+    const jpegBlob = new Blob([jpeg], { type: "image/jpeg" });
+    const canvas = {
+      width: 8,
+      height: 8,
+      toBlob(callback: BlobCallback, type?: string) {
+        callback(type === "image/png" ? pngBlob : jpegBlob);
+      },
+      toDataURL(type?: string) {
+        const bytes = type === "image/jpeg" ? jpeg : png;
+        const mime = type === "image/jpeg" ? "image/jpeg" : "image/png";
+        return `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`;
+      },
+    } as unknown as HTMLCanvasElement;
+
+    const encoded = await encodeCanvas(canvas, false);
+    const bytes = new Uint8Array(await encoded.blob.arrayBuffer());
+    expect(encoded.mime).toBe("image/png");
+    expect([...bytes.slice(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   });
 });
