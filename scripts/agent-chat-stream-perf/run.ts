@@ -8,14 +8,13 @@
 import { chromium } from "../../e2e/node_modules/@playwright/test/index.mjs";
 import { mkdirSync, writeFileSync, copyFileSync, existsSync, symlinkSync } from "node:fs";
 import { spawn } from "node:child_process";
-import { createServer } from "node:http";
-import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { serveDist } from "./public-file";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const dist = join(here, "dist");
-const outDir = "/opt/cursor/artifacts";
+const outDir = process.env.ATMOS_STREAM_PERF_OUTDIR ?? join(here, "tmp");
 
 function ensureWebNodeModules(): void {
   const link = join(here, "node_modules");
@@ -48,42 +47,6 @@ async function bunBuild(): Promise<void> {
   copyFileSync(join(here, "index.html"), join(dist, "index.html"));
 }
 
-function serveDist(): Promise<{ url: string; close: () => Promise<void> }> {
-  return new Promise((resolve, reject) => {
-    const server = createServer(async (req, res) => {
-      const path = req.url?.split("?")[0] === "/" ? "/index.html" : req.url?.split("?")[0];
-      const file = join(dist, path ?? "/index.html");
-      try {
-        const body = await readFile(file);
-        const type = file.endsWith(".js")
-          ? "text/javascript"
-          : file.endsWith(".html")
-            ? "text/html"
-            : "application/octet-stream";
-        res.writeHead(200, { "content-type": type });
-        res.end(body);
-      } catch {
-        res.writeHead(404);
-        res.end("not found");
-      }
-    });
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      if (!address || typeof address === "string") {
-        reject(new Error("failed to bind bench server"));
-        return;
-      }
-      resolve({
-        url: `http://127.0.0.1:${address.port}`,
-        close: () =>
-          new Promise((done) => {
-            server.close(() => done());
-          }),
-      });
-    });
-  });
-}
-
 async function measure(url: string, mode: "main" | "branch") {
   const browser = await chromium.launch({
     executablePath: "/usr/bin/google-chrome",
@@ -110,7 +73,7 @@ async function measure(url: string, mode: "main" | "branch") {
 async function main() {
   mkdirSync(outDir, { recursive: true });
   await bunBuild();
-  const server = await serveDist();
+  const server = await serveDist(dist);
   try {
     const before = await measure(server.url, "main");
     const after = await measure(server.url, "branch");

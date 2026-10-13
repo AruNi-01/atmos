@@ -2,6 +2,8 @@
 
 Run: `bun scripts/agent-chat-stream-perf/run.ts`
 
+JSON lands in `scripts/agent-chat-stream-perf/tmp/` (gitignored). Override with `ATMOS_STREAM_PERF_OUTDIR`.
+
 This directory is outside `apps/web`, so Next typecheck / production build never see it.
 
 ## Method
@@ -13,7 +15,7 @@ This directory is outside `apps/web`, so Next typecheck / production build never
 - Per-token: `React.Profiler` `onRender` `actualDuration` while appending 40 tokens
   - **main protocol**: one React commit per token
   - **this branch**: 56ms snapshot flush + `useSmoothStreamText` on the last open text
-- Raw frame deltas and every Profiler commit: `/opt/cursor/artifacts/agent-chat-chromium-stream-perf.json`
+- Raw frame deltas and every Profiler commit: `scripts/agent-chat-stream-perf/tmp/agent-chat-chromium-stream-perf.json` (or `$ATMOS_STREAM_PERF_OUTDIR`)
 
 ## Results (real, this VM)
 
