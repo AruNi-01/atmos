@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { PtNode, PtNodeType } from "../protocol";
 import {
   applySelectionNodePatch,
+  compactButtonChrome,
   FALLBACK_MOBILE_BOTTOM,
   FALLBACK_MOBILE_RIGHT,
   railAnchorFromLayout,
@@ -152,6 +153,7 @@ describe("railAnchorFromLayout", () => {
         host,
         mobile: true,
         stylePanel: null,
+        compactToolbar: null,
         colorTool,
       }),
     ).toEqual({ placement: "bottom", right: 60, bottom: 40 });
@@ -163,6 +165,7 @@ describe("railAnchorFromLayout", () => {
         host,
         mobile: true,
         stylePanel: null,
+        compactToolbar: null,
         colorTool: null,
       }),
     ).toEqual({
@@ -179,8 +182,50 @@ describe("railAnchorFromLayout", () => {
         host,
         mobile: false,
         stylePanel,
+        compactToolbar: null,
         colorTool: null,
       }),
     ).toEqual({ placement: "side", top: 90, left: 208 });
+  });
+
+  test("compact toolbar stacks the rail underneath and matches its width", () => {
+    const compactToolbar = { top: 72, left: 16, right: 64, bottom: 368, width: 48, height: 296 };
+    const stylePanel = { top: 80, left: 16, right: 200, bottom: 400, width: 184, height: 320 };
+    expect(
+      railAnchorFromLayout({
+        host,
+        mobile: false,
+        stylePanel,
+        compactToolbar,
+        colorTool: null,
+      }),
+    ).toEqual({ placement: "stack", top: 376, left: 16, width: 48 });
+  });
+});
+
+describe("compactButtonChrome", () => {
+  test("keeps a visible compact-toolbar fill and falls back to Excalidraw sizes", () => {
+    expect(
+      compactButtonChrome({
+        buttonSize: "32px",
+        iconSize: "16px",
+        radius: "10px",
+        background: "rgba(255, 255, 255, 0.35)",
+        slot: "40px",
+      }),
+    ).toEqual({
+      button: "32px",
+      icon: "16px",
+      radius: "10px",
+      background: "rgba(255, 255, 255, 0.35)",
+      slot: "40px",
+    });
+    expect(compactButtonChrome({ background: "rgba(0, 0, 0, 0)" })).toEqual({
+      button: "2rem",
+      icon: "1rem",
+      radius: "0.625rem",
+      background: "",
+      slot: "2.5rem",
+    });
   });
 });

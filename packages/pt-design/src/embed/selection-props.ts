@@ -25,7 +25,7 @@ export type SelectionPropPatch =
   | { type: "radius"; radius: PtRadiusChoice }
   | { type: "prop"; key: string; value: boolean };
 
-export type RailPlacement = "side" | "bottom";
+export type RailPlacement = "side" | "bottom" | "stack";
 
 export type RailAnchor = {
   placement: RailPlacement;
@@ -33,6 +33,8 @@ export type RailAnchor = {
   left?: number;
   right?: number;
   bottom?: number;
+  /** Outer width of the compact left toolbar, so the stack can match it. */
+  width?: number;
 };
 
 export type RailBox = {
@@ -59,6 +61,43 @@ const TYPOGRAPHY_SIZE_OPTIONS: SelectionPropOption[] = [
 ];
 
 export const STYLE_PANEL_SELECTOR = ".App-menu__left";
+/** Compact left toolbar. The new layout does not open the full properties panel. */
+export const COMPACT_TOOLBAR_SELECTOR = ".compact-shape-actions-island";
+/** Visible compact action control. Color swatches are excluded so we do not copy stroke ink. */
+export const COMPACT_ACTION_BUTTON_SELECTOR =
+  ".compact-shape-actions .ToolIcon__icon, .compact-shape-actions .compact-action-button";
+
+export type CompactButtonChrome = {
+  /** Outer box, matching `--mobile-action-button-size`. */
+  button: string;
+  /** Glyph box, matching the compact action svg. */
+  icon: string;
+  radius: string;
+  /** Empty when the toolbar button has no visible fill of its own. */
+  background: string;
+  /** Vertical slot, matching `.compact-action-item`. */
+  slot: string;
+};
+
+const INVISIBLE_BUTTON_BACKGROUNDS = new Set(["", "transparent", "rgba(0, 0, 0, 0)"]);
+
+/** Normalize a live compact-toolbar button so the variant rail can reuse it. */
+export function compactButtonChrome(input: {
+  buttonSize?: string | null;
+  iconSize?: string | null;
+  radius?: string | null;
+  background?: string | null;
+  slot?: string | null;
+}): CompactButtonChrome {
+  const background = (input.background ?? "").trim();
+  return {
+    button: (input.buttonSize ?? "").trim() || "2rem",
+    icon: (input.iconSize ?? "").trim() || "1rem",
+    radius: (input.radius ?? "").trim() || "0.625rem",
+    background: INVISIBLE_BUTTON_BACKGROUNDS.has(background) ? "" : background,
+    slot: (input.slot ?? "").trim() || "2.5rem",
+  };
+}
 export const MOBILE_EXCALIDRAW_SELECTOR = ".excalidraw--mobile";
 export const RAIL_GAP = 8;
 export const FALLBACK_SIDE_TOP = 64;
@@ -164,6 +203,7 @@ export function railAnchorFromLayout(input: {
   host: RailBox;
   mobile: boolean;
   stylePanel: RailBox | null;
+  compactToolbar: RailBox | null;
   colorTool: RailBox | null;
 }): RailAnchor {
   if (input.mobile) {
@@ -178,6 +218,14 @@ export function railAnchorFromLayout(input: {
       placement: "bottom",
       right: FALLBACK_MOBILE_RIGHT,
       bottom: FALLBACK_MOBILE_BOTTOM,
+    };
+  }
+  if (input.compactToolbar && input.compactToolbar.width >= 8 && input.compactToolbar.height >= 8) {
+    return {
+      placement: "stack",
+      top: Math.round(input.compactToolbar.bottom - input.host.top + RAIL_GAP),
+      left: Math.round(input.compactToolbar.left - input.host.left),
+      width: Math.round(input.compactToolbar.width),
     };
   }
   if (input.stylePanel && input.stylePanel.width >= 8 && input.stylePanel.height >= 8) {

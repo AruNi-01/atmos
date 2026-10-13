@@ -815,6 +815,31 @@ const SEEDED_PTX = `<page id="model-config">
 </page>
 `;
 
+describe("canvas persist camera", () => {
+  test("restores scroll and zoom without saved theme or paper", () => {
+    const { host, calls } = createFakeHost();
+    const board = createLiveBoard(host);
+    board.loadPersist({
+      canvas: {
+        elements: [],
+        appState: {
+          theme: "dark",
+          viewBackgroundColor: "#ffffff",
+          scrollX: 12,
+          scrollY: 34,
+          zoom: { value: 1.5 },
+        },
+      },
+    });
+    const appState = calls[0]?.appState as Record<string, unknown> | undefined;
+    expect(appState?.scrollX).toBe(12);
+    expect(appState?.scrollY).toBe(34);
+    expect(appState?.zoom).toEqual({ value: 1.5 });
+    expect(appState).not.toHaveProperty("theme");
+    expect(appState).not.toHaveProperty("viewBackgroundColor");
+  });
+});
+
 describe("ptx-only persist load", () => {
   test("ptx-only persist/load projects extract overlay ids including run", async () => {
     const { host, calls, cleared } = createFakeHost();

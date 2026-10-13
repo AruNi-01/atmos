@@ -230,6 +230,19 @@ export function applySceneCameraNever(
 }
 
 /**
+ * Saved paper and editor theme must not come back with the camera. A stored
+ * `theme: "dark"` turns Excalidraw's JS invert back on, and a stored paper
+ * color fights the live Atmos canvas color.
+ */
+function persistedCamera(appState: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  if (!appState) return undefined;
+  const next = { ...appState };
+  delete next.theme;
+  delete next.viewBackgroundColor;
+  return next;
+}
+
+/**
  * Capture strings match Excalidraw `CaptureUpdateAction` values. This module does
  * not import that package: bun tests have no `window`, and the host API is
  * typed to `Capture` so tests can assert `captureUpdate` directly.
@@ -364,7 +377,7 @@ export function createLiveBoard(host: ExcalidrawHost): LiveBoard {
       if (Array.isArray(rec.elements)) {
         pushScene({
           elements: rec.elements as HandleElement[],
-          appState: rec.appState,
+          appState: persistedCamera(rec.appState),
           captureUpdate: "NEVER",
         });
       }

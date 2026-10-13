@@ -1,7 +1,9 @@
 /*
   Excalidraw ships a purple island theme. Override both light and dark so
   islands, menus, and the canvas match Atmos center chrome.
-  Dark canvas invert is disabled so wireframe colors stay in theme-palette.ts.
+  The editor theme stays light (see EDITOR_COLOR_THEME). Dark chrome is keyed
+  off the board data-theme so it still applies when Excalidraw has no
+  theme--dark class. Canvas invert stays off; ink lives in theme-palette.ts.
 */
 
 .excalidraw {
@@ -48,7 +50,8 @@
   background: var(--background, #ffffff);
 }
 
-.excalidraw.theme--dark {
+.excalidraw.theme--dark,
+[data-testid="pt-design-board"][data-theme="dark"] .excalidraw {
   --theme-filter: none;
   --default-bg-color: var(--background, #09090b);
   --island-bg-color: var(--card, #18181b);
@@ -86,26 +89,42 @@
   --color-selection: var(--muted, #3f3f46);
   --color-promo: var(--foreground, #fafafa);
   --shadow-island: 0 0 0 1px var(--border, rgba(255, 255, 255, 0.1));
+  /* Light theme paints compact actions with a white wash. Editor theme stays
+     light so the canvas is not inverted, so match the island here. */
+  --mobile-action-button-bg: var(--island-bg-color);
   background: var(--background, #09090b);
 }
 
-.excalidraw.theme--dark canvas {
+.excalidraw.theme--dark canvas,
+[data-testid="pt-design-board"][data-theme="dark"] .excalidraw canvas {
   filter: none !important;
 }
 
 /* Official dark inverts every swatch. We only restyle the first stroke
    top-pick so it matches the light default ink without flipping reds. */
-.excalidraw.theme--dark .color-picker__top-picks .color-picker__button:first-child {
+.excalidraw.theme--dark .color-picker__top-picks .color-picker__button:first-child,
+[data-testid="pt-design-board"][data-theme="dark"] .excalidraw .color-picker__top-picks .color-picker__button:first-child {
   --swatch-color: #fafafa !important;
 }
 
 .excalidraw.theme--dark .color-picker__button[title="#1e1e1e"],
-.excalidraw.theme--dark .color-picker__button[title="#000000"] {
+.excalidraw.theme--dark .color-picker__button[title="#000000"],
+[data-testid="pt-design-board"][data-theme="dark"] .excalidraw .color-picker__button[title="#1e1e1e"],
+[data-testid="pt-design-board"][data-theme="dark"] .excalidraw .color-picker__button[title="#000000"] {
   --swatch-color: #fafafa !important;
 }
 
-.excalidraw.theme--dark .color-picker__button[title="#ffffff"] {
+.excalidraw.theme--dark .color-picker__button[title="#ffffff"],
+[data-testid="pt-design-board"][data-theme="dark"] .excalidraw .color-picker__button[title="#ffffff"] {
   --swatch-color: #18181b !important;
+}
+
+[data-testid="pt-design-board"][data-theme="dark"] .excalidraw .HintViewer {
+  color: var(--muted-foreground, #a1a1aa);
+}
+
+[data-testid="pt-design-board"][data-theme="dark"] .excalidraw .HintViewer kbd {
+  border-color: var(--muted-foreground, #a1a1aa);
 }
 
 .excalidraw .zoom-actions,
@@ -142,13 +161,27 @@
 
 .excalidraw .App-menu_top {
   position: relative;
-  align-items: center;
+  align-items: flex-start;
 }
 
 /*
-  Pin the menu and the top-right actions to the mode-toggle row. Centering
-  them on the shapes island makes them jump when Interact hides that island.
+  Pin every top-row column to the top. Selection mounts a tall compact
+  shape-actions rail in the left column; centering the shapes island on that
+  row drops the toolbar and the hint under it. The menu and top-right actions
+  keep a small offset so they stay on the mode-toggle row when Interact hides
+  the shapes island.
 */
+.excalidraw .App-menu_top > .shapes-section {
+  align-self: flex-start;
+}
+
+/* Vendor compact hover clears the icon fill, and the properties button has no hover fill. The properties rule has to beat `.compact-action-item .compact-action-button`. */
+.excalidraw .compact-shape-actions .ToolIcon .ToolIcon__icon:hover,
+.excalidraw .compact-shape-actions .compact-action-item .compact-action-button:hover {
+  background-color: var(--button-hover-bg);
+  transition: none;
+}
+
 .excalidraw .App-menu_top > .App-menu_top__left,
 .excalidraw .App-menu_top > .layer-ui__wrapper__top-right,
 .excalidraw.excalidraw--view-mode .App-menu_top__left,
@@ -744,6 +777,67 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
   align-items: flex-end;
 }
 
+/*
+  Compact left toolbar does not open the full properties panel. Stack the
+  component actions under that island: one shared background, same width.
+*/
+.pt-design-prop-rail[data-placement="stack"] {
+  align-items: center;
+  gap: 0.5rem;
+  box-sizing: border-box;
+  padding: 0.5rem;
+  border-radius: var(--border-radius-lg, 0.625rem);
+  background: var(--pt-prop-bg, var(--island-bg-color, var(--card, #18181b)));
+  box-shadow: var(--shadow-island, 0 0 0 1px var(--pt-prop-border, rgba(0, 0, 0, 0.1)));
+  color: var(--pt-prop-fg, var(--icon-fill-color, inherit));
+  pointer-events: auto;
+}
+
+.pt-design-prop-rail[data-placement="stack"] .pt-design-prop-row {
+  position: relative;
+  width: 100%;
+  min-height: var(--pt-prop-slot, 2.5rem);
+  justify-content: center;
+}
+
+/* Same box, radius, and icon as Excalidraw `.compact-action-button`. Resting fill stays clear so an open toolbar button cannot paint these. */
+.pt-design-prop-rail[data-placement="stack"] .pt-design-prop-trigger {
+  width: var(--pt-prop-btn, 2rem);
+  height: var(--pt-prop-btn, 2rem);
+  flex: 0 0 auto;
+  border: none;
+  border-radius: var(--pt-prop-radius, var(--border-radius-lg, 0.625rem));
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+}
+
+.pt-design-prop-rail[data-placement="stack"] .pt-design-prop-trigger svg {
+  width: var(--pt-prop-icon, 1rem);
+  height: var(--pt-prop-icon, 1rem);
+  flex: 0 0 auto;
+}
+
+.pt-design-prop-rail[data-placement="stack"] .pt-design-prop-size {
+  font-size: var(--pt-prop-icon, 1rem);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.pt-design-prop-rail[data-placement="stack"] .pt-design-prop-trigger:hover,
+.pt-design-prop-rail[data-placement="stack"] .pt-design-prop-trigger[data-open="true"] {
+  background: var(--pt-prop-muted, var(--button-hover-bg, var(--muted)));
+  box-shadow: none;
+}
+
+.pt-design-prop-rail[data-placement="stack"] .pt-design-prop-options {
+  position: absolute;
+  left: calc(100% + 0.5rem + 8px);
+  top: 0;
+  z-index: 1;
+}
+
 .pt-design-prop-trigger {
   display: inline-flex;
   align-items: center;
@@ -962,7 +1056,8 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
   animation: pt-design-menu-in 140ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.excalidraw.theme--dark .context-menu {
+.excalidraw.theme--dark .context-menu,
+[data-testid="pt-design-board"][data-theme="dark"] .excalidraw .context-menu {
   --pt-menu-muted: var(--muted-foreground, #a1a1aa);
   --pt-menu-hover: var(--button-hover-bg, var(--muted, #3f3f46));
   --pt-menu-border: var(--default-border-color, var(--border, rgba(255, 255, 255, 0.1)));
@@ -1079,7 +1174,9 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
 }
 
 .excalidraw.theme--dark .context-menu-item .context-menu-item__shortcut > kbd,
-.excalidraw.theme--dark .dropdown-menu .dropdown-menu-item__shortcut > kbd {
+.excalidraw.theme--dark .dropdown-menu .dropdown-menu-item__shortcut > kbd,
+[data-testid="pt-design-board"][data-theme="dark"] .excalidraw .context-menu-item .context-menu-item__shortcut > kbd,
+[data-testid="pt-design-board"][data-theme="dark"] .excalidraw .dropdown-menu .dropdown-menu-item__shortcut > kbd {
   border-color: color-mix(in srgb, var(--muted-foreground, #a1a1aa) 20%, transparent);
   background: var(--muted, #3f3f46);
   color: var(--foreground, #fafafa);
@@ -1129,7 +1226,8 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
     0 10px 24px -8px rgb(0 0 0 / 0.18);
 }
 
-.excalidraw.theme--dark .dropdown-menu .dropdown-menu-container {
+.excalidraw.theme--dark .dropdown-menu .dropdown-menu-container,
+[data-testid="pt-design-board"][data-theme="dark"] .excalidraw .dropdown-menu .dropdown-menu-container {
   box-shadow:
     0 0 0 1px var(--default-border-color, var(--border, rgba(255, 255, 255, 0.1))),
     0 10px 24px -8px rgb(0 0 0 / 0.45);

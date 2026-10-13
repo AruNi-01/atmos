@@ -285,8 +285,16 @@ function IslandTrigger({
   );
 }
 
+/**
+ * Excalidraw 0.18 runs `applyDarkModeFilter` on paper and ink when its editor
+ * theme is dark. Atmos already supplies display colors, so the editor stays
+ * light and the board `data-theme` drives chrome.
+ */
+const EDITOR_COLOR_THEME = "light" as const;
+
 const DISABLE_CANVAS_INVERT = `
-.excalidraw.theme--dark canvas {
+.excalidraw.theme--dark canvas,
+[data-testid="pt-design-board"][data-theme="dark"] .excalidraw canvas {
   filter: none !important;
 }
 `;
@@ -508,7 +516,7 @@ export default function ExcalidrawBoard({
         api.updateScene({
           appState: {
             viewBackgroundColor: viewBackgroundColorRef.current,
-            theme: themeRef.current,
+            theme: EDITOR_COLOR_THEME,
             currentItemRoughness: 1,
             currentItemFontFamily: FONT_EXCALIFONT,
             viewModeEnabled: viewModeRef.current,
@@ -609,7 +617,7 @@ export default function ExcalidrawBoard({
     apiRef.current?.updateScene({
       appState: {
         viewBackgroundColor,
-        theme,
+        theme: EDITOR_COLOR_THEME,
         currentItemRoughness: 1,
         currentItemFontFamily: FONT_EXCALIFONT,
         ...ink,
@@ -677,7 +685,7 @@ export default function ExcalidrawBoard({
       }}
     >
       <Excalidraw
-        theme={theme}
+        theme={EDITOR_COLOR_THEME}
         viewModeEnabled={viewModeEnabled}
         handleKeyboardGlobally={editModeHandlesKeyboardGlobally(viewModeEnabled)}
         UIOptions={uiOptions}
@@ -685,7 +693,7 @@ export default function ExcalidrawBoard({
           elements: initialElements as never,
           appState: {
             viewBackgroundColor,
-            theme,
+            theme: EDITOR_COLOR_THEME,
             currentItemRoughness: 1,
             currentItemFontFamily: FONT_EXCALIFONT,
             viewModeEnabled,

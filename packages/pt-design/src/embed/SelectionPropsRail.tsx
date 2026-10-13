@@ -6,7 +6,10 @@ import type { ChromeTokens } from "./chrome";
 import { CatalogVariantIcon } from "./catalog-icons";
 import {
   MOBILE_EXCALIDRAW_SELECTOR,
+  COMPACT_ACTION_BUTTON_SELECTOR,
+  COMPACT_TOOLBAR_SELECTOR,
   STYLE_PANEL_SELECTOR,
+  compactButtonChrome,
   railAnchorFromLayout,
   type RailAnchor,
   type RailBox,
@@ -46,6 +49,7 @@ export function SelectionPropsRail({
         host: boxOf(host.getBoundingClientRect()),
         mobile: Boolean(host.querySelector(MOBILE_EXCALIDRAW_SELECTOR)),
         stylePanel: visibleBox(host.querySelector(STYLE_PANEL_SELECTOR)),
+        compactToolbar: visibleBox(host.querySelector(COMPACT_TOOLBAR_SELECTOR)),
         colorTool: visibleBox(mobileColorTool(host)),
       });
       setAnchor((prev) => (sameAnchor(prev, next) ? prev : next));
@@ -53,9 +57,11 @@ export function SelectionPropsRail({
 
     const tick = () => {
       measure();
+      const rail = rootRef.current;
+      if (rail) syncCompactButtonChrome(host, rail);
       frame = requestAnimationFrame(tick);
     };
-    frame = requestAnimationFrame(tick);
+    tick();
     return () => cancelAnimationFrame(frame);
   }, [nodeId, groups.length]);
 
@@ -98,6 +104,7 @@ export function SelectionPropsRail({
           left: placement === "bottom" ? "auto" : (anchor?.left ?? 220),
           right: placement === "bottom" ? (anchor?.right ?? 56) : "auto",
           bottom: placement === "bottom" ? (anchor?.bottom ?? 76) : "auto",
+          width: placement === "stack" ? anchor?.width : undefined,
           opacity: anchor ? 1 : 0,
           "--pt-prop-bg": chrome.card,
           "--pt-prop-fg": chrome.fg,
@@ -201,6 +208,48 @@ function RadiusGlyph({ value }: { value: string }) {
   );
 }
 
+function syncCompactButtonChrome(host: HTMLElement, rail: HTMLElement) {
+  const button = visibleCompactButton(host);
+  const item = host.querySelector(".compact-shape-actions .compact-action-item");
+  const svg = button?.querySelector("svg");
+  const excalidraw = host.querySelector(".excalidraw");
+  const theme = excalidraw instanceof HTMLElement ? getComputedStyle(excalidraw) : null;
+  const buttonStyle = button ? getComputedStyle(button) : null;
+  const itemStyle = item instanceof HTMLElement ? getComputedStyle(item) : null;
+  const box = button?.getBoundingClientRect();
+  const iconBox = svg instanceof SVGElement ? svg.getBoundingClientRect() : null;
+  const chrome = compactButtonChrome({
+    buttonSize:
+      box && box.width >= 8
+        ? `${box.width}px`
+        : theme?.getPropertyValue("--mobile-action-button-size"),
+    iconSize:
+      iconBox && iconBox.width >= 8
+        ? `${iconBox.width}px`
+        : theme?.getPropertyValue("--default-icon-size"),
+    radius: buttonStyle?.borderTopLeftRadius || theme?.getPropertyValue("--border-radius-lg"),
+    slot: itemStyle?.minHeight,
+  });
+  rail.style.setProperty("--pt-prop-btn", chrome.button);
+  rail.style.setProperty("--pt-prop-icon", chrome.icon);
+  rail.style.setProperty("--pt-prop-radius", chrome.radius);
+  rail.style.setProperty("--pt-prop-slot", chrome.slot);
+  rail.style.removeProperty("--pt-prop-btn-bg");
+}
+
+function visibleCompactButton(host: HTMLElement): HTMLElement | null {
+  const nodes = host.querySelectorAll(COMPACT_ACTION_BUTTON_SELECTOR);
+  let sized: HTMLElement | null = null;
+  for (const node of nodes) {
+    if (!(node instanceof HTMLElement)) continue;
+    if (node.getBoundingClientRect().width < 8) continue;
+    sized ??= node;
+    const background = getComputedStyle(node).backgroundColor;
+    if (background && background !== "transparent" && background !== "rgba(0, 0, 0, 0)") return node;
+  }
+  return sized;
+}
+
 function mobileColorTool(host: HTMLElement): Element | null {
   const content = host.querySelector(".App-toolbar-content");
   if (!(content instanceof HTMLElement)) return null;
@@ -242,6 +291,7 @@ function sameAnchor(prev: RailAnchor | null, next: RailAnchor): boolean {
     prev.top === next.top &&
     prev.left === next.left &&
     prev.right === next.right &&
-    prev.bottom === next.bottom
+    prev.bottom === next.bottom &&
+    prev.width === next.width
   );
 }

@@ -1,6 +1,7 @@
 /**
  * Scene / IR stay on the light shadcn palette. Dark canvas only remaps for
- * display — Excalidraw's own canvas invert is disabled in excalidraw-theme.css.
+ * display. The Excalidraw editor stays on theme "light" so its JS dark filter
+ * does not recolor this ink; chrome follows the board data-theme.
  */
 
 /** Excalidraw's built-in default stroke / text ink. */
