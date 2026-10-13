@@ -1290,15 +1290,55 @@ fn apply_record(
     }
 }
 
+/// Assistant still accepting new parts. A later user prompt closes it, so the
+/// next reply starts a new message instead of splicing onto the previous one.
+fn open_assistant_index(turn: &FoldedTurn) -> Option<usize> {
+    let index = turn
+        .messages
+        .iter()
+        .rposition(|message| message.role == "assistant")?;
+    if turn
+        .messages
+        .iter()
+        .skip(index + 1)
+        .any(|message| message.role == "user")
+    {
+        return None;
+    }
+    Some(index)
+}
+
 fn assistant_message_index(turn: &FoldedTurn, message_id: &str) -> Option<usize> {
     turn.messages
         .iter()
         .rposition(|item| item.id == message_id)
-        .or_else(|| {
-            turn.messages
-                .iter()
-                .rposition(|item| item.role == "assistant")
+        .or_else(|| open_assistant_index(turn))
+}
+
+fn message_index_with_tool(turn: &FoldedTurn, tool_call_id: &str) -> Option<usize> {
+    turn.messages.iter().rposition(|message| {
+        message.parts.iter().any(|item| {
+            matches!(item, MessagePart::ToolCall { tool_call_id: id, .. } if id == tool_call_id)
         })
+    })
+}
+
+fn message_index_with_permission(turn: &FoldedTurn, request_id: &str) -> Option<usize> {
+    turn.messages.iter().rposition(|message| {
+        message.parts.iter().any(|item| {
+            matches!(
+                item,
+                MessagePart::Permission { request } if request.request_id == request_id
+            )
+        })
+    })
+}
+
+fn note_message_activity(message: &mut FoldedMessage, at: chrono::DateTime<Utc>) {
+    message.completed_at = Some(match message.completed_at {
+        Some(prev) if prev > at => prev,
+        _ => at,
+    });
 }
 
 fn upsert_turn<'a>(
@@ -1446,6 +1486,7 @@ fn apply_folded_text_part(
         open_parts.insert(tracking_id);
     }
     message.streaming = !open_parts.is_empty();
+    note_message_activity(message, created_at);
 }
 
 fn apply_session_lifecycle(
@@ -1599,12 +1640,12 @@ fn apply_permission(
     created_at: chrono::DateTime<Utc>,
 ) {
     let request_id = request.request_id.clone();
-    if let Some(message) = turn
-        .messages
-        .iter_mut()
-        .rev()
-        .find(|message| message.role == "assistant")
-    {
+    // An existing request stays on its message. A new one joins the open reply,
+    // which a later user prompt has already closed.
+    let index =
+        message_index_with_permission(turn, &request_id).or_else(|| open_assistant_index(turn));
+    if let Some(index) = index {
+        let message = &mut turn.messages[index];
         if let Some(existing) = message.parts.iter_mut().find_map(|part| match part {
             MessagePart::Permission { request: current } if current.request_id == request_id => {
                 Some(current)
@@ -1622,66 +1663,61 @@ fn apply_permission(
             if !request.status.is_empty() {
                 existing.status = request.status;
             }
+            note_message_activity(message, created_at);
             return;
         }
         message.parts.push(MessagePart::Permission { request });
+        note_message_activity(message, created_at);
         return;
     }
-    upsert_message(
-        turn,
-        FoldedMessage {
-            id: format!("permission-{}", turn.id),
-            role: "assistant".into(),
-            kind: agent::UserMessageKind::Normal,
-            parts: vec![MessagePart::Permission { request }],
-            created_at,
-            streaming: false,
-            ..Default::default()
-        },
-    );
+    let mut created = FoldedMessage {
+        id: format!("permission-{}", turn.id),
+        role: "assistant".into(),
+        kind: agent::UserMessageKind::Normal,
+        parts: vec![MessagePart::Permission { request }],
+        created_at,
+        streaming: false,
+        ..Default::default()
+    };
+    note_message_activity(&mut created, created_at);
+    upsert_message(turn, created);
 }
 
 fn apply_plan(turn: &mut FoldedTurn, plan: serde_json::Value, created_at: chrono::DateTime<Utc>) {
     let part = MessagePart::Plan { plan };
-    if let Some(message) = turn
-        .messages
-        .iter_mut()
-        .rev()
-        .find(|message| message.role == "assistant")
-    {
+    if let Some(index) = open_assistant_index(turn) {
+        let message = &mut turn.messages[index];
         if let Some(existing) = message
             .parts
             .iter_mut()
             .find(|item| matches!(item, MessagePart::Plan { .. }))
         {
             *existing = part;
+            note_message_activity(message, created_at);
             return;
         }
         message.parts.push(part);
+        note_message_activity(message, created_at);
         return;
     }
-    upsert_message(
-        turn,
-        FoldedMessage {
-            id: format!("plan-{}", turn.id),
-            role: "assistant".into(),
-            kind: agent::UserMessageKind::Normal,
-            parts: vec![part],
-            created_at,
-            streaming: false,
-            ..Default::default()
-        },
-    );
+    let mut created = FoldedMessage {
+        id: format!("plan-{}", turn.id),
+        role: "assistant".into(),
+        kind: agent::UserMessageKind::Normal,
+        parts: vec![part],
+        created_at,
+        streaming: false,
+        ..Default::default()
+    };
+    note_message_activity(&mut created, created_at);
+    upsert_message(turn, created);
 }
 
 fn apply_tool_call(turn: &mut FoldedTurn, tool: ToolCallState, created_at: chrono::DateTime<Utc>) {
     let tool_call_id = tool.tool_call_id.clone();
-    if let Some(message) = turn
-        .messages
-        .iter_mut()
-        .rev()
-        .find(|message| message.role == "assistant")
-    {
+    let index = message_index_with_tool(turn, &tool_call_id).or_else(|| open_assistant_index(turn));
+    if let Some(index) = index {
+        let message = &mut turn.messages[index];
         if let Some(existing) = message.parts.iter_mut().find(|item| {
             matches!(item, MessagePart::ToolCall { tool_call_id: id, .. } if id == &tool_call_id)
         }) {
@@ -1689,23 +1725,24 @@ fn apply_tool_call(turn: &mut FoldedTurn, tool: ToolCallState, created_at: chron
                 Some(prior) => ToolCallState::merge(&prior, tool).to_message_part(),
                 None => tool.to_message_part(),
             };
+            note_message_activity(message, created_at);
             return;
         }
         message.parts.push(tool.to_message_part());
+        note_message_activity(message, created_at);
         return;
     }
-    upsert_message(
-        turn,
-        FoldedMessage {
-            id: format!("tool-{tool_call_id}"),
-            role: "assistant".into(),
-            kind: agent::UserMessageKind::Normal,
-            parts: vec![tool.to_message_part()],
-            created_at,
-            streaming: false,
-            ..Default::default()
-        },
-    );
+    let mut created = FoldedMessage {
+        id: format!("tool-{tool_call_id}"),
+        role: "assistant".into(),
+        kind: agent::UserMessageKind::Normal,
+        parts: vec![tool.to_message_part()],
+        created_at,
+        streaming: false,
+        ..Default::default()
+    };
+    note_message_activity(&mut created, created_at);
+    upsert_message(turn, created);
 }
 
 fn upsert_message(turn: &mut FoldedTurn, message: FoldedMessage) {
@@ -2469,6 +2506,166 @@ mod tests {
         assert_eq!(assistant.worked_ms, Some(8_000));
         assert_eq!(assistant.completed_at, Some(end));
         assert_eq!(messages[0].created_at, start);
+    }
+
+    #[test]
+    fn fold_agent_events_keeps_later_prompt_after_its_reply() {
+        fn at(stamp: &str) -> chrono::DateTime<Utc> {
+            chrono::DateTime::parse_from_rfc3339(stamp)
+                .unwrap()
+                .with_timezone(&Utc)
+        }
+        fn tool(id: &str, name: &str, kind: AgentToolKind) -> AgentTool {
+            AgentTool {
+                tool_call_id: id.into(),
+                parent_tool_call_id: None,
+                name: name.into(),
+                title: None,
+                kind,
+                status: AgentToolStatus::Completed,
+                params: AgentToolParams::Read {
+                    path: id.into(),
+                    offset: None,
+                    limit: None,
+                },
+                result: None,
+            }
+        }
+        let fix_at = at("2026-04-01T10:00:00Z");
+        let read_at = at("2026-04-01T10:05:00Z");
+        let done_at = at("2026-04-01T10:15:00Z");
+        let push_at = at("2026-04-01T10:15:20Z");
+        let late_read_at = at("2026-04-01T10:15:22Z");
+        let exec_at = at("2026-04-01T10:15:30Z");
+        let pushed_at = at("2026-04-01T10:15:40Z");
+        let end_at = at("2026-04-01T10:15:45Z");
+        let turns = fold_agent_events(&[
+            AgentEventEnvelope::at(
+                Some("session".into()),
+                Some(fix_at),
+                AgentEvent::UserMessage {
+                    turn_id: "session".into(),
+                    message_id: "u-fix".into(),
+                    kind: UserMessageKind::Normal,
+                    text: "fix".into(),
+                    attachments: Vec::new(),
+                },
+            ),
+            AgentEventEnvelope::at(
+                Some("session".into()),
+                Some(read_at),
+                AgentEvent::ToolCallCompleted {
+                    tool_call: tool("read-1", "Read", AgentToolKind::Read),
+                },
+            ),
+            AgentEventEnvelope::at(
+                Some("session".into()),
+                Some(done_at),
+                AgentEvent::TextChunk {
+                    part_id: "a-done".into(),
+                    message_id: "a-done".into(),
+                    parent_part_id: None,
+                    ordinal: 0,
+                    kind: TextKind::Answer,
+                    offset: 0,
+                    text: "done".into(),
+                },
+            ),
+            AgentEventEnvelope::at(
+                Some("session".into()),
+                Some(done_at),
+                AgentEvent::PartClosed {
+                    part_id: "a-done".into(),
+                    duration_ms: None,
+                },
+            ),
+            AgentEventEnvelope::at(
+                Some("session".into()),
+                Some(push_at),
+                AgentEvent::UserMessage {
+                    turn_id: "session".into(),
+                    message_id: "u-push".into(),
+                    kind: UserMessageKind::Normal,
+                    text: "push".into(),
+                    attachments: Vec::new(),
+                },
+            ),
+            AgentEventEnvelope::at(
+                Some("session".into()),
+                Some(late_read_at),
+                AgentEvent::ToolCallCompleted {
+                    tool_call: tool("read-1", "Read", AgentToolKind::Read),
+                },
+            ),
+            AgentEventEnvelope::at(
+                Some("session".into()),
+                Some(exec_at),
+                AgentEvent::ToolCallCompleted {
+                    tool_call: tool("exec-1", "Bash", AgentToolKind::Execute),
+                },
+            ),
+            AgentEventEnvelope::at(
+                Some("session".into()),
+                Some(pushed_at),
+                AgentEvent::TextChunk {
+                    part_id: "a-pushed".into(),
+                    message_id: "a-pushed".into(),
+                    parent_part_id: None,
+                    ordinal: 0,
+                    kind: TextKind::Answer,
+                    offset: 0,
+                    text: "pushed".into(),
+                },
+            ),
+            AgentEventEnvelope::at(
+                Some("session".into()),
+                Some(pushed_at),
+                AgentEvent::PartClosed {
+                    part_id: "a-pushed".into(),
+                    duration_ms: None,
+                },
+            ),
+            AgentEventEnvelope::at(
+                Some("session".into()),
+                Some(end_at),
+                AgentEvent::TurnCompleted {
+                    turn_id: "session".into(),
+                    stop: agent::TurnStop::Completed,
+                },
+            ),
+        ]);
+        let (messages, _, _) = flatten_messages(turns);
+        let roles: Vec<&str> = messages
+            .iter()
+            .map(|message| message.role.as_str())
+            .collect();
+        assert_eq!(roles, ["user", "assistant", "user", "assistant"]);
+        let text_of = |message: &FoldedMessage| -> Vec<String> {
+            message
+                .parts
+                .iter()
+                .filter_map(|part| match part {
+                    MessagePart::Text { text, .. } => Some(text.clone()),
+                    _ => None,
+                })
+                .collect()
+        };
+        let tools_of = |message: &FoldedMessage| -> Vec<String> {
+            message
+                .parts
+                .iter()
+                .filter_map(|part| match part {
+                    MessagePart::ToolCall { tool_call_id, .. } => Some(tool_call_id.clone()),
+                    _ => None,
+                })
+                .collect()
+        };
+        assert_eq!(text_of(&messages[1]), ["done"]);
+        assert_eq!(tools_of(&messages[1]), ["read-1"]);
+        assert_eq!(text_of(&messages[3]), ["pushed"]);
+        assert_eq!(tools_of(&messages[3]), ["exec-1"]);
+        assert_eq!(messages[1].worked_ms, Some(920_000));
+        assert_eq!(messages[3].worked_ms, Some(25_000));
     }
 
     #[test]

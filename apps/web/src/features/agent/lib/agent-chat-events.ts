@@ -638,7 +638,7 @@ function foldAgentChatEvent(
       ? mergeToolCallState(toolPartToState(existingTool), incoming)
       : incoming;
     const part = toolPartFromState(merged, existingTool);
-    return folded(patchCurrentTurnAssistant(messages, undefined, (message) => {
+    const applyPart = (message: AgentMessage): AgentMessage => {
       const parts = [...message.parts];
       const existing = parts.findIndex(
         (row) => row.type === "tool_call" && row.tool_call_id === tool.tool_call_id,
@@ -655,7 +655,18 @@ function foldAgentChatEvent(
         });
       }
       return deriveStreaming({ ...message, parts });
-    }));
+    };
+    const ownerIndex = messages.findLastIndex((message) =>
+      message.parts.some(
+        (row) => row.type === "tool_call" && row.tool_call_id === tool.tool_call_id,
+      ),
+    );
+    if (ownerIndex >= 0) {
+      return folded(messages.map((message, index) => (
+        index === ownerIndex ? applyPart(message) : message
+      )));
+    }
+    return folded(patchCurrentTurnAssistant(messages, undefined, applyPart));
   }
 
   if (payload.type === "plan_updated") {

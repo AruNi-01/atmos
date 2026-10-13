@@ -763,6 +763,7 @@ export function useAgentChatSession({
     });
     setHydrated(true);
     setIsResumingHistory(false);
+    return meta.last_event_seq ?? 0;
   }, [
     activeChatId,
     chatMode,
@@ -1211,12 +1212,16 @@ export function useAgentChatSession({
       pendingChromeRef.current.push(event);
       commitBuffer.deliver(event.payload.type);
     };
-    void load(id).then(async () => {
+    void load(id).then(async (snapshotSeq) => {
       const pending = pendingEventsRef.current;
       pendingEventsRef.current = [];
       hydratingRef.current = false;
-      for (const event of pending) applyEvent(event);
-      await agentChatApi.subscribe(id);
+      let after = snapshotSeq ?? 0;
+      for (const event of pending) {
+        after = Math.max(after, event.revision ?? 0);
+        applyEvent(event);
+      }
+      await agentChatApi.subscribe(id, after);
       const queued = pendingSendRef.current;
       pendingSendRef.current = null;
       if (queued) {

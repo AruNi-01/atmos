@@ -1231,18 +1231,47 @@ pub fn flatten_messages_at(
             last_user_at = Some(user.created_at);
         }
         let timing = turn_timing(&turn, now, last_user_at);
+        let live = matches!(
+            turn.status,
+            TurnStatus::Running | TurnStatus::WaitingPermission
+        );
         let mut assistant_index = None;
+        let mut segment_start = messages.len();
+        let mut segment_prompt = turn_prompt_at(&turn, last_user_at);
+        let mut closed_segment = false;
         for message in turn.messages {
-            if message.role == "assistant" {
-                if let Some(last) = messages.last_mut() {
-                    if last.role == "assistant" {
-                        last.streaming = last.streaming || message.streaming;
-                        last.parts.extend(message.parts);
-                        apply_turn_timing(last, &timing);
-                        assistant_index = Some(messages.len() - 1);
-                        continue;
-                    }
+            if message.role == "user" && segment_has_assistant(&messages, segment_start) {
+                finish_closed_segment(
+                    &mut messages,
+                    segment_start,
+                    segment_prompt,
+                    message.created_at,
+                );
+                closed_segment = true;
+                assistant_index = None;
+                segment_start = messages.len();
+            }
+            if message.role == "user" {
+                segment_prompt = message.created_at;
+            }
+            if message.role == "assistant"
+                && messages.last().is_some_and(|last| last.role == "assistant")
+            {
+                let cross_turn = messages.len() <= segment_start;
+                let last = messages.last_mut().expect("assistant");
+                last.streaming = last.streaming || message.streaming;
+                last.parts.extend(message.parts);
+                if let Some(at) = message.completed_at {
+                    last.completed_at = Some(match last.completed_at {
+                        Some(prev) if prev > at => prev,
+                        _ => at,
+                    });
                 }
+                if cross_turn {
+                    apply_turn_timing(last, &timing);
+                }
+                assistant_index = Some(messages.len() - 1);
+                continue;
             }
             let is_assistant = message.role == "assistant";
             messages.push(message);
@@ -1254,10 +1283,61 @@ pub fn flatten_messages_at(
             if let Some(message) = messages.get_mut(index) {
                 apply_turn_timing(message, &timing);
                 message.parts = order_assistant_parts(std::mem::take(&mut message.parts));
+                if closed_segment {
+                    let end = timing
+                        .completed_at
+                        .filter(|at| *at > segment_prompt)
+                        .or(if live { Some(now) } else { None });
+                    message.worked_ms = end
+                        .map(|at| elapsed_ms(segment_prompt, at))
+                        .filter(|ms| *ms > 0);
+                    if timing.completed_at.is_none() {
+                        message.completed_at = None;
+                    }
+                }
             }
         }
     }
     (messages, running_turn_id, running_turn_started_at)
+}
+
+fn segment_has_assistant(messages: &[FoldedMessage], start: usize) -> bool {
+    messages
+        .get(start..)
+        .is_some_and(|items| items.iter().any(|message| message.role == "assistant"))
+}
+
+fn last_segment_assistant(messages: &[FoldedMessage], start: usize) -> Option<usize> {
+    let offset = messages
+        .get(start..)?
+        .iter()
+        .rposition(|message| message.role == "assistant")?;
+    Some(start + offset)
+}
+
+/// A later user prompt ends the reply in front of it. Last-touch stays inside
+/// that window so a tool update after the next prompt cannot stretch the duration.
+fn finish_closed_segment(
+    messages: &mut [FoldedMessage],
+    start: usize,
+    prompt_at: DateTime<Utc>,
+    next_user_at: DateTime<Utc>,
+) {
+    let Some(index) = last_segment_assistant(messages, start) else {
+        return;
+    };
+    let message = &mut messages[index];
+    message.parts = order_assistant_parts(std::mem::take(&mut message.parts));
+    let end = message
+        .completed_at
+        .filter(|at| *at > prompt_at && *at <= next_user_at)
+        .or((next_user_at > prompt_at).then_some(next_user_at));
+    message.worked_ms = end.map(|at| elapsed_ms(prompt_at, at)).filter(|ms| *ms > 0);
+    message.thinking_ms = None;
+    message.usage = None;
+    if let Some(at) = end {
+        message.completed_at = Some(at);
+    }
 }
 
 pub fn apply_rewind_view(

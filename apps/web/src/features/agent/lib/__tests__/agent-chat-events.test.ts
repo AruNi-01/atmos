@@ -674,6 +674,64 @@ describe("agent chat fold stays on AgentMessage", () => {
     });
   });
 
+  it("updates a replayed tool on the message that already owns it", () => {
+    const done = chatEvent("chat-1", 1, {
+      type: "tool_call_completed",
+      turn_id: "t1",
+      tool_call: {
+        tool_call_id: "read-1",
+        name: "Read",
+        kind: "read",
+        status: "completed",
+        params: { type: "read", path: "a.ts" },
+      },
+    });
+    const user = chatEvent("chat-1", 2, {
+      type: "user_message",
+      turn_id: "t1",
+      message_id: "u-push",
+      text: "push",
+    });
+    const replay = chatEvent("chat-1", 3, {
+      type: "tool_call_completed",
+      turn_id: "t1",
+      tool_call: {
+        tool_call_id: "read-1",
+        status: "completed",
+        result: { type: "file_content", path: "a.ts", text: "ok" },
+      } as never,
+    });
+    const exec = chatEvent("chat-1", 4, {
+      type: "tool_call_started",
+      turn_id: "t1",
+      tool_call: {
+        tool_call_id: "exec-1",
+        name: "Bash",
+        kind: "execute",
+        status: "running",
+        params: { type: "execute", command: "git status" },
+      },
+    });
+    let messages = foldMessagesFromEvent([], done, "chat-1");
+    messages = foldMessagesFromEvent(messages, user, "chat-1");
+    messages = foldMessagesFromEvent(messages, replay, "chat-1");
+    expect(messages.map((message) => message.role)).toEqual(["assistant", "user"]);
+    expect(messages[0]?.parts).toHaveLength(1);
+    expect(messages[0]?.parts[0]).toMatchObject({
+      type: "tool_call",
+      tool_call_id: "read-1",
+      status: "completed",
+      result: { type: "file_content", path: "a.ts", text: "ok" },
+    });
+    messages = foldMessagesFromEvent(messages, exec, "chat-1");
+    expect(messages.map((message) => message.role)).toEqual(["assistant", "user", "assistant"]);
+    expect(messages[2]?.parts[0]).toMatchObject({
+      type: "tool_call",
+      tool_call_id: "exec-1",
+    });
+    expect(messages[0]?.parts).toHaveLength(1);
+  });
+
   it("reads the latest plan part from assistant messages", () => {
     const messages = foldMessagesFromEvent([], chatEvent("chat-1", 1, {
       type: "plan_updated",
