@@ -7,6 +7,7 @@ use std::time::Duration;
 use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
 
 use crate::contract::{AgentProviderError, AgentResult};
+use crate::providers::spawn_retry::retry_transient_spawn;
 
 pub const CHAT_SUBCOMMAND: &str = "app-server";
 
@@ -70,28 +71,31 @@ pub struct SpawnedAppServer {
     pub child: Child,
 }
 
-pub fn spawn_app_server(
+pub async fn spawn_app_server(
     program: &str,
     cwd: &Path,
     env_overrides: Option<HashMap<String, String>>,
 ) -> AgentResult<SpawnedAppServer> {
-    let mut cmd = Command::new(program);
-    cmd.args(chat_args())
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .kill_on_drop(true);
+    let mut child = retry_transient_spawn(|| {
+        let mut cmd = Command::new(program);
+        cmd.args(chat_args())
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .kill_on_drop(true);
 
-    if cwd.exists() {
-        cmd.current_dir(cwd);
-    }
-    if let Some(env) = env_overrides {
-        for (key, value) in env {
-            cmd.env(key, value);
+        if cwd.exists() {
+            cmd.current_dir(cwd);
         }
-    }
-
-    let mut child = cmd.spawn().map_err(|error| {
+        if let Some(env) = &env_overrides {
+            for (key, value) in env {
+                cmd.env(key, value);
+            }
+        }
+        async move { cmd.spawn() }
+    })
+    .await
+    .map_err(|error| {
         AgentProviderError::message(format!(
             "failed to spawn {program} {CHAT_SUBCOMMAND}: {error}"
         ))
@@ -195,7 +199,7 @@ mod tests {
 
     #[tokio::test]
     async fn spawn_dummy_stdio_sets_kill_on_drop() {
-        let spawned = spawn_app_server("/bin/cat", &PathBuf::from("/"), None);
+        let spawned = spawn_app_server("/bin/cat", &PathBuf::from("/"), None).await;
         assert!(
             spawned.is_ok(),
             "dummy spawn should not need a live codex CLI"
@@ -208,7 +212,9 @@ mod tests {
         let Ok(path) = which::which("codex") else {
             return;
         };
-        if let Ok(child) = spawn_app_server(&path.to_string_lossy(), &PathBuf::from("."), None) {
+        if let Ok(child) =
+            spawn_app_server(&path.to_string_lossy(), &PathBuf::from("."), None).await
+        {
             drop(child);
         }
     }

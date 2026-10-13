@@ -29,8 +29,9 @@ pub(crate) async fn probe(isolated_cwd: &Path) -> Result<NativeOptionsProbeResul
 
 async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, String> {
     let program = super::spawn::resolve_program("codex").map_err(|error| error.to_string())?;
-    let spawned =
-        spawn_app_server(&program, isolated_cwd, None).map_err(|error| error.to_string())?;
+    let spawned = spawn_app_server(&program, isolated_cwd, None)
+        .await
+        .map_err(|error| error.to_string())?;
     let mut child = spawned.child;
     let (events_tx, mut events_rx) = mpsc::unbounded_channel();
     tokio::spawn(async move { while events_rx.recv().await.is_some() {} });

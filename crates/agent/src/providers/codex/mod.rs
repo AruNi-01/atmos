@@ -478,7 +478,7 @@ async fn spawn_runtime(
 ) -> AgentResult<Box<dyn AgentRuntime>> {
     let program = resolve_program(&provider.program)?;
     let env = merge_env(provider.env_overrides.clone(), cfg.env_overrides.clone());
-    let mut spawned: SpawnedAppServer = spawn_app_server(&program, &cfg.cwd, env)?;
+    let mut spawned: SpawnedAppServer = spawn_app_server(&program, &cfg.cwd, env).await?;
     ensure_child_alive(&mut spawned.child, &program).await?;
     open_runtime(
         spawned.stdin,
@@ -608,7 +608,12 @@ for raw in sys.stdin:
     fn fake_cli() -> FakeCli {
         let dir = tempfile::tempdir().expect("tempdir");
         let program = dir.path().join("codex");
-        std::fs::write(&program, FAKE_CODEX).expect("write fake codex");
+        {
+            use std::io::Write;
+            let mut file = std::fs::File::create(&program).expect("create fake codex");
+            file.write_all(FAKE_CODEX.as_bytes()).expect("write");
+            file.sync_all().expect("sync");
+        }
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;

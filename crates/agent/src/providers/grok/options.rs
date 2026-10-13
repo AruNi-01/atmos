@@ -37,8 +37,9 @@ pub(crate) async fn probe(isolated_cwd: &Path) -> Result<NativeOptionsProbeResul
 }
 
 async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, String> {
-    let spawned =
-        spawn_stdio(Path::new("grok"), isolated_cwd).map_err(|error| error.to_string())?;
+    let spawned = spawn_stdio(Path::new("grok"), isolated_cwd)
+        .await
+        .map_err(|error| error.to_string())?;
     let mut stdin = spawned.stdin;
     let stdout = spawned.stdout;
     let mut child = spawned.child;
