@@ -292,7 +292,9 @@ export function AgentToolCard({
   const failed = (status ?? "").toLowerCase() === "failed" || tone === "error";
   const treeReveal = useAgentTreeReveal();
   const markInspecting = useMarkAssistantProcessInspecting();
-  const expandId = useAgentToolExpandId();
+  // Blank tool_call_id values all hash to `tool:` — leave those cards uncontrolled
+  // so toggling one ID-less row does not open or close the others.
+  const expandId = useAgentToolExpandId()?.trim() || null;
   const storedOpen = useAgentChatExpandStore((state) =>
     expandId != null ? state.values[agentChatToolExpandKey(expandId)] : undefined,
   );

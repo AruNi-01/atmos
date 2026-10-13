@@ -72,6 +72,10 @@ describe("assistant process collapse chrome", () => {
     expect(toolCard).toContain("if (next) markInspecting()");
   });
 
+  it("does not persist blank tool ids into the shared expand store", () => {
+    expect(toolCard).toContain("useAgentToolExpandId()?.trim() || null");
+  });
+
   it("reveals answer text with the same stream entrance as process rows", () => {
     expect(view).toContain("AgentStreamReveal");
     expect(view).toContain("foldedPartKey(segment.part, segment.origIndex)");

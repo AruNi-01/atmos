@@ -33,25 +33,29 @@ describe("withStableAgentMessageIds", () => {
   });
 
   it("disambiguates duplicate legacy fingerprints and reserved ids", () => {
-    const reserved: AgentMessage = {
-      id: "legacy:assistant::t:same prefix of a long answer",
-      role: "assistant",
-      parts: [{ type: "text", text: "other" }],
-    };
+    const textPrefix = "a".repeat(48);
     const first: AgentMessage = {
       role: "assistant",
-      parts: [{ type: "text", text: "same prefix of a long answer that continues" }],
+      parts: [{ type: "text", text: `${textPrefix} first remainder` }],
     };
     const second: AgentMessage = {
       role: "assistant",
-      parts: [{ type: "text", text: "same prefix of a long answer that diverges later" }],
+      parts: [{ type: "text", text: `${textPrefix} second remainder` }],
+    };
+    const generated = stableAgentMessageKey(first, 1);
+    expect(generated).toBe(`legacy:assistant::t:${textPrefix}`);
+    expect(stableAgentMessageKey(second, 2)).toBe(generated);
+
+    const reserved: AgentMessage = {
+      id: generated,
+      role: "assistant",
+      parts: [{ type: "text", text: "other" }],
     };
     const next = withStableAgentMessageIds([reserved, first, second]);
-    const ids = next.map((message) => message.id);
-    expect(new Set(ids).size).toBe(3);
-    expect(ids[0]).toBe(reserved.id);
-    expect(ids[1]).not.toBe(ids[2]);
-    expect(ids[1]?.startsWith("legacy:assistant:")).toBe(true);
-    expect(ids[2]?.startsWith("legacy:assistant:")).toBe(true);
+    expect(next.map((message) => message.id)).toEqual([
+      generated,
+      `${generated}#2`,
+      `${generated}#3`,
+    ]);
   });
 });
