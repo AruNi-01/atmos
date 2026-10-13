@@ -64,10 +64,16 @@ describe("assistant process collapse chrome", () => {
     expect(view).toContain("userInspecting");
     expect(view).toContain("markInspecting");
     expect(view).toContain("AssistantProcessInspectProvider");
+    expect(view).toContain("useLayoutEffect");
+    expect(view).toContain("wasCollapsibleRef");
     expect(toolGroup).toContain("useMarkAssistantProcessInspecting");
     expect(toolGroup).toContain("if (next) markInspecting()");
     expect(toolCard).toContain("useMarkAssistantProcessInspecting");
     expect(toolCard).toContain("if (next) markInspecting()");
+  });
+
+  it("does not persist blank tool ids into the shared expand store", () => {
+    expect(toolCard).toContain("useAgentToolExpandId()?.trim() || null");
   });
 
   it("reveals answer text with the same stream entrance as process rows", () => {

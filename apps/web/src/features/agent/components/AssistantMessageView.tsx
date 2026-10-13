@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
 import {
   Collapsible,
@@ -43,6 +43,13 @@ import {
 } from "@/features/agent/lib/tool-group";
 import { useAgentToolCallDensityStore } from "@/features/settings/store/agent-tool-call-density-store";
 import { AssistantProcessInspectProvider } from "./assistant-process-inspect-context";
+import {
+  agentChatInspectExpandKey,
+  agentChatProcessExpandKey,
+  agentChatToolGroupExpandKey,
+  useAgentChatExpand,
+  useAgentChatExpandStore,
+} from "@/features/agent/store/agent-chat-expand-store";
 
 const REVIEW_PATH_RE = /(?:\/[\w.~-]+)*\/\.atmos\/reviews\/[\w./:~-]+\.md/;
 
@@ -150,7 +157,41 @@ function toolGroupKey(segment: Extract<AssistantSegment, { type: "tool_group" }>
   return toolCallPartsFromGroup(segment.parts)[0]?.tool_call_id ?? segment.origIndexes.join("-");
 }
 
-export function AssistantMessageView({
+function PersistentToolGroup({
+  messageId,
+  groupKey,
+  parts,
+  origIndexes,
+  renderPart,
+  onInspect,
+}: {
+  messageId: string;
+  groupKey: string;
+  parts: AgentPart[];
+  origIndexes: number[];
+  renderPart: (part: AgentPart, origIndex: number) => React.ReactNode;
+  onInspect: () => void;
+}) {
+  const stored = useAgentChatExpandStore(
+    (state) => state.values[agentChatToolGroupExpandKey(messageId, groupKey)],
+  );
+  const setExpand = useAgentChatExpandStore((state) => state.setExpand);
+  return (
+    <AgentToolGroupView
+      parts={parts}
+      origIndexes={origIndexes}
+      autoOpen={false}
+      userOpen={stored}
+      onUserOpenChange={(next) => {
+        setExpand(agentChatToolGroupExpandKey(messageId, groupKey), next);
+        if (next) onInspect();
+      }}
+      renderPart={renderPart}
+    />
+  );
+}
+
+export const AssistantMessageView = React.memo(function AssistantMessageView({
   message,
 }: {
   message: AgentMessage;
@@ -176,22 +217,33 @@ export function AssistantMessageView({
   // raw part list, then segmenting drops them, which used to leave "Worked for"
   // opening onto an empty panel.
   const canCollapse = processSegments.length > 0 && hasCollapsibleAssistantProcess(message);
-  const [stepsExpanded, setStepsExpanded] = useState(false);
-  const [userInspecting, setUserInspecting] = useState(false);
-  const [userOpenedGroups, setUserOpenedGroups] = useState<Record<string, boolean>>({});
+  const processKey = agentChatProcessExpandKey(message.id);
+  const [stepsExpanded, setStepsExpanded] = useAgentChatExpand(processKey, false);
+  const [userInspecting, setUserInspecting] = useAgentChatExpand(
+    agentChatInspectExpandKey(message.id),
+    false,
+  );
   const wasCollapsibleRef = useRef(false);
   const markInspecting = useCallback(() => {
     setUserInspecting(true);
-  }, []);
+  }, [setUserInspecting]);
 
   // When the turn first settles into collapsible chrome, auto-collapse unless the user
-  // expanded tools/process during the stream.
-  if (canCollapse && !wasCollapsibleRef.current) {
-    setStepsExpanded(
-      density === "detailed" || !shouldAutoCollapseProcessOnSettle(userInspecting),
-    );
-  }
-  wasCollapsibleRef.current = canCollapse;
+  // expanded tools/process during the stream. Must not write the expand store during
+  // render — zustand notifies every AssistantMessageView and React flags setState-in-render.
+  // Skip when process:${id} is already stored so a virtualizer remount cannot reopen a
+  // panel the user collapsed after inspecting.
+  useLayoutEffect(() => {
+    if (canCollapse && !wasCollapsibleRef.current) {
+      const stored = useAgentChatExpandStore.getState().values;
+      if (!Object.prototype.hasOwnProperty.call(stored, processKey)) {
+        setStepsExpanded(
+          density === "detailed" || !shouldAutoCollapseProcessOnSettle(userInspecting),
+        );
+      }
+    }
+    wasCollapsibleRef.current = canCollapse;
+  }, [canCollapse, density, processKey, setStepsExpanded, userInspecting]);
 
   const renderPart = (part: AgentPart, _origIndex: number) => (
     <AgentPartView
@@ -207,17 +259,14 @@ export function AssistantMessageView({
     if (segment.type === "tool_group") {
       const key = toolGroupKey(segment);
       return (
-        <AgentToolGroupView
+        <PersistentToolGroup
           key={key}
+          messageId={message.id}
+          groupKey={key}
           parts={segment.parts}
           origIndexes={segment.origIndexes}
-          autoOpen={false}
-          userOpen={userOpenedGroups[key]}
-          onUserOpenChange={(next) => {
-            setUserOpenedGroups((prev) => ({ ...prev, [key]: next }));
-            if (next) markInspecting();
-          }}
           renderPart={renderPart}
+          onInspect={markInspecting}
         />
       );
     }
@@ -290,4 +339,4 @@ export function AssistantMessageView({
       {tailSegments.map((segment) => renderSegment(segment, true))}
     </AssistantProcessInspectProvider>
   );
-}
+});

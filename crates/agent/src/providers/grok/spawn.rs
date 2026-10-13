@@ -9,6 +9,7 @@ use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
 
 use crate::contract::{AgentProviderError, AgentResult, AgentRuntimeConfig};
 use crate::models::AgentLaunchSpec;
+use crate::providers::spawn_retry::retry_transient_spawn;
 
 /// Chat permission overlay default. `default` is the published ask mode (not
 /// `--always-approve` / `--yolo`). Must sit **before** `agent`;
@@ -127,20 +128,22 @@ pub(crate) struct SpawnedGrok {
 }
 
 /// Short-lived `grok agent stdio` for catalog probe. Same argv as Chat, no model flag.
-pub(crate) fn spawn_stdio(program: &Path, cwd: &Path) -> AgentResult<SpawnedGrok> {
-    let mut cmd = Command::new(program);
-    cmd.args(chat_argv(None, None))
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true);
-    if cwd.exists() {
-        cmd.current_dir(cwd);
-    }
-    apply_chat_env_to_command(&mut cmd);
-    let mut child = cmd
-        .spawn()
-        .map_err(|error| AgentProviderError::message(format!("failed to spawn grok: {error}")))?;
+pub(crate) async fn spawn_stdio(program: &Path, cwd: &Path) -> AgentResult<SpawnedGrok> {
+    let mut child = retry_transient_spawn(|| {
+        let mut cmd = Command::new(program);
+        cmd.args(chat_argv(None, None))
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true);
+        if cwd.exists() {
+            cmd.current_dir(cwd);
+        }
+        apply_chat_env_to_command(&mut cmd);
+        async move { cmd.spawn() }
+    })
+    .await
+    .map_err(|error| AgentProviderError::message(format!("failed to spawn grok: {error}")))?;
     let stdin = child
         .stdin
         .take()
@@ -362,7 +365,9 @@ sys.stdin.read()
         perms.set_mode(0o755);
         std::fs::set_permissions(&program, perms).unwrap();
 
-        let mut spawned = spawn_stdio(&program, dir.path()).expect("spawn fake grok");
+        let mut spawned = spawn_stdio(&program, dir.path())
+            .await
+            .expect("spawn fake grok");
         let mut reader = BufReader::new(spawned.stdout);
         let mut cursor = String::new();
         let mut claude = String::new();

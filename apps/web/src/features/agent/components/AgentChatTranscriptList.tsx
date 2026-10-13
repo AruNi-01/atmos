@@ -43,11 +43,14 @@ import {
   measureTranscriptScrollMargin,
   mergeMermaidKeepAliveRange,
   mergeIndexKeepAliveRange,
+  shouldAdjustTranscriptScrollOnItemSizeChange,
+  TRANSCRIPT_END_SLACK_PX,
 } from "@/features/agent/lib/agent-chat-transcript-window";
 import { FindHighlightLayer } from "@/features/editor/components/FindPanel";
 import { AgentChatMessageView } from "./AgentChatMessageView";
 import { useAgentChatOwnSendRefs } from "./agent-chat-own-send-context";
 import { isPendingUserEcho } from "@/features/agent/lib/agent-chat-pending-echo";
+import { stableAgentMessageKey } from "@/features/agent/lib/agent-chat-message-key";
 import {
   inlineSubagentTasksByMessageId,
   type SubagentCardMode,
@@ -171,7 +174,7 @@ export function AgentChatTranscriptList({
       if (ownSendRefs?.anchorIndexRef.current === index && ownSendRefs.itemKeyRef.current) {
         return ownSendRefs.itemKeyRef.current;
       }
-      return messages[index]?.id ?? index;
+      return stableAgentMessageKey(messages[index], index);
     },
     overscan: AGENT_CHAT_TRANSCRIPT_OVERSCAN,
     gap: AGENT_CHAT_TRANSCRIPT_GAP,
@@ -196,7 +199,20 @@ export function AgentChatTranscriptList({
     useAnimationFrameWithResizeObserver: true,
     // measureElement runs during commit; flushSync there warns and can stall React 19.
     useFlushSync: false,
+    // User expand / time-row growth: stay glued when already at the end.
+    // Scrolled-up reading is handled by shouldAdjustScrollPositionOnItemSizeChange.
+    anchorTo: "end",
+    scrollEndThreshold: TRANSCRIPT_END_SLACK_PX,
   });
+
+  virtualizer.shouldAdjustScrollPositionOnItemSizeChange = (item, _delta, instance) =>
+    shouldAdjustTranscriptScrollOnItemSizeChange({
+      itemStart: item.start,
+      itemSize: instance.itemSizeCache.get(item.key) ?? item.size,
+      scrollOffset: (instance.scrollOffset ?? 0) + instance.scrollAdjustments,
+      firstMeasure: !instance.itemSizeCache.has(item.key),
+      scrollingBackward: instance.scrollDirection === "backward",
+    });
 
   const virtualItems = virtualizer.getVirtualItems();
   const totalSize = virtualizer.getTotalSize();
@@ -389,7 +405,9 @@ export function AgentChatTranscriptList({
                   message={message}
                   index={item.index}
                   inlineSubagentTools={inlineSubagentTools.get(message.id)}
-                  subagentMessages={messages}
+                  subagentMessages={
+                    inlineSubagentTools.get(message.id) ? messages : undefined
+                  }
                 />
                 {showActivityFooter ? (
                   <div

@@ -1,11 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import { byteLength } from "@atmos/api-client/agent-chat";
 import {
+  applyTurnSnapshot,
   currentPlanFromMessages,
   currentTurnHasRunningSubagent,
   foldAgentChatEventResult,
   foldMessagesFromEvent,
   hydrateAgentChatMessages,
+  pendingEventsAfterSeq,
   takeBackfillRequest,
   textFromParts,
 } from "@/features/agent/lib/agent-chat-events";
@@ -1647,5 +1649,140 @@ describe("agent chat fold stays on AgentMessage", () => {
     }), "chat-1");
     expect(messages.find((message) => message.id === "a1")).toBe(settled);
     expect(textFromParts(messages.find((message) => message.id === "a2")!.parts)).toBe("hello");
+  });
+
+  it("applyTurnSnapshot keeps historical identity and stamps open_part_ids", () => {
+    const user: AgentMessage = { id: "u1", role: "user", parts: [{ type: "text", text: "hi" }] };
+    const assistant: AgentMessage = {
+      id: "a1",
+      role: "assistant",
+      parts: [{ type: "text", text: "Hel", message_id: "p1" }],
+      streaming: true,
+    };
+    const history = [user, assistant];
+    const next = applyTurnSnapshot(
+      history,
+      [{
+        id: "a1",
+        role: "assistant",
+        parts: [{ type: "text", text: "Hello", message_id: "p1" }],
+        streaming: true,
+      }],
+      ["p1"],
+    );
+    expect(next[0]).toBe(user);
+    expect(next[1]).not.toBe(assistant);
+    expect(textFromParts(next[1]!.parts)).toBe("Hello");
+    expect(next[1]?.streaming).toBe(true);
+    expect((next[1]?.parts[0] as { closed_at?: string | null }).closed_at).toBeNull();
+  });
+
+  it("snapshot then seq restore skips already-applied revisions", () => {
+    const user = chatEvent("chat-1", 1, {
+      type: "user_message",
+      turn_id: "t1",
+      message_id: "u1",
+      text: "hi",
+    });
+    const snap = chatEvent("chat-1", 5, {
+      type: "turn_snapshot",
+      turn_id: "t1",
+      messages: [{
+        id: "a1",
+        role: "assistant",
+        parts: [{ type: "text", text: "Hello", message_id: "p1" }],
+        streaming: true,
+      }],
+      open_part_ids: ["p1"],
+    });
+    const later = chatEvent("chat-1", 6, {
+      type: "turn_snapshot",
+      turn_id: "t1",
+      messages: [{
+        id: "a1",
+        role: "assistant",
+        parts: [{ type: "text", text: "Hello world", message_id: "p1" }],
+        streaming: true,
+      }],
+      open_part_ids: ["p1"],
+    });
+    const snapshotMessages = foldMessagesFromEvent(
+      foldMessagesFromEvent([], user, "chat-1"),
+      snap,
+      "chat-1",
+    );
+    const pending = pendingEventsAfterSeq([user, snap, later], 5);
+    expect(pending.map((event) => event.revision)).toEqual([6]);
+    const restored = pending.reduce(
+      (messages, event) => foldMessagesFromEvent(messages, event, "chat-1"),
+      snapshotMessages,
+    );
+    expect(textFromParts(restored[1]!.parts)).toBe("Hello world");
+    expect(restored[0]).toBe(snapshotMessages[0]);
+  });
+
+  it("applyTurnSnapshot adopts a tool-first provisional row instead of duplicating it", () => {
+    const user: AgentMessage = { id: "u1", role: "user", parts: [{ type: "text", text: "hi" }] };
+    const provisional: AgentMessage = {
+      id: "assistant:u1",
+      role: "assistant",
+      parts: [{
+        type: "tool_call",
+        tool_call_id: "search-1",
+        name: "Search",
+        kind: "search",
+        status: "running",
+        params: { type: "search", query: "atmos" },
+      }],
+      streaming: true,
+    };
+    const next = applyTurnSnapshot(
+      [user, provisional],
+      [{
+        id: "tool-search-1",
+        role: "assistant",
+        parts: [{
+          type: "tool_call",
+          tool_call_id: "search-1",
+          name: "Search",
+          kind: "search",
+          status: "running",
+          params: { type: "search", query: "atmos" },
+        }],
+        streaming: true,
+      }],
+      [],
+    );
+    expect(next.map((message) => message.id)).toEqual(["u1", "tool-search-1"]);
+    expect(next.filter((message) =>
+      message.parts.some((part) => part.type === "tool_call" && part.tool_call_id === "search-1")
+    )).toHaveLength(1);
+  });
+
+  it("applyTurnSnapshot keeps prior-turn history while replacing the live assistant", () => {
+    const history: AgentMessage[] = [
+      { id: "u0", role: "user", parts: [{ type: "text", text: "old" }] },
+      { id: "a0", role: "assistant", parts: [{ type: "text", text: "prior" }] },
+      { id: "u1", role: "user", parts: [{ type: "text", text: "next" }] },
+      {
+        id: "assistant:u1",
+        role: "assistant",
+        parts: [{ type: "text", text: "Hel", message_id: "p1" }],
+        streaming: true,
+      },
+    ];
+    const next = applyTurnSnapshot(
+      history,
+      [{
+        id: "a1",
+        role: "assistant",
+        parts: [{ type: "text", text: "Hello", message_id: "p1" }],
+        streaming: true,
+      }],
+      ["p1"],
+    );
+    expect(next.map((message) => message.id)).toEqual(["u0", "a0", "u1", "a1"]);
+    expect(textFromParts(next[1]!.parts)).toBe("prior");
+    expect(textFromParts(next[3]!.parts)).toBe("Hello");
   });
 });

@@ -11,6 +11,7 @@ const ALL_EVENT_KINDS = Object.keys({
   turn_started: 1,
   user_message: 1,
   text_chunk: 1,
+  turn_snapshot: 1,
   part_closed: 1,
   tool_call_started: 1,
   tool_call_updated: 1,
@@ -93,6 +94,58 @@ describe("agent chat commit buffer", () => {
       expect(buffer.isDirty()).toBe(true);
       expect(commits).toBe(0);
     }
+  });
+
+  it("turn_end flushes a pending turn_snapshot commit immediately", () => {
+    const now = 0;
+    let commits = 0;
+    const buffer = createAgentChatCommitBuffer({
+      now: () => now,
+      flushMs: AGENT_CHAT_COMMIT_FLUSH_MS,
+      onCommit: () => {
+        commits += 1;
+      },
+    });
+    expect(buffer.deliver("turn_snapshot").flushed).toBe(false);
+    expect(commits).toBe(0);
+    expect(buffer.deliver("turn_completed").flushed).toBe(true);
+    expect(commits).toBe(1);
+    expect(AGENT_CHAT_COMMIT_FLUSH_MS).toBeGreaterThanOrEqual(50);
+    expect(AGENT_CHAT_COMMIT_FLUSH_MS).toBeLessThanOrEqual(60);
+  });
+
+  it("stop flushes a pending display commit immediately", () => {
+    const now = 0;
+    let commits = 0;
+    const buffer = createAgentChatCommitBuffer({
+      now: () => now,
+      flushMs: AGENT_CHAT_COMMIT_FLUSH_MS,
+      onCommit: () => {
+        commits += 1;
+      },
+    });
+    expect(buffer.deliver("turn_snapshot").flushed).toBe(false);
+    expect(commits).toBe(0);
+    expect(buffer.deliver("turn_completed").flushed).toBe(true);
+    expect(commits).toBe(1);
+    expect(buffer.isDirty()).toBe(false);
+  });
+
+  it("error flushes a pending display commit immediately", () => {
+    const now = 0;
+    let commits = 0;
+    const buffer = createAgentChatCommitBuffer({
+      now: () => now,
+      flushMs: AGENT_CHAT_COMMIT_FLUSH_MS,
+      onCommit: () => {
+        commits += 1;
+      },
+    });
+    expect(buffer.deliver("turn_snapshot").flushed).toBe(false);
+    expect(commits).toBe(0);
+    expect(buffer.deliver("session_lifecycle").flushed).toBe(true);
+    expect(commits).toBe(1);
+    expect(buffer.isDirty()).toBe(false);
   });
 
   it("S20: every remaining kind is classified and force-flushes when delivered alone", () => {

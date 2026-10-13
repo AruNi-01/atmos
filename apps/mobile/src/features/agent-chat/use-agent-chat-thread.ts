@@ -70,12 +70,6 @@ export function useAgentChatThread(chatId: string) {
     void (async () => {
       let liveError: string | null = null;
       try {
-        await wsActions.agentChatSubscribe(client, { chat_id: chatId });
-      } catch (err) {
-        liveError = err instanceof Error && err.message ? err.message : "Could not subscribe to this chat.";
-      }
-      if (cancelled) return;
-      try {
         const snapshot = await wsActions.agentChatGet(client, { chat_id: chatId });
         if (cancelled) return;
         let state = createChatTranscript(chatId, snapshot.messages ?? []);
@@ -86,16 +80,33 @@ export function useAgentChatThread(chatId: string) {
           queue: snapshot.queue ?? [],
           runningTurnId: snapshot.running_turn_id ?? null,
         };
-        const queued = buffer.splice(0, buffer.length);
-        for (const event of queued) {
-          if (!event) continue;
-          const next = applyChatEvent(state, event);
-          state = next.state;
-          if (next.backfill) requestBackfill(next.backfill);
-        }
+        let after = snapshot.meta?.last_event_seq ?? 0;
+        const drain = () => {
+          const queued = buffer.splice(0, buffer.length);
+          for (const event of queued) {
+            if (!event) continue;
+            const revision = event.revision ?? 0;
+            if (revision <= after) continue;
+            after = Math.max(after, revision);
+            const next = applyChatEvent(state, event);
+            state = next.state;
+            if (next.backfill) requestBackfill(next.backfill);
+          }
+        };
+        drain();
+        drain();
         transcriptRef.current = state;
         ready = true;
         setTranscript(state);
+        try {
+          await wsActions.agentChatSubscribe(client, {
+            chat_id: chatId,
+            after_sequence: after,
+          });
+        } catch (err) {
+          liveError = err instanceof Error && err.message ? err.message : "Could not subscribe to this chat.";
+        }
+        if (cancelled) return;
         setError(liveError);
         setLoading(false);
       } catch (err) {

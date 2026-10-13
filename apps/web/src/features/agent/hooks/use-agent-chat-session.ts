@@ -98,6 +98,7 @@ import {
   currentPlanFromMessages,
   currentTurnHasRunningSubagent,
   foldAgentChatEventResult,
+  pendingEventsAfterSeq,
   releaseBackfillRequest,
   takeBackfillRequest,
 } from "@/features/agent/lib/agent-chat-events";
@@ -117,6 +118,8 @@ import {
   snapshotLiveElapsedMs,
 } from "@/features/agent/lib/agent-chat-timing";
 import { shouldCommitAgentChatSurface } from "@/features/agent/lib/agent-chat-surface-live";
+import { withStableAgentMessageIds } from "@/features/agent/lib/agent-chat-message-key";
+import { useAgentChatExpandStore } from "@/features/agent/store/agent-chat-expand-store";
 import {
   isPaintContextVisuallyActive,
   subscribeVisualActivePaintId,
@@ -648,10 +651,12 @@ export function useAgentChatSession({
     const snapshot = await agentChatApi.get(id);
     const meta = snapshot.meta;
     setTitle(meta.title?.trim() || null);
-    const loadedMessages = (snapshot.messages ?? []).map((message) => ({
-      ...message,
-      parts: message.parts ?? [],
-    }));
+    const loadedMessages = withStableAgentMessageIds(
+      (snapshot.messages ?? []).map((message) => ({
+        ...message,
+        parts: message.parts ?? [],
+      })),
+    );
     const keepComposerChrome = loadedMessages.length === 0;
     applyDescriptor(meta.descriptor, { keepComposerChrome });
     setMessages((current) => {
@@ -1213,7 +1218,7 @@ export function useAgentChatSession({
       commitBuffer.deliver(event.payload.type);
     };
     void load(id).then(async (snapshotSeq) => {
-      const pending = pendingEventsRef.current;
+      const pending = pendingEventsAfterSeq(pendingEventsRef.current, snapshotSeq ?? 0);
       pendingEventsRef.current = [];
       hydratingRef.current = false;
       let after = snapshotSeq ?? 0;
@@ -1251,6 +1256,12 @@ export function useAgentChatSession({
       void agentChatApi.unsubscribe(id);
     };
   }, [activeChatId, load, prefsRestored, wsConnected]);
+
+  useEffect(() => {
+    return () => {
+      useAgentChatExpandStore.getState().reset();
+    };
+  }, [activeChatId]);
 
   useEffect(() => {
     if (!providerId) return;

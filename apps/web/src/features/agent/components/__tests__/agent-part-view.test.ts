@@ -48,7 +48,8 @@ describe("agent part markdown rendering", () => {
 
   it("streams each text and thinking part from closed_at, not last-block position", () => {
     expect(view).toContain("foldedPartIsOpen");
-    expect(view).toContain("isAnimating={open}");
+    expect(view).toContain("foldedPartIsStreamingDisplayTail");
+    expect(view).toContain("isAnimating={streamingTail}");
     expect(view).toContain("isStreaming={open}");
     expect(view).not.toContain("isLastTextBlock");
     expect(view).not.toContain("isCurrentlyThinking");

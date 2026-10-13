@@ -29,6 +29,11 @@ describe("takeStreamChars", () => {
   test("never reveals more than the backlog", () => {
     expect(takeStreamChars(3, 48).count).toBeLessThanOrEqual(3);
   });
+
+  test("a finished stream is the full target (turn_end / reduced-motion flush)", () => {
+    expect(nextStreamPrefix("Hello world", "Hello world", 0)).toBe("Hello world");
+    expect(takeStreamChars(0, 16).count).toBe(0);
+  });
 });
 
 describe("nextStreamPrefix", () => {

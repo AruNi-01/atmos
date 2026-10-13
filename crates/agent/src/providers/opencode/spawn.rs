@@ -11,6 +11,7 @@ use tokio::sync::Mutex;
 
 use crate::contract::{AgentProviderError, AgentResult};
 use crate::policy::opencode_auto_locked;
+use crate::providers::spawn_retry::retry_transient_spawn;
 
 pub const USERNAME: &str = "opencode";
 pub const PASSWORD_ENV: &str = "OPENCODE_SERVER_PASSWORD";
@@ -114,7 +115,6 @@ pub async fn spawn_serve(
     let auto_locked = serve_auto_locked(permission_mode);
     let spec = serve_spawn_spec(program, permission_mode);
     let password = generate_server_password();
-    let mut cmd = Command::new(&spec.program);
     let serve_args: Vec<&str> = if auto_locked {
         // Serve subcommand rejects `--auto` today; keep the flag off argv until OpenCode adds it.
         spec.args
@@ -125,24 +125,6 @@ pub async fn spawn_serve(
     } else {
         spec.args.iter().map(String::as_str).collect()
     };
-    cmd.args(&serve_args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true)
-        .env(PASSWORD_ENV, &password)
-        .env(USERNAME_ENV, USERNAME);
-    if cwd.exists() {
-        cmd.current_dir(cwd);
-    }
-    if let Some(overrides) = env_overrides {
-        for (key, value) in overrides {
-            if key == PASSWORD_ENV {
-                continue;
-            }
-            cmd.env(key, value);
-        }
-    }
 
     tracing::debug!(
         program = %spec.program,
@@ -151,9 +133,31 @@ pub async fn spawn_serve(
         "spawning opencode serve"
     );
 
-    let mut child = cmd.spawn().map_err(|error| {
-        AgentProviderError::message(format!("failed to spawn opencode: {error}"))
-    })?;
+    let mut child = retry_transient_spawn(|| {
+        let mut spawn_cmd = Command::new(&spec.program);
+        spawn_cmd
+            .args(&serve_args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true)
+            .env(PASSWORD_ENV, &password)
+            .env(USERNAME_ENV, USERNAME);
+        if cwd.exists() {
+            spawn_cmd.current_dir(cwd);
+        }
+        if let Some(overrides) = env_overrides {
+            for (key, value) in overrides {
+                if key == PASSWORD_ENV {
+                    continue;
+                }
+                spawn_cmd.env(key, value);
+            }
+        }
+        async move { spawn_cmd.spawn() }
+    })
+    .await
+    .map_err(|error| AgentProviderError::message(format!("failed to spawn opencode: {error}")))?;
 
     let stdout = child
         .stdout

@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "@workspace/ui/components/ui/hover-card";
+import { useAgentChatExpandStore } from "@/features/agent/store/agent-chat-expand-store";
 import {
   buildPastePreview,
   displayTextForSentMessage,
@@ -28,16 +29,31 @@ export function UserMessageBody({
   text,
   leading,
   forceCollapsible = false,
+  expandKey,
 }: {
   text: string;
   leading?: React.ReactNode | ((collapsed: boolean) => React.ReactNode);
   forceCollapsible?: boolean;
+  /** When set, expand survives virtual-row unmount; omit for local-only (tests/previews). */
+  expandKey?: string;
 }) {
   const display = displayTextForSentMessage(text);
   const segments = splitComposerDisplaySegments(display);
   const hasPasteChip = segments.some((segment) => segment.type === "paste");
   const needsLineCollapse = userMessageNeedsCollapse(text);
-  const [expanded, setExpanded] = useState(false);
+  const storedExpanded = useAgentChatExpandStore((state) =>
+    expandKey ? state.values[expandKey] : undefined,
+  );
+  const setExpand = useAgentChatExpandStore((state) => state.setExpand);
+  const [localExpanded, setLocalExpanded] = useState(false);
+  const expanded = expandKey ? (storedExpanded ?? false) : localExpanded;
+  const setExpanded = useCallback(
+    (next: boolean) => {
+      if (expandKey) setExpand(expandKey, next);
+      else setLocalExpanded(next);
+    },
+    [expandKey, setExpand],
+  );
   const [overflowsVisually, setOverflowsVisually] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const clipRef = useRef<HTMLDivElement>(null);
@@ -63,7 +79,7 @@ export function UserMessageBody({
     };
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [canToggle, expanded]);
+  }, [canToggle, expanded, setExpanded]);
 
   const showChips = hasPasteChip && collapsed;
   const clipText = (needsLineCollapse || overflowsVisually) && !showChips && collapsed;

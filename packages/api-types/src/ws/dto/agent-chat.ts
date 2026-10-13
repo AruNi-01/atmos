@@ -602,6 +602,12 @@ export type AgentChatPayload =
       offset: number;
       text: string;
     }
+  | {
+      type: "turn_snapshot";
+      turn_id: string;
+      messages: AgentMessage[];
+      open_part_ids?: string[];
+    }
   | { type: "part_closed"; part_id: string; duration_ms?: number | null }
   | {
       type: "tool_call_started" | "tool_call_updated" | "tool_call_completed";

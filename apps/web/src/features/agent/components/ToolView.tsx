@@ -1,13 +1,15 @@
 "use client";
 
+import React from "react";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import { SubAgentBlockView } from "./SubAgentBlockView";
 import { TerminalBlock } from "./TerminalBlock";
 import { AgentToolResultBlock } from "./tool-results";
 import { OtherToolCard } from "./tool-results/OtherToolCard";
 import type { AgentToolSurface } from "./tool-results/AgentToolCard";
+import { AgentToolExpandIdProvider } from "./agent-tool-expand-context";
 
-export function ToolView({
+export const ToolView = React.memo(function ToolView({
   part,
   surface = "plain",
   defaultOpen = false,
@@ -15,16 +17,25 @@ export function ToolView({
   part: AgentToolCallPart;
   surface?: AgentToolSurface;
   defaultOpen?: boolean;
-  childTools?: AgentToolCallPart[];
 }) {
+  let body: React.ReactNode;
   switch (part.kind) {
     case "execute":
-      return <TerminalBlock part={part} surface={surface} defaultOpen={defaultOpen} />;
+      body = <TerminalBlock part={part} surface={surface} defaultOpen={defaultOpen} />;
+      break;
     case "subagent":
-      return <SubAgentBlockView part={part} />;
+      body = <SubAgentBlockView part={part} />;
+      break;
     case "other":
-      return <OtherToolCard part={part} surface={surface} defaultOpen={defaultOpen} />;
+      body = <OtherToolCard part={part} surface={surface} defaultOpen={defaultOpen} />;
+      break;
     default:
-      return <AgentToolResultBlock part={part} surface={surface} defaultOpen={defaultOpen} />;
+      body = <AgentToolResultBlock part={part} surface={surface} defaultOpen={defaultOpen} />;
+      break;
   }
-}
+  return (
+    <AgentToolExpandIdProvider toolCallId={part.tool_call_id}>
+      {body}
+    </AgentToolExpandIdProvider>
+  );
+});

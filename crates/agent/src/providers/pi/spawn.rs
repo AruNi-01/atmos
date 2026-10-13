@@ -8,6 +8,7 @@ use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
 
 use crate::contract::{AgentProviderError, AgentResult, AgentRuntimeConfig};
 use crate::models::AgentLaunchSpec;
+use crate::providers::spawn_retry::retry_transient_spawn;
 
 pub struct PiChild {
     pub stdin: ChildStdin,
@@ -67,37 +68,38 @@ pub fn split_model_id(
     }
 }
 
-pub fn spawn_chat(
+pub async fn spawn_chat(
     program: &str,
     cfg: &AgentRuntimeConfig,
     extra_env: Option<&HashMap<String, String>>,
 ) -> AgentResult<PiChild> {
     let args = chat_argv(cfg.model.as_deref());
-    let mut cmd = Command::new(program);
-    cmd.args(&args)
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .kill_on_drop(true);
+    let mut child = retry_transient_spawn(|| {
+        let mut cmd = Command::new(program);
+        cmd.args(&args)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .kill_on_drop(true);
 
-    if cfg.cwd.exists() {
-        cmd.current_dir(&cfg.cwd);
-    }
-
-    if let Some(env) = extra_env {
-        for (key, value) in env {
-            cmd.env(key, value);
+        if cfg.cwd.exists() {
+            cmd.current_dir(&cfg.cwd);
         }
-    }
-    if let Some(overrides) = &cfg.env_overrides {
-        for (key, value) in overrides {
-            cmd.env(key, value);
-        }
-    }
 
-    let mut child = cmd
-        .spawn()
-        .map_err(|error| AgentProviderError::message(format!("failed to spawn pi: {error}")))?;
+        if let Some(env) = extra_env {
+            for (key, value) in env {
+                cmd.env(key, value);
+            }
+        }
+        if let Some(overrides) = &cfg.env_overrides {
+            for (key, value) in overrides {
+                cmd.env(key, value);
+            }
+        }
+        async move { cmd.spawn() }
+    })
+    .await
+    .map_err(|error| AgentProviderError::message(format!("failed to spawn pi: {error}")))?;
     let stdin = child
         .stdin
         .take()

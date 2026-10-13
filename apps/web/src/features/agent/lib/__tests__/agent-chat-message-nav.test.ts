@@ -239,6 +239,8 @@ describe("AgentMessageTimelineNav", () => {
 describe("timeline message scroll", () => {
   it("unlocks stick-to-bottom and scrolls the selected catalog item into place", () => {
     expect(transcriptList).toContain("stopStickRef.current?.()");
+    expect(transcriptList).toContain("const measurement = virtualizer.measurementsCache[index]");
+    expect(transcriptList).toContain("virtualizer.scrollToIndex(index, { align: \"start\", behavior: \"smooth\" })");
     expect(transcriptList).toContain("measurement.start - virtualizer.options.scrollMargin");
     expect(transcriptList).toContain("onUserScrollIntent");
     expect(panel).toContain("handleSelectTimelineMessage");

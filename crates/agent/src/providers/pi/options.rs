@@ -35,7 +35,9 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, St
         cwd: isolated_cwd.to_path_buf(),
         ..AgentRuntimeConfig::default()
     };
-    let spawned = spawn_chat("pi", &cfg, None).map_err(|error| error.to_string())?;
+    let spawned = spawn_chat("pi", &cfg, None)
+        .await
+        .map_err(|error| error.to_string())?;
     let mut child = spawned.child;
     let transport = Arc::new(PiTransport::new(Box::new(spawned.stdin)));
     let (event_tx, mut event_rx) = mpsc::unbounded_channel();

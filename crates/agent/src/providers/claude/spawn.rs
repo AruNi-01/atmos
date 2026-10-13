@@ -9,6 +9,7 @@ use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
 use tokio::time::timeout;
 
 use crate::contract::{AgentProviderError, AgentResult, AgentRuntimeConfig};
+use crate::providers::spawn_retry::retry_transient_spawn;
 
 const EFFORT_LEVELS: &[&str] = &["low", "medium", "high", "xhigh", "max"];
 
@@ -86,21 +87,26 @@ pub(crate) async fn probe_input_format_support(
     program: &Path,
     env_overrides: Option<&HashMap<String, String>>,
 ) -> AgentResult<()> {
-    let mut cmd = Command::new(program);
-    cmd.arg("--help")
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true);
-    if let Some(env) = env_overrides {
-        apply_env(&mut cmd, env);
-    }
-    let output = timeout(Duration::from_secs(15), cmd.output())
-        .await
-        .map_err(|_| AgentProviderError::message("Claude Code --help timed out"))?
-        .map_err(|error| {
-            AgentProviderError::message(format!("failed to run claude --help: {error}"))
-        })?;
+    let output = timeout(
+        Duration::from_secs(15),
+        retry_transient_spawn(|| {
+            let mut cmd = Command::new(program);
+            cmd.arg("--help")
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .kill_on_drop(true);
+            if let Some(env) = env_overrides {
+                apply_env(&mut cmd, env);
+            }
+            cmd.output()
+        }),
+    )
+    .await
+    .map_err(|_| AgentProviderError::message("Claude Code --help timed out"))?
+    .map_err(|error| {
+        AgentProviderError::message(format!("failed to run claude --help: {error}"))
+    })?;
     let text = format!(
         "{}{}",
         String::from_utf8_lossy(&output.stdout),
@@ -132,23 +138,24 @@ pub(crate) async fn spawn_claude(
         "Chat spawn must not copy Terminal yoloParams"
     );
 
-    let mut cmd = Command::new(program);
-    cmd.args(&args)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true);
-    if cfg.cwd.exists() {
-        cmd.current_dir(&cfg.cwd);
-    }
-    if let Some(overrides) = &cfg.env_overrides {
-        apply_env(&mut cmd, overrides);
-    }
-    cmd.env("CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING", "1");
-
-    let mut child = cmd
-        .spawn()
-        .map_err(|error| AgentProviderError::message(format!("failed to spawn claude: {error}")))?;
+    let mut child = retry_transient_spawn(|| {
+        let mut cmd = Command::new(program);
+        cmd.args(&args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true);
+        if cfg.cwd.exists() {
+            cmd.current_dir(&cfg.cwd);
+        }
+        if let Some(overrides) = &cfg.env_overrides {
+            apply_env(&mut cmd, overrides);
+        }
+        cmd.env("CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING", "1");
+        async move { cmd.spawn() }
+    })
+    .await
+    .map_err(|error| AgentProviderError::message(format!("failed to spawn claude: {error}")))?;
     let stdin = child
         .stdin
         .take()
@@ -178,6 +185,7 @@ fn apply_env(cmd: &mut Command, env: &HashMap<String, String>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::os::unix::fs::PermissionsExt;
     use std::path::PathBuf;
 
     fn cfg() -> AgentRuntimeConfig {
@@ -297,5 +305,38 @@ mod tests {
         assert!(error.contains("Claude Code too old"));
         assert!(!error.to_ascii_lowercase().contains("acp"));
         assert!(!error.contains("--print"));
+    }
+
+    fn write_help_script(contents: &str) -> (tempfile::TempDir, PathBuf) {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let program = dir.path().join("claude");
+        std::fs::write(&program, contents).expect("write");
+        let mut perms = std::fs::metadata(&program).unwrap().permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&program, perms).unwrap();
+        (dir, program)
+    }
+
+    #[tokio::test]
+    async fn old_help_script_probe_survives_parallel_write_exec() {
+        let mut joins = Vec::new();
+        for _ in 0..32 {
+            joins.push(tokio::spawn(async {
+                let (_dir, program) = write_help_script(
+                    "#!/bin/sh\necho 'Usage: claude -p --output-format stream-json'\n",
+                );
+                probe_input_format_support(&program, None).await
+            }));
+        }
+        for join in joins {
+            let error = join
+                .await
+                .expect("join")
+                .expect_err("old help must fail the probe");
+            assert!(
+                error.to_string().contains("Claude Code too old"),
+                "unexpected probe error: {error}"
+            );
+        }
     }
 }

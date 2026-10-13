@@ -835,7 +835,7 @@ impl AgentProvider for PiNativeProvider {
     }
 
     async fn create_runtime(&self, cfg: AgentRuntimeConfig) -> AgentResult<Box<dyn AgentRuntime>> {
-        let spawned = spawn_chat(&self.program, &cfg, self.env.as_ref())?;
+        let spawned = spawn_chat(&self.program, &cfg, self.env.as_ref()).await?;
         tokio::spawn(drain_stderr(spawned.stderr));
         open_pi_runtime(
             Box::new(spawned.stdin),
@@ -852,7 +852,7 @@ impl AgentProvider for PiNativeProvider {
         handle: AgentPersistenceHandle,
         cfg: AgentRuntimeConfig,
     ) -> AgentResult<Box<dyn AgentRuntime>> {
-        let spawned = spawn_chat(&self.program, &cfg, self.env.as_ref())?;
+        let spawned = spawn_chat(&self.program, &cfg, self.env.as_ref()).await?;
         tokio::spawn(drain_stderr(spawned.stderr));
         open_pi_runtime(
             Box::new(spawned.stdin),

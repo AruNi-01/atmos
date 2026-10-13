@@ -4,7 +4,18 @@ use std::collections::HashMap;
 
 use agent::{AgentEvent, AgentEventEnvelope};
 
-pub(super) const COALESCE_FLUSH: std::time::Duration = std::time::Duration::from_millis(150);
+/// Live WS merge window. Keep this in the 50–60ms band so clients see
+/// cumulative turn snapshots without a per-token flood.
+pub(super) const COALESCE_FLUSH: std::time::Duration = std::time::Duration::from_millis(56);
+
+pub(super) fn is_high_frequency_agent_event(event: &AgentEvent) -> bool {
+    matches!(
+        event,
+        AgentEvent::TextChunk { .. }
+            | AgentEvent::ToolCallUpdated { .. }
+            | AgentEvent::PlanUpdated { .. }
+    )
+}
 
 pub(super) struct TextChunkCoalescer {
     pending: HashMap<String, AgentEventEnvelope>,
