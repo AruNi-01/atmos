@@ -249,9 +249,12 @@ pub(crate) fn map_event(
                     stop: TurnStop::Completed,
                 },
             };
-            Some(complete_before_thinking(
+            // ACP chunks never set `done`, so the host answer part stays open
+            // and the next turn appends onto that same part id. Seal it here,
+            // before TurnCompleted, or the new reply paints on the previous one.
+            Some(seal_host_text_at_turn_end(
                 state,
-                Some(turn_id.clone()),
+                turn_id.clone(),
                 wrap(Some(turn_id), event),
             ))
         }
@@ -539,6 +542,46 @@ fn complete_before_thinking(
         TextKind::Thinking,
         next,
     )
+}
+
+/// Close host thinking and answer parts, then emit `turn_event`.
+///
+/// Nested subagent parts stay out of the open set, so a parent `TurnEnd`
+/// does not seal a child that is still streaming.
+fn seal_host_text_at_turn_end(
+    state: &mut EventMapState,
+    turn_id: String,
+    turn_event: AgentEventEnvelope,
+) -> AgentEventEnvelope {
+    let mut closed = Vec::new();
+    for kind in [TextKind::Thinking, TextKind::Answer] {
+        let open = state.parts.open_of(kind);
+        if open.is_empty() {
+            continue;
+        }
+        match kind {
+            TextKind::Thinking => state.thinking_message_id = None,
+            TextKind::Answer => state.assistant_message_id = None,
+        }
+        for part_id in open {
+            closed.push(wrap(
+                Some(turn_id.clone()),
+                state.parts.close(part_id, None),
+            ));
+        }
+    }
+    // The ids outlive a part that a tool already closed. A later chunk must
+    // not mint `{old_message_id}:1` and land on the previous assistant row.
+    state.thinking_message_id = None;
+    state.assistant_message_id = None;
+    let Some(head) = closed.first().cloned() else {
+        return turn_event;
+    };
+    for event in closed.into_iter().skip(1) {
+        state.pending.push_back(event);
+    }
+    state.pending.push_back(turn_event);
+    head
 }
 
 fn complete_before_assistant(
@@ -849,6 +892,45 @@ mod tests {
             event,
             AgentEvent::PartClosed { part_id, .. } if part_id == &after_id
         )));
+    }
+
+    #[test]
+    fn turn_end_seals_the_answer_so_the_next_reply_is_a_new_part() {
+        let mut state = state();
+        let first = payloads(
+            &mut state,
+            stream_delta("message", "Hello. What would you like to work on in Atmos?"),
+        );
+        let end = payloads(&mut state, AcpSessionEvent::TurnEnd(AcpTurnStop::Completed));
+        let second = payloads(&mut state, stream_delta("message", "我是 Grok 4.7"));
+
+        let answer = |events: &[AgentEvent]| -> (String, String) {
+            events
+                .iter()
+                .find_map(|event| match event {
+                    AgentEvent::TextChunk {
+                        part_id,
+                        message_id,
+                        kind: TextKind::Answer,
+                        ..
+                    } => Some((part_id.clone(), message_id.clone())),
+                    _ => None,
+                })
+                .expect("answer chunk")
+        };
+        let (first_part, first_message) = answer(&first);
+        assert!(end.iter().any(|event| matches!(
+            event,
+            AgentEvent::PartClosed { part_id, .. } if part_id == &first_part
+        )));
+        assert!(matches!(end.last(), Some(AgentEvent::TurnCompleted { .. })));
+        let (second_part, second_message) = answer(&second);
+        assert_ne!(first_part, second_part);
+        assert_ne!(first_message, second_message);
+        assert_eq!(
+            state.assistant_message_id.as_deref(),
+            Some(second_message.as_str())
+        );
     }
 
     #[test]
