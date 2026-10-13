@@ -1,11 +1,12 @@
 import type { AgentChatPayload } from "@atmos/api-types/ws/dto/agent-chat";
 
-export const AGENT_CHAT_COMMIT_FLUSH_MS = 150;
+export const AGENT_CHAT_COMMIT_FLUSH_MS = 56;
 
 export type AgentChatCommitCadence = "batch" | "flush";
 
 export const HIGH_FREQUENCY_EVENT_KINDS = [
   "text_chunk",
+  "turn_snapshot",
   "part_closed",
   "tool_call_started",
   "tool_call_updated",
@@ -23,6 +24,7 @@ export function classifyCommitCadence(
 ): AgentChatCommitCadence {
   switch (type) {
     case "text_chunk":
+    case "turn_snapshot":
     case "part_closed":
     case "tool_call_started":
     case "tool_call_updated":

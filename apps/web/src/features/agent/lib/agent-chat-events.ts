@@ -485,6 +485,86 @@ function closeTurnTextParts(messages: AgentMessage[]): AgentMessage[] {
   return projectMessages(messages, store, durations);
 }
 
+function isChromePart(part: AgentPart): boolean {
+  return part.type === "session_lifecycle"
+    || part.type === "session_config_change"
+    || part.type === "session_hint";
+}
+
+function stampSnapshotOpenParts(
+  message: AgentMessage,
+  openPartIds: ReadonlySet<string>,
+): AgentMessage {
+  const parts = message.parts.map((part) => {
+    if (part.type !== "text" && part.type !== "thinking") return part;
+    const id = projectedPartId(part);
+    if (!id) return part;
+    return withMeta(part, {
+      closed_at: openPartIds.has(id) ? null : (asMeta(part).closed_at ?? "closed"),
+    });
+  });
+  return { ...message, parts };
+}
+
+function mergeSnapshotMessage(prev: AgentMessage, incoming: AgentMessage): AgentMessage {
+  const incomingHasChrome = incoming.parts.some(isChromePart);
+  const chrome = incomingHasChrome ? [] : prev.parts.filter(isChromePart);
+  const mergedParts = chrome.length > 0
+    ? [...chrome, ...incoming.parts.filter((part) => !isChromePart(part))]
+    : incoming.parts;
+  const parts = reuseProjectedParts(prev.parts, mergedParts);
+  if (
+    prev.streaming === incoming.streaming
+    && prev.worked_ms === incoming.worked_ms
+    && prev.thinking_ms === incoming.thinking_ms
+    && prev.completed_at === incoming.completed_at
+    && prev.usage === incoming.usage
+    && parts === prev.parts
+  ) {
+    return prev;
+  }
+  return { ...prev, ...incoming, parts };
+}
+
+/** Skip WS events already covered by `get()` `last_event_seq`. */
+export function pendingEventsAfterSeq<T extends { revision?: number | null }>(
+  events: readonly T[],
+  snapshotSeq: number,
+): T[] {
+  return events.filter((event) => (event.revision ?? 0) > snapshotSeq);
+}
+
+/** Replace current-turn messages from a server snapshot; keep historical object identity. */
+export function applyTurnSnapshot(
+  messages: AgentMessage[],
+  incoming: AgentMessage[],
+  openPartIds: readonly string[] = [],
+): AgentMessage[] {
+  if (incoming.length === 0) return messages;
+  const open = new Set(openPartIds);
+  const stamped = incoming.map((message) => stampSnapshotOpenParts(message, open));
+  const byId = new Map(stamped.map((message) => [message.id, message]));
+  const seen = new Set<string>();
+  const next: AgentMessage[] = [];
+  for (const message of messages) {
+    const snap = byId.get(message.id);
+    if (snap) {
+      seen.add(message.id);
+      next.push(mergeSnapshotMessage(message, snap));
+    } else {
+      next.push(message);
+    }
+  }
+  for (const snap of stamped) {
+    if (!seen.has(snap.id)) next.push(snap);
+  }
+  if (next.length === messages.length && next.every((item, index) => item === messages[index])) {
+    return messages;
+  }
+  return next;
+}
+
+/** Fallback for clients that still replay `text_chunk`. Production restore uses get() then seq. */
 export function hydrateAgentChatMessages(
   persisted: AgentMessage[],
   liveEvents: AgentChatEvent[],
@@ -545,6 +625,14 @@ function foldAgentChatEvent(
 
   if (payload.type === "text_chunk") {
     return applyTextToMessages(messages, payload);
+  }
+
+  if (payload.type === "turn_snapshot") {
+    return folded(applyTurnSnapshot(
+      messages,
+      payload.messages ?? [],
+      payload.open_part_ids ?? [],
+    ));
   }
 
   if (payload.type === "part_closed") {

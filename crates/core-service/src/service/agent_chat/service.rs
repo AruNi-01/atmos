@@ -19,10 +19,10 @@ use tracing::warn;
 use crate::error::{Result, ServiceError};
 
 use super::apply_event::{
-    apply_event, apply_pending_session_config, emit_live, finish_turn, nonempty_opt,
-    overlay_live_state, persist_open_parts_closed, RuntimeState,
+    apply_event, apply_pending_session_config, emit_live, finish_turn, flush_turn_snapshot,
+    nonempty_opt, overlay_live_state, persist_open_parts_closed, RuntimeState,
 };
-use super::coalesce::{TextChunkCoalescer, COALESCE_FLUSH};
+use super::coalesce::{is_high_frequency_agent_event, TextChunkCoalescer, COALESCE_FLUSH};
 use super::options::OptionsPrefetchWorker;
 use super::queue::maybe_dispatch_queue;
 use super::store::AgentChatStore;
@@ -2021,24 +2021,28 @@ async fn pump_session(
         tokio::time::interval_at(tokio::time::Instant::now() + COALESCE_FLUSH, COALESCE_FLUSH);
     flush_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
-        let envelope = tokio::select! {
+        let (envelopes, flush_snapshot) = tokio::select! {
             next = session.next_event() => {
                 store_live_root_pid(&root_pid, session.root_pid());
                 let Some(envelope) = next else { break };
                 if matches!(envelope.payload, AgentEvent::SessionClosed) {
                     closed_cleanly = true;
                 }
-                if matches!(envelope.payload, AgentEvent::TextChunk { .. }) {
+                let flushed = if matches!(envelope.payload, AgentEvent::TextChunk { .. }) {
                     coalescer.push(envelope)
                 } else {
                     let mut flushed = coalescer.flush_all();
                     flushed.push(envelope);
                     flushed
-                }
+                };
+                let discrete = flushed
+                    .iter()
+                    .any(|item| !is_high_frequency_agent_event(&item.payload));
+                (flushed, discrete)
             }
-            _ = flush_tick.tick() => coalescer.flush_all(),
+            _ = flush_tick.tick() => (coalescer.flush_all(), true),
         };
-        for envelope in envelope {
+        for envelope in envelopes {
             pump_dispatch_envelope(
                 &chat_id,
                 envelope,
@@ -2051,6 +2055,13 @@ async fn pump_session(
                 status.as_deref(),
             )
             .await;
+        }
+        if flush_snapshot {
+            if let Err(error) =
+                flush_turn_snapshot(&chat_id, &store, &state, &events, &recent_events).await
+            {
+                warn!("agent chat turn snapshot error: {error}");
+            }
         }
     }
     for envelope in coalescer.flush_all() {
@@ -2067,6 +2078,7 @@ async fn pump_session(
         )
         .await;
     }
+    let _ = flush_turn_snapshot(&chat_id, &store, &state, &events, &recent_events).await;
     let replaced = runtimes
         .lock()
         .await

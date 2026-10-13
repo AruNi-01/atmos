@@ -1780,6 +1780,13 @@ pub enum AgentChatPayload {
         offset: u64,
         text: String,
     },
+    /// Current-turn cumulative messages, merged on the ~50–60ms pump tick.
+    TurnSnapshot {
+        turn_id: String,
+        messages: Vec<FoldedMessage>,
+        #[serde(default)]
+        open_part_ids: Vec<String>,
+    },
     PartClosed {
         part_id: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -295,6 +295,44 @@ export function applyChatEvent(state: ChatTranscriptState, event: AgentChatEvent
     return { state: { ...state, messages }, backfill: null };
   }
 
+  if (payload.type === "turn_snapshot") {
+    const incoming = payload.messages ?? [];
+    if (incoming.length === 0) return unchanged(state);
+    const open = new Set(payload.open_part_ids ?? []);
+    const stamped = incoming.map((message) => {
+      const parts = message.parts.map((part, index) => stampPart(message, part, index));
+      const streaming = parts.some((part) => {
+        if (part.type === "text") return open.has(part.message_id ?? "");
+        if (part.type === "thinking") return open.has(part.tool_call_id ?? "");
+        return false;
+      });
+      return { ...message, parts, streaming };
+    });
+    const byId = new Map(stamped.map((message) => [message.id, message]));
+    const seen = new Set<string>();
+    const messages: AgentMessage[] = [];
+    for (const message of state.messages) {
+      const snap = byId.get(message.id);
+      if (snap) {
+        seen.add(message.id);
+        messages.push(snap);
+      } else {
+        messages.push(message);
+      }
+    }
+    for (const snap of stamped) {
+      if (!seen.has(snap.id)) messages.push(snap);
+    }
+    return {
+      state: {
+        ...state,
+        messages,
+        store: seedStore(messages),
+      },
+      backfill: null,
+    };
+  }
+
   if (payload.type === "text_chunk") {
     const backfill = applyTextChunk(state.store, payload);
     const stored = state.store.parts.get(payload.part_id);

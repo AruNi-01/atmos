@@ -60,6 +60,8 @@ pub(super) struct RuntimeState {
     pub(super) thinking_ms: u64,
     pub(super) last_thinking_segment_ms: u64,
     pub(super) turn_usage: Option<super::types::TurnUsage>,
+    /// High-frequency persist landed; WS should emit `TurnSnapshot` on the merge tick.
+    pub(super) snapshot_dirty: bool,
 }
 
 impl RuntimeState {
@@ -81,6 +83,7 @@ impl RuntimeState {
             thinking_ms: 0,
             last_thinking_segment_ms: 0,
             turn_usage: None,
+            snapshot_dirty: false,
         }
     }
 
@@ -300,9 +303,6 @@ pub(super) async fn apply_event(
                 adapter_turn_id.as_deref(),
             )
             .await?;
-            emit(AgentChatPayload::ToolCallUpdated {
-                tool_call: tool_call.clone(),
-            })?;
             maybe_emit_grok_chrome_from_tool(store, chat_id, &tool_call, &emit_host)?;
         }
         AgentEvent::ToolCallCompleted { tool_call } => {
@@ -360,7 +360,6 @@ pub(super) async fn apply_event(
                     TranscriptEvent::Plan { plan: plan.clone() },
                 ),
             )?;
-            emit(AgentChatPayload::PlanUpdated { plan })?;
         }
         AgentEvent::PermissionRequested { request } => {
             let turn_id = state
@@ -1449,40 +1448,25 @@ async fn apply_text_chunk(
             apply_text_offset(existing, offset, &text);
         }
         persist_ordinal = tracked.part.ordinal;
+        state.snapshot_dirty = true;
     }
     store.append_record(
         chat_id,
         &TranscriptEnvelope::with_id(
-            adapter_event_id.clone(),
+            adapter_event_id,
             turn_id,
             TranscriptEvent::TextChunk {
-                part_id: part_id.clone(),
-                message_id: message_id.clone(),
-                parent_part_id: parent_part_id.clone(),
+                part_id,
+                message_id,
+                parent_part_id,
                 ordinal: persist_ordinal,
                 kind,
                 offset,
-                text: text.clone(),
+                text,
             },
         ),
     )?;
-    emit_live_ids(
-        chat_id,
-        AgentChatPayload::TextChunk {
-            part_id,
-            message_id,
-            parent_part_id,
-            ordinal: persist_ordinal,
-            kind,
-            offset,
-            text,
-        },
-        store,
-        events,
-        recent_events,
-        Some(adapter_event_id),
-        adapter_turn_id.map(str::to_string),
-    )
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1609,6 +1593,7 @@ async fn ensure_turn_row(
 
 async fn upsert_tool_part(state: &Mutex<RuntimeState>, turn_id: String, tool: ToolCallState) {
     let mut state = state.lock().await;
+    state.snapshot_dirty = true;
     let part_id = tool.tool_call_id.clone();
     if let Some(tracked) = state.parts.get_mut(&part_id) {
         tracked.part.body = match &tracked.part.body {
@@ -1647,6 +1632,7 @@ async fn upsert_tool_part(state: &Mutex<RuntimeState>, turn_id: String, tool: To
 
 async fn upsert_plan_part(state: &Mutex<RuntimeState>, turn_id: String, plan: serde_json::Value) {
     let mut state = state.lock().await;
+    state.snapshot_dirty = true;
     let part_id = format!("plan-{turn_id}");
     if let Some(tracked) = state.parts.get_mut(&part_id) {
         tracked.part.body = PartBody::Plan { plan };
@@ -1760,6 +1746,9 @@ fn close_open_parts(
             tracked.opened_at,
         ));
     }
+    if !closed.is_empty() {
+        state.snapshot_dirty = true;
+    }
     closed
 }
 
@@ -1852,6 +1841,106 @@ pub(super) async fn finish_turn(
         usage,
         error,
     })
+}
+
+fn live_turn_ids(state: &RuntimeState) -> std::collections::HashSet<&str> {
+    let mut ids = std::collections::HashSet::new();
+    if let Some(id) = state.current_turn_id.as_deref() {
+        ids.insert(id);
+    }
+    if let Some(id) = state.last_turn_id.as_deref() {
+        ids.insert(id);
+    }
+    ids
+}
+
+fn live_turn_folded_messages(state: &RuntimeState) -> Vec<FoldedMessage> {
+    let turn_ids = live_turn_ids(state);
+    let mut messages = Vec::new();
+    let mut parts: Vec<&Part> = state
+        .parts
+        .values()
+        .filter(|tracked| turn_ids.contains(tracked.turn_id.as_str()))
+        .map(|tracked| &tracked.part)
+        .collect();
+    parts.sort_by_key(|part| (part.message_id.clone(), part.ordinal));
+    for part in parts {
+        overlay_tracked_part(&mut messages, part);
+    }
+    let now = Utc::now();
+    let worked_ms = state.turn_started_at.map(|start| elapsed_ms(start, now));
+    let open_thinking_ms = state
+        .thinking_started_at
+        .map(|start| elapsed_ms(start, now));
+    let thinking_ms = Some(
+        state
+            .thinking_ms
+            .saturating_add(open_thinking_ms.unwrap_or(0)),
+    )
+    .filter(|ms| *ms > 0 || open_thinking_ms.is_some());
+    let streaming = state.parts.values().any(|tracked| {
+        turn_ids.contains(tracked.turn_id.as_str())
+            && tracked.part.closed_at.is_none()
+            && matches!(tracked.part.body, PartBody::Text { .. })
+    });
+    if let Some(last) = messages
+        .iter_mut()
+        .rev()
+        .find(|message| message.role == "assistant")
+    {
+        last.streaming = streaming;
+        if let Some(ms) = worked_ms {
+            last.worked_ms = Some(ms);
+        }
+        if thinking_ms.is_some() {
+            last.thinking_ms = thinking_ms;
+        }
+        if let Some(ms) = open_thinking_ms.filter(|ms| *ms > 0) {
+            stamp_open_thinking_duration(&mut last.parts, ms);
+        }
+    }
+    messages
+}
+
+pub(super) async fn flush_turn_snapshot(
+    chat_id: &str,
+    store: &AgentChatStore,
+    state: &Mutex<RuntimeState>,
+    events: &broadcast::Sender<AgentChatEvent>,
+    recent_events: &std::sync::Mutex<HashMap<String, VecDeque<AgentChatEvent>>>,
+) -> Result<()> {
+    let mut state = state.lock().await;
+    if !state.snapshot_dirty {
+        return Ok(());
+    }
+    state.snapshot_dirty = false;
+    let turn_id = state
+        .current_turn_id
+        .clone()
+        .or_else(|| state.last_turn_id.clone())
+        .unwrap_or_else(|| "unknown".to_string());
+    let open_part_ids = state
+        .parts
+        .values()
+        .filter(|tracked| tracked.part.closed_at.is_none())
+        .map(|tracked| tracked.part.id.clone())
+        .collect();
+    let messages = live_turn_folded_messages(&state);
+    drop(state);
+    if messages.is_empty() {
+        return Ok(());
+    }
+    emit_live(
+        chat_id,
+        AgentChatPayload::TurnSnapshot {
+            turn_id,
+            messages,
+            open_part_ids,
+        },
+        store,
+        events,
+        recent_events,
+    )
 }
 
 /// Merge live parts onto a disk snapshot. Same `Part` shape — map merge by
@@ -2600,6 +2689,9 @@ pub(super) fn push_recent(
         let queue = map
             .entry(event.chat_id.clone())
             .or_insert_with(VecDeque::new);
+        if matches!(event.payload, AgentChatPayload::TurnSnapshot { .. }) {
+            queue.retain(|item| !matches!(item.payload, AgentChatPayload::TurnSnapshot { .. }));
+        }
         queue.push_back(event.clone());
         while queue.len() > RECENT_EVENT_CAP {
             queue.pop_front();

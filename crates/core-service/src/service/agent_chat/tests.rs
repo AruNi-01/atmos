@@ -11,7 +11,7 @@ use agent::{
 };
 use tokio::time::timeout;
 
-use super::coalesce::{concat_adjacent_text, TextChunkCoalescer};
+use super::coalesce::{concat_adjacent_text, TextChunkCoalescer, COALESCE_FLUSH};
 use super::options::{parse_followup_policy, FollowupPolicy, OptionsPrefetchWorker};
 use super::service::AgentChatService;
 use super::store::AgentChatStore;
@@ -3529,4 +3529,201 @@ fn coalesce_non_text_forces_flush() {
     assert_eq!(coalesce_text(&flushed[0]), ("p", 0, "ab"));
     assert!(matches!(flushed[1].payload, AgentEvent::PartClosed { .. }));
     assert!(coalescer.is_empty());
+}
+
+#[test]
+fn coalesce_flush_stays_in_merge_window() {
+    assert!(COALESCE_FLUSH >= Duration::from_millis(50));
+    assert!(COALESCE_FLUSH <= Duration::from_millis(60));
+}
+
+#[tokio::test]
+async fn live_stream_emits_turn_snapshot_not_text_chunk() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    provider.set_auto_complete(false);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let mut rx = service.subscribe();
+    let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+
+    timeout(Duration::from_secs(2), async {
+        loop {
+            if provider.events_ready().await {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("runtime event channel");
+
+    let assistant_id = uuid::Uuid::new_v4().to_string();
+    provider
+        .push_event(AgentEvent::TextChunk {
+            part_id: assistant_id.clone(),
+            message_id: assistant_id.clone(),
+            parent_part_id: None,
+            ordinal: 0,
+            kind: TextKind::Answer,
+            offset: 0,
+            text: "Hello".into(),
+        })
+        .await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    provider
+        .push_event(AgentEvent::TextChunk {
+            part_id: assistant_id.clone(),
+            message_id: assistant_id.clone(),
+            parent_part_id: None,
+            ordinal: 0,
+            kind: TextKind::Answer,
+            offset: 5,
+            text: " world".into(),
+        })
+        .await;
+    tokio::time::sleep(COALESCE_FLUSH + Duration::from_millis(40)).await;
+
+    let mut live_text_chunks = 0usize;
+    let mut snapshots = Vec::new();
+    let mut seqs = Vec::new();
+    while let Ok(event) = rx.try_recv() {
+        seqs.push(event.revision);
+        match event.payload {
+            AgentChatPayload::TextChunk { .. } => live_text_chunks += 1,
+            AgentChatPayload::TurnSnapshot { messages, .. } => snapshots.push(messages),
+            _ => {}
+        }
+    }
+    assert_eq!(
+        live_text_chunks, 0,
+        "live pump must merge tokens into TurnSnapshot instead of TextChunk"
+    );
+    assert!(
+        !snapshots.is_empty(),
+        "expected a merged turn snapshot after the coalesce window"
+    );
+    let latest = snapshots.last().expect("snapshot");
+    let text = latest
+        .iter()
+        .filter(|message| message.role == "assistant")
+        .flat_map(|message| message.parts.iter())
+        .filter_map(|part| match part {
+            MessagePart::Text { text, .. } => Some(text.as_str()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("");
+    assert!(
+        text.contains("Hello world"),
+        "snapshot should carry cumulative turn text, got {text:?}"
+    );
+    assert!(
+        seqs.windows(2).all(|pair| pair[0] <= pair[1]),
+        "event seq must be monotonic: {seqs:?}"
+    );
+
+    let live = service.get(&meta.id).await.unwrap();
+    assert!(
+        assistant_texts(&live).contains("Hello world"),
+        "get() overlay must match the snapshot text"
+    );
+    let missed = service.events_after(&meta.id, live.meta.last_event_seq);
+    assert!(
+        missed
+            .iter()
+            .all(|event| !matches!(event.payload, AgentChatPayload::TextChunk { .. })),
+        "subscribe after get() must not replay stream chunks: {missed:?}"
+    );
+}
+
+#[tokio::test]
+async fn snapshot_then_seq_restore_matches_live_get() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    provider.set_auto_complete(false);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+
+    timeout(Duration::from_secs(2), async {
+        loop {
+            if provider.events_ready().await {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("runtime event channel");
+
+    let assistant_id = uuid::Uuid::new_v4().to_string();
+    provider
+        .push_event(AgentEvent::TextChunk {
+            part_id: assistant_id.clone(),
+            message_id: assistant_id.clone(),
+            parent_part_id: None,
+            ordinal: 0,
+            kind: TextKind::Answer,
+            offset: 0,
+            text: "alpha".into(),
+        })
+        .await;
+    tokio::time::sleep(COALESCE_FLUSH + Duration::from_millis(40)).await;
+
+    let first = service.get(&meta.id).await.unwrap();
+    let first_seq = first.meta.last_event_seq;
+    assert!(
+        assistant_texts(&first).contains("alpha"),
+        "first snapshot missing alpha: {}",
+        assistant_texts(&first)
+    );
+
+    provider
+        .push_event(AgentEvent::TextChunk {
+            part_id: assistant_id,
+            message_id: "a1".into(),
+            parent_part_id: None,
+            ordinal: 0,
+            kind: TextKind::Answer,
+            offset: 5,
+            text: " beta".into(),
+        })
+        .await;
+    tokio::time::sleep(COALESCE_FLUSH + Duration::from_millis(40)).await;
+
+    let missed = service.events_after(&meta.id, first_seq);
+    let restored_text = {
+        let mut text = assistant_texts(&first);
+        for event in &missed {
+            if let AgentChatPayload::TurnSnapshot { messages, .. } = &event.payload {
+                text = messages
+                    .iter()
+                    .filter(|message| message.role == "assistant")
+                    .flat_map(|message| message.parts.iter())
+                    .filter_map(|part| match part {
+                        MessagePart::Text { text, .. } => Some(text.clone()),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+                    .join("");
+            }
+        }
+        text
+    };
+    let live = service.get(&meta.id).await.unwrap();
+    assert!(
+        assistant_texts(&live).contains("alpha") && assistant_texts(&live).contains("beta"),
+        "live get should include both deltas: {}",
+        assistant_texts(&live)
+    );
+    assert!(
+        restored_text.contains("alpha") && restored_text.contains("beta"),
+        "snapshot + seq restore should match live text: restored={restored_text:?} live={}",
+        assistant_texts(&live)
+    );
+    assert!(
+        missed
+            .iter()
+            .all(|event| !matches!(event.payload, AgentChatPayload::TextChunk { .. })),
+        "gap replay must stay on TurnSnapshot, not TextChunk"
+    );
 }
