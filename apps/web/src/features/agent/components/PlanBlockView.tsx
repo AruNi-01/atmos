@@ -12,6 +12,10 @@ import {
 import { CircleCheck, CircleDashed, ListTodo } from "lucide-react";
 import type { AgentPlan } from "@/features/agent/lib/agent-chat-types";
 import { ComposerCollapseGlyph } from "./composer-collapse-glyph";
+import {
+  agentChatPlanExpandKey,
+  useAgentChatExpandStore,
+} from "@/features/agent/store/agent-chat-expand-store";
 
 function PlanEntryScrollableText({
   text,
@@ -93,6 +97,7 @@ export function PlanBlockView({
   defaultOpen = true,
   open: openControlled,
   onOpenChange,
+  expandKey,
 }: {
   plan: AgentPlan;
   docked?: boolean;
@@ -100,18 +105,26 @@ export function PlanBlockView({
   defaultOpen?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  expandKey?: string;
 }) {
   const t = useTranslations("Agent.components");
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
+  const storedOpen = useAgentChatExpandStore((state) =>
+    expandKey ? state.values[agentChatPlanExpandKey(expandKey)] : undefined,
+  );
+  const setExpand = useAgentChatExpandStore((state) => state.setExpand);
   const isControlled = openControlled !== undefined;
-  const isOpen = isControlled ? openControlled : uncontrolledOpen;
+  const isOpen = isControlled
+    ? openControlled
+    : (expandKey ? storedOpen ?? defaultOpen : uncontrolledOpen);
   const setIsOpen = useCallback(
     (next: boolean | ((prev: boolean) => boolean)) => {
       const resolved = typeof next === "function" ? next(isOpen) : next;
-      if (!isControlled) setUncontrolledOpen(resolved);
+      if (expandKey) setExpand(agentChatPlanExpandKey(expandKey), resolved);
+      if (!isControlled && !expandKey) setUncontrolledOpen(resolved);
       onOpenChange?.(resolved);
     },
-    [isControlled, isOpen, onOpenChange],
+    [expandKey, isControlled, isOpen, onOpenChange, setExpand],
   );
   const planEntries = plan?.entries ?? [];
   const completedCount = planEntries.filter((e) => e.status === "completed").length;

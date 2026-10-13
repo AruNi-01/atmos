@@ -48,6 +48,7 @@ import { FindHighlightLayer } from "@/features/editor/components/FindPanel";
 import { AgentChatMessageView } from "./AgentChatMessageView";
 import { useAgentChatOwnSendRefs } from "./agent-chat-own-send-context";
 import { isPendingUserEcho } from "@/features/agent/lib/agent-chat-pending-echo";
+import { stableAgentMessageKey } from "@/features/agent/lib/agent-chat-message-key";
 import {
   inlineSubagentTasksByMessageId,
   type SubagentCardMode,
@@ -171,7 +172,7 @@ export function AgentChatTranscriptList({
       if (ownSendRefs?.anchorIndexRef.current === index && ownSendRefs.itemKeyRef.current) {
         return ownSendRefs.itemKeyRef.current;
       }
-      return messages[index]?.id ?? index;
+      return stableAgentMessageKey(messages[index], index);
     },
     overscan: AGENT_CHAT_TRANSCRIPT_OVERSCAN,
     gap: AGENT_CHAT_TRANSCRIPT_GAP,
@@ -389,7 +390,9 @@ export function AgentChatTranscriptList({
                   message={message}
                   index={item.index}
                   inlineSubagentTools={inlineSubagentTools.get(message.id)}
-                  subagentMessages={messages}
+                  subagentMessages={
+                    inlineSubagentTools.get(message.id) ? messages : undefined
+                  }
                 />
                 {showActivityFooter ? (
                   <div

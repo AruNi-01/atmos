@@ -22,7 +22,7 @@ import { isHiddenTranscriptChromePart } from "@/features/agent/lib/agent-tool-ki
 import { ToolView } from "./ToolView";
 import { AgentPermissionCard } from "./AgentPermissionCard";
 import { useHistoricPermissionParts } from "./agent-permission-history-context";
-import { foldedPartIsOpen } from "./folded-agent-part";
+import { foldedPartIsOpen, foldedPartIsStreamingDisplayTail } from "./folded-agent-part";
 
 const CONVERSATION_LINK_SAFETY = { enabled: false } as const;
 
@@ -50,10 +50,11 @@ export function AgentPartView({
 
   if (part.type === "text") {
     const open = foldedPartIsOpen(part);
+    const streamingTail = foldedPartIsStreamingDisplayTail(part, parts);
     return (
       <MessageResponse
         parseIncompleteMarkdown
-        isAnimating={open}
+        isAnimating={streamingTail}
         caret={open ? "block" : undefined}
         className="break-words"
         components={reviewComponents as never}

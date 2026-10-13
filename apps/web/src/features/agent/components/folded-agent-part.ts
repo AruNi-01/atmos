@@ -17,6 +17,21 @@ export function foldedPartIsOpen(part: AgentPart): boolean {
   return foldedAgentPart(part).closed_at === null;
 }
 
+/** Display-buffer the last open answer text; earlier open blocks keep caret only. */
+export function foldedPartIsStreamingDisplayTail(
+  part: AgentPart,
+  parts: readonly AgentPart[],
+): boolean {
+  if (part.type !== "text" || !foldedPartIsOpen(part)) return false;
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const item = parts[index];
+    if (item?.type === "text" && foldedPartIsOpen(item)) {
+      return item === part;
+    }
+  }
+  return false;
+}
+
 export function foldedPartKey(part: AgentPart, origIndex: number): string {
   const partId = foldedAgentPart(part).part_id?.trim();
   if (partId) return partId;

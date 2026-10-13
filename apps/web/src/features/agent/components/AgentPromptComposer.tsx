@@ -811,6 +811,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
                   plan={currentPlan}
                   embedded
                   defaultOpen={!isResumedSession}
+                  expandKey={chatId ?? "composer"}
                 />
               </div>
             ) : null}

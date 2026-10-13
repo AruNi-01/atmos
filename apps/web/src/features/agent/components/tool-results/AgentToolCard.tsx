@@ -28,6 +28,11 @@ import {
 import { useAgentChatCwd, useAgentChatPathRoots } from "../agent-chat-cwd-context";
 import { useAgentTreeReveal } from "../agent-tree-reveal-context";
 import { useMarkAssistantProcessInspecting } from "../assistant-process-inspect-context";
+import { useAgentToolExpandId } from "../agent-tool-expand-context";
+import {
+  agentChatToolExpandKey,
+  useAgentChatExpandStore,
+} from "@/features/agent/store/agent-chat-expand-store";
 import {
   useAgentChatResolvedPathKind,
   useOpenAgentChatWorkspacePath,
@@ -287,8 +292,15 @@ export function AgentToolCard({
   const failed = (status ?? "").toLowerCase() === "failed" || tone === "error";
   const treeReveal = useAgentTreeReveal();
   const markInspecting = useMarkAssistantProcessInspecting();
-  const controlled = open !== undefined;
+  const expandId = useAgentToolExpandId();
+  const storedOpen = useAgentChatExpandStore((state) =>
+    expandId ? state.values[agentChatToolExpandKey(expandId)] : undefined,
+  );
+  const setExpand = useAgentChatExpandStore((state) => state.setExpand);
+  const controlled = open !== undefined || expandId != null;
+  const resolvedOpen = open ?? storedOpen ?? defaultOpen;
   const handleOpenChange = (next: boolean) => {
+    if (expandId) setExpand(agentChatToolExpandKey(expandId), next);
     onOpenChange?.(next);
     if (next) markInspecting();
   };
@@ -300,7 +312,7 @@ export function AgentToolCard({
     // must live outside that sandbox.
     <Collapsible
       {...(controlled
-        ? { open, onOpenChange: handleOpenChange }
+        ? { open: resolvedOpen, onOpenChange: handleOpenChange }
         : { defaultOpen, onOpenChange: handleOpenChange })}
       className="w-full min-w-0"
     >
