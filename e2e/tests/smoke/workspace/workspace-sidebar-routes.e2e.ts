@@ -61,11 +61,8 @@ test.describe("smoke workspace", () => {
       runStage.getByRole("tablist").first().getByRole("tab", { name: /运行|Run/ }),
     ).toBeVisible({ timeout: 45_000 });
 
-    await activateWorkspaceToolTab(page, /GitHub/);
-    const githubStage = await getCenterStage(page);
-    await expect(githubStage.getByRole("tab", { name: "拉取请求" })).toBeVisible();
-    await expect(githubStage.getByRole("tab", { name: "议题" })).toBeVisible();
-    await expect(githubStage.getByRole("tab", { name: "操作" })).toBeVisible();
+    // GITHUB_HUB_CENTER_TAB_VISIBLE is off; GitHub is not a plus-menu / center tab.
+    await expect(page.getByRole("tab", { name: /GitHub/ })).toHaveCount(0);
   });
 
   test("@smoke @stateful boots direct workspace urls with read-only sidebar toggles and settings page", async ({

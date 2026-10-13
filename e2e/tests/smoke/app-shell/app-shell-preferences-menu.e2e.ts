@@ -13,8 +13,8 @@ test.describe("smoke app shell preferences menu", () => {
     await connectLocalComputer(page);
 
     await gotoSettingsRoute(page, "general");
-    // Appearance lives on the General group tab strip, not as a page heading.
-    await expect(page.getByRole("tab", { name: /^(Appearance|外观)$/ })).toBeVisible();
+    // Appearance is a stacked h3 on General, not a group tab.
+    await expect(page.getByRole("heading", { name: /^(Appearance|外观)$/ })).toBeVisible();
     await expect(page.getByRole("tab", { name: /^(Light|浅色)$/ })).toBeVisible();
 
     await page.getByRole("tab", { name: /^(Light|浅色)$/ }).click();

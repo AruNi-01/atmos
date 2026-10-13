@@ -10,7 +10,7 @@ test.describe("smoke app shell workspace composer", () => {
     await connectLocalComputer(page);
 
     await page.getByRole("button", { name: "Select agent" }).click();
-    await expect(page.getByText("Claude Code", { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Claude Code" })).toBeVisible();
     await page.keyboard.press("Escape");
 
     await page.getByRole("button", { name: "No priority" }).click();
