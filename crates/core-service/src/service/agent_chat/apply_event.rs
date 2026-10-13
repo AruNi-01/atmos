@@ -1879,6 +1879,7 @@ fn live_turn_folded_messages(state: &RuntimeState) -> Vec<FoldedMessage> {
     for part in parts {
         overlay_tracked_part(&mut messages, part);
     }
+    apply_recorded_ordinal_order(&mut messages, state);
     let now = Utc::now();
     let worked_ms = state.turn_started_at.map(|start| elapsed_ms(start, now));
     let open_thinking_ms = state
@@ -1958,6 +1959,23 @@ pub(super) async fn flush_turn_snapshot(
     )
 }
 
+/// Slot-sort numbered parts by host ordinals; unmapped parts keep their slots.
+/// Same rule as jsonl fold (#307).
+fn apply_recorded_ordinal_order(messages: &mut [FoldedMessage], state: &RuntimeState) {
+    let overlay_ordinals: HashMap<String, u32> = state
+        .parts
+        .iter()
+        .map(|(id, tracked)| (id.clone(), tracked.part.ordinal))
+        .collect();
+    for message in messages.iter_mut() {
+        if message.role != "assistant" {
+            continue;
+        }
+        message.parts =
+            sort_parts_by_recorded_ordinals(std::mem::take(&mut message.parts), &overlay_ordinals);
+    }
+}
+
 /// Merge live parts onto a disk snapshot. Same `Part` shape — map merge by
 /// `part_id`, not a text splice.
 pub(super) fn overlay_live_state(snapshot: &mut AgentChatSnapshot, state: &RuntimeState) {
@@ -1966,18 +1984,7 @@ pub(super) fn overlay_live_state(snapshot: &mut AgentChatSnapshot, state: &Runti
     for part in parts {
         overlay_tracked_part(&mut snapshot.messages, part);
     }
-    let overlay_ordinals: HashMap<String, u32> = state
-        .parts
-        .iter()
-        .map(|(id, tracked)| (id.clone(), tracked.part.ordinal))
-        .collect();
-    for message in &mut snapshot.messages {
-        if message.role != "assistant" {
-            continue;
-        }
-        message.parts =
-            sort_parts_by_recorded_ordinals(std::mem::take(&mut message.parts), &overlay_ordinals);
-    }
+    apply_recorded_ordinal_order(&mut snapshot.messages, state);
     overlay_live_timing(snapshot, state, Utc::now());
     if snapshot.pending_permission.is_none() {
         snapshot.pending_permission = state.pending_permission.clone();
@@ -3360,6 +3367,75 @@ mod tests {
             })
             .collect();
         assert_eq!(texts, ["look", "mid"]);
+    }
+
+    #[tokio::test]
+    async fn turn_snapshot_orders_parts_by_recorded_ordinals() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = AgentChatStore::new(dir.path().join("chats"));
+        let meta = create_chat(&store);
+        let (tx, mut rx) = broadcast::channel(32);
+        let recent = std::sync::Mutex::new(HashMap::new());
+        let state = Mutex::new(RuntimeState::new(Some("t1".into())));
+        {
+            let mut state = state.lock().await;
+            state.parts.insert("t1".into(), live_tool("t1", 1));
+            state.parts.insert("t2".into(), live_tool("t2", 4));
+            state.parts.insert(
+                "txt-0".into(),
+                live_text("txt-0", TextKind::Answer, "look", 0, true),
+            );
+            state.parts.insert(
+                "txt-1".into(),
+                live_text("txt-1", TextKind::Answer, "mid", 2, true),
+            );
+            state.parts.insert(
+                "think-1".into(),
+                live_text("think-1", TextKind::Thinking, "hmm", 3, true),
+            );
+            state.snapshot_dirty = true;
+        }
+        flush_turn_snapshot(&meta.id, &store, &state, &tx, &recent)
+            .await
+            .unwrap();
+        let mut kinds = None;
+        let mut texts = None;
+        while let Ok(event) = rx.try_recv() {
+            if let AgentChatPayload::TurnSnapshot { messages, .. } = event.payload {
+                let assistant = messages
+                    .iter()
+                    .find(|message| message.role == "assistant")
+                    .expect("assistant");
+                kinds = Some(
+                    assistant
+                        .parts
+                        .iter()
+                        .filter_map(|part| match part {
+                            MessagePart::Text { .. } => Some("text"),
+                            MessagePart::Thinking { .. } => Some("thinking"),
+                            MessagePart::ToolCall { .. } => Some("tool"),
+                            _ => None,
+                        })
+                        .collect::<Vec<_>>(),
+                );
+                texts = Some(
+                    assistant
+                        .parts
+                        .iter()
+                        .filter_map(|part| match part {
+                            MessagePart::Text { text, .. } => Some(text.clone()),
+                            _ => None,
+                        })
+                        .collect::<Vec<_>>(),
+                );
+            }
+        }
+        assert_eq!(
+            kinds.expect("turn snapshot"),
+            ["text", "tool", "text", "thinking", "tool"],
+            "TurnSnapshot must slot-sort numbered parts the same way as #307"
+        );
+        assert_eq!(texts.expect("snapshot text"), ["look", "mid"]);
     }
 
     #[test]

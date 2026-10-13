@@ -2958,6 +2958,117 @@ async fn interleaved_text_tool_text_thinking_tool_survives_disk_reload() {
     assert_eq!(disk_text, ["look", "mid"]);
 }
 
+#[tokio::test]
+async fn live_turn_snapshot_keeps_text_tool_thinking_ordinal_order() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    provider.set_auto_complete(false);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let mut rx = service.subscribe();
+    let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+
+    timeout(Duration::from_secs(2), async {
+        loop {
+            if provider.events_ready().await {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("runtime event channel");
+
+    provider
+        .push_event(AgentEvent::TextChunk {
+            part_id: "txt-0".into(),
+            message_id: "a1".into(),
+            parent_part_id: None,
+            ordinal: 0,
+            kind: TextKind::Answer,
+            offset: 0,
+            text: "look".into(),
+        })
+        .await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    provider
+        .push_event(AgentEvent::ToolCallStarted {
+            tool_call: execute_tool("t1", agent::AgentToolStatus::Running),
+        })
+        .await;
+    provider
+        .push_event(AgentEvent::ToolCallCompleted {
+            tool_call: execute_tool("t1", agent::AgentToolStatus::Completed),
+        })
+        .await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    provider
+        .push_event(AgentEvent::TextChunk {
+            part_id: "txt-1".into(),
+            message_id: "a1".into(),
+            parent_part_id: None,
+            ordinal: 1,
+            kind: TextKind::Answer,
+            offset: 0,
+            text: "mid".into(),
+        })
+        .await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    provider
+        .push_event(AgentEvent::TextChunk {
+            part_id: "think-1".into(),
+            message_id: "a1".into(),
+            parent_part_id: None,
+            ordinal: 2,
+            kind: TextKind::Thinking,
+            offset: 0,
+            text: "hmm".into(),
+        })
+        .await;
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    provider
+        .push_event(AgentEvent::ToolCallStarted {
+            tool_call: execute_tool("t2", agent::AgentToolStatus::Running),
+        })
+        .await;
+    tokio::time::sleep(COALESCE_FLUSH + Duration::from_millis(40)).await;
+
+    let mut latest_kinds = None;
+    let mut latest_texts = None;
+    while let Ok(event) = rx.try_recv() {
+        if let AgentChatPayload::TurnSnapshot { messages, .. } = event.payload {
+            let assistant = messages.iter().find(|message| message.role == "assistant");
+            latest_kinds = assistant.map(|message| {
+                message
+                    .parts
+                    .iter()
+                    .filter_map(|part| match part {
+                        MessagePart::Thinking { text, .. } if !text.is_empty() => Some("thinking"),
+                        MessagePart::ToolCall { .. } => Some("tool"),
+                        MessagePart::Text { text, .. } if !text.is_empty() => Some("text"),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+            });
+            latest_texts = assistant.map(|message| {
+                message
+                    .parts
+                    .iter()
+                    .filter_map(|part| match part {
+                        MessagePart::Text { text, .. } if !text.is_empty() => Some(text.clone()),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+            });
+        }
+    }
+    assert_eq!(
+        latest_kinds.expect("live TurnSnapshot"),
+        ["text", "tool", "text", "thinking", "tool"],
+        "live TurnSnapshot must follow #307 recorded-ordinal slot order"
+    );
+    assert_eq!(latest_texts.expect("snapshot text"), ["look", "mid"]);
+}
+
 #[test]
 fn create_stamps_ready_options_into_descriptor() {
     let provider = Arc::new(FakeAgentProvider::new("factory-droid"));
