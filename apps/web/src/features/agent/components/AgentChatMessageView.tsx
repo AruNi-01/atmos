@@ -5,6 +5,12 @@ import { useLocale, useTranslations } from "next-intl";
 import { Message, MessageContent, cn } from "@workspace/ui";
 import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 import { assistantCopyText, textFromParts } from "@/features/agent/lib/agent-chat-events";
+import { stableAgentMessageKey } from "@/features/agent/lib/agent-chat-message-key";
+import {
+  agentChatUserBodyExpandKey,
+  agentChatUserMetaExpandKey,
+  useAgentChatExpand,
+} from "@/features/agent/store/agent-chat-expand-store";
 import { formatUserMessageTime } from "@/features/agent/lib/agent-chat-timing";
 import {
   composerFileUrlFromPath,
@@ -41,7 +47,11 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
   const userTime = formatUserMessageTime(message.created_at, locale);
   const hasUserMeta = Boolean(userTime) || userText.trim().length > 0;
   const chromeRef = useRef<HTMLDivElement>(null);
-  const [metaOpen, setMetaOpen] = useState(false);
+  const entryId = stableAgentMessageKey(message, index);
+  const [metaOpen, setMetaOpen] = useAgentChatExpand(
+    agentChatUserMetaExpandKey(entryId),
+    false,
+  );
 
   useEffect(() => {
     if (!metaOpen) return;
@@ -52,7 +62,7 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
     };
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [metaOpen]);
+  }, [metaOpen, setMetaOpen]);
   const assistantText = assistantCopyText(message);
   const hasAttachments = message.parts.some((part) => part.type === "attachment");
   const [fileApi, setFileApi] = useState<{
@@ -115,7 +125,7 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
             ) {
               return;
             }
-            setMetaOpen((open) => !open);
+            setMetaOpen(!metaOpen);
           }}
         >
           <Message from="user" className="gap-0">
@@ -123,6 +133,7 @@ export const AgentChatMessageView = React.memo(function AgentChatMessageView({
               {files.length > 0 || userText ? (
                 <UserMessageBody
                   text={userText}
+                  expandKey={agentChatUserBodyExpandKey(entryId)}
                   forceCollapsible={files.length > 0}
                   leading={
                     files.length > 0

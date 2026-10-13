@@ -9,6 +9,10 @@ import {
   expandPasteTokens,
   registerComposerPaste,
 } from "@/shared/lib/composer-paste";
+import {
+  agentChatUserBodyExpandKey,
+  useAgentChatExpandStore,
+} from "@/features/agent/store/agent-chat-expand-store";
 
 function translate(key: string, values?: Record<string, string | number>) {
   if (key === "chip" || key === "paste.chip") {
@@ -76,6 +80,7 @@ describe("UserMessageBody", () => {
   beforeEach(() => {
     installDom();
     __resetComposerPasteForTests();
+    useAgentChatExpandStore.setState({ values: {} });
   });
 
   afterEach(async () => {
@@ -282,6 +287,61 @@ describe("UserMessageBody", () => {
       );
     });
 
+    expect(container.querySelector("[data-user-message-collapsed]")).not.toBeNull();
+  });
+
+  it("restores expanded body after a virtual-row remount when expandKey is set", async () => {
+    const body = lines(8);
+    const key = agentChatUserBodyExpandKey("entry-7");
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(<UserMessageBody text={body} expandKey={key} />);
+    });
+
+    await act(async () => {
+      container
+        .querySelector("[data-user-message-body]")
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(container.querySelector("[data-user-message-collapsed]")).toBeNull();
+    expect(useAgentChatExpandStore.getState().values[key]).toBe(true);
+
+    await act(async () => {
+      root?.unmount();
+    });
+    root = createRoot(container);
+    await act(async () => {
+      root?.render(<UserMessageBody text={body} expandKey={key} />);
+    });
+    expect(container.querySelector("[data-user-message-collapsed]")).toBeNull();
+  });
+
+  it("drops expanded body on remount when expandKey is omitted", async () => {
+    const body = lines(8);
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(<UserMessageBody text={body} />);
+    });
+    await act(async () => {
+      container
+        .querySelector("[data-user-message-body]")
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(container.querySelector("[data-user-message-collapsed]")).toBeNull();
+
+    await act(async () => {
+      root?.unmount();
+    });
+    root = createRoot(container);
+    await act(async () => {
+      root?.render(<UserMessageBody text={body} />);
+    });
     expect(container.querySelector("[data-user-message-collapsed]")).not.toBeNull();
   });
 

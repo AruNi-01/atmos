@@ -20,6 +20,7 @@ import {
   measureTranscriptScrollMargin,
   mergeMermaidKeepAliveRange,
   mergeIndexKeepAliveRange,
+  shouldAdjustTranscriptScrollOnItemSizeChange,
   transcriptBottomPadPx,
   transcriptBottomPadStyle,
 } from "@/features/agent/lib/agent-chat-transcript-window";
@@ -88,6 +89,65 @@ describe("estimateTranscriptTotalSize", () => {
   });
 });
 
+describe("shouldAdjustTranscriptScrollOnItemSizeChange", () => {
+  it("on first measure compensates any row whose top sits above the fold", () => {
+    expect(
+      shouldAdjustTranscriptScrollOnItemSizeChange({
+        itemStart: 100,
+        itemSize: 88,
+        scrollOffset: 200,
+        firstMeasure: true,
+        scrollingBackward: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldAdjustTranscriptScrollOnItemSizeChange({
+        itemStart: 250,
+        itemSize: 88,
+        scrollOffset: 200,
+        firstMeasure: true,
+        scrollingBackward: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not shove the reading line when a visible user row expands", () => {
+    expect(
+      shouldAdjustTranscriptScrollOnItemSizeChange({
+        itemStart: 1750,
+        itemSize: 88,
+        scrollOffset: 1800,
+        firstMeasure: false,
+        scrollingBackward: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("shifts when a row entirely above the fold grows after the first measure", () => {
+    expect(
+      shouldAdjustTranscriptScrollOnItemSizeChange({
+        itemStart: 100,
+        itemSize: 88,
+        scrollOffset: 2000,
+        firstMeasure: false,
+        scrollingBackward: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not shift while scrolling backward even for rows above the fold", () => {
+    expect(
+      shouldAdjustTranscriptScrollOnItemSizeChange({
+        itemStart: 100,
+        itemSize: 88,
+        scrollOffset: 2000,
+        firstMeasure: false,
+        scrollingBackward: true,
+      }),
+    ).toBe(false);
+  });
+});
+
 describe("measureTranscriptScrollMargin", () => {
   it("returns 0 when either node is missing", () => {
     expect(measureTranscriptScrollMargin(null, null)).toBe(0);
@@ -135,6 +195,11 @@ describe("transcript virtual list wiring", () => {
     expect(list).toContain('data-markdown-find-content=""');
     expect(list).toContain("useVirtualizer");
     expect(list).toContain("measureElement");
+    expect(list).toContain("useAnimationFrameWithResizeObserver: true");
+    expect(list).toContain("anchorTo: \"end\"");
+    expect(list).toContain("scrollEndThreshold: TRANSCRIPT_END_SLACK_PX");
+    expect(list).toContain("shouldAdjustTranscriptScrollOnItemSizeChange");
+    expect(list).toContain("virtualizer.shouldAdjustScrollPositionOnItemSizeChange");
     expect(list).toContain("stableAgentMessageKey");
     expect(list).toContain("getItemKey");
     expect(list).toContain("virtualizer.scrollToIndex(index, { align: \"start\", behavior: \"smooth\" })");
@@ -199,6 +264,9 @@ describe("transcript virtual list wiring", () => {
     expect(session).not.toContain("hydrateAgentChatMessages");
     expect(session).not.toContain("RESTORE_REPLAY_BATCH_SIZE");
     expect(view).toContain("React.memo(function AgentChatMessageView");
+    expect(view).toContain("agentChatUserMetaExpandKey");
+    expect(view).toContain("agentChatUserBodyExpandKey");
+    expect(view).not.toContain("const [metaOpen, setMetaOpen] = useState(false)");
 
     expect(handlers).toContain("scrollToIndexRef.current?.(messageIndex)");
     expect(handlers).not.toContain("querySelector");

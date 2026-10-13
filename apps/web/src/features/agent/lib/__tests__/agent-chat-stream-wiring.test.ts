@@ -20,6 +20,22 @@ describe("agent chat stream wiring", () => {
     expect(tool).toContain("AgentToolExpandIdProvider");
     expect(list).toContain("subagentMessages={");
     expect(list).toContain("inlineSubagentTools.get(message.id) ? messages : undefined");
+    expect(list).toContain("measureElement");
+    expect(list).toContain("useAnimationFrameWithResizeObserver: true");
+    expect(list).toContain("anchorTo: \"end\"");
+    expect(list).toContain("shouldAdjustTranscriptScrollOnItemSizeChange");
+  });
+
+  it("lifts user-message expand and selected-time state out of the virtual row", () => {
+    const view = read("components/AgentChatMessageView.tsx");
+    const body = read("components/UserMessageBody.tsx");
+    expect(view).toContain("agentChatUserMetaExpandKey");
+    expect(view).toContain("agentChatUserBodyExpandKey");
+    expect(view).toContain("useAgentChatExpand");
+    expect(view).not.toContain("const [metaOpen, setMetaOpen] = useState(false)");
+    expect(body).toContain("expandKey");
+    expect(body).toContain("ResizeObserver");
+    expect(body).toContain("useAgentChatExpandStore");
   });
 
   it("timeline jump falls back to virtualizer.scrollToIndex for unmounted rows", () => {

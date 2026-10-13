@@ -47,3 +47,13 @@ export function agentChatToolExpandKey(toolCallId: string): string {
 export function agentChatPlanExpandKey(scope: string): string {
   return `plan:${scope}`;
 }
+
+/** User bubble expanded past the three-line / paste-chip collapse. */
+export function agentChatUserBodyExpandKey(entryId: string): string {
+  return `user-body:${entryId}`;
+}
+
+/** User bubble selected: time + copy row visible in the bottom-right. */
+export function agentChatUserMetaExpandKey(entryId: string): string {
+  return `user-meta:${entryId}`;
+}

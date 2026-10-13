@@ -97,6 +97,33 @@ export function estimateTranscriptInitialOffset(
 /** Slack for “already at the bottom” while row estimates catch up to measured height. */
 export const TRANSCRIPT_END_SLACK_PX = 24;
 
+/**
+ * Whether a row size change should shift `scrollTop` to keep the reading line still.
+ *
+ * Matches TanStack Virtual 3.17.7's default `resizeItem` predicate:
+ * - First measure: correct estimate→actual for any row whose top is above the fold.
+ * - Later measures (user expand / time row / markdown grow): only shift when the
+ *   row is *entirely* above the fold and the user is not scrolling backward.
+ *   A visible or below-fold row growing would otherwise shove the current text.
+ *
+ * Bottom pinning is *not* decided here. `useVirtualizer({ anchorTo: "end" })`
+ * keeps the end glued when `getDistanceFromEnd() <= TRANSCRIPT_END_SLACK_PX`.
+ */
+export function shouldAdjustTranscriptScrollOnItemSizeChange(input: {
+  itemStart: number;
+  itemSize: number;
+  scrollOffset: number;
+  firstMeasure: boolean;
+  scrollingBackward: boolean;
+}): boolean {
+  if (input.firstMeasure) {
+    return input.itemStart < input.scrollOffset;
+  }
+  return (
+    input.itemStart + input.itemSize <= input.scrollOffset && !input.scrollingBackward
+  );
+}
+
 export function isTranscriptScrolledToEnd(
   scroll: Pick<HTMLElement, "scrollHeight" | "scrollTop" | "clientHeight">,
   slackPx = TRANSCRIPT_END_SLACK_PX,

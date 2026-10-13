@@ -3,6 +3,8 @@ import {
   agentChatPlanExpandKey,
   agentChatProcessExpandKey,
   agentChatToolExpandKey,
+  agentChatUserBodyExpandKey,
+  agentChatUserMetaExpandKey,
   useAgentChatExpandStore,
 } from "../agent-chat-expand-store";
 
@@ -22,6 +24,18 @@ describe("agent chat expand store", () => {
     expect(useAgentChatExpandStore.getState().values[tool]).toBe(true);
     expect(useAgentChatExpandStore.getState().values[plan]).toBe(false);
     expect(useAgentChatExpandStore.getState().values[process]).toBe(true);
+  });
+
+  it("keeps user body expand and selected time after a virtual-row remount of the same entry id", () => {
+    const body = agentChatUserBodyExpandKey("entry-42");
+    const meta = agentChatUserMetaExpandKey("entry-42");
+    useAgentChatExpandStore.getState().setExpand(body, true);
+    useAgentChatExpandStore.getState().setExpand(meta, true);
+
+    expect(useAgentChatExpandStore.getState().values[body]).toBe(true);
+    expect(useAgentChatExpandStore.getState().values[meta]).toBe(true);
+    expect(body).toBe("user-body:entry-42");
+    expect(meta).toBe("user-meta:entry-42");
   });
 
   it("ignores a no-op write so listeners do not churn", () => {
