@@ -137,6 +137,10 @@ scripts/open-source/
 !.agents/skills/atmos-*/**
 !.agents/skills/text-to-lottie/
 !.agents/skills/text-to-lottie/**
+!.agents/skills/e2e/
+!.agents/skills/e2e/**
+!.agents/skills/verify-atmos-mobile/
+!.agents/skills/verify-atmos-mobile/**
 .augment/
 .claude/
 .codex/
