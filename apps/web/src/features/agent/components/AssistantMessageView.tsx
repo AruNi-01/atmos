@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
 import {
   Collapsible,
@@ -231,13 +231,16 @@ export const AssistantMessageView = React.memo(function AssistantMessageView({
   }, [setUserInspecting]);
 
   // When the turn first settles into collapsible chrome, auto-collapse unless the user
-  // expanded tools/process during the stream.
-  if (canCollapse && !wasCollapsibleRef.current) {
-    setStepsExpanded(
-      density === "detailed" || !shouldAutoCollapseProcessOnSettle(userInspecting),
-    );
-  }
-  wasCollapsibleRef.current = canCollapse;
+  // expanded tools/process during the stream. Must not write the expand store during
+  // render — zustand notifies every AssistantMessageView and React flags setState-in-render.
+  useLayoutEffect(() => {
+    if (canCollapse && !wasCollapsibleRef.current) {
+      setStepsExpanded(
+        density === "detailed" || !shouldAutoCollapseProcessOnSettle(userInspecting),
+      );
+    }
+    wasCollapsibleRef.current = canCollapse;
+  }, [canCollapse, density, setStepsExpanded, userInspecting]);
 
   const renderPart = (part: AgentPart, _origIndex: number) => (
     <AgentPartView
