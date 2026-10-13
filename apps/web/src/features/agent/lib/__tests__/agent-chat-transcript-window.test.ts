@@ -135,6 +135,14 @@ describe("transcript virtual list wiring", () => {
     expect(list).toContain('data-markdown-find-content=""');
     expect(list).toContain("useVirtualizer");
     expect(list).toContain("measureElement");
+    expect(list).toContain("stableAgentMessageKey");
+    expect(list).toContain("getItemKey");
+    expect(list).toContain("virtualizer.scrollToIndex(index, { align: \"start\", behavior: \"smooth\" })");
+    expect(list).toContain("stayPinnedToEndRef.current = false");
+    expect(list).toContain("virtualizer.scrollToIndex(messages.length - 1, { align: \"end\", behavior: \"auto\" })");
+    expect(list).not.toContain("key={index}");
+    expect(list).not.toContain("key={i}");
+    expect(list).not.toContain("RESTORE_REPLAY_BATCH_SIZE");
     expect(list).toContain("useFlushSync: false");
     expect(list).toContain("getTotalSize");
     expect(list).toContain("AGENT_CHAT_TRANSCRIPT_OVERSCAN");
@@ -185,6 +193,12 @@ describe("transcript virtual list wiring", () => {
     expect(session).toContain("isRestoringTranscript: isResumingHistory");
     expect(session).toContain("isResumingHistory: isResumingHistory && messages.length === 0");
     expect(session).toContain("scrollToIndexRef: ui.scrollToIndexRef");
+    expect(session).toContain("pendingEventsAfterSeq");
+    expect(session).toContain("agentChatApi.subscribe(id, after)");
+    expect(session).toContain("withStableAgentMessageIds");
+    expect(session).not.toContain("hydrateAgentChatMessages");
+    expect(session).not.toContain("RESTORE_REPLAY_BATCH_SIZE");
+    expect(view).toContain("React.memo(function AgentChatMessageView");
 
     expect(handlers).toContain("scrollToIndexRef.current?.(messageIndex)");
     expect(handlers).not.toContain("querySelector");

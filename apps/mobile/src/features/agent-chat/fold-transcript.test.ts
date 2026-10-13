@@ -85,6 +85,29 @@ describe("applyChatEvent", () => {
     expect(gap.backfill).toEqual({ partId: "p1", fromOffset: 2 });
   });
 
+  test("turn_snapshot replaces the current turn without dropping history", () => {
+    const user = applyChatEvent(createChatTranscript("chat-1"), event("chat-1", {
+      type: "user_message",
+      turn_id: "t1",
+      message_id: "u1",
+      text: "hi",
+    }, 1));
+    const snap = applyChatEvent(user.state, event("chat-1", {
+      type: "turn_snapshot",
+      turn_id: "t1",
+      messages: [{
+        id: "a1",
+        role: "assistant",
+        parts: [{ type: "text", text: "Hello", message_id: "p1" }],
+        streaming: true,
+      }],
+      open_part_ids: ["p1"],
+    }, 2));
+    expect(snap.state.messages.map((message) => message.id)).toEqual(["u1", "a1"]);
+    expect(messageText(snap.state, "a1")).toBe("Hello");
+    expect(snap.state.messages[1]?.streaming).toBe(true);
+  });
+
   test("available_commands_updated stores slash commands and does not add a message", () => {
     const next = applyChatEvent(createChatTranscript("chat-1"), event("chat-1", {
       type: "available_commands_updated",

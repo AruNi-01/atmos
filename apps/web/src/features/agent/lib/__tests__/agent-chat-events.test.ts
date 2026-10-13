@@ -1,11 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import { byteLength } from "@atmos/api-client/agent-chat";
 import {
+  applyTurnSnapshot,
   currentPlanFromMessages,
   currentTurnHasRunningSubagent,
   foldAgentChatEventResult,
   foldMessagesFromEvent,
   hydrateAgentChatMessages,
+  pendingEventsAfterSeq,
   takeBackfillRequest,
   textFromParts,
 } from "@/features/agent/lib/agent-chat-events";
@@ -1647,5 +1649,75 @@ describe("agent chat fold stays on AgentMessage", () => {
     }), "chat-1");
     expect(messages.find((message) => message.id === "a1")).toBe(settled);
     expect(textFromParts(messages.find((message) => message.id === "a2")!.parts)).toBe("hello");
+  });
+
+  it("applyTurnSnapshot keeps historical identity and stamps open_part_ids", () => {
+    const user: AgentMessage = { id: "u1", role: "user", parts: [{ type: "text", text: "hi" }] };
+    const assistant: AgentMessage = {
+      id: "a1",
+      role: "assistant",
+      parts: [{ type: "text", text: "Hel", message_id: "p1" }],
+      streaming: true,
+    };
+    const history = [user, assistant];
+    const next = applyTurnSnapshot(
+      history,
+      [{
+        id: "a1",
+        role: "assistant",
+        parts: [{ type: "text", text: "Hello", message_id: "p1" }],
+        streaming: true,
+      }],
+      ["p1"],
+    );
+    expect(next[0]).toBe(user);
+    expect(next[1]).not.toBe(assistant);
+    expect(textFromParts(next[1]!.parts)).toBe("Hello");
+    expect(next[1]?.streaming).toBe(true);
+    expect((next[1]?.parts[0] as { closed_at?: string | null }).closed_at).toBeNull();
+  });
+
+  it("snapshot then seq restore skips already-applied revisions", () => {
+    const user = chatEvent("chat-1", 1, {
+      type: "user_message",
+      turn_id: "t1",
+      message_id: "u1",
+      text: "hi",
+    });
+    const snap = chatEvent("chat-1", 5, {
+      type: "turn_snapshot",
+      turn_id: "t1",
+      messages: [{
+        id: "a1",
+        role: "assistant",
+        parts: [{ type: "text", text: "Hello", message_id: "p1" }],
+        streaming: true,
+      }],
+      open_part_ids: ["p1"],
+    });
+    const later = chatEvent("chat-1", 6, {
+      type: "turn_snapshot",
+      turn_id: "t1",
+      messages: [{
+        id: "a1",
+        role: "assistant",
+        parts: [{ type: "text", text: "Hello world", message_id: "p1" }],
+        streaming: true,
+      }],
+      open_part_ids: ["p1"],
+    });
+    const snapshotMessages = foldMessagesFromEvent(
+      foldMessagesFromEvent([], user, "chat-1"),
+      snap,
+      "chat-1",
+    );
+    const pending = pendingEventsAfterSeq([user, snap, later], 5);
+    expect(pending.map((event) => event.revision)).toEqual([6]);
+    const restored = pending.reduce(
+      (messages, event) => foldMessagesFromEvent(messages, event, "chat-1"),
+      snapshotMessages,
+    );
+    expect(textFromParts(restored[1]!.parts)).toBe("Hello world");
+    expect(restored[0]).toBe(snapshotMessages[0]);
   });
 });
