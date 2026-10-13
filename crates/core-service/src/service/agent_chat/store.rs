@@ -3677,6 +3677,72 @@ mod tests {
     }
 
     #[test]
+    fn fold_restores_text_tool_text_thinking_tool_from_recorded_ordinals() {
+        let turns = fold_envelopes([
+            rec("t1", TranscriptEvent::TurnStarted),
+            rec(
+                "t1",
+                TranscriptEvent::tool_call_with_ordinal(execute_tool("t1"), 1),
+            ),
+            rec(
+                "t1",
+                TranscriptEvent::tool_call_with_ordinal(execute_tool("t2"), 4),
+            ),
+            rec(
+                "t1",
+                TranscriptEvent::PartFinished {
+                    part_id: "txt-0".into(),
+                    message_id: "a1".into(),
+                    parent_part_id: None,
+                    ordinal: 0,
+                    kind: TextKind::Answer,
+                    text: "look".into(),
+                    duration_ms: None,
+                },
+            ),
+            rec(
+                "t1",
+                TranscriptEvent::PartFinished {
+                    part_id: "txt-1".into(),
+                    message_id: "a1".into(),
+                    parent_part_id: None,
+                    ordinal: 2,
+                    kind: TextKind::Answer,
+                    text: "mid".into(),
+                    duration_ms: None,
+                },
+            ),
+            rec(
+                "t1",
+                TranscriptEvent::PartFinished {
+                    part_id: "think-1".into(),
+                    message_id: "a1".into(),
+                    parent_part_id: None,
+                    ordinal: 3,
+                    kind: TextKind::Thinking,
+                    text: "hmm".into(),
+                    duration_ms: None,
+                },
+            ),
+        ]);
+        assert_eq!(
+            part_kinds(&turns),
+            ["text", "tool", "text", "thinking", "tool"]
+        );
+        let texts: Vec<_> = turns
+            .iter()
+            .flat_map(|turn| turn.messages.iter())
+            .filter(|message| message.role == "assistant")
+            .flat_map(|message| message.parts.iter())
+            .filter_map(|part| match part {
+                MessagePart::Text { text, .. } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(texts, ["look", "mid"]);
+    }
+
+    #[test]
     fn later_plan_updates_do_not_drop_tools() {
         let (_dir, store) = store();
         let meta = create(&store, "/tmp/a");

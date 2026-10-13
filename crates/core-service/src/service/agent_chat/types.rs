@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
@@ -1023,7 +1022,8 @@ pub enum MessagePart {
         text: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         parent_tool_call_id: Option<String>,
-        /// Provider stream id. Same id updates this block even after tools.
+        /// Fragment `part_id` for this text block (not the provider stream id).
+        /// Same id updates this block even after tools.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         message_id: Option<String>,
     },
@@ -1387,6 +1387,11 @@ pub fn order_assistant_parts(parts: Vec<MessagePart>) -> Vec<MessagePart> {
     session
 }
 
+/// Fold/overlay identity used as the ordinal-map key.
+///
+/// `Text.message_id` stores the fragment `part_id` (the same key
+/// `TextChunk` / `PartFinished` record in the ordinal table), not the
+/// provider stream id. Thinking uses `tool_call_id`; tools use `tool_call_id`.
 pub fn message_part_fold_id(part: &MessagePart) -> Option<&str> {
     match part {
         MessagePart::Text {
@@ -1402,45 +1407,52 @@ pub fn message_part_fold_id(part: &MessagePart) -> Option<&str> {
     }
 }
 
-/// Rebuild thinking/tool interleaving from persisted host ordinals.
+/// Rebuild interleaved thinking, tool, and text order from persisted host
+/// ordinals.
 ///
 /// Tools go to `transcript.jsonl` immediately; thinking `PartFinished` is
-/// written later at close, so jsonl append order groups tools then thinking.
-/// When every thinking and tool part recorded an ordinal, sort by that.
-/// Older jsonl without tool ordinals keeps append order.
+/// written later at close, so jsonl append order groups tools then text then
+/// thinking. Sort only parts whose fold id is in `ordinals` (text via stored
+/// `part_id`) and write them back into those slots so unmapped parts — session
+/// chrome, or disk text missing from a live overlay map — keep their relative
+/// positions. Older jsonl without recorded ordinals keeps append order.
 pub fn sort_parts_by_recorded_ordinals(
     parts: Vec<MessagePart>,
     ordinals: &HashMap<String, u32>,
 ) -> Vec<MessagePart> {
-    let thinking_or_tool = |part: &MessagePart| {
-        matches!(
-            part,
-            MessagePart::Thinking { .. } | MessagePart::ToolCall { .. }
-        )
-    };
-    let can_sort = parts.iter().any(thinking_or_tool)
-        && parts
-            .iter()
-            .filter(|part| thinking_or_tool(part))
-            .all(|part| message_part_fold_id(part).is_some_and(|id| ordinals.contains_key(id)));
-    let ordered = if !can_sort {
-        parts
-    } else {
-        let mut indexed: Vec<(usize, MessagePart)> = parts.into_iter().enumerate().collect();
-        indexed.sort_by(|(ia, a), (ib, b)| {
-            match (
-                message_part_fold_id(a).and_then(|id| ordinals.get(id).copied()),
-                message_part_fold_id(b).and_then(|id| ordinals.get(id).copied()),
-            ) {
-                (Some(oa), Some(ob)) => oa.cmp(&ob).then(ia.cmp(ib)),
-                (Some(_), None) => Ordering::Less,
-                (None, Some(_)) => Ordering::Greater,
-                (None, None) => ia.cmp(ib),
-            }
-        });
-        indexed.into_iter().map(|(_, part)| part).collect()
-    };
-    order_assistant_parts(ordered)
+    let slots: Vec<usize> = parts
+        .iter()
+        .enumerate()
+        .filter_map(|(index, part)| {
+            message_part_fold_id(part)
+                .is_some_and(|id| ordinals.contains_key(id))
+                .then_some(index)
+        })
+        .collect();
+    if slots.len() < 2 {
+        return order_assistant_parts(parts);
+    }
+    let mut taken: Vec<Option<MessagePart>> = parts.into_iter().map(Some).collect();
+    let mut moving: Vec<(u32, usize, MessagePart)> = slots
+        .iter()
+        .map(|&index| {
+            let part = taken[index].take().expect("occupied sort slot");
+            let ordinal = message_part_fold_id(&part)
+                .and_then(|id| ordinals.get(id).copied())
+                .expect("slot has recorded ordinal");
+            (ordinal, index, part)
+        })
+        .collect();
+    moving.sort_by_key(|(ordinal, index, _)| (*ordinal, *index));
+    for (slot, (_, _, part)) in slots.into_iter().zip(moving) {
+        taken[slot] = Some(part);
+    }
+    order_assistant_parts(
+        taken
+            .into_iter()
+            .map(|part| part.expect("refilled sort slot"))
+            .collect(),
+    )
 }
 
 fn split_trailing_answer(mut parts: Vec<MessagePart>) -> (Vec<MessagePart>, Vec<MessagePart>) {
@@ -2003,13 +2015,27 @@ pub struct CreateAgentChatRequest {
 
 #[cfg(test)]
 mod assistant_part_order_tests {
-    use super::{apply_text_offset, order_assistant_parts, MessagePart};
+    use std::collections::HashMap;
+
+    use agent::{AgentToolKind, AgentToolParams, AgentToolStatus};
+
+    use super::{
+        apply_text_offset, order_assistant_parts, sort_parts_by_recorded_ordinals, MessagePart,
+    };
 
     fn text(value: &str) -> MessagePart {
         MessagePart::Text {
             text: value.to_string(),
             parent_tool_call_id: None,
             message_id: None,
+        }
+    }
+
+    fn text_part(id: &str, value: &str) -> MessagePart {
+        MessagePart::Text {
+            text: value.to_string(),
+            parent_tool_call_id: None,
+            message_id: Some(id.into()),
         }
     }
 
@@ -2020,6 +2046,55 @@ mod assistant_part_order_tests {
             duration_ms: None,
             parent_tool_call_id: None,
         }
+    }
+
+    fn thinking_part(id: &str, value: &str) -> MessagePart {
+        MessagePart::Thinking {
+            text: value.to_string(),
+            tool_call_id: Some(id.into()),
+            duration_ms: None,
+            parent_tool_call_id: None,
+        }
+    }
+
+    fn tool(id: &str) -> MessagePart {
+        MessagePart::ToolCall {
+            tool_call_id: id.into(),
+            parent_tool_call_id: None,
+            name: "Execute".into(),
+            title: None,
+            kind: AgentToolKind::Execute,
+            status: AgentToolStatus::Completed,
+            params: AgentToolParams::Execute {
+                command: "ls".into(),
+                cwd: None,
+                background: false,
+                task_id: None,
+            },
+            result: None,
+        }
+    }
+
+    fn part_kinds(parts: &[MessagePart]) -> Vec<&'static str> {
+        parts
+            .iter()
+            .filter_map(|part| match part {
+                MessagePart::Text { .. } => Some("text"),
+                MessagePart::Thinking { .. } => Some("thinking"),
+                MessagePart::ToolCall { .. } => Some("tool"),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn part_texts(parts: &[MessagePart]) -> Vec<&str> {
+        parts
+            .iter()
+            .filter_map(|part| match part {
+                MessagePart::Text { text, .. } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect()
     }
 
     #[test]
@@ -2113,6 +2188,48 @@ mod assistant_part_order_tests {
         assert_eq!(suffix, &text[4..]);
         assert!(super::text_suffix_from(&text, 16).is_none());
         assert!(super::text_suffix_from(&text, 32).is_none());
+    }
+
+    #[test]
+    fn recorded_ordinals_restore_text_tool_text_thinking_tool() {
+        let ordinals = HashMap::from([
+            ("txt-0".into(), 0),
+            ("t1".into(), 1),
+            ("txt-1".into(), 2),
+            ("think-1".into(), 3),
+            ("t2".into(), 4),
+        ]);
+        let ordered = sort_parts_by_recorded_ordinals(
+            vec![
+                tool("t1"),
+                tool("t2"),
+                text_part("txt-0", "look"),
+                text_part("txt-1", "mid"),
+                thinking_part("think-1", "hmm"),
+            ],
+            &ordinals,
+        );
+        assert_eq!(
+            part_kinds(&ordered),
+            ["text", "tool", "text", "thinking", "tool"]
+        );
+        assert_eq!(part_texts(&ordered), ["look", "mid"]);
+    }
+
+    #[test]
+    fn unmapped_text_keeps_its_slot_while_thinking_and_tools_reorder() {
+        let ordinals = HashMap::from([("t1".into(), 1), ("think-1".into(), 0), ("t2".into(), 2)]);
+        let ordered = sort_parts_by_recorded_ordinals(
+            vec![
+                tool("t1"),
+                tool("t2"),
+                text_part("txt-0", "look"),
+                thinking_part("think-1", "hmm"),
+            ],
+            &ordinals,
+        );
+        assert_eq!(part_kinds(&ordered), ["thinking", "tool", "text", "tool"]);
+        assert_eq!(part_texts(&ordered), ["look"]);
     }
 }
 
