@@ -1014,6 +1014,7 @@ mod tests {
     use crate::contract::Capability;
     use std::collections::HashMap;
     use std::os::unix::fs::PermissionsExt;
+    use std::path::Path;
     use std::sync::atomic::AtomicUsize;
 
     const FAKE_CLAUDE: &str = r#"#!/usr/bin/env python3
@@ -1083,13 +1084,41 @@ for raw in sys.stdin:
         log: PathBuf,
     }
 
+    fn write_executable(path: &Path, contents: &str) {
+        use std::io::Write;
+        let mut file = std::fs::File::create(path).expect("create");
+        file.write_all(contents.as_bytes()).expect("write");
+        file.sync_all().expect("sync");
+        drop(file);
+        let mut perms = std::fs::metadata(path).unwrap().permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(path, perms).unwrap();
+    }
+
     fn write_fake() -> FakeBin {
         let dir = tempfile::tempdir().expect("tempdir");
         let program = dir.path().join("claude");
-        std::fs::write(&program, FAKE_CLAUDE).expect("write");
-        let mut perms = std::fs::metadata(&program).unwrap().permissions();
-        perms.set_mode(0o755);
-        std::fs::set_permissions(&program, perms).unwrap();
+        let py = dir.path().join("claude.py");
+        std::fs::write(&py, FAKE_CLAUDE).expect("write py");
+        // `--help` stays in /bin/sh so the too-old probe does not exec python
+        // (write-then-exec of a just-created `#!/usr/bin/env python3` file hits
+        // ETXTBSY under `cargo test --workspace` parallelism).
+        let wrapper = format!(
+            "#!/bin/sh\n\
+             for arg in \"$@\"; do\n\
+             if [ \"$arg\" = --help ]; then\n\
+             if [ \"${{FAKE_CLAUDE_OLD:-}}\" = 1 ]; then\n\
+             printf '%s\\n' 'Usage: claude -p --output-format stream-json'\n\
+             else\n\
+             printf '%s\\n' 'Usage: claude' '  --input-format FORMAT' '  --output-format FORMAT'\n\
+             fi\n\
+             exit 0\n\
+             fi\n\
+             done\n\
+             exec python3 -u '{}' \"$@\"\n",
+            py.display()
+        );
+        write_executable(&program, &wrapper);
         let log = dir.path().join("log.jsonl");
         let _ = std::fs::write(&log, "");
         FakeBin {
@@ -1308,7 +1337,32 @@ for raw in sys.stdin:
             Ok(_) => panic!("too old"),
             Err(error) => error,
         };
-        assert!(error.to_string().contains("Claude Code too old"));
+        assert!(
+            error.to_string().contains("Claude Code too old"),
+            "expected too-old probe, got {error}"
+        );
+    }
+
+    #[tokio::test]
+    async fn too_old_claude_fails_create_runtime_under_parallel_exec() {
+        let mut joins = Vec::new();
+        for _ in 0..24 {
+            joins.push(tokio::spawn(async {
+                let fake = write_fake();
+                let provider = ClaudeNativeProvider::with_program(&fake.program);
+                provider.create_runtime(fake_cfg(&fake, true)).await
+            }));
+        }
+        for join in joins {
+            let error = match join.await.expect("join") {
+                Ok(_) => panic!("too old"),
+                Err(error) => error,
+            };
+            assert!(
+                error.to_string().contains("Claude Code too old"),
+                "expected too-old probe, got {error}"
+            );
+        }
     }
 
     #[tokio::test]
