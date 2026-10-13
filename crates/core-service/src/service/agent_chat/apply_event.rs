@@ -1752,6 +1752,12 @@ fn close_open_parts(
     closed
 }
 
+fn prune_closed_parts(state: &mut RuntimeState) {
+    state
+        .parts
+        .retain(|_, tracked| tracked.part.closed_at.is_none());
+}
+
 /// Close every still-open part of the chat (all turns) and persist
 /// `PartFinished` for leftover text. Used on runtime teardown after the
 /// current turn is settled, and when the current turn id is already gone.
@@ -1763,7 +1769,9 @@ pub(super) async fn persist_open_parts_closed(
 ) -> Result<()> {
     let closed_parts = {
         let mut state = state.lock().await;
-        close_open_parts(&mut state, None, Utc::now(), None)
+        let closed = close_open_parts(&mut state, None, Utc::now(), None);
+        prune_closed_parts(&mut state);
+        closed
     };
     for (part_id, finished, duration_ms, turn_id, opened_at) in closed_parts {
         if let Some(finished) = finished {
@@ -1803,6 +1811,7 @@ pub(super) async fn finish_turn(
         let thinking_duration = (last_thinking_segment_ms > 0).then_some(last_thinking_segment_ms);
         let closed_parts =
             close_parts_of_turn(&mut state, &turn_id, completed_at, thinking_duration);
+        prune_closed_parts(&mut state);
         (closed_parts, worked_ms, thinking_ms, usage, completed_at)
     };
     for (part_id, finished, duration_ms, opened_at) in closed_parts {
@@ -1919,10 +1928,13 @@ pub(super) async fn flush_turn_snapshot(
         .clone()
         .or_else(|| state.last_turn_id.clone())
         .unwrap_or_else(|| "unknown".to_string());
+    let turn_ids = live_turn_ids(&state);
     let open_part_ids = state
         .parts
         .values()
-        .filter(|tracked| tracked.part.closed_at.is_none())
+        .filter(|tracked| {
+            turn_ids.contains(tracked.turn_id.as_str()) && tracked.part.closed_at.is_none()
+        })
         .map(|tracked| tracked.part.id.clone())
         .collect();
     let messages = live_turn_folded_messages(&state);
@@ -4453,14 +4465,84 @@ mod tests {
         .await
         .unwrap();
         let state = state.lock().await;
-        assert_eq!(state.parts.len(), 3, "answer, thinking, and tool parts");
-        for tracked in state.parts.values() {
-            assert!(
-                tracked.part.closed_at.is_some(),
-                "part {} still open",
-                tracked.part.id
+        assert!(
+            state.parts.is_empty(),
+            "closed parts must be dropped at turn end, leftover={:?}",
+            state.parts.keys().collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn open_part_ids_only_include_the_live_turn() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = AgentChatStore::new(dir.path().join("chats"));
+        let meta = create_chat(&store);
+        let (tx, mut rx) = broadcast::channel(32);
+        let recent = std::sync::Mutex::new(HashMap::new());
+        let state = Mutex::new(RuntimeState::new(Some("t2".into())));
+        {
+            let mut state = state.lock().await;
+            state.parts.insert(
+                "stale".into(),
+                TrackedPart {
+                    turn_id: "t1".into(),
+                    part: Part {
+                        id: "stale".into(),
+                        message_id: "a0".into(),
+                        parent_part_id: None,
+                        ordinal: 0,
+                        body: PartBody::Text {
+                            kind: TextKind::Answer,
+                            text: "from a previous turn".into(),
+                        },
+                        closed_at: None,
+                    },
+                    opened_at: Utc::now(),
+                },
             );
         }
+        apply_event(
+            &meta.id,
+            AgentEventEnvelope::new(
+                Some("t2".into()),
+                AgentEvent::TextChunk {
+                    part_id: "live".into(),
+                    message_id: "a2".into(),
+                    parent_part_id: None,
+                    ordinal: 0,
+                    kind: TextKind::Answer,
+                    offset: 0,
+                    text: "current".into(),
+                },
+            ),
+            &store,
+            &state,
+            &tx,
+            &recent,
+        )
+        .await
+        .unwrap();
+        flush_turn_snapshot(&meta.id, &store, &state, &tx, &recent)
+            .await
+            .unwrap();
+        let mut open_part_ids = None;
+        while let Ok(event) = rx.try_recv() {
+            if let AgentChatPayload::TurnSnapshot {
+                open_part_ids: ids, ..
+            } = event.payload
+            {
+                open_part_ids = Some(ids);
+            }
+        }
+        let ids = open_part_ids.expect("live turn snapshot");
+        assert!(
+            ids.iter().any(|id| id == "live"),
+            "current-turn open part missing: {ids:?}"
+        );
+        assert!(
+            ids.iter().all(|id| id != "stale"),
+            "previous-turn residue must not look streaming: {ids:?}"
+        );
     }
 
     #[tokio::test]
@@ -4520,14 +4602,11 @@ mod tests {
             .unwrap();
         {
             let state = state.lock().await;
-            assert_eq!(state.parts.len(), 2);
-            for tracked in state.parts.values() {
-                assert!(
-                    tracked.part.closed_at.is_some(),
-                    "part {} still open after teardown",
-                    tracked.part.id
-                );
-            }
+            assert!(
+                state.parts.is_empty(),
+                "teardown must drop closed leftover parts, leftover={:?}",
+                state.parts.keys().collect::<Vec<_>>()
+            );
         }
         let jsonl =
             std::fs::read_to_string(store.dir_for(&meta.id).join("transcript.jsonl")).unwrap();

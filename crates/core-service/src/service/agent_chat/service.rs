@@ -2042,7 +2042,10 @@ async fn pump_session(
             }
             _ = flush_tick.tick() => (coalescer.flush_all(), true),
         };
-        for envelope in envelopes {
+        let (high_freq, discrete): (Vec<_>, Vec<_>) = envelopes
+            .into_iter()
+            .partition(|item| is_high_frequency_agent_event(&item.payload));
+        for envelope in high_freq {
             pump_dispatch_envelope(
                 &chat_id,
                 envelope,
@@ -2062,6 +2065,20 @@ async fn pump_session(
             {
                 warn!("agent chat turn snapshot error: {error}");
             }
+        }
+        for envelope in discrete {
+            pump_dispatch_envelope(
+                &chat_id,
+                envelope,
+                &store,
+                &state,
+                &events,
+                &control,
+                &recent_events,
+                &turn_gates,
+                status.as_deref(),
+            )
+            .await;
         }
     }
     for envelope in coalescer.flush_all() {

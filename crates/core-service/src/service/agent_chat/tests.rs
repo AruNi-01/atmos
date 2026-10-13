@@ -3727,3 +3727,162 @@ async fn snapshot_then_seq_restore_matches_live_get() {
         "gap replay must stay on TurnSnapshot, not TextChunk"
     );
 }
+
+fn folded_assistant_text(messages: &[super::types::FoldedMessage]) -> String {
+    messages
+        .iter()
+        .filter(|message| message.role == "assistant")
+        .flat_map(|message| message.parts.iter())
+        .filter_map(|part| match part {
+            MessagePart::Text { text, .. } => Some(text.as_str()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("")
+}
+
+async fn wait_provider_ready(provider: &FakeAgentProvider) {
+    timeout(Duration::from_secs(2), async {
+        loop {
+            if provider.events_ready().await {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("runtime event channel");
+}
+
+async fn collect_until(
+    rx: &mut tokio::sync::broadcast::Receiver<super::types::AgentChatEvent>,
+    deadline: Duration,
+    mut done: impl FnMut(&[super::types::AgentChatEvent]) -> bool,
+) -> Vec<super::types::AgentChatEvent> {
+    let started = tokio::time::Instant::now();
+    let mut events = Vec::new();
+    while started.elapsed() < deadline {
+        match rx.try_recv() {
+            Ok(event) => {
+                events.push(event);
+                if done(&events) {
+                    return events;
+                }
+            }
+            Err(_) => tokio::time::sleep(Duration::from_millis(5)).await,
+        }
+    }
+    events
+}
+
+#[tokio::test]
+async fn text_snapshot_is_emitted_before_tool_call_started() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    provider.set_auto_complete(false);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let mut rx = service.subscribe();
+    let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+    wait_provider_ready(&provider).await;
+
+    let assistant_id = uuid::Uuid::new_v4().to_string();
+    provider
+        .push_event(AgentEvent::TextChunk {
+            part_id: assistant_id.clone(),
+            message_id: assistant_id.clone(),
+            parent_part_id: None,
+            ordinal: 0,
+            kind: TextKind::Answer,
+            offset: 0,
+            text: "Hello before tool".into(),
+        })
+        .await;
+    provider
+        .push_event(AgentEvent::ToolCallStarted {
+            tool_call: execute_tool("tool-before", agent::AgentToolStatus::Running),
+        })
+        .await;
+
+    let events = collect_until(&mut rx, Duration::from_secs(2), |items| {
+        items
+            .iter()
+            .any(|event| matches!(event.payload, AgentChatPayload::ToolCallStarted { .. }))
+    })
+    .await;
+
+    let snapshot_at = events.iter().position(|event| match &event.payload {
+        AgentChatPayload::TurnSnapshot { messages, .. } => {
+            folded_assistant_text(messages).contains("Hello before tool")
+        }
+        _ => false,
+    });
+    let tool_at = events
+        .iter()
+        .position(|event| matches!(event.payload, AgentChatPayload::ToolCallStarted { .. }));
+    assert!(
+        snapshot_at.is_some(),
+        "expected a text snapshot before the tool call: {events:?}"
+    );
+    assert!(
+        tool_at.is_some(),
+        "expected ToolCallStarted on the live bus: {events:?}"
+    );
+    assert!(
+        snapshot_at.unwrap() < tool_at.unwrap(),
+        "text snapshot must precede ToolCallStarted: snapshot={snapshot_at:?} tool={tool_at:?} events={events:?}"
+    );
+}
+
+#[tokio::test]
+async fn turn_snapshot_is_emitted_before_turn_completed() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    provider.set_auto_complete(false);
+    let (_dir, service) = make_service(Arc::clone(&provider));
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let mut rx = service.subscribe();
+    let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+    wait_provider_ready(&provider).await;
+
+    let assistant_id = uuid::Uuid::new_v4().to_string();
+    provider
+        .push_event(AgentEvent::TextChunk {
+            part_id: assistant_id.clone(),
+            message_id: assistant_id,
+            parent_part_id: None,
+            ordinal: 0,
+            kind: TextKind::Answer,
+            offset: 0,
+            text: "final frame".into(),
+        })
+        .await;
+    provider.complete_current().await;
+
+    let events = collect_until(&mut rx, Duration::from_secs(2), |items| {
+        items
+            .iter()
+            .any(|event| matches!(event.payload, AgentChatPayload::TurnCompleted { .. }))
+    })
+    .await;
+
+    let snapshot_at = events.iter().position(|event| match &event.payload {
+        AgentChatPayload::TurnSnapshot { messages, .. } => {
+            folded_assistant_text(messages).contains("final frame")
+        }
+        _ => false,
+    });
+    let completed_at = events
+        .iter()
+        .position(|event| matches!(event.payload, AgentChatPayload::TurnCompleted { .. }));
+    assert!(
+        snapshot_at.is_some(),
+        "expected a last-frame snapshot before turn_completed: {events:?}"
+    );
+    assert!(
+        completed_at.is_some(),
+        "expected TurnCompleted on the live bus: {events:?}"
+    );
+    assert!(
+        snapshot_at.unwrap() < completed_at.unwrap(),
+        "snapshot must precede TurnCompleted: snapshot={snapshot_at:?} completed={completed_at:?} events={events:?}"
+    );
+}
