@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use serde_json::{json, Value};
 use tokio::sync::mpsc;
 
@@ -11,7 +10,6 @@ use crate::types::{
 
 pub struct OpenAiCompatibleClient;
 
-#[async_trait]
 impl LlmClient for OpenAiCompatibleClient {
     async fn generate_text(
         &self,

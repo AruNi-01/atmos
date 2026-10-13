@@ -1,4 +1,5 @@
-use async_trait::async_trait;
+use std::future::Future;
+
 use tokio::sync::mpsc;
 use tracing::error;
 
@@ -8,20 +9,22 @@ use crate::providers::{
 };
 use crate::types::{GenerateTextRequest, GenerateTextResponse, ProviderKind, ResolvedLlmProvider};
 
-#[async_trait]
+/// Native async (RPITIT + `Send`), not `async_trait`.
+/// `async_trait` boxes the future and emits a second `#[must_use]` on a type
+/// that is already `#[must_use]`, which Clippy flags as `double_must_use`.
 pub trait LlmClient: Send + Sync {
-    async fn generate_text(
+    fn generate_text(
         &self,
         provider: &ResolvedLlmProvider,
         request: GenerateTextRequest,
-    ) -> Result<GenerateTextResponse>;
+    ) -> impl Future<Output = Result<GenerateTextResponse>> + Send;
 
-    async fn stream_text(
+    fn stream_text(
         &self,
         provider: &ResolvedLlmProvider,
         request: GenerateTextRequest,
         tx: mpsc::Sender<Result<String>>,
-    ) -> Result<()>;
+    ) -> impl Future<Output = Result<()>> + Send;
 }
 
 pub async fn generate_text(
