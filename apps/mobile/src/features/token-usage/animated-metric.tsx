@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, type StyleProp, type TextStyle } from "react-native";
 import { Easing, useReducedMotion } from "react-native-reanimated";
 import { NumberFlow } from "number-flow-react-native";
@@ -14,27 +14,35 @@ const ROLL = {
 /** Frames to wait so NumberFlow's digit slots exist before the first value change. */
 const INTRO_FRAMES = 8;
 
-type Parts = ReturnType<typeof flowParts>;
+type Parts = ReturnType<typeof flowParts> & { grouped: boolean };
 
 function sameParts(left: Parts, right: Parts) {
   return left.value === right.value
     && left.prefix === right.prefix
     && left.suffix === right.suffix
-    && left.fraction === right.fraction;
+    && left.fraction === right.fraction
+    && left.grouped === right.grouped;
 }
 
 /** Rolls a formatted metric with NumberFlow. Compact units stay prefix and suffix, because Hermes drops Intl compact notation. */
 export function AnimatedMetric({
   format,
+  pinEnd = false,
+  slotWidth,
   style,
   value,
 }: {
   format: (value: number) => string;
+  /** Push a fixed-width slot to the trailing edge of a row. */
+  pinEnd?: boolean;
+  /** Fixed layout width so a finished roll cannot resize the parent. */
+  slotWidth?: number;
   style?: StyleProp<TextStyle>;
   value: number;
 }) {
   const reduced = useReducedMotion();
-  const target = flowParts(format(value));
+  const label = format(value);
+  const target = { ...flowParts(label), grouped: label.includes(",") };
   const targetRef = useRef(target);
   targetRef.current = target;
   // NumberFlow paints its first value in place. Hold 0 until the slots mount, then roll to the real figure.
@@ -45,7 +53,7 @@ export function AnimatedMetric({
     if (!rolled.current) return;
     const next = targetRef.current;
     setParts((current) => (sameParts(current, next) ? current : next));
-  }, [reduced, target.fraction, target.prefix, target.suffix, target.value]);
+  }, [reduced, target.fraction, target.grouped, target.prefix, target.suffix, target.value]);
 
   useEffect(() => {
     if (rolled.current) return;
@@ -65,12 +73,18 @@ export function AnimatedMetric({
     return () => cancelAnimationFrame(raf);
   }, []);
 
+  const containerStyle = useMemo(() => {
+    if (!slotWidth) return undefined;
+    return pinEnd ? { marginLeft: "auto" as const, width: slotWidth } : { width: slotWidth };
+  }, [pinEnd, slotWidth]);
+
   return (
     <NumberFlow
+      containerStyle={containerStyle}
       format={{
         maximumFractionDigits: parts.fraction,
         minimumFractionDigits: parts.fraction,
-        useGrouping: false,
+        useGrouping: parts.grouped,
       }}
       locales="en-US"
       opacityTiming={ROLL}

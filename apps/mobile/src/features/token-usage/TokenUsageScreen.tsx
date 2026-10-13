@@ -23,7 +23,6 @@ import {
   HEATMAP_LIGHT,
   MIX_COLORS_DARK,
   MIX_COLORS_LIGHT,
-  monthLabels,
   overviewShares,
   sortDays,
   stacked,
@@ -359,10 +358,10 @@ export function TokenUsageScreen() {
           <View style={styles.heatmapClip}>
             <View style={{ paddingBottom: openDetail ? 8 : 14, paddingHorizontal: 14, paddingTop: 14 }}>
               <UsageHeatmap
-                monthLabels={monthLabels(weeks, heatmapYear)}
                 onSelect={selectDay}
                 palette={theme.isDark ? HEATMAP_DARK : HEATMAP_LIGHT}
                 selectedDate={selectedDate}
+                selectionColor={theme.colors.label}
                 weekdayColor={theme.colors.secondaryLabel}
                 weeks={weeks}
               />
@@ -386,6 +385,7 @@ export function TokenUsageScreen() {
         <ScrollableChart height={220}>
           {({ width }) => (
             <UsageGrowthChart
+              backgroundColor={theme.colors.background}
               color={theme.colors.label}
               formatValue={(value) => formatMetric(value, metric)}
               height={220}
@@ -399,6 +399,7 @@ export function TokenUsageScreen() {
         <ScrollableChart height={220}>
           {({ width }) => (
             <UsageStackedChart
+              backgroundColor={theme.colors.background}
               colors={bars.keys.map((id) => barColors.get(id) ?? theme.colors.label)}
               dimension={dimension}
               formatValue={(value) => formatMetric(value, metric)}
@@ -592,8 +593,15 @@ function DayUsage({ date, detail }: { date: string; detail: DailyTokenUsageRespo
     <View style={{ gap: 12 }}>
       <Text style={{ color: theme.colors.label, fontSize: 16, fontWeight: "600" }}>{formatDayTitle(date)}</Text>
       <View style={{ flexDirection: "row", gap: 16 }}>
-        <DayMetric label="Tokens" value={formatMetric(detail.total_tokens, "tokens", "detailed")} />
-        <DayMetric label="Cost" value={formatCurrencyDetailed(detail.total_cost_usd)} />
+        <DayMetric format={(value) => formatMetric(value, "tokens", "detailed")} label="Tokens" value={detail.total_tokens} />
+        {detail.total_cost_usd == null ? (
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={{ color: theme.colors.label, fontSize: 17, fontVariant: ["tabular-nums"], fontWeight: "700" }}>--</Text>
+            <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13 }}>Cost</Text>
+          </View>
+        ) : (
+          <DayMetric format={(value) => formatCurrencyDetailed(value)} label="Cost" value={detail.total_cost_usd} />
+        )}
       </View>
       <View style={styles.agentRow}>
         {agents.map((id) => (
@@ -602,25 +610,38 @@ function DayUsage({ date, detail }: { date: string; detail: DailyTokenUsageRespo
             <Text numberOfLines={1} style={{ color: theme.colors.label, fontSize: 13, fontWeight: "600" }}>{agentName(id)}</Text>
           </View>
         ))}
-        <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13 }}>
-          {formatMetric(detail.message_count, "tokens", "detailed")} {detail.message_count === 1 ? "message" : "messages"}
-        </Text>
+        <View style={styles.messageCount}>
+          <AnimatedMetric
+            format={(value) => formatMetric(value, "tokens", "detailed")}
+            style={{ color: theme.colors.secondaryLabel, fontSize: 13 }}
+            value={detail.message_count}
+          />
+          <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13 }}>
+            {detail.message_count === 1 ? "message" : "messages"}
+          </Text>
+        </View>
       </View>
     </View>
   );
 }
 
-function DayMetric({ label, value }: { label: string; value: string }) {
+function DayMetric({
+  format,
+  label,
+  value,
+}: {
+  format: (value: number) => string;
+  label: string;
+  value: number;
+}) {
   const theme = useMobileTheme();
   return (
     <View style={{ flex: 1, gap: 2 }}>
-      <Text
-        adjustsFontSizeToFit
-        numberOfLines={1}
+      <AnimatedMetric
+        format={format}
         style={{ color: theme.colors.label, fontSize: 17, fontVariant: ["tabular-nums"], fontWeight: "700" }}
-      >
-        {value}
-      </Text>
+        value={value}
+      />
       <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13 }}>{label}</Text>
     </View>
   );
@@ -648,6 +669,7 @@ const styles = StyleSheet.create({
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, justifyContent: "space-between" },
   agentChip: { alignItems: "center", borderRadius: 8, flexDirection: "row", gap: 6, maxWidth: "100%", paddingHorizontal: 8, paddingVertical: 5 },
   agentRow: { alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  messageCount: { alignItems: "center", flexDirection: "row", gap: 4 },
   headerChoice: { alignItems: "center", height: 44, justifyContent: "center", width: 44 },
   headerIcons: { alignItems: "center", flexDirection: "row", height: 44 },
   heatmapCard: { borderRadius: 20, borderWidth: StyleSheet.hairlineWidth },

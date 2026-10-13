@@ -174,9 +174,12 @@ function periodKeys(days: DailyTokenUsageResponse[], resolution: Resolution) {
   return keys;
 }
 
+const monthLabelFormat = new Intl.DateTimeFormat("en", { month: "short" });
+const dayLabelFormat = new Intl.DateTimeFormat("en", { month: "short", day: "numeric" });
+
 function periodLabel(key: string, resolution: Resolution) {
   const date = resolution === "day" ? parseISO(key) : parseISO(`${key}-01`);
-  return new Intl.DateTimeFormat("en", resolution === "day" ? { month: "short", day: "numeric" } : { month: "short" }).format(date);
+  return (resolution === "day" ? dayLabelFormat : monthLabelFormat).format(date);
 }
 
 export function timeline(days: DailyTokenUsageResponse[], resolution: Resolution, metric: UsageMetric) {
