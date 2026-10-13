@@ -8,18 +8,18 @@ This directory is outside `apps/web`, so Next typecheck / production build never
 
 ## Method
 
-- Browser: Google Chrome headless via Playwright (`/usr/bin/google-chrome`), UA `HeadlessChrome/148.0.0.0`
+- Browser: Playwright Chromium (or `$ATMOS_STREAM_PERF_CHROME`). Recorded UA `HeadlessChrome/148.0.0.0`
 - Fixture: 500 turns × 8 completed Read tools × 40 tokens on the last answer
 - Renderer: product-shaped `@tanstack/react-virtual` list (overscan 8, `measureElement`, row estimates 88/240). Not the full Next `AgentChatMessageView` (no next-intl / Streamdown / tool chrome)
 - Scroll FPS: rAF timestamps while scrolling the list from top to bottom over 2000ms
 - Per-token: `React.Profiler` `onRender` `actualDuration` while appending 40 tokens
-  - **main protocol**: one React commit per token
+  - **main (unbatched)**: one React state update / Profiler sample per token. This is **not** production `main`, which already 150ms-batches client commits. The column isolates snapshot cadence against an unbatched token loop.
   - **this branch**: 56ms snapshot flush + `useSmoothStreamText` on the last open text
 - Raw frame deltas and every Profiler commit: `scripts/agent-chat-stream-perf/tmp/agent-chat-chromium-stream-perf.json` (or `$ATMOS_STREAM_PERF_OUTDIR`)
 
 ## Results (real, this VM)
 
-| | main protocol | this branch |
+| | unbatched per-token (`main` mode) | 56ms snapshots (`branch` mode) |
 |---|---:|---:|
 | Scroll FPS | 55.043 | 55.003 |
 | Frames | 111 | 110 |

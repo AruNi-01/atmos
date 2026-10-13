@@ -3,7 +3,8 @@
  * Profiler cost. Not part of the Next app; do not import from apps/web/src.
  *
  * Modes:
- *   main   — live path before this PR: each token is its own React commit
+ *   main   — unbatched per-token React commits (isolates cadence; not
+ *            production main, which already 150ms-batches client updates)
  *   branch — this PR: 56ms turn snapshots + last-text display buffer
  */
 import React, {

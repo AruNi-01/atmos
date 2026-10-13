@@ -48,40 +48,47 @@ async function bunBuild(): Promise<void> {
 }
 
 async function measure(url: string, mode: "main" | "branch") {
+  const chromePath = process.env.ATMOS_STREAM_PERF_CHROME;
   const browser = await chromium.launch({
-    executablePath: "/usr/bin/google-chrome",
+    ...(chromePath ? { executablePath: chromePath } : {}),
     headless: true,
     args: ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
   });
-  const page = await browser.newPage({ viewport: { width: 1080, height: 800 } });
-  await page.goto(`${url}/?mode=${mode}`, { waitUntil: "networkidle" });
-  await page.waitForFunction(() => Boolean((window as unknown as { __ATMOS_STREAM_BENCH?: unknown }).__ATMOS_STREAM_BENCH));
-  await page.waitForTimeout(400);
-  const scroll = await page.evaluate(async () => {
-    const bench = (window as unknown as { __ATMOS_STREAM_BENCH: { runScroll: () => Promise<unknown> } }).__ATMOS_STREAM_BENCH;
-    return bench.runScroll();
-  });
-  const tokens = await page.evaluate(async () => {
-    const bench = (window as unknown as { __ATMOS_STREAM_BENCH: { runTokens: () => Promise<unknown> } }).__ATMOS_STREAM_BENCH;
-    return bench.runTokens();
-  });
-  const userAgent = await page.evaluate(() => navigator.userAgent);
-  await browser.close();
-  return { mode, userAgent, scroll, tokens };
+  try {
+    const page = await browser.newPage({ viewport: { width: 1080, height: 800 } });
+    await page.goto(`${url}/?mode=${mode}`, { waitUntil: "networkidle" });
+    await page.waitForFunction(() => Boolean((window as unknown as { __ATMOS_STREAM_BENCH?: unknown }).__ATMOS_STREAM_BENCH));
+    await page.waitForTimeout(400);
+    const scroll = await page.evaluate(async () => {
+      const bench = (window as unknown as { __ATMOS_STREAM_BENCH: { runScroll: () => Promise<unknown> } }).__ATMOS_STREAM_BENCH;
+      return bench.runScroll();
+    });
+    const tokens = await page.evaluate(async () => {
+      const bench = (window as unknown as { __ATMOS_STREAM_BENCH: { runTokens: () => Promise<unknown> } }).__ATMOS_STREAM_BENCH;
+      return bench.runTokens();
+    });
+    const userAgent = await page.evaluate(() => navigator.userAgent);
+    return { mode, userAgent, scroll, tokens };
+  } finally {
+    await browser.close();
+  }
 }
 
 async function main() {
   mkdirSync(outDir, { recursive: true });
   await bunBuild();
   const server = await serveDist(dist);
+  const chromePath = process.env.ATMOS_STREAM_PERF_CHROME;
   try {
     const before = await measure(server.url, "main");
     const after = await measure(server.url, "branch");
     const payload = {
       measured_at: new Date().toISOString(),
       environment: {
-        browser: "Google Chrome headless via Playwright",
-        executable: "/usr/bin/google-chrome",
+        browser: chromePath
+          ? "Google Chrome headless via Playwright"
+          : "Playwright managed Chromium",
+        executable: chromePath ?? "playwright-chromium",
         user_agent_after: after.userAgent,
         os: process.platform,
         notes:
@@ -96,7 +103,7 @@ async function main() {
         scroll_fps:
           "rAF timestamps while programmatically scrolling the virtual list from top to bottom over 2000ms",
         per_token:
-          "React.Profiler onRender actualDuration while appending 40 tokens. main = one commit per token; branch = 56ms snapshot flush + useSmoothStreamText on the last open text",
+          "React.Profiler onRender actualDuration while appending 40 tokens. main = unbatched per-token commits (not production's 150ms client buffer); branch = 56ms snapshot flush + useSmoothStreamText on the last open text",
       },
       before_main_protocol: before,
       after_branch_protocol: after,

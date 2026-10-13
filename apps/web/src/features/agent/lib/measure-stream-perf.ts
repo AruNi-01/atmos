@@ -7,6 +7,7 @@
  * is not a valid before/after. It is omitted on purpose.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { argv } from "node:process";
 import { fileURLToPath } from "node:url";
 import { takeStreamChars } from "../../../../../../packages/ui/src/components/ai-elements/smooth-stream-text";
@@ -77,7 +78,7 @@ const snap = [{
 }];
 
 const snapshotMs = timeMs(() => {
-  applyTurnSnapshot(messages, snap, []);
+  applyTurnSnapshot(messages, snap, [`p${TURNS - 1}`]);
 });
 
 let revealed = 0;
@@ -117,7 +118,8 @@ const payload = {
 };
 
 if (isDirectRun()) {
-  const outDir = "/opt/cursor/artifacts";
+  const outDir = process.env.ATMOS_STREAM_PERF_OUTDIR
+    ?? join(process.cwd(), "scripts/agent-chat-stream-perf/tmp");
   mkdirSync(outDir, { recursive: true });
   writeFileSync(`${outDir}/agent-chat-stream-perf.json`, `${JSON.stringify(payload, null, 2)}\n`);
   console.log(JSON.stringify(payload, null, 2));
