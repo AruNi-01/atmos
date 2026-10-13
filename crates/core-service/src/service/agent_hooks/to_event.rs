@@ -56,6 +56,7 @@ pub(crate) fn hook_tool_input(payload: &Value) -> Value {
     tool_input(payload).cloned().unwrap_or(Value::Null)
 }
 
+#[cfg(test)]
 pub(crate) fn hook_payload_to_events(payload: &Value) -> Vec<AgentEvent> {
     hook_payload_to_events_for(None, payload)
 }

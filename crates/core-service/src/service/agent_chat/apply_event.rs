@@ -2635,6 +2635,7 @@ fn resolve_pending_select(
     }
 }
 
+#[cfg(test)]
 fn droid_already_on_encoded_model(meta: &AgentChatMeta, wire: &str) -> bool {
     sibling_already_on_encoded_model(meta, wire, true)
 }

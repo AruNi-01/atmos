@@ -624,7 +624,7 @@ fn merge_live_into_transcript(
     transcript: Vec<TranscriptEnvelope>,
     mut live: Vec<TranscriptEnvelope>,
 ) -> Vec<TranscriptEnvelope> {
-    live.sort_by(|left, right| left.timestamp.cmp(&right.timestamp));
+    live.sort_by_key(|left| left.timestamp);
     let mut merged = Vec::with_capacity(transcript.len() + live.len());
     let mut live_index = 0;
     for record in transcript {
