@@ -4,7 +4,7 @@ import { runSessionTool } from "../agent/session-tools";
 import { createHeadlessSession } from "../core/headless-session";
 import { PtDesignError } from "../protocol";
 import { boardCropFromScene } from "./preview-crop";
-import { encodeCanvas } from "./screenshot";
+import { encodeCanvas } from "./screenshot-encode";
 
 describe("S33 screenshot", () => {
   test("headless pt_screenshot is path_denied (live tab only)", () => {
@@ -47,10 +47,12 @@ describe("S33 screenshot", () => {
     expect(app).toContain("persistPreviewImage");
     expect(app).not.toContain("sketchPreviewFromPersist");
     expect(src).toContain("PREVIEW_CAPTURE_MAX_EDGE");
-    expect(src).toContain("image/webp");
-    expect(src).toContain("canvasToPng");
     expect(src).toContain("encodeCanvas");
     expect(src).not.toContain("Math.min(320");
+    const encode = readFileSync(new URL("./screenshot-encode.ts", import.meta.url), "utf8");
+    expect(encode).toContain("image/webp");
+    expect(encode).toContain("canvasToPng");
+    expect(encode).toContain("encodeCanvas");
   });
 
   test.skip("S33 live capture returns png bytes — captureLiveScreenshot needs a real Excalidraw board + overlay", () => {
