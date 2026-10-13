@@ -3583,6 +3583,7 @@
           "description": "为本次运行传递额外的 CLI 参数。",
           "placeholder": "--config value"
         },
+        "noModelCatalog": "这个 Agent 没有模型目录。",
         "errors": {
           "removeConflictingArgs": "请移除冲突参数：{args}",
           "invalidExtraArgs": "额外参数无效"

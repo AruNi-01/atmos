@@ -7,6 +7,7 @@ pub mod prefs;
 mod queue;
 pub mod service;
 pub mod store;
+pub mod terminal_prefs;
 pub mod types;
 
 #[cfg(test)]
@@ -27,6 +28,10 @@ pub use prefs::{
 };
 pub use service::{chat_resource_session_id, AgentChatResourceRoot, AgentChatService};
 pub use store::AgentChatStore;
+pub use terminal_prefs::{
+    apply_terminal_agent_prefs_patch, load_terminal_agent_prefs, terminal_agent_prefs_path,
+    TerminalAgentFavoriteModel, TerminalAgentLastPick, TerminalAgentPrefs, TerminalAgentPrefsPatch,
+};
 pub use types::{
     AgentChatEvent, AgentChatIndexEntry, AgentChatMeta, AgentChatOrigin, AgentChatPayload,
     AgentChatSnapshot, CreateAgentChatRequest, MessagePart, QueueItem, QueueItemStatus,

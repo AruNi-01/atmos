@@ -85,6 +85,38 @@ function panelTop(
     : layout.trigger.top;
 }
 
+/**
+ * Scale that keeps the trigger corner still when a popover's layout box
+ * changes size. The box has already moved to its new anchor; multiplying the
+ * previous visual size into that box is the start of the zoom.
+ * Returns null when the change is too small to animate.
+ */
+export function anchoredSizeScale(
+  previous: { width: number; height: number },
+  next: { width: number; height: number },
+  currentScale: { x: number; y: number } = { x: 1, y: 1 },
+): { x: number; y: number } | null {
+  if (
+    previous.width < 1
+    || previous.height < 1
+    || next.width < 1
+    || next.height < 1
+  ) {
+    return null;
+  }
+  if (
+    Math.abs(previous.width - next.width) < 1 &&
+    Math.abs(previous.height - next.height) < 1
+  ) {
+    return null;
+  }
+  const x = (previous.width * currentScale.x) / next.width;
+  const y = (previous.height * currentScale.y) / next.height;
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  if (Math.abs(x - 1) < 0.01 && Math.abs(y - 1) < 0.01) return null;
+  return { x, y };
+}
+
 function sameLayout(a: PortalLayout | null, b: PortalLayout) {
   return (
     a?.trigger.left === b.trigger.left &&

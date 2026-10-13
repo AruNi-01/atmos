@@ -13,20 +13,21 @@ import {
 } from "./prompt-input-view";
 
 const promptInput = readFileSync(join(import.meta.dir, "./prompt-input.tsx"), "utf8");
+const promptMenu = readFileSync(join(import.meta.dir, "./prompt-agent-config-menu.tsx"), "utf8");
 
 describe("empty model list reload", () => {
   it("asks the host to reload when the model picker opens with no models", () => {
-    expect(promptInput).toContain("onEmptyModelsOpen");
-    expect(promptInput).toContain("if (next && models.length === 0 && !favoritesOpen)");
+    expect(promptMenu).toContain("onEmptyModelsOpen");
+    expect(promptMenu).toContain("if (next && models.length === 0 && !favoritesOpen)");
   });
 
   it("offers a Load button only when the catalog is empty, not when search filters models out", () => {
-    expect(promptInput).toContain("onLoadModels");
-    expect(promptInput).toContain("labels.loadModels");
-    expect(promptInput).toContain("onClick={() => onLoadModels()}");
-    const menuStart = promptInput.indexOf("function PromptAgentConfigMenu");
-    const menuEnd = promptInput.indexOf("function ConfigFlyoutList");
-    const menu = promptInput.slice(menuStart, menuEnd);
+    expect(promptMenu).toContain("onLoadModels");
+    expect(promptMenu).toContain("labels.loadModels");
+    expect(promptMenu).toContain("onClick={() => onLoadModels()}");
+    const menuStart = promptMenu.indexOf("function PromptAgentConfigMenu");
+    const menuEnd = promptMenu.indexOf("function ConfigFlyoutList");
+    const menu = promptMenu.slice(menuStart, menuEnd);
     const catalogEmpty = menu.indexOf(") : listedModels.length === 0 ? (");
     const searchEmpty = menu.indexOf(") : filteredModels.length === 0 ? (");
     const loadLabel = menu.indexOf("{labels.loadModels}");
@@ -39,11 +40,11 @@ describe("empty model list reload", () => {
   });
 
   it("places an icon-only reload control beside the model search field", () => {
-    expect(promptInput).toContain("modelsReloading");
-    expect(promptInput).toContain("RefreshCw");
-    const menuStart = promptInput.indexOf("function PromptAgentConfigMenu");
-    const menuEnd = promptInput.indexOf("function ConfigFlyoutList");
-    const menu = promptInput.slice(menuStart, menuEnd);
+    expect(promptMenu).toContain("modelsReloading");
+    expect(promptMenu).toContain("RefreshCw");
+    const menuStart = promptMenu.indexOf("function PromptAgentConfigMenu");
+    const menuEnd = promptMenu.indexOf("function ConfigFlyoutList");
+    const menu = promptMenu.slice(menuStart, menuEnd);
     const searchAt = menu.indexOf("<SelectSearch");
     const reloadAt = menu.indexOf("aria-label={labels.reloadModels}");
     const listAt = menu.indexOf("min-h-0 flex-1 overflow-y-auto");
@@ -57,24 +58,23 @@ describe("empty model list reload", () => {
 
 describe("locked session config", () => {
   it("does not select a different model when models are locked", () => {
-    expect(promptInput).toContain("disabled={option.disabled || modelsLocked}");
+    expect(promptMenu).toContain("option.disabled || modelsLocked");
     expect(promptInput).toContain("disabled={disabled || loading || modesLocked}");
     expect(promptInput).toContain("disabled={disabled || loading || permissionModesLocked}");
   });
 
   it("keeps the agent rail visible and disabled when the agent is locked", () => {
-    expect(promptInput).toContain("const skipAgentList = agents.length === 0");
-    expect(promptInput).not.toContain("agentLocked || agents.length === 0");
-    expect(promptInput).toContain("agentLocked && \"opacity-40\"");
-    expect(promptInput).toContain("disabled={option.disabled || agentLocked}");
+    expect(promptMenu).toContain("const skipAgentList = agents.length === 0");
+    expect(promptMenu).not.toContain("agentLocked || agents.length === 0");
+    expect(promptMenu).toContain("agentLocked && \"opacity-40\"");
+    expect(promptMenu).toContain("disabled={option.disabled || agentLocked}");
   });
 });
 
 describe("mode picker", () => {
   it("uses the agent/model MorphPopover instead of the motion Select", () => {
     const start = promptInput.indexOf("function PromptOptionSelect");
-    const end = promptInput.indexOf("function PromptAgentConfigMenu");
-    const selectFn = promptInput.slice(start, end);
+    const selectFn = promptInput.slice(start);
     expect(selectFn).toContain("MorphPopover");
     expect(selectFn).toContain("ConfigFlyoutList");
     expect(selectFn).toContain("showSearch={showSearch}");
@@ -224,6 +224,34 @@ describe("agentConfigTriggerText", () => {
     expect(contextModelSuffix("1M", "1m")).toBe("1M");
     expect(contextModelSuffix("272K", "272k")).toBe("");
   });
+
+  it("appends Fast on the closed trigger when Fast is on", () => {
+    expect(
+      agentConfigTriggerText({
+        modelLabel: "Grok 4.7",
+        thinkingLabel: "Extra high",
+        fastLabel: "Fast",
+      }),
+    ).toBe("Grok 4.7 · Extra high · Fast");
+    expect(
+      agentConfigTriggerText({
+        modelLabel: "Grok 4.7",
+        fastLabel: "Fast",
+      }),
+    ).toBe("Grok 4.7 · Fast");
+    expect(
+      agentConfigTriggerText({
+        agentLabel: "Grok",
+        fastLabel: "Fast",
+      }),
+    ).toBe("Grok · Fast");
+    expect(
+      agentConfigTriggerText({
+        modelLabel: "Grok 4.7",
+        thinkingLabel: "Extra high",
+      }),
+    ).toBe("Grok 4.7 · Extra high");
+  });
 });
 
 describe("formatModelProviderLabel", () => {
@@ -282,98 +310,100 @@ describe("groupedPromptModelRows", () => {
 
 describe("S2 thinking control visibility", () => {
   it("shows the effort slider only when there are at least two levels", () => {
-    expect(promptInput).toContain("thinkingLevels.length > 1");
-    expect(promptInput).toContain("function ThinkingSliderPanel");
-    expect(promptInput).toContain('variant="effort"');
+    expect(promptMenu).toContain("thinkingLevels.length > 1");
+    expect(promptMenu).toContain("function ThinkingSliderPanel");
+    expect(promptMenu).toContain('variant="effort"');
   });
 });
 
 describe("PromptAgentConfigMenu", () => {
   it("can render the agent config menu without the prompt shell", () => {
     expect(promptInput).toContain("configOnly");
-    expect(promptInput).toContain("side={menuSide}");
+    expect(promptMenu).toContain("side={menuSide}");
   });
 
   it("can embed the agent/model panel without a trigger button", () => {
-    expect(promptInput).toContain("menuInline");
-    const menuStart = promptInput.indexOf("function PromptAgentConfigMenu");
-    const menuEnd = promptInput.indexOf("function ConfigFlyoutList");
-    const menu = promptInput.slice(menuStart, menuEnd);
+    expect(promptMenu).toContain("menuInline");
+    const menuStart = promptMenu.indexOf("function PromptAgentConfigMenu");
+    const menuEnd = promptMenu.indexOf("function PromptEffortPopoverBody");
+    const menu = promptMenu.slice(menuStart, menuEnd);
     expect(menu).toContain("if (menuInline)");
     expect(menu).toContain("return panel");
-    expect(menu.indexOf("const panel =")).toBeLessThan(menu.indexOf("<MorphPopoverTrigger>"));
+    const inlineAt = menu.indexOf("if (menuInline)");
+    expect(menu.indexOf("const panel =")).toBeLessThan(inlineAt);
+    expect(menu.indexOf("<MorphPopoverTrigger>", inlineAt)).toBeGreaterThan(inlineAt);
   });
 
   it("puts agent tabs and models in one popover without hover flyouts", () => {
-    expect(promptInput).toContain("function PromptAgentConfigMenu");
-    expect(promptInput).toContain("function ThinkingSliderPanel");
-    expect(promptInput).toContain('orientation="vertical"');
-    expect(promptInput).toContain("indicatorClassName=\"bg-active\"");
-    expect(promptInput).toContain("agentTablist");
-    expect(promptInput).not.toContain("openFlyout");
-    expect(promptInput).not.toContain("{flyout ? (");
-    expect(promptInput).not.toContain("function ConfigMenuRow");
-    expect(promptInput).toContain("clip={false}");
-    expect(promptInput).not.toContain("PromptAgentModelSelect");
-    expect(promptInput).not.toContain("initialAgentModelSelectView");
-    expect(promptInput).not.toContain("border-t border-border/60");
+    expect(promptMenu).toContain("function PromptAgentConfigMenu");
+    expect(promptMenu).toContain("function ThinkingSliderPanel");
+    expect(promptMenu).toContain('orientation="vertical"');
+    expect(promptMenu).toContain("indicatorClassName=\"bg-active\"");
+    expect(promptMenu).toContain("agentTablist");
+    expect(promptMenu).not.toContain("openFlyout");
+    expect(promptMenu).not.toContain("{flyout ? (");
+    expect(promptMenu).not.toContain("function ConfigMenuRow");
+    expect(promptMenu).toContain("clip={false}");
+    expect(promptMenu).not.toContain("PromptAgentModelSelect");
+    expect(promptMenu).not.toContain("initialAgentModelSelectView");
+    expect(promptMenu).not.toContain("border-t border-border/60");
   });
 
   it("turns the model-row dot into a favorite star on hover", () => {
-    expect(promptInput).toContain("favoriteModels");
-    expect(promptInput).toContain("favoritesOpen");
-    expect(promptInput).toContain("onToggleFavorite");
-    expect(promptInput).toContain("function ModelFavoriteMark");
-    expect(promptInput).toContain("group/model");
-    expect(promptInput).toContain("fill-favorite text-favorite");
-    expect(promptInput).toContain("labels.noFavorites");
+    expect(promptMenu).toContain("favoriteModels");
+    expect(promptMenu).toContain("favoritesOpen");
+    expect(promptMenu).toContain("onToggleFavorite");
+    expect(promptMenu).toContain("function ModelFavoriteMark");
+    expect(promptMenu).toContain("group/model");
+    expect(promptMenu).toContain("fill-favorite text-favorite");
+    expect(promptMenu).toContain("labels.noFavorites");
   });
 
   it("opens effort and fast controls from one selected-model chip", () => {
-    expect(promptInput).toContain("showEffortControls");
-    expect(promptInput).toContain("contextLabel: contextSuffix");
-    expect(promptInput).toContain("fastLabel: labels.fastChip");
-    expect(promptInput).toContain("function ThinkingSliderPanel");
-    expect(promptInput).toContain('aria-label={labels.fastMode}');
-    expect(promptInput).toContain("onClick={() => onModelChange(option.value, option)}");
-    expect(promptInput).toContain("function ModelFavoriteMark");
-    expect(promptInput).toContain("group/model");
-    expect(promptInput).toContain("option.favorited");
+    expect(promptMenu).toContain("showEffortControls");
+    expect(promptMenu).toContain("contextLabel: contextSuffix");
+    expect(promptMenu).toContain("fastLabel: labels.fastChip");
+    expect(promptMenu).toContain("function ThinkingSliderPanel");
+    expect(promptMenu).toContain('aria-label={labels.fastMode}');
+    expect(promptMenu).toContain("onModelChange(option.value, option)");
+    expect(promptMenu).toContain("function ModelFavoriteMark");
+    expect(promptMenu).toContain("group/model");
+    expect(promptMenu).toContain("option.favorited");
   });
 
   it("puts a Context submenu at the top of the effort popover", () => {
-    expect(promptInput).toContain("showContext = contextLevels.length > 1");
-    expect(promptInput).toContain("{labels.context}");
-    expect(promptInput).toContain("onContextChange?.(level.value)");
-    expect(promptInput).toContain("side=\"right\"");
-    expect(promptInput).toContain(
+    expect(promptMenu).toContain("showContext = contextLevels.length > 1");
+    expect(promptMenu).toContain("{labels.context}");
+    expect(promptMenu).toContain("onContextChange?.(level.value)");
+    expect(promptMenu).toContain("side=\"right\"");
+    expect(promptMenu).toContain(
       "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm outline-none",
     );
-    expect(promptInput).toContain('className="flex w-full"');
-    expect(promptInput).toContain(
+    expect(promptMenu).toContain('className="flex w-full"');
+    expect(promptMenu).toContain(
       'className="flex h-9 w-full min-w-0 items-center gap-3 rounded-lg px-2.5 text-left outline-none hover:bg-muted/70 focus-visible:ring-2"',
     );
-    const contextIdx = promptInput.indexOf("{showContext ? (");
-    const thinkingIdx = promptInput.indexOf("{showThinking ? (");
-    const fastIdx = promptInput.indexOf("{fastAvailable ? (");
+    const contextIdx = promptMenu.indexOf("{showContext ? (");
+    const thinkingIdx = promptMenu.indexOf("{showThinking ? (");
+    const fastIdx = promptMenu.indexOf("{fastAvailable ? (");
     expect(contextIdx).toBeGreaterThan(0);
     expect(contextIdx).toBeLessThan(thinkingIdx);
     expect(thinkingIdx).toBeLessThan(fastIdx);
   });
 
   it("searches models only, never agents", () => {
-    expect(promptInput).toContain("placeholder={labels.searchModels}");
-    expect(promptInput).not.toContain("searchPlaceholder={labels.searchAgents}");
+    expect(promptMenu).toContain("placeholder={labels.searchModels}");
+    expect(promptMenu).not.toContain("searchPlaceholder={labels.searchAgents}");
   });
 
   it("keeps the send-adjacent trigger on the model name without multiplier", () => {
-    expect(promptInput).toContain("modelLabel: optionName(currentModel)");
-    expect(promptInput).not.toContain("modelLabel: optionLabelText(currentModel)");
+    expect(promptMenu).toContain("modelLabel: optionName(currentModel)");
+    expect(promptMenu).not.toContain("modelLabel: optionLabelText(currentModel)");
   });
 
   it("renders PromptModel.trailing immediately after the option label", () => {
     expect(promptInput).toContain("trailing?: ReactNode");
-    expect(promptInput).toContain("option.trailing");
+    expect(promptMenu).toContain("option.trailing");
     expect(promptInput).toContain(
       "Chip shown immediately after the option label (e.g. Native / ACP).",
     );
@@ -382,23 +412,23 @@ describe("PromptAgentConfigMenu", () => {
   it("shows group headers and a muted multiplier, not a / provider suffix", () => {
     expect(promptInput).toContain("group?: string");
     expect(promptInput).toContain("groupIcon?: ReactNode");
-    expect(promptInput).toContain("following.option.groupIcon");
-    expect(promptInput).toContain(
+    expect(promptMenu).toContain("following.option.groupIcon");
+    expect(promptMenu).toContain(
       "flex items-center gap-1.5 px-2.5 pt-2 pb-0.5 text-xs text-muted-foreground",
     );
     expect(promptInput).toContain("multiplier?: string");
-    expect(promptInput).toContain("groupedPromptModelRows");
-    expect(promptInput).toContain("row.type === \"header\"");
-    expect(promptInput).toContain("key={`group:${index}:${row.label}`}");
-    expect(promptInput).toContain('(option.group ?? "").trim() ? "pl-4 pr-2.5" : "px-2.5"');
-    expect(promptInput).toContain("text-sm text-muted-foreground");
-    expect(promptInput).not.toContain("` / ${provider}`");
-    expect(promptInput).toContain("const fullLabel = modelLabelWithContext(optionName(option), isSelected ? contextSuffix : \"\")");
-    expect(promptInput).toContain(
+    expect(promptMenu).toContain("groupedPromptModelRows");
+    expect(promptMenu).toContain("row.type === \"header\"");
+    expect(promptMenu).toContain("key={`group:${index}:${row.label}`}");
+    expect(promptMenu).toContain('(option.group ?? "").trim() ? "pl-4 pr-2.5" : "px-2.5"');
+    expect(promptMenu).toContain("text-sm text-muted-foreground");
+    expect(promptMenu).not.toContain("` / ${provider}`");
+    expect(promptMenu).toContain("const fullLabel = modelLabelWithContext(optionName(option), isSelected ? contextSuffix : \"\")");
+    expect(promptMenu).toContain(
       "label: modelLabelWithContext(optionName(option), contextSuffix)",
     );
-    expect(promptInput).toContain("{modelsLocked ? labels.modelLocked : fullLabel}");
-    expect(promptInput).toContain("min-w-0 truncate text-sm");
+    expect(promptMenu).toContain("modelsLocked\n                    ? labels.modelLocked");
+    expect(promptMenu).toContain("min-w-0 truncate text-sm");
   });
 });
 

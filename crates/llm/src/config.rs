@@ -202,6 +202,8 @@ pub fn resolve_provider_by_id(
                 m_trimmed.to_string()
             },
             agent_id: None,
+            agent_reasoning_effort: None,
+            agent_extra_args: Vec::new(),
             timeout: Duration::from_millis(entry.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS)),
             max_output_tokens: entry.max_output_tokens,
             context_window: entry
@@ -235,6 +237,8 @@ pub fn resolve_provider_by_id(
         api_key,
         model: model.to_string(),
         agent_id: None,
+        agent_reasoning_effort: None,
+        agent_extra_args: Vec::new(),
         timeout: Duration::from_millis(entry.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS)),
         max_output_tokens: entry.max_output_tokens,
         context_window: entry.context_window.unwrap_or(CLOUD_DEFAULT_CONTEXT_WINDOW),
@@ -268,6 +272,8 @@ fn resolve_agent_cli_provider(
         api_key: String::new(),
         model: agent_id.to_string(),
         agent_id: Some(agent_id.to_string()),
+        agent_reasoning_effort: None,
+        agent_extra_args: Vec::new(),
         timeout: Duration::from_millis(
             entry
                 .and_then(|entry| entry.timeout_ms)

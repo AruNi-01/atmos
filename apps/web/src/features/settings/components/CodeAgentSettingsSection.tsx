@@ -61,6 +61,8 @@ interface CodeAgentSettingsSectionProps {
   attentionSummaryDelayMins: number;
   attentionSummaryAgentId: string;
   attentionSummaryModel: string;
+  attentionSummaryEffort: string;
+  attentionSummaryExtraArgs: string[];
   followupPolicy: "queue" | "steer";
   runConfigAgentOptions: AgentOption[];
   runConfigsLoading: boolean;
@@ -74,6 +76,8 @@ interface CodeAgentSettingsSectionProps {
   savedAttentionSummaryDelayMins: number;
   savedAttentionSummaryAgentId: string;
   savedAttentionSummaryModel: string;
+  savedAttentionSummaryEffort: string;
+  savedAttentionSummaryExtraArgs: string[];
   savedFollowupPolicy: "queue" | "steer";
   savingBuiltInAgentIds: Record<string, boolean>;
   savingCustomAgentIds: Record<string, boolean>;
@@ -106,6 +110,8 @@ interface CodeAgentSettingsSectionProps {
   setAttentionSummaryDelayMins: React.Dispatch<React.SetStateAction<number>>;
   setAttentionSummaryAgentId: React.Dispatch<React.SetStateAction<string>>;
   setAttentionSummaryModel: React.Dispatch<React.SetStateAction<string>>;
+  setAttentionSummaryEffort: React.Dispatch<React.SetStateAction<string>>;
+  setAttentionSummaryExtraArgs: React.Dispatch<React.SetStateAction<string[]>>;
   setFollowupPolicy: React.Dispatch<React.SetStateAction<"queue" | "steer">>;
 }
 
@@ -123,6 +129,8 @@ export function CodeAgentSettingsSection({
   attentionSummaryDelayMins,
   attentionSummaryAgentId,
   attentionSummaryModel,
+  attentionSummaryEffort,
+  attentionSummaryExtraArgs,
   followupPolicy,
   runConfigAgentOptions,
   runConfigsLoading,
@@ -136,6 +144,8 @@ export function CodeAgentSettingsSection({
   savedAttentionSummaryDelayMins,
   savedAttentionSummaryAgentId,
   savedAttentionSummaryModel,
+  savedAttentionSummaryEffort,
+  savedAttentionSummaryExtraArgs,
   savedFollowupPolicy,
   savingBuiltInAgentIds,
   savingCustomAgentIds,
@@ -168,6 +178,8 @@ export function CodeAgentSettingsSection({
   setAttentionSummaryDelayMins,
   setAttentionSummaryAgentId,
   setAttentionSummaryModel,
+  setAttentionSummaryEffort,
+  setAttentionSummaryExtraArgs,
   setFollowupPolicy,
 }: CodeAgentSettingsSectionProps) {
   const t = useTranslations("settings.codeAgentSection");
@@ -455,6 +467,8 @@ export function CodeAgentSettingsSection({
         attentionSummaryDelayMins={attentionSummaryDelayMins}
         attentionSummaryAgentId={attentionSummaryAgentId}
         attentionSummaryModel={attentionSummaryModel}
+        attentionSummaryEffort={attentionSummaryEffort}
+        attentionSummaryExtraArgs={attentionSummaryExtraArgs}
         followupPolicy={followupPolicy}
         savedIdleSessionTimeoutMins={savedIdleSessionTimeoutMins}
         savedObserverSessionTimeoutMins={savedObserverSessionTimeoutMins}
@@ -462,6 +476,8 @@ export function CodeAgentSettingsSection({
         savedAttentionSummaryDelayMins={savedAttentionSummaryDelayMins}
         savedAttentionSummaryAgentId={savedAttentionSummaryAgentId}
         savedAttentionSummaryModel={savedAttentionSummaryModel}
+        savedAttentionSummaryEffort={savedAttentionSummaryEffort}
+        savedAttentionSummaryExtraArgs={savedAttentionSummaryExtraArgs}
         savedFollowupPolicy={savedFollowupPolicy}
         savingIdleTimeout={savingIdleTimeout}
         onCommitBehaviourSettings={onCommitBehaviourSettings}
@@ -471,6 +487,8 @@ export function CodeAgentSettingsSection({
         setAttentionSummaryDelayMins={setAttentionSummaryDelayMins}
         setAttentionSummaryAgentId={setAttentionSummaryAgentId}
         setAttentionSummaryModel={setAttentionSummaryModel}
+        setAttentionSummaryEffort={setAttentionSummaryEffort}
+        setAttentionSummaryExtraArgs={setAttentionSummaryExtraArgs}
         setFollowupPolicy={setFollowupPolicy}
       />
 

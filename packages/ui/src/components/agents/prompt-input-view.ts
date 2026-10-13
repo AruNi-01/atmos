@@ -39,14 +39,21 @@ export function agentConfigTriggerText(input: {
   contextLabel?: string;
   thinkingLabel?: string;
   agentLabel?: string;
+  fastLabel?: string;
 }): string {
   const model = input.modelLabel?.trim() ?? "";
   const context = input.contextLabel?.trim() ?? "";
   const thinking = input.thinkingLabel?.trim() ?? "";
   const agent = input.agentLabel?.trim() ?? "";
+  const fast = input.fastLabel?.trim() ?? "";
   const withContext = modelLabelWithContext(model, context);
-  if (withContext && thinking) return `${withContext} · ${thinking}`;
-  return withContext || thinking || agent;
+  if (withContext) return joinTriggerParts([withContext, thinking, fast]);
+  if (thinking) return joinTriggerParts([thinking, fast]);
+  return joinTriggerParts([agent, fast]);
+}
+
+function joinTriggerParts(parts: string[]): string {
+  return parts.filter((part) => part.length > 0).join(" · ");
 }
 
 /** Only 1M is shown on the model name; the default window stays implicit. */

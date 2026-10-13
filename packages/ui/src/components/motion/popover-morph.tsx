@@ -12,18 +12,20 @@ import {
   useContext,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
 import {
+  anchoredSizeScale,
   type PopoverAlign,
   type PopoverSide,
   usePopoverPortalPosition,
   popoverPortalCoords,
 } from "./popover-position";
-import { EASE_OUT, SPRING_PANEL } from "../../lib/ease";
+import { EASE_IN_OUT_CSS, EASE_OUT, SPRING_PANEL } from "../../lib/ease";
 import { useOverlayDismiss } from "../../lib/hooks/use-overlay-dismiss";
 import { cn } from "../../lib/utils";
 
@@ -222,6 +224,22 @@ export function MorphPopoverTrigger({ children }: MorphPopoverTriggerProps) {
   });
 }
 
+const POPOVER_SIZE_MS = 200;
+
+function readElementScale(node: HTMLElement): { x: number; y: number } {
+  const raw = getComputedStyle(node).transform;
+  if (!raw || raw === "none") return { x: 1, y: 1 };
+  try {
+    const matrix = new DOMMatrix(raw);
+    return {
+      x: matrix.a || 1,
+      y: matrix.d || 1,
+    };
+  } catch {
+    return { x: 1, y: 1 };
+  }
+}
+
 const originFor = (side: Side, align: Align) => {
   const vertical = align === "end" ? "bottom" : "top";
   const horizontal = align === "end" ? "right" : "left";
@@ -277,6 +295,8 @@ export function MorphPopoverContent({
   const ctx = useMorphContext("MorphPopoverContent");
   const reduce = useReducedMotion() ?? false;
   const [portalReady, setPortalReady] = useState(false);
+  const scaleRef = useRef<HTMLDivElement | null>(null);
+  const sizeRef = useRef<{ width: number; height: number } | null>(null);
   const layout = usePopoverPortalPosition(
     ctx.triggerRef,
     ctx.contentRef,
@@ -292,6 +312,37 @@ export function MorphPopoverContent({
     : { left: 0, top: 0, side };
   const { left, top } = coords;
   const placedSide = coords.side;
+  const origin = originFor(placedSide, align);
+
+  // The layout box jumps to the new size and the anchor-aligned position.
+  // Scaling from that corner makes the width and height change read as a zoom.
+  useLayoutEffect(() => {
+    const node = scaleRef.current;
+    if (!ctx.open) {
+      sizeRef.current = null;
+      return;
+    }
+    if (!node || !layout) return;
+    const next = {
+      width: layout.content.width,
+      height: layout.content.height,
+    };
+    const previous = sizeRef.current;
+    sizeRef.current = next;
+    node.style.transformOrigin = origin;
+    if (!previous || reduce) {
+      node.style.transition = "none";
+      node.style.transform = "none";
+      return;
+    }
+    const start = anchoredSizeScale(previous, next, readElementScale(node));
+    if (!start) return;
+    node.style.transition = "none";
+    node.style.transform = `scale(${start.x}, ${start.y})`;
+    void node.offsetWidth;
+    node.style.transition = `transform ${POPOVER_SIZE_MS}ms ${EASE_IN_OUT_CSS}`;
+    node.style.transform = "scale(1, 1)";
+  }, [ctx.open, layout, origin, reduce]);
 
   // Both directions travel between the exact same hidden/show states. Exit
   // targets "hidden" directly instead of introducing separate choreography.
@@ -355,7 +406,9 @@ export function MorphPopoverContent({
               className,
             )}
           >
-            {children}
+            <div ref={scaleRef} className="w-fit" style={{ transformOrigin: origin }}>
+              {children}
+            </div>
           </motion.div>
         </motion.div>
       ) : null}

@@ -3583,6 +3583,7 @@
           "description": "Pass additional CLI args for this run.",
           "placeholder": "--config value"
         },
+        "noModelCatalog": "This agent has no model catalog.",
         "errors": {
           "removeConflictingArgs": "Remove conflicting args: {args}",
           "invalidExtraArgs": "Invalid extra args"

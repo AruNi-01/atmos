@@ -285,6 +285,8 @@ export const WS_ACTIONS = [
   "center_layout_get",
   "center_layout_put",
   "terminal_agent_models_get",
+  "terminal_agent_prefs_get",
+  "terminal_agent_prefs_set",
   "workspace_gitignore_dirs_get",
   "workspace_gitignore_dirs_update",
   "llm_providers_get",

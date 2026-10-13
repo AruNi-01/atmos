@@ -43,7 +43,10 @@ use super::workspace::WorkspaceService;
 use agents::automation_agent_capabilities;
 pub use agents::AutomationAgentCapability;
 pub mod builtin_agent_upgrade;
+#[cfg(test)]
+pub(crate) use agents::terminal_agent_run_config_args;
 pub(crate) use agents::{
+    agent_cli_run_config, fill_grok_build_line_list_effort, remember_probed_terminal_catalog,
     resolve_automation_agent_with_config, AutomationAgentInvocation, AutomationCommandInput,
     PromptDelivery, StdoutParser,
 };

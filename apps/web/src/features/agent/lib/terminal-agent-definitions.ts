@@ -3,7 +3,7 @@ import terminalAgents from "@atmos/resources/terminal-agents/builtin_agents.json
 export type TerminalAgentPromptStrategy = "arg" | "stdin" | "prompt_flag" | "file_flag";
 export type TerminalAgentModelSupport = "none" | "manual" | "catalog";
 export type TerminalAgentReasoningMode = "none" | "enum" | "manual" | "encoded_in_model";
-export type TerminalAgentReasoningValueStyle = "value" | "flag_only";
+export type TerminalAgentReasoningValueStyle = "value" | "flag_only" | "config";
 
 export interface TerminalAgentReasoningSupport {
   mode: TerminalAgentReasoningMode;
@@ -56,7 +56,11 @@ const REASONING_MODES = new Set<TerminalAgentReasoningMode>([
   "manual",
   "encoded_in_model",
 ]);
-const REASONING_VALUE_STYLES = new Set<TerminalAgentReasoningValueStyle>(["value", "flag_only"]);
+const REASONING_VALUE_STYLES = new Set<TerminalAgentReasoningValueStyle>([
+  "value",
+  "flag_only",
+  "config",
+]);
 
 function normalizePromptStrategy(value: string | undefined): TerminalAgentPromptStrategy | undefined {
   if (!value) return undefined;

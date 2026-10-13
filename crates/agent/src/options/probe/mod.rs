@@ -24,9 +24,9 @@ pub use cli::{
     collapse_droid_fast_models, collapse_grok_fast_models, cursor_model_base,
     cursor_model_display_label, cursor_model_has_brackets, droid_fast_base,
     encode_droid_fast_model, encode_grok_fast_model, fill_cursor_thinking_by_base,
-    fold_droid_composer_options, grok_fast_base, map_to_advertised_cursor_model,
-    models_look_like_cursor_acp, overlay_droid_model_catalog, CommandOutput, CommandRunner,
-    ProcessCommandRunner,
+    fill_grok_thinking_from_native, fold_droid_composer_options, grok_fast_base,
+    map_to_advertised_cursor_model, models_look_like_cursor_acp, overlay_droid_model_catalog,
+    CommandOutput, CommandRunner, ProcessCommandRunner,
 };
 pub use native::{
     DispatchNativeOptionsProbe, NativeOptionsProbe, NativeOptionsProbeResult,

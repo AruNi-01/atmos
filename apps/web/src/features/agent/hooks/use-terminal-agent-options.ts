@@ -4,8 +4,14 @@ import * as React from "react";
 import { useTranslations } from "next-intl";
 
 import { wsRequest } from "@/api/ws/request";
+import { rememberTerminalAgentCatalog } from "@/features/agent/lib/terminal-agent-launch-args";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import type { TerminalAgentOptions } from "@atmos/api-types/ws/dto/settings";
+
+function publishCatalog(agentId: string, catalog: TerminalAgentOptions) {
+  if (catalog.status !== "ok" || catalog.models.length === 0) return;
+  rememberTerminalAgentCatalog(agentId, catalog.models);
+}
 
 export type {
   TerminalAgentOptions,
@@ -44,6 +50,7 @@ export function useTerminalAgentOptions(agentId: string, enabled: boolean) {
           ) {
             return current;
           }
+          publishCatalog(agentId, nextCatalog);
           return nextCatalog;
         });
         setLoading(nextCatalog.status === "probing");
@@ -61,9 +68,8 @@ export function useTerminalAgentOptions(agentId: string, enabled: boolean) {
             source: "live",
           };
         });
-        return null;
-      } finally {
         setLoading(false);
+        return null;
       }
     },
     [agentId, enabled, t],
@@ -95,6 +101,7 @@ export function useTerminalAgentOptions(agentId: string, enabled: boolean) {
         ) {
           return current;
         }
+        publishCatalog(agentId, incoming);
         return incoming;
       });
       setLoading(incoming.status === "probing");

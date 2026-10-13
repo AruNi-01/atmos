@@ -8,6 +8,11 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -16,12 +21,17 @@ import {
 import { Bot, Check, ChevronDown, ChevronLeft, Settings2 } from "lucide-react";
 
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
-import { TerminalAgentRunConfigContent } from "@/features/agent/components/TerminalAgentRunConfigDialog";
+import { TerminalAgentModelPopover } from "@/features/agent/components/TerminalAgentModelPopover";
 import {
   buildRunConfigSummary,
   readSavedRunConfigs,
+  sanitizeRunConfig,
   type TerminalAgentRunConfigInput,
 } from "@/features/agent/lib/terminal-agent-run-config";
+import {
+  pointerDownKeepsTerminalPickerOpen,
+  terminalPickerClosesOnModelChoice,
+} from "@/features/agent/lib/terminal-picker-dismiss";
 import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
 
 export interface TerminalAgentSelectorOption {
@@ -53,6 +63,8 @@ type SharedProps = {
   purpose?: "interactive" | "automation";
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Default true. Attention summary passes false so terminal last-pick is not saved as behaviour. */
+  hydrateLastPick?: boolean;
 };
 
 type FloatingProps = SharedProps & {
@@ -105,12 +117,11 @@ type TerminalAgentSelectorWithRunConfigProps =
   | MenuProps
   | PanelProps;
 
-type SelectorView = "agent_list" | "run_config";
-
 export function TerminalAgentSelectorWithRunConfig(
   props: TerminalAgentSelectorWithRunConfigProps,
 ) {
   const t = useTranslations("Agent.components.selector");
+  const runConfigText = useTranslations("Agent.components.runConfig");
   const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false);
   const open = props.open ?? uncontrolledOpen;
   const onOpenChange = props.onOpenChange;
@@ -121,9 +132,6 @@ export function TerminalAgentSelectorWithRunConfig(
     },
     [onOpenChange],
   );
-  const [view, setView] = React.useState<SelectorView>("agent_list");
-  const [configuringAgentId, setConfiguringAgentId] = React.useState<string | null>(null);
-  const preserveConfigViewOnCloseRef = React.useRef(false);
   const settings = useFunctionSettingsStore((state) => state.settings);
   const loadFunctionSettings = useFunctionSettingsStore((state) => state.load);
   const allowRunConfig =
@@ -131,20 +139,24 @@ export function TerminalAgentSelectorWithRunConfig(
       ? props.showRunConfig !== false
       : true;
 
+  const [agentListOpen, setAgentListOpen] = React.useState(false);
+  const [lockedAgentId, setLockedAgentId] = React.useState<string | null>(null);
+
   React.useEffect(() => {
     void loadFunctionSettings();
   }, [loadFunctionSettings]);
 
   React.useEffect(() => {
-    if (!open) {
-      if (preserveConfigViewOnCloseRef.current) {
-        preserveConfigViewOnCloseRef.current = false;
-        return;
-      }
-      setView("agent_list");
-      setConfiguringAgentId(null);
-    }
+    if (open) return;
+    setAgentListOpen(false);
+    setLockedAgentId(null);
   }, [open]);
+
+  const openRunConfig = React.useCallback((agentId: string) => {
+    if (!allowRunConfig) return;
+    setLockedAgentId(agentId);
+    setAgentListOpen(false);
+  }, [allowRunConfig]);
 
   const savedRunConfigs = React.useMemo(
     () => readSavedRunConfigs(settings?.agent_cli?.saved_run_configs),
@@ -162,6 +174,13 @@ export function TerminalAgentSelectorWithRunConfig(
     [onInteraction],
   );
 
+  const keepPickerOpenForEffortPopover = React.useCallback(
+    (event: { preventDefault: () => void; target: EventTarget | null }) => {
+      if (pointerDownKeepsTerminalPickerOpen(event.target)) event.preventDefault();
+    },
+    [],
+  );
+
   const getRunConfig = React.useCallback(
     (agentId: string) => {
       if (props.variant === "floating") {
@@ -175,120 +194,163 @@ export function TerminalAgentSelectorWithRunConfig(
     [props],
   );
 
-  const handleApply = React.useCallback(
-    (value: TerminalAgentRunConfigInput | null) => {
-      if (!configuringAgentId) return;
-      props.onRunConfigChange(configuringAgentId, value);
-      setView("agent_list");
-      setConfiguringAgentId(null);
-    },
-    [configuringAgentId, props],
-  );
-
-  const handleAgentSelect = React.useCallback(
-    (agentId: string) => {
-      props.onValueChange(agentId);
-      if (props.variant !== "panel") {
-        setOpen(false);
-      }
-    },
-    [props, setOpen],
-  );
-
-  const openRunConfig = React.useCallback((agentId: string) => {
-    if (!allowRunConfig) return;
-    setConfiguringAgentId(agentId);
-    setView("run_config");
-  }, [allowRunConfig]);
-
   const summary = selectedOption
     ? buildRunConfigSummary(selectedOption.label, getRunConfig(selectedOption.id))
     : t("selectAgent");
 
-  const configAgent =
-    options.find((item) => item.id === configuringAgentId) ??
-    (configuringAgentId ? { id: configuringAgentId, label: configuringAgentId } : null);
+  const pickerAgentId = lockedAgentId ?? props.value;
+  const pickerLocked = lockedAgentId !== null;
+  const pickerOption = options.find((item) => item.id === pickerAgentId)
+    ?? (pickerAgentId ? { id: pickerAgentId, label: pickerAgentId } : null);
+  const pickerOptions = pickerLocked && pickerOption ? [pickerOption] : options;
+  const showAgentList = props.variant !== "panel" && allowRunConfig && agentListOpen && !pickerLocked;
+  const barePicker = !showAgentList && !(options.length === 0 && props.variant === "floating");
+  const menuSurface = barePicker
+    ? "min-w-0 overflow-x-visible overflow-y-visible border-0 bg-transparent p-0 shadow-none"
+    : "p-1.5";
+  const agentTemplates = savedRunConfigs.filter((item) => item.agent_id === pickerAgentId);
+  const showTemplates = allowRunConfig && props.purpose !== "automation" && agentTemplates.length > 0 && !showAgentList;
 
-  const listRows =
+  const agentRows = (
+    <div className="grid gap-0.5">
+      <button
+        type="button"
+        onClick={() => setAgentListOpen(false)}
+        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent/70 hover:text-foreground"
+      >
+        <ChevronLeft className="size-3.5" />
+        {t("back")}
+      </button>
+      {options.map((option) => {
+        const disabledReason = option.disabledReason?.trim();
+        const selected = option.id === props.value;
+        const row = (
+          <div
+            key={option.id}
+            className={cn(
+              "group/agent flex items-center gap-1.5 rounded-md px-2 py-1",
+              disabledReason ? "opacity-60" : "hover:bg-accent/70",
+            )}
+          >
+            <button
+              type="button"
+              disabled={!!disabledReason}
+              onClick={() => {
+                if (disabledReason) return;
+                props.onValueChange(option.id);
+                if (props.variant !== "panel") setOpen(false);
+              }}
+              className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+            >
+              <AgentGlyph option={option} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm text-foreground">{option.label}</span>
+                {option.description || disabledReason ? (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {option.description ?? disabledReason}
+                  </span>
+                ) : null}
+              </span>
+            </button>
+            <span className="relative inline-flex size-7 shrink-0 items-center justify-center">
+              {selected ? (
+                <Check className="size-4 text-foreground group-hover/agent:opacity-0 group-focus-within/agent:opacity-0" />
+              ) : (
+                <Settings2 className="size-3.5 text-muted-foreground group-hover/agent:opacity-0 group-focus-within/agent:opacity-0" />
+              )}
+              <button
+                type="button"
+                disabled={!!disabledReason}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  if (!disabledReason) openRunConfig(option.id);
+                }}
+                className="absolute inset-0 inline-flex items-center justify-center rounded-md text-muted-foreground opacity-0 pointer-events-none group-hover/agent:pointer-events-auto group-hover/agent:opacity-100 group-focus-within/agent:pointer-events-auto group-focus-within/agent:opacity-100 hover:bg-background hover:text-foreground"
+                aria-label={t("configureAgent", { label: option.label })}
+              >
+                <Settings2 className="size-3.5" />
+              </button>
+            </span>
+          </div>
+        );
+        if (!disabledReason) return row;
+        return (
+          <Tooltip key={option.id}>
+            <TooltipTrigger asChild>{row}</TooltipTrigger>
+            <TooltipContent side="right" className="max-w-xs text-xs leading-5">
+              {disabledReason}
+            </TooltipContent>
+          </Tooltip>
+        );
+      })}
+    </div>
+  );
+
+  const picker =
     options.length === 0 && props.variant === "floating" ? (
       <DropdownMenuItem onClick={props.onEmptyAction} className="cursor-pointer">
         {props.emptyActionLabel ?? t("connectAgents")}
       </DropdownMenuItem>
+    ) : showAgentList ? (
+      agentRows
     ) : (
-      <div className="grid gap-0.5">
-        {options.map((option) => {
-          const disabledReason = option.disabledReason?.trim();
-          const selected = option.id === props.value;
-          const configButton = (
-            <button
-              type="button"
-              disabled={!!disabledReason}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                if (!disabledReason) {
-                  openRunConfig(option.id);
-                }
-              }}
-              className="absolute inset-0 inline-flex items-center justify-center rounded-md text-muted-foreground opacity-0 pointer-events-none group-hover/agent:pointer-events-auto group-hover/agent:opacity-100 group-focus-within/agent:pointer-events-auto group-focus-within/agent:opacity-100 hover:bg-background hover:text-foreground"
-              aria-label={t("configureAgent", { label: option.label })}
-            >
-              <Settings2 className="size-3.5" />
-            </button>
-          );
-
-          const row = (
-            <div
-              key={option.id}
-              className={cn(
-                "group/agent flex items-center gap-1.5 rounded-md px-2 py-1",
-                disabledReason ? "opacity-60" : "hover:bg-accent/70",
-              )}
-            >
-              <button
-                type="button"
-                disabled={!!disabledReason}
-                onClick={() => {
-                  if (!disabledReason) {
-                    handleAgentSelect(option.id);
-                  }
-                }}
-                className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
-              >
-                <AgentGlyph option={option} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm text-foreground">{option.label}</span>
-                  {option.description || disabledReason ? (
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {option.description ?? disabledReason}
-                    </span>
-                  ) : null}
-                </span>
-              </button>
-              <span className="relative inline-flex size-7 shrink-0 items-center justify-center">
-                {selected ? (
-                  <Check className="size-4 text-foreground group-hover/agent:opacity-0 group-focus-within/agent:opacity-0" />
-                ) : allowRunConfig ? (
-                  <Settings2 className="size-3.5 text-muted-foreground group-hover/agent:opacity-0 group-focus-within/agent:opacity-0" />
-                ) : null}
-                {allowRunConfig ? configButton : null}
-              </span>
-            </div>
-          );
-
-          if (!disabledReason) {
-            return row;
+      <div className={cn("flex w-full min-w-[22rem] flex-col", (pickerLocked || showTemplates) && "gap-2")}>
+        {pickerLocked ? (
+          <button
+            type="button"
+            onClick={() => {
+              setLockedAgentId(null);
+              setAgentListOpen(true);
+            }}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent/70 hover:text-foreground"
+          >
+            <ChevronLeft className="size-3.5" />
+            {t("back")}
+          </button>
+        ) : null}
+        {showTemplates ? (
+          <Select
+            onValueChange={(templateId) => {
+              const template = agentTemplates.find((item) => item.id === templateId);
+              if (!template || !pickerAgentId) return;
+              props.onRunConfigChange(pickerAgentId, sanitizeRunConfig(template.config));
+            }}
+          >
+            <SelectTrigger className="mx-1 h-8">
+              <SelectValue placeholder={runConfigText("savedConfig.placeholder")} />
+            </SelectTrigger>
+            <SelectContent>
+              {agentTemplates.map((item) => (
+                <SelectItem key={item.id} value={item.id}>
+                  {item.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+        <TerminalAgentModelPopover
+          options={pickerOptions}
+          agentId={pickerAgentId}
+          runConfig={pickerAgentId ? getRunConfig(pickerAgentId) : null}
+          runConfigFor={getRunConfig}
+          onRunConfigChange={props.onRunConfigChange}
+          onSelectAgent={pickerLocked ? undefined : props.onValueChange}
+          onModelChosen={(agentId) => {
+            if (pickerLocked) return;
+            props.onValueChange(agentId);
+            if (terminalPickerClosesOnModelChoice() && props.variant !== "panel") setOpen(false);
+          }}
+          menuInline
+          className={props.variant === "panel" ? undefined : "rounded-2xl bg-popover shadow-[0_10px_18px_rgba(0,0,0,0.14)]"}
+          onOpenAgentList={
+            props.variant !== "panel" && allowRunConfig && !pickerLocked
+              ? () => setAgentListOpen(true)
+              : undefined
           }
-
-          return (
-            <Tooltip key={option.id}>
-              <TooltipTrigger asChild>{row}</TooltipTrigger>
-              <TooltipContent side="right" className="max-w-xs text-xs leading-5">
-                {disabledReason}
-              </TooltipContent>
-            </Tooltip>
-          );
-        })}
+          agentLocked={pickerLocked}
+          hydrateLastPick={props.hydrateLastPick}
+        />
       </div>
     );
 
@@ -309,69 +371,10 @@ export function TerminalAgentSelectorWithRunConfig(
     ) : null;
 
   const overlayContent = (
-    <div
-      className={cn(
-        "relative overflow-hidden transition-[width] duration-250 ease-out",
-        props.variant === "panel"
-          ? "w-full"
-          : view === "agent_list"
-            ? "w-[272px]"
-            : "w-[420px]",
-      )}
-    >
-      <div
-        className={cn(
-          "transition-all duration-200 ease-out",
-          view === "agent_list"
-            ? "translate-x-0 opacity-100"
-            : "-translate-x-3 opacity-0 pointer-events-none absolute inset-0",
-        )}
-      >
-        {listHeader}
-        {listRows}
-        {listFooter}
-      </div>
-
-      <div
-        className={cn(
-          "transition-all duration-200 ease-out",
-          view === "run_config"
-            ? "translate-x-0 opacity-100"
-            : "translate-x-3 opacity-0 pointer-events-none absolute inset-0",
-        )}
-      >
-        {configAgent ? (
-          <div className="space-y-3 px-2 py-2">
-            <button
-              type="button"
-              onClick={() => {
-                setView("agent_list");
-                setConfiguringAgentId(null);
-              }}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent/70 hover:text-foreground"
-            >
-              <ChevronLeft className="size-3.5" />
-              {t("back")}
-            </button>
-            <TerminalAgentRunConfigContent
-              agentId={configAgent.id}
-              agentLabel={configAgent.label}
-              purpose={props.purpose ?? "interactive"}
-              savedRunConfigs={savedRunConfigs}
-              value={getRunConfig(configAgent.id)}
-              onApply={handleApply}
-              onManageConfigs={() => {
-                preserveConfigViewOnCloseRef.current = true;
-              }}
-              onCancel={() => {
-                setView("agent_list");
-                setConfiguringAgentId(null);
-              }}
-              embedded
-            />
-          </div>
-        ) : null}
-      </div>
+    <div className={cn("w-full", props.variant === "panel" ? "min-w-0" : "min-w-[22rem]")}>
+      {listHeader}
+      {picker}
+      {listFooter}
     </div>
   );
 
@@ -401,11 +404,13 @@ export function TerminalAgentSelectorWithRunConfig(
         </Tooltip>
         <DropdownMenuContent
           align={props.contentAlign ?? "start"}
-          className="p-1.5"
+          className={menuSurface}
           onDoubleClick={handleContentInteraction}
+          onInteractOutside={keepPickerOpenForEffortPopover}
           onKeyDown={handleContentInteraction}
           onMouseDown={handleContentInteraction}
           onPointerDown={handleContentInteraction}
+          onPointerDownOutside={keepPickerOpenForEffortPopover}
           onWheel={handleContentInteraction}
         >
           {overlayContent}
@@ -442,11 +447,13 @@ export function TerminalAgentSelectorWithRunConfig(
           </Tooltip>
           <DropdownMenuContent
             align="start"
-            className="p-1.5"
+            className={menuSurface}
             onDoubleClick={handleContentInteraction}
+            onInteractOutside={keepPickerOpenForEffortPopover}
             onKeyDown={handleContentInteraction}
             onMouseDown={handleContentInteraction}
             onPointerDown={handleContentInteraction}
+            onPointerDownOutside={keepPickerOpenForEffortPopover}
             onWheel={handleContentInteraction}
           >
             {overlayContent}
@@ -462,11 +469,7 @@ export function TerminalAgentSelectorWithRunConfig(
   if (props.variant === "panel") {
     return (
       <div
-        className={cn(
-          "max-h-[min(14rem,40vh)] overflow-auto",
-          view === "run_config" && "max-h-[min(22rem,50vh)]",
-          props.className,
-        )}
+        className={cn("max-h-[min(24rem,70vh)] overflow-auto", props.className)}
       >
         {overlayContent}
       </div>
@@ -478,12 +481,16 @@ export function TerminalAgentSelectorWithRunConfig(
       <DropdownMenuTrigger asChild>{props.trigger}</DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className={cn("p-1.5", props.contentClassName)}
+        className={cn(menuSurface, props.contentClassName)}
         onCloseAutoFocus={props.onCloseAutoFocus}
         onDoubleClick={handleContentInteraction}
+        onInteractOutside={keepPickerOpenForEffortPopover}
         onKeyDown={handleContentInteraction}
         onMouseDown={handleContentInteraction}
-        onPointerDownOutside={props.onPointerDownOutside}
+        onPointerDownOutside={(event) => {
+          keepPickerOpenForEffortPopover(event);
+          if (!pointerDownKeepsTerminalPickerOpen(event.target)) props.onPointerDownOutside?.(event);
+        }}
         onPointerDown={handleContentInteraction}
         onWheel={handleContentInteraction}
       >

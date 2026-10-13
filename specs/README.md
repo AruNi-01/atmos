@@ -159,6 +159,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-077** | Mobile terminal main path (keep homepage + auth; flattened tabs; Expo drawers; `expo-ios-popover` popovers) | `specs/APP/APP-077_mobile-terminal-main-path/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-078** | Session inbox: phone tabs plus Web/Desktop left-sidebar View (Workspace default, Session list) | `specs/APP/APP-078_mobile-session-inbox/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-079** | Mobile Agent Chat: reused lists open a workspace chat session list; transcript and new-chat composer follow web, without the message outline | `specs/APP/APP-079_mobile-agent-chat/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-080** | Terminal Agent model and effort picker. Reuses the Agent Chat model popover; Terminal favorites and last pick live in `terminal_prefs.json`. Permission, fast, and slash-command effort are out | `specs/APP/APP-080_terminal-agent-launch-probe/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `reference/cli-capability-audit.md`) |
 | **QUALITY-001** | Large File Code Debt Cleanup | `specs/APP/QUALITY-001_large-file-code-debt-cleanup/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-002** | Spec Test Execution Loop | `specs/APP/QUALITY-002_spec-test-execution-loop/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-003** | Playwright E2E Harness | `specs/APP/QUALITY-003_playwright-e2e-harness/` (`TECH.md`, `TEST.md`) |

@@ -125,6 +125,10 @@ pub struct ResolvedLlmProvider {
     pub api_key: String,
     pub model: String,
     pub agent_id: Option<String>,
+    /// Thinking effort for an agent-cli provider. Empty means the launch omits it.
+    pub agent_reasoning_effort: Option<String>,
+    /// Extra CLI args for an agent-cli provider. Empty means the launch omits them.
+    pub agent_extra_args: Vec<String>,
     pub timeout: Duration,
     pub max_output_tokens: Option<u32>,
     /// Effective context window in tokens (always populated after resolution).

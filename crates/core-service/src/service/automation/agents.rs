@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
@@ -33,6 +34,9 @@ pub struct TerminalAgentOption {
     pub is_default: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub thinking: Option<agent::AgentThinkingSupport>,
+    /// Droid / Cursor / Grok catalog rows that advertise a CLI fast parameter.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub fast: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -69,6 +73,9 @@ pub struct AutomationAgentRunConfig {
     pub reasoning: Option<AutomationAgentReasoningSelection>,
     #[serde(default)]
     pub extra_args: Vec<String>,
+    /// Amp `--fast`, or a model-id fast parameter the Terminal picker turned on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fast: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -116,6 +123,7 @@ pub enum AutomationAgentReasoningValueStyle {
     #[default]
     Value,
     FlagOnly,
+    Config,
 }
 
 #[derive(Debug, Clone)]
@@ -300,7 +308,30 @@ static TERMINAL_OPTIONS_CACHE: OnceLock<Mutex<HashMap<String, CachedTerminalAgen
 #[derive(Debug, Clone)]
 struct CachedTerminalAgentOptions {
     stored_at: Instant,
+    /// Worker catalog timestamp. Launch accepts this for the worker's ok TTL.
+    fetched_at: DateTime<Utc>,
     options: TerminalAgentOptions,
+}
+
+/// Copy an ok worker catalog into the store `build_run_config_args` reads.
+/// Does not spawn a CLI. Empty and non-ok catalogs leave the previous entry.
+pub(crate) fn remember_probed_terminal_catalog(catalog: &agent::AgentOptionsSnapshot) {
+    if catalog.status != agent::OptionsStatus::Ok || catalog.models.is_empty() {
+        return;
+    }
+    let options = crate::terminal_options_from(catalog);
+    let cache = TERMINAL_OPTIONS_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    let Ok(mut guard) = cache.lock() else {
+        return;
+    };
+    guard.insert(
+        catalog.agent_id.clone(),
+        CachedTerminalAgentOptions {
+            stored_at: Instant::now(),
+            fetched_at: catalog.fetched_at,
+            options,
+        },
+    );
 }
 
 pub fn automation_agent_capabilities() -> Result<Vec<AutomationAgentCapability>> {
@@ -459,6 +490,7 @@ pub fn terminal_agent_options(agent_id: &str, refresh: bool) -> Result<TerminalA
             agent_id.to_string(),
             CachedTerminalAgentOptions {
                 stored_at: Instant::now(),
+                fetched_at: Utc::now(),
                 options: catalog.clone(),
             },
         );
@@ -638,6 +670,25 @@ fn resolve_terminal_agents_with_settings(
     resolved
 }
 
+fn catalog_executable(agent: &ResolvedTerminalAgent) -> Option<std::path::PathBuf> {
+    automation_support(agent).executable_path
+}
+
+fn missing_catalog_binary_options(agent: &ResolvedTerminalAgent) -> TerminalAgentOptions {
+    let support = automation_support(agent);
+    build_terminal_agent_options(
+        &agent.id,
+        TerminalAgentOptionsStatus::Error,
+        Vec::new(),
+        Some(
+            support
+                .unavailable_reason
+                .unwrap_or_else(|| format!("{} is not installed or is not executable.", agent.cmd)),
+        ),
+        TerminalAgentOptionsSource::Live,
+    )
+}
+
 fn probe_terminal_agent_options(agent_id: &str) -> Result<TerminalAgentOptions> {
     let Some(agent) = resolved_terminal_agents()?
         .into_iter()
@@ -665,17 +716,8 @@ fn probe_terminal_agent_options(agent_id: &str) -> Result<TerminalAgentOptions> 
         ));
     };
 
-    let support = automation_support(&agent);
-    let Some(executable_path) = support.executable_path else {
-        return Ok(build_terminal_agent_options(
-            &agent.id,
-            TerminalAgentOptionsStatus::Error,
-            Vec::new(),
-            Some(support.unavailable_reason.unwrap_or_else(|| {
-                format!("{} is not installed or is not executable.", agent.cmd)
-            })),
-            TerminalAgentOptionsSource::Live,
-        ));
+    let Some(executable_path) = catalog_executable(&agent) else {
+        return Ok(missing_catalog_binary_options(&agent));
     };
 
     let args = if model_list.command.len() > 1 {
@@ -876,6 +918,7 @@ fn option_from_agent_model(model: agent::AgentModel) -> TerminalAgentOption {
         group: model.group,
         is_default: model.is_default,
         thinking: model.thinking,
+        fast: model.fast,
     }
 }
 
@@ -922,6 +965,7 @@ fn parse_grok_terminal_agent_options(output: &str) -> Vec<TerminalAgentOption> {
                 group: None,
                 is_default,
                 thinking: None,
+                fast: false,
             })
         })
         .collect()
@@ -955,6 +999,7 @@ fn model_option_from_json(value: &Value) -> Option<TerminalAgentOption> {
             group: None,
             is_default: false,
             thinking: None,
+            fast: false,
         }),
         Value::Object(map) => {
             let id = ["id", "name", "model", "value"]
@@ -980,6 +1025,7 @@ fn model_option_from_json(value: &Value) -> Option<TerminalAgentOption> {
                 group,
                 is_default,
                 thinking: None,
+                fast: false,
             })
         }
         _ => None,
@@ -1204,9 +1250,189 @@ fn merge_automation_args(
     Ok(args)
 }
 
+/// Run config shared by attention-summary validation and the agent-cli launch.
+/// A model equal to `agent_id` is a placeholder and is not passed through.
+/// Returns `None` when model, effort, and extra args are all empty.
+pub(crate) fn agent_cli_run_config(
+    agent_id: &str,
+    model: Option<&str>,
+    effort: Option<&str>,
+    extra_args: &[String],
+) -> Option<AutomationAgentRunConfig> {
+    let agent = agent_id.trim();
+    let model = model
+        .map(str::trim)
+        .filter(|value| !value.is_empty() && *value != agent)
+        .map(str::to_string);
+    let effort = effort
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let extra_args: Vec<String> = extra_args
+        .iter()
+        .map(|item| item.trim())
+        .filter(|item| !item.is_empty())
+        .map(str::to_string)
+        .collect();
+    if model.is_none() && effort.is_none() && extra_args.is_empty() {
+        return None;
+    }
+    Some(AutomationAgentRunConfig {
+        model,
+        reasoning: effort.map(|value| AutomationAgentReasoningSelection {
+            mode: AutomationAgentReasoningMode::Enum,
+            value,
+        }),
+        extra_args,
+        fast: None,
+    })
+}
+
+/// Model, effort, and extra-arg argv for a shipped terminal agent.
+/// Uses the builtin manifest, does not read the user's agent file, does not
+/// check that the binary is installed, and does not spawn a CLI.
+#[cfg(test)]
+pub(crate) fn terminal_agent_run_config_args(
+    agent_id: &str,
+    run_config: Option<&AutomationAgentRunConfig>,
+) -> Result<Vec<String>> {
+    let agent = resolve_terminal_agents_with_settings(
+        load_builtin_terminal_agents()?,
+        TerminalCodeAgentFile { agents: Vec::new() },
+    )
+    .into_iter()
+    .find(|agent| agent.id == agent_id)
+    .ok_or_else(|| ServiceError::Validation(format!("Agent `{agent_id}` is not configured.")))?;
+    build_run_config_args(&agent, run_config)
+}
+
 fn build_run_config_args(
     agent: &ResolvedTerminalAgent,
     run_config: Option<&AutomationAgentRunConfig>,
+) -> Result<Vec<String>> {
+    let probed = cached_model_effort(agent, run_config);
+    build_run_config_args_with_model_effort(agent, run_config, probed.as_deref())
+}
+
+/// Effort list from a catalog row that was already probed. Does not spawn a CLI.
+/// `Some([])` means the row is known and carries no effort list.
+fn cached_model_effort(
+    agent: &ResolvedTerminalAgent,
+    run_config: Option<&AutomationAgentRunConfig>,
+) -> Option<Vec<String>> {
+    let model = run_config?
+        .model
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())?;
+    let direct = match memory_model_effort(&agent.id, model) {
+        MemoryEffort::Row(list) => Some(list),
+        MemoryEffort::KnownCatalogMissingRow => None,
+        MemoryEffort::Miss => disk_model_effort(&agent.id, model),
+    };
+    if agent.id == "grok-build" && direct.as_ref().is_none_or(|list| list.is_empty()) {
+        if let Some(native) = native_grok_effort_for_model(model) {
+            return Some(native);
+        }
+    }
+    direct
+}
+
+/// Last native `grok` ladder for this model id, including `*-build-fast` siblings.
+/// Used when the Terminal `grok-build` row has not been joined yet.
+fn native_grok_effort_for_model(model: &str) -> Option<Vec<String>> {
+    let path = agent::options_cache_dir(&crate::default_agent_data_dir()).join("grok.json");
+    let text = std::fs::read_to_string(path).ok()?;
+    let native: agent::AgentOptionsSnapshot = serde_json::from_str(&text).ok()?;
+    if native.status != agent::OptionsStatus::Ok || native.agent_id != "grok" {
+        return None;
+    }
+    let mut row = agent::AgentModel {
+        id: model.to_string(),
+        label: model.to_string(),
+        ..agent::AgentModel::default()
+    };
+    agent::fill_grok_thinking_from_native(std::slice::from_mut(&mut row), &native.models);
+    let list = effort_list_from_model_thinking(row.thinking.as_ref());
+    (!list.is_empty()).then_some(list)
+}
+
+enum MemoryEffort {
+    Miss,
+    /// A fresh ok catalog is loaded and does not list this model.
+    KnownCatalogMissingRow,
+    Row(Vec<String>),
+}
+
+fn memory_model_effort(agent_id: &str, model: &str) -> MemoryEffort {
+    let Some(cache) = TERMINAL_OPTIONS_CACHE.get() else {
+        return MemoryEffort::Miss;
+    };
+    let Ok(guard) = cache.lock() else {
+        return MemoryEffort::Miss;
+    };
+    let Some(cached) = guard.get(agent_id) else {
+        return MemoryEffort::Miss;
+    };
+    if !catalog_fetched_fresh(cached.fetched_at)
+        || !matches!(cached.options.status, TerminalAgentOptionsStatus::Ok)
+    {
+        return MemoryEffort::Miss;
+    }
+    let Some(row) = cached.options.models.iter().find(|item| item.id == model) else {
+        return MemoryEffort::KnownCatalogMissingRow;
+    };
+    MemoryEffort::Row(effort_list_from_model_thinking(row.thinking.as_ref()))
+}
+
+fn disk_model_effort(agent_id: &str, model: &str) -> Option<Vec<String>> {
+    let path =
+        agent::options_cache_dir(&crate::default_agent_data_dir()).join(format!("{agent_id}.json"));
+    model_effort_from_catalog_file(&path, model)
+}
+
+fn model_effort_from_catalog_file(path: &Path, model: &str) -> Option<Vec<String>> {
+    let text = std::fs::read_to_string(path).ok()?;
+    let catalog: agent::AgentOptionsSnapshot = serde_json::from_str(&text).ok()?;
+    model_effort_from_snapshot(&catalog, model)
+}
+
+fn model_effort_from_snapshot(
+    catalog: &agent::AgentOptionsSnapshot,
+    model: &str,
+) -> Option<Vec<String>> {
+    if catalog.status != agent::OptionsStatus::Ok || !catalog_fetched_fresh(catalog.fetched_at) {
+        return None;
+    }
+    let row = catalog.models.iter().find(|item| item.id == model)?;
+    Some(effort_list_from_model_thinking(row.thinking.as_ref()))
+}
+
+fn catalog_fetched_fresh(fetched_at: DateTime<Utc>) -> bool {
+    Utc::now()
+        .signed_duration_since(fetched_at)
+        .to_std()
+        .is_ok_and(|age| age <= agent::OK_CACHE_TTL)
+}
+
+fn effort_list_from_model_thinking(thinking: Option<&agent::AgentThinkingSupport>) -> Vec<String> {
+    match thinking {
+        Some(agent::AgentThinkingSupport::Enum { options, .. }) => options
+            .iter()
+            .map(|item| item.trim())
+            .filter(|item| !item.is_empty())
+            .map(ToOwned::to_owned)
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// `probed_effort` is the selected model row's effort list.
+/// `None` means the catalog was not consulted. `Some([])` means the row has no list.
+fn build_run_config_args_with_model_effort(
+    agent: &ResolvedTerminalAgent,
+    run_config: Option<&AutomationAgentRunConfig>,
+    probed_effort: Option<&[String]>,
 ) -> Result<Vec<String>> {
     let Some(run_config) = run_config else {
         return Ok(Vec::new());
@@ -1216,11 +1442,9 @@ fn build_run_config_args(
         .model
         .as_deref()
         .map(str::trim)
-        .filter(|value| !value.is_empty());
-    let reasoning = run_config
-        .reasoning
-        .as_ref()
-        .filter(|value| !value.value.trim().is_empty());
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+    let effort = accepted_effort_value(agent, run_config, probed_effort)?;
 
     let extra_args = run_config
         .extra_args
@@ -1250,22 +1474,30 @@ fn build_run_config_args(
         }
     }
 
-    if let Some(reasoning) = reasoning {
-        if reasoning.mode != agent.reasoning_support.mode {
+    if let Some(reasoning_flag) = effort_flag_token(agent) {
+        if effort.is_some() && extra_args.iter().any(|item| item == reasoning_flag) {
             return Err(ServiceError::Validation(format!(
-                "Agent `{}` does not support structured reasoning mode `{}`.",
-                agent.id,
-                serde_json::to_string(&reasoning.mode)
-                    .unwrap_or_else(|_| "\"unknown\"".to_string())
+                "Extra args already include {reasoning_flag} for agent `{}`.",
+                agent.id
             )));
         }
-        if let Some(reasoning_flag) = reasoning_arg_for_agent(agent) {
-            if extra_args.iter().any(|item| item == reasoning_flag) {
-                return Err(ServiceError::Validation(format!(
-                    "Extra args already include {reasoning_flag} for agent `{}`.",
-                    agent.id
-                )));
-            }
+    }
+
+    let mut model = match (model, effort.as_deref(), agent.reasoning_support.mode) {
+        (Some(model), Some(effort), AutomationAgentReasoningMode::EncodedInModel) => {
+            Some(encode_effort_in_model_id(&model, effort))
+        }
+        (None, Some(_), AutomationAgentReasoningMode::EncodedInModel) => {
+            return Err(ServiceError::Validation(format!(
+                "Agent `{}` encodes effort in the model id, but no model was selected.",
+                agent.id
+            )));
+        }
+        (model, _, _) => model,
+    };
+    if run_config.fast == Some(true) {
+        if let Some(id) = model.as_mut() {
+            apply_model_id_fast(&agent.id, id);
         }
     }
 
@@ -1273,7 +1505,7 @@ fn build_run_config_args(
         match model_flag_for_agent(&agent.id) {
             Some(flag) => {
                 args.push(flag.to_string());
-                args.push(model.to_string());
+                args.push(model);
             }
             None => {
                 return Err(ServiceError::Validation(format!(
@@ -1284,33 +1516,309 @@ fn build_run_config_args(
         }
     }
 
-    if let Some(reasoning) = reasoning {
-        match agent.reasoning_support.mode {
-            AutomationAgentReasoningMode::None | AutomationAgentReasoningMode::EncodedInModel => {
-                return Err(ServiceError::Validation(format!(
-                    "Agent `{}` does not support separate structured reasoning controls.",
-                    agent.id
-                )));
-            }
-            AutomationAgentReasoningMode::Enum | AutomationAgentReasoningMode::Manual => {
-                let flag = reasoning_arg_for_agent(agent).ok_or_else(|| {
-                    ServiceError::Validation(format!(
-                        "Agent `{}` is missing a structured reasoning flag definition.",
-                        agent.id
-                    ))
-                })?;
-                args.push(flag.to_string());
-                if agent.reasoning_support.value_style
-                    != AutomationAgentReasoningValueStyle::FlagOnly
-                {
-                    args.push(reasoning.value.trim().to_string());
-                }
-            }
+    if let Some(effort) = effort.as_deref() {
+        if agent.reasoning_support.mode != AutomationAgentReasoningMode::EncodedInModel {
+            push_effort_args(agent, effort, &mut args)?;
         }
+    }
+    if let Some(variant) = opencode_variant_value(agent, run_config, probed_effort) {
+        if extra_args.iter().any(|item| item == "--variant") {
+            return Err(ServiceError::Validation(format!(
+                "Extra args already include --variant for agent `{}`.",
+                agent.id
+            )));
+        }
+        args.push("--variant".to_string());
+        args.push(variant);
+    }
+    if agent.id == "amp" && run_config.fast == Some(true) {
+        if extra_args.iter().any(|item| item == "--fast") {
+            return Err(ServiceError::Validation(format!(
+                "Extra args already include --fast for agent `{}`.",
+                agent.id
+            )));
+        }
+        args.push("--fast".to_string());
     }
 
     args.extend(extra_args);
     Ok(args)
+}
+
+fn accepted_effort_value(
+    agent: &ResolvedTerminalAgent,
+    run_config: &AutomationAgentRunConfig,
+    probed_effort: Option<&[String]>,
+) -> Result<Option<String>> {
+    if agent.reasoning_support.mode == AutomationAgentReasoningMode::None {
+        return Ok(None);
+    }
+    let Some(value) = run_config
+        .reasoning
+        .as_ref()
+        .map(|reasoning| reasoning.value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    else {
+        return Ok(None);
+    };
+    let winning = winning_effort_options(agent, probed_effort, run_config.model.as_deref());
+    if agent.reasoning_support.mode == AutomationAgentReasoningMode::EncodedInModel
+        && winning.is_empty()
+    {
+        return Ok(None);
+    }
+    if !winning.is_empty() && !winning.iter().any(|item| item == &value) {
+        return Err(ServiceError::Validation(format!(
+            "Agent `{}` does not accept effort `{value}`.",
+            agent.id
+        )));
+    }
+    if winning.is_empty() && agent.reasoning_support.mode == AutomationAgentReasoningMode::Enum {
+        return Err(ServiceError::Validation(format!(
+            "Agent `{}` does not accept effort `{value}`.",
+            agent.id
+        )));
+    }
+    Ok(Some(value))
+}
+
+fn winning_effort_options(
+    agent: &ResolvedTerminalAgent,
+    probed_effort: Option<&[String]>,
+    model_id: Option<&str>,
+) -> Vec<String> {
+    let ignore_probe = !trusts_probed_effort(&agent.id);
+    if !ignore_probe {
+        if let Some(list) = probed_effort {
+            if !list.is_empty() {
+                let filtered = filter_confirmed_effort(&agent.id, list);
+                if !filtered.is_empty() {
+                    return filtered;
+                }
+                if agent.reasoning_support.mode == AutomationAgentReasoningMode::EncodedInModel {
+                    return Vec::new();
+                }
+            } else if agent.reasoning_support.mode == AutomationAgentReasoningMode::EncodedInModel {
+                return Vec::new();
+            }
+        }
+    } else if agent.reasoning_support.mode == AutomationAgentReasoningMode::EncodedInModel {
+        if probed_effort.is_some_and(|list| list.is_empty()) {
+            return Vec::new();
+        }
+    }
+    if agent.id == "grok-build" {
+        return model_id
+            .and_then(grok_build_line_list_effort)
+            .unwrap_or_default();
+    }
+    agent.reasoning_support.options.clone()
+}
+
+/// Native `grok` ladders for `grok models` rows, which carry no thinking.
+/// `grok-4.7-build-fast` uses the `grok-4.7` ladder. Unknown ids get nothing,
+/// not the manifest enum.
+pub(crate) fn grok_build_line_list_effort(model_id: &str) -> Option<Vec<String>> {
+    let trimmed = model_id.trim();
+    let base = trimmed
+        .strip_suffix("-build-fast")
+        .filter(|base| !base.is_empty())
+        .unwrap_or(trimmed);
+    let levels: &[&str] = match base {
+        "grok-4.5" => &["low", "medium", "high"],
+        "grok-4.6" | "grok-4.7" => &["low", "medium", "high", "xhigh"],
+        _ => return None,
+    };
+    Some(levels.iter().map(|level| (*level).to_string()).collect())
+}
+
+pub(crate) fn fill_grok_build_line_list_effort(models: &mut [agent::AgentModel]) {
+    for model in models {
+        if effort_list_from_model_thinking(model.thinking.as_ref())
+            .iter()
+            .any(|item| !item.is_empty())
+        {
+            continue;
+        }
+        let Some(options) = grok_build_line_list_effort(&model.id) else {
+            continue;
+        };
+        model.thinking = Some(agent::AgentThinkingSupport::Enum {
+            arg: Some("--reasoning-effort".into()),
+            options,
+        });
+    }
+}
+
+fn trusts_probed_effort(agent_id: &str) -> bool {
+    matches!(
+        agent_id,
+        "claude" | "codex" | "opencode" | "pi" | "droid" | "cursor" | "grok-build"
+    )
+}
+
+/// Effort words a trusted CLI probe may return. Same set as the web filter.
+fn is_cli_effort_token(token: &str) -> bool {
+    matches!(
+        token,
+        "off" | "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "thinking"
+    )
+}
+
+fn filter_confirmed_effort(agent_id: &str, probed: &[String]) -> Vec<String> {
+    if !trusts_probed_effort(agent_id) {
+        return Vec::new();
+    }
+    let mut seen = HashSet::new();
+    let mut kept = Vec::new();
+    for raw in probed {
+        let token = raw.trim().to_ascii_lowercase();
+        if token.is_empty() || !seen.insert(token.clone()) {
+            continue;
+        }
+        if is_cli_effort_token(&token) {
+            kept.push(token);
+        }
+    }
+    kept
+}
+
+fn opencode_variant_value(
+    agent: &ResolvedTerminalAgent,
+    run_config: &AutomationAgentRunConfig,
+    probed_effort: Option<&[String]>,
+) -> Option<String> {
+    if agent.id != "opencode" {
+        return None;
+    }
+    let value = run_config
+        .reasoning
+        .as_ref()
+        .map(|reasoning| reasoning.value.trim().to_ascii_lowercase())
+        .filter(|value| !value.is_empty())?;
+    let levels = filter_confirmed_effort("opencode", probed_effort.unwrap_or(&[]));
+    levels.into_iter().find(|item| item == &value)
+}
+
+fn apply_model_id_fast(agent_id: &str, model: &mut String) {
+    match agent_id {
+        "droid" if !model.ends_with("-fast") => *model = format!("{model}-fast"),
+        "grok-build" if !model.ends_with("-build-fast") => {
+            *model = format!("{model}-build-fast");
+        }
+        "cursor" => *model = set_bracket_param(model, "fast", "true"),
+        _ => {}
+    }
+}
+
+fn set_bracket_param(model: &str, key: &str, value: &str) -> String {
+    let model = model.trim();
+    if let Some(open) = model.rfind('[') {
+        if model.ends_with(']') && open + 1 < model.len() {
+            let base = &model[..open];
+            let inner = &model[open + 1..model.len() - 1];
+            let mut parts = Vec::new();
+            let mut found = false;
+            for part in inner.split(',') {
+                let part = part.trim();
+                if part.is_empty() {
+                    continue;
+                }
+                if part
+                    .split_once('=')
+                    .is_some_and(|(item, _)| item.trim() == key)
+                {
+                    parts.push(format!("{key}={value}"));
+                    found = true;
+                } else {
+                    parts.push(part.to_string());
+                }
+            }
+            if !found {
+                parts.push(format!("{key}={value}"));
+            }
+            return format!("{base}[{}]", parts.join(","));
+        }
+    }
+    format!("{model}[{key}={value}]")
+}
+
+fn push_effort_args(
+    agent: &ResolvedTerminalAgent,
+    effort: &str,
+    args: &mut Vec<String>,
+) -> Result<()> {
+    let arg = agent
+        .reasoning_support
+        .arg
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            ServiceError::Validation(format!(
+                "Agent `{}` is missing a structured reasoning flag definition.",
+                agent.id
+            ))
+        })?;
+    match agent.reasoning_support.value_style {
+        AutomationAgentReasoningValueStyle::FlagOnly => {
+            args.push(arg.to_string());
+        }
+        AutomationAgentReasoningValueStyle::Config => {
+            if effort.contains('"') || effort.contains('\n') {
+                return Err(ServiceError::Validation(format!(
+                    "Agent `{}` does not accept effort `{effort}`.",
+                    agent.id
+                )));
+            }
+            args.push("-c".to_string());
+            args.push(format!("{arg}=\"{effort}\""));
+        }
+        AutomationAgentReasoningValueStyle::Value => {
+            args.push(arg.to_string());
+            args.push(effort.to_string());
+        }
+    }
+    Ok(())
+}
+
+fn effort_flag_token(agent: &ResolvedTerminalAgent) -> Option<&str> {
+    match agent.reasoning_support.value_style {
+        AutomationAgentReasoningValueStyle::Config => Some("-c"),
+        _ => reasoning_arg_for_agent(agent).filter(|flag| flag.starts_with('-')),
+    }
+}
+
+fn encode_effort_in_model_id(model: &str, effort: &str) -> String {
+    let model = model.trim();
+    if let Some(open) = model.rfind('[') {
+        if model.ends_with(']') && open + 1 < model.len() {
+            let base = &model[..open];
+            let inner = &model[open + 1..model.len() - 1];
+            let mut parts = Vec::new();
+            let mut found = false;
+            for part in inner.split(',') {
+                let part = part.trim();
+                if part.is_empty() {
+                    continue;
+                }
+                if part
+                    .split_once('=')
+                    .is_some_and(|(key, _)| key.trim() == "effort")
+                {
+                    parts.push(format!("effort={effort}"));
+                    found = true;
+                } else {
+                    parts.push(part.to_string());
+                }
+            }
+            if !found {
+                parts.push(format!("effort={effort}"));
+            }
+            return format!("{base}[{}]", parts.join(","));
+        }
+    }
+    format!("{model}[effort={effort}]")
 }
 
 fn model_flag_for_agent(agent_id: &str) -> Option<&'static str> {
@@ -2003,6 +2511,1029 @@ mod tests {
             resolve_executable_path_with_search_paths("grok", user_bin_paths_for_home(home.path()),),
             Some(executable)
         );
+    }
+
+    fn shipped_agent(id: &str) -> ResolvedTerminalAgent {
+        resolve_terminal_agents_with_settings(
+            load_builtin_terminal_agents().unwrap(),
+            TerminalCodeAgentFile { agents: Vec::new() },
+        )
+        .into_iter()
+        .find(|agent| agent.id == id)
+        .unwrap_or_else(|| panic!("missing builtin {id}"))
+    }
+
+    fn launch_args(
+        agent_id: &str,
+        model: Option<&str>,
+        effort: Option<&str>,
+        probed: Option<&[String]>,
+    ) -> Result<Vec<String>> {
+        let agent = shipped_agent(agent_id);
+        let run_config = AutomationAgentRunConfig {
+            model: model.map(str::to_string),
+            reasoning: effort.map(|value| AutomationAgentReasoningSelection {
+                mode: agent.reasoning_support.mode,
+                value: value.to_string(),
+            }),
+            extra_args: Vec::new(),
+            fast: None,
+        };
+        build_run_config_args_with_model_effort(&agent, Some(&run_config), probed)
+    }
+
+    #[test]
+    fn app080_launch_argv_matches_closed_contracts() {
+        assert_eq!(
+            super::super::terminal_agent_manifest::builtin_terminal_agents_manifest_version(),
+            2
+        );
+        assert_eq!(
+            launch_args("claude", None, Some("max"), None).unwrap(),
+            vec!["--effort".to_string(), "max".to_string()]
+        );
+        assert!(launch_args("claude", None, Some("ultracode"), None).is_err());
+        assert_eq!(
+            launch_args("codex", Some("gpt-5.4"), Some("high"), None).unwrap(),
+            vec![
+                "--model".to_string(),
+                "gpt-5.4".to_string(),
+                "-c".to_string(),
+                "model_reasoning_effort=\"high\"".to_string(),
+            ]
+        );
+        assert!(launch_args("codex", Some("gpt-5.4"), Some("max"), None).is_err());
+        assert_eq!(
+            launch_args("antigravity", Some("gemini"), Some("max"), None).unwrap(),
+            vec![
+                "--model".to_string(),
+                "gemini".to_string(),
+                "--effort".to_string(),
+                "max".to_string(),
+            ]
+        );
+        let droid_levels = vec!["low".to_string(), "high".to_string()];
+        assert_eq!(
+            launch_args("droid", Some("gpt"), Some("high"), Some(&droid_levels)).unwrap(),
+            vec![
+                "--model".to_string(),
+                "gpt".to_string(),
+                "--reasoning-effort".to_string(),
+                "high".to_string(),
+            ]
+        );
+        assert!(launch_args("droid", Some("gpt"), Some("max"), Some(&droid_levels)).is_err());
+        assert!(launch_args("grok-build", Some("grok-4"), Some("xhigh"), None).is_err());
+        assert_eq!(
+            launch_args("grok-build", Some("grok-4.5"), Some("high"), None).unwrap(),
+            vec![
+                "--model".to_string(),
+                "grok-4.5".to_string(),
+                "--reasoning-effort".to_string(),
+                "high".to_string(),
+            ]
+        );
+        assert!(launch_args("grok-build", Some("grok-4.5"), Some("max"), None).is_err());
+        assert!(launch_args("grok-build", Some("grok-4.5"), Some("none"), None).is_err());
+        assert!(launch_args("grok-build", Some("grok-4.5"), Some("minimal"), None).is_err());
+        let empty_row: Vec<String> = Vec::new();
+        assert!(launch_args(
+            "grok-build",
+            Some("grok-4.5"),
+            Some("max"),
+            Some(&empty_row)
+        )
+        .is_err());
+        assert!(launch_args(
+            "grok-build",
+            Some("grok-4.5"),
+            Some("none"),
+            Some(&empty_row)
+        )
+        .is_err());
+        assert!(launch_args(
+            "grok-build",
+            Some("grok-4.5"),
+            Some("minimal"),
+            Some(&empty_row)
+        )
+        .is_err());
+        assert_eq!(
+            launch_args(
+                "grok-build",
+                Some("grok-4.5"),
+                Some("high"),
+                Some(&empty_row)
+            )
+            .unwrap(),
+            vec![
+                "--model".to_string(),
+                "grok-4.5".to_string(),
+                "--reasoning-effort".to_string(),
+                "high".to_string(),
+            ]
+        );
+        assert_eq!(
+            launch_args(
+                "grok-build",
+                Some("grok-4.7"),
+                Some("xhigh"),
+                Some(&empty_row)
+            )
+            .unwrap(),
+            vec![
+                "--model".to_string(),
+                "grok-4.7".to_string(),
+                "--reasoning-effort".to_string(),
+                "xhigh".to_string(),
+            ]
+        );
+        assert!(launch_args(
+            "grok-build",
+            Some("grok-4.7"),
+            Some("max"),
+            Some(&empty_row)
+        )
+        .is_err());
+        assert_eq!(
+            launch_args("grok-build", Some("grok-4.7"), Some("xhigh"), None).unwrap(),
+            vec![
+                "--model".to_string(),
+                "grok-4.7".to_string(),
+                "--reasoning-effort".to_string(),
+                "xhigh".to_string(),
+            ]
+        );
+        assert!(launch_args("grok-build", Some("grok-4.7-build-fast"), Some("max"), None).is_err());
+        let grok_levels = vec!["low".to_string()];
+        assert!(launch_args(
+            "grok-build",
+            Some("grok-4"),
+            Some("max"),
+            Some(&grok_levels)
+        )
+        .is_err());
+        let grok_45 = vec!["low".to_string(), "medium".to_string(), "high".to_string()];
+        assert!(launch_args(
+            "grok-build",
+            Some("grok-4.5"),
+            Some("xhigh"),
+            Some(&grok_45)
+        )
+        .is_err());
+        assert_eq!(
+            launch_args("grok-build", Some("grok-4.5"), Some("high"), Some(&grok_45)).unwrap(),
+            vec![
+                "--model".to_string(),
+                "grok-4.5".to_string(),
+                "--reasoning-effort".to_string(),
+                "high".to_string(),
+            ]
+        );
+        let grok_47 = vec![
+            "low".to_string(),
+            "medium".to_string(),
+            "high".to_string(),
+            "xhigh".to_string(),
+        ];
+        assert_eq!(
+            launch_args(
+                "grok-build",
+                Some("grok-4.7"),
+                Some("xhigh"),
+                Some(&grok_47)
+            )
+            .unwrap(),
+            vec![
+                "--model".to_string(),
+                "grok-4.7".to_string(),
+                "--reasoning-effort".to_string(),
+                "xhigh".to_string(),
+            ]
+        );
+        assert!(launch_args("grok-build", Some("grok-4.7"), Some("max"), Some(&grok_47)).is_err());
+        let mut terminal = agent::AgentOptionsSnapshot::probing("grok-build");
+        terminal.status = agent::OptionsStatus::Ok;
+        terminal.models = vec![
+            agent::AgentModel {
+                id: "grok-4.7".into(),
+                label: "grok-4.7".into(),
+                ..agent::AgentModel::default()
+            },
+            agent::AgentModel {
+                id: "grok-4.7-build-fast".into(),
+                label: "grok-4.7-build-fast".into(),
+                ..agent::AgentModel::default()
+            },
+            agent::AgentModel {
+                id: "grok-4.5".into(),
+                label: "grok-4.5".into(),
+                ..agent::AgentModel::default()
+            },
+            agent::AgentModel {
+                id: "grok-unknown".into(),
+                label: "grok-unknown".into(),
+                ..agent::AgentModel::default()
+            },
+        ];
+        let mut native = agent::AgentOptionsSnapshot::probing("grok");
+        native.status = agent::OptionsStatus::Ok;
+        native.models = vec![
+            agent::AgentModel {
+                id: "grok-4.7".into(),
+                label: "Grok 4.7".into(),
+                fast: true,
+                thinking: Some(agent::AgentThinkingSupport::Enum {
+                    arg: Some("thinking".into()),
+                    options: grok_47.clone(),
+                }),
+                ..agent::AgentModel::default()
+            },
+            agent::AgentModel {
+                id: "grok-4.5".into(),
+                label: "Grok 4.5".into(),
+                thinking: Some(agent::AgentThinkingSupport::Enum {
+                    arg: Some("thinking".into()),
+                    options: grok_45.clone(),
+                }),
+                ..agent::AgentModel::default()
+            },
+        ];
+        crate::service::agent_chat::options::attach_grok_native_effort(
+            &mut terminal,
+            Some(&native),
+        );
+        assert_eq!(
+            effort_list_from_model_thinking(terminal.models[0].thinking.as_ref()),
+            grok_47.clone()
+        );
+        assert_eq!(
+            effort_list_from_model_thinking(terminal.models[1].thinking.as_ref()),
+            grok_47
+        );
+        assert_eq!(
+            effort_list_from_model_thinking(terminal.models[2].thinking.as_ref()),
+            grok_45
+        );
+        assert!(terminal.models[3].thinking.is_none());
+        assert!(!terminal.models[0].fast);
+        let mut cold = agent::AgentOptionsSnapshot::probing("grok-build");
+        cold.status = agent::OptionsStatus::Ok;
+        cold.models = terminal
+            .models
+            .iter()
+            .map(|model| agent::AgentModel {
+                id: model.id.clone(),
+                label: model.label.clone(),
+                thinking: None,
+                ..agent::AgentModel::default()
+            })
+            .collect();
+        crate::service::agent_chat::options::attach_grok_native_effort(&mut cold, None);
+        assert_eq!(
+            effort_list_from_model_thinking(cold.models[0].thinking.as_ref()),
+            vec![
+                "low".to_string(),
+                "medium".to_string(),
+                "high".to_string(),
+                "xhigh".to_string()
+            ]
+        );
+        assert_eq!(
+            effort_list_from_model_thinking(cold.models[1].thinking.as_ref()),
+            vec![
+                "low".to_string(),
+                "medium".to_string(),
+                "high".to_string(),
+                "xhigh".to_string()
+            ]
+        );
+        assert_eq!(
+            effort_list_from_model_thinking(cold.models[2].thinking.as_ref()),
+            vec!["low".to_string(), "medium".to_string(), "high".to_string()]
+        );
+        assert!(cold.models[3].thinking.is_none());
+        assert_eq!(
+            launch_args("pi", Some("pi-model"), Some("max"), None).unwrap(),
+            vec![
+                "--model".to_string(),
+                "pi-model".to_string(),
+                "--thinking".to_string(),
+                "max".to_string(),
+            ]
+        );
+        assert_eq!(
+            launch_args("commandcode", Some("cmd-model"), Some("high"), None).unwrap(),
+            vec![
+                "--model".to_string(),
+                "cmd-model".to_string(),
+                "--effort".to_string(),
+                "high".to_string(),
+            ]
+        );
+        assert!(launch_args("commandcode", Some("cmd-model"), Some("max"), None).is_err());
+        assert_eq!(
+            launch_args("opencode", Some("provider/model"), None, None).unwrap(),
+            vec!["--model".to_string(), "provider/model".to_string()]
+        );
+        assert_eq!(
+            launch_args("kilocode", Some("provider/model"), None, None).unwrap(),
+            vec!["--model".to_string(), "provider/model".to_string()]
+        );
+        assert_eq!(
+            launch_args("opencode", Some("provider/model"), Some("high"), None).unwrap(),
+            vec!["--model".to_string(), "provider/model".to_string()]
+        );
+        let opencode_levels = vec!["high".to_string(), "max".to_string()];
+        assert_eq!(
+            launch_args(
+                "opencode",
+                Some("provider/model"),
+                Some("high"),
+                Some(&opencode_levels)
+            )
+            .unwrap(),
+            vec![
+                "--model".to_string(),
+                "provider/model".to_string(),
+                "--variant".to_string(),
+                "high".to_string(),
+            ]
+        );
+        let opencode_variant = vec!["none".to_string(), "thinking".to_string()];
+        assert_eq!(
+            launch_args(
+                "opencode",
+                Some("opencode-go/minimax-m3"),
+                Some("thinking"),
+                Some(&opencode_variant)
+            )
+            .unwrap(),
+            vec![
+                "--model".to_string(),
+                "opencode-go/minimax-m3".to_string(),
+                "--variant".to_string(),
+                "thinking".to_string(),
+            ]
+        );
+        let droid_minimal = vec![
+            "minimal".to_string(),
+            "low".to_string(),
+            "medium".to_string(),
+            "high".to_string(),
+        ];
+        assert_eq!(
+            launch_args(
+                "droid",
+                Some("gemini-3.5-flash"),
+                Some("minimal"),
+                Some(&droid_minimal)
+            )
+            .unwrap(),
+            vec![
+                "--model".to_string(),
+                "gemini-3.5-flash".to_string(),
+                "--reasoning-effort".to_string(),
+                "minimal".to_string(),
+            ]
+        );
+        let codex_levels = vec!["none".to_string(), "high".to_string()];
+        assert_eq!(
+            launch_args(
+                "codex",
+                Some("stealth/union-alpha"),
+                Some("none"),
+                Some(&codex_levels)
+            )
+            .unwrap(),
+            vec![
+                "--model".to_string(),
+                "stealth/union-alpha".to_string(),
+                "-c".to_string(),
+                "model_reasoning_effort=\"none\"".to_string(),
+            ]
+        );
+        assert!(launch_args("codex", Some("gpt-5.4"), Some("none"), None).is_err());
+        let commandcode_dump: Vec<String> = (0..67)
+            .map(|index| format!("vendor/model-{index}"))
+            .collect();
+        assert_eq!(
+            launch_args(
+                "commandcode",
+                Some("cmd-model"),
+                Some("high"),
+                Some(&commandcode_dump)
+            )
+            .unwrap(),
+            vec![
+                "--model".to_string(),
+                "cmd-model".to_string(),
+                "--effort".to_string(),
+                "high".to_string(),
+            ]
+        );
+        assert_eq!(
+            launch_args("kilocode", Some("provider/model"), Some("high"), None).unwrap(),
+            vec!["--model".to_string(), "provider/model".to_string()]
+        );
+        assert_eq!(
+            launch_args("gemini", Some("gemini-flash"), None, None).unwrap(),
+            vec!["--model".to_string(), "gemini-flash".to_string()]
+        );
+        assert_eq!(
+            launch_args("gemini", Some("gemini-flash"), Some("high"), None).unwrap(),
+            vec!["--model".to_string(), "gemini-flash".to_string()]
+        );
+
+        let cursor_levels = vec!["high".to_string(), "low".to_string()];
+        assert_eq!(
+            launch_args(
+                "cursor",
+                Some("claude-opus"),
+                Some("high"),
+                Some(&cursor_levels)
+            )
+            .unwrap(),
+            vec![
+                "--model".to_string(),
+                "claude-opus[effort=high]".to_string(),
+            ]
+        );
+        assert_eq!(
+            launch_args(
+                "cursor",
+                Some("claude-opus[context=1m,effort=low,fast=false]"),
+                Some("high"),
+                Some(&cursor_levels),
+            )
+            .unwrap(),
+            vec![
+                "--model".to_string(),
+                "claude-opus[context=1m,effort=high,fast=false]".to_string(),
+            ]
+        );
+        assert_eq!(
+            launch_args(
+                "cursor",
+                Some("claude-opus[context=1m,fast=false]"),
+                Some("high"),
+                Some(&[]),
+            )
+            .unwrap(),
+            vec![
+                "--model".to_string(),
+                "claude-opus[context=1m,fast=false]".to_string(),
+            ]
+        );
+        assert_eq!(
+            launch_args(
+                "cursor",
+                Some("claude-opus[context=1m,fast=false]"),
+                Some("nope"),
+                None,
+            )
+            .unwrap(),
+            vec![
+                "--model".to_string(),
+                "claude-opus[context=1m,fast=false]".to_string(),
+            ]
+        );
+
+        let amp = shipped_agent("amp");
+        let stored_effort = AutomationAgentRunConfig {
+            model: None,
+            reasoning: Some(AutomationAgentReasoningSelection {
+                mode: AutomationAgentReasoningMode::Manual,
+                value: "high".to_string(),
+            }),
+            extra_args: Vec::new(),
+            fast: None,
+        };
+        let amp_args =
+            build_run_config_args_with_model_effort(&amp, Some(&stored_effort), None).unwrap();
+        assert!(!amp_args
+            .iter()
+            .any(|arg| arg == "--effort" || arg == "high"));
+        let amp_fast = AutomationAgentRunConfig {
+            fast: Some(true),
+            ..stored_effort
+        };
+        assert_eq!(
+            build_run_config_args_with_model_effort(&amp, Some(&amp_fast), None).unwrap(),
+            vec!["--fast".to_string()]
+        );
+        assert!(model_flag_for_agent("amp").is_none());
+        assert!(model_flag_for_agent("hermes").is_none());
+        assert!(model_flag_for_agent("openclaw").is_none());
+
+        let custom = ResolvedTerminalAgent {
+            id: "custom".to_string(),
+            label: "Custom".to_string(),
+            cmd: "custom".to_string(),
+            flags: String::new(),
+            interactive_flags: String::new(),
+            prompt_strategy: PromptStrategy::Arg,
+            stdout_parser: StdoutParser::Plain,
+            model_support: AutomationAgentModelInputMode::None,
+            reasoning_support: AutomationAgentReasoningSupport::default(),
+            model_list: None,
+            enabled: true,
+        };
+        let custom_config = AutomationAgentRunConfig {
+            model: None,
+            reasoning: None,
+            extra_args: vec!["--foo".to_string(), "bar".to_string()],
+            fast: None,
+        };
+        assert_eq!(
+            build_run_config_args(&custom, Some(&custom_config)).unwrap(),
+            vec!["--foo".to_string(), "bar".to_string()]
+        );
+        assert_eq!(
+            launch_args("claude", Some("typed-id"), None, None).unwrap(),
+            vec!["--model".to_string(), "typed-id".to_string()]
+        );
+
+        for id in ["devin", "kimi", "kiro", "hermes", "openclaw"] {
+            let agent = shipped_agent(id);
+            let raw = load_builtin_terminal_agents()
+                .unwrap()
+                .into_iter()
+                .find(|item| item.id == id)
+                .unwrap();
+            assert_eq!(agent.reasoning_support.mode, raw.reasoning_support.mode);
+            assert_eq!(agent.model_support, raw.model_support);
+        }
+        assert_eq!(
+            shipped_agent("kimi").reasoning_support.value_style,
+            AutomationAgentReasoningValueStyle::FlagOnly
+        );
+
+        let claude = shipped_agent("claude");
+        assert!(claude.flags.contains("--dangerously-skip-permissions") || claude_yolo_unchanged());
+    }
+
+    fn claude_yolo_unchanged() -> bool {
+        load_builtin_terminal_agents()
+            .unwrap()
+            .into_iter()
+            .find(|item| item.id == "claude")
+            .unwrap()
+            .yolo_params
+            .unwrap()
+            .contains("--dangerously-skip-permissions")
+    }
+
+    #[test]
+    fn app080_grok_build_empty_line_list_does_not_launch_manifest_effort() {
+        struct RestoreCache {
+            previous: Option<CachedTerminalAgentOptions>,
+        }
+        impl Drop for RestoreCache {
+            fn drop(&mut self) {
+                let Some(cache) = TERMINAL_OPTIONS_CACHE.get() else {
+                    return;
+                };
+                let Ok(mut guard) = cache.lock() else {
+                    return;
+                };
+                match self.previous.take() {
+                    Some(previous) => {
+                        guard.insert("grok-build".to_string(), previous);
+                    }
+                    None => {
+                        guard.remove("grok-build");
+                    }
+                }
+            }
+        }
+
+        let cache = TERMINAL_OPTIONS_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+        let previous = cache
+            .lock()
+            .expect("catalog cache")
+            .get("grok-build")
+            .cloned();
+        let _restore = RestoreCache { previous };
+
+        let root = tempfile::tempdir().expect("temp options root");
+        let worker = crate::OptionsPrefetchWorker::new(
+            root.path().to_path_buf(),
+            agent::OptionsProbe::with_acp_probe(
+                root.path().join("options-probe"),
+                Box::new(agent::NoopAcpOptionsProbe),
+            ),
+            std::time::Duration::from_secs(60),
+        );
+        let mut catalog = agent::AgentOptionsSnapshot::probing("grok-build");
+        catalog.status = agent::OptionsStatus::Ok;
+        catalog.fetched_at = Utc::now();
+        catalog.models = [
+            "grok-4.7",
+            "grok-4.7-build-fast",
+            "grok-4.6",
+            "grok-4.5",
+            "grok-unknown",
+        ]
+        .into_iter()
+        .map(|id| agent::AgentModel {
+            id: id.to_string(),
+            label: id.to_string(),
+            thinking: None,
+            ..agent::AgentModel::default()
+        })
+        .collect();
+        worker.put_options_for_test(&catalog);
+
+        let agent = shipped_agent("grok-build");
+        let config = |model: &str, effort: &str| AutomationAgentRunConfig {
+            model: Some(model.to_string()),
+            reasoning: Some(AutomationAgentReasoningSelection {
+                mode: agent.reasoning_support.mode,
+                value: effort.to_string(),
+            }),
+            extra_args: Vec::new(),
+            fast: None,
+        };
+        assert_eq!(
+            build_run_config_args(&agent, Some(&config("grok-4.5", "high"))).unwrap(),
+            vec![
+                "--model".to_string(),
+                "grok-4.5".to_string(),
+                "--reasoning-effort".to_string(),
+                "high".to_string(),
+            ]
+        );
+        assert!(build_run_config_args(&agent, Some(&config("grok-4.5", "max"))).is_err());
+        assert!(build_run_config_args(&agent, Some(&config("grok-4.5", "none"))).is_err());
+        assert!(build_run_config_args(&agent, Some(&config("grok-4.5", "minimal"))).is_err());
+        assert_eq!(
+            build_run_config_args(&agent, Some(&config("grok-4.7", "xhigh"))).unwrap(),
+            vec![
+                "--model".to_string(),
+                "grok-4.7".to_string(),
+                "--reasoning-effort".to_string(),
+                "xhigh".to_string(),
+            ]
+        );
+        assert!(build_run_config_args(&agent, Some(&config("grok-4.7", "max"))).is_err());
+        assert!(build_run_config_args(&agent, Some(&config("grok-unknown", "high"))).is_err());
+    }
+
+    #[test]
+    fn app080_cached_model_row_narrows_launch_effort() {
+        struct RestoreCache {
+            agent_id: String,
+            previous: Option<CachedTerminalAgentOptions>,
+        }
+        impl Drop for RestoreCache {
+            fn drop(&mut self) {
+                let Some(cache) = TERMINAL_OPTIONS_CACHE.get() else {
+                    return;
+                };
+                let Ok(mut guard) = cache.lock() else {
+                    return;
+                };
+                match self.previous.take() {
+                    Some(previous) => {
+                        guard.insert(self.agent_id.clone(), previous);
+                    }
+                    None => {
+                        guard.remove(&self.agent_id);
+                    }
+                }
+            }
+        }
+
+        fn seed(
+            agent_id: &str,
+            model_id: &str,
+            thinking: Option<agent::AgentThinkingSupport>,
+        ) -> RestoreCache {
+            let cache = TERMINAL_OPTIONS_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+            let mut guard = cache.lock().expect("catalog cache");
+            let previous = guard.insert(
+                agent_id.to_string(),
+                CachedTerminalAgentOptions {
+                    stored_at: Instant::now(),
+                    fetched_at: Utc::now(),
+                    options: TerminalAgentOptions {
+                        agent_id: agent_id.to_string(),
+                        status: TerminalAgentOptionsStatus::Ok,
+                        models: vec![TerminalAgentOption {
+                            id: model_id.to_string(),
+                            label: model_id.to_string(),
+                            group: None,
+                            is_default: false,
+                            thinking,
+                            fast: false,
+                        }],
+                        message: None,
+                        source: TerminalAgentOptionsSource::Cache,
+                    },
+                },
+            );
+            RestoreCache {
+                agent_id: agent_id.to_string(),
+                previous,
+            }
+        }
+
+        let _droid_cache = seed(
+            "droid",
+            "gpt",
+            Some(agent::AgentThinkingSupport::Enum {
+                arg: Some("--reasoning-effort".to_string()),
+                options: vec!["low".to_string(), "high".to_string()],
+            }),
+        );
+        let droid = shipped_agent("droid");
+        let rejected = AutomationAgentRunConfig {
+            model: Some("gpt".to_string()),
+            reasoning: Some(AutomationAgentReasoningSelection {
+                mode: droid.reasoning_support.mode,
+                value: "max".to_string(),
+            }),
+            extra_args: Vec::new(),
+            fast: None,
+        };
+        assert!(build_run_config_args(&droid, Some(&rejected)).is_err());
+        let accepted = AutomationAgentRunConfig {
+            reasoning: Some(AutomationAgentReasoningSelection {
+                mode: droid.reasoning_support.mode,
+                value: "high".to_string(),
+            }),
+            ..rejected
+        };
+        assert_eq!(
+            build_run_config_args(&droid, Some(&accepted)).unwrap(),
+            vec![
+                "--model".to_string(),
+                "gpt".to_string(),
+                "--reasoning-effort".to_string(),
+                "high".to_string(),
+            ]
+        );
+
+        let _cursor_cache = seed(
+            "cursor",
+            "claude-opus",
+            Some(agent::AgentThinkingSupport::None),
+        );
+        let cursor = shipped_agent("cursor");
+        let cursor_config = AutomationAgentRunConfig {
+            model: Some("claude-opus".to_string()),
+            reasoning: Some(AutomationAgentReasoningSelection {
+                mode: cursor.reasoning_support.mode,
+                value: "high".to_string(),
+            }),
+            extra_args: Vec::new(),
+            fast: None,
+        };
+        assert_eq!(
+            build_run_config_args(&cursor, Some(&cursor_config)).unwrap(),
+            vec!["--model".to_string(), "claude-opus".to_string()]
+        );
+    }
+
+    #[test]
+    fn app080_worker_catalog_narrows_launch_effort() {
+        struct RestoreCache {
+            agent_ids: Vec<String>,
+            previous: Vec<Option<CachedTerminalAgentOptions>>,
+        }
+        impl Drop for RestoreCache {
+            fn drop(&mut self) {
+                let Some(cache) = TERMINAL_OPTIONS_CACHE.get() else {
+                    return;
+                };
+                let Ok(mut guard) = cache.lock() else {
+                    return;
+                };
+                for (agent_id, previous) in self.agent_ids.iter().zip(self.previous.drain(..)) {
+                    match previous {
+                        Some(previous) => {
+                            guard.insert(agent_id.clone(), previous);
+                        }
+                        None => {
+                            guard.remove(agent_id);
+                        }
+                    }
+                }
+            }
+        }
+
+        fn snapshot(
+            agent_id: &str,
+            model_id: &str,
+            thinking: Option<agent::AgentThinkingSupport>,
+            status: agent::OptionsStatus,
+        ) -> agent::AgentOptionsSnapshot {
+            agent::AgentOptionsSnapshot {
+                agent_id: agent_id.to_string(),
+                status,
+                models: if status == agent::OptionsStatus::Ok {
+                    vec![agent::AgentModel {
+                        id: model_id.to_string(),
+                        label: model_id.to_string(),
+                        group: None,
+                        is_default: false,
+                        thinking,
+                        context: Vec::new(),
+                        fast: false,
+                        multiplier: None,
+                        fast_multiplier: None,
+                    }]
+                } else {
+                    Vec::new()
+                },
+                modes: Vec::new(),
+                permission_modes: Vec::new(),
+                commands: Vec::new(),
+                thinking: agent::AgentThinkingSupport::None,
+                strategies_used: Vec::new(),
+                fetched_at: Utc::now(),
+                source: agent::OptionsSource::Live,
+                message: None,
+            }
+        }
+
+        let root = tempfile::tempdir().expect("temp options root");
+        let worker = std::sync::Arc::new(crate::OptionsPrefetchWorker::new(
+            root.path().to_path_buf(),
+            agent::OptionsProbe::with_acp_probe(
+                root.path().join("options-probe"),
+                Box::new(agent::NoopAcpOptionsProbe),
+            ),
+            std::time::Duration::from_secs(60),
+        ));
+        let cache = TERMINAL_OPTIONS_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+        let previous = {
+            let guard = cache.lock().expect("catalog cache");
+            ["droid", "factory-droid", "cursor"]
+                .into_iter()
+                .map(|id| guard.get(id).cloned())
+                .collect()
+        };
+        let _restore = RestoreCache {
+            agent_ids: vec![
+                "droid".to_string(),
+                "factory-droid".to_string(),
+                "cursor".to_string(),
+            ],
+            previous,
+        };
+
+        let mut droid_catalog = snapshot(
+            "droid",
+            "gpt",
+            Some(agent::AgentThinkingSupport::Enum {
+                arg: Some("--reasoning-effort".to_string()),
+                options: vec!["low".to_string(), "high".to_string()],
+            }),
+            agent::OptionsStatus::Ok,
+        );
+        // A Droid catalog without Mode and Permission is treated as stale and
+        // would schedule a live probe. These rows keep the cache hit quiet.
+        droid_catalog.modes = vec![agent::AgentMode {
+            id: "spec".to_string(),
+            label: "Spec".to_string(),
+            is_default: true,
+        }];
+        droid_catalog.permission_modes = ["yolo", "accept_edits", "auto", "ask_always"]
+            .into_iter()
+            .map(|id| agent::AgentMode {
+                id: id.to_string(),
+                label: id.to_string(),
+                is_default: id == "ask_always",
+            })
+            .collect();
+        worker.put_options_for_test(&droid_catalog);
+        let droid = shipped_agent("droid");
+        let rejected = AutomationAgentRunConfig {
+            model: Some("gpt".to_string()),
+            reasoning: Some(AutomationAgentReasoningSelection {
+                mode: droid.reasoning_support.mode,
+                value: "max".to_string(),
+            }),
+            extra_args: Vec::new(),
+            fast: None,
+        };
+        assert!(build_run_config_args(&droid, Some(&rejected)).is_err());
+        {
+            let mut guard = cache.lock().expect("catalog cache");
+            guard.remove("droid");
+            guard.remove("factory-droid");
+        }
+        let loaded = worker.get_cached_or_probing(&crate::options_probe_plan_for("droid"), false);
+        assert_eq!(loaded.status, agent::OptionsStatus::Ok);
+        assert_eq!(
+            worker.probe_count(),
+            0,
+            "reading the worker cache must not spawn"
+        );
+        assert!(
+            build_run_config_args(&droid, Some(&rejected)).is_err(),
+            "models_get cache hit must narrow launch"
+        );
+        let accepted = AutomationAgentRunConfig {
+            reasoning: Some(AutomationAgentReasoningSelection {
+                mode: droid.reasoning_support.mode,
+                value: "high".to_string(),
+            }),
+            ..rejected.clone()
+        };
+        assert_eq!(
+            build_run_config_args(&droid, Some(&accepted)).unwrap(),
+            vec![
+                "--model".to_string(),
+                "gpt".to_string(),
+                "--reasoning-effort".to_string(),
+                "high".to_string(),
+            ]
+        );
+        worker.put_options_for_test(&snapshot("droid", "gpt", None, agent::OptionsStatus::Error));
+        assert!(
+            build_run_config_args(&droid, Some(&rejected)).is_err(),
+            "a failed probe must keep the last ok model row"
+        );
+
+        worker.put_options_for_test(&snapshot(
+            "cursor",
+            "claude-opus-listed",
+            Some(agent::AgentThinkingSupport::Enum {
+                arg: None,
+                options: vec!["low".to_string(), "high".to_string()],
+            }),
+            agent::OptionsStatus::Ok,
+        ));
+        let cursor = shipped_agent("cursor");
+        let cursor_config = AutomationAgentRunConfig {
+            model: Some("claude-opus-listed".to_string()),
+            reasoning: Some(AutomationAgentReasoningSelection {
+                mode: cursor.reasoning_support.mode,
+                value: "high".to_string(),
+            }),
+            extra_args: Vec::new(),
+            fast: None,
+        };
+        assert_eq!(
+            build_run_config_args(&cursor, Some(&cursor_config)).unwrap(),
+            vec![
+                "--model".to_string(),
+                "claude-opus-listed[effort=high]".to_string(),
+            ]
+        );
+
+        let file = root.path().join("cursor-row.json");
+        std::fs::write(
+            &file,
+            serde_json::to_vec(&snapshot(
+                "cursor",
+                "claude-opus-listed",
+                Some(agent::AgentThinkingSupport::Enum {
+                    arg: None,
+                    options: vec!["low".to_string(), "high".to_string()],
+                }),
+                agent::OptionsStatus::Ok,
+            ))
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            model_effort_from_catalog_file(&file, "claude-opus-listed").unwrap(),
+            vec!["low".to_string(), "high".to_string()]
+        );
+    }
+
+    #[test]
+    fn app080_missing_catalog_binary_does_not_spawn() {
+        let agent = ResolvedTerminalAgent {
+            id: "codex".to_string(),
+            label: "Codex".to_string(),
+            cmd: "app080-missing-bin-xyz".to_string(),
+            flags: "exec".to_string(),
+            interactive_flags: String::new(),
+            prompt_strategy: PromptStrategy::Arg,
+            stdout_parser: StdoutParser::Plain,
+            model_support: AutomationAgentModelInputMode::Catalog,
+            reasoning_support: AutomationAgentReasoningSupport::default(),
+            model_list: Some(TerminalAgentModelListSpec {
+                supported: true,
+                command: vec![
+                    "app080-missing-bin-xyz".to_string(),
+                    "debug".to_string(),
+                    "models".to_string(),
+                ],
+                parser: TerminalAgentModelListParser::LineList,
+            }),
+            enabled: true,
+        };
+        let options = missing_catalog_binary_options(&agent);
+        let message = options.message.unwrap_or_default();
+        assert!(message.contains("not installed"), "{message}");
+        assert!(!message.contains("Failed to run"), "{message}");
+        assert!(catalog_executable(&agent).is_none());
     }
 
     fn codex_spec() -> AutomationAgentCommandSpec {

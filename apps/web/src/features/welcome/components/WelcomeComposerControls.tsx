@@ -53,6 +53,7 @@ export function WelcomeAgentSelector({
   triggerPlacement,
   contentAlign,
   showRunConfig,
+  hydrateLastPick,
   variant = "floating",
 }: {
   availableAgents: AgentMenuOption[];
@@ -69,6 +70,8 @@ export function WelcomeAgentSelector({
   triggerPlacement?: "notch" | "inline";
   contentAlign?: "start" | "center" | "end";
   showRunConfig?: boolean;
+  /** Default true. Pass false when the controlled config is saved settings, not the terminal last-pick. */
+  hydrateLastPick?: boolean;
   variant?: "floating" | "menu" | "panel";
 }) {
   const t = useTranslations("Welcome.components.composerControls");
@@ -88,6 +91,7 @@ export function WelcomeAgentSelector({
         onInteraction={onInteraction}
         purpose={purpose}
         showRunConfig={showRunConfig}
+        hydrateLastPick={hydrateLastPick}
       />
     );
   }
@@ -107,6 +111,7 @@ export function WelcomeAgentSelector({
         onInteraction={onInteraction}
         purpose={purpose}
         trigger={trigger}
+        hydrateLastPick={hydrateLastPick}
       />
     );
   }
@@ -125,6 +130,7 @@ export function WelcomeAgentSelector({
       purpose={purpose}
       triggerPlacement={triggerPlacement}
       contentAlign={contentAlign}
+      hydrateLastPick={hydrateLastPick}
     />
   );
 }

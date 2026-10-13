@@ -32,7 +32,7 @@ pub use droid_catalog::{
 };
 pub use grok::{
     apply_grok_fast_current_config, apply_grok_fast_options, collapse_grok_fast_models,
-    encode_grok_fast_model, grok_fast_base,
+    encode_grok_fast_model, fill_grok_thinking_from_native, grok_fast_base,
 };
 pub use parse::{
     apply_grok_thinking_overlay, model_id_is_table_noise, parse_droid_help, parse_line_list,

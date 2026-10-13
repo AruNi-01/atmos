@@ -221,6 +221,8 @@ impl OptionsPrefetchWorker {
             if let Err(error) = self.cache.put(&clone) {
                 warn!("failed to cache options for {id}: {error}");
             }
+            self.attach_cached_grok_effort(&mut clone);
+            crate::service::automation::remember_probed_terminal_catalog(&clone);
             let _ = self.events.send(OptionsUpdated {
                 agent_id: id,
                 options: clone,
@@ -271,7 +273,8 @@ impl OptionsPrefetchWorker {
 
     pub async fn get(&self, spec: &ProbePlan, refresh: bool) -> AgentOptionsSnapshot {
         if !refresh {
-            if let Some(cached) = self.lookup_options(&spec.agent_id) {
+            if let Some(mut cached) = self.lookup_options(&spec.agent_id) {
+                self.attach_cached_grok_effort(&mut cached);
                 return cached;
             }
         }
@@ -279,10 +282,12 @@ impl OptionsPrefetchWorker {
         let mut catalog = self.probe.probe(spec).await;
         catalog.source = OptionsSource::Live;
         if !self.store_options(&catalog) {
-            if let Some((previous, _)) = self.lookup_usable(&spec.agent_id) {
+            if let Some((mut previous, _)) = self.lookup_usable(&spec.agent_id) {
+                self.attach_cached_grok_effort(&mut previous);
                 return previous;
             }
         }
+        self.attach_cached_grok_effort(&mut catalog);
         catalog
     }
 
@@ -299,10 +304,28 @@ impl OptionsPrefetchWorker {
         if needs_probe {
             self.request_probe(spec.clone());
         }
-        if let Some((catalog, _)) = cached {
+        if spec.agent_id == "grok-build" && self.cache_get("grok").is_none() {
+            self.request_probe(options_probe_plan_for("grok"));
+        }
+        if let Some((mut catalog, _)) = cached {
+            self.attach_cached_grok_effort(&mut catalog);
+            crate::service::automation::remember_probed_terminal_catalog(&catalog);
             return catalog;
         }
         AgentOptionsSnapshot::probing(&spec.agent_id)
+    }
+
+    /// Native `grok` `reasoningEfforts` are the Terminal ladders for `grok-build`.
+    /// The `grok models` line list does not emit them. A cold chat cache still
+    /// reads `grok.json`, then the known line-list ladders. Spawn id stays `grok-build`.
+    fn attach_cached_grok_effort(&self, catalog: &mut AgentOptionsSnapshot) {
+        if catalog.agent_id != "grok-build" {
+            return;
+        }
+        let memory = self.cache_get("grok");
+        let disk = memory.is_none().then(read_grok_native_snapshot).flatten();
+        let native = memory.as_ref().or(disk.as_ref());
+        attach_grok_native_effort(catalog, native);
     }
 
     pub fn cache_get(&self, agent_id: &str) -> Option<AgentOptionsSnapshot> {
@@ -313,6 +336,28 @@ impl OptionsPrefetchWorker {
     pub fn put_options_for_test(&self, catalog: &AgentOptionsSnapshot) {
         self.store_options(catalog);
     }
+}
+
+/// Copy native Grok per-model effort onto a Terminal `grok-build` catalog.
+/// Other agents are left alone. Does not invent a ladder the native catalog omits.
+fn read_grok_native_snapshot() -> Option<AgentOptionsSnapshot> {
+    let path = options_cache_dir(&crate::default_agent_data_dir()).join("grok.json");
+    let text = std::fs::read_to_string(path).ok()?;
+    let catalog: AgentOptionsSnapshot = serde_json::from_str(&text).ok()?;
+    (catalog.status == OptionsStatus::Ok && catalog.agent_id == "grok").then_some(catalog)
+}
+
+pub(crate) fn attach_grok_native_effort(
+    catalog: &mut AgentOptionsSnapshot,
+    native: Option<&AgentOptionsSnapshot>,
+) {
+    if catalog.agent_id != "grok-build" {
+        return;
+    }
+    if let Some(native) = native.filter(|item| item.status == OptionsStatus::Ok) {
+        agent::fill_grok_thinking_from_native(&mut catalog.models, &native.models);
+    }
+    crate::service::automation::fill_grok_build_line_list_effort(&mut catalog.models);
 }
 
 pub fn terminal_options_from(catalog: &AgentOptionsSnapshot) -> crate::TerminalAgentOptions {
@@ -338,6 +383,7 @@ pub fn terminal_options_from(catalog: &AgentOptionsSnapshot) -> crate::TerminalA
                 group: model.group.clone(),
                 is_default: model.is_default,
                 thinking: model.thinking.clone(),
+                fast: model.fast,
             })
             .collect(),
         message: catalog.message.clone(),

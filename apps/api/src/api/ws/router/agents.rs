@@ -207,4 +207,21 @@ impl WsMessageService {
             .get_cached_or_probing(&spec, req.refresh.unwrap_or(false));
         Ok(json!(core_service::terminal_options_from(&catalog)))
     }
+
+    pub(super) fn handle_terminal_agent_prefs_get(&self) -> Result<Value> {
+        let prefs = core_service::load_terminal_agent_prefs()?;
+        serde_json::to_value(prefs).map_err(|error| {
+            ServiceError::Processing(format!("serialize terminal agent prefs: {error}"))
+        })
+    }
+
+    pub(super) fn handle_terminal_agent_prefs_set(
+        &self,
+        req: core_service::TerminalAgentPrefsPatch,
+    ) -> Result<Value> {
+        let prefs = core_service::apply_terminal_agent_prefs_patch(&req)?;
+        serde_json::to_value(prefs).map_err(|error| {
+            ServiceError::Processing(format!("serialize terminal agent prefs: {error}"))
+        })
+    }
 }

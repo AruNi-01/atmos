@@ -21,6 +21,35 @@ pub fn grok_fast_base(id: &str) -> Option<&str> {
         .filter(|base| !base.is_empty())
 }
 
+/// Copy native Grok `reasoningEfforts` onto Terminal `grok-build` rows.
+///
+/// The Terminal catalog comes from `grok models` and has no per-model ladder.
+/// `grok-4.7-build-fast` uses the `grok-4.7` ladder. Rows that already have
+/// thinking, and ids the native catalog does not list, stay unchanged.
+/// Does not copy `fast` and does not fold the agent id used for spawn.
+pub fn fill_grok_thinking_from_native(target: &mut [AgentModel], native: &[AgentModel]) {
+    for model in target {
+        if thinking_lists_levels(model.thinking.as_ref()) {
+            continue;
+        }
+        let base = grok_fast_base(&model.id).unwrap_or(model.id.as_str());
+        let Some(source) = native.iter().find(|item| item.id == base) else {
+            continue;
+        };
+        if thinking_lists_levels(source.thinking.as_ref()) {
+            model.thinking = source.thinking.clone();
+        }
+    }
+}
+
+fn thinking_lists_levels(thinking: Option<&AgentThinkingSupport>) -> bool {
+    matches!(
+        thinking,
+        Some(AgentThinkingSupport::Enum { options, .. })
+            if options.iter().any(|item| !item.trim().is_empty())
+    )
+}
+
 pub fn grok_fast_wire_id(base: &str) -> String {
     format!("{base}{FAST_ID_SUFFIX}")
 }
@@ -340,6 +369,53 @@ mod tests {
         assert!(!collapsed.iter().any(|item| item.fast));
         assert_eq!(collapsed[0].id, "grok-composer-2.5");
         assert_eq!(collapsed[1].id, "grok-composer-2.5-fast");
+    }
+
+    #[test]
+    fn fill_copies_native_ladders_onto_build_rows_including_fast_siblings() {
+        let mut native_47 = model("grok-4.7", "Grok 4.7", true);
+        native_47.fast = true;
+        native_47.thinking = Some(AgentThinkingSupport::Enum {
+            arg: Some("thinking".into()),
+            options: vec!["low".into(), "medium".into(), "high".into(), "xhigh".into()],
+        });
+        let mut native_45 = model("grok-4.5", "Grok 4.5", false);
+        native_45.thinking = Some(AgentThinkingSupport::Enum {
+            arg: Some("thinking".into()),
+            options: vec!["low".into(), "medium".into(), "high".into()],
+        });
+        let mut rows = vec![
+            model("grok-4.7", "grok-4.7", true),
+            model("grok-4.7-build-fast", "grok-4.7-build-fast", false),
+            model("grok-4.5", "grok-4.5", false),
+            model("grok-unknown", "grok-unknown", false),
+        ];
+        rows[2].thinking = Some(AgentThinkingSupport::Enum {
+            arg: Some("--reasoning-effort".into()),
+            options: vec!["low".into()],
+        });
+        fill_grok_thinking_from_native(&mut rows, &[native_47, native_45]);
+
+        match &rows[0].thinking {
+            Some(AgentThinkingSupport::Enum { options, .. }) => {
+                assert_eq!(options, &["low", "medium", "high", "xhigh"]);
+            }
+            other => panic!("grok-4.7 ladder, got {other:?}"),
+        }
+        assert!(!rows[0].fast);
+        match &rows[1].thinking {
+            Some(AgentThinkingSupport::Enum { options, .. }) => {
+                assert_eq!(options, &["low", "medium", "high", "xhigh"]);
+            }
+            other => panic!("fast sibling ladder, got {other:?}"),
+        }
+        match &rows[2].thinking {
+            Some(AgentThinkingSupport::Enum { options, .. }) => {
+                assert_eq!(options, &["low"]);
+            }
+            other => panic!("existing ladder must stay, got {other:?}"),
+        }
+        assert!(rows[3].thinking.is_none());
     }
 
     #[test]

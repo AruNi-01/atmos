@@ -417,6 +417,10 @@ export {
   type PromptInputLabels,
 } from "./components/agents/prompt-input";
 export {
+  PromptAgentConfigMenu,
+  PromptEffortPopoverBody,
+} from "./components/agents/prompt-agent-config-menu";
+export {
   agentConfigFlyoutOffsetTop,
   agentConfigFlyoutSide,
   agentConfigTriggerText,

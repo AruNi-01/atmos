@@ -13,6 +13,7 @@ import { BrowserSettingsSection } from '@/features/settings/components/BrowserSe
 import { PermissionAccessSettingsSection } from '@/features/settings/components/PermissionAccessSettingsSection';
 import { CanvasSettingsSection } from '@/features/settings/components/CanvasSettingsSection';
 import { CodeAgentSettingsSection } from '@/features/settings/components/CodeAgentSettingsSection';
+import type { BehaviourSettingsValues } from '@/features/settings/components/CodeAgentBehaviourSettingsSection';
 import { EditorSettingsSection } from '@/features/settings/components/EditorSettingsSection';
 import { ExperimentSettingsSection } from '@/features/settings/components/ExperimentSettingsSection';
 import { AccountSettingsSection } from '@/features/settings/components/AccountSettingsSection';
@@ -79,6 +80,8 @@ interface SettingsModalSectionsProps {
   attentionSummaryDelayMins: number;
   attentionSummaryAgentId: string;
   attentionSummaryModel: string;
+  attentionSummaryEffort: string;
+  attentionSummaryExtraArgs: string[];
   followupPolicy: "queue" | "steer";
   runConfigAgentOptions: AgentOption[];
   runConfigsLoading: boolean;
@@ -92,6 +95,8 @@ interface SettingsModalSectionsProps {
   savedAttentionSummaryDelayMins: number;
   savedAttentionSummaryAgentId: string;
   savedAttentionSummaryModel: string;
+  savedAttentionSummaryEffort: string;
+  savedAttentionSummaryExtraArgs: string[];
   savedFollowupPolicy: "queue" | "steer";
   savingBuiltInAgentIds: Record<string, boolean>;
   savingCustomAgentIds: Record<string, boolean>;
@@ -112,15 +117,7 @@ interface SettingsModalSectionsProps {
   onRemoveCustomAgent: (id: string) => void;
   onSaveBuiltInAgent: (agentId: string) => void;
   onSaveCustomAgent: (id: string) => void;
-  onCommitBehaviourSettings: (values: {
-    idleSessionTimeoutMins: number;
-    observerSessionTimeoutMins: number;
-    attentionSummaryEnabled: boolean;
-    attentionSummaryDelayMins: number;
-    attentionSummaryAgentId: string;
-    attentionSummaryModel: string;
-    followupPolicy: "queue" | "steer";
-  }) => void | Promise<void>;
+  onCommitBehaviourSettings: (values: BehaviourSettingsValues) => void | Promise<void>;
   onSaveRunConfigs: (configs: TerminalAgentSavedRunConfig[]) => Promise<void>;
   setBuiltInAgentOpen: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   setBuiltInAgentsExpanded: React.Dispatch<React.SetStateAction<boolean>>;
@@ -132,6 +129,8 @@ interface SettingsModalSectionsProps {
   setAttentionSummaryDelayMins: React.Dispatch<React.SetStateAction<number>>;
   setAttentionSummaryAgentId: React.Dispatch<React.SetStateAction<string>>;
   setAttentionSummaryModel: React.Dispatch<React.SetStateAction<string>>;
+  setAttentionSummaryEffort: React.Dispatch<React.SetStateAction<string>>;
+  setAttentionSummaryExtraArgs: React.Dispatch<React.SetStateAction<string[]>>;
   setFollowupPolicy: React.Dispatch<React.SetStateAction<"queue" | "steer">>;
   handleLlmConfigUpdate: (
     key: string,
@@ -241,6 +240,8 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           attentionSummaryDelayMins={props.attentionSummaryDelayMins}
           attentionSummaryAgentId={props.attentionSummaryAgentId}
           attentionSummaryModel={props.attentionSummaryModel}
+          attentionSummaryEffort={props.attentionSummaryEffort}
+          attentionSummaryExtraArgs={props.attentionSummaryExtraArgs}
           followupPolicy={props.followupPolicy}
           runConfigAgentOptions={props.runConfigAgentOptions}
           runConfigsLoading={props.runConfigsLoading}
@@ -254,6 +255,8 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           savedAttentionSummaryDelayMins={props.savedAttentionSummaryDelayMins}
           savedAttentionSummaryAgentId={props.savedAttentionSummaryAgentId}
           savedAttentionSummaryModel={props.savedAttentionSummaryModel}
+          savedAttentionSummaryEffort={props.savedAttentionSummaryEffort}
+          savedAttentionSummaryExtraArgs={props.savedAttentionSummaryExtraArgs}
           savedFollowupPolicy={props.savedFollowupPolicy}
           savingBuiltInAgentIds={props.savingBuiltInAgentIds}
           savingCustomAgentIds={props.savingCustomAgentIds}
@@ -286,6 +289,8 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           setAttentionSummaryDelayMins={props.setAttentionSummaryDelayMins}
           setAttentionSummaryAgentId={props.setAttentionSummaryAgentId}
           setAttentionSummaryModel={props.setAttentionSummaryModel}
+          setAttentionSummaryEffort={props.setAttentionSummaryEffort}
+          setAttentionSummaryExtraArgs={props.setAttentionSummaryExtraArgs}
           setFollowupPolicy={props.setFollowupPolicy}
         />
       );

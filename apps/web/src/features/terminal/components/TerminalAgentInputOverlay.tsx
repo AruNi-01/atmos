@@ -988,12 +988,17 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     if (stablePaneId) dismissAttentionSummaryChrome(stablePaneId);
   }, [onSpawn, stablePaneId, startSuccessfulSubmitAnimation]);
 
+  const sideChatRunConfigsRef = React.useRef(sideChatRunConfigs);
+  sideChatRunConfigsRef.current = sideChatRunConfigs;
+
   const handleSideChatRunConfigChange = React.useCallback(
     (agentId: string, value: TerminalAgentRunConfigInput | null) => {
-      setSideChatRunConfigs((current) => ({
-        ...current,
+      const next = {
+        ...sideChatRunConfigsRef.current,
         [agentId]: sanitizeRunConfig(value),
-      }));
+      };
+      sideChatRunConfigsRef.current = next;
+      setSideChatRunConfigs(next);
     },
     [],
   );
@@ -1010,14 +1015,14 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       setPendingSidePrompt(null);
       setPendingSideContexts([]);
       setSideChatAgentSelectorOpen(false);
-      const runConfig = sideChatRunConfigs[agentId] ?? null;
+      const runConfig = sideChatRunConfigsRef.current[agentId] ?? null;
       if (commandKind === "spawn") {
         void runSpawn(pendingPrompt, agent, runConfig, contexts);
       } else {
         void runSideChat(pendingPrompt, agent, runConfig, contexts);
       }
     },
-    [pendingCommandKind, pendingSideContexts, pendingSidePrompt, runnableSideChatAgents, runSideChat, runSpawn, sideChatRunConfigs],
+    [pendingCommandKind, pendingSideContexts, pendingSidePrompt, runnableSideChatAgents, runSideChat, runSpawn],
   );
 
   const submit = React.useCallback(async () => {

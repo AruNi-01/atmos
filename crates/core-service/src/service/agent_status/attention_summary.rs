@@ -75,6 +75,10 @@ pub struct AttentionSummarySettings {
     pub delay_mins: u64,
     pub agent_id: Option<String>,
     pub model: Option<String>,
+    /// Thinking effort for the headless Terminal Agent launch. Empty means unset.
+    pub effort: Option<String>,
+    /// Extra CLI args appended after model and effort. Empty means unset.
+    pub extra_args: Vec<String>,
 }
 
 impl Default for AttentionSummarySettings {
@@ -84,6 +88,8 @@ impl Default for AttentionSummarySettings {
             delay_mins: 5,
             agent_id: None,
             model: None,
+            effort: None,
+            extra_args: Vec::new(),
         }
     }
 }
@@ -112,16 +118,78 @@ impl AttentionSummarySettings {
             .map(str::trim)
             .filter(|s| !s.is_empty())
             .map(str::to_string);
+        let effort = val
+            .get("attention_summary_effort")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string);
+        let extra_args = val
+            .get("attention_summary_extra_args")
+            .and_then(|v| v.as_array())
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|item| item.as_str())
+                    .map(str::trim)
+                    .filter(|item| !item.is_empty())
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default();
         Self {
             enabled,
             delay_mins,
             agent_id,
             model,
+            effort,
+            extra_args,
+        }
+    }
+
+    /// Merge model, effort, and extra args into `terminal_code_agent.json`.
+    /// `None` leaves the stored key. An empty string or empty arg list removes it.
+    pub fn apply_launch_fields(
+        val: &mut serde_json::Value,
+        model: Option<String>,
+        effort: Option<String>,
+        extra_args: Option<Vec<String>>,
+    ) {
+        write_optional_trimmed_string(val, "attention_summary_model", model);
+        write_optional_trimmed_string(val, "attention_summary_effort", effort);
+        let Some(raw_args) = extra_args else {
+            return;
+        };
+        let args: Vec<String> = raw_args
+            .into_iter()
+            .map(|item| item.trim().to_string())
+            .filter(|item| !item.is_empty())
+            .collect();
+        if args.is_empty() {
+            if let Some(obj) = val.as_object_mut() {
+                obj.remove("attention_summary_extra_args");
+            }
+        } else {
+            val["attention_summary_extra_args"] = serde_json::json!(args);
         }
     }
 
     pub fn delay(&self) -> Duration {
         Duration::from_secs(self.delay_mins.saturating_mul(60).max(60))
+    }
+}
+
+fn write_optional_trimmed_string(val: &mut serde_json::Value, key: &str, raw: Option<String>) {
+    let Some(raw) = raw else {
+        return;
+    };
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        if let Some(obj) = val.as_object_mut() {
+            obj.remove(key);
+        }
+    } else {
+        val[key] = serde_json::Value::String(trimmed.to_string());
     }
 }
 
@@ -442,17 +510,108 @@ mod tests {
         assert!(defaults.enabled);
         assert_eq!(defaults.delay_mins, 5);
         assert!(defaults.agent_id.is_none());
+        assert!(defaults.effort.is_none());
+        assert!(defaults.extra_args.is_empty());
 
         let custom = AttentionSummarySettings::from_json(&serde_json::json!({
             "attention_summary_enabled": false,
             "attention_summary_delay_mins": 12,
             "attention_summary_agent_id": "  codex  ",
             "attention_summary_model": "gpt-5",
+            "attention_summary_effort": " high ",
+            "attention_summary_extra_args": ["--custom-flag", " ", ""],
         }));
         assert!(!custom.enabled);
         assert_eq!(custom.delay_mins, 12);
         assert_eq!(custom.agent_id.as_deref(), Some("codex"));
         assert_eq!(custom.model.as_deref(), Some("gpt-5"));
+        assert_eq!(custom.effort.as_deref(), Some("high"));
+        assert_eq!(custom.extra_args, vec!["--custom-flag".to_string()]);
+    }
+
+    #[test]
+    fn app080_attention_summary_effort_reaches_launch_argv() {
+        use crate::service::automation::{agent_cli_run_config, terminal_agent_run_config_args};
+
+        let mut stored = serde_json::json!({
+            "attention_summary_agent_id": "claude",
+            "agents": [],
+        });
+        AttentionSummarySettings::apply_launch_fields(
+            &mut stored,
+            Some(" app080-attention-model ".to_string()),
+            Some(" high ".to_string()),
+            Some(vec!["--custom-flag".to_string(), " ".to_string()]),
+        );
+        let settings = AttentionSummarySettings::from_json(&stored);
+        assert_eq!(settings.model.as_deref(), Some("app080-attention-model"));
+        assert_eq!(settings.effort.as_deref(), Some("high"));
+        assert_eq!(settings.extra_args, vec!["--custom-flag".to_string()]);
+
+        let config = agent_cli_run_config(
+            settings.agent_id.as_deref().expect("agent"),
+            settings.model.as_deref(),
+            settings.effort.as_deref(),
+            &settings.extra_args,
+        )
+        .expect("launch config");
+        let args = terminal_agent_run_config_args("claude", Some(&config)).expect("argv");
+        assert_eq!(
+            args,
+            vec![
+                "--model".to_string(),
+                "app080-attention-model".to_string(),
+                "--effort".to_string(),
+                "high".to_string(),
+                "--custom-flag".to_string(),
+            ]
+        );
+
+        // A model equal to the agent id is a placeholder. Effort still launches.
+        let effort_only = AttentionSummarySettings::from_json(&serde_json::json!({
+            "attention_summary_agent_id": "claude",
+            "attention_summary_model": "claude",
+            "attention_summary_effort": "max",
+        }));
+        let effort_config = agent_cli_run_config(
+            effort_only.agent_id.as_deref().expect("agent"),
+            effort_only.model.as_deref(),
+            effort_only.effort.as_deref(),
+            &effort_only.extra_args,
+        )
+        .expect("effort config");
+        assert!(effort_config.model.is_none());
+        assert_eq!(
+            terminal_agent_run_config_args("claude", Some(&effort_config)).expect("effort argv"),
+            vec!["--effort".to_string(), "max".to_string()]
+        );
+
+        let illegal = agent_cli_run_config(
+            "claude",
+            Some("app080-attention-model"),
+            Some("ultracode"),
+            &[],
+        )
+        .expect("illegal config");
+        assert!(terminal_agent_run_config_args("claude", Some(&illegal)).is_err());
+
+        AttentionSummarySettings::apply_launch_fields(
+            &mut stored,
+            Some(String::new()),
+            Some(String::new()),
+            Some(vec![]),
+        );
+        let cleared = AttentionSummarySettings::from_json(&stored);
+        assert!(cleared.model.is_none());
+        assert!(cleared.effort.is_none());
+        assert!(cleared.extra_args.is_empty());
+        assert!(agent_cli_run_config(
+            "claude",
+            cleared.model.as_deref(),
+            cleared.effort.as_deref(),
+            &cleared.extra_args,
+        )
+        .is_none());
     }
 
     #[test]

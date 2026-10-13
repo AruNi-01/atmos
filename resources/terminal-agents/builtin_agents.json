@@ -34,7 +34,10 @@
     "stdoutParser": "codex_jsonl",
     "modelSupport": "catalog",
     "reasoningSupport": {
-      "mode": "none"
+      "mode": "enum",
+      "arg": "model_reasoning_effort",
+      "valueStyle": "config",
+      "options": ["minimal", "low", "medium", "high", "xhigh"]
     },
     "modelList": {
       "supported": true,
@@ -73,7 +76,9 @@
     "stdoutParser": "cursor_stream_json",
     "modelSupport": "catalog",
     "reasoningSupport": {
-      "mode": "none"
+      "mode": "enum",
+      "arg": "--effort",
+      "options": ["low", "medium", "high", "xhigh", "max"]
     },
     "modelList": {
       "supported": true,
@@ -110,9 +115,7 @@
     "useEcho": true,
     "modelSupport": "none",
     "reasoningSupport": {
-      "mode": "manual",
-      "arg": "--effort",
-      "placeholder": "e.g. high"
+      "mode": "none"
     }
   },
   {
@@ -126,9 +129,9 @@
     "promptStrategy": "arg",
     "modelSupport": "catalog",
     "reasoningSupport": {
-      "mode": "manual",
+      "mode": "enum",
       "arg": "--reasoning-effort",
-      "placeholder": "e.g. high"
+      "options": ["off", "low", "medium", "high", "xhigh", "max"]
     },
     "modelList": {
       "supported": true,
@@ -225,9 +228,9 @@
     "stdoutParser": "grok_streaming_json",
     "modelSupport": "catalog",
     "reasoningSupport": {
-      "mode": "manual",
+      "mode": "enum",
       "arg": "--reasoning-effort",
-      "placeholder": "e.g. high"
+      "options": ["none", "minimal", "low", "medium", "high", "xhigh", "max"]
     },
     "modelList": {
       "supported": true,
@@ -297,7 +300,9 @@
     "promptStrategy": "arg",
     "modelSupport": "catalog",
     "reasoningSupport": {
-      "mode": "none"
+      "mode": "enum",
+      "arg": "--effort",
+      "options": ["low", "medium", "high"]
     },
     "modelList": {
       "supported": true,
@@ -325,7 +330,8 @@
         "low",
         "medium",
         "high",
-        "xhigh"
+        "xhigh",
+        "max"
       ]
     },
     "modelList": {

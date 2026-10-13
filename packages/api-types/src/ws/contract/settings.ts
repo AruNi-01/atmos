@@ -16,6 +16,8 @@ import type {
   SettingsBootstrapPayload,
   TerminalAgentOptions,
   TerminalAgentModelsGetRequest,
+  TerminalAgentPrefs,
+  TerminalAgentPrefsSetRequest,
 } from "../dto/settings";
 
 export type SettingsContract = {
@@ -28,6 +30,11 @@ export type SettingsContract = {
   terminal_agent_models_get: {
     input: TerminalAgentModelsGetRequest;
     output: TerminalAgentOptions;
+  };
+  terminal_agent_prefs_get: { input: WsEmpty; output: TerminalAgentPrefs };
+  terminal_agent_prefs_set: {
+    input: TerminalAgentPrefsSetRequest;
+    output: TerminalAgentPrefs;
   };
   llm_providers_get: { input: WsEmpty; output: LlmProvidersFile };
   llm_providers_update: { input: LlmProvidersUpdateRequest; output: WsOk };

@@ -23,6 +23,8 @@ export type TerminalAgentOption = {
   group?: string | null;
   is_default?: boolean;
   thinking?: TerminalAgentModelThinking | null;
+  /** Catalog row advertises a CLI fast parameter (Droid `-fast`, Cursor `fast=`, Grok `-build-fast`). */
+  fast?: boolean;
 };
 
 export type TerminalAgentOptions = {
@@ -36,6 +38,27 @@ export type TerminalAgentOptions = {
 export type TerminalAgentModelsGetRequest = {
   agent_id: string;
   refresh?: boolean | null;
+};
+
+export type TerminalAgentFavoriteModel = {
+  agent_id: string;
+  model: string;
+  label?: string | null;
+};
+
+export type TerminalAgentLastPick = {
+  model?: string | null;
+  effort?: string | null;
+};
+
+export type TerminalAgentPrefs = {
+  favorite_models: TerminalAgentFavoriteModel[];
+  agents: Record<string, TerminalAgentLastPick>;
+};
+
+export type TerminalAgentPrefsSetRequest = {
+  favorite_models?: TerminalAgentFavoriteModel[] | null;
+  agents?: Record<string, TerminalAgentLastPick> | null;
 };
 
 export type LlmProviderKind =
@@ -111,6 +134,8 @@ export type AgentBehaviourSettings = {
   attention_summary_delay_mins?: number;
   attention_summary_agent_id?: string | null;
   attention_summary_model?: string | null;
+  attention_summary_effort?: string | null;
+  attention_summary_extra_args?: string[] | null;
   followup_policy?: "queue" | "steer";
 };
 
@@ -121,6 +146,8 @@ export type AgentBehaviourSettingsUpdateRequest = {
   attention_summary_delay_mins?: number | null;
   attention_summary_agent_id?: string | null;
   attention_summary_model?: string | null;
+  attention_summary_effort?: string | null;
+  attention_summary_extra_args?: string[] | null;
   followup_policy?: "queue" | "steer" | null;
 };
 

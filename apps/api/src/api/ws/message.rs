@@ -769,6 +769,10 @@ pub enum WsAction {
     CenterLayoutPut,
     /// Probe a terminal agent's live model catalog
     TerminalAgentModelsGet,
+    /// Read ~/.atmos/config/agent/terminal_prefs.json
+    TerminalAgentPrefsGet,
+    /// Update Terminal Agent favorites or one agent's last model and effort
+    TerminalAgentPrefsSet,
     /// Read the merged GitIgnore-dirs compensation config (built-ins + user customs)
     WorkspaceGitignoreDirsGet,
     /// Overwrite the GitIgnore-dirs compensation config
@@ -1388,6 +1392,12 @@ pub struct AgentBehaviourSettingsUpdateRequest {
     pub attention_summary_agent_id: Option<String>,
     #[serde(default)]
     pub attention_summary_model: Option<String>,
+    /// Absent on older clients. Leave the stored effort untouched.
+    #[serde(default)]
+    pub attention_summary_effort: Option<String>,
+    /// Absent on older clients. Leave the stored extra args untouched.
+    #[serde(default)]
+    pub attention_summary_extra_args: Option<Vec<String>>,
     #[serde(default)]
     pub followup_policy: Option<String>,
 }

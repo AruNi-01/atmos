@@ -516,6 +516,8 @@ mod tests {
             api_key: "test-key".to_string(),
             model: "glm-4.7".to_string(),
             agent_id: None,
+            agent_reasoning_effort: None,
+            agent_extra_args: Vec::new(),
             timeout: Duration::from_secs(30),
             max_output_tokens: Some(4096),
             context_window: 16_384,

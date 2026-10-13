@@ -11,7 +11,15 @@ import { useAutomationAgentCapabilitiesQuery } from "@/features/automations/hook
 import { WelcomeAgentSelector } from "@/features/welcome/components/WelcomeComposerControls";
 import type { AgentMenuOption } from "@/features/welcome/lib/welcome-page-helpers";
 import type { TerminalAgentRunConfigInput } from "@/features/agent/lib/terminal-agent-run-config";
+import {
+  attentionSummaryFieldsFromRunConfig,
+  attentionSummaryRunConfig,
+} from "@/features/settings/lib/attention-summary-run-config";
 import { SettingsGroupCard } from "@/features/settings/components/settings/SettingsGroupCard";
+
+function sameExtraArgs(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((item, index) => item === right[index]);
+}
 
 export type BehaviourSettingsValues = {
   idleSessionTimeoutMins: number;
@@ -20,6 +28,8 @@ export type BehaviourSettingsValues = {
   attentionSummaryDelayMins: number;
   attentionSummaryAgentId: string;
   attentionSummaryModel: string;
+  attentionSummaryEffort: string;
+  attentionSummaryExtraArgs: string[];
   followupPolicy: "queue" | "steer";
 };
 
@@ -30,6 +40,8 @@ export type CodeAgentBehaviourSettingsSectionProps = {
   attentionSummaryDelayMins: number;
   attentionSummaryAgentId: string;
   attentionSummaryModel: string;
+  attentionSummaryEffort: string;
+  attentionSummaryExtraArgs: string[];
   followupPolicy: "queue" | "steer";
   savedIdleSessionTimeoutMins: number;
   savedObserverSessionTimeoutMins: number;
@@ -37,6 +49,8 @@ export type CodeAgentBehaviourSettingsSectionProps = {
   savedAttentionSummaryDelayMins: number;
   savedAttentionSummaryAgentId: string;
   savedAttentionSummaryModel: string;
+  savedAttentionSummaryEffort: string;
+  savedAttentionSummaryExtraArgs: string[];
   savedFollowupPolicy: "queue" | "steer";
   savingIdleTimeout: boolean;
   onCommitBehaviourSettings: (values: BehaviourSettingsValues) => void | Promise<void>;
@@ -46,6 +60,8 @@ export type CodeAgentBehaviourSettingsSectionProps = {
   setAttentionSummaryDelayMins: React.Dispatch<React.SetStateAction<number>>;
   setAttentionSummaryAgentId: React.Dispatch<React.SetStateAction<string>>;
   setAttentionSummaryModel: React.Dispatch<React.SetStateAction<string>>;
+  setAttentionSummaryEffort: React.Dispatch<React.SetStateAction<string>>;
+  setAttentionSummaryExtraArgs: React.Dispatch<React.SetStateAction<string[]>>;
   setFollowupPolicy: React.Dispatch<React.SetStateAction<"queue" | "steer">>;
 };
 
@@ -61,6 +77,8 @@ export function CodeAgentBehaviourSettingsSection({
   attentionSummaryDelayMins,
   attentionSummaryAgentId,
   attentionSummaryModel,
+  attentionSummaryEffort,
+  attentionSummaryExtraArgs,
   followupPolicy,
   savedIdleSessionTimeoutMins,
   savedObserverSessionTimeoutMins,
@@ -68,6 +86,8 @@ export function CodeAgentBehaviourSettingsSection({
   savedAttentionSummaryDelayMins,
   savedAttentionSummaryAgentId,
   savedAttentionSummaryModel,
+  savedAttentionSummaryEffort,
+  savedAttentionSummaryExtraArgs,
   savedFollowupPolicy,
   savingIdleTimeout,
   onCommitBehaviourSettings,
@@ -77,6 +97,8 @@ export function CodeAgentBehaviourSettingsSection({
   setAttentionSummaryDelayMins,
   setAttentionSummaryAgentId,
   setAttentionSummaryModel,
+  setAttentionSummaryEffort,
+  setAttentionSummaryExtraArgs,
   setFollowupPolicy,
 }: CodeAgentBehaviourSettingsSectionProps) {
   const t = useTranslations("settings.codeAgentSection");
@@ -92,6 +114,8 @@ export function CodeAgentBehaviourSettingsSection({
       attentionSummaryDelayMins,
       attentionSummaryAgentId,
       attentionSummaryModel,
+      attentionSummaryEffort,
+      attentionSummaryExtraArgs,
       followupPolicy,
       ...patch,
     }),
@@ -102,6 +126,8 @@ export function CodeAgentBehaviourSettingsSection({
       attentionSummaryDelayMins,
       attentionSummaryAgentId,
       attentionSummaryModel,
+      attentionSummaryEffort,
+      attentionSummaryExtraArgs,
       followupPolicy,
     ],
   );
@@ -114,6 +140,8 @@ export function CodeAgentBehaviourSettingsSection({
       values.attentionSummaryDelayMins !== savedAttentionSummaryDelayMins ||
       values.attentionSummaryAgentId !== savedAttentionSummaryAgentId ||
       values.attentionSummaryModel !== savedAttentionSummaryModel ||
+      values.attentionSummaryEffort !== savedAttentionSummaryEffort ||
+      !sameExtraArgs(values.attentionSummaryExtraArgs, savedAttentionSummaryExtraArgs) ||
       values.followupPolicy !== savedFollowupPolicy,
     [
       savedIdleSessionTimeoutMins,
@@ -122,6 +150,8 @@ export function CodeAgentBehaviourSettingsSection({
       savedAttentionSummaryDelayMins,
       savedAttentionSummaryAgentId,
       savedAttentionSummaryModel,
+      savedAttentionSummaryEffort,
+      savedAttentionSummaryExtraArgs,
       savedFollowupPolicy,
     ],
   );
@@ -167,10 +197,20 @@ export function CodeAgentBehaviourSettingsSection({
     return options;
   }, [agentCapabilitiesQuery.data?.agents, summaryAgentSelectValue, tAutomationAgents]);
 
-  const summaryRunConfig = React.useMemo<TerminalAgentRunConfigInput | null>(() => {
-    const model = attentionSummaryModel.trim();
-    return model ? { model } : null;
-  }, [attentionSummaryModel]);
+  const summaryRunConfig = React.useMemo(
+    () =>
+      attentionSummaryRunConfig(summaryAgentSelectValue, {
+        model: attentionSummaryModel,
+        effort: attentionSummaryEffort,
+        extraArgs: attentionSummaryExtraArgs,
+      }),
+    [
+      attentionSummaryEffort,
+      attentionSummaryExtraArgs,
+      attentionSummaryModel,
+      summaryAgentSelectValue,
+    ],
+  );
 
   const summaryRunConfigByAgentId = React.useMemo(
     () =>
@@ -186,30 +226,46 @@ export function CodeAgentBehaviourSettingsSection({
       // Switching agents clears the model override; re-apply via run config if needed.
       setAttentionSummaryAgentId(agentId);
       setAttentionSummaryModel("");
+      setAttentionSummaryEffort("");
+      setAttentionSummaryExtraArgs([]);
       commitBehaviour({
         attentionSummaryAgentId: agentId,
         attentionSummaryModel: "",
+        attentionSummaryEffort: "",
+        attentionSummaryExtraArgs: [],
       });
     },
     [
       attentionSummaryAgentId,
       commitBehaviour,
       setAttentionSummaryAgentId,
+      setAttentionSummaryEffort,
+      setAttentionSummaryExtraArgs,
       setAttentionSummaryModel,
     ],
   );
 
   const handleSummaryRunConfigChange = React.useCallback(
     (agentId: string, value: TerminalAgentRunConfigInput | null) => {
-      const nextModel = value?.model?.trim() || "";
+      const next = attentionSummaryFieldsFromRunConfig(value);
       setAttentionSummaryAgentId(agentId);
-      setAttentionSummaryModel(nextModel);
+      setAttentionSummaryModel(next.model);
+      setAttentionSummaryEffort(next.effort);
+      setAttentionSummaryExtraArgs(next.extraArgs);
       commitBehaviour({
         attentionSummaryAgentId: agentId,
-        attentionSummaryModel: nextModel,
+        attentionSummaryModel: next.model,
+        attentionSummaryEffort: next.effort,
+        attentionSummaryExtraArgs: next.extraArgs,
       });
     },
-    [commitBehaviour, setAttentionSummaryAgentId, setAttentionSummaryModel],
+    [
+      commitBehaviour,
+      setAttentionSummaryAgentId,
+      setAttentionSummaryEffort,
+      setAttentionSummaryExtraArgs,
+      setAttentionSummaryModel,
+    ],
   );
 
   const commitIdleTimeout = React.useCallback(() => {
@@ -422,6 +478,7 @@ export function CodeAgentBehaviourSettingsSection({
                     purpose="automation"
                     triggerPlacement="inline"
                     contentAlign="end"
+                    hydrateLastPick={false}
                   />
                 </div>
               </div>

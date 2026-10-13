@@ -121,6 +121,8 @@ impl WsMessageService {
             "attention_summary_delay_mins": summary_settings.delay_mins,
             "attention_summary_agent_id": summary_settings.agent_id,
             "attention_summary_model": summary_settings.model,
+            "attention_summary_effort": summary_settings.effort,
+            "attention_summary_extra_args": summary_settings.extra_args,
             "followup_policy": followup_policy,
         }))
     }
@@ -288,16 +290,12 @@ impl WsMessageService {
             };
             val["followup_policy"] = json!(normalized);
         }
-        if let Some(model) = req.attention_summary_model {
-            let trimmed = model.trim();
-            if trimmed.is_empty() {
-                if let Some(obj) = val.as_object_mut() {
-                    obj.remove("attention_summary_model");
-                }
-            } else {
-                val["attention_summary_model"] = json!(trimmed);
-            }
-        }
+        core_service::AttentionSummarySettings::apply_launch_fields(
+            &mut val,
+            req.attention_summary_model,
+            req.attention_summary_effort,
+            req.attention_summary_extra_args,
+        );
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| {
                 ServiceError::Validation(format!("Failed to create ~/.atmos/agent dir: {}", e))

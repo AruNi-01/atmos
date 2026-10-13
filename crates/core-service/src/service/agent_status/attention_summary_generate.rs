@@ -21,7 +21,7 @@ use tracing::{info, warn};
 use super::attention_summary::{AttentionSummaryPayload, AttentionSummarySettings};
 use super::AgentAttentionLatch;
 use crate::error::{Result, ServiceError};
-use crate::service::automation::{resolve_automation_agent_with_config, AutomationAgentRunConfig};
+use crate::service::automation::{agent_cli_run_config, resolve_automation_agent_with_config};
 use crate::service::llm_text_generation::generate_text;
 use crate::service::terminal::{CapturePanePlainTextParams, TerminalService, TranscriptBudget};
 
@@ -101,14 +101,12 @@ pub async fn generate_attention_summary(
 
 fn resolve_summary_provider(settings: &AttentionSummarySettings) -> Result<ResolvedLlmProvider> {
     if let Some(agent_id) = settings.agent_id.as_deref() {
-        // Only pass model when the user explicitly configured one.
-        let run_config = settings
-            .model
-            .as_ref()
-            .map(|model| AutomationAgentRunConfig {
-                model: Some(model.clone()),
-                ..Default::default()
-            });
+        let run_config = agent_cli_run_config(
+            agent_id,
+            settings.model.as_deref(),
+            settings.effort.as_deref(),
+            &settings.extra_args,
+        );
         let _spec = resolve_automation_agent_with_config(agent_id, run_config.as_ref())?;
         return Ok(ResolvedLlmProvider {
             id: format!("agent-cli:{agent_id}"),
@@ -118,6 +116,8 @@ fn resolve_summary_provider(settings: &AttentionSummarySettings) -> Result<Resol
             // Keep empty unless explicitly configured — agent-cli defaults apply.
             model: settings.model.clone().unwrap_or_default(),
             agent_id: Some(agent_id.to_string()),
+            agent_reasoning_effort: settings.effort.clone(),
+            agent_extra_args: settings.extra_args.clone(),
             timeout: DEFAULT_TIMEOUT,
             max_output_tokens: Some(1024),
             context_window: 32_768,
