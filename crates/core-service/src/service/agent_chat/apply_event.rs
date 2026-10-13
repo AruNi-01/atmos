@@ -1869,15 +1869,14 @@ fn live_turn_ids(state: &RuntimeState) -> std::collections::HashSet<&str> {
 fn live_turn_folded_messages(state: &RuntimeState) -> Vec<FoldedMessage> {
     let turn_ids = live_turn_ids(state);
     let mut messages = Vec::new();
-    let mut parts: Vec<&Part> = state
+    let mut parts: Vec<&TrackedPart> = state
         .parts
         .values()
         .filter(|tracked| turn_ids.contains(tracked.turn_id.as_str()))
-        .map(|tracked| &tracked.part)
         .collect();
-    parts.sort_by_key(|part| (part.message_id.clone(), part.ordinal));
-    for part in parts {
-        overlay_tracked_part(&mut messages, part);
+    parts.sort_by_key(|tracked| (tracked.part.message_id.clone(), tracked.part.ordinal));
+    for tracked in parts {
+        overlay_tracked_part(&mut messages, &tracked.part, tracked.opened_at);
     }
     apply_recorded_ordinal_order(&mut messages, state);
     let now = Utc::now();
@@ -1979,10 +1978,10 @@ fn apply_recorded_ordinal_order(messages: &mut [FoldedMessage], state: &RuntimeS
 /// Merge live parts onto a disk snapshot. Same `Part` shape — map merge by
 /// `part_id`, not a text splice.
 pub(super) fn overlay_live_state(snapshot: &mut AgentChatSnapshot, state: &RuntimeState) {
-    let mut parts: Vec<&Part> = state.parts.values().map(|tracked| &tracked.part).collect();
-    parts.sort_by_key(|part| (part.message_id.clone(), part.ordinal));
-    for part in parts {
-        overlay_tracked_part(&mut snapshot.messages, part);
+    let mut parts: Vec<&TrackedPart> = state.parts.values().collect();
+    parts.sort_by_key(|tracked| (tracked.part.message_id.clone(), tracked.part.ordinal));
+    for tracked in parts {
+        overlay_tracked_part(&mut snapshot.messages, &tracked.part, tracked.opened_at);
     }
     apply_recorded_ordinal_order(&mut snapshot.messages, state);
     overlay_live_timing(snapshot, state, Utc::now());
@@ -2095,7 +2094,11 @@ fn overlay_target(messages: &[FoldedMessage], part: &Part) -> Option<usize> {
         .map(|rel| start + rel)
 }
 
-fn overlay_tracked_part(messages: &mut Vec<FoldedMessage>, part: &Part) {
+fn overlay_tracked_part(
+    messages: &mut Vec<FoldedMessage>,
+    part: &Part,
+    opened_at: chrono::DateTime<Utc>,
+) {
     if let Some(index) = overlay_target(messages, part) {
         upsert_overlay_part(&mut messages[index], part);
         messages[index].parts = order_assistant_parts(std::mem::take(&mut messages[index].parts));
@@ -2109,7 +2112,7 @@ fn overlay_tracked_part(messages: &mut Vec<FoldedMessage>, part: &Part) {
         role: "assistant".into(),
         kind: agent::UserMessageKind::Normal,
         parts: Vec::new(),
-        created_at: Utc::now(),
+        created_at: opened_at,
         streaming: part.closed_at.is_none() && matches!(part.body, PartBody::Text { .. }),
         ..Default::default()
     };
@@ -2723,8 +2726,14 @@ pub(super) fn push_recent(
         let queue = map
             .entry(event.chat_id.clone())
             .or_insert_with(VecDeque::new);
-        if matches!(event.payload, AgentChatPayload::TurnSnapshot { .. }) {
-            queue.retain(|item| !matches!(item.payload, AgentChatPayload::TurnSnapshot { .. }));
+        if let AgentChatPayload::TurnSnapshot { turn_id, .. } = &event.payload {
+            let turn_id = turn_id.clone();
+            queue.retain(|item| match &item.payload {
+                AgentChatPayload::TurnSnapshot {
+                    turn_id: existing, ..
+                } => existing != &turn_id,
+                _ => true,
+            });
         }
         queue.push_back(event.clone());
         while queue.len() > RECENT_EVENT_CAP {
@@ -2988,6 +2997,50 @@ mod tests {
         assert_eq!(state.persist_turn_id(None), "t1");
         assert_eq!(state.persist_turn_id(Some("unknown")), "t1");
         assert_eq!(state.persist_turn_id(Some("turn-2")), "turn-2");
+    }
+
+    fn snapshot_event(chat_id: &str, turn_id: &str, revision: u64) -> AgentChatEvent {
+        AgentChatEvent {
+            chat_id: chat_id.into(),
+            event_id: format!("e{revision}"),
+            revision,
+            turn_id: Some(turn_id.into()),
+            payload: AgentChatPayload::TurnSnapshot {
+                turn_id: turn_id.into(),
+                messages: Vec::new(),
+                open_part_ids: Vec::new(),
+            },
+        }
+    }
+
+    #[test]
+    fn push_recent_keeps_latest_snapshot_per_turn() {
+        let recent = std::sync::Mutex::new(HashMap::<String, VecDeque<AgentChatEvent>>::new());
+        push_recent(&recent, &snapshot_event("c1", "t1", 1));
+        push_recent(&recent, &snapshot_event("c1", "t1", 2));
+        push_recent(&recent, &snapshot_event("c1", "t2", 3));
+        let queue = recent.lock().unwrap().get("c1").cloned().unwrap();
+        let turns: Vec<&str> = queue
+            .iter()
+            .filter_map(|event| match &event.payload {
+                AgentChatPayload::TurnSnapshot { turn_id, .. } => Some(turn_id.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(turns, ["t1", "t2"]);
+        assert_eq!(queue[0].revision, 2);
+        assert_eq!(queue[1].revision, 3);
+    }
+
+    #[test]
+    fn live_turn_snapshot_keeps_first_part_opened_at() {
+        let opened = Utc::now() - Duration::hours(2);
+        let mut state = runtime();
+        let mut part = live_text("txt-0", TextKind::Answer, "hello", 0, false);
+        part.opened_at = opened;
+        state.parts.insert("txt-0".into(), part);
+        let messages = live_turn_folded_messages(&state);
+        assert_eq!(messages[0].created_at, opened);
     }
 
     #[test]

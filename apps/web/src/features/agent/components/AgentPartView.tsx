@@ -149,15 +149,10 @@ export function AgentPartView({
 
   if (part.type === "tool_call") {
     if (isNestedSubagentChild(part, parts)) return null;
-    const toolParts = parts.filter(
-      (candidate): candidate is Extract<AgentPart, { type: "tool_call" }> =>
-        candidate.type === "tool_call",
-    );
     return (
       <ToolView
         part={part}
         defaultOpen={toolResultOpen}
-        childTools={toolParts}
       />
     );
   }

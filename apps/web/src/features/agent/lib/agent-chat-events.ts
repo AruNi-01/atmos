@@ -514,7 +514,8 @@ function mergeSnapshotMessage(prev: AgentMessage, incoming: AgentMessage): Agent
     : incoming.parts;
   const parts = reuseProjectedParts(prev.parts, mergedParts);
   if (
-    prev.streaming === incoming.streaming
+    prev.id === incoming.id
+    && prev.streaming === incoming.streaming
     && prev.worked_ms === incoming.worked_ms
     && prev.thinking_ms === incoming.thinking_ms
     && prev.completed_at === incoming.completed_at
@@ -524,6 +525,31 @@ function mergeSnapshotMessage(prev: AgentMessage, incoming: AgentMessage): Agent
     return prev;
   }
   return { ...prev, ...incoming, parts };
+}
+
+function toolCallIdsOf(message: AgentMessage): Set<string> {
+  const ids = new Set<string>();
+  for (const part of message.parts) {
+    if (part.type === "tool_call" && part.tool_call_id) ids.add(part.tool_call_id);
+  }
+  return ids;
+}
+
+/** Live tool-first rows use `assistant:<user-id>` until the snapshot's canonical id arrives. */
+function shouldAdoptSnapshotAssistant(prev: AgentMessage, snap: AgentMessage): boolean {
+  if (prev.role !== "assistant" || snap.role !== "assistant") return false;
+  if (prev.id === snap.id) return false;
+  const prevTools = toolCallIdsOf(prev);
+  if (prevTools.size > 0) {
+    for (const part of snap.parts) {
+      if (part.type === "tool_call" && part.tool_call_id && prevTools.has(part.tool_call_id)) {
+        return true;
+      }
+    }
+  }
+  const id = prev.id.trim();
+  if (id === "assistant" || id.startsWith("assistant:")) return true;
+  return !prev.parts.some((part) => part.type === "text" || part.type === "thinking");
 }
 
 /** Skip WS events already covered by `get()` `last_event_seq`. */
@@ -556,7 +582,19 @@ export function applyTurnSnapshot(
     }
   }
   for (const snap of stamped) {
-    if (!seen.has(snap.id)) next.push(snap);
+    if (seen.has(snap.id)) continue;
+    const current = snap.role === "assistant" ? currentTurnAssistant(next) : null;
+    if (
+      current
+      && !seen.has(current.message.id)
+      && shouldAdoptSnapshotAssistant(current.message, snap)
+    ) {
+      seen.add(snap.id);
+      next[current.index] = mergeSnapshotMessage(current.message, snap);
+      continue;
+    }
+    seen.add(snap.id);
+    next.push(snap);
   }
   if (next.length === messages.length && next.every((item, index) => item === messages[index])) {
     return messages;

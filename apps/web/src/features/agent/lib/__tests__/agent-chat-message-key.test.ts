@@ -31,4 +31,27 @@ describe("withStableAgentMessageIds", () => {
     expect(next[0]).toBe(withId);
     expect(next[1]?.id).toBe(stableAgentMessageKey(legacy, 1));
   });
+
+  it("disambiguates duplicate legacy fingerprints and reserved ids", () => {
+    const reserved: AgentMessage = {
+      id: "legacy:assistant::t:same prefix of a long answer",
+      role: "assistant",
+      parts: [{ type: "text", text: "other" }],
+    };
+    const first: AgentMessage = {
+      role: "assistant",
+      parts: [{ type: "text", text: "same prefix of a long answer that continues" }],
+    };
+    const second: AgentMessage = {
+      role: "assistant",
+      parts: [{ type: "text", text: "same prefix of a long answer that diverges later" }],
+    };
+    const next = withStableAgentMessageIds([reserved, first, second]);
+    const ids = next.map((message) => message.id);
+    expect(new Set(ids).size).toBe(3);
+    expect(ids[0]).toBe(reserved.id);
+    expect(ids[1]).not.toBe(ids[2]);
+    expect(ids[1]?.startsWith("legacy:assistant:")).toBe(true);
+    expect(ids[2]?.startsWith("legacy:assistant:")).toBe(true);
+  });
 });

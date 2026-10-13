@@ -55,7 +55,7 @@ function stampPart(message: AgentMessage, part: AgentPart, index: number): Agent
   return part;
 }
 
-function seedStore(messages: AgentMessage[]): PartStore {
+function seedStore(messages: AgentMessage[], openPartIds?: ReadonlySet<string>): PartStore {
   const store = createPartStore();
   for (const message of messages) {
     if (message.role !== "assistant") continue;
@@ -74,7 +74,10 @@ function seedStore(messages: AgentMessage[]): PartStore {
           offset: 0,
           text: part.text,
         });
-        if (!message.streaming) {
+        const closed = openPartIds
+          ? !openPartIds.has(partId)
+          : !message.streaming;
+        if (closed) {
           applyPartClosed(store, { type: "part_closed", part_id: partId });
         }
         return;
@@ -158,11 +161,38 @@ function currentTurnStart(messages: AgentMessage[]): number {
 }
 
 function currentTurnAssistant(messages: AgentMessage[]): AgentMessage | null {
+  const found = currentTurnAssistantAt(messages);
+  return found?.message ?? null;
+}
+
+function currentTurnAssistantAt(
+  messages: AgentMessage[],
+): { message: AgentMessage; index: number } | null {
   const start = currentTurnStart(messages);
   for (let index = messages.length - 1; index >= start; index -= 1) {
-    if (messages[index]?.role === "assistant") return messages[index] ?? null;
+    const message = messages[index];
+    if (message?.role === "assistant") return { message, index };
   }
   return null;
+}
+
+function shouldAdoptSnapshotAssistant(prev: AgentMessage, snap: AgentMessage): boolean {
+  if (prev.role !== "assistant" || snap.role !== "assistant") return false;
+  if (prev.id === snap.id) return false;
+  const prevTools = new Set(
+    prev.parts
+      .filter((part): part is Extract<AgentPart, { type: "tool_call" }> => part.type === "tool_call")
+      .map((part) => part.tool_call_id)
+      .filter(Boolean),
+  );
+  if (prevTools.size > 0) {
+    for (const part of snap.parts) {
+      if (part.type === "tool_call" && prevTools.has(part.tool_call_id)) return true;
+    }
+  }
+  const id = prev.id.trim();
+  if (id === "assistant" || id.startsWith("assistant:")) return true;
+  return !prev.parts.some((part) => part.type === "text" || part.type === "thinking");
 }
 
 function withCurrentAssistant(
@@ -321,13 +351,25 @@ export function applyChatEvent(state: ChatTranscriptState, event: AgentChatEvent
       }
     }
     for (const snap of stamped) {
-      if (!seen.has(snap.id)) messages.push(snap);
+      if (seen.has(snap.id)) continue;
+      const current = snap.role === "assistant" ? currentTurnAssistantAt(messages) : null;
+      if (
+        current
+        && !seen.has(current.message.id)
+        && shouldAdoptSnapshotAssistant(current.message, snap)
+      ) {
+        seen.add(snap.id);
+        messages[current.index] = snap;
+        continue;
+      }
+      seen.add(snap.id);
+      messages.push(snap);
     }
     return {
       state: {
         ...state,
         messages,
-        store: seedStore(messages),
+        store: seedStore(messages, open),
       },
       backfill: null,
     };

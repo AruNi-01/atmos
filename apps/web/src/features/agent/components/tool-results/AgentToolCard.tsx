@@ -294,13 +294,13 @@ export function AgentToolCard({
   const markInspecting = useMarkAssistantProcessInspecting();
   const expandId = useAgentToolExpandId();
   const storedOpen = useAgentChatExpandStore((state) =>
-    expandId ? state.values[agentChatToolExpandKey(expandId)] : undefined,
+    expandId != null ? state.values[agentChatToolExpandKey(expandId)] : undefined,
   );
   const setExpand = useAgentChatExpandStore((state) => state.setExpand);
   const controlled = open !== undefined || expandId != null;
   const resolvedOpen = open ?? storedOpen ?? defaultOpen;
   const handleOpenChange = (next: boolean) => {
-    if (expandId) setExpand(agentChatToolExpandKey(expandId), next);
+    if (expandId != null) setExpand(agentChatToolExpandKey(expandId), next);
     onOpenChange?.(next);
     if (next) markInspecting();
   };

@@ -217,10 +217,8 @@ export const AssistantMessageView = React.memo(function AssistantMessageView({
   // raw part list, then segmenting drops them, which used to leave "Worked for"
   // opening onto an empty panel.
   const canCollapse = processSegments.length > 0 && hasCollapsibleAssistantProcess(message);
-  const [stepsExpanded, setStepsExpanded] = useAgentChatExpand(
-    agentChatProcessExpandKey(message.id),
-    false,
-  );
+  const processKey = agentChatProcessExpandKey(message.id);
+  const [stepsExpanded, setStepsExpanded] = useAgentChatExpand(processKey, false);
   const [userInspecting, setUserInspecting] = useAgentChatExpand(
     agentChatInspectExpandKey(message.id),
     false,
@@ -233,14 +231,19 @@ export const AssistantMessageView = React.memo(function AssistantMessageView({
   // When the turn first settles into collapsible chrome, auto-collapse unless the user
   // expanded tools/process during the stream. Must not write the expand store during
   // render — zustand notifies every AssistantMessageView and React flags setState-in-render.
+  // Skip when process:${id} is already stored so a virtualizer remount cannot reopen a
+  // panel the user collapsed after inspecting.
   useLayoutEffect(() => {
     if (canCollapse && !wasCollapsibleRef.current) {
-      setStepsExpanded(
-        density === "detailed" || !shouldAutoCollapseProcessOnSettle(userInspecting),
-      );
+      const stored = useAgentChatExpandStore.getState().values;
+      if (!Object.prototype.hasOwnProperty.call(stored, processKey)) {
+        setStepsExpanded(
+          density === "detailed" || !shouldAutoCollapseProcessOnSettle(userInspecting),
+        );
+      }
     }
     wasCollapsibleRef.current = canCollapse;
-  }, [canCollapse, density, setStepsExpanded, userInspecting]);
+  }, [canCollapse, density, processKey, setStepsExpanded, userInspecting]);
 
   const renderPart = (part: AgentPart, _origIndex: number) => (
     <AgentPartView

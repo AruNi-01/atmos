@@ -1720,4 +1720,69 @@ describe("agent chat fold stays on AgentMessage", () => {
     expect(textFromParts(restored[1]!.parts)).toBe("Hello world");
     expect(restored[0]).toBe(snapshotMessages[0]);
   });
+
+  it("applyTurnSnapshot adopts a tool-first provisional row instead of duplicating it", () => {
+    const user: AgentMessage = { id: "u1", role: "user", parts: [{ type: "text", text: "hi" }] };
+    const provisional: AgentMessage = {
+      id: "assistant:u1",
+      role: "assistant",
+      parts: [{
+        type: "tool_call",
+        tool_call_id: "search-1",
+        name: "Search",
+        kind: "search",
+        status: "running",
+        params: { type: "search", query: "atmos" },
+      }],
+      streaming: true,
+    };
+    const next = applyTurnSnapshot(
+      [user, provisional],
+      [{
+        id: "tool-search-1",
+        role: "assistant",
+        parts: [{
+          type: "tool_call",
+          tool_call_id: "search-1",
+          name: "Search",
+          kind: "search",
+          status: "running",
+          params: { type: "search", query: "atmos" },
+        }],
+        streaming: true,
+      }],
+      [],
+    );
+    expect(next.map((message) => message.id)).toEqual(["u1", "tool-search-1"]);
+    expect(next.filter((message) =>
+      message.parts.some((part) => part.type === "tool_call" && part.tool_call_id === "search-1")
+    )).toHaveLength(1);
+  });
+
+  it("applyTurnSnapshot keeps prior-turn history while replacing the live assistant", () => {
+    const history: AgentMessage[] = [
+      { id: "u0", role: "user", parts: [{ type: "text", text: "old" }] },
+      { id: "a0", role: "assistant", parts: [{ type: "text", text: "prior" }] },
+      { id: "u1", role: "user", parts: [{ type: "text", text: "next" }] },
+      {
+        id: "assistant:u1",
+        role: "assistant",
+        parts: [{ type: "text", text: "Hel", message_id: "p1" }],
+        streaming: true,
+      },
+    ];
+    const next = applyTurnSnapshot(
+      history,
+      [{
+        id: "a1",
+        role: "assistant",
+        parts: [{ type: "text", text: "Hello", message_id: "p1" }],
+        streaming: true,
+      }],
+      ["p1"],
+    );
+    expect(next.map((message) => message.id)).toEqual(["u0", "a0", "u1", "a1"]);
+    expect(textFromParts(next[1]!.parts)).toBe("prior");
+    expect(textFromParts(next[3]!.parts)).toBe("Hello");
+  });
 });

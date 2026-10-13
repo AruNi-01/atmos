@@ -25,11 +25,23 @@ export function stableAgentMessageKey(message: AgentMessage | undefined, index: 
 }
 
 export function withStableAgentMessageIds(messages: AgentMessage[]): AgentMessage[] {
+  const used = new Set<string>();
+  for (const message of messages) {
+    const id = message.id?.trim();
+    if (id) used.add(id);
+  }
   let changed = false;
   const next = messages.map((message, index) => {
     if (message.id?.trim()) return message;
     changed = true;
-    return { ...message, id: stableAgentMessageKey(message, index) };
+    let id = stableAgentMessageKey(message, index);
+    if (used.has(id)) {
+      let n = 2;
+      while (used.has(`${id}#${n}`)) n += 1;
+      id = `${id}#${n}`;
+    }
+    used.add(id);
+    return { ...message, id };
   });
   return changed ? next : messages;
 }

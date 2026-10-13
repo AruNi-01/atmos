@@ -17,7 +17,6 @@ export const ToolView = React.memo(function ToolView({
   part: AgentToolCallPart;
   surface?: AgentToolSurface;
   defaultOpen?: boolean;
-  childTools?: AgentToolCallPart[];
 }) {
   let body: React.ReactNode;
   switch (part.kind) {

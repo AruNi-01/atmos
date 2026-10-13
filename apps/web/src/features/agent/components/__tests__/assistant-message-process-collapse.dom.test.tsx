@@ -255,6 +255,53 @@ describe("assistant process collapse render", () => {
       container.querySelector("[data-process-collapsible]")?.getAttribute("data-open"),
     ).toBe("true");
   });
+
+  it("does not reopen a collapsed process panel after a virtual-row remount", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <AssistantMessageView
+          message={assistantMessage({ streaming: true, completed_at: null })}
+        />,
+      );
+    });
+    await act(async () => {
+      useAgentChatExpandStore
+        .getState()
+        .setExpand(agentChatInspectExpandKey("a1"), true);
+    });
+    await act(async () => {
+      root?.render(<AssistantMessageView message={assistantMessage()} />);
+    });
+    expect(
+      container.querySelector("[data-process-collapsible]")?.getAttribute("data-open"),
+    ).toBe("true");
+
+    await act(async () => {
+      useAgentChatExpandStore
+        .getState()
+        .setExpand(agentChatProcessExpandKey("a1"), false);
+    });
+    expect(
+      container.querySelector("[data-process-collapsible]")?.getAttribute("data-open"),
+    ).toBe("false");
+
+    await act(async () => {
+      root?.render(<div />);
+    });
+    await act(async () => {
+      root?.render(<AssistantMessageView message={assistantMessage()} />);
+    });
+    expect(
+      container.querySelector("[data-process-collapsible]")?.getAttribute("data-open"),
+    ).toBe("false");
+    expect(
+      useAgentChatExpandStore.getState().values[agentChatProcessExpandKey("a1")],
+    ).toBe(false);
+  });
 });
 
 function installDom(): void {
