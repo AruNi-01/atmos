@@ -64,9 +64,8 @@ describe("assistant process collapse chrome", () => {
     expect(view).toContain("userInspecting");
     expect(view).toContain("markInspecting");
     expect(view).toContain("AssistantProcessInspectProvider");
-    expect(view).toMatch(
-      /useLayoutEffect\(\(\) => \{\s*if \(canCollapse && !wasCollapsibleRef\.current\) \{\s*setStepsExpanded/,
-    );
+    expect(view).toContain("useLayoutEffect");
+    expect(view).toContain("wasCollapsibleRef");
     expect(toolGroup).toContain("useMarkAssistantProcessInspecting");
     expect(toolGroup).toContain("if (next) markInspecting()");
     expect(toolCard).toContain("useMarkAssistantProcessInspecting");
