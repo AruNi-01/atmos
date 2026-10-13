@@ -277,10 +277,39 @@ async function encodePreviewCanvas(canvas: HTMLCanvasElement): Promise<{
   return { ...encoded, width: canvas.width, height: canvas.height };
 }
 
+async function canvasToPng(canvas: HTMLCanvasElement): Promise<{
+  dataUrl: string;
+  mime: "image/png";
+  blob: Blob;
+}> {
+  const png = await canvasToBlob(canvas, "image/png");
+  if (png && png.type === "image/png" && png.size > 32) {
+    return { dataUrl: await blobToDataUrl(png), mime: "image/png", blob: png };
+  }
+  const dataUrl = canvas.toDataURL("image/png");
+  return { dataUrl, mime: "image/png", blob: await blobFromDataUrl(dataUrl) };
+}
+
+async function encodeCanvas(
+  canvas: HTMLCanvasElement,
+  preview: boolean,
+): Promise<{
+  dataUrl: string;
+  mime: "image/png" | "image/jpeg" | "image/webp";
+  blob: Blob;
+  width: number;
+  height: number;
+}> {
+  if (preview) return encodePreviewCanvas(canvas);
+  const encoded = await canvasToPng(canvas);
+  return { ...encoded, width: canvas.width, height: canvas.height };
+}
+
 async function captureBoardDom(
   api: ExcalidrawHostApi,
   cropScene: { x: number; y: number; w: number; h: number },
   maxEdge: number,
+  preview: boolean,
 ): Promise<{
   dataUrl: string;
   mime: "image/png" | "image/jpeg" | "image/webp";
@@ -302,7 +331,7 @@ async function captureBoardDom(
     const region = scaleCropToPixels(crop, snap.width, snap.height, boardRect.width, boardRect.height);
     if (region) {
       const painted = rasterCanvasFromCrop(snap, region, maxEdge, paper);
-      if (painted) return encodePreviewCanvas(painted);
+      if (painted) return encodeCanvas(painted, preview);
     }
   }
 
@@ -326,9 +355,9 @@ async function captureBoardDom(
   const painted = rasterCanvasFromCrop(staticCanvas, region, maxEdge, paper);
   if (!painted) return null;
   const overlay = board.querySelector("[data-pt-overlay]");
-  if (!(overlay instanceof HTMLElement)) return encodePreviewCanvas(painted);
+  if (!(overlay instanceof HTMLElement)) return encodeCanvas(painted, preview);
   const overlaySnap = await snapBoard(overlay, "transparent");
-  if (!overlaySnap || overlaySnap.width < 2) return encodePreviewCanvas(painted);
+  if (!overlaySnap || overlaySnap.width < 2) return encodeCanvas(painted, preview);
   const overlayRect = overlay.getBoundingClientRect();
   const overlayCrop = {
     x: boardRect.left + crop.x - overlayRect.left,
@@ -343,12 +372,12 @@ async function captureBoardDom(
     overlayRect.width,
     overlayRect.height,
   );
-  if (!overlayRegion) return encodePreviewCanvas(painted);
+  if (!overlayRegion) return encodeCanvas(painted, preview);
   const out = document.createElement("canvas");
   out.width = painted.width;
   out.height = painted.height;
   const ctx = out.getContext("2d");
-  if (!ctx) return encodePreviewCanvas(painted);
+  if (!ctx) return encodeCanvas(painted, preview);
   ctx.drawImage(painted, 0, 0, painted.width, painted.height);
   ctx.drawImage(
     overlaySnap,
@@ -361,7 +390,7 @@ async function captureBoardDom(
     painted.width,
     painted.height,
   );
-  return encodePreviewCanvas(out);
+  return encodeCanvas(out, preview);
 }
 
 export async function captureLiveScreenshot(
@@ -400,7 +429,7 @@ export async function captureLiveScreenshot(
 
   const bbox = unionBBox(scoped);
   const cropScene = args.preview === true ? thumbnailViewBox(bbox) : bbox;
-  const live = await captureBoardDom(api, cropScene, maxEdge);
+  const live = await captureBoardDom(api, cropScene, maxEdge, args.preview === true);
   if (live) {
     const parts = dataUrlParts(live.dataUrl);
     return {

@@ -47,6 +47,8 @@ describe("S33 screenshot", () => {
     expect(app).not.toContain("sketchPreviewFromPersist");
     expect(src).toContain("PREVIEW_CAPTURE_MAX_EDGE");
     expect(src).toContain("image/webp");
+    expect(src).toContain("canvasToPng");
+    expect(src).toContain("encodeCanvas");
     expect(src).not.toContain("Math.min(320");
   });
 
