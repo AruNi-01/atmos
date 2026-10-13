@@ -213,11 +213,16 @@ pub fn db_data_dir() -> Result<PathBuf, String> {
 }
 
 #[cfg(test)]
+pub(crate) static HOME_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn layout_is_under_atmos_home() {
+        // Manifest tests mutate HOME; share one lock so path snapshots stay coherent.
+        let _guard = HOME_ENV_LOCK.lock().unwrap();
         let home = atmos_home_dir().unwrap();
         assert!(computer_client_settings_path()
             .unwrap()

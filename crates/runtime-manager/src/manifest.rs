@@ -176,10 +176,8 @@ fn ws_base_url(host: &str, port: u16) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Mutex, MutexGuard};
+    use std::sync::MutexGuard;
     use tempfile::TempDir;
-
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     struct EnvGuard {
         _lock: MutexGuard<'static, ()>,
@@ -189,7 +187,7 @@ mod tests {
 
     impl EnvGuard {
         fn new() -> Self {
-            let _lock = ENV_LOCK.lock().unwrap();
+            let _lock = crate::layout::HOME_ENV_LOCK.lock().unwrap();
             Self {
                 _lock,
                 saved_home: std::env::var_os("HOME"),
