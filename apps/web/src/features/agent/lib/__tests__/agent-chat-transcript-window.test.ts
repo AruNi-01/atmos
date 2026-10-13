@@ -260,6 +260,7 @@ describe("transcript virtual list wiring", () => {
     expect(session).toContain("scrollToIndexRef: ui.scrollToIndexRef");
     expect(session).toContain("pendingEventsAfterSeq");
     expect(session).toContain("agentChatApi.subscribe(id, after)");
+    expect(session).toContain("useAgentChatExpandStore.getState().reset()");
     expect(session).toContain("withStableAgentMessageIds");
     expect(session).not.toContain("hydrateAgentChatMessages");
     expect(session).not.toContain("RESTORE_REPLAY_BATCH_SIZE");

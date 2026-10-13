@@ -44,6 +44,15 @@ describe("agent chat stream wiring", () => {
     expect(list).toContain("virtualizer.scrollToIndex(index, { align: \"start\", behavior: \"smooth\" })");
   });
 
+  it("clears the expand store when the chat session unsubscribes", () => {
+    const session = read("hooks/use-agent-chat-session.ts");
+    expect(session).toContain("useAgentChatExpandStore.getState().reset()");
+    expect(session).toContain("void agentChatApi.unsubscribe(id)");
+    expect(session.indexOf("useAgentChatExpandStore.getState().reset()")).toBeLessThan(
+      session.indexOf("void agentChatApi.unsubscribe(id)"),
+    );
+  });
+
   it("follows the end until the user scrolls away, then shows the below-count control", () => {
     const list = read("components/AgentChatTranscriptList.tsx");
     const panel = read("components/AgentChatPanel.tsx");

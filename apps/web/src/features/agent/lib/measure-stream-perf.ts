@@ -1,14 +1,17 @@
 /**
- * CPU-side stream/restore microbench. Not Chrome FPS.
+ * CPU-side stream/restore microbench. Not Chrome FPS / React Profiler.
  * Run: bun apps/web/src/features/agent/lib/measure-stream-perf.ts
+ *
+ * The previous "restore 35s → 1.4ms" table compared full text-chunk hydrate
+ * against a last-turn snapshot overlay. That is not a 500-turn UI restore and
+ * is not a valid before/after. It is omitted on purpose.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
+import { argv } from "node:process";
+import { fileURLToPath } from "node:url";
 import { takeStreamChars } from "../../../../../../packages/ui/src/components/ai-elements/smooth-stream-text";
-import {
-  applyTurnSnapshot,
-  hydrateAgentChatMessages,
-} from "./agent-chat-events";
-import type { AgentChatEvent, AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
+import { applyTurnSnapshot } from "./agent-chat-events";
+import type { AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 
 const TURNS = 500;
 const TOOLS_PER_TURN = 8;
@@ -48,47 +51,23 @@ function transcript(): AgentMessage[] {
   return messages;
 }
 
-function chunkEvents(messages: AgentMessage[]): AgentChatEvent[] {
-  const events: AgentChatEvent[] = [];
-  let revision = 1;
-  for (const message of messages) {
-    if (message.role !== "assistant") continue;
-    for (const part of message.parts) {
-      if (part.type !== "text") continue;
-      const words = part.text.split(" ");
-      let offset = 0;
-      for (const word of words) {
-        const text = offset === 0 ? word : ` ${word}`;
-        events.push({
-          chat_id: "chat-1",
-          event_id: `e${revision}`,
-          revision,
-          payload: {
-            type: "text_chunk",
-            part_id: part.message_id ?? message.id,
-            message_id: message.id,
-            ordinal: 0,
-            kind: "answer",
-            offset,
-            text,
-          },
-        });
-        offset += text.length;
-        revision += 1;
-      }
-    }
-  }
-  return events;
-}
-
 function timeMs(fn: () => void): number {
   const start = performance.now();
   fn();
   return performance.now() - start;
 }
 
+function isDirectRun(): boolean {
+  const entry = argv[1];
+  if (!entry) return false;
+  try {
+    return fileURLToPath(import.meta.url) === entry;
+  } catch {
+    return false;
+  }
+}
+
 const messages = transcript();
-const events = chunkEvents(messages);
 const last = messages.at(-1)!;
 const snap = [{
   ...last,
@@ -99,12 +78,6 @@ const snap = [{
 
 const snapshotMs = timeMs(() => {
   applyTurnSnapshot(messages, snap, []);
-});
-const replayLastMs = timeMs(() => {
-  hydrateAgentChatMessages(messages.slice(0, -1), events.slice(-TOKENS), "chat-1");
-});
-const fullReplayMs = timeMs(() => {
-  hydrateAgentChatMessages([], events, "chat-1");
 });
 
 let revealed = 0;
@@ -122,27 +95,28 @@ const drainMs = timeMs(() => {
 
 const payload = {
   measured_at: new Date().toISOString(),
-  environment: "bun CPU microbench (no Chromium, no layout/paint)",
+  environment: "bun CPU microbench (no Chromium, no layout/paint, no React Profiler)",
   fixture: {
     turns: TURNS,
     tools_per_turn: TOOLS_PER_TURN,
     tokens_per_answer: TOKENS,
-    replay_events: events.length,
   },
   results_ms: {
-    apply_turn_snapshot_500_turns: Number(snapshotMs.toFixed(3)),
-    hydrate_last_turn_tokens: Number(replayLastMs.toFixed(3)),
-    hydrate_full_text_chunk_replay: Number(fullReplayMs.toFixed(3)),
+    apply_turn_snapshot_last_turn_overlay: Number(snapshotMs.toFixed(3)),
     display_buffer_drain_120_frames: Number(drainMs.toFixed(3)),
   },
   display_buffer_chars_revealed: revealed,
-  unmeasured: [
-    "scroll FPS in a 500-turn session (needs Chrome + mounted virtual list)",
-    "per-token React render time (needs React profiler / Chrome performance)",
-  ],
+  incomplete: {
+    scroll_fps_500_turn_tool_dense:
+      "not measured — needs Chromium + mounted AgentChatTranscriptList + React Profiler",
+    per_token_react_render_ms:
+      "not measured — needs Chromium + React Profiler on a live streaming tail",
+    restore_35s_to_1_4ms_baseline:
+      "invalid and removed — that compared CPU hydrate of 21500 text_chunk events against a last-turn overlay, not UI restore",
+  },
 };
 
-if (import.meta.main) {
+if (isDirectRun()) {
   const outDir = "/opt/cursor/artifacts";
   mkdirSync(outDir, { recursive: true });
   writeFileSync(`${outDir}/agent-chat-stream-perf.json`, `${JSON.stringify(payload, null, 2)}\n`);

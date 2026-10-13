@@ -49,4 +49,11 @@ describe("agent chat expand store", () => {
     unsub();
     expect(ticks).toBe(1);
   });
+
+  it("clears every expand key when the session closes", () => {
+    useAgentChatExpandStore.getState().setExpand(agentChatToolExpandKey("call-9"), true);
+    useAgentChatExpandStore.getState().setExpand(agentChatUserBodyExpandKey("entry-1"), true);
+    useAgentChatExpandStore.getState().reset();
+    expect(useAgentChatExpandStore.getState().values).toEqual({});
+  });
 });

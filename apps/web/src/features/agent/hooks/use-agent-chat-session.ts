@@ -119,6 +119,7 @@ import {
 } from "@/features/agent/lib/agent-chat-timing";
 import { shouldCommitAgentChatSurface } from "@/features/agent/lib/agent-chat-surface-live";
 import { withStableAgentMessageIds } from "@/features/agent/lib/agent-chat-message-key";
+import { useAgentChatExpandStore } from "@/features/agent/store/agent-chat-expand-store";
 import {
   isPaintContextVisuallyActive,
   subscribeVisualActivePaintId,
@@ -1252,6 +1253,7 @@ export function useAgentChatSession({
       window.clearInterval(flushTimer);
       off();
       hydratingRef.current = true;
+      useAgentChatExpandStore.getState().reset();
       void agentChatApi.unsubscribe(id);
     };
   }, [activeChatId, load, prefsRestored, wsConnected]);

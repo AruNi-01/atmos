@@ -6,6 +6,7 @@ type ExpandMap = Record<string, boolean>;
 interface AgentChatExpandStore {
   values: ExpandMap;
   setExpand: (key: string, value: boolean) => void;
+  reset: () => void;
 }
 
 export const useAgentChatExpandStore = create<AgentChatExpandStore>((set, get) => ({
@@ -13,6 +14,10 @@ export const useAgentChatExpandStore = create<AgentChatExpandStore>((set, get) =
   setExpand: (key, value) => {
     if (get().values[key] === value) return;
     set((state) => ({ values: { ...state.values, [key]: value } }));
+  },
+  reset: () => {
+    if (Object.keys(get().values).length === 0) return;
+    set({ values: {} });
   },
 }));
 

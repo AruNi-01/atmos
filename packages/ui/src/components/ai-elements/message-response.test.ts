@@ -12,7 +12,14 @@ describe("MessageResponse display buffer", () => {
     expect(message).toContain("useSmoothStreamText(source, streaming)");
     expect(stream).toContain("if (!enabled)");
     expect(stream).toContain("if (shownRef.current !== text) setShown(text)");
+    expect(stream).toContain("return enabled ? shown : text");
     expect(stream).toContain("DRAIN_AFTER");
     expect(stream).toContain("DRAIN_FRACTION");
+  });
+
+  it("stop and error turn isAnimating off so the buffer returns the full source immediately", () => {
+    expect(message).toContain("const streaming = !reducedMotion && isAnimating");
+    expect(message).toContain("useSmoothStreamText(source, streaming)");
+    expect(stream).toContain("return enabled ? shown : text");
   });
 });
