@@ -1,4 +1,8 @@
 import {
+  engageCenterSpaceLayoutShield,
+  releaseCenterSpaceLayoutShield,
+} from "@/app-shell/center-space/center-space-layout-shield";
+import {
   CENTER_SPACE_OVERVIEW_EASE,
   CENTER_SPACE_OVERVIEW_MS,
   centerSpaceOverviewTransform,
@@ -39,6 +43,86 @@ function poseRadius(): string {
 function setPoseScale(el: HTMLElement, scale: number) {
   el.style.setProperty(POSE_SCALE_VAR, String(scale));
   el.style.borderRadius = poseRadius();
+}
+
+/**
+ * Keep only the chrome outside the content slot. The slot runs to the far
+ * edges of the leaf, so this is the tab strip (and a vertical strip when the
+ * tabs sit on the side). An empty string means "do not clip".
+ */
+export function centerSpaceLeafClipPath(top: number, left: number): string {
+  const y = top < 1 ? 0 : Math.ceil(top);
+  const x = left < 1 ? 0 : Math.ceil(left);
+  if (y < 1 && x < 1) return "";
+  if (y > 0 && x > 0) {
+    return `polygon(0 0, 100% 0, 100% ${y}px, ${x}px ${y}px, ${x}px 100%, 0 100%)`;
+  }
+  if (y > 0) return `inset(0 0 calc(100% - ${y}px) 0)`;
+  return `inset(0 calc(100% - ${x}px) 0 0)`;
+}
+
+function offsetWithin(
+  child: HTMLElement,
+  ancestor: HTMLElement,
+  axis: "offsetTop" | "offsetLeft",
+): number | null {
+  let sum = 0;
+  let node: HTMLElement | null = child;
+  for (let steps = 0; node && node !== ancestor && steps < 24; steps += 1) {
+    sum += node[axis];
+    const next: Element | null = node.offsetParent;
+    if (!(next instanceof HTMLElement)) return null;
+    if (next !== ancestor && !ancestor.contains(next)) return null;
+    if (next === ancestor) return sum;
+    node = next;
+  }
+  return node === ancestor ? sum : null;
+}
+
+/**
+ * The mosaic is stacked above the live panels so the tab strip is not covered
+ * by a full-bleed page. Its split leaf is also a `bg-background` plate the
+ * size of the whole center. Leave that plate up and the scaled preview is
+ * only the tabs, then the page pops in when the pose clears.
+ *
+ * Punch the plate and clip each leaf to its tab strip. The page underneath
+ * is the same live center, just scaled. Empty panes have no content slot;
+ * their empty state stays inside the leaf and is not clipped.
+ */
+function revealLiveSurface(root: ParentNode) {
+  const leaves = root.querySelectorAll("[data-center-split-leaf]");
+  for (const node of leaves) {
+    if (!(node instanceof HTMLElement)) continue;
+    node.style.setProperty("background-color", "transparent", "important");
+    node.style.setProperty("box-shadow", "none", "important");
+    for (const child of node.children) {
+      if (!(child instanceof HTMLElement)) continue;
+      child.style.setProperty("background-color", "transparent", "important");
+    }
+    const slot = node.querySelector("[data-center-pane-content-slot]");
+    if (!(slot instanceof HTMLElement) || !node.contains(slot)) {
+      node.style.clipPath = "";
+      continue;
+    }
+    const top = offsetWithin(slot, node, "offsetTop");
+    const left = offsetWithin(slot, node, "offsetLeft");
+    node.style.clipPath =
+      top == null || left == null ? "" : centerSpaceLeafClipPath(top, left);
+  }
+}
+
+function restoreLiveSurface(root: ParentNode) {
+  const leaves = root.querySelectorAll("[data-center-split-leaf]");
+  for (const node of leaves) {
+    if (!(node instanceof HTMLElement)) continue;
+    node.style.clipPath = "";
+    node.style.removeProperty("background-color");
+    node.style.removeProperty("box-shadow");
+    for (const child of node.children) {
+      if (!(child instanceof HTMLElement)) continue;
+      child.style.removeProperty("background-color");
+    }
+  }
 }
 
 type SavedStyle = {
@@ -167,8 +251,12 @@ export function createCenterSpaceOverviewPose() {
       el.style.transition = prev.transition;
       el.style.removeProperty(POSE_SCALE_VAR);
       el.removeAttribute("data-center-space-posed");
+      if (el.hasAttribute("data-center-stage-mosaic")) restoreLiveSurface(el);
     }
     saved.clear();
+    // The pose transform is gone. Releasing the shield earlier lets a page
+    // read the card box, and ResizeObserver will not measure again.
+    releaseCenterSpaceLayoutShield();
   };
 
   const place = (
@@ -181,6 +269,9 @@ export function createCenterSpaceOverviewPose() {
     const pose = slotPose(el, slot);
     if (!pose) return;
     remember(el);
+    // The page under this surface keeps measuring the full center. Which
+    // page is open does not matter; a later page uses the same rects.
+    engageCenterSpaceLayoutShield();
     el.setAttribute("data-center-space-posed", "");
     el.style.transformOrigin = "0 0";
     el.style.willChange = "transform, opacity";
@@ -188,11 +279,13 @@ export function createCenterSpaceOverviewPose() {
     // once the border box actually covers the surface.
     el.style.overflow = el.offsetWidth >= 2 && el.offsetHeight >= 2 ? "hidden" : "visible";
     // The mosaic carries the tab strip. A transform traps that strip inside
-    // the mosaic, so the strip has to sit above the panel host or the
-    // full-bleed panel covers it until the pose clears. The leaf fill is
-    // cleared in CSS while the gallery is open, so this layer does not hide
-    // the surface under the tabs.
-    el.style.zIndex = el.hasAttribute("data-center-stage-mosaic") ? "4" : "2";
+    // the mosaic, so the strip has to sit above the panel host or a
+    // full-bleed panel covers the tabs. The leaf under those tabs is clipped
+    // away — it is not the page. The page is the workspace frame scaled into
+    // the same slot.
+    const mosaic = el.hasAttribute("data-center-stage-mosaic");
+    el.style.zIndex = mosaic ? "4" : "2";
+    if (mosaic) revealLiveSurface(el);
     if (fadeIn) {
       el.style.backgroundColor = "var(--background)";
       el.style.transition = "none";
@@ -262,7 +355,6 @@ export function createCenterSpaceOverviewPose() {
     const activeSlot = activePaintId ? slots.get(activePaintId) : undefined;
     if (!activeSlot) return;
     const mosaic = stage.querySelector<HTMLElement>("[data-center-stage-mosaic]");
-    if (mosaic) place(mosaic, activeSlot, animateActive, false);
     // The mosaic (z-index 4) stays above this host so the tab strip paints
     // over the full-bleed panel for the whole scale. The leaf background is
     // transparent while the gallery is open.
@@ -276,9 +368,12 @@ export function createCenterSpaceOverviewPose() {
     const active = stage.querySelector<HTMLElement>(
       `[data-workspace-frame="${CSS.escape(activePaintId)}"]`,
     );
-    // The ring lives on the scaling frame, so it shrinks and grows with the
-    // surface instead of sitting on the static card.
-    if (active) place(active, activeSlot, animateActive, false, true);
+    // One ring, on the mosaic. It is the top scaled surface, so the same edge
+    // stays visible over the tab strip, a clipped page, and the empty
+    // launcher. A ring on the frame sits under this mosaic and each page
+    // covers a different side of it.
+    if (mosaic) place(mosaic, activeSlot, animateActive, false, true);
+    if (active) place(active, activeSlot, animateActive, false);
   };
 
   const animateToIdentity = (el: HTMLElement) => {
@@ -286,7 +381,7 @@ export function createCenterSpaceOverviewPose() {
     // and targeting `none` does not interpolate, so the zoom back cuts.
     const inline = el.style.transform;
     if (inline && inline !== "none") el.style.transform = inline;
-    const ring = el.hasAttribute("data-workspace-frame") ? poseRing(el) : null;
+    const ring = poseRing(el);
     el.style.transition = "none";
     // A destination that was not the selected card has no ring yet. Commit
     // one before the zoom so it fades out across the scale instead of

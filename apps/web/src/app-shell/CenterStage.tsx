@@ -3690,6 +3690,13 @@ const CenterStage: React.FC = () => {
                 );
               }}
             />
+            {/* Above the tab strip and every page, so the active card's edge
+                is the same on the empty launcher and on a clipped tab. */}
+            <div
+              data-center-space-pose-ring=""
+              aria-hidden
+              className="pointer-events-none absolute inset-0 z-[80] box-border rounded-[inherit]"
+            />
           </div>
           <div
             ref={panelHostRef}

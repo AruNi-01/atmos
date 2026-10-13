@@ -79,6 +79,18 @@ describe("workspaceCenterFramePropsAreEqual", () => {
     expect(workspaceCenterFramePropsAreEqual(prev, next)).toBe(false);
   });
 
+  it("repaints a gallery card when the host repo path arrives", () => {
+    const prev = baseWarm({ galleryPreview: true, currentRepoPath: null });
+    const next = baseWarm({ galleryPreview: true, currentRepoPath: "/repo" });
+    expect(workspaceCenterFramePropsAreEqual(prev, next)).toBe(false);
+  });
+
+  it("ignores repo path on warm frames that are not in the gallery", () => {
+    const prev = baseWarm({ galleryPreview: false, currentRepoPath: null });
+    const next = baseWarm({ galleryPreview: false, currentRepoPath: "/repo" });
+    expect(workspaceCenterFramePropsAreEqual(prev, next)).toBe(true);
+  });
+
   it("treats hop-frame retained tab ids as paint identity, not ignored host chrome", () => {
     const hop = baseWarm({
       isActiveContext: true,

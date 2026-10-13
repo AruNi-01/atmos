@@ -23,6 +23,7 @@ import {
   centerSpaceOverviewChromeTransition,
   centerSpacePoseRingWidth,
 } from "@/app-shell/center-space/center-space-overview-motion";
+import { centerSpaceLeafClipPath } from "@/app-shell/center-space/center-space-overview-pose";
 
 const dir = join(import.meta.dir, "..");
 
@@ -118,8 +119,32 @@ describe("center space switcher open path", () => {
     expect(pose).toContain('if (!el.hasAttribute("data-center-space-posed")) continue');
     expect(pose).toContain("data-center-space-pose-ring");
     expect(pose).toContain("centerSpacePoseRing");
+    expect(pose).toContain("place(mosaic, activeSlot, animateActive, false, true)");
+    expect(pose).not.toContain("place(active, activeSlot, animateActive, false, true)");
+    const slotPoseAt = pose.indexOf("const pose = slotPose(el, slot);");
+    const engageAt = pose.indexOf("engageCenterSpaceLayoutShield();", slotPoseAt);
+    const posedAttrAt = pose.indexOf(
+      'el.setAttribute("data-center-space-posed", "");',
+      engageAt,
+    );
+    expect(slotPoseAt).toBeGreaterThan(0);
+    expect(engageAt).toBeGreaterThan(slotPoseAt);
+    expect(posedAttrAt).toBeGreaterThan(engageAt);
+    const clearAt = pose.indexOf("const clear = () => {");
+    const removeAt = pose.indexOf('el.removeAttribute("data-center-space-posed");', clearAt);
+    const releaseAt = pose.indexOf("releaseCenterSpaceLayoutShield();", removeAt);
+    const placeAt = pose.indexOf("const place =", clearAt);
+    expect(removeAt).toBeGreaterThan(clearAt);
+    expect(releaseAt).toBeGreaterThan(removeAt);
+    expect(releaseAt).toBeLessThan(placeAt);
+    expect(pose).toContain("const ring = poseRing(el);");
     const frame = readFileSync(join(dir, "workspace-center-frame.tsx"), "utf8");
-    expect(frame).toContain("data-center-space-pose-ring");
+    expect(frame).not.toContain("data-center-space-pose-ring");
+    expect(frame).toContain("layoutIsEmptyLauncher");
+    expect(frame).toContain("<GallerySpaceEmptyLauncher");
+    const stage = readFileSync(join(dir, "CenterStage.tsx"), "utf8");
+    const mosaicAt = stage.indexOf('data-center-stage-mosaic=""');
+    expect(stage.slice(mosaicAt, mosaicAt + 12000)).toContain("data-center-space-pose-ring");
     expect(frame).toContain("galleryPreview");
     expect(frame).toContain("keepGuestPainted={galleryPreview && browserVisible}");
     expect(pose).toContain('? "hidden" : "visible"');
@@ -132,9 +157,34 @@ describe("center space switcher open path", () => {
     expect(pose).toContain("translate3d(0px, 0px, 0px) scale(1)");
     const css = readFileSync(join(dir, "../app/globals.css"), "utf8");
     expect(css).toContain("@property --center-space-pose-scale");
-    expect(css).toContain(
-      "[data-center-stage-mosaic][data-center-space-posed] [data-center-split-leaf]",
+    const leafSelector =
+      "[data-center-stage-mosaic][data-center-space-posed] [data-center-split-leaf]";
+    // The desktop CSS build strips `!important` inside `@layer base`. This
+    // plate has to stay unlayered, or `bg-background` covers the scaled page
+    // and the card is only the tab strip.
+    const outsideLayerAt = css.indexOf("Kept outside @layer base");
+    expect(outsideLayerAt).toBeGreaterThan(0);
+    expect(css.indexOf(leafSelector)).toBeGreaterThan(outsideLayerAt);
+    expect(css.indexOf("@property --center-space-pose-scale")).toBeGreaterThan(
+      outsideLayerAt,
     );
+    expect(css.slice(css.indexOf("@layer base"), outsideLayerAt)).not.toContain(
+      leafSelector,
+    );
+    const leafRule = css.slice(css.indexOf(leafSelector), css.indexOf(leafSelector) + 420);
+    expect(leafRule).toContain("background-color: transparent !important");
+    expect(pose).toContain(
+      'setProperty("background-color", "transparent", "important")',
+    );
+    expect(pose).toContain("centerSpaceLeafClipPath");
+    expect(pose).toContain("restoreLiveSurface");
+    expect(centerSpaceLeafClipPath(32.2, 0)).toBe("inset(0 0 calc(100% - 33px) 0)");
+    expect(centerSpaceLeafClipPath(0, 28.1)).toBe("inset(0 calc(100% - 29px) 0 0)");
+    expect(centerSpaceLeafClipPath(36, 18)).toBe(
+      "polygon(0 0, 100% 0, 100% 36px, 18px 36px, 18px 100%, 0 100%)",
+    );
+    expect(centerSpaceLeafClipPath(0, 0)).toBe("");
+    expect(centerSpaceLeafClipPath(0.2, 0.4)).toBe("");
     expect(pose).toContain('el.style.transition = "none"');
     expect(pose.indexOf('el.style.transition = "none"')).toBeLessThan(
       pose.indexOf("el.style.transform = prev.transform"),
@@ -152,6 +202,11 @@ describe("center space switcher open path", () => {
     expect(shell).toContain("pointer-events-none absolute inset-0");
     expect(shell).not.toContain("relative flex-1");
     expect(panels).toContain("overviewPaintIds.includes(contextId) && contextId !== displayContextId");
+    expect(panels).toContain("const passIdentity = isUrlSyncedActive || galleryPreview");
+    expect(panels).toContain("currentRepoPath={passIdentity ? currentRepoPath : undefined}");
+    const frame = readFileSync(join(dir, "workspace-center-frame.tsx"), "utf8");
+    expect(frame).toContain("const paintIdentity = isUrlSyncedActive || galleryPreview");
+    expect(frame).toContain("repoPath={paintIdentity ? (currentRepoPath ?? null) : null}");
     const css = readFileSync(join(dir, "../app/globals.css"), "utf8");
     const activeRule = css.slice(
       css.indexOf('[data-workspace-frame][data-tier="active"]'),
@@ -189,7 +244,7 @@ describe("center space switcher open path", () => {
     const frame = readFileSync(join(dir, "workspace-center-frame.tsx"), "utf8");
     const runAt = frame.indexOf("<KeptRunScript");
     const runBlock = frame.slice(runAt, runAt + 450);
-    expect(runBlock).toContain("workspaceId={isUrlSyncedActive ? contextId : null}");
+    expect(runBlock).toContain("workspaceId={paintIdentity ? contextId : null}");
     expect(runBlock).not.toContain("currentWorkspace?.id");
   });
 

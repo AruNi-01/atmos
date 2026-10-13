@@ -11,6 +11,7 @@ import {
   getPane,
   isEmptyPane,
   isPrimaryPane,
+  layoutIsEmptyLauncher,
   MAX_CENTER_PANES,
   normalizeCenterPaneLayout,
   openTabOnFocusedPane,
@@ -36,6 +37,15 @@ import {
 import { collectTerminalLayoutGeometry, getLeaves } from "@/features/terminal/lib/terminal-layout-tree";
 
 describe("center-pane-layout", () => {
+  it("treats a center of only empty panes as the gallery launcher", () => {
+    expect(layoutIsEmptyLauncher(createEmptyCenterLayout())).toBe(true);
+    expect(layoutIsEmptyLauncher(null)).toBe(false);
+    expect(layoutIsEmptyLauncher(createDefaultLayout(["terminal"], "terminal"))).toBe(false);
+    const split = splitPane(createEmptyCenterLayout(), { direction: "right" });
+    expect(layoutIsEmptyLauncher(split)).toBe(true);
+    expect(layoutIsEmptyLauncher(openTabOnFocusedPane(split, "terminal"))).toBe(false);
+  });
+
   it("creates a fresh empty extra-space layout with no inherited tabs", () => {
     const layout = createEmptyCenterLayout();
     expect(isFreshEmptyCenterLayout(layout)).toBe(true);

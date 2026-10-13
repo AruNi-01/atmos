@@ -12,6 +12,7 @@ import {
   PencilRuler,
   Play,
   Smartphone,
+  Plus,
   SquareTerminal as TerminalIcon,
   MessagesSquare,
   X,
@@ -416,4 +417,69 @@ export function buildDefaultEmptyPaneActions(input: {
   );
 
   return actions;
+}
+
+const GALLERY_LAUNCHER_NOOP = () => {};
+
+/**
+ * Read-only copy of the empty center launcher for a space that is not the
+ * live mosaic. The launcher otherwise exists only inside that one mosaic, so
+ * the other card is a black slab. Clicks stay on the gallery card.
+ */
+export function GallerySpaceEmptyLauncher({
+  hideGitChrome = false,
+}: {
+  hideGitChrome?: boolean;
+}) {
+  const t = useTranslations("appShell.centerStageTabBar");
+  const modKey =
+    typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/i.test(navigator.platform)
+      ? "⌘"
+      : "Ctrl";
+  const actions = React.useMemo(
+    () =>
+      buildDefaultEmptyPaneActions({
+        labels: {
+          terminal: t("newTerminalTab"),
+          agentChat: t("newAgentChat"),
+          markdown: t("newMarkdown"),
+          browser: t("newBrowser"),
+          files: t("newFiles"),
+          changes: t("newChanges"),
+          review: t("newReview"),
+          run: t("newRun"),
+          github: t("newGithub"),
+          ptDesign: t("newPtDesign"),
+          simulator: t("newSimulator"),
+        },
+        modKey,
+        includeOverview: true,
+        overviewLabel: t("overview"),
+        hideGitChrome,
+        onCreateTerminal: GALLERY_LAUNCHER_NOOP,
+        onCreateAgentChat: GALLERY_LAUNCHER_NOOP,
+        onCreateMarkdownNote: GALLERY_LAUNCHER_NOOP,
+        onCreateBrowser: GALLERY_LAUNCHER_NOOP,
+        onCreateToolTab: GALLERY_LAUNCHER_NOOP,
+        onCreateSimulator: GALLERY_LAUNCHER_NOOP,
+        onOpenOverview: GALLERY_LAUNCHER_NOOP,
+      }),
+    [hideGitChrome, modKey, t],
+  );
+
+  return (
+    <div
+      data-center-space-gallery-launcher=""
+      className="pointer-events-none absolute inset-0 z-[2] flex min-h-0 flex-col overflow-hidden bg-background"
+    >
+      <div className="flex w-full shrink-0 items-center px-2 py-1">
+        <span className="inline-flex h-8 items-center">
+          <span className="inline-flex h-7 w-7 items-center justify-center text-muted-foreground">
+            <Plus className="size-4" />
+          </span>
+        </span>
+      </div>
+      <CenterPaneEmptyState actions={actions} />
+    </div>
+  );
 }

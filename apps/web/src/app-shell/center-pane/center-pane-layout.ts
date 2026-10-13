@@ -68,6 +68,14 @@ export function isFreshEmptyCenterLayout(layout: CenterPaneLayout): boolean {
   return layout.panes.length === 1 && isEmptyPane(layout.panes[0]);
 }
 
+/**
+ * The center is only empty launchers. A gallery card for this layout has no
+ * tab page to scale, so the preview has to paint the launcher itself.
+ */
+export function layoutIsEmptyLauncher(layout: CenterPaneLayout | null | undefined): boolean {
+  return Boolean(layout && layout.panes.length > 0 && layout.panes.every(isEmptyPane));
+}
+
 /** Mosaic tree of pane ids — same algorithm as in-pane Terminal split. */
 export type CenterPaneTree = TerminalLayoutNode<string>;
 

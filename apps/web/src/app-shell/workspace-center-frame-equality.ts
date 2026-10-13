@@ -134,13 +134,25 @@ export function workspaceCenterFramePropsAreEqual(
   // Warm frames skip host chrome, but pane-active retention is per-context
   // identity — changing it must remount/keep the right surfaces.
   if (!prev.isUrlSyncedActive && !next.isUrlSyncedActive) {
-    return (
+    const geometry =
       sameStringList(prev.activeTabIds ?? [], next.activeTabIds ?? []) &&
       prev.tabToPaneId === next.tabToPaneId &&
       prev.tabHostPaneIds === next.tabHostPaneIds &&
       prev.paneActiveTabById === next.paneActiveTabById &&
       prev.paneSlotBoxes === next.paneSlotBoxes &&
-      prev.fullscreenPaneId === next.fullscreenPaneId
+      prev.fullscreenPaneId === next.fullscreenPaneId;
+    // Warm frames ignore host chrome. A gallery card still has to repaint
+    // when the shared repo path arrives, or the preview stays on the empty
+    // "No repository selected" state.
+    if (!prev.galleryPreview && !next.galleryPreview) return geometry;
+    return (
+      geometry &&
+      prev.currentView === next.currentView &&
+      prev.currentProject === next.currentProject &&
+      prev.currentWorkspace === next.currentWorkspace &&
+      prev.currentBranch === next.currentBranch &&
+      prev.currentRepoPath === next.currentRepoPath &&
+      prev.reviewTarget === next.reviewTarget
     );
   }
 

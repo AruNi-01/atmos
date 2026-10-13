@@ -591,15 +591,18 @@ export function CenterStagePanels({
                     fullscreenPaneId: null,
                   });
 
+        const galleryPreview =
+          overviewPaintIds.includes(contextId) && contextId !== displayContextId;
+        // Gallery cards stay warm, but they share this host's repo. Pass the
+        // identity through or the preview paints empty git and file surfaces.
+        const passIdentity = isUrlSyncedActive || galleryPreview;
         return (
           <WorkspaceCenterFrame
             key={contextId}
             contextId={contextId}
             isActiveContext={isActiveContext}
             isUrlSyncedActive={isUrlSyncedActive}
-            galleryPreview={
-              overviewPaintIds.includes(contextId) && contextId !== displayContextId
-            }
+            galleryPreview={galleryPreview}
             mountPlan={mountPlan}
             mountPlanKeys={mountPlanKeys}
             mountedTabIds={mountedTabIds}
@@ -624,12 +627,12 @@ export function CenterStagePanels({
             githubTabs={isUrlSyncedActive ? githubTabs : undefined}
             gitCommitTabs={isUrlSyncedActive ? gitCommitTabs : undefined}
             browserTabs={isUrlSyncedActive ? browserTabs : undefined}
-            currentView={isUrlSyncedActive ? currentView : undefined}
-            currentProject={isUrlSyncedActive ? currentProject : undefined}
-            currentWorkspace={isUrlSyncedActive ? currentWorkspace : undefined}
-            currentBranch={isUrlSyncedActive ? currentBranch : undefined}
-            currentRepoPath={isUrlSyncedActive ? currentRepoPath : undefined}
-            reviewTarget={isUrlSyncedActive ? reviewTarget : undefined}
+            currentView={passIdentity ? currentView : undefined}
+            currentProject={passIdentity ? currentProject : undefined}
+            currentWorkspace={passIdentity ? currentWorkspace : undefined}
+            currentBranch={passIdentity ? currentBranch : undefined}
+            currentRepoPath={passIdentity ? currentRepoPath : undefined}
+            reviewTarget={passIdentity ? reviewTarget : undefined}
             projectWikiTabVisible={projectWikiTabVisible}
             codeReviewTabVisible={codeReviewTabVisible}
             simulatorTabVisible={simulatorTabVisible}

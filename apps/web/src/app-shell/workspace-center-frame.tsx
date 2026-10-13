@@ -66,7 +66,13 @@ import { paneHiddenByCenterFullscreen } from "@/app-shell/center-stage-fullscree
 import { shouldWithholdUnmeasuredPaneTerminal } from "@/app-shell/center-pane/use-center-pane-slot-boxes";
 import { CENTER_STAGE_RADIUS_CSS } from "@/app-shell/sidebar-layout-constants";
 import { cn } from "@/shared/lib/utils";
-import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
+import { hostIdFromCenterKey, isExtraCenterSpaceKey } from "@/app-shell/center-space/center-space";
+import { isStandaloneAutomationScope } from "@/features/automations/lib/automation-run-landing";
+import { GallerySpaceEmptyLauncher } from "@/app-shell/center-pane/CenterPaneEmptyState";
+import {
+  layoutIsEmptyLauncher,
+} from "@/app-shell/center-pane/center-pane-layout";
+import { useCenterPaneLayoutStore } from "@/app-shell/center-pane/center-pane-layout-store";
 import { CenterExplorerLanding } from "@/app-shell/CenterExplorerLanding";
 import { CenterExplorerSidecar } from "@/app-shell/CenterExplorerSidecar";
 import {
@@ -320,6 +326,11 @@ function WorkspaceCenterFrameImpl({
   onGithubPullRequestChanged,
 }: WorkspaceCenterFrameProps) {
   const [explorerLayout, explorerLayoutActions] = useCenterExplorerLayout();
+  // The empty launcher lives only in the one live mosaic. A gallery card whose
+  // space has no tabs would otherwise be a black slab.
+  const galleryPaneLayout = useCenterPaneLayoutStore((s) =>
+    galleryPreview ? (s.byContext[contextId] ?? null) : null,
+  );
   // Warm path: read identity stores locally so host churn does not rebuild props.
   const storeTerminalTabs = useTerminalStore((s) => s.workspaceTerminalTabs[contextId]);
   const isProjectContext = useTerminalStore((s) => s.workspaceContexts[contextId] ?? false);
@@ -353,17 +364,25 @@ function WorkspaceCenterFrameImpl({
     tabIds.add(tabId);
   }
 
-  const isProject = isUrlSyncedActive
+  // Spaces of one workspace share the host repo. A gallery card is a warm
+  // frame, so without this it paints "No repository selected" and a changes
+  // landing that is only the Graph History row.
+  const paintIdentity = isUrlSyncedActive || galleryPreview;
+  const showGalleryLauncher =
+    galleryPreview &&
+    (layoutIsEmptyLauncher(galleryPaneLayout) ||
+      (galleryPaneLayout == null && isExtraCenterSpaceKey(contextId)));
+  const isProject = paintIdentity
     ? currentView === "project"
     : isProjectContext;
   const lastTab = readCenterStageLastTab(contextId);
   const contextOpenFiles = isUrlSyncedActive
     ? (openFiles ?? EMPTY_OPEN_FILES)
     : (storeOpenFiles ?? EMPTY_OPEN_FILES);
-  const explorerRootPath = isUrlSyncedActive
+  const explorerRootPath = paintIdentity
     ? (currentWorkspace?.localPath ?? currentProject?.mainFilePath ?? null)
     : null;
-  const explorerRepoPath = isUrlSyncedActive ? (currentRepoPath ?? null) : null;
+  const explorerRepoPath = paintIdentity ? (currentRepoPath ?? null) : null;
 
   React.useEffect(() => {
     recordCenterFileRecents(contextId, fileRecentsFromOpenFiles(contextOpenFiles));
@@ -568,12 +587,9 @@ function WorkspaceCenterFrameImpl({
         multiActiveTabIds && "pointer-events-none",
       )}
     >
-      {/* Pose code shows this while the space gallery scales the frame. */}
-      <div
-        data-center-space-pose-ring=""
-        aria-hidden
-        className="pointer-events-none absolute inset-0 z-[80] box-border rounded-[inherit]"
-      />
+      {showGalleryLauncher ? (
+        <GallerySpaceEmptyLauncher hideGitChrome={isStandaloneAutomationScope(contextId)} />
+      ) : null}
       {tabs
         .filter((tab) => {
           const isMultiActive = Boolean(multiActiveTabIds?.includes(tab.id));
@@ -722,22 +738,22 @@ function WorkspaceCenterFrameImpl({
           <KeptOverviewTab
             contextId={hostIdFromCenterKey(contextId)}
             editorContextId={contextId}
-            projectId={isUrlSyncedActive ? currentProject?.id : undefined}
-            projectName={isUrlSyncedActive ? currentProject?.name : undefined}
-            projectPath={isUrlSyncedActive ? currentProject?.mainFilePath : undefined}
+            projectId={paintIdentity ? currentProject?.id : undefined}
+            projectName={paintIdentity ? currentProject?.name : undefined}
+            projectPath={paintIdentity ? currentProject?.mainFilePath : undefined}
             workspaceName={
-              isUrlSyncedActive
+              paintIdentity
                 ? (currentWorkspace?.displayName ?? currentWorkspace?.name)
                 : undefined
             }
-            workspacePath={isUrlSyncedActive ? currentWorkspace?.localPath : undefined}
-            gitBranch={isUrlSyncedActive ? (currentBranch ?? undefined) : undefined}
-            createdAt={isUrlSyncedActive ? currentWorkspace?.createdAt : undefined}
-            isProjectOnly={isUrlSyncedActive ? !currentWorkspace : false}
-            githubIssue={isUrlSyncedActive ? currentWorkspace?.githubIssue : undefined}
-            priority={isUrlSyncedActive ? currentWorkspace?.priority : undefined}
-            workflowStatus={isUrlSyncedActive ? currentWorkspace?.workflowStatus : undefined}
-            labels={isUrlSyncedActive ? currentWorkspace?.labels : undefined}
+            workspacePath={paintIdentity ? currentWorkspace?.localPath : undefined}
+            gitBranch={paintIdentity ? (currentBranch ?? undefined) : undefined}
+            createdAt={paintIdentity ? currentWorkspace?.createdAt : undefined}
+            isProjectOnly={paintIdentity ? !currentWorkspace : false}
+            githubIssue={paintIdentity ? currentWorkspace?.githubIssue : undefined}
+            priority={paintIdentity ? currentWorkspace?.priority : undefined}
+            workflowStatus={paintIdentity ? currentWorkspace?.workflowStatus : undefined}
+            labels={paintIdentity ? currentWorkspace?.labels : undefined}
             active={isActiveContext}
           />
         </div>
@@ -775,14 +791,14 @@ function WorkspaceCenterFrameImpl({
                   : panelStyleWithExplorer(file.path, visible, paneId, "files")
             }
           >
-            {isDiffGroupEditorPath(file.path) && currentRepoPath && isUrlSyncedActive ? (
+            {isDiffGroupEditorPath(file.path) && currentRepoPath && paintIdentity ? (
               <KeptChangesCodeView
                 repoPath={currentRepoPath}
                 groupPath={file.path}
                 contextId={contextId}
                 showChangesExplorerToggle
               />
-            ) : isReviewGroupEditorPath(file.path) && isUrlSyncedActive ? (
+            ) : isReviewGroupEditorPath(file.path) && paintIdentity ? (
               <ReviewContextProvider
                 target={reviewTarget ?? null}
                 filePath=""
@@ -793,7 +809,7 @@ function WorkspaceCenterFrameImpl({
               </ReviewContextProvider>
             ) : file.path.startsWith(EDITOR_REVIEW_DIFF_PREFIX) &&
               currentRepoPath &&
-              isUrlSyncedActive ? (
+              paintIdentity ? (
               <ReviewContextProvider
                 target={reviewTarget ?? null}
                 filePath={getEditorSourcePath(file.path)}
@@ -808,7 +824,7 @@ function WorkspaceCenterFrameImpl({
                   contextId={contextId}
                 />
               </ReviewContextProvider>
-            ) : isConflictResolveEditorPath(file.path) && isUrlSyncedActive ? (
+            ) : isConflictResolveEditorPath(file.path) && paintIdentity ? (
               <KeptGitConflictResolver
                 readOnly={isConflictResolveReadOnlyPath(file.path)}
                 focusPath={getEditorSourcePath(file.path)}
@@ -912,11 +928,11 @@ function WorkspaceCenterFrameImpl({
           >
             <BrowserPanel
               workspaceId={
-                isUrlSyncedActive && currentView === "workspace"
+                paintIdentity && currentView === "workspace"
                   ? (currentWorkspace?.id ?? null)
                   : null
               }
-              projectId={isUrlSyncedActive ? currentProject?.id : undefined}
+              projectId={paintIdentity ? currentProject?.id : undefined}
               isActive={isActiveContext && browserVisible}
               keepGuestPainted={galleryPreview && browserVisible}
               browserContextId={tab.browserContextId}
@@ -1026,7 +1042,7 @@ function WorkspaceCenterFrameImpl({
           <DiscardableHeavySurface active={(isActiveContext || galleryPreview) && visible}>
           <KeptGitHistoryPanel
             contextId={contextId}
-            repoPath={isUrlSyncedActive ? (currentRepoPath ?? null) : null}
+            repoPath={paintIdentity ? (currentRepoPath ?? null) : null}
           />
           </DiscardableHeavySurface>
         </div>
@@ -1072,7 +1088,7 @@ function WorkspaceCenterFrameImpl({
           <KeptReviewCenterPanel
             filePath=""
             contextId={contextId}
-            reviewTarget={isUrlSyncedActive ? (reviewTarget ?? null) : null}
+            reviewTarget={paintIdentity ? (reviewTarget ?? null) : null}
           />
           </DiscardableHeavySurface>
         </div>
@@ -1093,11 +1109,11 @@ function WorkspaceCenterFrameImpl({
         >
           <DiscardableHeavySurface active={(isActiveContext || galleryPreview) && visible}>
           <KeptRunScript
-            workspaceId={isUrlSyncedActive ? contextId : null}
-            projectId={isUrlSyncedActive ? currentProject?.id : undefined}
+            workspaceId={paintIdentity ? contextId : null}
+            projectId={paintIdentity ? currentProject?.id : undefined}
             isActive={isActiveContext}
-            projectName={isUrlSyncedActive ? currentProject?.name : undefined}
-            workspaceName={isUrlSyncedActive ? currentWorkspace?.name : undefined}
+            projectName={paintIdentity ? currentProject?.name : undefined}
+            workspaceName={paintIdentity ? currentWorkspace?.name : undefined}
           />
           </DiscardableHeavySurface>
         </div>
@@ -1118,7 +1134,7 @@ function WorkspaceCenterFrameImpl({
         >
           <DiscardableHeavySurface active={(isActiveContext || galleryPreview) && visible}>
           <KeptGithubHubPanel
-            currentProjectPath={isUrlSyncedActive ? (currentRepoPath ?? null) : null}
+            currentProjectPath={paintIdentity ? (currentRepoPath ?? null) : null}
           />
           </DiscardableHeavySurface>
         </div>
@@ -1164,7 +1180,7 @@ function WorkspaceCenterFrameImpl({
           <KeptPtDesignHostStage
             contextId={contextId}
             isProject={isProject}
-            active={isUrlSyncedActive && visible}
+            active={paintIdentity && visible}
           />
           </DiscardableHeavySurface>
         </div>
@@ -1211,14 +1227,14 @@ function WorkspaceCenterFrameImpl({
           >
             <DiscardableHeavySurface active={(isActiveContext || galleryPreview) && showing}>
               <KeptFileTreePanel
-                projectName={isUrlSyncedActive ? currentProject?.name : undefined}
+                projectName={paintIdentity ? currentProject?.name : undefined}
                 rootPath={
-                  isUrlSyncedActive
+                  paintIdentity
                     ? (currentWorkspace?.localPath ?? currentProject?.mainFilePath ?? null)
                     : undefined
                 }
                 currentProjectPath={
-                  isUrlSyncedActive
+                  paintIdentity
                     ? (currentRepoPath ?? currentWorkspace?.localPath ?? null)
                     : null
                 }
@@ -1279,18 +1295,18 @@ function WorkspaceCenterFrameImpl({
             <DiscardableHeavySurface active={(isActiveContext || galleryPreview) && showing}>
               <KeptChangesPanel
                 contextId={contextId}
-                currentProject={isUrlSyncedActive ? currentProject : undefined}
+                currentProject={paintIdentity ? currentProject : undefined}
                 currentProjectPath={
-                  isUrlSyncedActive ? (currentRepoPath ?? null) : null
+                  paintIdentity ? (currentRepoPath ?? null) : null
                 }
                 currentWorkspace={
-                  isUrlSyncedActive ? currentWorkspace : undefined
+                  paintIdentity ? currentWorkspace : undefined
                 }
                 projectId={
-                  isUrlSyncedActive ? (currentProject?.id ?? null) : null
+                  paintIdentity ? (currentProject?.id ?? null) : null
                 }
                 workspaceId={
-                  isUrlSyncedActive && currentView === "workspace"
+                  paintIdentity && currentView === "workspace"
                     ? (currentWorkspace?.id ?? null)
                     : null
                 }

@@ -202,7 +202,7 @@ describe("PT Design Atmos host wiring", () => {
     expect(frame).toContain("<KeptPtDesignHostStage");
     expect(frame).toContain("contextId={contextId}");
     expect(frame).toContain("isProject={isProject}");
-    expect(frame).toContain("active={isUrlSyncedActive && visible}");
+    expect(frame).toContain("active={paintIdentity && visible}");
   });
 
   test("hosted collab invites skip onboarding and open a fullscreen guest board", () => {
