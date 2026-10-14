@@ -737,9 +737,11 @@ test.describe("APP-066 resource monitor", () => {
       await expect(terminal).toBeVisible();
       const helper = targetPane.locator("textarea.xterm-helper-textarea");
       if ((await helper.count()) > 0) {
-        await helper.click();
+        // Playwright click() hit-tests the xterm canvas over the helper
+        // textarea. Native focus does not move the pointer.
+        await helper.evaluate((el) => (el as HTMLTextAreaElement).focus());
       } else {
-        await terminal.click();
+        await terminal.click({ force: true });
       }
       const command = `node -e "require('http').createServer((q,s)=>s.end('ok')).listen(${port},'127.0.0.1')"`;
       await page.keyboard.type(command, { delay: 8 });
