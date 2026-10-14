@@ -11,6 +11,7 @@
   - **Uses** APP-004 process / permission / registry. ACP is the adapter for **other** Chat agents; Claude Code / Codex / OpenCode / Pi use native wires.
   - **Depends on** APP-048 / APP-049 / APP-064 for `/ws` catalog discipline.
   - **Does not replace** APP-024 terminal run-config UI, APP-015 / APP-022 / APP-027 Terminal, APP-030 side chat.
+  - **Later quality**: [QUALITY-008](../QUALITY-008_agent-chat-ui-optimization/TECH.md) — as-built Chat stream / transcript UI on the Atmos event model. Does not reopen native vs ACP host choice.
 
 ## Goals
 

@@ -13,6 +13,7 @@
   - **Does not replace** `APP-015` / `APP-022` / `APP-027` — Terminal remains a peer workspace.
   - **Out of this spec's product scope**: `APP-024_terminal-agent-run-config`, `APP-030_terminal-side-chat`.
   - **Later**: `APP-025_mobile-app` UI; `APP-065` CLI conversation verbs.
+  - **Later quality**: [QUALITY-008](../QUALITY-008_agent-chat-ui-optimization/TECH.md) — as-built Agent Chat live-wire / transcript UI (virtual list, 56 ms `TurnSnapshot`, expand store). Does not reopen Conversation identity.
 
 ## Goals
 

@@ -335,3 +335,4 @@ _Last run: 2026-09-20 · QUALITY-006 coverage pass. S1–S20 executable and gree
 - Agent-browser checks 1–5 once a local app is up.
 - `just lint` and full `just test` / `cd apps/web && bun test src/features/agent` are not claimed green (dirty tree + known web noise).
 - TECH audit greps: heuristic symbols absent except a negative test mention of `mergeStreamDelta`. One `applyTextChunk` implementation in `@atmos/api-client`; web imports it. Claude `event.index`, Codex `summaryIndex`, OpenCode `partID`, Pi `contentIndex` are present.
+- Live UI / 56 ms `TurnSnapshot` / virtual-list verification lives in [QUALITY-008](../QUALITY-008_agent-chat-ui-optimization/TEST.md). Shipped clocks are 56 ms, not this spec's designed 150 ms.

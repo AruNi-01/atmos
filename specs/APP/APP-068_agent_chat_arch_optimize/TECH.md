@@ -584,6 +584,7 @@ Do not land a transitional dual schema. Native adapters may land per-provider if
 - Does not block: APP-024 (catalog engine stays shared for Terminal), APP-015/022/027, APP-030.
 - External binaries: Chat native spawn overrides builtin `params` for the four ids; Terminal still uses `resources/terminal-agents/builtin_agents.json`.
 - Minimum Atmos: whatever ships this spec. Pin CLI versions in each adapter’s fixture README, not as a product CLI feature gate.
+- Later: [QUALITY-008](../QUALITY-008_agent-chat-ui-optimization/TECH.md) documents the shipped `TurnSnapshot` live emit and web transcript UI. Native / ACP adapter boundaries in this spec stay unchanged.
 
 ## Open questions
 
