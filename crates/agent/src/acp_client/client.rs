@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use agent_client_protocol::schema::v1 as schema;
 use agent_client_protocol::{self as acp, schema as acp_schema};
@@ -499,6 +499,21 @@ fn context_tokens_from_session_notification(args: &schema::SessionNotification) 
     })
 }
 
+/// Context fill for this chat is the host session only. Child session updates
+/// carry their own `_meta.totalTokens`, and mixing those in makes the badge
+/// jump between the main agent and each subagent.
+fn context_tokens_for_host_session(
+    args: &schema::SessionNotification,
+    host_session_id: Option<&str>,
+) -> Option<u64> {
+    if let Some(host) = host_session_id {
+        if args.session_id.to_string() != host {
+            return None;
+        }
+    }
+    context_tokens_from_session_notification(args)
+}
+
 /// Atmos ACP Client - implements the Client trait, routes tool calls to handler
 pub struct AtmosAcpClient {
     handler: Arc<dyn AcpToolHandler>,
@@ -509,6 +524,8 @@ pub struct AtmosAcpClient {
     terminals: TerminalRegistry,
     /// Last `_meta.totalTokens` emitted as `AcpSessionEvent::Usage` (dedupe stream spam).
     last_context_used: AtomicU64,
+    /// ACP session this client owns. Other session ids are subagent children.
+    host_session_id: Mutex<Option<String>>,
 }
 
 impl AtmosAcpClient {
@@ -527,6 +544,31 @@ impl AtmosAcpClient {
             ext_notify_tx,
             terminals: TerminalRegistry::new(),
             last_context_used: AtomicU64::new(0),
+            host_session_id: Mutex::new(None),
+        }
+    }
+
+    pub(crate) fn set_host_session_id(&self, session_id: impl Into<String>) {
+        let session_id = session_id.into();
+        if session_id.is_empty() {
+            return;
+        }
+        if let Ok(mut slot) = self.host_session_id.lock() {
+            *slot = Some(session_id);
+        }
+    }
+
+    fn host_session_id(&self) -> Option<String> {
+        self.host_session_id
+            .lock()
+            .ok()
+            .and_then(|slot| slot.clone())
+    }
+
+    fn is_host_session(&self, session_id: &schema::SessionId) -> bool {
+        match self.host_session_id() {
+            Some(host) => host == session_id.to_string(),
+            None => true,
         }
     }
 
@@ -570,6 +612,9 @@ impl AtmosAcpClient {
     }
 
     fn emit_context_tokens_from_meta(&self, args: &schema::SessionNotification) {
+        if !self.is_host_session(&args.session_id) {
+            return;
+        }
         let Some(used) = context_tokens_from_session_notification(args) else {
             return;
         };
@@ -1068,9 +1113,11 @@ impl AtmosAcpClient {
                 ));
             }
             schema::SessionUpdate::UsageUpdate(update) => {
-                let usage = map_session_usage(&update);
-                if !session_usage_is_empty(&usage) {
-                    let _ = self.event_tx.send(AcpSessionEvent::Usage(usage));
+                if self.is_host_session(&args.session_id) {
+                    let usage = map_session_usage(&update);
+                    if !session_usage_is_empty(&usage) {
+                        let _ = self.event_tx.send(AcpSessionEvent::Usage(usage));
+                    }
                 }
             }
             _ => {}
@@ -1759,5 +1806,35 @@ mod tests {
             super::context_tokens_from_session_notification(&notification),
             Some(1670)
         );
+    }
+
+    #[test]
+    fn child_session_total_tokens_do_not_count_as_host_context() {
+        let host = session_notification("sess_parent", 80_000);
+        let child = session_notification("sa-1", 12_000);
+        assert_eq!(
+            super::context_tokens_for_host_session(&host, Some("sess_parent")),
+            Some(80_000)
+        );
+        assert_eq!(
+            super::context_tokens_for_host_session(&child, Some("sess_parent")),
+            None
+        );
+        assert_eq!(
+            super::context_tokens_for_host_session(&child, None),
+            Some(12_000)
+        );
+    }
+
+    fn session_notification(session_id: &str, total_tokens: u64) -> schema::SessionNotification {
+        serde_json::from_value(json!({
+            "sessionId": session_id,
+            "update": {
+                "sessionUpdate": "agent_message_chunk",
+                "content": { "type": "text", "text": "hi" },
+                "_meta": { "totalTokens": total_tokens }
+            }
+        }))
+        .expect("session notification")
     }
 }

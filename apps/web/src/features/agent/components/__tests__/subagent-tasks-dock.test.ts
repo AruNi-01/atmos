@@ -76,8 +76,12 @@ describe("subagent tasks panel", () => {
     expect(dock).toContain("subagentChildActivity");
     expect(dock).toContain("AgentActivityStatusText");
     expect(dock).toContain("activity={activity}");
-    expect(dock).toContain("flex min-w-0 flex-1 items-center gap-1.5");
-    expect(dock).toContain("min-w-0 shrink-0 text-muted-foreground");
+    expect(dock).toContain("flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden");
+    expect(dock).toContain("min-w-0 shrink truncate text-sm");
+    expect(dock).toContain(
+      "min-w-0 max-w-full shrink-[9999] overflow-hidden text-muted-foreground",
+    );
+    expect(dock).not.toContain("shrink-0 text-muted-foreground");
     expect(dock).not.toContain("className=\"min-w-0 flex-1 text-muted-foreground\"");
     expect(dock).not.toContain("TextShimmer");
     expect(dock).not.toContain("activity.label");
