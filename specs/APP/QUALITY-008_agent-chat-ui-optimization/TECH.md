@@ -253,7 +253,7 @@ No new REST. No new `WsAction`.
 
 ## Security & permissions
 
-- Bench static server (`scripts/agent-chat-stream-perf/public-file.ts`) serves only `/`, `/index.html`, and `/bench.js`; traversal returns 403.
+- Bench static server (`scripts/agent-chat-stream-perf/public-file.ts` `resolvePublicFile`): request `/` is rewritten to `/index.html`, then only `/index.html` and `/bench.js` are allowed. Any other path (including traversal) returns `null`; `serveDist` responds 403. `/` is not a third whitelist entry.
 - Expand store is in-memory only — no transcript content written to `localStorage`.
 - Spawn retry does not broaden permission policy. Cursor Agent + Ask always still does not emit ACP `session/request_permission` for ordinary writes; that is existing Cursor wiring (`crates/agent/AGENTS.md`), not a #305 regression.
 
