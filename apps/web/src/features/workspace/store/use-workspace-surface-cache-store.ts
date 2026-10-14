@@ -170,12 +170,12 @@ export function resolveProtectSignals(
 export function buildProtectSignalsFromLiveStores(activeContextId: string | null): ProtectSignals {
   // Lazy require keeps unit tests of the WSC shell free of the full editor/UI import graph.
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    /* oxlint-disable typescript/no-require-imports -- lazy require keeps WSC unit tests free of the editor/UI import graph */
     const { useEditorStore } =
       require("@/features/editor/store/use-editor-store") as typeof import("@/features/editor/store/use-editor-store");
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { useTerminalStore } =
       require("@/features/terminal/store/use-terminal-store") as typeof import("@/features/terminal/store/use-terminal-store");
+    /* oxlint-enable typescript/no-require-imports */
     return buildProtectSignals({
       activeContextId,
       editorWorkspaceStates: useEditorStore.getState().workspaceStates ?? {},
