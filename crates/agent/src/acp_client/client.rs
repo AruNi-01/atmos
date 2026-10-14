@@ -502,6 +502,7 @@ fn context_tokens_from_session_notification(args: &schema::SessionNotification) 
 /// Context fill for this chat is the host session only. Child session updates
 /// carry their own `_meta.totalTokens`, and mixing those in makes the badge
 /// jump between the main agent and each subagent.
+#[cfg(test)]
 fn context_tokens_for_host_session(
     args: &schema::SessionNotification,
     host_session_id: Option<&str>,
@@ -1112,12 +1113,12 @@ impl AtmosAcpClient {
                     },
                 ));
             }
-            schema::SessionUpdate::UsageUpdate(update) => {
-                if self.is_host_session(&args.session_id) {
-                    let usage = map_session_usage(&update);
-                    if !session_usage_is_empty(&usage) {
-                        let _ = self.event_tx.send(AcpSessionEvent::Usage(usage));
-                    }
+            schema::SessionUpdate::UsageUpdate(update)
+                if self.is_host_session(&args.session_id) =>
+            {
+                let usage = map_session_usage(&update);
+                if !session_usage_is_empty(&usage) {
+                    let _ = self.event_tx.send(AcpSessionEvent::Usage(usage));
                 }
             }
             _ => {}
