@@ -40,13 +40,16 @@ test.describe("smoke workspace", () => {
     // Stay on this paint context: `?tab=` hops are leftover chrome after last-tab
     // files, and a full navigation remounts the strip. Open tools from plus.
     await activateWorkspaceToolTab(page, /变更|Changes/);
-    const changesStage = await getCenterStage(page);
-    const scopeTrigger = changesStage.getByRole("button", {
-      name: /选择变更范围|Select changes scope/,
-    });
-    await expect(scopeTrigger).toBeVisible({ timeout: 45_000 });
-    await scopeTrigger.click();
-    await page.getByRole("menuitem", { name: /^(图形历史|Graph History)$/ }).click();
+    // Graph History lives on the Changes landing. Clicking the sidecar scope
+    // dropdown uses Playwright hover, which crosses the plus trigger and
+    // intercepts the pointer (same class of flake as e676987aa).
+    const changesLanding = page.locator('[data-center-explorer-landing="changes"]');
+    const graphHistoryRow = changesLanding.locator('[data-center-explorer-row="graph-history"]');
+    await expect(graphHistoryRow).toBeVisible({ timeout: 45_000 });
+    await expect(
+      page.getByRole("button", { name: /选择变更范围|Select changes scope/ }),
+    ).toBeVisible({ timeout: 45_000 });
+    await graphHistoryRow.click();
     // The tab's computed name can include the close control; do not require an exact match.
     await expect(page.getByRole("tab", { name: /图形历史|Graph History/ })).toBeVisible();
 
