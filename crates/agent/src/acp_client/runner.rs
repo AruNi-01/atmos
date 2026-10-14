@@ -1097,6 +1097,7 @@ async fn run_session_inner(
     let kill_terminal_client = client.clone();
     let ext_method_client = client.clone();
     let notification_client = client.clone();
+    let host_client = client.clone();
 
     acp::Client
         .builder()
@@ -1255,6 +1256,9 @@ async fn run_session_inner(
             let create_or_load_result: acp::Result<schema::SessionId> = if let Some(resume_id) =
                 resume_session_id.clone()
             {
+                // Replay during session/load can include child sessions. Pin the
+                // host id first so their token counters never become this chat's fill.
+                host_client.set_host_session_id(resume_id.clone());
                 let requested = schema::SessionId::new(resume_id.clone());
                 let restore_method = select_session_restore_method(
                     init_response.agent_capabilities.load_session,
@@ -1336,7 +1340,10 @@ async fn run_session_inner(
             };
 
             let session_id_acp = match create_or_load_result {
-                Ok(session_id) => session_id,
+                Ok(session_id) => {
+                    host_client.set_host_session_id(session_id.to_string());
+                    session_id
+                }
                 Err(err) if err.code == acp::ErrorCode::AuthRequired => {
                     if let Err(msg) = send_auth_required_error(&mut ready_tx, auth_methods) {
                         return Err(internal_error(msg));
