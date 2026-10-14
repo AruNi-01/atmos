@@ -67,8 +67,8 @@ No backward-compat scenarios: live clients that ignore `turn_snapshot` are out o
 | S17      | Bun unit         | `bun test`    | `applyTurnSnapshot adopts a tool-first provisional row`; mobile `turn_snapshot adopts a tool-first provisional row`                                                      | `assistant:<id>` + shared tool id                  | one row after adopt                                                     | covered  |
 | S18      | Rust unit        | `cargo test`  | `crates/agent` `spawn_retry` tests                                                                                                                                       | fake `io::Error`                                   | retries `EAGAIN` / `ETXTBSY`; does not retry `EDEADLK`                  | covered  |
 | S19      | Bench            | Chromium      | `bun scripts/agent-chat-stream-perf/run.ts`                                                                                                                              | 500×8 tools × 40 tokens                            | numbers in `RESULTS.md`                                                 | covered  |
-| S20      | Manual           | browser       | mock-backend web run (PR #305)                                                                                                                                           | local mock provider                                | see Coverage Status                                                     | covered  |
-| S21      | Manual           | browser       | official `cursor-agent` ACP, `composer-2.5`                                                                                                                              | real Cursor backend                                | see Coverage Status                                                     | covered  |
+| S20      | Manual           | browser       | mock-backend web run (PR #305 agent artifacts)                                                                                                                           | local mock provider                                | per-claim evidence or Unverified below                                  | mixed    |
+| S21      | Manual           | browser       | official `cursor-agent` ACP (PR #305 body + artifacts). Model id `composer-2.5` is Unverified                                                                            | real Cursor backend                                | per-claim evidence below                                                | mixed    |
 | S22      | Manual           | real IME      | none on the verification VM                                                                                                                                              | Chinese IME                                        | Enter must not send mid-composition                                     | not_run  |
 | S23      | Documented       | —             | expand store is process memory                                                                                                                                           | refresh                                            | process rail collapses; not a defect                                    | accepted |
 | S24      | Manual           | Cursor ACP    | write under Ask always                                                                                                                                                   | official `cursor-agent`                            | no mid-session `session/request_permission`; Plan Approve still appears | accepted |
@@ -258,38 +258,49 @@ No backward-compat scenarios: live clients that ignore `turn_snapshot` are out o
 
 Scroll FPS is the same within noise (virtual list already existed on `main` before #305). Token cost dropped because the branch commits less often.
 
-Also: `public-file.test.ts` — whitelist `/` `/index.html` `/bench.js`; traversal → 403.
+Also: `public-file.test.ts` — `resolvePublicFile` maps `/` → `index.html`; whitelist after rewrite is `/index.html` and `/bench.js`; traversal → 403.
+
+Evidence for S20/S21 lives on the #305 implementing agent ([bc-28c3d660-56ed-5246-a60a-fc0e2d878582](https://cursor.com/agents/bc-28c3d660-56ed-5246-a60a-fc0e2d878582)) and in the [PR #305 description](https://github.com/AruNi-01/atmos/pull/305). Artifact URLs below are that agent's dashboard files. Issue comments on #305 are bots / CI only — no extra device write-up.
 
 ### S20 — Mock-backend web run (PR #305)
 
 - **Level**: Manual (recorded)
 - **Given**: local web against the mock agent backend.
 - **When**: the reviewer exercises the transcript while a turn streams and after it settles.
-- **Then** (passed):
-  - scroll-up while reading does not jump
-  - user bubble expand + timestamp row
-  - expand state survives virtual-row recycle / scroll
-  - timeline navigation lands on the target row
-  - refresh restores the transcript from `get()` (expand keys do **not** survive refresh — S23)
-  - `MessageQueueDock` still works
-  - permission prompt appears on the **mock** backend
-  - plan mode still works
-- **Signals**: recorded on the #305 verification pass. Not re-run as part of this documentation PR.
+- **Then** (per-claim evidence; items without a screenshot/recording/PR comment are **Unverified**):
 
-### S21 — Official Cursor ACP (`composer-2.5`)
+| Claim                                 | Status     | Evidence                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| User bubble expand + timestamp        | evidenced  | [`user_bubble_expand_timestamp.webp`](https://cursor.com/agents/bc-28c3d660-56ed-5246-a60a-fc0e2d878582/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fuser_bubble_expand_timestamp.webp)                                                                                                                                                                                                                        |
+| Expand / process rail after scroll    | evidenced  | [`process_expanded_collapse_rail.webp`](https://cursor.com/agents/bc-28c3d660-56ed-5246-a60a-fc0e2d878582/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fprocess_expanded_collapse_rail.webp), [`process_expanded_tools_and_messages_below.webp`](https://cursor.com/agents/bc-28c3d660-56ed-5246-a60a-fc0e2d878582/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fprocess_expanded_tools_and_messages_below.webp) |
+| `MessageQueueDock`                    | evidenced  | [`plan_ready_and_message_queue.webp`](https://cursor.com/agents/bc-28c3d660-56ed-5246-a60a-fc0e2d878582/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fplan_ready_and_message_queue.webp)                                                                                                                                                                                                                        |
+| Permission prompt (mock)              | evidenced  | [`permission_requested_allow_reject.webp`](https://cursor.com/agents/bc-28c3d660-56ed-5246-a60a-fc0e2d878582/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fpermission_requested_allow_reject.webp) (official Cursor did **not** show this chrome — S24)                                                                                                                                                         |
+| Plan mode                             | evidenced  | same `plan_ready_and_message_queue.webp`                                                                                                                                                                                                                                                                                                                                                                       |
+| Scroll-up while reading does not jump | Unverified | No screenshot, recording, or #305 comment names this claim. [`agent_chat_stream_follow_scroll_below.mp4`](https://cursor.com/agents/bc-28c3d660-56ed-5246-a60a-fc0e2d878582/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fagent_chat_stream_follow_scroll_below.mp4) is follow-end / below-count, not reading-line stability.                                                                                   |
+| Timeline navigation                   | Unverified | No artifact or comment.                                                                                                                                                                                                                                                                                                                                                                                        |
+| Refresh restores transcript (`get()`) | Unverified | Refresh screenshot on this agent is the **official** Cursor chat (`agent_chat_after_refresh_collapsed.webp`), not a labeled mock-backend restore.                                                                                                                                                                                                                                                              |
+
+- **Signals**: artifact links above. Not re-run as part of this documentation PR.
+
+### S21 — Official Cursor ACP
 
 - **Level**: Manual (recorded)
-- **Given**: official `cursor-agent` ACP, model `composer-2.5`.
+- **Given**: official `cursor-agent` ACP (mock binary removed from PATH), web `http://localhost:3030/agent-chat`. The #305 body does **not** name model `composer-2.5`; that id is **Unverified**.
 - **When**: a real turn streams tokens, tools, and (where used) plan mode; the page is refreshed after the turn.
-- **Then** (passed):
-  - per-token-feel smooth streaming (56 ms snapshots + display buffer)
-  - stick-to-bottom while streaming
-  - back-to-bottom control after scroll-away
-  - flush at turn end (full text, no leftover caret backlog)
-  - tool blocks render
-  - plan mode works
-  - part order after refresh matches the live turn
-- **Signals**: recorded on the #305 / follow-up Cursor pass. Not re-run as part of this documentation PR.
+- **Then** (per-claim evidence):
+
+| Claim                                  | Status     | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| -------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Progressive / per-token-feel streaming | evidenced  | [PR #305 description](https://github.com/AruNi-01/atmos/pull/305) table “Progressive token stream \| Pass”; [`agent_chat_official_stream_stick_flush.mp4`](https://cursor.com/agents/bc-28c3d660-56ed-5246-a60a-fc0e2d878582/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fagent_chat_official_stream_stick_flush.mp4); [`agent_chat_official_mid_stream_thinking.webp`](https://cursor.com/agents/bc-28c3d660-56ed-5246-a60a-fc0e2d878582/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fagent_chat_official_mid_stream_thinking.webp) |
+| Stick-to-bottom while generating       | evidenced  | same PR table “Stick-to-bottom while generating \| Pass”; same `agent_chat_official_stream_stick_flush.mp4`                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Back-to-bottom after scroll-away       | evidenced  | PR table “Scroll-up shows Bottom chevron”; [`agent_chat_overflow_bottom_chevron.webp`](https://cursor.com/agents/bc-28c3d660-56ed-5246-a60a-fc0e2d878582/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fagent_chat_overflow_bottom_chevron.webp); [`agent_chat_bottom_clicked.webp`](https://cursor.com/agents/bc-28c3d660-56ed-5246-a60a-fc0e2d878582/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fagent_chat_bottom_clicked.webp)                                                                                                    |
+| Flush at turn end                      | evidenced  | PR table “Turn-end flush \| Pass”; recording name `…_stream_stick_flush.mp4`; [`agent_chat_official_completed_essay.webp`](https://cursor.com/agents/bc-28c3d660-56ed-5246-a60a-fc0e2d878582/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fagent_chat_official_completed_essay.webp)                                                                                                                                                                                                                                                  |
+| Tool-call blocks                       | evidenced  | PR table; [`agent_chat_tool_blocks.webp`](https://cursor.com/agents/bc-28c3d660-56ed-5246-a60a-fc0e2d878582/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fagent_chat_tool_blocks.webp)                                                                                                                                                                                                                                                                                                                                                |
+| Plan mode                              | evidenced  | PR table; [`agent_chat_mode_menu_agent_plan_ask.webp`](https://cursor.com/agents/bc-28c3d660-56ed-5246-a60a-fc0e2d878582/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fagent_chat_mode_menu_agent_plan_ask.webp)                                                                                                                                                                                                                                                                                                                      |
+| Order after refresh                    | evidenced  | PR table “Refresh restore order \| Pass”; [`agent_chat_after_refresh_collapsed.webp`](https://cursor.com/agents/bc-28c3d660-56ed-5246-a60a-fc0e2d878582/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fagent_chat_after_refresh_collapsed.webp)                                                                                                                                                                                                                                                                                        |
+| Model is `composer-2.5`                | Unverified | Not stated in the #305 body, comments, or artifact names.                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+
+- **Signals**: PR #305 body + agent artifacts. Cloud agent: https://cursor.com/agents/bc-28c3d660-56ed-5246-a60a-fc0e2d878582. Not re-run as part of this documentation PR.
 
 ### S22 — Chinese IME composition (not verified)
 
@@ -405,15 +416,15 @@ Optional after a future UI change in this area. Load the installed `agent-browse
 4. Stop or error a turn; confirm the last answer paints in full with no leftover caret.
 5. Prefer-reduced-motion: answer text appears without the display drain.
 
-The #305 / Cursor device runs (S20, S21) already cover 1–4 on web. Agent-browser was not required for this backfill.
+S21 has PR #305 + official-Cursor artifacts for stream / stick / back-to-bottom / flush. S20 mock claims without artifacts stay Unverified. Agent-browser was not required for this backfill.
 
 ## Acceptance criteria
 
 Already shipped on `main`. This documentation PR is green when:
 
 - [x] S1–S19 automated names above exist and are the tests TECH cites (no invented names).
-- [x] S20 mock-backend device results recorded (pass).
-- [x] S21 official Cursor ACP device results recorded (pass).
+- [x] S20 mock-backend claims that have #305 artifacts are linked; the rest are Unverified.
+- [x] S21 official Cursor ACP claims that appear in the #305 body / official artifacts are linked; `composer-2.5` is Unverified.
 - [x] S22 marked `not_run` with the IME-on-VM reason.
 - [x] S23 / S24 recorded as accepted limitations, not new bugs.
 - [x] `RESULTS.md` numbers are the bench source of truth.
@@ -424,8 +435,8 @@ Already shipped on `main`. This documentation PR is green when:
 
 Recorded device passes (do not re-require for this docs PR):
 
-1. **Mock backend (S20)** — local web; scroll-up-no-jump; user expand/timestamp; expand survives scroll; timeline; refresh restore; `MessageQueueDock`; mock permission prompt; plan mode.
-2. **Cursor ACP (S21)** — official `cursor-agent`, `composer-2.5`; smooth stream; stick-to-bottom; back-to-bottom; flush at turn end; tools; plan; order after refresh.
+1. **Mock backend (S20)** — evidenced: user expand/timestamp, process expand, MessageQueueDock, mock permission, plan. **Unverified**: scroll-up-no-jump, timeline nav, mock refresh restore.
+2. **Cursor ACP (S21)** — official `cursor-agent` (model id Unverified); evidenced: smooth stream, stick-to-bottom, back-to-bottom, flush at turn end, tools, plan, order after refresh.
 3. **IME (S22)** — still to do on a machine with a real Chinese IME.
 4. **Reduced motion** — covered by source-scan (S13); optional eyeball via OS setting.
 
@@ -476,13 +487,15 @@ Re-bench: `bun scripts/agent-chat-stream-perf/run.ts` → `scripts/agent-chat-st
 
 ### Device / bench
 
-- **S20 mock-backend web** — pass (scroll-up-no-jump, user expand/timestamp, expand survives scroll, timeline, refresh restore, `MessageQueueDock`, mock permission, plan mode).
-- **S21 official `cursor-agent` ACP, `composer-2.5`** — pass (smooth stream, stick-to-bottom, back-to-bottom, flush at turn end, tools, plan, order after refresh).
+- **S20 mock-backend web** — mixed. Evidenced via #305 agent artifacts: user expand/timestamp, process expand, MessageQueueDock, mock permission, plan. **Unverified**: scroll-up-no-jump, timeline, mock refresh restore.
+- **S21 official `cursor-agent` ACP** — evidenced via [PR #305 description](https://github.com/AruNi-01/atmos/pull/305) + [`agent_chat_official_stream_stick_flush.mp4`](https://cursor.com/agents/bc-28c3d660-56ed-5246-a60a-fc0e2d878582/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fagent_chat_official_stream_stick_flush.mp4) (smooth stream + stick-to-bottom + flush) and the other official screenshots listed under S21. Model `composer-2.5` is **Unverified**.
 - **S22 Chinese IME** — `not_run` (no IME on the VM). Composer guard is present.
 - **S19 bench** — `RESULTS.md`: scroll FPS 55.043 → 55.003; per-token 1.795 ms → 1.092 ms; commits 81 → 55; total `actualDuration` 71.8 ms → 43.7 ms.
 
 ### Remaining gaps
 
+- S20 Unverified: scroll-up-no-jump, timeline navigation, mock-backend refresh restore (no artifact / #305 comment).
+- S21 Unverified: model id `composer-2.5` (not named on #305).
 - S22 real-IME verification.
 - S17 failing test for two tool-only assistants (follow-up when adopt is tightened).
 - No `e2e/tests/specs/QUALITY-008_*.e2e.ts` (same harness gap as QUALITY-006 S21).
