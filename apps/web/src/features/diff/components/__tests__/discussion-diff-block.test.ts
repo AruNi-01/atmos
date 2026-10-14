@@ -13,8 +13,8 @@ describe("DiscussionDiffBlock", () => {
     expect(source).toContain("bg-muted/30");
     expect(source).toContain("getFileIconProps");
     expect(source).toContain("data-discussion-diff-block");
-    expect(source).toContain("t('line'");
-    expect(source).toContain("t('lineRange'");
+    expect(source).toContain('t("line"');
+    expect(source).toContain('t("lineRange"');
   });
 
   it("supports non-collapsible chat mode and flush header/body", () => {

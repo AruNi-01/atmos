@@ -40,7 +40,7 @@ describe("MermaidBlock streaming", () => {
     expect(mermaid).toContain("waitForMermaidSlotReady");
     expect(mermaid).toContain("onError");
     expect(mermaid).toContain("mermaid-container flex justify-center overflow-hidden");
-    expect(renderer).toContain("from './MermaidBlock'");
+    expect(renderer).toContain('from "./MermaidBlock"');
   });
 
   it("highlights Source with the shared Shiki mermaid grammar", () => {

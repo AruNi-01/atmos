@@ -70,7 +70,7 @@ describe("header button hover", () => {
 
     const quota = read("../QuotaPopover.tsx");
     expect(quota).toContain(
-      'className="size-8 flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"',
+      'className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"',
     );
   });
 });

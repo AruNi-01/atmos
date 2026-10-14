@@ -63,7 +63,7 @@ describe("subagent tasks panel", () => {
     expect(dock).toContain("flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden");
     expect(dock).toContain("min-w-0 shrink truncate text-sm");
     expect(dock).toContain(
-      "min-w-0 max-w-full shrink-[9999] overflow-hidden text-muted-foreground",
+      "max-w-full min-w-0 shrink-[9999] overflow-hidden text-muted-foreground",
     );
     expect(dock).not.toContain("shrink-0 text-muted-foreground");
     expect(dock).not.toContain('className="min-w-0 flex-1 text-muted-foreground"');
@@ -91,7 +91,7 @@ describe("subagent tasks panel", () => {
     expect(overlays).not.toContain("}, [subagentOverlay]");
     expect(overlays).toContain('subagentOverlay && "h-full min-h-0 flex-1 overflow-hidden"');
     expect(overlays).toContain(
-      "pointer-events-auto relative z-30 flex h-full min-h-0 min-w-0 w-full flex-1 select-text flex-col overflow-hidden",
+      "pointer-events-auto relative z-30 flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden select-text",
     );
     expect(overlays).not.toContain("h-[70cqh] max-h-[70cqh]");
     expect(overlays).not.toContain("h-[80cqh] max-h-[80cqh]");
@@ -105,12 +105,12 @@ describe("subagent tasks panel", () => {
     expect(overlay).toContain('className="mx-auto mt-2 w-[calc(100%-1rem)]"');
     expect(overlay).toContain("formatSubagentTaskLine");
     expect(overlay).toContain(
-      'className="flex h-full min-h-0 w-full min-w-0 flex-1 select-text flex-col overflow-hidden rounded-3xl border border-border bg-background"',
+      'className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-background select-text"',
     );
     expect(overlay).toContain("key={toolCallId}");
     expect(overlay).toContain("initial={false}");
     expect(overlay).toContain('resize="instant"');
-    expect(overlay).toContain('className="min-h-0 h-full w-full min-w-0 flex-1 overflow-hidden"');
+    expect(overlay).toContain('className="h-full min-h-0 w-full min-w-0 flex-1 overflow-hidden"');
     expect(overlay).toContain('data-canvas-selectable-text="true"');
     expect(overlay).toContain('className={cn("w-full min-w-0 gap-3 px-3 py-4")}');
     expect(overlay).toContain('scrollClassName="h-full min-h-0 w-full min-w-0 overflow-y-auto"');

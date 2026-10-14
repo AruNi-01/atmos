@@ -85,7 +85,7 @@ describe("center list hover", () => {
 
   it("uses instant hover on changes file rows, not a delayed color fade", () => {
     const rowClass = changeSection.slice(
-      changeSection.indexOf("group flex items-center px-2 py-1.5"),
+      changeSection.indexOf("group relative flex w-full items-center gap-2 rounded-sm px-2 py-1.5"),
       changeSection.indexOf("<DiffFilePathLabel"),
     );
     expect(rowClass).toContain("hover:bg-sidebar-accent/50");
@@ -106,8 +106,10 @@ describe("center list hover", () => {
 
   it("uses instant hover on files tree rows", () => {
     const rowClass = fileTreeRow.slice(
-      fileTreeRow.indexOf("flex items-center py-1 px-2 cursor-pointer"),
-      fileTreeRow.indexOf("isHighlighted && !isActive"),
+      fileTreeRow.indexOf(
+        "flex cursor-pointer items-center rounded-sm px-2 py-1 outline-none select-none",
+      ),
+      fileTreeRow.indexOf("(isActive || isContextTarget)"),
     );
     expect(rowClass).toContain("hover:bg-sidebar-accent/50");
     expect(rowClass).not.toContain("transition-colors");
@@ -146,7 +148,9 @@ describe("center list hover", () => {
 
   it("uses instant hover on GitHub PR, issue, and action cards", () => {
     const prCard = prPanel.slice(
-      prPanel.indexOf("flex flex-col p-3 rounded-md border border-sidebar-border"),
+      prPanel.indexOf(
+        "group flex cursor-pointer flex-col rounded-md border border-sidebar-border bg-transparent p-3 hover:bg-sidebar-accent/50",
+      ),
       prPanel.indexOf("{/* Top Row: Title & State */}"),
     );
     expect(prCard).toContain("hover:bg-sidebar-accent/50");
@@ -161,7 +165,9 @@ describe("center list hover", () => {
     expect(issueCard).not.toContain("transition-colors");
 
     const actionsCard = actionsPanel.slice(
-      actionsPanel.indexOf("flex flex-col p-3 rounded-md border border-sidebar-border"),
+      actionsPanel.indexOf(
+        "group flex cursor-pointer flex-col rounded-md border border-sidebar-border bg-transparent p-3 hover:bg-sidebar-accent/50",
+      ),
       actionsPanel.indexOf("flex items-start justify-between gap-2"),
     );
     expect(actionsCard).toContain("hover:bg-sidebar-accent/50");

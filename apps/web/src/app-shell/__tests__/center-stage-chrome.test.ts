@@ -127,13 +127,12 @@ describe("center-stage chrome", () => {
   });
 
   test("overlay-hosted Overview can scroll past the fold", () => {
-    const frame = read("../workspace-center-frame.tsx");
-    const visibleBox = frame.slice(
-      frame.indexOf("width: box.width,"),
-      frame.indexOf("function hostPaneIdsForTab"),
-    );
-    expect(visibleBox).toContain("borderBottomLeftRadius");
-    expect(visibleBox).not.toMatch(/overflow:\s*"hidden"/);
+    const keepAlive = read("../center-pane/center-keep-alive-panel-style.ts");
+    expect(keepAlive).toContain("borderBottomLeftRadius");
+    expect(keepAlive).toContain("width: box.width,");
+    expect(keepAlive).toContain('pointerEvents: visible ? undefined : "none"');
+    const visibleReturn = keepAlive.slice(keepAlive.lastIndexOf("return {"));
+    expect(visibleReturn).not.toMatch(/overflow:\s*"hidden"/);
 
     const overview = read("../../features/workspace/components/OverviewTab.tsx");
     const root = overview.match(/return \(\s*<>\s*<div className="([^"]+)"/)?.[1];
@@ -196,7 +195,7 @@ describe("center-stage chrome", () => {
     const layout = read("../PanelLayout.tsx");
     expect(layout).toContain("ResizeFollowMark");
     expect(layout).toContain('axis="vertical"');
-    expect(layout).toContain("w-3 -mx-1.5");
+    expect(layout).toContain("-mx-1.5 w-3");
     expect(layout).toContain("resizeFollowSeamAt(CENTER_STAGE_GUTTER_X_PX)");
     expect(layout).toContain("onFold={onFold}");
     expect(layout).not.toContain("flex w-px items-center");
@@ -227,13 +226,13 @@ describe("center-stage chrome", () => {
   test("remaining vertical pane handles use the follow mark instead of a hairline", () => {
     const sidebar = read("../left-sidebar-controls.tsx");
     expect(sidebar).toContain("ResizeFollowMark");
-    expect(sidebar).toContain("w-3 -mx-1.5");
+    expect(sidebar).toContain("-mx-1.5 flex h-full w-3");
     expect(sidebar).toContain("onFold={onFold}");
     expect(sidebar).not.toContain("hover:bg-sidebar-border/50");
 
     const history = read("../../features/agent/components/AgentChatHistorySidebarFrame.tsx");
     expect(history).toContain("ResizeFollowMark");
-    expect(history).toContain("w-3 -mx-1.5 shrink-0");
+    expect(history).toContain("-mx-1.5 h-full w-3 shrink-0");
     expect(history).not.toContain("h-full w-px bg-border/80");
 
     const historyLayout = read(
@@ -245,7 +244,7 @@ describe("center-stage chrome", () => {
 
     const diff = read("../../features/diff/components/DiffCodeViewScaffold.tsx");
     expect(diff).toContain("ResizeFollowMark");
-    expect(diff).toContain("relative w-3 -mx-1.5 shrink-0 cursor-col-resize");
+    expect(diff).toContain("relative -mx-1.5 w-3 shrink-0 cursor-col-resize");
     expect(diff).toContain("isResizeClickGesture");
     expect(diff).toContain("setTreeVisible(false)");
     expect(diff).not.toContain("before:hover:bg-primary/40");
@@ -253,14 +252,14 @@ describe("center-stage chrome", () => {
 
     const skills = read("../../features/skills/components/SkillDetail.tsx");
     expect(skills).toContain("ResizeFollowMark");
-    expect(skills).toContain("w-3 -mx-1.5");
+    expect(skills).toContain("-mx-1.5 flex w-3");
     expect(skills).toContain("onFold={onCollapse}");
     expect(skills).toContain("onPointerDown={(e) => {\n          e.stopPropagation();");
     expect(skills).not.toContain("bg-border hover:bg-border/80");
 
     const wiki = read("../../features/wiki/components/WikiViewer.tsx");
     expect(wiki).toContain("ResizeFollowMark");
-    expect(wiki).toContain("w-3 -mx-1.5");
+    expect(wiki).toContain("-mx-1.5 flex w-3");
     expect(wiki).toContain("onFold={foldSidebar}");
     expect(wiki).toContain("onPointerDown={(e) => {\n              e.stopPropagation();");
     expect(wiki).not.toContain("bg-border hover:bg-border/80");

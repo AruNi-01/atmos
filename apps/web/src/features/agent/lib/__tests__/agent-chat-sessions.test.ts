@@ -229,7 +229,7 @@ describe("agents sessions page uses Atmos chat history", () => {
     expect(cards).toContain("acpManagerCardShowsEnableSwitch");
     expect(cards).not.toContain('<div className="size-8" />');
 
-    const composer = readFileSync(join(ROOT, "components/AgentPromptComposer.tsx"), "utf8");
+    const composer = readFileSync(join(ROOT, "components/ChatAgentConfigInput.tsx"), "utf8");
     expect(composer).toContain("contestedChatAgentFamilies");
     expect(composer).toContain('t("agentKind.native")');
     expect(composer).toContain('t("agentKind.acp")');

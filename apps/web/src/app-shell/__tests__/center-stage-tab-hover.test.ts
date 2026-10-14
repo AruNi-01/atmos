@@ -31,21 +31,21 @@ describe("center stage tab hover", () => {
     expect(listFn).toContain('orientation = "horizontal"');
     expect(listFn).toContain("orientation={orientation}");
     expect(listFn).toContain(
-      '"flex h-full w-11 min-h-0 max-h-full flex-col items-center justify-start overflow-hidden bg-[color-mix(in_oklab,var(--popover),black_10%)] p-1"',
+      '"flex h-full max-h-full min-h-0 w-11 flex-col items-center justify-start overflow-hidden bg-[color-mix(in_oklab,var(--popover),black_10%)] p-1"',
     );
     const scrollFn = shared.slice(
       shared.indexOf("export function CenterStageScrollableTabs"),
       shared.indexOf("export function CenterStageStickyTabActions"),
     );
     expect(scrollFn).toContain('orientation = "horizontal"');
-    expect(scrollFn).toContain('"flex min-h-0 flex-1 flex-col overflow-y-auto no-scrollbar"');
+    expect(scrollFn).toContain('"no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto"');
   });
 
   it("uses the tasks-page motion pill tabs without a bottom divider", () => {
     expect(shared).toContain("@workspace/ui/components/motion/tabs");
     expect(shared).toContain('variant="pill"');
     expect(shared).toContain(
-      "flex h-8 min-w-0 max-w-full justify-start overflow-hidden bg-background py-0.5 pl-0.5 pr-0",
+      "flex h-8 max-w-full min-w-0 justify-start overflow-hidden bg-background py-0.5 pr-0 pl-0.5",
     );
     expect(shared).toContain("group h-7 shrink-0 gap-1.5 px-1.5 text-xs");
     expect(shared).toContain("aria-selected:!text-foreground");
@@ -77,7 +77,7 @@ describe("center stage tab hover", () => {
     expect(listFn).toContain("flex-[0_1_auto]");
     expect(listFn).toContain("gap-0.5");
     expect(listFn.indexOf("trailing={afterTabs}")).toBeLessThan(listFn.indexOf("{actions}"));
-    expect(shared).toContain("flex min-w-0 flex-1 items-center overflow-x-auto no-scrollbar");
+    expect(shared).toContain("no-scrollbar flex min-w-0 flex-1 items-center overflow-x-auto");
     expect(tabBar).toContain("afterTabs={");
     expect(tabBar.indexOf("<CenterStageNewTabMenu")).toBeLessThan(
       tabBar.indexOf("<CenterStagePaneFullscreenButton"),
@@ -236,7 +236,7 @@ describe("center stage tab hover", () => {
       "html[data-center-stage-plus-menu-open] [data-center-panel-host]",
     );
     expect(terminalGridCss).toContain(
-      "html[data-center-stage-plus-menu-open] .terminal-grid-container[data-maximized-id] .terminal-pane.is-maximized",
+      "html[data-center-stage-plus-menu-open]\n  .terminal-grid-container[data-maximized-id]\n  .terminal-pane.is-maximized",
     );
     expect(terminalGridCss).toContain("html[data-center-stage-plus-menu-open] canvas");
     expect(terminalGridCss).not.toContain(

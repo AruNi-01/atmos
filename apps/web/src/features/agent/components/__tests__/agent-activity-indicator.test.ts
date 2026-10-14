@@ -38,7 +38,7 @@ describe("agent activity indicator", () => {
     expect(source).toContain("WorkDurationClock");
     expect(source).toContain("DurationUnit");
     expect(source).toContain(
-      'className="inline-flex min-w-0 max-w-full items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground"',
+      'className="inline-flex max-w-full min-w-0 items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground"',
     );
     expect(source).toContain(
       'cn("relative inline-flex h-5 min-w-0 items-center overflow-hidden", className)',
@@ -61,7 +61,8 @@ describe("agent activity indicator", () => {
     expect(list).toContain("item.index === lastIndex");
     expect(list).toContain('className="mx-auto mt-2 w-[calc(100%-1rem)]"');
     expect(panel).toContain("activityStatus=");
-    expect(panel).toContain("<AgentActivityIndicator activity={agentActivity}");
+    expect(panel).toContain("<AgentActivityIndicator");
+    expect(panel).toContain("activity={agentActivity}");
     expect(panel).toContain('className="mx-auto w-[calc(100%-1rem)]"');
     const contentAt = panel.indexOf("<ConversationContent");
     const contentEndAt = panel.indexOf("</ConversationContent>");

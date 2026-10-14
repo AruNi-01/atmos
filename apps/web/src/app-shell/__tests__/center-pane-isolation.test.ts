@@ -125,7 +125,7 @@ describe("center pane tab isolation", () => {
     expect(stage).toContain("collapsedStripOrderForContext");
     expect(stage).toContain("resolveStripOrderForContext");
     expect(stage).not.toContain("prevPaneCountRef");
-    expect(stage).toContain("desktop-no-drag relative min-h-0 flex-1");
+    expect(stage).toContain("desktop-no-drag relative isolate min-h-0 flex-1");
     expect(stage).toContain('data-center-panel-host=""');
     expect(stage).toContain("paneSlotBoxes={paneSlotBoxes}");
     expect(stage).not.toMatch(/CENTER_STAGE_CARD_CLASS[\s\S]*\{panels\}/);

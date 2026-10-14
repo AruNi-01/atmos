@@ -25,7 +25,9 @@ describe("left sidebar workspace list scroll areas", () => {
 
   it("fades the one-column grouped list in the same viewport as sticky titles", () => {
     const source = read("../left-sidebar-controls.tsx");
-    expect(source).toContain('<ScrollArea scrollFade className="h-full">');
+    expect(source).toContain("<ScrollArea");
+    expect(source).toContain("scrollFade");
+    expect(source).toContain('className="h-full"');
     expect(source).toContain("LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS");
     expect(source).toContain("data-sidebar-sticky-group-header");
     expect(source).not.toContain("data-sidebar-group-body-scroll");

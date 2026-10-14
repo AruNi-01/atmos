@@ -133,7 +133,7 @@ describe("agent tree wiring", () => {
     expect(group).toContain("LogRow");
     expect(group).toContain("instant={index < watermark}");
     // Trunk sits under the centre of the size-4 group icon.
-    expect(group).toContain("ms-2 flex list-none flex-col p-0");
+    expect(group).toContain("ms-2 mt-0.5 flex list-none flex-col p-0");
     expect(group).not.toContain("AgentTreeBranch");
     expect(group).not.toContain("AgentTreeNetwork");
     expect(group).not.toContain("ResizeObserver");
@@ -228,7 +228,7 @@ describe("agent tree wiring", () => {
     expect(card).not.toContain("shouldPlayTreeTitleEnter");
     expect(card).toContain("useAgentTreeReveal");
     expect(reveal).not.toContain("if (done) return <>{children}</>");
-    expect(view).not.toContain("<AgentStreamReveal key={key} enabled={streaming}>");
+    expect(view).toContain("<AgentStreamReveal key={key} enabled={streaming}>");
   });
 });
 

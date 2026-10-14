@@ -17,7 +17,7 @@ describe("PT Design Atmos host wiring", () => {
       join(import.meta.dir, "../../features/settings/lib/launchpad-items.ts"),
       "utf8",
     );
-    expect(store).toContain("'pt-design'");
+    expect(store).toContain('"pt-design"');
   });
 
   test("warm-frame snapshot treats pt-design as a valid light tab", () => {
@@ -39,7 +39,7 @@ describe("PT Design Atmos host wiring", () => {
     expect(sidebar).not.toContain('url.searchParams.set("tab", "pt-design")');
     expect(sidebar).not.toContain("useOpenToolCenterTab");
     expect(sidebar).not.toMatch(/useQueryState\(\s*["']tab["']/);
-    expect(sidebar).toContain("currentView === 'pt-design'");
+    expect(sidebar).toContain('currentView === "pt-design"');
     expect(launchpad).not.toMatch(/bare ["']Canvas["']\s*\n.*pt-design/i);
     const page = readFileSync(join(import.meta.dir, "../../app/(app)/pt-design/page.tsx"), "utf8");
     expect(page).toContain("Prototype Design");

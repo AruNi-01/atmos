@@ -349,7 +349,7 @@ describe("center space wiring", () => {
     expect(switcher).not.toContain("captureCurrentPreview");
     expect(switcher).not.toContain("absolute left-1/2 top-1/2");
     expect(switcher).toContain("buttonCountAria");
-    expect(switcher).toContain("-right-1 -top-1");
+    expect(switcher).toContain("-top-1 -right-1");
     expect(switcher).toContain("h-3.5 min-w-3.5");
     expect(switcher).toContain("text-[9px]");
     expect(switcher).toContain("{spaces.length}");

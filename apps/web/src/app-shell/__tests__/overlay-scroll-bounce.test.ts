@@ -29,7 +29,7 @@ describe("overlay scroll bounce (macOS rubber-banding)", () => {
   it("does not force a classic CodeMirror scroller", () => {
     const src = read("apps/web/src/features/editor/components/BaseCodeMirrorEditor.tsx");
     expect(src).not.toMatch(/\.cm-scroller::-webkit-scrollbar['"]\s*:\s*\{[^}]*width/);
-    expect(src).toContain("scrollbarWidth: 'thin'");
+    expect(src).toContain('scrollbarWidth: "thin"');
   });
 
   it("enables Electron scrollBounce on product windows", () => {

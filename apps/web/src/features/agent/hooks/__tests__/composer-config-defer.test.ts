@@ -71,7 +71,7 @@ describe("composer config defer-until-send", () => {
     expect(session).toContain("const [prefsRestored, setPrefsRestored] = useState(true)");
     expect(session).not.toContain("setLoadingAgents(true)");
     expect(session).not.toContain("agentApi.listRegistry()");
-    expect(session).toContain("agentChatApi.prefsGet()");
+    expect(session).toContain(".prefsGet()");
     expect(session).toContain("hydrateFavoriteModelsFromPrefs");
   });
 });

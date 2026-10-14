@@ -31,7 +31,7 @@ describe("Desktop Use settings wiring", () => {
       "utf8",
     );
     expect(sections).toContain("DesktopUseSettingsSection");
-    expect(sections).toContain("case 'desktop-use'");
+    expect(sections).toContain('case "desktop-use"');
     expect(sections).not.toContain("case 'apps'");
   });
 

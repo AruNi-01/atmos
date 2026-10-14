@@ -218,7 +218,10 @@ describe("automation execute modes", () => {
     expect(tabBar).toContain('kind: "chat"');
     expect(projectItem).toContain("isStandaloneGroup");
     expect(projectItem).toContain('<Timer className="size-3.5" />');
-    expect(projectItem).toContain("!isStandaloneGroup && (onAddProjectToGroup");
+    expect(projectItem).toContain("{!isStandaloneGroup &&");
+    expect(projectItem).toContain(
+      "onAddProjectToGroup || onRemoveProjectFromGroup || onCreateGroup",
+    );
     expect(projectItem).not.toContain("AutomationChip");
     expect(groupedProjectRow).toContain("isStandaloneGroup");
     expect(groupedProjectRow).toContain('<Timer className="size-3" />');
@@ -243,23 +246,23 @@ describe("automation execute modes", () => {
     expect(overviewTab).toContain("const hideGitChrome = !shouldShowOverviewGitWidgets(contextId)");
     expect(overviewTab).toContain("enabled: active && !hideGitChrome");
     expect(overviewTab).toContain("{hideGitChrome ? null : (");
-    expect(overviewTab).toContain("t('codeReviews.title')");
-    expect(overviewTab).toContain("t('pullRequests.title')");
-    expect(overviewTab).toContain("t('actionsSection.title')");
+    expect(overviewTab).toContain('t("codeReviews.title")');
+    expect(overviewTab).toContain('t("pullRequests.title")');
+    expect(overviewTab).toContain('t("actionsSection.title")');
     const codeReviewsBlock = overviewTab.slice(
       overviewTab.lastIndexOf(
         "hideGitChrome ? null",
-        overviewTab.indexOf("t('codeReviews.title')"),
+        overviewTab.indexOf('t("codeReviews.title")'),
       ),
-      overviewTab.indexOf("t('codeReviews.title')"),
+      overviewTab.indexOf('t("codeReviews.title")'),
     );
     expect(codeReviewsBlock).toContain("hideGitChrome ? null");
     const pullRequestsBlock = overviewTab.slice(
       overviewTab.lastIndexOf(
         "hideGitChrome ? null",
-        overviewTab.indexOf("t('pullRequests.title')"),
+        overviewTab.indexOf('t("pullRequests.title")'),
       ),
-      overviewTab.indexOf("t('pullRequests.title')"),
+      overviewTab.indexOf('t("pullRequests.title")'),
     );
     expect(pullRequestsBlock).toContain("hideGitChrome ? null");
     expect(centerStage).toContain("!hideStandaloneGitChrome && namedCodeReviewTabVisible");

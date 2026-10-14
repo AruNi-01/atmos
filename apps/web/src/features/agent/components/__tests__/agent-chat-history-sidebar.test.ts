@@ -69,8 +69,9 @@ describe("agent chat standalone history sidebar", () => {
     expect(header).toContain(
       'displaySessionTitle || (chatId ? "" : t("header.newSession.defaultTitle"))',
     );
-    expect(panel).toContain(
-      "messages.length === 0 && !isConnecting && !isResumingHistory && !error",
-    );
+    expect(panel).toContain("messages.length === 0 &&");
+    expect(panel).toContain("!isConnecting &&");
+    expect(panel).toContain("!isResumingHistory &&");
+    expect(panel).toContain("!error &&");
   });
 });

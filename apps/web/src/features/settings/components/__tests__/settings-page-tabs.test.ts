@@ -38,15 +38,15 @@ describe("Settings page group tabs", () => {
       "utf8",
     );
     expect(sections).toContain("activeGroupTab");
-    expect(sections).toContain("case 'integrations':");
-    expect(sections).toContain("case 'browser':");
-    expect(sections).toContain("case 'desktop-use':");
+    expect(sections).toContain('case "integrations":');
+    expect(sections).toContain('case "browser":');
+    expect(sections).toContain('case "desktop-use":');
     expect(sections).not.toContain("activeGroupTab === 'browser'");
     expect(sections).not.toContain("activeGroupTab === 'desktop-use'");
     expect(sections).not.toContain("case 'apps'");
-    expect(sections).toContain("activeGroupTab === 'tunnel-connector'");
-    expect(sections).toContain("activeGroupTab === 'labels'");
-    expect(sections).toContain("case 'canvas':");
+    expect(sections).toContain('activeGroupTab === "tunnel-connector"');
+    expect(sections).toContain('activeGroupTab === "labels"');
+    expect(sections).toContain('case "canvas":');
     expect(sections).not.toContain("activeGroupTab === 'canvas'");
     expect(sections).toContain("<AppearanceSettingsSection />");
     expect(sections).toContain("<SettingsAboutSection");

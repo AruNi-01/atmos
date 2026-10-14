@@ -358,7 +358,7 @@ describe("center explorer layout", () => {
     expect(sidecar).toContain('takingSpace && "border border-r-0 border-border/40 bg-background"');
     expect(sidecar).toContain('"absolute z-10 flex min-h-0 overflow-visible"');
     expect(sidecar).toContain(
-      'className="flex h-full min-h-0 min-w-0 w-full flex-col overflow-hidden rounded-[inherit] bg-background pl-[0.5px]"',
+      'className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-[inherit] bg-background pl-[0.5px]"',
     );
     expect(sidecar).toContain("takingSpace || isResizing || collapseAnimating ? children : null");
     const frame = readFileSync(join(import.meta.dir, "../workspace-center-frame.tsx"), "utf8");

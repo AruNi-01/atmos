@@ -300,7 +300,7 @@ describe("shortcut prefix wiring", () => {
   test("workspace rows overlay shortcut hints so the list height does not jump", () => {
     const content = readFileSync(join(import.meta.dir, "../sidebar/WorkspaceContent.tsx"), "utf8");
     expect(content).toContain('shortcutDigit != null && "invisible"');
-    expect(content).toContain("absolute right-0 top-1/2");
+    expect(content).toContain("pointer-events-none absolute top-1/2 right-0 z-10 -translate-y-1/2");
     expect(content).toContain("SidebarHeldShortcutBadge");
     const badge = readFileSync(join(import.meta.dir, "../HeldShortcutBadge.tsx"), "utf8");
     expect(badge).toContain("leading-none");

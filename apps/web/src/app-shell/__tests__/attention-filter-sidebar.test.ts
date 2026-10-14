@@ -13,7 +13,7 @@ describe("attention filter sidebar", () => {
     expect(source).toContain("expandedProjectIds={listExpandedProjectIds}");
     expect(source).not.toContain("expandedProjectIds={expandedProjects}");
     expect(source).toContain(
-      "return listProjects\n            .filter((project) => project.workspaces.length > 0)",
+      "return listProjects\n      .filter((project) => project.workspaces.length > 0)",
     );
   });
 
@@ -22,9 +22,7 @@ describe("attention filter sidebar", () => {
     expect(projectItem).toContain("project.workspaces.length === 0 && !attentionFilterMode");
 
     const twoColumn = read("../left-sidebar-controls.tsx");
-    expect(twoColumn).toContain(
-      "selectedProjectUnpinnedWorkspaces.length === 0 && !attentionFilterMode",
-    );
+    expect(twoColumn).toContain("projectHasNoWorkspaces && !attentionFilterMode");
   });
 
   it("filters session rows with the same header attention latch", () => {

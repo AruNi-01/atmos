@@ -93,10 +93,10 @@ describe("agent tool markdown file presentation", () => {
       "utf8",
     );
     const present = readFileSync(
-      join(import.meta.dir, "../../lib/tool-results/parse-tool-result.ts"),
+      join(import.meta.dir, "../../lib/tool-results/diff-stats.ts"),
       "utf8",
     );
-    expect(present).toContain('kind: "diff_stats"');
+    expect(present).toContain('type === "diff_stats"');
     expect(block).toContain('presentation.kind === "diff_stats"');
     expect(block).toContain('t("lineChanges")');
     expect(block).toMatch(/presentation\.kind === "empty" && path && part\.kind === "read"/);

@@ -8,7 +8,7 @@ const linearTable = readFileSync(join(import.meta.dir, "../TaskLinearTable.tsx")
 describe("task table row hover", () => {
   it("uses an inset rounded hover on GitHub rows instead of a full-bleed cell fill", () => {
     const listClass = githubTable.slice(
-      githubTable.indexOf('<ul className="m-0 min-h-0 min-w-0 flex-1 list-none'),
+      githubTable.indexOf('<ul className="m-0 min-w-0 list-none px-1 py-1"'),
       githubTable.indexOf("{items.map((item) => {"),
     );
     expect(listClass).toContain("px-1 py-1");
@@ -26,7 +26,7 @@ describe("task table row hover", () => {
 
   it("uses an inset rounded hover on Linear rows instead of a full-bleed cell fill", () => {
     const listClass = linearTable.slice(
-      linearTable.indexOf('<ul className="m-0 min-h-0 min-w-0 flex-1 list-none'),
+      linearTable.indexOf('<ul className="m-0 min-w-0 list-none px-1 py-1"'),
       linearTable.indexOf("{issues.map((issue) => {"),
     );
     expect(listClass).toContain("px-1 py-1");
@@ -53,7 +53,7 @@ describe("task table row hover", () => {
     expect(githubAction).not.toContain("text-muted-foreground");
 
     const linearAction = linearTable.slice(
-      linearTable.indexOf('actionColClass,\n                    "flex items-center justify-end"'),
+      linearTable.indexOf('actionColClass, "flex items-center justify-end"'),
       linearTable.indexOf('<Rocket className="size-3.5" />'),
     );
     expect(linearAction).toContain('variant="default"');

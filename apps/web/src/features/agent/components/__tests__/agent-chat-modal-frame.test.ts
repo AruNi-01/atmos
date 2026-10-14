@@ -36,7 +36,8 @@ describe("agent chat modal frame", () => {
     expect(panel).toContain("transcriptBottomPadPx");
     expect(panel).toContain("wideContentClassName={wideContentClassName}");
     expect(panel).toContain('data-agent-chat-timeline-nav=""');
-    expect(panel).toContain("relative w-8 shrink-0");
+    expect(panel).toContain('"w-8"');
+    expect(panel).toContain("relative h-full shrink-0");
     expect(panel).toContain("gap-3 px-3 py-4");
     expect(panel).toContain("userMessageIndices.length > 1");
     expect(panel).toContain("<AgentPromptComposer");
@@ -51,7 +52,7 @@ describe("agent chat modal frame", () => {
     expect(panel).not.toContain("max-h-[80cqh] shrink");
     expect(panel).not.toContain("max-h-[80cqh] px-3");
     expect(panel).not.toContain("max-h-[50cqh] px-3");
-    expect(panel).toContain("min-h-0 min-w-0 w-full max-h-[70cqh]");
+    expect(panel).toContain("max-h-[70cqh] min-h-0 w-full min-w-0");
     expect(panel).not.toContain("border-t border-border p-3");
     const composerSource = readFileSync(
       join(import.meta.dir, "../AgentPromptComposer.tsx"),
@@ -65,7 +66,7 @@ describe("agent chat modal frame", () => {
     expect(composerSource).toContain("[data-markdown-find-panel]");
     expect(overlaySource).toContain('data-agent-chat-above-composer-overlays=""');
     expect(overlaySource).toContain(
-      '"pointer-events-none absolute inset-x-0 bottom-full z-20 flex w-full min-h-0 flex-col gap-2 has-[.pointer-events-auto]:pb-2"',
+      '"pointer-events-none absolute inset-x-0 bottom-full z-20 flex min-h-0 w-full flex-col gap-2 has-[.pointer-events-auto]:pb-2"',
     );
     const contentAt = panel.indexOf("<ConversationContent");
     const confirmationAt = panel.indexOf("<AgentPermissionCard");
@@ -151,7 +152,7 @@ describe("agent chat modal frame", () => {
     expect(session).toContain("composerConfigOptions");
     expect(session).toContain("optionsByAgentRef");
     expect(session).toContain("agentChatApi.optionsGet(id)");
-    expect(session).toContain("agentChatApi.optionsGet(id, true)");
+    expect(session).toContain(".optionsGet(id, true)");
     expect(session).toContain("reloadEmptyCatalog");
     expect(session).toContain("setOptionsRefreshing(true)");
     expect(session).toContain("catalogModelsReloading: optionsRefreshing");
@@ -239,7 +240,7 @@ describe("agent chat modal frame", () => {
     expect(panel).not.toContain("<ConversationScrollButton");
     const nav = readFileSync(join(import.meta.dir, "../AgentMessageTimelineNav.tsx"), "utf8");
     expect(nav).toContain("inset-y-0 left-0");
-    expect(nav).toContain("flex w-8 min-h-0");
+    expect(nav).toContain("flex min-h-0 w-8");
     expect(nav).toContain('previewContainerClassName="inset-y-0 left-full right-auto ml-3');
     expect(nav).toContain("data-agent-chat-timeline-step={direction}");
     expect(nav).toContain("stepUserMessageIndex");

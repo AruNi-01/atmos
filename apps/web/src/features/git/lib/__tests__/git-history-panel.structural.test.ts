@@ -24,7 +24,9 @@ describe("git history panel structural", () => {
     expect(src).toContain("InputGroup");
     expect(src).toContain("InputGroupButton");
     expect(src).not.toMatch(/InputGroup className="[^"]*overflow-hidden/);
-    expect(src).toContain("mr-1 size-5 h-5 w-5 shrink-0 rounded-md sm:size-5 sm:h-5 sm:w-5");
+    expect(src).toContain(
+      "mr-1 size-5 h-5 w-5 shrink-0 rounded-md before:rounded-[calc(var(--radius-md)-1px)] sm:size-5 sm:h-5 sm:w-5",
+    );
     expect(src).not.toContain("InputGroupAddon");
     expect(src).toContain("CaseSensitive");
     expect(src).not.toMatch(/flex h-10 shrink-0 items-center gap-1\.5 border-b/);

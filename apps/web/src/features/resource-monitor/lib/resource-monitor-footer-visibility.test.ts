@@ -27,21 +27,24 @@ describe("Footer resource monitor visibility", () => {
       "const effectiveShowResourceMonitor = resolveEffectiveShowResourceMonitor(",
     );
     expect(footerSrc).toContain(
-      "showLeft = showWsStatus || showLocalServices || effectiveShowResourceMonitor || showLeftCarousel",
+      "showWsStatus || showLocalServices || effectiveShowResourceMonitor || showLeftCarousel",
     );
+    expect(footerSrc).toContain("showWsStatus &&");
     expect(footerSrc).toContain(
-      "showWsStatus && (effectiveShowResourceMonitor || showLocalServices || showLeftCarousel)",
+      "(effectiveShowResourceMonitor || showLocalServices || showLeftCarousel) ? (",
     );
     expect(footerSrc).toContain(
       "effectiveShowResourceMonitor && (showLocalServices || showLeftCarousel)",
     );
-    expect(footerSrc).toContain("{effectiveShowResourceMonitor ? (");
+    expect(footerSrc).toContain(
+      "{effectiveShowResourceMonitor ? <ResourceMonitorFooterItem /> : null}",
+    );
     expect(footerSrc).toContain("<ResourceMonitorFooterItem");
     expect(footerSrc).toContain("showLocalServices && showLeftCarousel");
   });
 
   test("shows WebSocket status only on connection problems and puts Monitor first", () => {
-    expect(footerSrc).toContain("{showLocalServices ? (");
+    expect(footerSrc).toContain("{showLocalServices ? <LocalServicesFooterItem /> : null}");
     expect(footerSrc).toContain("{showWsStatus ? (");
     expect(footerSrc).toContain('const showWsStatus = connectionState !== "connected"');
     expect(footerSrc).not.toContain("showWsConnection");

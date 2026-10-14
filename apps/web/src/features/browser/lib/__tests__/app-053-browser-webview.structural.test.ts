@@ -18,7 +18,7 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(src).not.toContain("browser_bridge_update_bounds");
     expect(src).not.toContain("browser_bridge_show");
     expect(src).not.toContain("browser_bridge_hide");
-    expect(src).toContain("mode: 'desktop'");
+    expect(src).toContain('mode: "desktop"');
     expect(src).toContain("desktop-browser:viewport-changed");
     expect(src).toContain("desktop-browser:agent-activity");
     expect(src).toContain("browser_bridge_query_element_rects");
@@ -28,7 +28,7 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
   it("in-panel navigation is host-webview owned (no dual navigate+loadURL)", () => {
     const nav = read("apps/web/src/features/browser/hooks/use-browser-navigation.ts");
     // Desktop in-place nav must not call controller.navigate (races webview src).
-    expect(nav).toContain("preferredTransportMode === 'desktop'");
+    expect(nav).toContain('preferredTransportMode === "desktop"');
     expect(nav).toContain("setDesktopCommittedUrl");
     expect(nav).not.toMatch(
       /preferredTransportMode === ['"]desktop['"][\s\S]{0,400}controller\.navigate/,
@@ -105,7 +105,7 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(transport).toContain("browser_bridge_exit_pick_mode");
     expect(transport).toContain("browser_bridge_clear_selection");
     expect(transport).toMatch(
-      /async exitPickMode\(\) \{\s*if \(destroyed\) return;\s*await invokeDesktopBrowserBridge\('browser_bridge_exit_pick_mode'/,
+      /async exitPickMode\(\) \{\s*if \(destroyed\) return;\s*await invokeDesktopBrowserBridge\(["']browser_bridge_exit_pick_mode["']/,
     );
     expect(transport).toMatch(
       /async clearSelection\(\) \{\s*if \(destroyed\) return;[\s\S]*?browser_bridge_clear_selection/,

@@ -90,7 +90,7 @@ describe("S2 Agent Chat entry points", () => {
       "utf8",
     );
     expect(panel).toContain('variant === "center"');
-    expect(panel).toContain("flex h-full min-h-0 min-w-0 w-full flex-1 flex-col");
+    expect(panel).toContain("flex h-full min-h-0 w-full min-w-0 flex-1 flex-col");
     expect(panel).toContain("isEmbeddedPausedForStandalone");
     expect(panel).toContain('variant !== "standalone" && isStandaloneChatOpen');
     expect(panel).toContain('data-agent-chat-standalone-paused="true"');
@@ -125,7 +125,7 @@ describe("S2 Agent Chat entry points", () => {
     );
     expect(header).toContain('constrainWidth && "mx-auto w-full max-w-3xl"');
     expect(header).toContain("truncate text-sm font-medium");
-    expect(header).toContain("flex min-w-0 max-w-[50%] items-start gap-2");
+    expect(header).toContain("flex max-w-[50%] min-w-0 items-start gap-2");
     expect(header).toContain("inline-flex w-fit max-w-full");
     expect(header).toContain("lockedContextLabel");
     expect(panel).toContain('variant === "modal" && !liveChatId');
