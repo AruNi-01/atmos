@@ -206,20 +206,20 @@ Verification layers:
 ### S18 — measured timings
 
 - **Level**: Performance
-- **Given**: TECH quality-target table.
-- **When**: timing `oxlint apps/web` locally and reading `CI - JS` tool lines.
-- **Then**: web lint **63.3s → 1.26s** local; whole-repo oxlint ~1.8s; oxfmt --check ~1.7s local; CI tool time **~2.1s oxlint / ~3.3s oxfmt** (job wall includes `bun install`).
-- **Signals**: local `time` output; Actions “Finished in …s” lines.
+- **Given**: TECH quality-target table and **Local timing notes** (Cursor cloud VM: Intel Xeon KVM, 4 cores, `free -h` 15Gi RAM; bash `time` `real` after `bun install`; single invocations; warm/cold cache not isolated).
+- **When**: `time oxlint apps/web`, `time bun --filter web lint`, `time oxlint` (repo), `time oxfmt --check "<glob>"`, plus `CI - JS` tool lines.
+- **Then**: web lint **63.3s (ESLint, same-session note) → 1.259s / 1.256s** oxlint local; whole-repo oxlint **1.767s** / **1.873s --quiet**; oxfmt --check **1.790s real** (tool 1686ms; range 1.692–1.797s); CI tool time **~2.1s oxlint / ~3.3s oxfmt** (job wall includes `bun install`, not this VM).
+- **Signals**: `oxc-timings.log` / `oxc-timings.txt`; Actions “Finished in …s” lines. See TECH Local timing notes.
 
 ## Performance & load budgets
 
-| Check                   | Budget                                                             |
-| ----------------------- | ------------------------------------------------------------------ |
-| `apps/web` oxlint local | ~1.3s class (was 63.3s); must stay ≪ old ESLint                    |
-| Whole-repo oxlint local | < 5s on a typical 4-thread laptop                                  |
-| `oxfmt --check` local   | < 5s on ~4500 files                                                |
-| `CI - JS` tool time     | oxlint + oxfmt each a few seconds; wall dominated by `bun install` |
-| Warning cap             | exactly the current inventory; never raise without a TECH note     |
+| Check                   | Budget                                                                                       |
+| ----------------------- | -------------------------------------------------------------------------------------------- |
+| `apps/web` oxlint local | ~1.3s on the Cursor cloud VM in TECH timing notes (was 63.3s ESLint); must stay ≪ old ESLint |
+| Whole-repo oxlint local | < 5s on that 4-core VM                                                                       |
+| `oxfmt --check` local   | < 5s on ~4500 files on that VM                                                               |
+| `CI - JS` tool time     | oxlint + oxfmt each a few seconds; wall dominated by `bun install`                           |
+| Warning cap             | exactly the current inventory; never raise without a TECH note                               |
 
 ## Regression checklist
 
@@ -291,7 +291,7 @@ Merge-blocking for the **toolchain** (already met on `#309`):
 | S15      | ✅     | web snapshots updated; CI tests green on merge SHA                                                                                                                                                 |
 | S16      | ✅     | E2E smoke + specs green; native evaluate click/focus                                                                                                                                               |
 | S17      | ✅     | Playwright + Chrome vs `main` `9e4fc3fe8`: home, workspace, Changes, Graph History, terminal, chat, settings, landing, docs — **pass**; no Tailwind layout break; no blank screens after hydration |
-| S18      | ✅     | web **63.3s → 1.26s** local; CI tool **~2.1s oxlint / ~3.3s oxfmt**                                                                                                                                |
+| S18      | ✅     | Cursor cloud VM (4-core Xeon KVM, 15Gi RAM): web ESLint **63.3s** → oxlint **1.259s**; CI tool **~2.1s oxlint / ~3.3s oxfmt**. Commands in TECH Local timing notes.                                |
 
 Commands used:
 
@@ -303,6 +303,11 @@ bun --filter web lint
 just lint
 just fmt-check
 just test-e2e-smoke
+# timings (#309, Cursor cloud VM — see TECH Local timing notes):
+#   time oxlint apps/web
+#   time bun --filter web lint
+#   time oxlint
+#   time oxfmt --check "**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,css,json,jsonc,md,mdx}"
 # visual: Playwright screenshots + Chrome walkthrough vs main worktree
 ```
 

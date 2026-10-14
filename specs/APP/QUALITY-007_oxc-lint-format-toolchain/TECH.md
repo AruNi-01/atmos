@@ -25,15 +25,33 @@ Shipped on `main` as `2067be8bc495938c95d5692a7623742cd1294305` (`chore(tooling)
 
 ## Quality target
 
-| Metric                  | Before                                                  | After                                                         |
-| ----------------------- | ------------------------------------------------------- | ------------------------------------------------------------- |
-| JS/TS linter            | ESLint 9 + `eslint-config-next` (web/landing/docs only) | oxlint 1.88.0, one root `.oxlintrc.jsonc`                     |
-| JS/TS formatter         | None (`just fmt` called missing Prettier)               | oxfmt 0.73.0, one root `.oxfmtrc.json`                        |
-| `apps/web` lint (local) | **63.3s**                                               | **1.26s**                                                     |
-| `apps/web` lint (CI)    | ~55–93s                                                 | oxlint tool ~2.1s; `CI - JS` job wall includes `bun install`  |
-| Whole-repo JS/TS lint   | not linted                                              | **1.77–1.87s** local (0 errors, 1401 warnings)                |
-| Format check            | n/a                                                     | **1.69–1.80s** local on 4526 files; CI tool **~3.3s**         |
-| Product behavior        | —                                                       | Unchanged (regression gates + visual comparison in `TEST.md`) |
+| Metric                  | Before                                                                          | After                                                         |
+| ----------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| JS/TS linter            | ESLint 9 + `eslint-config-next` on **web / landing / docs**                     | oxlint 1.88.0, one root `.oxlintrc.jsonc`                     |
+| JS/TS formatter         | None (`just fmt` called missing Prettier)                                       | oxfmt 0.73.0, one root `.oxfmtrc.json`                        |
+| `apps/web` lint (local) | **63.3s** ESLint                                                                | **1.26s** oxlint                                              |
+| `apps/web` lint (CI)    | ~55–93s (previous GitHub Actions web ESLint job)                                | oxlint tool ~2.1s; `CI - JS` job wall includes `bun install`  |
+| Whole-repo JS/TS lint   | web/landing/docs via ESLint; **packages / mobile / desktop-electron uncovered** | **1.77–1.87s** oxlint local (0 errors, 1401 warnings)         |
+| Format check            | n/a                                                                             | **1.69–1.80s** local on ~4526 files; CI tool **~3.3s**        |
+| Product behavior        | —                                                                               | Unchanged (regression gates + visual comparison in `TEST.md`) |
+
+### Local timing notes
+
+Local figures in this table (and TEST S18) were taken on a **Cursor cloud VM** during `#309` (2026-10-14), not a laptop.
+
+**Machine (as reported by the VM):** Linux 6.12.94+ x86_64; `lscpu` model `Intel(R) Xeon(R) Processor` (GenuineIntel, KVM); **4 CPUs / 4 cores / 1 thread per core** (`nproc` = 4); `free -h` **15Gi** total RAM (`/proc/meminfo` `MemTotal` 16387416 kB).
+
+**Method:** after `bun install`, wall-clock from bash `time` (`real`) for a **single process invocation** (no long-lived daemon, not averaged). Captured in the implementation log `oxc-timings.log` / session note `oxc-timings.txt`. Warm vs cold disk cache was **not** isolated.
+
+| Command                       | Result                                                                                                                             |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `time oxlint apps/web`        | `real` **1.259s**                                                                                                                  |
+| `time bun --filter web lint`  | `real` **1.256s** (same as 1.26s in the table)                                                                                     |
+| `time oxlint` (repo)          | `real` **1.767s**                                                                                                                  |
+| `oxlint --quiet` (repo)       | **1.873s** (session note; 0 errors)                                                                                                |
+| `time oxfmt --check "<glob>"` | tool `Finished in 1686ms` on 4539 files / `real` **1.790s**; session note also recorded **1.692–1.797s** across two `--check` runs |
+| pre-oxc `apps/web` ESLint     | **63.3s** — same-session note on this VM (`oxc-timings.txt`); not a second `time` block in the log                                 |
+| CI oxlint / oxfmt tool time   | GitHub Actions `CI - JS` “Finished in …s” lines (**~2.1s** / **~3.3s**), not this VM                                               |
 
 ## Architecture overview
 
@@ -61,7 +79,7 @@ Decision: **oxc-only**, not Biome, not an ESLint hybrid.
 
 Three problems stacked:
 
-1. **Web ESLint was slow.** `apps/web` lint was **63.3s** locally and **~55–93s** in CI. Landing/docs were faster only because they had less code. Packages, mobile, Electron, e2e, and scripts were not in the same gate.
+1. **Web ESLint was slow.** `apps/web` lint was **63.3s** locally and **~55–93s** in CI (see timing notes). Landing/docs also ran ESLint (smaller trees). **packages, mobile, and desktop-electron had no ESLint** — they were uncovered, not "the whole repo was unlinted."
 2. **No JS/TS formatter.** The repo had no Prettier (or other) config. Contributors formatted ad hoc; CI did not check JS/TS/CSS/JSON/MD format.
 3. **`just fmt` was broken.** The justfile invoked Prettier, which was not a dependency, so the recipe failed. Rust `cargo fmt` was the only working half.
 
@@ -69,14 +87,14 @@ QUALITY-005 already split TypeScript 7 (native `tsc`) from TypeScript 6 (program
 
 ## Tool choice
 
-| Option                                                                                        | Verdict                                                                                                                                                                                                            |
-| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Biome** (lint + format in one Rust CLI)                                                     | Fast, but weaker Next.js plugin coverage and no native React Compiler rule set matching Next 16. Formatter is less Prettier-compatible (`prettier-ignore`, MD/HTML fences). Would still leave a Compiler-rule gap. |
-| **ESLint hybrid** — keep ESLint in `apps/web` for Compiler rules + `eslint-plugin-oxlint`     | Extra 55–93s CI job, duplicate config, still need oxlint for everything else. The slow path stays on the hottest package.                                                                                          |
-| **oxlint JS plugins** + `eslint-plugin-react-hooks`                                           | Unstable here: plugin name is reserved (`react-hooks`); JS plugins are slower than native rules.                                                                                                                   |
-| **Native oxlint `react/*` Compiler rules** (oxlint ≥ 1.79, pin **1.88.0**) + **oxfmt 0.73.0** | **Chosen.** Same Compiler rules as Next 16, warn-level ratchet matches the old web/landing ESLint overrides, one config, one CI job measured in seconds.                                                           |
+| Option                                                                                        | Verdict                                                                                                                                                                                                                                                                                                      |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Biome** (lint + format in one Rust CLI)                                                     | **Author's judgment** (no timed bake-off and no cited Biome/oxc comparison in this spec): fast, but weaker Next.js plugin coverage and no native React Compiler rule set matching Next 16. Formatter is less Prettier-compatible (`prettier-ignore`, MD/HTML fences). Would still leave a Compiler-rule gap. |
+| **ESLint hybrid** — keep ESLint in `apps/web` for Compiler rules + `eslint-plugin-oxlint`     | Extra 55–93s CI job (measured web ESLint), duplicate config, still need oxlint for everything else. The slow path stays on the hottest package.                                                                                                                                                              |
+| **oxlint JS plugins** + `eslint-plugin-react-hooks`                                           | **Not evaluated** in this repo: no command, error output, or timings were captured. Native `react/*` already covers the Compiler rules we needed.                                                                                                                                                            |
+| **Native oxlint `react/*` Compiler rules** (oxlint ≥ 1.79, pin **1.88.0**) + **oxfmt 0.73.0** | **Chosen.** Same Compiler rules as Next 16, warn-level ratchet matches the old web/landing ESLint overrides, one config, one CI job measured in seconds.                                                                                                                                                     |
 
-**Why ESLint was removed entirely.** oxlint 1.88 already implements the React Compiler rules natively (`react/set-state-in-effect`, `refs`, `immutability`, …). Loading `eslint-plugin-react-hooks` as an oxlint JS plugin is rejected and slower. Keeping ESLint “just for Compiler” recreates the 55–93s job the migration exists to delete. There is no remaining ESLint config, dependency, or per-app `eslint.config.*`.
+**Why ESLint was removed entirely.** oxlint 1.88 already implements the React Compiler rules natively (`react/set-state-in-effect`, `refs`, `immutability`, …). Loading `eslint-plugin-react-hooks` as an oxlint JS plugin was **not evaluated** here (no captured command, error output, or timings). Native `react/*` made a hybrid unnecessary. Keeping ESLint “just for Compiler” would keep the 55–93s web ESLint CI job the migration exists to delete. There is no remaining ESLint config, dependency, or per-app `eslint.config.*`.
 
 ## `.oxlintrc.jsonc` design
 
@@ -309,7 +327,7 @@ This spec PR only records the as-built design and points blame-ignore at the squ
 | Blame-ignore of the **entire squash** (not format-only) | `a480be45a` is not on `main`; ignore `2067be8bc` so `git blame` still skips the mass reformat. Tooling-only lines in that squash are also skipped — acceptable |
 | Playwright click flakes after format                    | Tests use native `evaluate` click / focus; product pointer-interception remains a follow-up                                                                    |
 
-**Tradeoff chosen:** native oxlint + oxfmt now beats Biome (Compiler/Next gap) and beats keeping ESLint (the slow job).
+**Tradeoff chosen:** native oxlint + oxfmt over an ESLint hybrid (measured web ESLint cost) and over Biome (**author's judgment** on Compiler/Next coverage, not a timed bake-off).
 
 **Rollback path:** revert `2067be8bc` (and this spec). No data migration. ESLint configs are gone from git history on `main` except via that revert.
 
