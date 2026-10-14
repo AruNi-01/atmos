@@ -1,3 +1,4 @@
 # Commits to skip in git blame (enable with: git config blame.ignoreRevsFile .git-blame-ignore-revs)
-# oxfmt whole-repo JS/TS/CSS/JSON/MD
-a480be45aecc6edbfb2b9530b3c906784e5b6824
+# oxfmt whole-repo JS/TS/CSS/JSON/MD — squash commit of #309
+# (the pre-squash format-only SHA a480be45a is not on main)
+2067be8bc495938c95d5692a7623742cd1294305
