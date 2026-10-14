@@ -37,11 +37,12 @@ interface MotionPresetProps {
         scale?: number;
       }
     | boolean;
-  motionProps?: Omit<HTMLMotionProps<"div">, "children" | "className" | "ref" | "transition">;
-  ref?: React.Ref<HTMLElement | null>;
+  // motion's factory is not tag-generic; `any` matches the published preset.
+  motionProps?: Omit<HTMLMotionProps<any>, "children" | "className" | "ref" | "transition">;
+  ref?: React.Ref<any>;
 }
 
-const motionComponents = motion as Record<MotionComponent, typeof motion.div>;
+const motionComponents = motion as any;
 
 function MotionPreset({
   ref,
@@ -59,7 +60,7 @@ function MotionPreset({
   zoom = false,
   motionProps = {},
 }: MotionPresetProps) {
-  const localRef = React.useRef<HTMLElement | null>(null);
+  const localRef = React.useRef<any>(null);
 
   React.useImperativeHandle(ref, () => localRef.current);
 

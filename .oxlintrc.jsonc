@@ -248,5 +248,14 @@
         "react/static-components": "warn",
       },
     },
+    {
+      // Asset module + motion factory are not tag-generic; `any` is the
+      // published type. Tightening them breaks `logo-svg` / `auth-shell` /
+      // `MotionPreset` typecheck (see CI).
+      "files": ["packages/ui/src/css.d.ts", "packages/ui/src/components/ui/motion-preset.tsx"],
+      "rules": {
+        "typescript/no-explicit-any": "off",
+      },
+    },
   ],
 }
