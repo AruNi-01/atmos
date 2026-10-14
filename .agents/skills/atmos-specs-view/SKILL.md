@@ -170,8 +170,11 @@ The rendered Markdown must be readable before any decorative styling:
   ```
 - For dark visual themes, use Mermaid's `"dark"` theme or explicit theme variables with sufficient contrast.
 - Render generated diagrams into dedicated containers such as:
+  <!-- prettier-ignore -->
   ```html
-  <div class="mermaid">flowchart TD A[PRD Must Have] --> B[TECH module]</div>
+  <div class="mermaid">flowchart TD
+    A[PRD Must Have] --> B[TECH module]
+  </div>
   ```
 - If Mermaid rendering fails, show the diagram source as readable code instead of leaving a blank panel.
 - Do not execute arbitrary HTML from Markdown to render diagrams. Only pass agent-generated Mermaid source strings into Mermaid.
