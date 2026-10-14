@@ -115,7 +115,8 @@
     "react/set-state-in-render": "error",
     "react/unsupported-syntax": "warn",
     // Match apps/web + landing: Next 16 enables these as errors; pre-existing
-    // violations stay warn so CI remains a ratchet for new issues.
+    // violations stay warn. CI (`bun lint` / `CI - JS`) uses --max-warnings
+    // equal to the current inventory so new warnings fail the job.
     "react/set-state-in-effect": "warn",
     "react/refs": "warn",
     "react/immutability": "warn",
@@ -169,28 +170,6 @@
     "unicorn/no-empty-file": "warn",
   },
   "overrides": [
-    {
-      "files": ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],
-      "rules": {
-        // typescript-eslint recommended disables these on TS (typechecker covers them)
-        "constructor-super": "off",
-        "getter-return": "off",
-        "no-class-assign": "off",
-        "no-const-assign": "off",
-        "no-dupe-class-members": "off",
-        "no-dupe-keys": "off",
-        "no-func-assign": "off",
-        "no-import-assign": "off",
-        "no-new-native-nonconstructor": "off",
-        "no-obj-calls": "off",
-        "no-redeclare": "off",
-        "no-setter-return": "off",
-        "no-this-before-super": "off",
-        "no-unreachable": "off",
-        "no-unsafe-negation": "off",
-        "no-with": "off",
-      },
-    },
     {
       // Next.js pages-dir / app-dir rules only make sense in Next apps.
       "files": [
