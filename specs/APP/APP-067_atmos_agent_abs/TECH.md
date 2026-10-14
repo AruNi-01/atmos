@@ -556,6 +556,7 @@ If this breaks: users still have Terminal. Soft-deleted conversations remain in 
 - Supersedes in product: APP-018 history identity; APP-004 chat transport.
 - Does not block or rewrite: APP-024, APP-030, APP-015/022/027.
 - External binaries: whatever `AgentCommandSpec` lists (`grok`, `cursor-agent`, `kimi`, `opencode`, `aider`, …). Missing binary → catalog `error` / `unsupported`, Chat still opens with manual/no model.
+- Later: [QUALITY-008](../QUALITY-008_agent-chat-ui-optimization/TECH.md) documents the shipped live-wire and transcript UI on top of this spec's `agent_chat_get` then subscribe-from-`after_sequence` restore. It does not change Conversation identity.
 
 ## Open questions
 
