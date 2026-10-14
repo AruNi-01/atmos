@@ -109,10 +109,11 @@ export function SubagentTasksPanel({
                     <span className="flex size-5 shrink-0 items-center justify-center">
                       <SubagentTaskGlyph seed={part.tool_call_id} status={status} />
                     </span>
-                    <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                    {/* Title shrinks last: a long live operation must not push the agent name off. */}
+                    <span className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
                       <span
                         className={cn(
-                          "min-w-0 truncate text-sm",
+                          "min-w-0 shrink truncate text-sm",
                           status === "running"
                             ? "font-medium text-foreground"
                             : status === "failed"
@@ -125,7 +126,7 @@ export function SubagentTasksPanel({
                       {activity.busy ? (
                         <AgentActivityStatusText
                           activity={activity}
-                          className="min-w-0 shrink-0 text-muted-foreground"
+                          className="max-w-full min-w-0 shrink-[9999] overflow-hidden text-muted-foreground"
                         />
                       ) : null}
                     </span>
