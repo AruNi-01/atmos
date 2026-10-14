@@ -17,7 +17,7 @@ export function useAuthTypingImpulse(): ImpulseRef {
 
 type Variant = "welcome" | "request-access" | "onboarding";
 
-const FIGURES: Record<Variant, string> = {
+const FIGURES: Record<Variant, any> = {
   welcome: welcomeSrc,
   "request-access": teamSrc,
   onboarding: clustersSrc,
@@ -31,7 +31,8 @@ export function AuthShell({
   variant?: Variant;
 }) {
   const typingImpulseRef = useRef(0);
-  const src = FIGURES[variant];
+  const rawSrc = FIGURES[variant];
+  const src = typeof rawSrc === "string" ? rawSrc : rawSrc?.src || "";
   return (
     <TypingImpulseContext.Provider value={typingImpulseRef}>
       <AuthSplitLayout
