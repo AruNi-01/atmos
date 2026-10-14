@@ -1,19 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import {
-  Play,
-  Settings,
-  Plus,
-  Command,
-  Lock,
-  Unlock,
-  Square,
-  Skull,
-  Loader2,
-  ShieldAlert,
-  SquareTerminal,
-} from "lucide-react";
+import React, { useState } from 'react';
+import { Play, Settings, Plus, Command, Lock, Unlock, Square, Skull, Loader2, ShieldAlert, SquareTerminal } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Terminal } from "@/features/terminal/components/Terminal";
 import { cn } from "@/shared/lib/utils";
@@ -39,16 +27,16 @@ import {
 } from "@/app-shell/center-stage-shared-tabs";
 import { preventNonPrimaryTabActivate } from "@/app-shell/center-stage-tab-model";
 
-import { useEditorStore } from "@/features/editor/store/use-editor-store";
-import { WorkspaceScriptDialog } from "@/features/workspace/components/WorkspaceScriptDialog";
-import { ScriptTrustReview } from "@/shared/components/ScriptTrustReview";
-import { wsScriptApi } from "@/api/ws-api";
-import { toastManager } from "@workspace/ui";
+import { useEditorStore } from '@/features/editor/store/use-editor-store';
+import { WorkspaceScriptDialog } from '@/features/workspace/components/WorkspaceScriptDialog';
+import { ScriptTrustReview } from '@/shared/components/ScriptTrustReview';
+import { wsScriptApi } from '@/api/ws-api';
+import { toastManager } from '@workspace/ui';
 import type { TerminalRef } from "@/features/terminal/components/Terminal";
-import { getActiveInstanceId } from "@/features/connection/store/connection-store";
+import { getActiveInstanceId } from '@/features/connection/store/connection-store';
 import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
 import { namespacedTmuxWindowName } from "@/features/terminal/store/terminal-store-helpers";
-import { useUiPrefStore } from "@/shared/stores/use-ui-pref-store";
+import { useUiPrefStore } from '@/shared/stores/use-ui-pref-store';
 import { isRunTerminalBusyFromTitle } from "@/features/browser/lib/run-terminal-busy";
 import { runLogApi } from "@/features/browser/lib/run-log-api";
 import { setRunLogPanelWindow } from "@/features/browser/lib/run-log-active-window";
@@ -96,7 +84,7 @@ function normalizeStoredTabs(value: unknown, runLabel: string): RunTerminalTab[]
 function loadStoredTabs(contextId: string, runLabel: string): RunTerminalTab[] {
   if (typeof window === "undefined") return createDefaultRunTabs(runLabel);
   const instanceId = getActiveInstanceId();
-  const all = useUiPrefStore.getState().readSlice(instanceId, "run", {
+  const all = useUiPrefStore.getState().readSlice(instanceId, 'run', {
     byContext: {} as Record<string, RunTerminalTab[]>,
   });
   return normalizeStoredTabs(all.byContext[contextId], runLabel);
@@ -108,8 +96,8 @@ function saveStoredTabs(contextId: string, tabs: RunTerminalTab[], runLabel: str
   const normalized = normalizeStoredTabs(tabs, runLabel);
   useUiPrefStore.getState().patchSlice(
     instanceId,
-    "run",
-    (prev) => ({
+    'run',
+    prev => ({
       byContext: {
         ...(prev as { byContext: Record<string, RunTerminalTab[]> }).byContext,
         [contextId]: normalized,
@@ -127,13 +115,7 @@ interface RunScriptProps {
   workspaceName?: string;
 }
 
-export const RunScript: React.FC<RunScriptProps> = ({
-  workspaceId,
-  projectId,
-  isActive,
-  projectName,
-  workspaceName,
-}) => {
+export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, isActive, projectName, workspaceName }) => {
   const t = useTranslations("run");
   const runTabLabel = t("tabs.run");
   const defaultRunTabs = React.useMemo(() => createDefaultRunTabs(runTabLabel), [runTabLabel]);
@@ -172,9 +154,9 @@ export const RunScript: React.FC<RunScriptProps> = ({
   // Initial tab
   const [tabs, setTabs] = useState<RunTerminalTab[]>(defaultRunTabs);
   const [activeTabId, setActiveTabId] = useState(RUN_TAB_ID);
-  const currentProjectPath = useEditorStore((s) => s.currentProjectPath);
+  const currentProjectPath = useEditorStore(s => s.currentProjectPath);
   const paintContextId = workspaceId || "";
-  const hostWorkspaceId = paintContextId ? hostIdFromCenterKey(paintContextId) : projectId || "";
+  const hostWorkspaceId = paintContextId ? hostIdFromCenterKey(paintContextId) : (projectId || "");
   const terminalContextId = paintContextId || hostWorkspaceId;
   const rootRef = React.useRef<HTMLDivElement>(null);
   const sessionNonceRef = React.useRef(createSessionNonce());
@@ -191,10 +173,9 @@ export const RunScript: React.FC<RunScriptProps> = ({
    * ships with the repository, so it can change under the user via clone or pull;
    * the command is shown for review before it reaches a terminal.
    */
-  const [pendingScriptTrust, setPendingScriptTrust] = useState<{
-    scripts: Record<string, string>;
-    hash: string;
-  } | null>(null);
+  const [pendingScriptTrust, setPendingScriptTrust] = useState<
+    { scripts: Record<string, string>; hash: string } | null
+  >(null);
   const [isTrustingScript, setIsTrustingScript] = useState(false);
   const [runningScripts, setRunningScripts] = useState<Record<string, boolean>>({});
   const [readyTabs, setReadyTabs] = useState<Record<string, boolean>>({});
@@ -296,9 +277,9 @@ export const RunScript: React.FC<RunScriptProps> = ({
     });
 
     // 3. Increment version to force remount with new session ID
-    setSessionVersions((prev) => ({
+    setSessionVersions(prev => ({
       ...prev,
-      [activeTabId]: (prev[activeTabId] || 0) + 1,
+      [activeTabId]: (prev[activeTabId] || 0) + 1
     }));
   };
 
@@ -309,149 +290,146 @@ export const RunScript: React.FC<RunScriptProps> = ({
     });
   }, []);
 
-  const handleRunScript = React.useCallback(
-    async (force: boolean = false) => {
-      // Host sets isActive=false while deferred URL context is unsettled.
-      // Running during that window can load/send against the prior project.
-      if (!isActive) return;
+  const handleRunScript = React.useCallback(async (force: boolean = false) => {
+    // Host sets isActive=false while deferred URL context is unsettled.
+    // Running during that window can load/send against the prior project.
+    if (!isActive) return;
 
-      // Scripts are project-scoped. Terminal attaches via workspaceId || projectId
-      // (project main path is a valid context), so do not require both IDs.
-      if (!projectId) {
-        toastManager.add({
-          title: noProjectTitle,
-          description: noProjectDescription,
-          type: "warning",
-        });
+    // Scripts are project-scoped. Terminal attaches via workspaceId || projectId
+    // (project main path is a valid context), so do not require both IDs.
+    if (!projectId) {
+      toastManager.add({
+        title: noProjectTitle,
+        description: noProjectDescription,
+        type: "warning",
+      });
+      return;
+    }
+
+    if (!currentProjectPath) {
+      toastManager.add({
+        title: terminalNotReadyTitle,
+        description: terminalNotReadyDescription,
+        type: "error",
+      });
+      return;
+    }
+
+    // Check if terminal is busy
+    if (!force && runningScripts[activeTabId]) {
+      // If user clicked run recently, treat as force
+      const runClickStore = window as Window & { _lastRunClickTime?: number };
+      const lastClick = runClickStore._lastRunClickTime;
+      const now = Date.now();
+      if (lastClick && (now - lastClick < 3000)) {
+        void handleRunScript(true);
+        return;
+      }
+      runClickStore._lastRunClickTime = now;
+
+      toastManager.add({
+        title: terminalBusyTitle,
+        description: terminalBusyDescription,
+        type: "info"
+      });
+      return;
+    }
+
+    // If forcing, send Ctrl+C first to ensure previous process is killed
+    if (force) {
+      const term = terminalRefs.current[activeTabId];
+      if (term) {
+        term.sendText("\x03"); // Send Ctrl+C
+      }
+    }
+
+    setIsStartingRun(true);
+    try {
+      // 1. Fetch script
+      const { scripts, trusted, hash } = await wsScriptApi.get(projectId);
+      const runCommand = scripts.run;
+
+      // Never hand unreviewed repository content to a terminal. Trust covers the
+      // whole file, so review shows every command in it, not just `run`.
+      if (runCommand?.trim() && !trusted && hash) {
+        setPendingScriptTrust({ scripts, hash });
         return;
       }
 
-      if (!currentProjectPath) {
+      if (!runCommand || !runCommand.trim()) {
+        toastManager.add({
+          title: noRunScriptTitle,
+          description: noRunScriptDescription,
+          type: "warning"
+        });
+        setIsScriptDialogOpen(true);
+        return;
+      }
+
+      // 2. Get active terminal (ref may exist before the PTY session is attached)
+      const term = terminalRefs.current[activeTabId];
+      if (!term || !readyTabs[activeTabId]) {
         toastManager.add({
           title: terminalNotReadyTitle,
           description: terminalNotReadyDescription,
-          type: "error",
+          type: "error"
         });
         return;
       }
 
-      // Check if terminal is busy
-      if (!force && runningScripts[activeTabId]) {
-        // If user clicked run recently, treat as force
-        const runClickStore = window as Window & { _lastRunClickTime?: number };
-        const lastClick = runClickStore._lastRunClickTime;
-        const now = Date.now();
-        if (lastClick && now - lastClick < 3000) {
-          void handleRunScript(true);
-          return;
-        }
-        runClickStore._lastRunClickTime = now;
-
-        toastManager.add({
-          title: terminalBusyTitle,
-          description: terminalBusyDescription,
-          type: "info",
+      // 3. APP-055: rotate/open project-local Run log before command output arrives
+      void runLogApi
+        .start({
+          projectRoot: currentProjectPath,
+          windowName: getRunTerminalWindowName(activeTabId),
+          command: runCommand,
+        })
+        .catch((error) => {
+          console.warn("Failed to start Run log capture", error);
         });
-        return;
-      }
 
-      // If forcing, send Ctrl+C first to ensure previous process is killed
-      if (force) {
-        const term = terminalRefs.current[activeTabId];
-        if (term) {
-          term.sendText("\x03"); // Send Ctrl+C
-        }
-      }
+      // 4. Execute script
+      // Use sendText to send to backend PTY, not write which is local only
+      term.sendText(runCommand + "\r");
 
-      setIsStartingRun(true);
-      try {
-        // 1. Fetch script
-        const { scripts, trusted, hash } = await wsScriptApi.get(projectId);
-        const runCommand = scripts.run;
-
-        // Never hand unreviewed repository content to a terminal. Trust covers the
-        // whole file, so review shows every command in it, not just `run`.
-        if (runCommand?.trim() && !trusted && hash) {
-          setPendingScriptTrust({ scripts, hash });
-          return;
-        }
-
-        if (!runCommand || !runCommand.trim()) {
-          toastManager.add({
-            title: noRunScriptTitle,
-            description: noRunScriptDescription,
-            type: "warning",
-          });
-          setIsScriptDialogOpen(true);
-          return;
-        }
-
-        // 2. Get active terminal (ref may exist before the PTY session is attached)
-        const term = terminalRefs.current[activeTabId];
-        if (!term || !readyTabs[activeTabId]) {
-          toastManager.add({
-            title: terminalNotReadyTitle,
-            description: terminalNotReadyDescription,
-            type: "error",
-          });
-          return;
-        }
-
-        // 3. APP-055: rotate/open project-local Run log before command output arrives
-        void runLogApi
-          .start({
-            projectRoot: currentProjectPath,
-            windowName: getRunTerminalWindowName(activeTabId),
-            command: runCommand,
-          })
-          .catch((error) => {
-            console.warn("Failed to start Run log capture", error);
-          });
-
-        // 4. Execute script
-        // Use sendText to send to backend PTY, not write which is local only
-        term.sendText(runCommand + "\r");
-
-        // 5. Optimistic running; CMD_START title will confirm (and CMD_END will clear)
-        setTabRunning(activeTabId, true);
-      } catch (error) {
-        console.error("Failed to run script:", error);
-        toastManager.add({
-          title: errorTitle,
-          description: runScriptLoadErrorDescription,
-          type: "error",
-        });
-      } finally {
-        setIsStartingRun(false);
-      }
-    },
-    [
-      activeTabId,
-      currentProjectPath,
-      errorTitle,
-      isActive,
-      noProjectDescription,
-      noProjectTitle,
-      noRunScriptDescription,
-      noRunScriptTitle,
-      projectId,
-      readyTabs,
-      runScriptLoadErrorDescription,
-      runningScripts,
-      setTabRunning,
-      terminalBusyDescription,
-      terminalBusyTitle,
-      terminalNotReadyDescription,
-      terminalNotReadyTitle,
-    ],
-  );
+      // 5. Optimistic running; CMD_START title will confirm (and CMD_END will clear)
+      setTabRunning(activeTabId, true);
+    } catch (error) {
+      console.error("Failed to run script:", error);
+      toastManager.add({
+        title: errorTitle,
+        description: runScriptLoadErrorDescription,
+        type: "error"
+      });
+    } finally {
+      setIsStartingRun(false);
+    }
+  }, [
+    activeTabId,
+    currentProjectPath,
+    errorTitle,
+    isActive,
+    noProjectDescription,
+    noProjectTitle,
+    noRunScriptDescription,
+    noRunScriptTitle,
+    projectId,
+    readyTabs,
+    runScriptLoadErrorDescription,
+    runningScripts,
+    setTabRunning,
+    terminalBusyDescription,
+    terminalBusyTitle,
+    terminalNotReadyDescription,
+    terminalNotReadyTitle,
+  ]);
 
   // Keyboard shortcut Cmd+R
   React.useEffect(() => {
     if (!isActive) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "r") {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'r') {
         // Host keeps isActive true while the run panel is opacity-hidden so the
         // PTY tree does not re-render. Skip the shortcut when this panel is inert.
         if (rootRef.current?.closest("[inert]")) return;
@@ -460,15 +438,15 @@ export const RunScript: React.FC<RunScriptProps> = ({
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleRunScript, isActive]);
 
   const addTab = () => {
     const newId = String(Date.now());
     // Find next available suffix
     let suffix = 1;
-    while (tabs.some((tab) => tab.name === terminalTabName(suffix))) {
+    while (tabs.some(tab => tab.name === terminalTabName(suffix))) {
       suffix++;
     }
     const newName = terminalTabName(suffix);
@@ -479,7 +457,7 @@ export const RunScript: React.FC<RunScriptProps> = ({
 
   const closeTab = (id: string) => {
     terminalRefs.current[id]?.destroy();
-    const newTabs = tabs.filter((t) => t.id !== id);
+    const newTabs = tabs.filter(t => t.id !== id);
     if (newTabs.length === 0) return; // Keep at least one
     setTabs(newTabs);
 
@@ -510,12 +488,7 @@ export const RunScript: React.FC<RunScriptProps> = ({
     !isStartingRun;
 
   // If no workspaceId or projectId, we can't really connect, but let's handle gracefully
-  if (!workspaceId && !projectId)
-    return (
-      <div className="flex h-full items-center justify-center p-4 text-muted-foreground">
-        {noActiveProjectMessage}
-      </div>
-    );
+  if (!workspaceId && !projectId) return <div className="p-4 text-muted-foreground flex items-center justify-center h-full">{noActiveProjectMessage}</div>;
 
   return (
     <TooltipProvider>
@@ -583,77 +556,84 @@ export const RunScript: React.FC<RunScriptProps> = ({
           </CenterStageTabList>
 
           <div className="flex shrink-0 items-center gap-2 pr-2">
-            {/* Run/Stop Button - Only visible in Run tab */}
-            {activeTabId === RUN_TAB_ID && (
-              <div className="group/run flex h-6 items-center overflow-hidden rounded-sm border border-border bg-background shadow-sm hover:border-primary/50">
-                {isActiveRunBusy ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        onClick={handleStopScript}
-                        className="flex h-full items-center gap-1.5 px-2 text-[11px] font-medium text-destructive hover:cursor-pointer hover:bg-muted hover:text-destructive"
-                      >
-                        <Square className="size-2.5 fill-current" />
-                        <span>{stopLabel}</span>
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">{stopScriptTooltip}</TooltipContent>
-                  </Tooltip>
-                ) : (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void handleRunScript(false);
-                        }}
-                        disabled={isStartingRun}
-                        className={cn(
-                          "flex h-full items-center gap-1.5 px-2 text-[11px] font-medium text-foreground",
-                          isStartingRun
-                            ? "cursor-wait opacity-70"
-                            : "hover:cursor-pointer hover:bg-muted",
-                          !canStartRun && !isStartingRun && "opacity-70",
-                        )}
-                      >
-                        {isStartingRun ? (
-                          <Loader2 className="size-2.5 animate-spin" />
-                        ) : (
-                          <Play className="size-2.5 fill-current group-hover/run:text-primary" />
-                        )}
-                        <span>{runActionLabel}</span>
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">{runConfiguredScriptTooltip}</TooltipContent>
-                  </Tooltip>
-                )}
 
-                <div className="h-full w-px bg-border" />
-                <span className="flex h-full items-center justify-center bg-muted/30 px-1.5 text-[9px] text-muted-foreground hover:cursor-default">
-                  <Command className="mr-0.5 size-2" /> R
-                </span>
-              </div>
-            )}
+              {/* Run/Stop Button - Only visible in Run tab */}
+              {activeTabId === RUN_TAB_ID && (
+                <div className="flex items-center h-6 bg-background border border-border rounded-sm shadow-sm overflow-hidden hover:border-primary/50 group/run">
+                  {isActiveRunBusy ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={handleStopScript}
+                          className="flex items-center gap-1.5 px-2 h-full hover:bg-muted hover:cursor-pointer text-[11px] font-medium text-destructive hover:text-destructive"
+                        >
+                          <Square className="size-2.5 fill-current" />
+                          <span>{stopLabel}</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        {stopScriptTooltip}
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void handleRunScript(false);
+                          }}
+                          disabled={isStartingRun}
+                          className={cn(
+                            "flex items-center gap-1.5 px-2 h-full text-[11px] font-medium text-foreground",
+                            isStartingRun
+                              ? "cursor-wait opacity-70"
+                              : "hover:bg-muted hover:cursor-pointer",
+                            !canStartRun && !isStartingRun && "opacity-70",
+                          )}
+                        >
+                          {isStartingRun ? (
+                            <Loader2 className="size-2.5 animate-spin" />
+                          ) : (
+                            <Play className="size-2.5 fill-current group-hover/run:text-primary" />
+                          )}
+                          <span>{runActionLabel}</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        {runConfiguredScriptTooltip}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
 
-            {/* Hard Stop Button - To handle background processes */}
-            {activeTabId === RUN_TAB_ID && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={handleHardStop}
-                    className="ml-1 flex size-6 items-center justify-center rounded-sm text-muted-foreground hover:cursor-pointer hover:bg-muted hover:text-destructive"
-                  >
-                    <Skull className="size-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">{hardStopTooltip}</TooltipContent>
-              </Tooltip>
-            )}
+                  <div className="w-px h-full bg-border" />
+                  <span className="flex items-center justify-center hover:cursor-default px-1.5 text-[9px] text-muted-foreground bg-muted/30 h-full">
+                    <Command className="size-2 mr-0.5" /> R
+                  </span>
+                </div>
+              )}
+
+              {/* Hard Stop Button - To handle background processes */}
+              {activeTabId === RUN_TAB_ID && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={handleHardStop}
+                      className="size-6 flex items-center justify-center hover:bg-muted hover:cursor-pointer rounded-sm text-muted-foreground hover:text-destructive ml-1"
+                    >
+                      <Skull className="size-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {hardStopTooltip}
+                  </TooltipContent>
+                </Tooltip>
+              )}
 
             <button
               onClick={() => setIsScriptDialogOpen(true)}
-              className="flex size-6 items-center justify-center rounded-sm text-muted-foreground hover:cursor-pointer hover:bg-muted hover:text-foreground"
+              className="size-6 flex items-center justify-center hover:bg-muted hover:cursor-pointer rounded-sm text-muted-foreground hover:text-foreground"
               title={configureScriptsLabel}
             >
               <Settings className="size-3.5" />
@@ -662,29 +642,22 @@ export const RunScript: React.FC<RunScriptProps> = ({
         </div>
 
         {/* Content */}
-        <div className="relative flex-1 overflow-hidden">
-          {hasBeenActive && !currentProjectPath && (
-            <div className="absolute inset-0 z-20 flex items-center justify-center bg-background">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" />
-                <span className="text-sm">{loadingWorkspaceLabel}</span>
+        <div className="flex-1 overflow-hidden relative">
+            {hasBeenActive && !currentProjectPath && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-background">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" />
+                  <span className="text-sm">{loadingWorkspaceLabel}</span>
+                </div>
               </div>
-            </div>
-          )}
-          {hasBeenActive &&
-            currentProjectPath &&
-            tabs.map((tab) => (
+            )}
+            {hasBeenActive && currentProjectPath && tabs.map(tab => (
               <div
                 key={tab.id}
-                className={cn(
-                  "absolute inset-0",
-                  activeTabId === tab.id ? "z-10" : "invisible z-0",
-                )}
+                className={cn("absolute inset-0", activeTabId === tab.id ? "z-10" : "z-0 invisible")}
               >
                 <Terminal
-                  ref={(el) => {
-                    terminalRefs.current[tab.id] = el;
-                  }}
+                  ref={(el) => { terminalRefs.current[tab.id] = el; }}
                   sessionId={`${sessionNonceRef.current}-run-script-${terminalContextId}-${tab.id}-${sessionVersions[tab.id] || 0}`}
                   workspaceId={hostWorkspaceId}
                   projectName={projectName}
@@ -703,7 +676,7 @@ export const RunScript: React.FC<RunScriptProps> = ({
                       toastManager.add({
                         title: terminalLockedTitle,
                         description: terminalLockedDescription,
-                        type: "info",
+                        type: "info"
                       });
                     }
                   }}
@@ -735,7 +708,10 @@ export const RunScript: React.FC<RunScriptProps> = ({
               </DialogDescription>
             </DialogHeader>
             <div className="max-h-56 overflow-auto">
-              <ScriptTrustReview scripts={pendingScriptTrust?.scripts ?? {}} highlightField="run" />
+              <ScriptTrustReview
+                scripts={pendingScriptTrust?.scripts ?? {}}
+                highlightField="run"
+              />
             </div>
             <DialogFooter>
               <Button
@@ -784,5 +760,5 @@ export const RunScript: React.FC<RunScriptProps> = ({
         </Dialog>
       </div>
     </TooltipProvider>
-  );
-};
+  )
+}

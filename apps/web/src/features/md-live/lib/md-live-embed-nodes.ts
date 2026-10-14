@@ -145,9 +145,9 @@ export const mdLiveEmbedBlock = $node("mdLiveEmbedBlock", () => ({
   },
   parseMarkdown: {
     match: (node) =>
-      node.type === "leafDirective" ||
-      node.type === "containerDirective" ||
-      node.type === "definition",
+      node.type === "leafDirective"
+      || node.type === "containerDirective"
+      || node.type === "definition",
     runner: (state, node, type) => {
       const attrs = node.type === "leafDirective" ? attrsFromDirective(node as never) : null;
       if (attrs) {
@@ -155,11 +155,9 @@ export const mdLiveEmbedBlock = $node("mdLiveEmbedBlock", () => ({
         return;
       }
       if (node.type === "definition") {
-        const label = String(
-          (node as { label?: string; identifier?: string }).label ||
-            (node as { identifier?: string }).identifier ||
-            "",
-        );
+        const label = String((node as { label?: string; identifier?: string }).label
+          || (node as { identifier?: string }).identifier
+          || "");
         const url = String((node as { url?: string }).url ?? "");
         const title = (node as { title?: string | null }).title;
         const titlePart = title ? ` "${String(title).replace(/"/g, '\\"')}"` : "";
@@ -181,7 +179,9 @@ export const mdLiveEmbedBlock = $node("mdLiveEmbedBlock", () => ({
     match: (node) => node.type.name === "mdLiveEmbedBlock",
     runner: (state, node) => {
       const spec = specFromNode(node);
-      const children = spec.title ? [{ type: "text", value: spec.title }] : undefined;
+      const children = spec.title
+        ? [{ type: "text", value: spec.title }]
+        : undefined;
       state.addNode("leafDirective", children, undefined, {
         name: "md-live",
         attributes: { kind: spec.kind, layout: spec.layout, ...spec.attrs },
@@ -206,9 +206,9 @@ export const mdLiveEmbedInline = $node("mdLiveEmbedInline", () => ({
   },
   parseMarkdown: {
     match: (node) =>
-      node.type === "textDirective" ||
-      node.type === "linkReference" ||
-      node.type === "imageReference",
+      node.type === "textDirective"
+      || node.type === "linkReference"
+      || node.type === "imageReference",
     runner: (state, node, type) => {
       if (node.type === "linkReference" || node.type === "imageReference") {
         restoreUnknownReference(state, node as never);
@@ -226,7 +226,9 @@ export const mdLiveEmbedInline = $node("mdLiveEmbedInline", () => ({
     match: (node) => node.type.name === "mdLiveEmbedInline",
     runner: (state, node) => {
       const spec = specFromNode(node);
-      const children = spec.title ? [{ type: "text", value: spec.title }] : undefined;
+      const children = spec.title
+        ? [{ type: "text", value: spec.title }]
+        : undefined;
       state.addNode("textDirective", children, undefined, {
         name: "md-live",
         attributes: { kind: spec.kind, layout: spec.layout, ...spec.attrs },

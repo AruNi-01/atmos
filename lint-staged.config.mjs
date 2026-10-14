@@ -11,11 +11,16 @@ export default {
   "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": (files) =>
     files.length === 0
       ? []
-      : [`oxlint --fix ${files.map(quote).join(" ")}`, `oxfmt ${files.map(quote).join(" ")}`],
+      : [
+          `oxlint --fix ${files.map(quote).join(" ")}`,
+          `oxfmt --no-error-on-unmatched-pattern ${files.map(quote).join(" ")}`,
+        ],
 
   // Formatter-only for other oxfmt languages (no oxlint).
   "*.{css,json,jsonc,md,mdx}": (files) =>
-    files.length === 0 ? [] : [`oxfmt ${files.map(quote).join(" ")}`],
+    files.length === 0
+      ? []
+      : [`oxfmt --no-error-on-unmatched-pattern ${files.map(quote).join(" ")}`],
 
   // Cheap APP-050 boundary check when shared package sources change.
   "packages/shared/**/*.{ts,tsx,js,mjs,cjs}": () => ["bun scripts/check-package-boundaries.ts"],

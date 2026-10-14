@@ -46,10 +46,7 @@ interface TabsSubtleProps extends Omit<HTMLAttributes<HTMLDivElement>, "onSelect
 }
 
 const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
-  (
-    { children, selectedIndex, onSelect, idPrefix, activeLabel = false, className, ...props },
-    ref,
-  ) => {
+  ({ children, selectedIndex, onSelect, idPrefix, activeLabel = false, className, ...props }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const isMouseInside = useRef(false);
     const shape = useShape();
@@ -74,7 +71,7 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
           tabElementsRef.current.delete(index);
         }
       },
-      [registerItem],
+      [registerItem]
     );
 
     useEffect(() => {
@@ -96,7 +93,7 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
         isMouseInside.current = true;
         handlers.onMouseMove(e);
       },
-      [handlers],
+      [handlers]
     );
 
     const handleMouseLeave = useCallback(() => {
@@ -107,7 +104,8 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
     const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
     const selectedRect = tabRects[selectedIndex];
-    const hoverRect = hoveredIndex !== null ? tabRects[hoveredIndex] : null;
+    const hoverRect =
+      hoveredIndex !== null ? tabRects[hoveredIndex] : null;
     const focusRect = focusedIndex !== null ? tabRects[focusedIndex] : null;
     const isHoveringSelected = hoveredIndex === selectedIndex;
     const isHovering = hoveredIndex !== null && !isHoveringSelected;
@@ -143,7 +141,9 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
                 if (indexAttr != null) {
                   const idx = Number(indexAttr);
                   setHoveredIndex(idx);
-                  setFocusedIndex((e.target as HTMLElement).matches(":focus-visible") ? idx : null);
+                  setFocusedIndex(
+                    (e.target as HTMLElement).matches(":focus-visible") ? idx : null
+                  );
                 }
               }}
               onBlur={(e: React.FocusEvent<HTMLDivElement>) => {
@@ -159,15 +159,15 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
                 // parents size against the margin box (8px narrower than the
                 // border box), so a plain max-w-full would clamp the list 8px
                 // too small and clip the first/last tab's ring.
-                "scrollbar-hide relative -mx-1 -my-1 flex max-w-[calc(100%_+_8px)] items-center gap-0.5 overflow-x-auto px-1 py-1 select-none",
-                className,
+                "relative flex items-center gap-0.5 select-none overflow-x-auto max-w-[calc(100%_+_8px)] scrollbar-hide -mx-1 px-1 -my-1 py-1",
+                className
               )}
               {...props}
             >
               {/* Selected pill */}
               {selectedRect && (
                 <motion.div
-                  className={cn("pointer-events-none absolute bg-active", shape.bg)}
+                  className={cn("absolute bg-active pointer-events-none", shape.bg)}
                   initial={false}
                   animate={{
                     left: selectedRect.left,
@@ -187,7 +187,7 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
               <AnimatePresence>
                 {hoverRect && !isHoveringSelected && selectedRect && (
                   <motion.div
-                    className={cn("pointer-events-none absolute bg-active", shape.bg)}
+                    className={cn("absolute bg-active pointer-events-none", shape.bg)}
                     initial={{
                       left: selectedRect.left,
                       width: selectedRect.width,
@@ -226,10 +226,7 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
               <AnimatePresence>
                 {focusRect && (
                   <motion.div
-                    className={cn(
-                      "pointer-events-none absolute z-20 border border-[color:var(--focus-ring,#6B97FF)]",
-                      shape.focusRing,
-                    )}
+                    className={cn("absolute pointer-events-none z-20 border border-[color:var(--focus-ring,#6B97FF)]", shape.focusRing)}
                     initial={false}
                     animate={{
                       left: focusRect.left - 2,
@@ -252,7 +249,7 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
         />
       </TabsSubtleContext.Provider>
     );
-  },
+  }
 );
 
 TabsSubtle.displayName = "TabsSubtle";
@@ -296,7 +293,7 @@ function DualWeightLabel({
   return (
     <span className="inline-grid text-[13px] whitespace-nowrap">
       <span
-        className="invisible col-start-1 row-start-1 [text-box:trim-both_cap_alphabetic]"
+        className="col-start-1 row-start-1 invisible [text-box:trim-both_cap_alphabetic]"
         style={{ fontVariationSettings: fontWeights.semibold }}
         aria-hidden="true"
       >
@@ -305,10 +302,12 @@ function DualWeightLabel({
       <span
         className={cn(
           "col-start-1 row-start-1 transition-[font-variation-settings] duration-80 [text-box:trim-both_cap_alphabetic]",
-          isActive ? "text-foreground" : "text-muted-foreground",
+          isActive ? "text-foreground" : "text-muted-foreground"
         )}
         style={{
-          fontVariationSettings: isSelected ? fontWeights.semibold : fontWeights.normal,
+          fontVariationSettings: isSelected
+            ? fontWeights.semibold
+            : fontWeights.normal,
         }}
       >
         {text}
@@ -321,7 +320,8 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
   ({ icon: Icon, label, index, className, ...props }, ref) => {
     const internalRef = useRef<HTMLButtonElement | null>(null);
     const shape = useShape();
-    const { registerTab, hoveredIndex, selectedIndex, idPrefix, activeLabel } = useTabsSubtle();
+    const { registerTab, hoveredIndex, selectedIndex, idPrefix, activeLabel } =
+      useTabsSubtle();
 
     useEffect(() => {
       registerTab(index, internalRef.current);
@@ -361,10 +361,10 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
         className={cn(
           // Fixed heights (was py-2 around a 19.5px line box ≈ 35.5px) so the
           // text-box trim on the label doesn't shrink the tab.
-          "relative z-10 flex cursor-pointer items-center border-none bg-transparent px-3 outline-none",
+          "relative z-10 flex items-center px-3 cursor-pointer bg-transparent border-none outline-none",
           collapseLabel ? "h-8" : "h-9 gap-2",
           shape.bg,
-          className,
+          className
         )}
         {...props}
       >
@@ -374,7 +374,7 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
             strokeWidth={isActive ? 2 : 1.5}
             className={cn(
               "shrink-0 transition-[stroke-width] duration-80",
-              isActive ? "text-foreground" : "text-muted-foreground",
+              isActive ? "text-foreground" : "text-muted-foreground"
             )}
           />
         )}
@@ -413,7 +413,9 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
                   isActive ? "text-foreground" : "text-muted-foreground",
                 )}
                 style={{
-                  fontVariationSettings: isSelected ? fontWeights.semibold : fontWeights.normal,
+                  fontVariationSettings: isSelected
+                    ? fontWeights.semibold
+                    : fontWeights.normal,
                 }}
               >
                 {metaDisplay}
@@ -425,7 +427,7 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
         )}
       </Tabs.Tab>
     );
-  },
+  }
 );
 
 TabsSubtleItem.displayName = "TabsSubtleItem";
@@ -458,7 +460,7 @@ const TabsSubtlePanel = forwardRef<HTMLDivElement, TabsSubtlePanelProps>(
         {isSelected && children}
       </div>
     );
-  },
+  }
 );
 
 TabsSubtlePanel.displayName = "TabsSubtlePanel";

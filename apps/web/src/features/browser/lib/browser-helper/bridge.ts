@@ -3,7 +3,7 @@ import type {
   PreviewHelperMessage,
   PreviewHelperPayload,
   PreviewHoverPayload,
-} from "./types";
+} from './types';
 
 export interface PreviewBridgeOptions {
   sessionId: string;
@@ -12,7 +12,7 @@ export interface PreviewBridgeOptions {
 }
 
 export function createPreviewHelperBridge(win: Window, options: PreviewBridgeOptions) {
-  const targetOrigin = options.parentOrigin || "*";
+  const targetOrigin = options.parentOrigin || '*';
   const post = (message: PreviewHelperMessage) => {
     win.parent.postMessage(message, targetOrigin);
   };
@@ -20,7 +20,7 @@ export function createPreviewHelperBridge(win: Window, options: PreviewBridgeOpt
   return {
     ready(capabilities: PreviewHelperCapability[], pageTitle?: string, faviconUrl?: string) {
       post({
-        type: "atmos-browser:ready",
+        type: 'atmos-browser:ready',
         sessionId: options.sessionId,
         pageUrl: options.pageUrl,
         capabilities,
@@ -30,7 +30,7 @@ export function createPreviewHelperBridge(win: Window, options: PreviewBridgeOpt
     },
     hover(payload: PreviewHoverPayload | null) {
       post({
-        type: "atmos-browser:hover",
+        type: 'atmos-browser:hover',
         sessionId: options.sessionId,
         pageUrl: options.pageUrl,
         label: payload?.label,
@@ -40,21 +40,21 @@ export function createPreviewHelperBridge(win: Window, options: PreviewBridgeOpt
     },
     selected(payload: PreviewHelperPayload) {
       post({
-        type: "atmos-browser:selected",
+        type: 'atmos-browser:selected',
         sessionId: options.sessionId,
         ...payload,
       });
     },
     cleared() {
       post({
-        type: "atmos-browser:cleared",
+        type: 'atmos-browser:cleared',
         sessionId: options.sessionId,
         pageUrl: options.pageUrl,
       });
     },
     error(error: string) {
       post({
-        type: "atmos-browser:error",
+        type: 'atmos-browser:error',
         sessionId: options.sessionId,
         pageUrl: options.pageUrl,
         error,
@@ -62,7 +62,7 @@ export function createPreviewHelperBridge(win: Window, options: PreviewBridgeOpt
     },
     navigationChanged(pageUrl: string, pageTitle?: string, faviconUrl?: string) {
       post({
-        type: "atmos-browser:navigation-changed",
+        type: 'atmos-browser:navigation-changed',
         sessionId: options.sessionId,
         pageUrl,
         pageTitle,
@@ -71,7 +71,7 @@ export function createPreviewHelperBridge(win: Window, options: PreviewBridgeOpt
     },
     titleChanged(pageTitle: string, faviconUrl?: string) {
       post({
-        type: "atmos-browser:title-changed",
+        type: 'atmos-browser:title-changed',
         sessionId: options.sessionId,
         pageUrl: win.location.href,
         pageTitle,
@@ -80,7 +80,7 @@ export function createPreviewHelperBridge(win: Window, options: PreviewBridgeOpt
     },
     openTab(targetUrl: string) {
       post({
-        type: "atmos-browser:open-tab",
+        type: 'atmos-browser:open-tab',
         sessionId: options.sessionId,
         pageUrl: win.location.href,
         targetUrl,

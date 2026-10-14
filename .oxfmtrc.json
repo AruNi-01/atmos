@@ -38,6 +38,19 @@
     "apps/desktop/src-tauri/**",
     "patches/**",
     "bun.lock",
-    "Cargo.lock"
+    "Cargo.lock",
+    "packages/ui/src/components/ui/tabs-subtle.tsx",
+    "packages/ui/src/components/ui/color-picker.tsx",
+    "packages/shared/src/terminal/links.ts",
+    "packages/pt-design/src/host/catalog.ts",
+    "packages/md-live/src/embed/unknown-directive.ts",
+    "packages/agent-transcript/src/present.ts",
+    "apps/web/src/shared/lib/oauth-callback-return.ts",
+    "apps/web/src/features/md-live/lib/md-live-embed-nodes.ts",
+    "apps/web/src/features/github/lib/agent-fix-prompts.ts",
+    "apps/web/src/features/github/components/ActionsJobsList.tsx",
+    "apps/web/src/features/browser/components/RunScript.tsx",
+    "packages/relay/src/server-hub.ts",
+    "apps/web/src/features/browser/lib/browser-helper/bridge.ts"
   ]
 }
